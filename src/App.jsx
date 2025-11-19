@@ -1,6 +1,8 @@
 // App.jsx
-import React, { Suspense } from 'react';
+import React, { useEffect, Suspense } from 'react';
 import { Routes, Route, Outlet, useLocation } from 'react-router-dom';
+
+import { OPENID4VCI_REDIRECT_URI } from './config';
 
 import FadeInContentTransition from './components/Transitions/FadeInContentTransition';
 import NewCredentialNotification from './components/Notifications/NewCredentialNotification';
@@ -82,6 +84,21 @@ const NotFound = lazyWithDelay(() => import('./pages/NotFound/NotFound'), 400);
 function App() {
 	const location = useLocation();
 	const { notification, clearNotification } = useNewCredentialListener();
+
+	useEffect(() => {
+		(async () => {
+			// use https://github.com/sirosfoundation/web-wallet-selector extension
+			if (window.DCWS?.isInstalled()) {
+			  await window.DCWS.registerWallet({
+			    name: 'wwWallet',
+			    url: OPENID4VCI_REDIRECT_URI,
+			    protocols: ['openid4vp'],
+			    icon: '🔐',
+			    color: '#3b82f6'
+			  });
+			}
+		})()
+	}, [])
 
 	return (
 		<>
