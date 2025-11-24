@@ -7,7 +7,7 @@ WORKDIR /home/node/app
 # Install dependencies first so rebuild of these layers is only needed when dependencies change
 COPY package.json yarn.lock .
 # COPY .env.prod .env
-RUN yarn cache clean -f && yarn install --frozen-lockfile
+RUN yarn cache clean -f && yarn install --frozen-lockfile --network-concurrency 1
 
 # FROM builder-base AS test
 #
