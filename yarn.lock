@@ -2092,7 +2092,7 @@
 
 "@sd-jwt/crypto-nodejs@^0.17.0":
   version "0.17.0"
-  resolved "https://npm.internal.siros.org/@sd-jwt/crypto-nodejs/-/crypto-nodejs-0.17.0.tgz#e6d2997b591160d5f14fe934d5fa14d0c4bf4eeb"
+  resolved "https://registry.yarnpkg.com/@sd-jwt/crypto-nodejs/-/crypto-nodejs-0.17.0.tgz#e6d2997b591160d5f14fe934d5fa14d0c4bf4eeb"
   integrity sha512-sOhBz3SYmHrrqahgHO11tJje2YBYGKnuEOUMETeERL+9nyUiervOMrIZELUrrx+z3vgK0tEgyxUGebnrpzfv6g==
 
 "@sd-jwt/decode@0.10.0":
@@ -2121,7 +2121,7 @@
 
 "@sd-jwt/decode@0.17.0":
   version "0.17.0"
-  resolved "https://npm.internal.siros.org/@sd-jwt/decode/-/decode-0.17.0.tgz#769bb5f16834959865ec5be22941b02cc439d90d"
+  resolved "https://registry.yarnpkg.com/@sd-jwt/decode/-/decode-0.17.0.tgz#769bb5f16834959865ec5be22941b02cc439d90d"
   integrity sha512-1qBA0nfsYdAPb/s+n+uWfeaYRVaiDYBg/cL7iDpPcSS8Zq8rtHFwR86KhQfRk8WR5V4cKO7p+njK/8LweqlHxg==
   dependencies:
     "@sd-jwt/types" "0.17.0"
@@ -2165,7 +2165,7 @@
 
 "@sd-jwt/present@^0.17.0":
   version "0.17.0"
-  resolved "https://npm.internal.siros.org/@sd-jwt/present/-/present-0.17.0.tgz#23ba9ffbf064f4c25234bdf57fabfe0fe9754155"
+  resolved "https://registry.yarnpkg.com/@sd-jwt/present/-/present-0.17.0.tgz#23ba9ffbf064f4c25234bdf57fabfe0fe9754155"
   integrity sha512-qh226z4H76uMVfFfqvltV9d0oz2N9S2REURy2HcVFKhsa1fSYZXdKkhg4S102iwp9fEELEPyCnLkW26+qwWLcg==
   dependencies:
     "@sd-jwt/decode" "0.17.0"
@@ -2200,7 +2200,7 @@
 
 "@sd-jwt/types@0.17.0":
   version "0.17.0"
-  resolved "https://npm.internal.siros.org/@sd-jwt/types/-/types-0.17.0.tgz#3dde7136de12a56e6b3bbd234593b3cc8488f0a0"
+  resolved "https://registry.yarnpkg.com/@sd-jwt/types/-/types-0.17.0.tgz#3dde7136de12a56e6b3bbd234593b3cc8488f0a0"
   integrity sha512-XMZprAzSst+ze6JXoMttV3zrUNTL9VFAzHWChENTlFuh9tM6gy+/hJjFyTO0RVO0SRRNl2c7eMeYu7byLMj6Jg==
 
 "@sd-jwt/utils@0.10.0":
@@ -2229,7 +2229,7 @@
 
 "@sd-jwt/utils@0.17.0":
   version "0.17.0"
-  resolved "https://npm.internal.siros.org/@sd-jwt/utils/-/utils-0.17.0.tgz#9e3176c53389f26783a27910401c7926903da086"
+  resolved "https://registry.yarnpkg.com/@sd-jwt/utils/-/utils-0.17.0.tgz#9e3176c53389f26783a27910401c7926903da086"
   integrity sha512-Xe6GgO3tzjQrKbwVgtrE4LkB8Prcl0zCX+LDFC0QCzsvrks1jEFSPpcpP5Ge/ESBK6LrNG/srBKOQlFM/RuGsg==
   dependencies:
     "@sd-jwt/types" "0.17.0"
@@ -3604,7 +3604,7 @@ dcql@^0.4.2:
 
 dcql@^1.0.1:
   version "1.0.1"
-  resolved "https://npm.internal.siros.org/dcql/-/dcql-1.0.1.tgz#4ae2ae18eb7c567ae6df564c9498ab5fe4ad67ab"
+  resolved "https://registry.yarnpkg.com/dcql/-/dcql-1.0.1.tgz#4ae2ae18eb7c567ae6df564c9498ab5fe4ad67ab"
   integrity sha512-XZ9VJfvHZwPbeg6O+GvyNi7P5n4L+J0ATCFBUvgn2LXzQPoatHnOt9b7uHHtFWZzxyD5ngLpBCEOteEzKgtIAA==
   dependencies:
     valibot "1.0.0-beta.8"
