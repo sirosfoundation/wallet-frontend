@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import ClientCoreContext from './ClientCoreContext';
-import { Core } from '@wwwallet-private/client-core';
+import { Core } from '@wwwallet/client-core';
 import { CORE_CONFIGURATION } from '@/config';
 import { useCoreHttpProxy } from '@/lib/services/CoreWrappers/CoreHttpProxy';
 import { useCoreClientStateStore } from '@/lib/services/CoreWrappers/ClientStateStore';

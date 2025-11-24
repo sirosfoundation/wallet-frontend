@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { EncryptJWT, importJWK } from 'jose';
 import { useDispatch } from "react-redux";
-import { PresentationRequest, PresentationResponse } from '@wwwallet-private/client-core';
+import { PresentationRequest, PresentationResponse } from '@wwwallet/client-core';
 import { AppDispatch, signJwtPresentation } from '@/store';
 
 const retrieveKeys = async (presentation_request: PresentationRequest) => {

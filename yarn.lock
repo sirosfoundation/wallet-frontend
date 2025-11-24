@@ -2758,9 +2758,18 @@
   resolved "https://registry.yarnpkg.com/@vue/shared/-/shared-3.5.13.tgz#87b309a6379c22b926e696893237826f64339b6f"
   integrity sha512-/hnE/qP5ZoGpol0a5mDi45bOd7t3tjYJBjsgCsivow7D48cJeV5l05RD82lPqi7gRiphZM37rnhW1l6ZoCNNnQ==
 
-"@wwwallet-private/client-core@link:../../wwwallet-core/packages/client-core":
-  version "0.0.0"
-  uid ""
+"@wwwallet/client-core@0.1.0-alpha.9":
+  version "0.1.0-alpha.9"
+  resolved "https://registry.yarnpkg.com/@wwwallet/client-core/-/client-core-0.1.0-alpha.9.tgz#c6cb3eb9d3518bdcea0ff3160173d1e50ad8b844"
+  integrity sha512-8CGBIE7A1bB5SPBTHY7aDLb+aFZyzZMDFO3z1KLMKI7KX8XxptUst5eI0AqWLF8Nr58JDnizKi5LAJaaGg/HDg==
+  dependencies:
+    "@types/web" "^0.0.265"
+    ajv "^8.17.1"
+    axios "^1.11.0"
+    dcql "^1.0.1"
+    jose "^6.1.0"
+    ts-deepmerge "^7.0.3"
+    uuid "^13.0.0"
 
 "@zxing/text-encoding@0.9.0":
   version "0.9.0"

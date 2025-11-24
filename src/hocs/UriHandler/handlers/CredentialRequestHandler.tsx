@@ -1,6 +1,6 @@
 import React, { useCallback, useContext, useEffect } from "react";
 import { calculateJwkThumbprint, decodeJwt, exportJWK, generateKeyPair, JWK, SignJWT } from "jose";
-import { OauthError } from "@wwwallet-private/client-core";
+import { OauthError } from "@wwwallet/client-core";
 import { OPENID4VCI_PROOF_TYPE_PRECEDENCE } from "@/config";
 import { logger, jsonToLog } from "@/logger";
 import { WalletStateUtils } from "@/services/WalletStateUtils";

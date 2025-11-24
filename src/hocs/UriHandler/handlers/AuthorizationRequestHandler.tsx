@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { OauthError } from "@wwwallet-private/client-core";
+import { OauthError } from "@wwwallet/client-core";
 import { jsonToLog, logger } from "@/logger";
 import { ProtocolData, ProtocolStep } from "../resources";
 

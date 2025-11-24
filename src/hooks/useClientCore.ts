@@ -1,5 +1,5 @@
 import { useContext } from 'react';
-import type { Core } from '@wwwallet-private/client-core';
+import type { Core } from '@wwwallet/client-core';
 import ClientCoreContext from '@/context/ClientCoreContext';
 
 export default function useClientCore(): Core {

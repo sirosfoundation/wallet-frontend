@@ -12,7 +12,7 @@
     "@sd-jwt/core": "^0.15.0",
     "@sd-jwt/crypto-nodejs": "^0.17.0",
     "@sd-jwt/present": "^0.17.0",
-    "@wwwallet-private/client-core": "link:../../wwwallet-core/packages/client-core",
+    "@wwwallet/client-core": "0.1.0-alpha.9",
     "ajv": "^8.17.1",
     "asn1js": "^3.0.5",
     "autoprefixer": "^10.4.14",

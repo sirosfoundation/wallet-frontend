@@ -11,7 +11,7 @@ import OpenID4VPContext from "@/context/OpenID4VPContext";
 
 import useErrorDialog from "@/hooks/useErrorDialog";
 import useClientCore from "@/hooks/useClientCore";
-import { OauthError } from "@wwwallet-private/client-core";
+import { OauthError } from "@wwwallet/client-core";
 
 const hasher = (data: string | ArrayBuffer, alg: string) => {
 	const encoded =

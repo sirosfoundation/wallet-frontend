@@ -1,4 +1,4 @@
-import { Core } from "@wwwallet-private/client-core";
+import { Core } from "@wwwallet/client-core";
 
 export type ProtocolResponse = Exclude<Awaited<ReturnType<InstanceType<typeof Core>['location']>>, { protocol: null }>;
 

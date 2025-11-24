@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import type { ClientState, ClientStateStore } from '@wwwallet-private/client-core'
+import type { ClientState, ClientStateStore } from '@wwwallet/client-core'
 import { jsonParseTaggedBinary } from '@/util';
 import { generateRandomIdentifier } from '@/lib/utils/generateRandomIdentifier';
 import pkceChallenge from 'pkce-challenge';
