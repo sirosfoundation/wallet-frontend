@@ -6,23 +6,23 @@ WORKDIR /home/node/app
 
 # Install dependencies first so rebuild of these layers is only needed when dependencies change
 COPY package.json yarn.lock .
-COPY .env.prod .env
+# COPY .env.prod .env
 RUN yarn cache clean -f && yarn install --frozen-lockfile
 
-FROM builder-base AS test
-
-COPY . .
-COPY .env.prod .env
-RUN npm run test
+# FROM builder-base AS test
+#
+# COPY . .
+# COPY .env.prod .env
+# RUN npm run test
 
 
 FROM builder-base AS builder
 
 # This is just to make the builder stage depend on the test stage.
-COPY --from=test /home/node/app/package.json /dev/null
+COPY --from=builder-base /home/node/app/package.json /dev/null
 
 COPY . .
-COPY .env.prod .env
+# COPY .env.prod .env
 RUN NODE_OPTIONS=--max-old-space-size=3072 yarn build
 
 
