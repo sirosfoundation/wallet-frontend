@@ -181,15 +181,17 @@ const AddCredentials = () => {
 				console.error("Could not generate authorization request because user handle is null");
 				return;
 			}
-			openID4VCI.generateAuthorizationRequest(credentialIssuerIdentifier, credentialConfigurationId).then((result) => {
-				if ('url' in result) {
-					const { url } = result;
-					window.location.href = url;
-				}
-			}).catch((err) => {
-				console.error(err)
-				console.error("Couldn't generate authz req")
-			});
+
+			const credential_issuer = credentialIssuerIdentifier;
+			const credential_configuration_ids = [credentialConfigurationId];
+			const issuer_state = "issuer_state";
+			const grants = { authorization_code: { issuer_state } };
+			const credential_offer = {
+				credential_issuer,
+				credential_configuration_ids,
+				grants,
+			};
+			window.location.href = `/cb?credential_offer=${JSON.stringify(credential_offer)}`;
 		}
 
 		setLoading(false);
