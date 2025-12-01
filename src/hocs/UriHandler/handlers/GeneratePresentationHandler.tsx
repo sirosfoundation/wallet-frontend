@@ -69,6 +69,7 @@ export const GeneratePresentationHandler = ({ goToStep, data }: GeneratePresenta
 	const core = useClientCore();
 
 	const pathExists = (vcEntity: any, claims: DcqlQuery.Output["credentials"][0]["claims"]) => {
+		if (!claims) return true
 		return claims.some((claim: any) => {
 			return getIn(vcEntity.parsedCredential.signedClaims, claim.path)
 		})
@@ -93,7 +94,8 @@ export const GeneratePresentationHandler = ({ goToStep, data }: GeneratePresenta
 		const credentials = vcEntityList.filter(vcEntity => {
 			return dcql_query.credentials.some(credentialDefinition => {
 				// TODO apply other filtering rules
-				return pathExists(vcEntity, credentialDefinition.claims)
+				return pathExists(vcEntity, credentialDefinition.claims) &&
+					credentialDefinition.format === vcEntity.format
 			})
 		})
 
@@ -129,9 +131,11 @@ export const GeneratePresentationHandler = ({ goToStep, data }: GeneratePresenta
 		).then(async selection => {
 			const presentFrame = {}
 			const claims = dcql_query.credentials.flatMap(({ claims }) => claims)
-			claims.forEach(claim => {
-				putIn(presentFrame, claim.path, true)
-			})
+			if (claims) {
+				claims.forEach(claim => {
+					putIn(presentFrame, claim.path, true)
+				})
+			}
 			const disclosedCredentials = await Promise.all(credentials.map(async vcEntity => {
 				return {
 					vcEntity,
