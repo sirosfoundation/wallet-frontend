@@ -3,6 +3,7 @@ import { calculateJwkThumbprint, decodeJwt, exportJWK, generateKeyPair, JWK, Sig
 import { OauthError } from "@wwwallet/client-core";
 import { OPENID4VCI_PROOF_TYPE_PRECEDENCE } from "@/config";
 import { logger, jsonToLog } from "@/logger";
+import { EventStore } from "@/store/EventStore";
 import { WalletStateUtils } from "@/services/WalletStateUtils";
 import { ProtocolData, ProtocolStep } from "../resources";
 
@@ -20,10 +21,10 @@ export type CredentialRequestProps = {
 
 const configProofTypes = OPENID4VCI_PROOF_TYPE_PRECEDENCE.split(',') as string[];
 
-export const CredentialRequestHandler = ({ goToStep, data }) => {
+export const CredentialRequestHandler = ({ goToStep: _goToStep, data }) => {
 	const { displayError } = useErrorDialog();
-	const { api, keystore } = useContext(SessionContext);
-	const { credentialEngine } = useContext<any>(CredentialsContext);
+	const { api } = useContext(SessionContext);
+	const { credentialEngine, buildWalletState } = useContext<any>(CredentialsContext);
 
 	const { t } = useTranslation();
 	const core = useClientCore();
@@ -130,37 +131,77 @@ export const CredentialRequestHandler = ({ goToStep, data }) => {
 				)
 
 				const batchId = WalletStateUtils.getRandomUint32();
-				const [, credentialsData, credentialsCommit] = await keystore.addCredentials(
-					await Promise.all(credentials
-						.flatMap(([credential_configuration_id, credentials], index: number) => {
-							return credentials.map(async ({ credential }) => {
-								const { cnf }  = decodeJwt(credential) as { cnf: { jwk: JWK } };
+				const credentialEvents = await Promise.all(credentials
+					.flatMap(([credential_configuration_id, credentials], index: number) => {
+						return credentials.map(async ({ credential }) => {
+							const { cnf }  = decodeJwt(credential) as { cnf: { jwk: JWK } };
 
-								// TODO move credential validation in the core
-								// TODO MSoMDoc issuer validation
-								const isValid = await credentialEngine.credentialParsingEngine.parse({ rawCredential: credential })
-								// TODO display validation warnings
-								// TODO display consent if there are warnings
-								if (!isValid.success) return
+							// TODO move credential validation in the core
+							// TODO MSoMDoc issuer validation
+							const isValid = await credentialEngine.credentialParsingEngine.parse({ rawCredential: credential })
+							// TODO display validation warnings
+							// TODO display consent if there are warnings
+							if (!isValid.success) return
 
-								return {
-									data: credential,
-									format: "vc+sd-jwt",
-									kid: (cnf && await calculateJwkThumbprint(cnf.jwk as JWK)) || "",
-									credentialConfigurationId: credential_configuration_id,
-									credentialIssuerIdentifier: issuer_metadata.issuer,
-									batchId,
-									instanceId: index,
-								}
-							})
-						})),
-						proofs.map(({ proofKey }) => proofKey)
-				)
+							return {
+								data: credential,
+								format: "vc+sd-jwt",
+								kid: (cnf && await calculateJwkThumbprint(cnf.jwk as JWK)) || "",
+								credentialConfigurationId: credential_configuration_id,
+								credentialIssuerIdentifier: issuer_metadata.issuer,
+								batchId,
+								instanceId: index,
+							}
+						})
+					}))
 
-				await api.updatePrivateData(credentialsData);
-				await credentialsCommit();
 
-				return true
+				for (const {
+					data,
+					format,
+					batchId,
+					credentialIssuerIdentifier,
+					kid,
+					credentialConfigurationId,
+					instanceId,
+					credentialId
+				} of credentialEvents) {
+					await EventStore.storeEvent(Date.now().toString(), {
+						type: "add_credential",
+						timestamp: Date.now() / 1000,
+						payload: {
+							data,
+							format,
+							batchId,
+							credentialIssuerIdentifier,
+							kid,
+							credentialConfigurationId,
+							instanceId,
+							credentialId
+						}
+					})
+				}
+
+				const deriveKid = async (publicKey: CryptoKey) => {
+					const pubKey = await crypto.subtle.exportKey("jwk", publicKey);
+					const jwkThumbprint = await calculateJwkThumbprint(pubKey as JWK, "sha256");
+					return jwkThumbprint;
+				};
+				const keypairs = proofs.map(({ proofKey }) => proofKey)
+				for (const keypair of keypairs) {
+					await EventStore.storeEvent((Date.now() + 1).toString(), {
+						type: "add_keypair",
+						timestamp: Date.now() / 1000,
+						payload: {
+							kid: await deriveKid(keypair.publicKey),
+							alg: keypair.alg,
+							publicKey: await exportJWK(keypair.publicKey),
+							privateKey: await exportJWK(keypair.privateKey),
+						}
+					})
+				}
+
+				return buildWalletState()
 			} catch(err) {
 				if (err instanceof OauthError) {
 					logger.error(t(`errors.invalid_client`), jsonToLog(err));

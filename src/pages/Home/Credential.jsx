@@ -29,6 +29,7 @@ import CredentialImage from '../../components/Credentials/CredentialImage';
 import CredentialTabsPanel from '@/components/Credentials/CredentialTabsPanel';
 
 import { useMdocAppCommunication } from '@/lib/services/MdocAppCommunication';
+import { EventStore } from "@/store/EventStore";
 
 const Credential = () => {
 	const { batchId } = useParams();
@@ -46,7 +47,7 @@ const Credential = () => {
 	const navigate = useNavigate();
 	const { t } = useTranslation();
 
-	const { vcEntityList, fetchVcData } = useContext(CredentialsContext);
+	const { vcEntityList, fetchVcData, buildWalletState } = useContext(CredentialsContext);
 	const vcEntity = useVcEntity(fetchVcData, vcEntityList, batchId);
 
 	useEffect(() => {
@@ -76,7 +77,6 @@ const Credential = () => {
 	}, [keystore, setCachedUser]);
 
 	const handleSureDelete = async () => {
-		setLoading(true);
 		if (!cachedUser) {
 			return;
 		}
@@ -85,11 +85,20 @@ const Credential = () => {
 			setLoading(false);
 			return;
 		}
-		const [, newPrivateData, keystoreCommit] = await keystore.deleteCredentialsByBatchId(parseInt(batchId));
-		await api.updatePrivateData(newPrivateData);
-		await keystoreCommit();
 
-		setLoading(false);
+		await EventStore.storeEvent(Date.now().toString(), {
+			type: "delete_credential",
+			timestamp: Date.now() / 1000,
+			payload: {
+				batchId: parseInt(batchId),
+			}
+		})
+
+		await buildWalletState()
+		// const [, newPrivateData, keystoreCommit] = await keystore.deleteCredentialsByBatchId(parseInt(batchId));
+		// await api.updatePrivateData(newPrivateData);
+		// await keystoreCommit();
+
 		setShowDeletePopup(false);
 	};
 

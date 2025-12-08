@@ -1,5 +1,6 @@
 import axios, { AxiosResponse } from 'axios';
 import { Err, Ok, Result } from 'ts-results';
+import { exportJWK, generateKeyPair, importJWK, jwtDecrypt } from 'jose';
 
 import * as config from '../config';
 import { logger } from '@/logger';
@@ -334,7 +335,9 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		credential: PublicKeyCredential | null,
 		authenticationType: 'signup' | 'login'
 	): Promise<void> => {
-		setAppToken(response.data.appToken);
+		const sessionPrivateKeyJwk = JSON.parse(sessionStorage.getItem("sessionPrivateKeyJwk") || "{}")
+		const { payload: { appToken } } = await jwtDecrypt(response.data.challenge, await importJWK(sessionPrivateKeyJwk, "RSA-OAEP"))
+		setAppToken(appToken as string);
 		setSessionState({
 			uuid: response.data.uuid,
 			displayName: response.data.displayName,
@@ -534,11 +537,16 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 				}) as PublicKeyCredential;
 				const response = credential.response as AuthenticatorAssertionResponse;
 
+				const { publicKey: sessionPublicKey, privateKey: sessionPrivateKey } = await generateKeyPair("RSA-OAEP-256", { extractable: true });
+				sessionStorage.setItem("sessionPublicKeyJwk", JSON.stringify(await exportJWK(sessionPublicKey)))
+				sessionStorage.setItem("sessionPrivateKeyJwk", JSON.stringify(await exportJWK(sessionPrivateKey)))
+
 				try {
 					const finishResp = await (async () => {
 						if (isOnline) {
 							return updatePrivateDataEtag(await post('/user/login-webauthn-finish', {
 								challengeId: beginData.challengeId,
+								sessionPublicKey: await exportJWK(sessionPublicKey),
 								credential: {
 									type: credential.type,
 									id: credential.id,
@@ -661,8 +669,23 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 						{ displayName: name, userHandle: beginData.createOptions.publicKey.user.id },
 					);
 
+					const { publicKey: sessionPublicKey, privateKey: sessionPrivateKey } = await crypto.subtle.generateKey(
+						{
+							name: "RSA-OAEP",
+							modulusLength: 2048,
+							publicExponent: new Uint8Array([1, 0, 1]),
+							hash: "SHA-256"
+						},
+						true,
+						["decrypt", "encrypt"],
+					);
+					sessionStorage.setItem("sessionPublicKeyJwk", JSON.stringify(await exportJWK(sessionPublicKey)))
+					sessionStorage.setItem("sessionPrivateKeyJwk", JSON.stringify(await exportJWK(sessionPrivateKey)))
+
+
 					try {
 						const finishResp = updatePrivateDataEtag(await post('/user/register-webauthn-finish', {
+							sessionPublicKey: await exportJWK(sessionPublicKey),
 							challengeId: beginData.challengeId,
 							displayName: name,
 							privateData: serializePrivateData(privateData),

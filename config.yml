@@ -17,7 +17,7 @@ wallet:
   display_console: true
   webauthn_rpid: localhost
   openid4vci_redirect_uri: *wallet_callback_url
-  openid4vci_proof_type_precedence: attestation,jwt
+  openid4vci_proof_type_precedence: jwt,attestation
   openid4vp_san_dns_check: false
   openid4vp_san_dns_check_ssl_certs: false
   validate_credentials_with_trust_anchors: true

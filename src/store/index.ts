@@ -73,6 +73,7 @@ export {
 	setStorageValue,
 	setApi,
 	setVcEntityList,
+	setKeypairs,
 } from "./sessionsSlice";
 
 export type AppState = ReturnType<typeof store.getState>

@@ -1,3 +1,4 @@
+import { importJWK, jwtDecrypt } from 'jose';
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
@@ -19,17 +20,36 @@ function calculateNetworkSpeed(rtt: number): number {
 async function checkInternetConnection(): Promise<{ isConnected: boolean; speed: number }> {
 	try {
 		const startTime = new Date().getTime();
-		await axios.get(`${BACKEND_URL}/status`, {
-			timeout: 5000, // Timeout of 5 seconds
-			headers: {
-				'Content-Type': 'application/json',
+		const sessionPublicKeyJwk = JSON.parse(sessionStorage.getItem("sessionPublicKeyJwk") || "{}")
+		const sessionState = JSON.parse(sessionStorage.getItem("sessionState") || "{}")
+		const { challenge, online } = await axios.post(
+			`${BACKEND_URL}/status`,
+			{
+			...sessionPublicKeyJwk,
+			uuid: sessionState.uuid,
 			},
-		});
-		const endTime = new Date().getTime();
-		const rtt = endTime - startTime; // Calculate RTT
+			{
+				timeout: 5000, // Timeout of 5 seconds
+				headers: {
+					'Content-Type': 'application/jwk+json',
+				},
+			}).then(({ data }) => data);
 
-		const speed = calculateNetworkSpeed(rtt);
-		return { isConnected: true, speed };
+		if (challenge) {
+			const sessionPrivateKeyJwk = JSON.parse(sessionStorage.getItem("sessionPrivateKeyJwk") || "{}")
+			const { payload: { appToken } } = await jwtDecrypt(challenge, await importJWK(sessionPrivateKeyJwk, "RSA-OAEP-256"))
+			sessionStorage.setItem("appToken", JSON.stringify(appToken))
+		}
+
+		if (online) {
+			const endTime = new Date().getTime();
+			const rtt = endTime - startTime; // Calculate RTT
+
+			const speed = calculateNetworkSpeed(rtt);
+			return { isConnected: true, speed };
+		}
+
+		return { isConnected: false, speed: 0 };
 	} catch (error) {
 		return { isConnected: false, speed: 0 };
 	}
