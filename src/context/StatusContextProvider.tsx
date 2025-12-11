@@ -4,9 +4,10 @@ import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
 import { BACKEND_URL } from '../config';
 import { logger } from '@/logger';
+import { AppDispatch, AppState, setOffline, setOnline, setPwaInstallable, setPwaNotInstallable } from '@/store';
+import { fetchEvents } from '@/store/EventStore';
 import StatusContext, { Connectivity } from './StatusContext';
 import { useLocalStorage } from '@/hooks/useStorage';
-import { AppState, setOffline, setOnline, setPwaInstallable, setPwaNotInstallable } from '@/store';
 
 // Function to calculate speed based on RTT (lower RTT means higher speed)
 function calculateNetworkSpeed(rtt: number): number {
@@ -60,7 +61,7 @@ function getNavigatorOnlineStatus(): boolean {
 }
 
 export const StatusContextProvider = ({ children }: { children: React.ReactNode }) => {
-	const dispatch = useDispatch();
+	const dispatch = useDispatch() as AppDispatch;
 	const isOnline = useSelector((state: AppState) => state.status.isOnline)
 	const pwaInstallable = useSelector((state: AppState) => state.status.pwaInstallable)
 	const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -88,6 +89,9 @@ export const StatusContextProvider = ({ children }: { children: React.ReactNode 
 
 		const internetConnection = await checkInternetConnection();
 
+		if (internetConnection.isConnected) {
+			dispatch(fetchEvents())
+		}
 		setConnectivity((prev) => {
 			if (
 				prev.navigatorOnline === navigatorOnline &&

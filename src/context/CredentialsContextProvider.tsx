@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useContext, useRef, useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { AppState, setKeypairs, setVcEntityList } from '@/store';
-import { EventStore } from '@/store/EventStore';
+import { AppDispatch, AppState } from '@/store';
+import { buildWalletState, fetchEvents } from '@/store/EventStore';
 import { useApi } from '@/api';
 import StatusContext from './StatusContext';
 import SessionContext from './SessionContext';
@@ -14,14 +14,12 @@ import { VerifiableCredentialFormat } from "wallet-common/dist/types";
 import { useOpenID4VCIHelper } from "@/lib/services/OpenID4VCIHelper";
 import { ParsedCredential } from "wallet-common/dist/types";
 import { CurrentSchema } from '@/services/WalletStateSchema';
-import { importJWK, jwtDecrypt } from 'jose';
-import { CredentialKeyPair } from '@/services/keystore';
 
 type WalletStateCredential = CurrentSchema.WalletStateCredential;
 
 
 export const CredentialsContextProvider = ({ children }) => {
-	const dispatch = useDispatch();
+	const dispatch = useDispatch() as AppDispatch;
 	const { isOnline } = useContext(StatusContext);
 	const api = useApi(isOnline);
 	const { isLoggedIn } = useContext(SessionContext);
@@ -217,75 +215,14 @@ export const CredentialsContextProvider = ({ children }) => {
 		}
 	}, [fetchVcData]);
 
-	const buildWalletState = useCallback(async () => {
+	useEffect(() => {
 		if (!credentialEngine) return
 
-		const rawEvents = await EventStore.fetchEvents()
-
-		const sessionPrivateKeyJwk = JSON.parse(sessionStorage.getItem("sessionPrivateKeyJwk") || "{}");
-		const clearEvents = await Promise.all(
-			Object.values(rawEvents.events)
-				.map(async (event: string) => {
-					const { payload } = await jwtDecrypt(
-						event,
-						await importJWK(sessionPrivateKeyJwk, "RSA-OAEP-256")
-					)
-					return payload as { type: string, timestamp: number, payload: Record<string, unknown> }
-				})
-		)
-
-		const result: {
-			addedCredentials: ExtendedVcEntity[],
-			deletedCredentials: number[],
-			keypairs: CredentialKeyPair[]
-		} = {
-			addedCredentials: [],
-			deletedCredentials: [],
-			keypairs: []
-		}
-		for (const event of clearEvents.sort((a, b) => a.timestamp - b.timestamp)) {
-			if (event.type === "add_credential") {
-				const {
-					data,
-					credentialIssuerIdentifier,
-					credentialConfigurationId,
-					instanceId,
-				} = event.payload;
-
-				const parse = await credentialEngine.credentialParsingEngine.parse({
-					rawCredential: data,
-					credentialIssuer: {
-						credentialIssuerIdentifier: credentialIssuerIdentifier,
-						credentialConfigurationId: credentialConfigurationId,
-					},
-				});
-				if (parse.success) {
-					result.addedCredentials.push({
-						...event.payload,
-						instances: [{ instanceId, sigCount: 0 }],
-						parsedCredential: parse.value
-					} as ExtendedVcEntity)
-				}
-			}
-
-			if (event.type === "delete_credential") {
-				result.deletedCredentials.push(event.payload.batchId as number)
-			}
-
-			if (event.type === "add_keypair") {
-				result.keypairs.push(event.payload as CredentialKeyPair)
-			}
-		}
-
-		dispatch(setVcEntityList(result.addedCredentials.filter(({ batchId }) => {
-			return !result.deletedCredentials.includes(batchId)
-		})));
-		dispatch(setKeypairs(result.keypairs));
+		dispatch(fetchEvents()).then(() => {
+			dispatch(buildWalletState({ credentialEngine }))
+		})
 	}, [dispatch, credentialEngine])
 
-	useEffect(() => {
-		buildWalletState()
-	}, [buildWalletState]);
 
 	useEffect(() => {
 		if (!calculatedWalletState || !credentialEngine || !isLoggedIn) {
@@ -305,7 +242,6 @@ export const CredentialsContextProvider = ({ children }) => {
 		parseCredential,
 		credentialEngine,
 		pendingTransactions,
-		buildWalletState,
 	}), [
 		vcEntityList,
 		latestCredentials,
@@ -316,7 +252,6 @@ export const CredentialsContextProvider = ({ children }) => {
 		parseCredential,
 		credentialEngine,
 		pendingTransactions,
-		buildWalletState,
 	]);
 
 	if (isLoggedIn && !credentialEngine) {

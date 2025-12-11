@@ -1,9 +1,11 @@
 import React, { useCallback, useContext, useEffect } from "react";
 import { calculateJwkThumbprint, decodeJwt, exportJWK, generateKeyPair, JWK, SignJWT } from "jose";
+import { useDispatch, useSelector } from "react-redux";
+import { AppDispatch, AppState } from "@/store";
 import { OauthError } from "@wwwallet/client-core";
 import { OPENID4VCI_PROOF_TYPE_PRECEDENCE } from "@/config";
 import { logger, jsonToLog } from "@/logger";
-import { EventStore } from "@/store/EventStore";
+import { EventStore, buildWalletState, fetchEvents } from "@/store/EventStore";
 import { WalletStateUtils } from "@/services/WalletStateUtils";
 import { ProtocolData, ProtocolStep } from "../resources";
 
@@ -22,9 +24,13 @@ export type CredentialRequestProps = {
 const configProofTypes = OPENID4VCI_PROOF_TYPE_PRECEDENCE.split(',') as string[];
 
 export const CredentialRequestHandler = ({ goToStep: _goToStep, data }) => {
+	const dispatch = useDispatch() as AppDispatch;
 	const { displayError } = useErrorDialog();
 	const { api } = useContext(SessionContext);
-	const { credentialEngine, buildWalletState } = useContext<any>(CredentialsContext);
+	const { credentialEngine } = useContext(CredentialsContext);
+	const eventStore = useSelector((state: AppState) => {
+		return state.sessions.eventStore
+	})
 
 	const { t } = useTranslation();
 	const core = useClientCore();
@@ -179,7 +185,7 @@ export const CredentialRequestHandler = ({ goToStep: _goToStep, data }) => {
 							instanceId,
 							credentialId
 						}
-					})
+					})(eventStore)
 				}
 
 				const deriveKid = async (publicKey: CryptoKey) => {
@@ -198,10 +204,12 @@ export const CredentialRequestHandler = ({ goToStep: _goToStep, data }) => {
 							publicKey: await exportJWK(keypair.publicKey),
 							privateKey: await exportJWK(keypair.privateKey),
 						}
-					})
+					})(eventStore)
 				}
 
-				return buildWalletState()
+				return dispatch(fetchEvents()).then(() => {
+					dispatch(buildWalletState({ credentialEngine }))
+				})
 			} catch(err) {
 				if (err instanceof OauthError) {
 					logger.error(t(`errors.invalid_client`), jsonToLog(err));

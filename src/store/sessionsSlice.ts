@@ -4,9 +4,11 @@ import { CredentialKeyPair, EncryptedContainer } from "@/services/keystore";
 import { LocalStorageKeystore } from "@/services/LocalStorageKeystore";
 import { WalletState } from "@/services/WalletStateSchemaCommon";
 import { createSlice } from "@reduxjs/toolkit";
+import { buildWalletState, EventStore } from "./EventStore";
 
 type State = {
 	keystore: LocalStorageKeystore | null;
+	eventStore: EventStore;
 	privateData: EncryptedContainer | null;
 	calculatedWalletState: WalletState | null;
 	api: BackendApi | null;
@@ -26,6 +28,7 @@ export const sessionsSlice = createSlice({
 	name: 'status',
 	initialState: {
 		keystore: null,
+		eventStore: new EventStore({}),
 		privateData: null,
 		calculatedWalletState: null,
 		storage: {
@@ -38,7 +41,7 @@ export const sessionsSlice = createSlice({
 		},
 		api: null,
 		vcEntityList: null,
-		keypairs: null,
+		keypairs: {},
 	},
 	reducers: {
 		setKeystore: (state: State, { payload }: { payload: LocalStorageKeystore }) => {
@@ -87,6 +90,16 @@ export const sessionsSlice = createSlice({
 				state.keypairs[keypair.kid] = keypair
 			})
 		},
+	},
+	extraReducers: (builder) => {
+		builder.addCase(buildWalletState.fulfilled, (state: State, action) => {
+			state.eventStore.walletState = action.payload
+			state.vcEntityList = state.eventStore.walletState.credentials
+			Object.assign(state.keypairs, state.eventStore.walletState.keypairs)
+		})
+		builder.addCase(buildWalletState.rejected, (state: State, action) => {
+			console.log("buildWalletState reducer", action)
+		})
 	}
 });
 

@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation, Trans } from 'react-i18next';
 import { BsQrCode, BsCheckCircle } from "react-icons/bs";
 import QRCode from "react-qr-code";
+import { useDispatch } from 'react-redux';
 import i18n from '@/i18n';
 
 // Contexts
@@ -29,9 +30,10 @@ import CredentialImage from '../../components/Credentials/CredentialImage';
 import CredentialTabsPanel from '@/components/Credentials/CredentialTabsPanel';
 
 import { useMdocAppCommunication } from '@/lib/services/MdocAppCommunication';
-import { EventStore } from "@/store/EventStore";
+import { EventStore, buildWalletState, fetchEvents } from "@/store/EventStore";
 
 const Credential = () => {
+	const dispatch = useDispatch();
 	const { batchId } = useParams();
 	const { api, keystore } = useContext(SessionContext);
 	const history = useFetchPresentations(keystore, batchId, null);
@@ -47,7 +49,7 @@ const Credential = () => {
 	const navigate = useNavigate();
 	const { t } = useTranslation();
 
-	const { vcEntityList, fetchVcData, buildWalletState } = useContext(CredentialsContext);
+	const { vcEntityList, fetchVcData, credentialEngine } = useContext(CredentialsContext);
 	const vcEntity = useVcEntity(fetchVcData, vcEntityList, batchId);
 
 	useEffect(() => {
@@ -94,7 +96,8 @@ const Credential = () => {
 			}
 		})
 
-		await buildWalletState()
+		await dispatch(fetchEvents());
+		await dispatch(buildWalletState({ credentialEngine }));
 		// const [, newPrivateData, keystoreCommit] = await keystore.deleteCredentialsByBatchId(parseInt(batchId));
 		// await api.updatePrivateData(newPrivateData);
 		// await keystoreCommit();
