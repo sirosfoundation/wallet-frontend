@@ -30,7 +30,7 @@ import CredentialImage from '../../components/Credentials/CredentialImage';
 import CredentialTabsPanel from '@/components/Credentials/CredentialTabsPanel';
 
 import { useMdocAppCommunication } from '@/lib/services/MdocAppCommunication';
-import { EventStore, buildWalletState, fetchEvents } from "@/store/EventStore";
+import { storeEvent, buildWalletState, fetchEvents } from "@/store/EventStore";
 
 const Credential = () => {
 	const dispatch = useDispatch();
@@ -88,13 +88,13 @@ const Credential = () => {
 			return;
 		}
 
-		await EventStore.storeEvent(Date.now().toString(), {
+		await dispatch(storeEvent(Date.now().toString(), {
 			type: "delete_credential",
 			timestamp: Date.now() / 1000,
 			payload: {
 				batchId: parseInt(batchId),
 			}
-		})
+		}))
 
 		await dispatch(fetchEvents());
 		await dispatch(buildWalletState({ credentialEngine }));

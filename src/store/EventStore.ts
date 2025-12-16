@@ -37,45 +37,48 @@ export class EventStore {
 		}
 	}
 
-	static storeEvent(hash: string, payload: JWTPayload) {
-		return async (eventStore: EventStore) => {
-			const sessionPublicKeyJwk = JSON.parse(sessionStorage.getItem("sessionPublicKeyJwk") || "{}");
-			const appToken= JSON.parse(sessionStorage.getItem("appToken") || "");
-
-			const { publicKey, privateKey } = await generateKeyPair("ES256");
-			const ath = await sha256Base64Url(appToken);
-			const claims = {
-				jti: "jti",
-				htm: "PUT",
-				htu: `${walletBackendServerUrl}/event-store/events/${hash}`,
-				iat: Math.floor(Date.now() / 1000),
-				ath,
-			};
-			const dpop = await new SignJWT(claims)
-			.setProtectedHeader({
-				typ: "dpop+jwt",
-				alg: "ES256",
-				jwk: await exportJWK(publicKey),
-			})
-			.sign(privateKey);
-
-			const data = await new EncryptJWT(payload as JWTPayload)
-			.setProtectedHeader({ alg: "RSA-OAEP-256", enc: "A256GCM" })
-			.encrypt(await importJWK(sessionPublicKeyJwk, "RSA-OAEP-256"))
-
-			await axios.put<EncryptedEvents>(`${walletBackendServerUrl}/event-store/events/${hash}`, data, {
-				headers: {
-					"Content-Type": "application/jose",
-					"Authorization": `Bearer ${appToken}`,
-					"DPoP": dpop,
-				}
-			}).then(({ data }) => {
-				Object.assign(eventStore.encryptedEvents, data)
-				return eventStore
-			})
-		}
-	}
 }
+
+export const storeEvent = createAsyncThunk('sessions/addEvent', async (
+	{ hash, payload } : {
+		hash: string,
+		payload: JWTPayload,
+	}
+) => {
+	const sessionPublicKeyJwk = JSON.parse(sessionStorage.getItem("sessionPublicKeyJwk") || "{}");
+	const appToken= JSON.parse(sessionStorage.getItem("appToken") || "");
+
+	const { publicKey, privateKey } = await generateKeyPair("ES256");
+	const ath = await sha256Base64Url(appToken);
+	const claims = {
+		jti: "jti",
+		htm: "PUT",
+		htu: `${walletBackendServerUrl}/event-store/events/${hash}`,
+		iat: Math.floor(Date.now() / 1000),
+		ath,
+	};
+	const dpop = await new SignJWT(claims)
+	.setProtectedHeader({
+		typ: "dpop+jwt",
+		alg: "ES256",
+		jwk: await exportJWK(publicKey),
+	})
+	.sign(privateKey);
+
+	const data = await new EncryptJWT(payload as JWTPayload)
+	.setProtectedHeader({ alg: "RSA-OAEP-256", enc: "A256GCM" })
+	.encrypt(await importJWK(sessionPublicKeyJwk, "RSA-OAEP-256"))
+
+	return await axios.put<{ events: EncryptedEvents }>(`${walletBackendServerUrl}/event-store/events/${hash}`, data, {
+		headers: {
+			"Content-Type": "application/jose",
+			"Authorization": `Bearer ${appToken}`,
+			"DPoP": dpop,
+		}
+	}).then(({ data }) => {
+		return data.events
+	})
+})
 
 export const fetchEvents = createAsyncThunk('sessions/fetchEvents', async (
 	_payload,
@@ -108,7 +111,6 @@ export const fetchEvents = createAsyncThunk('sessions/fetchEvents', async (
 		}
 	}).then(({ data }) => {
 		eventStore.encryptedEvents = data.events
-		console.log(eventStore)
 		return eventStore
 	})
 })
@@ -177,7 +179,6 @@ export const buildWalletState = createAsyncThunk('sessions/buildWalletState', as
 		}
 	}
 
-	console.log("build", eventStore)
 	return walletState
 })
 

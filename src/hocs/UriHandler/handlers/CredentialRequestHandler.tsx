@@ -1,11 +1,11 @@
 import React, { useCallback, useContext, useEffect } from "react";
 import { calculateJwkThumbprint, decodeJwt, exportJWK, generateKeyPair, JWK, SignJWT } from "jose";
-import { useDispatch, useSelector } from "react-redux";
-import { AppDispatch, AppState } from "@/store";
+import { useDispatch } from "react-redux";
+import { AppDispatch } from "@/store";
 import { OauthError } from "@wwwallet/client-core";
 import { OPENID4VCI_PROOF_TYPE_PRECEDENCE } from "@/config";
 import { logger, jsonToLog } from "@/logger";
-import { EventStore, buildWalletState, fetchEvents } from "@/store/EventStore";
+import { buildWalletState, fetchEvents, storeEvent } from "@/store/EventStore";
 import { WalletStateUtils } from "@/services/WalletStateUtils";
 import { ProtocolData, ProtocolStep } from "../resources";
 
@@ -28,9 +28,6 @@ export const CredentialRequestHandler = ({ goToStep: _goToStep, data }) => {
 	const { displayError } = useErrorDialog();
 	const { api } = useContext(SessionContext);
 	const { credentialEngine } = useContext(CredentialsContext);
-	const eventStore = useSelector((state: AppState) => {
-		return state.sessions.eventStore
-	})
 
 	const { t } = useTranslation();
 	const core = useClientCore();
@@ -172,20 +169,23 @@ export const CredentialRequestHandler = ({ goToStep: _goToStep, data }) => {
 					instanceId,
 					credentialId
 				} of credentialEvents) {
-					await EventStore.storeEvent(Date.now().toString(), {
-						type: "add_credential",
-						timestamp: Date.now() / 1000,
+					await dispatch(storeEvent({
+						hash: Date.now().toString(),
 						payload: {
-							data,
-							format,
-							batchId,
-							credentialIssuerIdentifier,
-							kid,
-							credentialConfigurationId,
-							instanceId,
-							credentialId
+							type: "add_credential",
+							timestamp: Date.now() / 1000,
+							payload: {
+								data,
+								format,
+								batchId,
+								credentialIssuerIdentifier,
+								kid,
+								credentialConfigurationId,
+								instanceId,
+								credentialId
+							}
 						}
-					})(eventStore)
+					}))
 				}
 
 				const deriveKid = async (publicKey: CryptoKey) => {
@@ -195,7 +195,7 @@ export const CredentialRequestHandler = ({ goToStep: _goToStep, data }) => {
 				};
 				const keypairs = proofs.map(({ proofKey }) => proofKey)
 				for (const keypair of keypairs) {
-					await EventStore.storeEvent((Date.now() + 1).toString(), {
+					await dispatch(storeEvent((Date.now() + 1).toString(), {
 						type: "add_keypair",
 						timestamp: Date.now() / 1000,
 						payload: {
@@ -204,7 +204,7 @@ export const CredentialRequestHandler = ({ goToStep: _goToStep, data }) => {
 							publicKey: await exportJWK(keypair.publicKey),
 							privateKey: await exportJWK(keypair.privateKey),
 						}
-					})(eventStore)
+					}))
 				}
 
 				return dispatch(fetchEvents()).then(() => {
