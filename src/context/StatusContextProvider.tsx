@@ -38,8 +38,8 @@ async function checkInternetConnection(): Promise<{ isConnected: boolean; speed:
 
 		if (challenge) {
 			const sessionPrivateKeyJwk = JSON.parse(sessionStorage.getItem("sessionPrivateKeyJwk") || "{}")
-			const { payload: { appToken } } = await jwtDecrypt(challenge, await importJWK(sessionPrivateKeyJwk, "RSA-OAEP-256"))
-			sessionStorage.setItem("appToken", JSON.stringify(appToken))
+			const { payload: { access_token } } = await jwtDecrypt(challenge, await importJWK(sessionPrivateKeyJwk, "RSA-OAEP-256"))
+			sessionStorage.setItem("appToken", JSON.stringify(access_token))
 		}
 
 		if (online) {
