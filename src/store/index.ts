@@ -71,6 +71,7 @@ export { setOnline, setOffline, setPwaInstallable, setPwaNotInstallable } from "
 export {
 	setKeystore,
 	setPrivateData,
+	setWalletDataKeypair,
 	setCalculatedWalletState,
 	setStorageValue,
 	setApi,

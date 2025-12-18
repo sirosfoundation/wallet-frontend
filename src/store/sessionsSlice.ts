@@ -5,11 +5,13 @@ import { LocalStorageKeystore } from "@/services/LocalStorageKeystore";
 import { WalletState } from "@/services/WalletStateSchemaCommon";
 import { createSlice } from "@reduxjs/toolkit";
 import { buildWalletState, EventStore, storeEvent } from "./EventStore";
+import {Keypair} from "@/services/WalletStateSchemaVersion3";
 
 type State = {
 	keystore: LocalStorageKeystore | null;
 	eventStore: EventStore;
 	privateData: EncryptedContainer | null;
+	walletDataKeypair: Keypair | null;
 	calculatedWalletState: WalletState | null;
 	api: BackendApi | null;
 	storage: {
@@ -30,6 +32,7 @@ export const sessionsSlice = createSlice({
 		keystore: null,
 		eventStore: new EventStore({}),
 		privateData: null,
+		walletDataKeypair: null,
 		calculatedWalletState: null,
 		storage: {
 			"Local storage": {
@@ -49,6 +52,9 @@ export const sessionsSlice = createSlice({
 		},
 		setPrivateData: (state: State, { payload }: { payload: EncryptedContainer | null }) => {
 			state.privateData = payload
+		},
+		setWalletDataKeypair: (state: State, { payload }: { payload: Keypair | null }) => {
+			state.walletDataKeypair = payload
 		},
 		setStorageValue: <T>(
 			state: State,
@@ -112,6 +118,7 @@ export const sessionsSlice = createSlice({
 export const {
 	setKeystore,
 	setPrivateData,
+	setWalletDataKeypair,
 	setCalculatedWalletState,
 	setStorageValue,
 	setApi,

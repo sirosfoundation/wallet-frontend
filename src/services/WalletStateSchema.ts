@@ -99,7 +99,27 @@ export async function addDeleteCredentialEvent(container: WalletStateContainer, 
 	return newContainer;
 }
 
-export async function addNewKeypairEvent(container: WalletStateContainer, kid: string, keypair: CredentialKeyPair): Promise<WalletStateContainer> {
+export async function addWalletDataKeypairEvent(container: WalletStateContainer, alg: string, kid: string, keypair: SchemaV3.Keypair): Promise<WalletStateContainer> {
+	await validateEventHistoryContinuity(container);
+	const newContainer: WalletStateContainer = {
+		lastEventHash: container.lastEventHash,
+		events: [
+			...container.events,
+			{
+				...await createWalletSessionEvent(container),
+				type: "new_wallet_data_keypair",
+				alg,
+				kid,
+				keypair,
+			},
+		],
+		S: container.S,
+	};
+	await validateEventHistoryContinuity(newContainer);
+	return newContainer;
+}
+
+export async function addNewKeypairEvent(container: WalletStateContainer, kid: string, keypair: CredentialKeyPair | SchemaV3.Keypair): Promise<WalletStateContainer> {
 	await validateEventHistoryContinuity(container);
 	const newContainer: WalletStateContainer = {
 		lastEventHash: container.lastEventHash,

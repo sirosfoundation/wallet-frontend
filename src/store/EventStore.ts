@@ -13,7 +13,7 @@ type Snapshot = {};
 
 type WalletState = {
 	credentials: ExtendedVcEntity[],
-	keypairs: CredentialKeyPair[]
+	keypairs: CredentialKeyPair[],
 }
 
 type EncryptedEvents = Record<string, string>
@@ -43,9 +43,10 @@ export const storeEvent = createAsyncThunk('sessions/addEvent', async (
 	{ hash, payload } : {
 		hash: string,
 		payload: JWTPayload,
-	}
+	},
+	{ getState }
 ) => {
-	const sessionPublicKeyJwk = JSON.parse(sessionStorage.getItem("sessionPublicKeyJwk") || "{}");
+	const sessionPublicKeyJwk = (getState() as AppState).sessions.walletDataKeypair.publicKey
 	const appToken= JSON.parse(sessionStorage.getItem("appToken") || "");
 
 	const { publicKey, privateKey } = await generateKeyPair("ES256");
@@ -66,8 +67,8 @@ export const storeEvent = createAsyncThunk('sessions/addEvent', async (
 	.sign(privateKey);
 
 	const data = await new EncryptJWT(payload as JWTPayload)
-	.setProtectedHeader({ alg: "RSA-OAEP-256", enc: "A256GCM" })
-	.encrypt(await importJWK(sessionPublicKeyJwk, "RSA-OAEP-256"))
+	.setProtectedHeader({ alg: "ECDH-ES", enc: "A256GCM" })
+	.encrypt(await importJWK(sessionPublicKeyJwk, "ECDH-ES"))
 
 	return await axios.put<{ events: EncryptedEvents }>(`${walletBackendServerUrl}/event-store/events/${hash}`, data, {
 		headers: {
@@ -124,13 +125,13 @@ export const buildWalletState = createAsyncThunk('sessions/buildWalletState', as
 	const eventStore = (getState() as AppState).sessions.eventStore;
 	const rawEvents = eventStore.encryptedEvents
 
-	const sessionPrivateKeyJwk = JSON.parse(sessionStorage.getItem("sessionPrivateKeyJwk") || "{}");
+	const sessionPrivateKeyJwk = (getState() as AppState).sessions.walletDataKeypair.privateKey
 	const clearEvents = await Promise.all(
 		Object.values(rawEvents)
 			.map(async (event: string) => {
 				const { payload } = await jwtDecrypt(
 					event,
-					await importJWK(sessionPrivateKeyJwk, "RSA-OAEP-256")
+					await importJWK(sessionPrivateKeyJwk, "ECDH-ES")
 				)
 				return payload as { type: string, timestamp: number, payload: Record<string, unknown> }
 			})

@@ -1,7 +1,8 @@
 import { importJWK, jwtDecrypt } from 'jose';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
+import type { Keypair } from '@/services/WalletStateSchemaVersion3';
 import { BACKEND_URL } from '../config';
 import { logger } from '@/logger';
 import { AppDispatch, AppState, setOffline, setOnline, setPwaInstallable, setPwaNotInstallable } from '@/store';
@@ -18,16 +19,16 @@ function calculateNetworkSpeed(rtt: number): number {
 	return 1; // Very slow speed
 }
 
-async function checkInternetConnection(): Promise<{ isConnected: boolean; speed: number }> {
+async function checkInternetConnection(keypair: Keypair): Promise<{ isConnected: boolean; speed: number }> {
 	try {
 		const startTime = new Date().getTime();
-		const sessionPublicKeyJwk = JSON.parse(sessionStorage.getItem("sessionPublicKeyJwk") || "{}")
+		const { publicKey, privateKey } = keypair || {}
 		const sessionState = JSON.parse(sessionStorage.getItem("sessionState") || "{}")
 		const { challenge, online } = await axios.post(
 			`${BACKEND_URL}/status`,
 			{
-			...sessionPublicKeyJwk,
-			uuid: sessionState.uuid,
+				...publicKey,
+				uuid: sessionState.uuid,
 			},
 			{
 				timeout: 5000, // Timeout of 5 seconds
@@ -37,8 +38,7 @@ async function checkInternetConnection(): Promise<{ isConnected: boolean; speed:
 			}).then(({ data }) => data);
 
 		if (challenge) {
-			const sessionPrivateKeyJwk = JSON.parse(sessionStorage.getItem("sessionPrivateKeyJwk") || "{}")
-			const { payload: { access_token } } = await jwtDecrypt(challenge, await importJWK(sessionPrivateKeyJwk, "RSA-OAEP-256"))
+			const { payload: { access_token } } = await jwtDecrypt(challenge, await importJWK(privateKey, "ECDH-ES"))
 			sessionStorage.setItem("appToken", JSON.stringify(access_token))
 		}
 
@@ -71,6 +71,9 @@ export const StatusContextProvider = ({ children }: { children: React.ReactNode 
 		speed: null,
 	});
 	const [hidePwaPrompt, setHidePwaPrompt] = useLocalStorage<boolean>("hidePwaPrompt", false);
+	const walletDataKeypair = useSelector((state: AppState) => {
+		return state.sessions.walletDataKeypair
+	})
 
 	const lastUpdateCallTime = React.useRef<number>(0);
 

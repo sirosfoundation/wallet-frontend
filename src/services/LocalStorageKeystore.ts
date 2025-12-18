@@ -12,6 +12,7 @@ import { useIndexedDb } from "../hooks/useIndexedDb";
 import { useOnUserInactivity } from "../hooks/useOnUserInactivity";
 
 import * as keystore from "./keystore";
+import { Keypair } from "./WalletStateSchemaVersion3";
 import type { AsymmetricEncryptedContainer, AsymmetricEncryptedContainerKeys, EncryptedContainer, OpenedContainer, PrivateData, UnlockSuccess, WebauthnPrfEncryptionKeyInfo, WebauthnPrfSaltInfo, WrappedKeyInfo } from "./keystore";
 import { MDoc } from "@auth0/mdl";
 import { WalletStateUtils } from "./WalletStateUtils";
@@ -91,6 +92,11 @@ export interface LocalStorageKeystore {
 
 	generateKeypairs(n: number): Promise<[
 		{ keypairs: keystore.CredentialKeyPair[] },
+		AsymmetricEncryptedContainer,
+		CommitCallback,
+	]>,
+	generateWalletDataKeypair(): Promise<[
+		Keypair,
 		AsymmetricEncryptedContainer,
 		CommitCallback,
 	]>,
@@ -636,6 +642,21 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		[editPrivateData]
 	);
 
+	const generateWalletDataKeypair = useCallback(
+		async (): Promise<[
+			Keypair,
+			AsymmetricEncryptedContainer,
+			CommitCallback,
+		]> => (
+			await editPrivateData(async (originalContainer) => {
+				return await keystore.createWalletDataKeypair(
+					originalContainer,
+				);
+			})
+		),
+		[editPrivateData]
+	);
+
 
 	const getCalculatedWalletState = useCallback((): WalletState | null => {
 		return (calculatedWalletState);
@@ -807,6 +828,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		signJwtPresentation,
 		generateOpenid4vciProofs,
 		generateKeypairs,
+		generateWalletDataKeypair,
 		generateDeviceResponse,
 		generateDeviceResponseWithProximity,
 		getCalculatedWalletState,
@@ -836,6 +858,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		signJwtPresentation,
 		generateOpenid4vciProofs,
 		generateKeypairs,
+		generateWalletDataKeypair,
 		generateDeviceResponse,
 		generateDeviceResponseWithProximity,
 		getCalculatedWalletState,

@@ -1,10 +1,13 @@
 import React, { useContext, useEffect, useCallback, useRef, useState, useMemo } from 'react';
+import { useDispatch } from 'react-redux';
 
-import StatusContext from './StatusContext';
+import { setWalletDataKeypair } from '@/store';
 import { useApi } from '../api';
+import type { Keypair } from '@/services/WalletStateSchemaVersion3';
 import { logger } from '@/logger';
 import { KeystoreEvent, useLocalStorageKeystore } from '../services/LocalStorageKeystore';
 import keystoreEvents from '../services/keystoreEvents';
+import StatusContext from './StatusContext';
 import SessionContext, { SessionContextValue } from './SessionContext';
 import { useWalletStateCredentialsMigrationManager } from '@/services/WalletStateCredentialsMigrationManager';
 import { useWalletStatePresentationsMigrationManager } from '@/services/WalletStatePresentationsMigrationManager';
@@ -13,7 +16,8 @@ import { fetchKeyConfig, HpkeConfig } from '@/lib/utils/ohttpHelpers';
 import { OHTTP_KEY_CONFIG } from '@/config';
 
 export const SessionContextProvider = ({ children }) => {
-	const { isOnline } = useContext(StatusContext);
+	const dispatch = useDispatch();
+	const { isOnline, updateOnlineStatus } = useContext(StatusContext);
 	const api = useApi(isOnline);
 	const keystore = useLocalStorageKeystore(keystoreEvents);
 	const { getCalculatedWalletState } = keystore;
@@ -100,6 +104,29 @@ export const SessionContextProvider = ({ children }) => {
 		}
 	}, [globalTabId, tabId, clearSession, api, keystore]);
 
+	useEffect(() => {
+		if (keystore.isOpen() === false) return;
+
+		const walletState = keystore.getCalculatedWalletState();
+		if (!walletState) return;
+
+		(async () => {
+			let walletDataKeypair: Keypair;
+			if (walletState.walletDataKeypairs?.length) {
+				walletDataKeypair = walletState
+					.walletDataKeypairs[walletState.walletDataKeypairs.length -1]
+					.keypair;
+			} else {
+				const [keypair, privateData, commit] = await keystore.generateWalletDataKeypair();
+				await api.updatePrivateData(privateData)
+				await commit()
+				walletDataKeypair = keypair
+			}
+
+			dispatch(setWalletDataKeypair(walletDataKeypair))
+			updateOnlineStatus()
+		})()
+	}, [dispatch, keystore, api, updateOnlineStatus])
 
 	if ((api.isLoggedIn() === true && (keystore.isOpen() === false || !walletStateLoaded))) {
 		return <></>

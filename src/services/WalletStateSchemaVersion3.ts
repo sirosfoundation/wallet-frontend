@@ -1,6 +1,7 @@
 import * as WalletSchemaCommon from './WalletStateSchemaCommon';
 import * as SchemaV2 from './WalletStateSchemaVersion2';
 import { JWK } from 'jose';
+import { MergeStrategy } from './WalletStateSchemaVersion1';
 
 export * from './WalletStateSchemaVersion2';
 
@@ -11,12 +12,15 @@ export * from './WalletStateSchemaVersion2';
 export const SCHEMA_VERSION = 3;
 
 
-export type CredentialKeyPair = {
-	kid: string,
-	did: string,
+export type Keypair = {
 	alg: string,
 	publicKey: JWK,
 	privateKey: JWK,
+}
+
+export type CredentialKeyPair = Keypair & {
+	kid: string,
+	did: string,
 }
 
 export type WalletStateContainer = {
@@ -33,6 +37,7 @@ export type WalletSessionEventTypeAttributes = (
 	SchemaV2.WalletSessionEventNewCredential
 	| SchemaV2.WalletSessionEventDeleteCredential
 	| WalletSessionEventNewKeypair
+	| WalletSessionEventNewWalletDataKeypair
 	| SchemaV2.WalletSessionEventDeleteKeypair
 	| SchemaV2.WalletSessionEventNewPresentation
 	| SchemaV2.WalletSessionEventDeletePresentation
@@ -41,6 +46,12 @@ export type WalletSessionEventTypeAttributes = (
 	| SchemaV2.WalletSessionEventDeleteCredentialIssuanceSession
 );
 
+export type WalletSessionEventNewWalletDataKeypair = {
+	type: "new_wallet_data_keypair",
+	kid: string,
+	keypair: Keypair,
+}
+
 export type WalletSessionEventNewKeypair = {
 	type: "new_keypair",
 	kid: string,
@@ -48,6 +59,10 @@ export type WalletSessionEventNewKeypair = {
 }
 
 export type WalletStateV3 = Omit<SchemaV2.WalletState, "keypairs"> & {
+	walletDataKeypairs: {
+		kid: string,
+		keypair: Keypair,
+	}[],
 	keypairs: {
 		kid: string,
 		keypair: CredentialKeyPair,
@@ -56,6 +71,7 @@ export type WalletStateV3 = Omit<SchemaV2.WalletState, "keypairs"> & {
 export type WalletStateV3OrEarlier = SchemaV2.WalletState | WalletStateV3;
 export type WalletState = WalletStateV3;
 
+export type WalletStateWalletDataKeypair = WalletState['walletDataKeypairs'][number];
 export type WalletStateKeypair = WalletState['keypairs'][number];
 
 function isV3State(state: WalletStateV3OrEarlier): state is WalletStateV3 {
@@ -70,6 +86,18 @@ function isLegacyState(state: WalletStateV3OrEarlier): state is SchemaV2.WalletS
 	return state.schemaVersion < SCHEMA_VERSION;
 }
 
+export function walletDatakeypairReducer(state: WalletStateWalletDataKeypair[] = [], newEvent: WalletSessionEventNewWalletDataKeypair) {
+	switch (newEvent.type) {
+		case "new_wallet_data_keypair":
+			return state.concat([{
+				kid: newEvent.kid,
+				keypair: newEvent.keypair,
+			}]);
+		default:
+			return state;
+	}
+}
+
 function keypairReducer(state: WalletStateKeypair[] = [], newEvent: WalletSessionEvent): WalletStateKeypair[] {
 	// Runtime logic is identical to V2. The only difference is between
 	// `SchemaV2.WalletStateKeypair.keypair.wrappedPrivateKey` and
@@ -81,7 +109,11 @@ function keypairReducer(state: WalletStateKeypair[] = [], newEvent: WalletSessio
 	) as unknown as WalletStateKeypair[];
 }
 
-const v2strats = SchemaV2.mergeStrategies;
+// @ts-expect-error
+const v3strats: Record<WalletSessionEvent["type"], MergeStrategy> = {
+	...SchemaV2.mergeStrategies,
+	new_wallet_data_keypair: (a, b) => a.concat(b),
+};
 
 export function createOperations(
 	SCHEMA_VERSION: number,
@@ -121,18 +153,25 @@ export function createOperations(
 					schemaVersion: newEvent.schemaVersion,
 					keypairs: keypairReducer(stateV3.keypairs, newEvent),
 				};
-			} else {
-				// newEvent is type narrowed here to be one of the SchemaV2 event types
-				// (but with `schemaVersion: 3`), so we can use the V2 reducers natively
+			}
+			if (newEvent.type === "new_wallet_data_keypair") {
 				return {
-					...state,
+					...stateV3,
 					schemaVersion: newEvent.schemaVersion,
-					credentials: SchemaV2.credentialReducer(state.credentials, newEvent),
-					presentations: SchemaV2.presentationReducer(state.presentations, newEvent),
-					credentialIssuanceSessions: SchemaV2.credentialIssuanceSessionReducer(state.credentialIssuanceSessions, newEvent),
-					settings: SchemaV2.settingsReducer(state.settings, newEvent)
+					walletDataKeypairs: walletDatakeypairReducer(stateV3.walletDataKeypairs, newEvent),
 				};
 			}
+
+			// newEvent is type narrowed here to be one of the SchemaV2 event types
+			// (but with `schemaVersion: 3`), so we can use the V2 reducers natively
+			return {
+				...state,
+				schemaVersion: newEvent.schemaVersion,
+				credentials: SchemaV2.credentialReducer(state.credentials, newEvent),
+				presentations: SchemaV2.presentationReducer(state.presentations, newEvent),
+				credentialIssuanceSessions: SchemaV2.credentialIssuanceSessionReducer(state.credentialIssuanceSessions, newEvent),
+				settings: SchemaV2.settingsReducer(state.settings, newEvent)
+			};
 		} else if (isLegacyState(state)) {
 			// Note: type narrowing incorrectly concludes `newEvent: SchemaV2.WalletSessionEventNewKeypair` here,
 			// but at least the types are compatible.
@@ -151,4 +190,4 @@ export function createOperations(
 	};
 }
 
-export const WalletStateOperations = createOperations(SCHEMA_VERSION, v2strats);
+export const WalletStateOperations = createOperations(SCHEMA_VERSION, v3strats);

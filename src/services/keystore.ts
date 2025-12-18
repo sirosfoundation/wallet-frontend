@@ -15,7 +15,7 @@ import { DeviceResponse, MDoc } from "@auth0/mdl";
 import { SupportedAlgs } from "@auth0/mdl/lib/mdoc/model/types";
 import { COSEKeyToJWK } from "cose-kit";
 import { withHintsFromAllowCredentials } from "@/util-webauthn";
-import { addDeleteKeypairEvent, addNewKeypairEvent, CurrentSchema, foldState, SchemaV1, SchemaV2, SchemaV3 } from "./WalletStateSchema";
+import { addDeleteKeypairEvent, addNewKeypairEvent, addWalletDataKeypairEvent, CurrentSchema, foldState, SchemaV1, SchemaV2, SchemaV3 } from "./WalletStateSchema";
 
 type WalletState = CurrentSchema.WalletState;
 type WalletStateContainerV2 = SchemaV2.WalletStateContainer;
@@ -1074,6 +1074,58 @@ export async function updateWalletState(
 			}
 		)
 	}
+}
+
+export async function createWalletDataKeypair(
+	[privateData, mainKey]: OpenedContainer,
+): Promise<[
+	{
+		alg: string,
+		publicKey: JWK,
+		privateKey: JWK,
+	},
+	OpenedContainer,
+]> {
+	const deriveKid = async (publicKey: CryptoKey) => {
+		const pubKey = await crypto.subtle.exportKey("jwk", publicKey);
+		const jwkThumbprint = await jose.calculateJwkThumbprint(pubKey as JWK, "sha256");
+		return jwkThumbprint;
+	};
+	const alg = "ECDH-ES";
+	const { publicKey, privateKey } = await crypto.subtle.generateKey(
+		{ name: "ECDH", namedCurve: "P-256" },
+		true,
+		["deriveKey", "deriveBits"]
+	);
+		const publicKeyJwk: JWK = await crypto.subtle.exportKey("jwk", publicKey) as JWK;
+		const privateKeyJwk = await crypto.subtle.exportKey('jwk', privateKey) as JWK;
+		const kid = await deriveKid(publicKey);
+
+		const keypair = {
+			alg,
+			publicKey: publicKeyJwk,
+			privateKey: privateKeyJwk,
+		};
+
+	console.log("createWalletDataKeyPair: Before update private data")
+	return [
+		keypair,
+		await updatePrivateData(
+			[privateData, mainKey],
+			async (privateData: PrivateData) => {
+
+				// append events
+				privateData = await addWalletDataKeypairEvent(privateData, alg, kid, keypair);
+
+				return {
+					...privateData,
+					S: privateData.S,
+					events: privateData.events,
+					lastEventHash: privateData.lastEventHash ?? "",
+				}
+			}
+		)
+	];
 }
 
 async function addNewCredentialKeypairs(
