@@ -75,22 +75,10 @@ export const StatusContextProvider = ({ children }: { children: React.ReactNode 
 		return state.sessions.walletDataKeypair
 	})
 
-	const lastUpdateCallTime = React.useRef<number>(0);
 
-	const updateOnlineStatus = async (forceCheck = true) => {
-
+	const updateOnlineStatus = useCallback(async () => {
 		const navigatorOnline = getNavigatorOnlineStatus();
-		const now = Date.now();
-
-		// If not a forced check and last call was within the last 5 seconds, skip the update
-		if (!forceCheck && now - lastUpdateCallTime.current < 5000) {
-			return;
-		}
-
-		// Update the last call time
-		lastUpdateCallTime.current = now;
-
-		const internetConnection = await checkInternetConnection();
+		const internetConnection = await checkInternetConnection(walletDataKeypair);
 
 		if (internetConnection.isConnected) {
 			dispatch(fetchEvents())
@@ -116,7 +104,7 @@ export const StatusContextProvider = ({ children }: { children: React.ReactNode 
 		} else {
 			dispatch(setOffline());
 		}
-	}
+	}, [dispatch, walletDataKeypair])
 
 	useEffect(() => {
 		// Add event listeners for online/offline status
@@ -134,71 +122,23 @@ export const StatusContextProvider = ({ children }: { children: React.ReactNode 
 		logger.debug('Online status:', isOnline);
 	}, [isOnline]);
 
-	// Polling logic when offline
 	useEffect(() => {
 		let pollingInterval: NodeJS.Timeout | null = null;
 		const startPolling = () => {
 			pollingInterval = setInterval(async () => {
 				updateOnlineStatus();
-			}, 7000); // Poll every 7 seconds
+			}, 5000);
 		};
 
-		if (!isOnline) {
-			startPolling();
-		} else if (pollingInterval) {
+		startPolling();
+
+		if (pollingInterval) {
 			clearInterval(pollingInterval);
 		}
 
-		return () => {
-			if (pollingInterval) {
-				clearInterval(pollingInterval);
-			}
-		};
-	}, [isOnline]); // eslint-disable-line
-
-	// Polling logic when online
-	useEffect(() => {
-		let pollingInterval: NodeJS.Timeout | null = null;
-
-		const poll = () => {
-			const now = Date.now();
-			if (!document.hidden && now - lastUpdateCallTime.current > 20000) {
-				updateOnlineStatus(false);
-			}
-		};
-
-		const startPolling = () => {
-			if (!pollingInterval) {
-				pollingInterval = setInterval(poll, 20000);
-			}
-		};
-
-		const stopPolling = () => {
-			if (pollingInterval) {
-				clearInterval(pollingInterval);
-				pollingInterval = null;
-			}
-		};
-
-		const handleVisibilityChange = () => {
-			if (document.hidden) {
-				stopPolling();
-			} else {
-				startPolling();
-				poll(); // Trigger immediately when returning to foreground
-			}
-		};
-
-		if (isOnline) {
-			startPolling();
-			document.addEventListener('visibilitychange', handleVisibilityChange);
-		}
-
-		return () => {
-			stopPolling();
-			document.removeEventListener('visibilitychange', handleVisibilityChange);
-		};
-	}, [isOnline]); // eslint-disable-line
+		updateOnlineStatus();
+;
+	}, [updateOnlineStatus]);
 
 	useEffect(() => {
 		// beforeinstallprompt is triggered if browser can install pwa
@@ -243,9 +183,6 @@ export const StatusContextProvider = ({ children }: { children: React.ReactNode 
 		setHidePwaPrompt(true);
 	}
 
-	useEffect(() => {
-		updateOnlineStatus();
-	}, []); // eslint-disable-line
 	return (
 		<StatusContext.Provider value={{ isOnline, updateAvailable, connectivity, updateOnlineStatus, pwaInstallable, dismissPwaPrompt, hidePwaPrompt }}>
 			{children}
