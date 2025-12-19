@@ -1,5 +1,5 @@
 import axios from "axios";
-import { exportJWK, generateKeyPair, jwtDecrypt, SignJWT } from "jose";
+import { exportJWK, generateKeyPair, generateSecret, JWK, jwtDecrypt, SignJWT } from "jose";
 import { EncryptJWT, importJWK, JWTPayload } from 'jose';
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import { ExtendedVcEntity } from "@/context/CredentialsContext";
@@ -16,7 +16,16 @@ type WalletState = {
 	keypairs: CredentialKeyPair[],
 }
 
-type EncryptedEvents = Record<string, string>
+type AddressingTable = Array<{
+	hash: string;
+	encryption_key: JWK;
+}>
+
+type EncryptedEvents = Array<{
+	hash: string;
+	payload: string;
+	encryption_key: JWK;
+}>
 
 export class EventStore {
 	snapshot: Snapshot = {};
@@ -24,7 +33,7 @@ export class EventStore {
 		credentials: [],
 		keypairs: []
 	};
-	encryptedEvents: EncryptedEvents = {};
+	encryptedEvents: EncryptedEvents = [];
 
 	constructor(snapshot: Snapshot = {}) {
 		this.snapshot = snapshot
@@ -44,9 +53,7 @@ export const storeEvent = createAsyncThunk('sessions/addEvent', async (
 		hash: string,
 		payload: JWTPayload,
 	},
-	{ getState }
 ) => {
-	const sessionPublicKeyJwk = (getState() as AppState).sessions.walletDataKeypair.publicKey
 	const appToken= JSON.parse(sessionStorage.getItem("appToken") || "");
 
 	const { publicKey, privateKey } = await generateKeyPair("ES256");
@@ -66,18 +73,34 @@ export const storeEvent = createAsyncThunk('sessions/addEvent', async (
 	})
 	.sign(privateKey);
 
+	const encryption_key = await generateSecret("A256GCMKW", { extractable: true })
 	const data = await new EncryptJWT(payload as JWTPayload)
-	.setProtectedHeader({ alg: "ECDH-ES", enc: "A256GCM" })
-	.encrypt(await importJWK(sessionPublicKeyJwk, "ECDH-ES"))
+	.setProtectedHeader({ alg: "A256GCMKW", enc: "A256GCM" })
+	.encrypt(encryption_key)
 
-	return await axios.put<{ events: EncryptedEvents }>(`${walletBackendServerUrl}/event-store/events/${hash}`, data, {
+	const addressing_table = [{ hash, encryption_key: await exportJWK(encryption_key) }]
+	const body = {
+		addressing_table: await Promise.all(
+			addressing_table.map(addressing_record => new SignJWT(addressing_record)
+				.setProtectedHeader({ "alg": "HS256" })
+				.sign(new TextEncoder().encode("secret")))
+		),
+		events: [{ payload: data, hash }],
+	}
+
+	return await axios.put<{ addressing_table: AddressingTable, events: EncryptedEvents }>(`${walletBackendServerUrl}/event-store/events/${hash}`, body, {
 		headers: {
-			"Content-Type": "application/jose",
 			"Authorization": `Bearer ${appToken}`,
 			"DPoP": dpop,
 		}
 	}).then(({ data }) => {
-		return data.events
+		return data.events.map(event => {
+			return {
+				...event,
+				encryption_key: addressing_table
+					.find(({ hash: address }) => address === event.hash)?.encryption_key
+			}
+		})
 	})
 })
 
@@ -105,13 +128,19 @@ export const fetchEvents = createAsyncThunk('sessions/fetchEvents', async (
 	})
 	.sign(privateKey);
 
-	return axios.get<{ events: EncryptedEvents }>(`${walletBackendServerUrl}/event-store/events`, {
+	return axios.get<{ addressing_table: AddressingTable, events: EncryptedEvents }>(`${walletBackendServerUrl}/event-store/events`, {
 		headers: {
 			"Authorization": `Bearer ${appToken}`,
 			"DPoP": dpop,
 		}
 	}).then(({ data }) => {
-		eventStore.encryptedEvents = data.events
+		eventStore.encryptedEvents = data.events.map(event => {
+			return {
+				...event,
+				encryption_key: data.addressing_table
+					.find(({ hash: address }) => address === event.hash)?.encryption_key
+			}
+		})
 		return eventStore
 	})
 })
@@ -125,13 +154,12 @@ export const buildWalletState = createAsyncThunk('sessions/buildWalletState', as
 	const eventStore = (getState() as AppState).sessions.eventStore;
 	const rawEvents = eventStore.encryptedEvents
 
-	const sessionPrivateKeyJwk = (getState() as AppState).sessions.walletDataKeypair.privateKey
 	const clearEvents = await Promise.all(
-		Object.values(rawEvents)
-			.map(async (event: string) => {
+		rawEvents
+			.map(async (event) => {
 				const { payload } = await jwtDecrypt(
-					event,
-					await importJWK(sessionPrivateKeyJwk, "ECDH-ES")
+					event.payload,
+					await importJWK(event.encryption_key, "A256GCMKW")
 				)
 				return payload as { type: string, timestamp: number, payload: Record<string, unknown> }
 			})
