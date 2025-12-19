@@ -134,13 +134,7 @@ export const fetchEvents = createAsyncThunk('sessions/fetchEvents', async (
 			"DPoP": dpop,
 		}
 	}).then(({ data }) => {
-		eventStore.encryptedEvents = data.events.map(event => {
-			return {
-				...event,
-				encryption_key: data.addressing_table
-					.find(({ hash: address }) => address === event.hash)?.encryption_key
-			}
-		})
+		eventStore.encryptedEvents = data.events
 		return eventStore
 	})
 })
