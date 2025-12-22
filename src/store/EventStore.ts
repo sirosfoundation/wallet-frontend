@@ -1,9 +1,10 @@
 import axios from "axios";
-import { exportJWK, generateKeyPair, generateSecret, JWK, jwtDecrypt, SignJWT } from "jose";
-import { EncryptJWT, importJWK, JWTPayload } from 'jose';
+import { exportJWK, generateKeyPair, JWK, jwtDecrypt, SignJWT } from "jose";
+import { EncryptJWT, JWTPayload } from 'jose';
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import { ExtendedVcEntity } from "@/context/CredentialsContext";
-import { CredentialKeyPair } from "@/services/keystore";
+import { jsonParseTaggedBinary, jsonStringifyTaggedBinary } from "@/util";
+import { CredentialKeyPair, importMainKey } from "@/services/keystore";
 import { AppState } from ".";
 
 // @ts-ignore
@@ -73,12 +74,32 @@ export const storeEvent = createAsyncThunk('sessions/addEvent', async (
 	})
 	.sign(privateKey);
 
-	const encryption_key = await generateSecret("A256GCMKW", { extractable: true })
+	const encryption_key = await crypto.subtle.generateKey(
+		{ name: "AES-GCM", length: 256 },
+		true,
+		["encrypt", "decrypt"]
+	);
 	const data = await new EncryptJWT(payload as JWTPayload)
 	.setProtectedHeader({ alg: "A256GCMKW", enc: "A256GCM" })
 	.encrypt(encryption_key)
 
-	const addressing_table = [{ hash, encryption_key: await exportJWK(encryption_key) }]
+	const mainKey = jsonParseTaggedBinary(sessionStorage.getItem("mainKey"))
+
+	const iv = crypto.getRandomValues(new Uint8Array(12));
+	const wrappedKey = await crypto.subtle.wrapKey(
+	  "jwk",
+	  encryption_key,
+	  await importMainKey(mainKey),
+	  { name: "AES-GCM", iv }
+	);
+
+	const addressing_table = [{
+		hash,
+		encryption_key: {
+			wrappedKey: jsonStringifyTaggedBinary(new Uint8Array(wrappedKey)),
+			iv: jsonStringifyTaggedBinary(iv),
+		}
+	}]
 	const body = {
 		addressing_table: await Promise.all(
 			addressing_table.map(addressing_record => new SignJWT(addressing_record)
@@ -151,9 +172,20 @@ export const buildWalletState = createAsyncThunk('sessions/buildWalletState', as
 	const clearEvents = await Promise.all(
 		rawEvents
 			.map(async (event) => {
+				const mainKey = jsonParseTaggedBinary(sessionStorage.getItem("mainKey"))
+				const { wrappedKey, iv } = event.encryption_key
+				const unwrappedKey = await crypto.subtle.unwrapKey(
+				  "jwk",
+				  jsonParseTaggedBinary(wrappedKey as string),
+				  await importMainKey(mainKey),
+				  { name: "AES-GCM", iv: jsonParseTaggedBinary(iv as string) },
+				  { name: "AES-GCM", length: 256 },
+				  true,
+				  ["encrypt", "decrypt"]
+				);
 				const { payload } = await jwtDecrypt(
 					event.payload,
-					await importJWK(event.encryption_key, "A256GCMKW")
+					unwrappedKey,
 				)
 				return payload as { type: string, timestamp: number, payload: Record<string, unknown> }
 			})
