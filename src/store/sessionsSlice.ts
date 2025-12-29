@@ -1,6 +1,6 @@
 import { BackendApi } from "@/api";
 import { ExtendedVcEntity } from "@/context/CredentialsContext";
-import { CredentialKeyPair, EncryptedContainer } from "@/services/keystore";
+import { EncryptedContainer } from "@/services/keystore";
 import { LocalStorageKeystore } from "@/services/LocalStorageKeystore";
 import { WalletState } from "@/services/WalletStateSchemaCommon";
 import { createSlice } from "@reduxjs/toolkit";
@@ -23,7 +23,6 @@ type State = {
 		};
 	};
 	vcEntityList: ExtendedVcEntity[];
-	keypairs: Record<string, CredentialKeyPair>;
 }
 
 export const sessionsSlice = createSlice({
@@ -44,7 +43,6 @@ export const sessionsSlice = createSlice({
 		},
 		api: null,
 		vcEntityList: null,
-		keypairs: {},
 	},
 	reducers: {
 		setKeystore: (state: State, { payload }: { payload: LocalStorageKeystore }) => {
@@ -86,16 +84,6 @@ export const sessionsSlice = createSlice({
 			}
 			if (payload.length < current.length) state.vcEntityList = payload
 		},
-		setKeypairs: (state: State, { payload }: { payload:  CredentialKeyPair[] }) => {
-			if (!state.keypairs) {
-				state.keypairs = {}
-				return
-			}
-
-			payload.forEach(keypair => {
-				state.keypairs[keypair.kid] = keypair
-			})
-		},
 	},
 	extraReducers: (builder) => {
 		builder.addCase(storeEvent.fulfilled, (state: State, action) => {
@@ -107,7 +95,6 @@ export const sessionsSlice = createSlice({
 		builder.addCase(buildWalletState.fulfilled, (state: State, action) => {
 			state.eventStore.walletState = action.payload
 			state.vcEntityList = state.eventStore.walletState.credentials
-			Object.assign(state.keypairs, state.eventStore.walletState.keypairs)
 		})
 		builder.addCase(buildWalletState.rejected, (_state: State, action) => {
 			console.error("buildWalletState reducer", action)
@@ -123,6 +110,5 @@ export const {
 	setStorageValue,
 	setApi,
 	setVcEntityList,
-	setKeypairs,
 } = sessionsSlice.actions;
 export default sessionsSlice.reducer;
