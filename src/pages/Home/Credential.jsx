@@ -35,10 +35,10 @@ import { storeEvent, buildWalletState, fetchEvents } from "@/store/EventStore";
 const Credential = () => {
 	const dispatch = useDispatch();
 	const { batchId } = useParams();
-	const { api, keystore } = useContext(SessionContext);
+	const { keystore } = useContext(SessionContext);
 	const history = useFetchPresentations(keystore, batchId, null);
 	const [showDeletePopup, setShowDeletePopup] = useState(false);
-	const [loading, setLoading] = useState(false);
+	const [loading, ] = useState(false);
 	const screenType = useScreenType();
 	const { generateEngagementQR, startClient, getMdocRequest, sendMdocResponse, terminateSession } = useMdocAppCommunication();
 	const [showMdocQR, setShowMdocQR] = useState(false);
@@ -82,17 +82,20 @@ const Credential = () => {
 		if (!cachedUser) {
 			return;
 		}
-		const result = await api.syncPrivateData(cachedUser);
-		if (!result.ok) {
-			setLoading(false);
-			return;
-		}
+		// const result = await api.syncPrivateData(cachedUser);
+		// if (!result.ok) {
+		// 	setLoading(false);
+		// 	return;
+		// }
 
-		await dispatch(storeEvent(Date.now().toString(), {
-			type: "delete_credential",
-			timestamp: Date.now() / 1000,
+		await dispatch(storeEvent({
+			hash: Date.now().toString(),
 			payload: {
-				batchId: parseInt(batchId),
+				type: "delete_credential",
+				timestamp: Date.now() / 1000,
+				payload: {
+					batchId: parseInt(batchId),
+				}
 			}
 		}))
 

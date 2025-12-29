@@ -5,6 +5,7 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 import { ExtendedVcEntity } from "@/context/CredentialsContext";
 import { jsonParseTaggedBinary, jsonStringifyTaggedBinary } from "@/util";
 import { CredentialKeyPair, importMainKey } from "@/services/keystore";
+import { WalletStateCredential } from "@/services/WalletStateSchemaVersion1";
 import { AppState } from ".";
 
 // @ts-ignore
@@ -28,6 +29,33 @@ type EncryptedEvents = Array<{
 	encryption_key: JWK;
 }>
 
+type WalletEvent = AddCredentialEvent | DeleteCredentialEvent
+
+type AddCredentialEvent = {
+	hash: string;
+	payload: {
+		type: "add_credential";
+		timestamp: number;
+		payload: WalletStateCredential & {
+			proofs: {
+				proofKey: JWK;
+				proof: string;
+			}[];
+		};
+	};
+}
+
+type DeleteCredentialEvent = {
+	hash: string;
+	payload: {
+		type: "delete_credential";
+		timestamp: number;
+		payload: {
+			batchId: number;
+		};
+	};
+}
+
 export class EventStore {
 	snapshot: Snapshot = {};
 	walletState: WalletState = {
@@ -50,10 +78,7 @@ export class EventStore {
 }
 
 export const storeEvent = createAsyncThunk('sessions/addEvent', async (
-	{ hash, payload } : {
-		hash: string,
-		payload: JWTPayload,
-	},
+	{ hash, payload } : WalletEvent,
 ) => {
 	const appToken= JSON.parse(sessionStorage.getItem("appToken") || "");
 
@@ -166,13 +191,13 @@ export const buildWalletState = createAsyncThunk('sessions/buildWalletState', as
 	}: { credentialEngine: any },
 	{ getState },
 ) => {
+	const mainKey = jsonParseTaggedBinary(sessionStorage.getItem("mainKey"))
 	const eventStore = (getState() as AppState).sessions.eventStore;
 	const rawEvents = eventStore.encryptedEvents
 
-	const clearEvents = await Promise.all(
+	const clearEvents: Array<WalletEvent["payload"]> = await Promise.all(
 		rawEvents
 			.map(async (event) => {
-				const mainKey = jsonParseTaggedBinary(sessionStorage.getItem("mainKey"))
 				const { wrappedKey, iv } = event.encryption_key
 				const unwrappedKey = await crypto.subtle.unwrapKey(
 				  "jwk",
@@ -187,7 +212,7 @@ export const buildWalletState = createAsyncThunk('sessions/buildWalletState', as
 					event.payload,
 					unwrappedKey,
 				)
-				return payload as { type: string, timestamp: number, payload: Record<string, unknown> }
+				return payload as WalletEvent["payload"]
 			})
 	)
 
@@ -227,10 +252,6 @@ export const buildWalletState = createAsyncThunk('sessions/buildWalletState', as
 				eventStore.walletState.credentials.indexOf(deletedCredential),
 				1
 			);
-		}
-
-		if (event.type === "add_keypair") {
-			walletState.keypairs.push(event.payload as CredentialKeyPair)
 		}
 	}
 

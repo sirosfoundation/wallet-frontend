@@ -82,7 +82,10 @@ export const CredentialRequestHandler = ({ goToStep: _goToStep, data }) => {
 					}
 				).filter(proofType => proofType)
 
-				const proofs = await Promise.all(
+				const proofs: {
+					proofKey: JWK;
+					proof: string;
+				}[] = await Promise.all(
 					proofTypes.map(async (proofType) => {
 						const proofKey = await generateKeyPair("ES256", { extractable: true });
 
@@ -113,7 +116,7 @@ export const CredentialRequestHandler = ({ goToStep: _goToStep, data }) => {
 					}))
 
 				const credentials = await Promise.all(
-					credential_configuration_ids.map(async (credential_configuration_id: string, index: number) => {
+					credential_configuration_ids.map(async (credential_configuration_id: string) => {
 						// TODO manage transaction data
 						const { data: { credentials } } = await core.credential({
 							access_token,
@@ -182,27 +185,9 @@ export const CredentialRequestHandler = ({ goToStep: _goToStep, data }) => {
 								kid,
 								credentialConfigurationId,
 								instanceId,
-								credentialId
+								credentialId,
+								proofs,
 							}
-						}
-					}))
-				}
-
-				const deriveKid = async (publicKey: CryptoKey) => {
-					const pubKey = await crypto.subtle.exportKey("jwk", publicKey);
-					const jwkThumbprint = await calculateJwkThumbprint(pubKey as JWK, "sha256");
-					return jwkThumbprint;
-				};
-				const keypairs = proofs.map(({ proofKey }) => proofKey)
-				for (const keypair of keypairs) {
-					await dispatch(storeEvent((Date.now() + 1).toString(), {
-						type: "add_keypair",
-						timestamp: Date.now() / 1000,
-						payload: {
-							kid: await deriveKid(keypair.publicKey),
-							alg: keypair.alg,
-							publicKey: await exportJWK(keypair.publicKey),
-							privateKey: await exportJWK(keypair.privateKey),
 						}
 					}))
 				}

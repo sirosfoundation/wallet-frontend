@@ -5,7 +5,7 @@ import { LocalStorageKeystore } from "@/services/LocalStorageKeystore";
 import { WalletState } from "@/services/WalletStateSchemaCommon";
 import { createSlice } from "@reduxjs/toolkit";
 import { buildWalletState, EventStore, storeEvent } from "./EventStore";
-import {Keypair} from "@/services/WalletStateSchemaVersion3";
+import { Keypair } from "@/services/WalletStateSchemaVersion3";
 
 type State = {
 	keystore: LocalStorageKeystore | null;
