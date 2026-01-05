@@ -15,7 +15,7 @@ import { useLocalStorage, useSessionStorage } from '@/hooks/useStorage';
 import { fetchKeyConfig, HpkeConfig } from '@/lib/utils/ohttpHelpers';
 import { OHTTP_KEY_CONFIG } from '@/config';
 
-export const SessionContextProvider = ({ children }) => {
+export const SessionContextProvider = ({ children }: React.PropsWithChildren) => {
 	const dispatch = useDispatch();
 	const { isOnline, updateOnlineStatus } = useContext(StatusContext);
 	const api = useApi(isOnline);
@@ -29,6 +29,8 @@ export const SessionContextProvider = ({ children }) => {
 	// A unique id for each logged in tab
 	const [globalTabId] = useLocalStorage<string | null>("globalTabId", null);
 	const [tabId] = useSessionStorage<string | null>("tabId", null);
+
+	const [appToken] = useSessionStorage<string | null>("appToken", null);
 
 	useWalletStateCredentialsMigrationManager(keystore, api, isOnline, isLoggedIn);
 	useWalletStatePresentationsMigrationManager(keystore, api, isOnline, isLoggedIn);
@@ -127,6 +129,14 @@ export const SessionContextProvider = ({ children }) => {
 			updateOnlineStatus()
 		})()
 	}, [dispatch, keystore, api, updateOnlineStatus])
+
+	useEffect(() => {
+		if ((appToken === "" && isLoggedIn === true && isOnline === true) || // is logged-in when offline but now user is online again
+			(appToken !== "" && appToken !== null && isLoggedIn === true && isOnline === false)) { // is logged-in when online but now the user has lost connection
+			logout();
+		}
+
+	}, [appToken, isLoggedIn, isOnline, logout])
 
 	if ((api.isLoggedIn() === true && (keystore.isOpen() === false || !walletStateLoaded))) {
 		return <></>

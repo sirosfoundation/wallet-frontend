@@ -18,7 +18,7 @@ import { CurrentSchema } from '@/services/WalletStateSchema';
 type WalletStateCredential = CurrentSchema.WalletStateCredential;
 
 
-export const CredentialsContextProvider = ({ children }) => {
+export const CredentialsContextProvider = ({ children }: React.PropsWithChildren) => {
 	const dispatch = useDispatch() as AppDispatch;
 	const { isOnline } = useContext(StatusContext);
 	const api = useApi(isOnline);
@@ -216,20 +216,19 @@ export const CredentialsContextProvider = ({ children }) => {
 	}, [fetchVcData]);
 
 	useEffect(() => {
-		if (!credentialEngine) return
+		if (!isLoggedIn || !credentialEngine) return
 
 		dispatch(fetchEvents()).then(() => {
 			dispatch(buildWalletState({ credentialEngine }))
 		})
-	}, [dispatch, credentialEngine])
+	}, [dispatch, calculatedWalletState, isLoggedIn, credentialEngine])
 
 
 	useEffect(() => {
 		if (!calculatedWalletState || !credentialEngine || !isLoggedIn) {
 			return;
 		}
-		logger.debug("Triggerring getData()")
-		getData();
+		// getData();
 	}, [getData, calculatedWalletState, vcEntityList, credentialEngine, isLoggedIn]);
 
 	const value = useMemo(() => ({
