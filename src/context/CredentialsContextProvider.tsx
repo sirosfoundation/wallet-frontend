@@ -17,7 +17,7 @@ import { CurrentSchema } from '@/services/WalletStateSchema';
 type WalletStateCredential = CurrentSchema.WalletStateCredential;
 
 
-export const CredentialsContextProvider = ({ children }) => {
+export const CredentialsContextProvider = ({ children }: React.PropsWithChildren) => {
 	const dispatch = useDispatch();
 	const { isOnline } = useContext(StatusContext);
 	const api = useApi(isOnline);

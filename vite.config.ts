@@ -6,7 +6,16 @@ import react from '@vitejs/plugin-react';
 import svgr from 'vite-plugin-svgr';
 import checker from 'vite-plugin-checker';
 import { VitePWA } from 'vite-plugin-pwa';
-import { ManifestPlugin, MobileWrapperWKAppLinksPlugin, RobotsTxtPlugin, SitemapPlugin } from './vite-plugins';
+import {
+	BrandingManifestPlugin,
+	MetadataImagePlugin,
+	MobileWrapperWKAppLinksPlugin,
+	RobotsTxtPlugin,
+	SitemapPlugin,
+	ThemePlugin,
+	getBrandingHash
+} from './vite-plugins';
+import tailwindcss from '@tailwindcss/vite';
 
 const yamlConfig = parse(fs.readFileSync(path.join(__dirname, 'config.yml')).toString()).wallet
 
@@ -19,25 +28,32 @@ Object.keys(yamlConfig).forEach((key: string) => {
 export default defineConfig(({ mode }) => {
 	const env = loadEnv(mode, process.cwd(), '');
 
+	const brandingHash = getBrandingHash(path.resolve('branding')); // Compute branding hash from your branding folder
+	process.env.VITE_BRANDING_HASH = brandingHash; // import.meta.env.VITE_BRANDING_HASH works in TS/JS
+	env.VITE_BRANDING_HASH = brandingHash; // VITE_BRANDING_HASH% works in index.html
 	return {
 		define: {
 			...walletConfig,
 		},
 		base: '/',
 		plugins: [
+			ThemePlugin(),
 			react(),
+			tailwindcss(),
 			svgr(),
 			checker({
 				eslint: {
 					lintCommand: 'eslint "./src/**/*.{js,jsx,ts,tsx}"',
 				}
 			}),
-			ManifestPlugin(env),
+			BrandingManifestPlugin(env),
+			MetadataImagePlugin(env),
 			RobotsTxtPlugin(env),
 			SitemapPlugin(env),
 			MobileWrapperWKAppLinksPlugin(env),
 			VitePWA({
 				registerType: 'autoUpdate',
+				injectRegister: null,
 				srcDir: 'src',
 				filename: 'service-worker.js', // Custom service worker (MUST exist in `src/`)
 				strategies: 'injectManifest', // Uses `src/service-worker.js` for caching

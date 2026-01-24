@@ -332,6 +332,12 @@ export function useOpenID4VCI({ showPopupConsent, showMessagePopup, openID4VCICl
 				openID4VCIHelper.getAuthorizationServerMetadata(credentialIssuerIdentifier),
 				openID4VCIHelper.getClientId(credentialIssuerIdentifier)
 			]);
+
+			if (!clientId) {
+				console.error("clientId not found");
+				return ;
+			}
+
 			if (requestCredentialsParams.usingActiveAccessToken) {
 				logger.debug("Attempting with active access token")
 
@@ -602,6 +608,11 @@ export function useOpenID4VCI({ showPopupConsent, showMessagePopup, openID4VCICl
 				openID4VCIHelper.getCredentialIssuerMetadata(credentialIssuerIdentifier),
 				openID4VCIHelper.getClientId(credentialIssuerIdentifier)
 			]);
+
+			if (!clientId) {
+				console.error("clientId not found");
+				return;
+			}
 
 			if (authzServerMetadata.authzServeMetadata.pushed_authorization_request_endpoint) {
 				const res = await openID4VCIPushedAuthorizationRequest.generate(

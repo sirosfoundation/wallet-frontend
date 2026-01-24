@@ -6,13 +6,11 @@ import { logger } from '@/logger';
 import { KeystoreEvent, useLocalStorageKeystore } from '../services/LocalStorageKeystore';
 import keystoreEvents from '../services/keystoreEvents';
 import SessionContext, { SessionContextValue } from './SessionContext';
-import { useWalletStateCredentialsMigrationManager } from '@/services/WalletStateCredentialsMigrationManager';
-import { useWalletStatePresentationsMigrationManager } from '@/services/WalletStatePresentationsMigrationManager';
 import { useLocalStorage, useSessionStorage } from '@/hooks/useStorage';
 import { fetchKeyConfig, HpkeConfig } from '@/lib/utils/ohttpHelpers';
 import { OHTTP_KEY_CONFIG } from '@/config';
 
-export const SessionContextProvider = ({ children }) => {
+export const SessionContextProvider = ({ children }: React.PropsWithChildren) => {
 	const { isOnline } = useContext(StatusContext);
 	const api = useApi(isOnline);
 	const keystore = useLocalStorageKeystore(keystoreEvents);
@@ -26,8 +24,8 @@ export const SessionContextProvider = ({ children }) => {
 	const [globalTabId] = useLocalStorage<string | null>("globalTabId", null);
 	const [tabId] = useSessionStorage<string | null>("tabId", null);
 
-	useWalletStateCredentialsMigrationManager(keystore, api, isOnline, isLoggedIn);
-	useWalletStatePresentationsMigrationManager(keystore, api, isOnline, isLoggedIn);
+	const [appToken] = useSessionStorage<string | null>("appToken", null);
+
 
 	// Use a ref to hold a stable reference to the clearSession function
 	const clearSessionRef = useRef<() => void>();
@@ -100,6 +98,13 @@ export const SessionContextProvider = ({ children }) => {
 		}
 	}, [globalTabId, tabId, clearSession, api, keystore]);
 
+	useEffect(() => {
+		if ((appToken === "" && isLoggedIn === true && isOnline === true) || // is logged-in when offline but now user is online again
+			(appToken !== "" && appToken !== null && isLoggedIn === true && isOnline === false)) { // is logged-in when online but now the user has lost connection
+			logout();
+		}
+
+	}, [appToken, isLoggedIn, isOnline, logout])
 
 	if ((api.isLoggedIn() === true && (keystore.isOpen() === false || !walletStateLoaded))) {
 		return <></>

@@ -16,11 +16,11 @@ import { OpenID4VPContextProvider } from './context/OpenID4VPContextProvider';
 import { OpenID4VCIContextProvider } from './context/OpenID4VCIContextProvider';
 import { AppSettingsProvider } from './context/AppSettingsProvider';
 import { NotificationProvider } from './context/NotificationProvider';
-import { NativeWrapperProvider } from './context/NativeWrapper';
 
 // Hocs
 import { store } from './store';
 import { UriHandler } from './hocs/UriHandler/UriHandler';
+import { NativeWrapperProvider } from './hocs/NativeWrapperProvider';
 
 type RootProviderProps = {
 	children: ReactNode;
