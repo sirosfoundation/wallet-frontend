@@ -27,6 +27,39 @@ export const OPENID4VCI_TRANSACTION_ID_LIFETIME_IN_SECONDS = import.meta.env.VIT
 export const OHTTP_KEY_CONFIG = import.meta.env.VITE_OHTTP_KEY_CONFIG;
 export const OHTTP_RELAY = import.meta.env.VITE_OHTTP_RELAY;
 export const VCT_REGISTRY_URL: string | undefined = import.meta.env.VITE_VCT_REGISTRY_URL;
+
+// ===== Transport Configuration =====
+
+/** Transport type enumeration */
+export type TransportType = 'http' | 'websocket' | 'direct';
+
+/**
+ * Transport allow-list
+ * Controls which transports are permitted
+ * Default: http,websocket enabled for backwards compatibility
+ * 'direct' disabled by default (requires ecosystem CORS support)
+ */
+export const ALLOWED_TRANSPORTS: TransportType[] = 
+  (import.meta.env.VITE_ALLOWED_TRANSPORTS || 'http,websocket')
+    .split(',')
+    .map((t: string) => t.trim())
+    .filter((t: string) => ['http', 'websocket', 'direct'].includes(t)) as TransportType[];
+
+/**
+ * Transport preference order (first available wins)
+ * Default prefers WebSocket over HTTP over Direct
+ */
+export const TRANSPORT_PREFERENCE: TransportType[] =
+  (import.meta.env.VITE_TRANSPORT_PREFERENCE || 'websocket,http,direct')
+    .split(',')
+    .map((t: string) => t.trim())
+    .filter((t: string) => ['http', 'websocket', 'direct'].includes(t)) as TransportType[];
+
+/** Derived convenience checks */
+export const HTTP_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('http');
+export const WEBSOCKET_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('websocket');
+export const DIRECT_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('direct');
+
 export const BRANDING = {
 	LOGO_LIGHT: import.meta.env.BRANDING_LOGO_LIGHT,
 	LOGO_DARK: import.meta.env.BRANDING_LOGO_DARK,
