@@ -51,6 +51,39 @@ export const OHTTP_RELAY = config.ohttp_relay;
 export const VCT_REGISTRY_URL: string | undefined = config.vct_registry_url;
 export const POLICY_LINKS = config.policy_links;
 export const SHOW_PWA_INSTALL_PROMPT = config.show_pwa_install_prompt === 'true';
+export const POWERED_BY = config.powered_by;
+
+// ===== Transport Configuration =====
+
+/** Transport type enumeration */
+export type TransportType = 'http_proxy' | 'websocket' | 'direct';
+
+/**
+ * Transport allow-list
+ * Controls which transports are permitted
+ * Default: http_proxy,websocket enabled for backwards compatibility
+ * 'direct' disabled by default (requires ecosystem CORS support)
+ */
+export const ALLOWED_TRANSPORTS: TransportType[] =
+	(config.allowed_transports || 'http_proxy,websocket')
+		.split(',')
+		.map((t: string) => t.trim())
+		.filter((t: string) => ['http_proxy', 'websocket', 'direct'].includes(t)) as TransportType[];
+
+/**
+ * Transport preference order (first available wins)
+ * Default prefers WebSocket over HTTP proxy over Direct
+ */
+export const TRANSPORT_PREFERENCE: TransportType[] =
+	(config.transport_preference || 'websocket,http_proxy,direct')
+		.split(',')
+		.map((t: string) => t.trim())
+		.filter((t: string) => ['http_proxy', 'websocket', 'direct'].includes(t)) as TransportType[];
+
+/** Derived convenience checks */
+export const HTTP_PROXY_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('http_proxy');
+export const WEBSOCKET_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('websocket');
+export const DIRECT_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('direct');
 export const BRANDING = {
 	LOGO_LIGHT: config.branding?.logo_light || '/logo_light.svg',
 	LOGO_DARK: config.branding?.logo_dark || '/logo_dark.svg',
