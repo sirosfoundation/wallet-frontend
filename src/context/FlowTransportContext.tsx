@@ -4,6 +4,9 @@
  * This context provides the transport abstraction to React components.
  * It handles transport selection, lifecycle management, and provides
  * hooks for accessing the active transport.
+ * 
+ * The context queries /status on the engine endpoint to discover capabilities
+ * before enabling WebSocket transport.
  */
 
 import React, { createContext, useContext, useMemo, useEffect, useState, useCallback } from 'react';
@@ -12,6 +15,11 @@ import { nullTransport } from '@/lib/transport/IFlowTransport';
 import { HttpProxyTransport } from '@/lib/transport/HttpProxyTransport';
 import { WebSocketTransport } from '@/lib/transport/WebSocketTransport';
 import { useHttpProxy } from '@/lib/services/HttpProxy/HttpProxy';
+import { 
+  isWebSocketAvailable, 
+  Capabilities,
+  getEngineCapabilities,
+} from '@/lib/services/CapabilitiesService';
 import { 
   WS_URL, 
   HTTP_TRANSPORT_ALLOWED, 
@@ -33,12 +41,16 @@ interface FlowTransportContextValue {
   isConnected: boolean;
   /** Attempt to reconnect (for WebSocket) */
   reconnect: () => Promise<void>;
-  /** List of available transports based on configuration */
+  /** List of available transports based on configuration and capabilities */
   availableTransports: TransportType[];
   /** Error from the last transport operation */
   lastError: Error | null;
   /** Clear the last error */
   clearError: () => void;
+  /** Whether capabilities have been loaded from the engine */
+  capabilitiesLoaded: boolean;
+  /** Engine capabilities (for debugging/display) */
+  engineCapabilities: string[];
 }
 
 const FlowTransportContext = createContext<FlowTransportContextValue | null>(null);
@@ -62,14 +74,50 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
   const [wsTransport, setWsTransport] = useState<WebSocketTransport | null>(null);
   const [lastError, setLastError] = useState<Error | null>(null);
   
-  // Determine which transports are available based on config
+  // Engine capabilities state
+  const [capabilitiesLoaded, setCapabilitiesLoaded] = useState(false);
+  const [engineCapabilities, setEngineCapabilities] = useState<string[]>([]);
+  const [wsCapabilityAvailable, setWsCapabilityAvailable] = useState(false);
+  
+  // Fetch engine capabilities on mount
+  useEffect(() => {
+    let cancelled = false;
+    
+    async function fetchCapabilities() {
+      try {
+        const caps = await getEngineCapabilities();
+        if (cancelled) return;
+        
+        setEngineCapabilities(caps);
+        setWsCapabilityAvailable(caps.includes(Capabilities.WEBSOCKET));
+        setCapabilitiesLoaded(true);
+      } catch (error) {
+        console.warn('Failed to fetch engine capabilities:', error);
+        if (!cancelled) {
+          setCapabilitiesLoaded(true);
+          setWsCapabilityAvailable(false);
+        }
+      }
+    }
+    
+    fetchCapabilities();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  
+  // Determine which transports are available based on config AND capabilities
   const availableTransports = useMemo(() => {
     const available: TransportType[] = [];
     if (HTTP_TRANSPORT_ALLOWED) available.push('http');
-    if (WEBSOCKET_TRANSPORT_ALLOWED && WS_URL) available.push('websocket');
+    // Only add websocket if config allows AND engine has capability
+    if (WEBSOCKET_TRANSPORT_ALLOWED && WS_URL && wsCapabilityAvailable) {
+      available.push('websocket');
+    }
     if (DIRECT_TRANSPORT_ALLOWED) available.push('direct');
     return available;
-  }, []);
+  }, [wsCapabilityAvailable]);
   
   // Create HTTP transport only if allowed
   const httpTransport = useMemo(() => {
@@ -77,10 +125,17 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
     return new HttpProxyTransport(httpProxy);
   }, [httpProxy]);
   
-  // Create and manage WebSocket transport
+  // Create and manage WebSocket transport (only if capability is available)
   useEffect(() => {
-    if (!WEBSOCKET_TRANSPORT_ALLOWED || !WS_URL || !authToken) {
+    // Wait for capabilities to load before trying WebSocket
+    if (!capabilitiesLoaded) {
+      return;
+    }
+    
+    // Check all conditions: config allows, capability available, URL set, auth token present
+    if (!WEBSOCKET_TRANSPORT_ALLOWED || !wsCapabilityAvailable || !WS_URL || !authToken) {
       setWsTransport(null);
+      setIsConnected(false);
       return;
     }
     
@@ -110,7 +165,7 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
       unsubscribeError();
       ws.disconnect();
     };
-  }, [authToken]);
+  }, [authToken, capabilitiesLoaded, wsCapabilityAvailable]);
   
   // Update auth token on WebSocket when it changes
   useEffect(() => {
@@ -173,7 +228,9 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
     availableTransports,
     lastError,
     clearError,
-  }), [transport, transportType, isConnected, reconnect, availableTransports, lastError, clearError]);
+    capabilitiesLoaded,
+    engineCapabilities,
+  }), [transport, transportType, isConnected, reconnect, availableTransports, lastError, clearError, capabilitiesLoaded, engineCapabilities]);
   
   return (
     <FlowTransportContext.Provider value={value}>

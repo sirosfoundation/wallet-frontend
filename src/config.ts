@@ -27,12 +27,28 @@ export const BASE_PATH = config.base_path || '/';
 export const BACKEND_URL = config.wallet_backend_url;
 export const DID_KEY_VERSION: DidKeyVersion = config.did_key_version as DidKeyVersion;
 export const DISPLAY_CONSOLE = config.display_console;
+
+/**
+ * Engine URL for WebSocket transport (wallet engine service).
+ * In split deployments, this points to the engine service.
+ * Defaults to BACKEND_URL for monolithic deployments.
+ */
+export const ENGINE_URL = config.wallet_engine_url || BACKEND_URL;
+
+/**
+ * WebSocket endpoint URL derived from ENGINE_URL.
+ * Converts http(s):// to ws(s):// and appends /api/v2/wallet.
+ * Can be overridden with ws_url for custom configurations.
+ */
+export const WS_URL = config.ws_url || (ENGINE_URL
+	? ENGINE_URL.replace(/^http/, 'ws') + '/api/v2/wallet'
+	: undefined);
+
 export const MULTI_LANGUAGE_DISPLAY: boolean = config.multi_language_display ? JSON.parse(config.multi_language_display) : false;
 export const I18N_WALLET_NAME_OVERRIDE: string | undefined = config.i18n_wallet_name_override;
 export const INACTIVE_LOGOUT_MILLIS = (config.inactive_logout_seconds ? parseInt(config.inactive_logout_seconds, 10) : 60 * 15) * 1000
 export const LOGIN_WITH_PASSWORD: boolean = config.login_with_password ? JSON.parse(config.login_with_password) === true : false;
 export const WEBAUTHN_RPID = config.webauthn_rpid ?? "localhost";
-export const WS_URL = config.ws_url;
 export const OPENID4VP_SAN_DNS_CHECK = config.openid4vp_san_dns_check ? config.openid4vp_san_dns_check === 'true' : false;
 export const OPENID4VP_SAN_DNS_CHECK_SSL_CERTS = config.openid4vp_san_dns_check_ssl_certs ? config.openid4vp_san_dns_check_ssl_certs === 'true' : false;
 export const VALIDATE_CREDENTIALS_WITH_TRUST_ANCHORS = config.validate_credentials_with_trust_anchors ? config.validate_credentials_with_trust_anchors  === 'true' : false;
