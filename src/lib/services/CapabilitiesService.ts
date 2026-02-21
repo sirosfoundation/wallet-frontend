@@ -1,6 +1,6 @@
 /**
  * Backend Capabilities Service
- * 
+ *
  * Fetches and caches /status from backend services to discover capabilities.
  * Supports split deployments where backend and engine are separate services.
  */
@@ -54,13 +54,13 @@ const statusCache = new Map<string, CachedStatus>();
 async function fetchStatusCached(baseUrl: string): Promise<StatusResponse | null> {
   const now = Date.now();
   const cached = statusCache.get(baseUrl);
-  
+
   // Return cached if fresh
   if (cached && (now - cached.fetchedAt) < CACHE_TTL) {
     if (cached.error) throw cached.error;
     return cached.response;
   }
-  
+
   try {
     const response = await fetch(`${baseUrl}/status`, {
       method: 'GET',
@@ -68,7 +68,7 @@ async function fetchStatusCached(baseUrl: string): Promise<StatusResponse | null
         'Accept': 'application/json',
       },
     });
-    
+
     if (!response.ok) {
       // Old backends without /status endpoint
       if (response.status === 404) {
@@ -88,7 +88,7 @@ async function fetchStatusCached(baseUrl: string): Promise<StatusResponse | null
       }
       throw new Error(`Failed to fetch status: ${response.status}`);
     }
-    
+
     const status: StatusResponse = await response.json();
     statusCache.set(baseUrl, {
       response: status,
@@ -96,7 +96,7 @@ async function fetchStatusCached(baseUrl: string): Promise<StatusResponse | null
       error: null,
     });
     return status;
-    
+
   } catch (error) {
     // Cache the error to avoid hammering failed endpoints
     statusCache.set(baseUrl, {
