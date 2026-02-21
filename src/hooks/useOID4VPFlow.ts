@@ -1,9 +1,9 @@
 /**
  * Hybrid OID4VP Flow Hook
- * 
+ *
  * This hook provides a unified interface for verifiable presentation flows
  * that works across different transport types (HTTP proxy, WebSocket, Direct).
- * 
+ *
  * Phase 4 of Transport Abstraction
  */
 
@@ -11,8 +11,8 @@ import { useCallback, useContext, useState } from 'react';
 import { useFlowTransportSafe } from '@/context/FlowTransportContext';
 import OpenID4VPContext from '@/context/OpenID4VPContext';
 import CredentialsContext, { ExtendedVcEntity } from '@/context/CredentialsContext';
-import type { 
-  OID4VPFlowParams, 
+import type {
+  OID4VPFlowParams,
   OID4VPFlowResult,
   OID4VPSelectedCredential,
 } from '@/lib/transport/types/OID4VPTypes';
@@ -30,28 +30,28 @@ export interface UseOID4VPFlowReturn {
   handleAuthorizationRequest: (
     authorizationRequestUri: string
   ) => Promise<OID4VPFlowResult>;
-  
+
   /** Send authorization response with selected credentials */
   sendAuthorizationResponse: (
     selectedCredentials: OID4VPSelectedCredential[]
   ) => Promise<OID4VPFlowResult>;
-  
+
   /** Current transport type being used */
   transportType: 'http' | 'websocket' | 'direct' | 'none';
-  
+
   /** Whether a flow is currently in progress */
   isLoading: boolean;
-  
+
   /** Last error if any */
   error: Error | null;
-  
+
   /** Clear the last error */
   clearError: () => void;
 }
 
 /**
  * Hook for verifiable presentation flows with transport abstraction
- * 
+ *
  * Automatically selects the appropriate transport based on configuration:
  * - WebSocket: Delegates entire flow to backend over persistent connection
  * - HTTP: Uses existing IOpenID4VP implementation with HTTP proxy
@@ -59,22 +59,22 @@ export interface UseOID4VPFlowReturn {
  */
 export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlowReturn {
   const { onProgress, onError } = options;
-  
+
   const transportContext = useFlowTransportSafe();
   const { openID4VP } = useContext(OpenID4VPContext);
   const { vcEntityList } = useContext(CredentialsContext) as { vcEntityList: ExtendedVcEntity[] };
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  
+
   const transportType = transportContext?.transportType ?? 'none';
   const transport = transportContext?.transport;
-  
+
   const clearError = useCallback(() => {
     setError(null);
     transportContext?.clearError?.();
   }, [transportContext]);
-  
+
   /**
    * Handle authorization request using the appropriate transport
    */
@@ -83,17 +83,17 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
   ): Promise<OID4VPFlowResult> => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       // WebSocket transport: delegate to backend
       if (transportType === 'websocket' && transport) {
-        const unsubscribeProgress = onProgress 
-          ? transport.onProgress(onProgress) 
+        const unsubscribeProgress = onProgress
+          ? transport.onProgress(onProgress)
           : () => {};
         const unsubscribeError = onError
           ? transport.onError(onError)
           : () => {};
-        
+
         try {
           const result = await transport.startOID4VPFlow({
             authorizationRequestUri,
@@ -104,7 +104,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
           unsubscribeError();
         }
       }
-      
+
       // HTTP transport: use existing implementation
       if (transportType === 'http' && openID4VP) {
         try {
@@ -112,7 +112,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
             authorizationRequestUri,
             vcEntityList || []
           );
-          
+
           // Check for error response
           if ('error' in result) {
             return {
@@ -123,11 +123,11 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
               },
             };
           }
-          
+
           // Convert to OID4VPFlowResult format
           // The conformantCredentialsMap is a Map<string, any>
           const conformantCredentials = result.conformantCredentialsMap;
-          
+
           return {
             success: true,
             conformantCredentials,
@@ -146,10 +146,10 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
           throw err;
         }
       }
-      
+
       // No transport available
       throw new Error('No transport available for verifiable presentation');
-      
+
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       setError(error);
@@ -165,7 +165,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
       setIsLoading(false);
     }
   }, [transportType, transport, openID4VP, vcEntityList, onProgress, onError]);
-  
+
   /**
    * Send authorization response with selected credentials
    */
@@ -174,14 +174,14 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
   ): Promise<OID4VPFlowResult> => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       // WebSocket transport: continue flow on backend
       if (transportType === 'websocket' && transport) {
-        const unsubscribeProgress = onProgress 
-          ? transport.onProgress(onProgress) 
+        const unsubscribeProgress = onProgress
+          ? transport.onProgress(onProgress)
           : () => {};
-        
+
         try {
           const result = await transport.startOID4VPFlow({
             selectedCredentials,
@@ -191,13 +191,13 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
           unsubscribeProgress();
         }
       }
-      
+
       // HTTP transport: use existing implementation
       if (transportType === 'http' && openID4VP) {
         // Convert OID4VPSelectedCredential[] to Map<string, number>
         // The existing implementation uses descriptor ID -> credential index
         const selectionMap = new Map<string, number>();
-        
+
         // Note: This assumes the credential indices match vcEntityList
         // In practice, we'd need more sophisticated matching
         selectedCredentials.forEach(cred => {
@@ -205,17 +205,17 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
           const index = vcEntityList?.findIndex(
             entity => entity.data === cred.credentialRaw
           ) ?? -1;
-          
+
           if (index !== -1) {
             selectionMap.set(cred.descriptorId, index);
           }
         });
-        
+
         const result = await openID4VP.sendAuthorizationResponse(
           selectionMap,
           vcEntityList || []
         );
-        
+
         // Check result type
         if ('url' in result && result.url) {
           return {
@@ -223,24 +223,24 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
             redirectUri: result.url,
           };
         }
-        
+
         if ('presentation_during_issuance_session' in result) {
           return {
             success: true,
             responseData: {
-              presentation_during_issuance_session: 
+              presentation_during_issuance_session:
                 result.presentation_during_issuance_session,
             },
           };
         }
-        
+
         return {
           success: true,
         };
       }
-      
+
       throw new Error('No transport available');
-      
+
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       setError(error);
@@ -256,7 +256,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
       setIsLoading(false);
     }
   }, [transportType, transport, openID4VP, vcEntityList, onProgress, onError]);
-  
+
   return {
     handleAuthorizationRequest,
     sendAuthorizationResponse,

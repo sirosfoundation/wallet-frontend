@@ -12,6 +12,8 @@ export { IFlowTransport, NullTransport, nullTransport } from './IFlowTransport';
 // Transport implementations
 export { HttpProxyTransport } from './HttpProxyTransport';
 export { WebSocketTransport } from './WebSocketTransport';
+export { DirectTransport } from './DirectTransport';
+export type { CorsCheckResult } from './DirectTransport';
 
 // Types
 export * from './types';

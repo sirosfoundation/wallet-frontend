@@ -1,10 +1,10 @@
 /**
  * Flow Transport Provider Wrapper
- * 
+ *
  * This wrapper component provides the authToken from session storage
  * to the FlowTransportProvider. It should be placed in the component
  * tree after SessionContextProvider.
- * 
+ *
  * Phase 5 of Transport Abstraction
  */
 
@@ -26,7 +26,7 @@ export const FlowTransportProviderWrapper: React.FC<FlowTransportProviderWrapper
   // Get the appToken from session storage
   // This is the same token used by the rest of the app
   const [appToken] = useSessionStorage<string | null>('appToken', null);
-  
+
   return (
     <FlowTransportProvider authToken={appToken}>
       {children}
