@@ -1,6 +1,6 @@
 /**
  * Transport Module
- * 
+ *
  * This module provides the transport abstraction layer for wallet flows.
  * It supports multiple transport mechanisms for communicating with
  * credential issuers and verifiers.
