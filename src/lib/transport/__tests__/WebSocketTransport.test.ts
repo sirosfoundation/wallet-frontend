@@ -283,6 +283,37 @@ describe('WebSocketTransport', () => {
         'Invalid OID4VCI flow params'
       );
     });
+
+    it('should handle deferred credential issuance with transaction_id', async () => {
+      const transport = new WebSocketTransport(wsUrl, authToken);
+      await transport.connect();
+      const mockWs = mockWebSocketInstances[0];
+
+      const credentialOfferUri = 'openid-credential-offer://?credential_offer=...';
+
+      // Start flow
+      const flowPromise = transport.startOID4VCIFlow({ credentialOfferUri });
+
+      await vi.waitFor(() => {
+        expect(mockWs.sentMessages.length).toBeGreaterThan(0);
+      });
+
+      const sentMessage = JSON.parse(mockWs.sentMessages[0]);
+      expect(sentMessage.type).toBe('flow.start');
+
+      // Simulate deferred issuance response with transactionId
+      mockWs.simulateMessage({
+        flowId: sentMessage.flowId,
+        type: 'flow.result',
+        transactionId: 'txn-deferred-123',
+        // No credential yet - deferred
+      });
+
+      const result = await flowPromise;
+      expect(result.success).toBe(true);
+      expect(result.transactionId).toBe('txn-deferred-123');
+      expect(result.credential).toBeUndefined();
+    });
   });
 
   describe('OID4VP Flow', () => {
@@ -506,6 +537,264 @@ describe('WebSocketTransport', () => {
       await transport.disconnect();
 
       await expect(flowPromise).rejects.toThrow('WebSocket disconnected');
+    });
+  });
+
+  describe('Sign Request/Response', () => {
+    it('should handle sign_request for generate_proof action', async () => {
+      const transport = new WebSocketTransport(wsUrl, authToken);
+      await transport.connect();
+
+      // Verify we have the mock instance
+      expect(mockWebSocketInstances.length).toBe(1);
+      const mockWs = mockWebSocketInstances[0];
+
+      // Register a sign handler
+      const signHandler = vi.fn().mockResolvedValue({
+        proofJwt: 'eyJ...proof...'
+      });
+      transport.onSignRequest(signHandler);
+
+      // Simulate a sign_request from server
+      mockWs.simulateMessage({
+        flowId: 'test-flow-id',
+        message_id: 'msg-123',
+        type: 'sign_request',
+        action: 'generate_proof',
+        params: {
+          audience: 'https://issuer.example.com',
+          nonce: 'nonce-456',
+          proofType: 'jwt',
+        },
+      });
+
+      // Wait for the handler to be called
+      await vi.waitFor(() => {
+        expect(signHandler).toHaveBeenCalled();
+      });
+
+      // Verify the handler received correct parameters
+      expect(signHandler).toHaveBeenCalledWith({
+        flowId: 'test-flow-id',
+        messageId: 'msg-123',
+        action: 'generate_proof',
+        params: {
+          audience: 'https://issuer.example.com',
+          nonce: 'nonce-456',
+          proofType: 'jwt',
+        },
+      });
+
+      // Wait a bit for async processing to complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Wait for sign_response to be sent
+      await vi.waitFor(() => {
+        expect(mockWs.sentMessages.length).toBeGreaterThan(0);
+      });
+
+      // Verify sign_response was sent
+      const signResponseMsg = mockWs.sentMessages.find(
+        m => JSON.parse(m).type === 'sign_response'
+      );
+      expect(signResponseMsg).toBeDefined();
+      const parsed = JSON.parse(signResponseMsg!);
+      expect(parsed.flowId).toBe('test-flow-id');
+      expect(parsed.message_id).toBe('msg-123');
+      expect(parsed.proof_jwt).toBe('eyJ...proof...');
+    });
+
+    it('should handle sign_request for sign_presentation action', async () => {
+      const transport = new WebSocketTransport(wsUrl, authToken);
+      await transport.connect();
+      const mockWs = mockWebSocketInstances[0];
+
+      // Register a sign handler
+      const signHandler = vi.fn().mockResolvedValue({
+        vpToken: 'eyJ...vp-token...'
+      });
+      transport.onSignRequest(signHandler);
+
+      // Simulate a sign_request from server
+      mockWs.simulateMessage({
+        flowId: 'test-flow-id',
+        message_id: 'msg-456',
+        type: 'sign_request',
+        action: 'sign_presentation',
+        params: {
+          audience: 'https://verifier.example.com',
+          nonce: 'nonce-789',
+          credentialsToInclude: [
+            { credentialId: 'cred-1', disclosedClaims: ['given_name', 'family_name'] }
+          ],
+        },
+      });
+
+      // Wait for the handler to be called
+      await vi.waitFor(() => {
+        expect(signHandler).toHaveBeenCalled();
+      });
+
+      // Wait a bit for async processing to complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Wait for sign_response to be sent
+      await vi.waitFor(() => {
+        expect(mockWs.sentMessages.length).toBeGreaterThan(0);
+      });
+
+      // Verify sign_response has vp_token
+      const signResponseMsg = mockWs.sentMessages.find(
+        m => JSON.parse(m).type === 'sign_response'
+      );
+      expect(signResponseMsg).toBeDefined();
+      const parsed = JSON.parse(signResponseMsg!);
+      expect(parsed.vp_token).toBe('eyJ...vp-token...');
+    });
+
+    it('should handle multiple sign handlers', async () => {
+      const transport = new WebSocketTransport(wsUrl, authToken);
+      await transport.connect();
+
+      const handler1 = vi.fn().mockResolvedValue({ proofJwt: 'proof1' });
+      const handler2 = vi.fn().mockResolvedValue({ proofJwt: 'proof2' });
+
+      transport.onSignRequest(handler1);
+      transport.onSignRequest(handler2);
+
+      // Simulate a sign_request
+      mockWebSocketInstances[0].simulateMessage({
+        flowId: 'flow-1',
+        message_id: 'msg-1',
+        type: 'sign_request',
+        action: 'generate_proof',
+        params: { audience: 'aud', nonce: 'n' },
+      });
+
+      // Wait for handlers to be called
+      await vi.waitFor(() => {
+        expect(handler1).toHaveBeenCalled();
+      });
+
+      // First registered handler should be used
+      expect(handler1).toHaveBeenCalled();
+    });
+
+    it('should unregister sign handler', async () => {
+      const transport = new WebSocketTransport(wsUrl, authToken);
+      await transport.connect();
+
+      const signHandler = vi.fn().mockResolvedValue({ proofJwt: 'jwt' });
+      const unsubscribe = transport.onSignRequest(signHandler);
+
+      // Unsubscribe
+      unsubscribe();
+
+      // Simulate a sign_request
+      mockWebSocketInstances[0].simulateMessage({
+        flowId: 'flow-1',
+        message_id: 'msg-1',
+        type: 'sign_request',
+        action: 'generate_proof',
+        params: { audience: 'aud', nonce: 'n' },
+      });
+
+      // Give time for potential async handling
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Handler should not be called after unsubscribe
+      expect(signHandler).not.toHaveBeenCalled();
+    });
+
+    it('should send error in sign_response when handler fails', async () => {
+      const transport = new WebSocketTransport(wsUrl, authToken);
+      await transport.connect();
+      const mockWs = mockWebSocketInstances[0];
+
+      // Register a handler that rejects
+      const signHandler = vi.fn().mockRejectedValue(new Error('Keystore unavailable'));
+      transport.onSignRequest(signHandler);
+
+      // Simulate a sign_request
+      mockWs.simulateMessage({
+        flowId: 'flow-1',
+        message_id: 'msg-1',
+        type: 'sign_request',
+        action: 'generate_proof',
+        params: { audience: 'aud', nonce: 'n' },
+      });
+
+      // Wait a bit for async processing to complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Wait for error sign_response
+      await vi.waitFor(() => {
+        expect(mockWs.sentMessages.length).toBeGreaterThan(0);
+      });
+
+      const signResponseMsg = mockWs.sentMessages.find(
+        m => JSON.parse(m).type === 'sign_response'
+      );
+      expect(signResponseMsg).toBeDefined();
+      const parsed = JSON.parse(signResponseMsg!);
+      expect(parsed.error).toBeDefined();
+      expect(parsed.error).toContain('Keystore unavailable');
+    });
+  });
+
+  describe('Flow Action Sending', () => {
+    it('should send flow_action message with sendFlowAction', async () => {
+      const transport = new WebSocketTransport(wsUrl, authToken);
+      await transport.connect();
+
+      transport.sendFlowAction({
+        flowId: 'flow-123',
+        action: 'credentials_matched',
+        payload: {
+          matches: [
+            { input_descriptor_id: 'id-1', credential_id: 'cred-1', format: 'vc+sd-jwt' }
+          ],
+        },
+      });
+
+      // Verify message was sent
+      await vi.waitFor(() => {
+        expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(0);
+      });
+
+      const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[0]);
+      expect(sentMessage.type).toBe('flow_action');
+      expect(sentMessage.flow_id).toBe('flow-123');
+      expect(sentMessage.action).toBe('credentials_matched');
+      expect(sentMessage.payload.matches).toHaveLength(1);
+    });
+
+    it('should send consent action with selected credentials', async () => {
+      const transport = new WebSocketTransport(wsUrl, authToken);
+      await transport.connect();
+
+      transport.sendFlowAction({
+        flowId: 'flow-456',
+        action: 'consent',
+        payload: {
+          selectedCredentials: [
+            {
+              descriptorId: 'desc-1',
+              credentialId: 'cred-1',
+              disclosures: ['given_name', 'family_name'],
+            },
+          ],
+        },
+      });
+
+      await vi.waitFor(() => {
+        expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(0);
+      });
+
+      const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[0]);
+      expect(sentMessage.type).toBe('flow_action');
+      expect(sentMessage.action).toBe('consent');
+      expect(sentMessage.payload.selectedCredentials).toHaveLength(1);
     });
   });
 });

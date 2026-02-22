@@ -55,6 +55,8 @@ export interface FlowProgressEvent {
   progress?: number;
   /** Optional human-readable message */
   message?: string;
+  /** Optional payload data from the server */
+  payload?: unknown;
 }
 
 /**
