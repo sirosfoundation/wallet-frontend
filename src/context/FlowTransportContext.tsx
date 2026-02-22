@@ -13,7 +13,7 @@ import React, { createContext, useContext, useMemo, useEffect, useState, useCall
 import type { IFlowTransport } from '@/lib/transport/IFlowTransport';
 import { nullTransport } from '@/lib/transport/IFlowTransport';
 import { HttpProxyTransport } from '@/lib/transport/HttpProxyTransport';
-import { WebSocketTransport } from '@/lib/transport/WebSocketTransport';
+import { WebSocketTransport, SignRequest, SignResponse, SignRequestHandler } from '@/lib/transport/WebSocketTransport';
 import { useHttpProxy } from '@/lib/services/HttpProxy/HttpProxy';
 import {
   isWebSocketAvailable,
@@ -28,6 +28,9 @@ import {
   TRANSPORT_PREFERENCE,
   TransportType,
 } from '@/config';
+
+// Re-export sign types for convenience
+export type { SignRequest, SignResponse, SignRequestHandler } from '@/lib/transport/WebSocketTransport';
 
 /**
  * Value provided by the FlowTransportContext
@@ -51,6 +54,8 @@ interface FlowTransportContextValue {
   capabilitiesLoaded: boolean;
   /** Engine capabilities (for debugging/display) */
   engineCapabilities: string[];
+  /** Register a sign request handler (for WebSocket) */
+  registerSignHandler: (handler: SignRequestHandler) => () => void;
 }
 
 const FlowTransportContext = createContext<FlowTransportContextValue | null>(null);
@@ -220,6 +225,15 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
     setLastError(null);
   }, []);
 
+  // Register sign handler on WebSocket transport
+  const registerSignHandler = useCallback((handler: SignRequestHandler): (() => void) => {
+    if (wsTransport) {
+      return wsTransport.onSignRequest(handler);
+    }
+    // Return no-op unsubscribe if no WebSocket transport
+    return () => {};
+  }, [wsTransport]);
+
   const value = useMemo(() => ({
     transport,
     transportType,
@@ -230,7 +244,8 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
     clearError,
     capabilitiesLoaded,
     engineCapabilities,
-  }), [transport, transportType, isConnected, reconnect, availableTransports, lastError, clearError, capabilitiesLoaded, engineCapabilities]);
+    registerSignHandler,
+  }), [transport, transportType, isConnected, reconnect, availableTransports, lastError, clearError, capabilitiesLoaded, engineCapabilities, registerSignHandler]);
 
   return (
     <FlowTransportContext.Provider value={value}>
