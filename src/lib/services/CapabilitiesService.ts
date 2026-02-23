@@ -29,6 +29,7 @@ export const Capabilities = {
   PROXY: 'proxy',
   VCTM_REGISTRY: 'vctm-registry',
   WEBSOCKET: 'websocket',
+  REFRESH_TOKENS: 'refresh-tokens',
 } as const;
 
 export type Capability = typeof Capabilities[keyof typeof Capabilities];
