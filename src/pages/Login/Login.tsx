@@ -8,7 +8,7 @@ import { calculateByteSize, coerce } from '../../util';
 import StatusContext from '@/context/StatusContext';
 import SessionContext from '@/context/SessionContext';
 import { useTenant } from '../../context/TenantContext';
-import { buildTenantRoutePath, matchesTenantFromUrl } from '../../lib/tenant';
+import { buildTenantRoutePath, filterUsersByTenantID, matchesTenantFromUrl } from '../../lib/tenant';
 
 import * as config from '../../config';
 import Button, { Variant } from '../../components/Buttons/Button';
@@ -218,7 +218,7 @@ const WebauthnSignupLogin = ({
 }) => {
 	const { isOnline, updateOnlineStatus } = useContext(StatusContext);
 	const { api, keystore } = useContext(SessionContext);
-	const { effectiveTenantId } = useTenant(); // Get tenant from URL path or storage
+	const { effectiveTenantId, urlTenantId } = useTenant();
 	const screenType = useScreenType();
 	const navigate = useNavigate();
 	const location = useLocation();
@@ -233,7 +233,7 @@ const WebauthnSignupLogin = ({
 	const { t } = useTranslation();
 	const [retrySignupFrom, setRetrySignupFrom] = useState(null);
 
-	const cachedUsers = keystore.getCachedUsers();
+	const cachedUsers = filterUsersByTenantID(urlTenantId, keystore.getCachedUsers());
 
 	useEffect(
 		() => {
@@ -677,11 +677,13 @@ const Auth = () => {
 	const navigate = useNavigate();
 
 	const { getCachedUsers } = keystore;
-	const [isLoginCache, setIsLoginCache] = useState(getCachedUsers().length > 0);
+	const [isLoginCache, setIsLoginCache] = useState(
+		filterUsersByTenantID(urlTenantId, getCachedUsers()).length > 0
+	);
 
 	useEffect(() => {
-		setIsLoginCache(getCachedUsers().length > 0);
-	}, [getCachedUsers, setIsLoginCache]);
+		setIsLoginCache(filterUsersByTenantID(urlTenantId, getCachedUsers()).length > 0);
+	}, [getCachedUsers, setIsLoginCache, urlTenantId]);
 
 	useEffect(() => {
 		if (isLoggedIn) {

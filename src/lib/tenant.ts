@@ -16,6 +16,8 @@
  * See go-wallet-backend/docs/adr/011-multi-tenancy.md for full design.
  */
 
+import { type CachedUser } from "@/services/LocalStorageKeystore";
+
 const TENANT_STORAGE_KEY = 'wallet_tenant_id';
 
 /**
@@ -248,4 +250,25 @@ export function getKnownTenants(
 
 	// Sort by most recently used (assumes cachedUsers is ordered by recency)
 	return Array.from(tenantMap.values());
+}
+
+/**
+ * Filter cached users based on tenant ID.
+ * - If tenantId is undefined (global login): show default tenant users AND legacy users (no tenant info)
+ * - If tenantId is defined: show matching users AND legacy users (no tenant info for backwards compatibility)
+ */
+export function filterUsersByTenantID(tenantId: string | undefined, users: CachedUser[]): CachedUser[] {
+	return users.filter((user) => {
+		const userTenantId = user.tenant?.id;
+
+		if (userTenantId === undefined) {
+			return true;
+		}
+
+		if (!tenantId) {
+			return isDefaultTenant(userTenantId);
+		}
+
+		return userTenantId === tenantId;
+	});
 }
