@@ -17,7 +17,6 @@ const config: Config = {};
 			const content = metaTag.getAttribute('content');
 			if (content) {
 				Object.assign(config, JSON.parse(content));
-				console.table(config);
 			}
 		} catch (error) {
 			console.error('Failed to parse config from meta tag:', error);
