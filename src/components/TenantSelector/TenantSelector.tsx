@@ -137,7 +137,7 @@ export default function TenantSelector({
 							key={tenant.id}
 							variant='outline'
 							square
-							additionalClassName={`w-full mb-2 flex justify-between gap-3 ${tenant.id === currentTenantId && 'dark:border-lm-gray-200'}`}
+							additionalClassName={`w-full mb-2 flex justify-between gap-3`}
 							onClick={() => handleSelectTenant(tenant.id)}
 							disabled={tenant.id === currentTenantId}
 							title={tenant.id === currentTenantId ? t('tenantSelector.currentlySelected') : undefined}
