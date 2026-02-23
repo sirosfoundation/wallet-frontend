@@ -1,4 +1,4 @@
-import React, { useContext, useMemo, useState } from 'react';
+import { cloneElement, ReactElement, useContext, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowRightIcon } from 'lucide-react';
 import SessionContext from '@/context/SessionContext';
@@ -11,7 +11,7 @@ import TenantMeta from './TenantMeta';
 type TenantSelectorProps = {
 	currentTenantId?: string;
 	isAuthenticated: boolean;
-	button?: React.ReactElement;
+	button?: ReactElement;
 }
 
 /**
@@ -71,7 +71,7 @@ export default function TenantSelector({
 		return;
 	}
 
-	const buttonElement = React.cloneElement(button, {
+	const buttonElement = cloneElement(button, {
 		onClick: handleOpen,
 		'aria-expanded': isOpen,
 		'aria-haspopup': 'dialog',
