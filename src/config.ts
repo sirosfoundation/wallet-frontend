@@ -6,6 +6,11 @@ type Config = ClientMetaConfig & Record<string, string | undefined>;
 const config: Config = {};
 
 (function () {
+	if (typeof window === 'undefined') {
+		console.warn('Config injection is only supported in a browser environment.');
+		return;
+	}
+
 	const metaTag = document.querySelector('meta[name="www:config"]');
 	if (metaTag) {
 		try {
