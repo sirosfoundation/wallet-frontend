@@ -320,11 +320,16 @@
 		"description": "Nova versão disponível!"
 	},
 	"tenantSelector": {
+		"closePopup": "Fechar popup",
+		"currentTenantHeading": "Tenant atual",
 		"currentlySelected": "Selecionado atualmente",
 		"defaultTenant": "Predefinição",
-		"label": "Mudar Tenant",
 		"description": "Selecionar tenant",
+		"label": "Mudar Tenant",
+		"selectOtherTenant": "Selecionar outro tenant",
+		"selectTenant": "Selecionar tenant",
 		"switchActiveTenant": "Mudar tenant ativo",
+		"switchDescription": "Mudar de tenant irá terminar a sua sessão atual da carteira",
 		"userCount_one": "{{count}} utilizador",
 		"userCount_other": "{{count}} utilizadores"
 	},

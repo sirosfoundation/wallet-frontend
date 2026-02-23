@@ -418,11 +418,16 @@
 		"view": "View"
 	},
 	"tenantSelector": {
+		"closePopup": "Close popup",
+		"currentTenantHeading": "Current tenant",
 		"currentlySelected": "Currently selected",
 		"defaultTenant": "Default",
-		"label": "Switch Tenant",
 		"description": "Select tenant",
+		"label": "Switch Tenant",
+		"selectOtherTenant": "Select other tenant",
+		"selectTenant": "Select tenant",
 		"switchActiveTenant": "Switch active tenant",
+		"switchDescription": "Switching tenants will log you out of your current wallet session",
 		"userCount_one": "{{count}} user",
 		"userCount_other": "{{count}} users"
 	},

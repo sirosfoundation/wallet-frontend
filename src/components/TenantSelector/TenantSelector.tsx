@@ -1,18 +1,16 @@
-import React, { SyntheticEvent, useCallback, useContext, useMemo, useState } from 'react';
+import React, { useContext, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CircleCheckIcon, CircleIcon } from 'lucide-react';
+import { ArrowRightIcon } from 'lucide-react';
 import SessionContext from '@/context/SessionContext';
 import { getKnownTenants, KnownTenant, isDefaultTenant, TENANT_PATH_PREFIX } from '@/lib/tenant';
 import { fromBase64Url } from '@/util';
 import PopupLayout from '../Popups/PopupLayout';
 import Button from '../Buttons/Button';
+import TenantMeta from './TenantMeta';
 
-interface TenantSelectorProps {
-	/** Currently active tenant ID */
+type TenantSelectorProps = {
 	currentTenantId?: string;
-	/** Whether user is authenticated (controls logout behavior) */
 	isAuthenticated: boolean;
-	/** Custom toggle element */
 	button?: React.ReactElement;
 }
 
@@ -46,34 +44,6 @@ export default function TenantSelector({
 		const cachedUsers = keystore.getCachedUsers();
 		return getKnownTenants(cachedUsers, fromBase64Url);
 	}, [keystore]);
-
-	const favicon = 'favicon.ico';
-	const tenantFavicons = useMemo(() => {
-		const favicons: Record<string, string> = {};
-
-		for (const tenant of knownTenants) {
-			const url = isDefaultTenant(tenant.id) ? '/' : `/${TENANT_PATH_PREFIX}/${tenant.id}/`;
-			favicons[tenant.id] = new URL(favicon, window.location.origin + url).href;
-		}
-
-		return favicons;
-	}, [knownTenants]);
-
-	const generateFaviconFallback = useCallback((event: SyntheticEvent<HTMLImageElement>, id: string) => {
-		const target = event.target as HTMLImageElement;
-		event.preventDefault();
-
-		const style = window.getComputedStyle(document.body);
-		const brandColor = style.getPropertyValue('--theme-brand-color').trim() || '#000000';
-		const name = knownTenants.find(t => t.id === id)?.displayName?.charAt(0).toUpperCase() || '';
-
-		target.src = `data:image/svg+xml;base64,${btoa(`
-			<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40">
-				<rect width="100%" height="100%" fill="${brandColor}"/>
-				<text x="50%" y="50%" font-size="20" fill="white" text-anchor="middle" dominant-baseline="central" font-family="Arial, sans-serif">${name}</text>
-			</svg>
-		`)}`;
-	}, [knownTenants]);
 
 	const handleSelectTenant = async (tenantId: string) => {
 		if (tenantId === currentTenantId) {
@@ -123,44 +93,45 @@ export default function TenantSelector({
 						type="button"
 						className="md:absolute top-6 right-6 text-lm-gray-900 dark:text-dm-gray-100 bg-transparent hover:bg-lm-gray-400 dark:hover:bg-dm-gray-600 transition-all rounded-lg text-sm w-8 h-8 ml-auto inline-flex justify-center items-center"
 						onClick={handleClose}
-						aria-label="Close popup"
+						aria-label={t('tenantSelector.closePopup')}
 					>
 						<svg className="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
 							<path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6" />
 						</svg>
 					</button>
 				</div>
-				<p className="mb-6">{t('tenantSelector.description')}</p>
-				<ul>
-					{knownTenants.map((tenant) => (
+				{isAuthenticated && (
+					<p className="mb-6 text-sm">
+						{t('tenantSelector.switchDescription')}
+					</p>
+				)}
+				<div>
+					{knownTenants.some(t => t.id === currentTenantId) && (
+						<>
+							<h3 className="mb-2 font-semibold">{t('tenantSelector.currentTenantHeading')}</h3>
+							<div className="p-2 w-full mb-2 flex justify-between gap-3">
+								<TenantMeta knownTenants={knownTenants} tenantId={currentTenantId} />
+							</div>
+							<hr className="my-2 border-t border-lm-gray-400 dark:border-dm-gray-600" />
+						</>
+					)}
+					<h3 className="mt-4 mb-2 font-semibold">{knownTenants.some(t => t.id === currentTenantId) ? t('tenantSelector.selectOtherTenant') : t('tenantSelector.selectTenant')}</h3>
+					{knownTenants.filter((tenant) => tenant.id !== currentTenantId).map((tenant) => (
 						<Button
 							key={tenant.id}
 							variant='outline'
 							square
-							additionalClassName={`w-full mb-2 flex justify-between gap-3`}
+							additionalClassName="w-full mb-2 flex justify-between gap-3"
 							onClick={() => handleSelectTenant(tenant.id)}
-							disabled={tenant.id === currentTenantId}
 							title={tenant.id === currentTenantId ? t('tenantSelector.currentlySelected') : undefined}
 						>
-							<span className="flex items-center gap-3 w-full">
-								<img src={tenantFavicons[tenant.id]} onError={(event) => generateFaviconFallback(event, tenant.id)} alt={tenant.displayName || t('tenantSelector.defaultTenant')} className="w-10 h-10 border border-lm-gray-400 dark:border-dm-gray-600 rounded-lg"></img>
-								<span className="flex flex-col items-start gap-0.5">
-									<span className="text-base">
-										{tenant.displayName || t('tenantSelector.defaultTenant')}
-										</span>
-									{tenant.userCount > 0 && (
-										<span className="text-xs text-lm-gray-800 dark:text-dm-gray-200">({t('tenantSelector.userCount', { count: tenant.userCount })})</span>
-									)}
-								</span>
-							</span>
-							{(() => {
-								const Icon = tenant.id === currentTenantId ? CircleCheckIcon : CircleIcon;
-								return <Icon size={30} className="m-0.5 shrink-0 text-brand-base dark:text-dm-gray-200" />;
-							})()}
+							<TenantMeta knownTenants={knownTenants} tenantId={tenant.id} />
+							<ArrowRightIcon size={20} className="m-0.5 shrink-0" />
 						</Button>
 					))}
-				</ul>
+				</div>
 			</PopupLayout>
 		</>
 	);
 }
+
