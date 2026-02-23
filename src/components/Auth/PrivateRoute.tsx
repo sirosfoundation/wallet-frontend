@@ -1,7 +1,7 @@
 import React, { useContext, useMemo, useEffect, useState } from 'react';
 import { Navigate, useParams, useLocation } from 'react-router-dom';
 import SessionContext from '@/context/SessionContext';
-import { getStoredTenant, buildTenantRoutePath, isDefaultTenant, DEFAULT_TENANT_ID, TENANT_PATH_PREFIX } from '@/lib/tenant';
+import { getStoredTenant, buildTenantRoutePath, isDefaultTenant, TENANT_PATH_PREFIX } from '@/lib/tenant';
 
 const PrivateRoute = ({ children }: { children?: React.ReactNode }): React.ReactElement => {
 	const { isLoggedIn, keystore } = useContext(SessionContext);
@@ -51,26 +51,12 @@ const PrivateRoute = ({ children }: { children?: React.ReactNode }): React.React
 			subPath = currentPath.startsWith('/') ? currentPath.slice(1) : currentPath;
 		}
 
-		// Scenario 1: Default tenant user at /default/* path → redirect to /
-		if (isDefaultTenant(storedTenantId) && urlTenantId === DEFAULT_TENANT_ID) {
-			const correctPath = buildTenantRoutePath(storedTenantId, subPath);
-			return correctPath + location.search;
-		}
+		// Redirect if URL tenant doesn't match authenticated user's tenant
+		const urlMatchesStored = isDefaultTenant(storedTenantId)
+			? !urlTenantId
+			: urlTenantId === storedTenantId;
 
-		// Scenario 2: Non-default tenant user at global route (/) → redirect to /id/{tenantId}/
-		if (!isDefaultTenant(storedTenantId) && !urlTenantId) {
-			const correctPath = buildTenantRoutePath(storedTenantId, subPath);
-			return correctPath + location.search;
-		}
-
-		// Scenario 3: User accessing wrong tenant (e.g., tenant A user at /id/B/)
-		if (!isDefaultTenant(storedTenantId) && urlTenantId && urlTenantId !== storedTenantId) {
-			const correctPath = buildTenantRoutePath(storedTenantId, subPath);
-			return correctPath + location.search;
-		}
-
-		// Scenario 4: Default tenant user at non-default tenant path
-		if (isDefaultTenant(storedTenantId) && urlTenantId && !isDefaultTenant(urlTenantId)) {
+		if (!urlMatchesStored) {
 			const correctPath = buildTenantRoutePath(storedTenantId, subPath);
 			return correctPath + location.search;
 		}
