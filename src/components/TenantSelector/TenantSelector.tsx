@@ -2,7 +2,7 @@ import React, { SyntheticEvent, useCallback, useContext, useMemo, useState } fro
 import { useTranslation } from 'react-i18next';
 import { CircleCheckIcon, CircleIcon } from 'lucide-react';
 import SessionContext from '@/context/SessionContext';
-import { getKnownTenants, KnownTenant, isDefaultTenant } from '@/lib/tenant';
+import { getKnownTenants, KnownTenant, isDefaultTenant, TENANT_PATH_PREFIX } from '@/lib/tenant';
 import { fromBase64Url } from '@/util';
 import PopupLayout from '../Popups/PopupLayout';
 import Button from '../Buttons/Button';
@@ -52,7 +52,7 @@ export default function TenantSelector({
 		const favicons: Record<string, string> = {};
 
 		for (const tenant of knownTenants) {
-			const url = isDefaultTenant(tenant.id) ? '/' : `/id/${tenant.id}/`;
+			const url = isDefaultTenant(tenant.id) ? '/' : `/${TENANT_PATH_PREFIX}/${tenant.id}/`;
 			favicons[tenant.id] = new URL(favicon, window.location.origin + url).href;
 		}
 
@@ -87,7 +87,7 @@ export default function TenantSelector({
 
 		const targetPath = isDefaultTenant(tenant.id)
 			? '/login'
-			: `/id/${tenant.id}/login`;
+			: `/${TENANT_PATH_PREFIX}/${tenant.id}/login`;
 
 		if (isAuthenticated) {
 			// Logout first, then redirect
