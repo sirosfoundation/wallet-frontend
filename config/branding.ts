@@ -635,22 +635,13 @@ export class MetadataImage {
 	}
 
 	/**
-	 * Sets up a self-contained font environment:
-	 * 1. Converts a WOFF2 font to TTF for Node rendering.
-	 * 2. Writes the font and a minimal Fontconfig XML to a project directory.
-	 * 3. Sets FONTCONFIG_PATH so rendering libraries can find the font.
-	 *
-	 * The reason for converting from WOFF2 to TTF is so we can keep using the
-	 * `@fontsource/inter` package and not need to bundle font files.
+	 * Sets up a self-contained font environment.
 	 */
 	public static async setupFontsEnvironment(baseDir: string) {
 		const fontsConfDir = path.resolve(baseDir, this.fontsConfDirName);
 
 		await mkdir(fontsConfDir, { recursive: true });
 
-		// TODO:
-		// - CDN fetch is a point of failure.
-		// - Consider vendoring the TTF files.
 		const fontUrls = [
 			"https://cdn.jsdelivr.net/fontsource/fonts/inter@5.2.8/latin-600-normal.ttf",
 		];
