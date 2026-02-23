@@ -305,20 +305,6 @@
 		"poweredBy": "Desenvolvido por <docLinkWalletGithub>wwWallet</docLinkWalletGithub>",
 		"poweredByAriaLabel": "Repositório GitHub da wwWallet"
 	},
-	"tourGuide": {
-		"closeTourButton": "Fechar apresentação",
-		"tourComplete": "Obrigado por ter concluído esta apresentação. Esperamos ter ajudado!",
-		"tourStep1": "Aqui, pode ver todas as suas credenciais armazenadas. Clique em 'Adicionar Nova Credencial' para obter uma nova VC de um issuer disponível",
-		"tourStep2": "A página 'Credenciais' é a sua página inicial. Aqui, pode gerir as suas credenciais.",
-		"tourStep3": "A página 'Adicionar Credenciais' permite que receba credenciais de um issuer específico.",
-		"tourStep4": "Clique neste botão para ler um código QR para enviar ou receber crendenciais.",
-		"tourStep5": "Utilize a página 'Enviar Credenciais' para selecionar um verifier e partilhar as suas credenciais.",
-		"tourStep6": "Na página 'Histórico', pode ver detalhes das transmissões de credenciais, incluindo quando e para que verifiers elas foram enviadas.",
-		"tourStep7": "Na página 'Definições' pode gerir as suas chaves de acesso e configurações de conta."
-	},
-	"updateNotification": {
-		"description": "Nova versão disponível!"
-	},
 	"tenantSelector": {
 		"closePopup": "Fechar popup",
 		"currentTenantHeading": "Tenant atual",
@@ -332,6 +318,20 @@
 		"switchDescription": "Mudar de tenant irá terminar a sua sessão atual da carteira",
 		"userCount_one": "{{count}} utilizador",
 		"userCount_other": "{{count}} utilizadores"
+	},
+	"tourGuide": {
+		"closeTourButton": "Fechar apresentação",
+		"tourComplete": "Obrigado por ter concluído esta apresentação. Esperamos ter ajudado!",
+		"tourStep1": "Aqui, pode ver todas as suas credenciais armazenadas. Clique em 'Adicionar Nova Credencial' para obter uma nova VC de um issuer disponível",
+		"tourStep2": "A página 'Credenciais' é a sua página inicial. Aqui, pode gerir as suas credenciais.",
+		"tourStep3": "A página 'Adicionar Credenciais' permite que receba credenciais de um issuer específico.",
+		"tourStep4": "Clique neste botão para ler um código QR para enviar ou receber crendenciais.",
+		"tourStep5": "Utilize a página 'Enviar Credenciais' para selecionar um verifier e partilhar as suas credenciais.",
+		"tourStep6": "Na página 'Histórico', pode ver detalhes das transmissões de credenciais, incluindo quando e para que verifiers elas foram enviadas.",
+		"tourStep7": "Na página 'Definições' pode gerir as suas chaves de acesso e configurações de conta."
+	},
+	"updateNotification": {
+		"description": "Nova versão disponível!"
 	},
 	"welcomeModal": {
 		"description": "Explore a <strong> $t(common.walletName) </strong>, a sua ferramenta para gerir credenciais digitais. Consulte, apresente e acompanhe todas as suas credenciais com facilidade!",
