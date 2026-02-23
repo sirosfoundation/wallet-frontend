@@ -19,7 +19,7 @@ export type ViteEnvConfig = z.infer<typeof ViteEnvConfigSchema>;
  */
 export const ClientEnvConfigSchema = z.object({
 	// Runtime base path. Used for asset loading.
-	BASE_PATH: z.string().optional(),
+	BASE_PATH: z.string().optional().default('/'),
 
 	// If in a multi-tenancy setup, these *should* likely differ between tenants.
 	STATIC_PUBLIC_URL: z.string().optional(),
