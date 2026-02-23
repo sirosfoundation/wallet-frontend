@@ -2,7 +2,7 @@ import React, { useContext, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowRightIcon } from 'lucide-react';
 import SessionContext from '@/context/SessionContext';
-import { getKnownTenants, KnownTenant, isDefaultTenant, TENANT_PATH_PREFIX } from '@/lib/tenant';
+import { getKnownTenants, KnownTenant, buildTenantRoutePath } from '@/lib/tenant';
 import { fromBase64Url } from '@/util';
 import PopupLayout from '../Popups/PopupLayout';
 import Button from '../Buttons/Button';
@@ -55,9 +55,7 @@ export default function TenantSelector({
 			return;
 		}
 
-		const targetPath = isDefaultTenant(tenant.id)
-			? '/login'
-			: `/${TENANT_PATH_PREFIX}/${tenant.id}/login`;
+		const targetPath = buildTenantRoutePath(tenant.id, 'login');
 
 		if (isAuthenticated) {
 			// Logout first, then redirect
