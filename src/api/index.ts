@@ -53,6 +53,8 @@ export interface BackendApi {
 	// getAppToken(): string | undefined,
 	clearSession(): void,
 	getAppToken(): string | null,
+	/** Refresh the access token using the stored refresh token. Returns true on success. */
+	refreshAccessToken(): Promise<boolean>,
 
 	login(username: string, password: string, keystore: LocalStorageKeystore): Promise<Result<void, any>>,
 	signup(username: string, password: string, keystore: LocalStorageKeystore): Promise<Result<void, any>>,
@@ -843,6 +845,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		getAllPresentations,
 		getAppToken,
 		initiatePresentationExchange,
+		refreshAccessToken,
 
 		loginWebauthn,
 		signupWebauthn,
@@ -871,6 +874,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		getAllPresentations,
 		getAppToken,
 		initiatePresentationExchange,
+		refreshAccessToken,
 
 		loginWebauthn,
 		signupWebauthn,
