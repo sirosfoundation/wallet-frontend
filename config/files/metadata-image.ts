@@ -11,7 +11,7 @@ export default async function metadataImage(destDir: string, config: EnvConfigMa
 	const fileName = 'image.png';
 
 	const generationConfig = {
-		title: config.META_STATIC_NAME || 'wwWallet',
+		title: config.STATIC_NAME || 'wwWallet',
 	};
 
 	const cacheDir = path.resolve('config', '.cache');
@@ -28,14 +28,14 @@ export default async function metadataImage(destDir: string, config: EnvConfigMa
 		tag: 'meta',
 		props: {
 			property: 'og:image',
-			content: `${config.META_STATIC_PUBLIC_URL}/image.png?v=${brandingHash}`,
+			content: `${config.STATIC_PUBLIC_URL}/image.png?v=${brandingHash}`,
 		}
 	});
 	tagsToInject?.set('twitter-image', {
 		tag: 'meta',
 		props: {
 			name: 'twitter:image',
-			content: `${config.META_STATIC_PUBLIC_URL}/image.png?v=${brandingHash}`,
+			content: `${config.STATIC_PUBLIC_URL}/image.png?v=${brandingHash}`,
 		}
 	});
 }
