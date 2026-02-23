@@ -6,13 +6,14 @@ import { fromBase64Url, jsonParseTaggedBinary, jsonStringifyTaggedBinary, toBase
 import { EncryptedContainer, makeAssertionPrfExtensionInputs, parsePrivateData, serializePrivateData } from '../services/keystore';
 import { CachedUser, LocalStorageKeystore } from '../services/LocalStorageKeystore';
 import { UserData, UserId, Verifier } from './types';
-import { useEffect, useCallback, useMemo } from 'react';
+import { useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UseStorageHandle, useClearStorages, useLocalStorage, useSessionStorage } from '../hooks/useStorage';
 import { addItem, getItem, EXCLUDED_INDEXEDDB_PATHS } from '../indexedDB';
 import { loginWebAuthnBeginOffline } from './LocalAuthentication';
 import { withAuthenticatorAttachmentFromHints, withHintsFromAllowCredentials } from '@/util-webauthn';
 import { getStoredTenant, setStoredTenant, clearStoredTenant } from '../lib/tenant';
+import { refreshAccessToken, isUnauthorizedError, TokenRefreshConfig } from './tokenRefresh';
 
 const walletBackendUrl = config.BACKEND_URL;
 
@@ -115,6 +116,7 @@ export interface BackendApi {
 export function useApi(isOnlineProp: boolean = true): BackendApi {
 	const isOnline = useMemo(() => isOnlineProp === null ? true : isOnlineProp, [isOnlineProp]);
 	const [appToken, setAppToken, clearAppToken] = useSessionStorage<string | null>("appToken", null);
+	const [refreshToken, setRefreshToken, clearRefreshToken] = useSessionStorage<string | null>("refreshToken", null);
 	const [userHandle,] = useSessionStorage<string | null>("userHandle", null);
 	const [cachedUsers] = useLocalStorage<CachedUser[] | null>("cachedUsers", null);
 
@@ -138,7 +140,34 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 	}, []);
 
 	const navigate = useNavigate();
-	const clearSessionStorage = useClearStorages(clearAppToken, clearSessionState);
+	const clearSessionStorage = useClearStorages(clearAppToken, clearRefreshToken, clearSessionState);
+
+	// Refs to store current token values for the refresh config
+	// This allows the refresh mechanism to access the latest values without stale closures
+	const refreshTokenRef = useRef(refreshToken);
+	const appTokenRef = useRef(appToken);
+	refreshTokenRef.current = refreshToken;
+	appTokenRef.current = appToken;
+
+	// Stable ref for clearSession to avoid circular dependency
+	const clearSessionRef = useRef<() => void>(() => {
+		clearSessionStorage();
+		removePrivateDataEtag();
+		clearStoredTenant();
+		events.dispatchEvent(new CustomEvent<ClearSessionEvent>(CLEAR_SESSION_EVENT));
+	});
+
+	/**
+	 * Get the token refresh configuration.
+	 * This creates a config object that can be used by the token refresh utilities.
+	 */
+	const getTokenRefreshConfig = useCallback((): TokenRefreshConfig => ({
+		backendUrl: walletBackendUrl,
+		getRefreshToken: () => refreshTokenRef.current,
+		setAppToken,
+		setRefreshToken,
+		clearSession: () => clearSessionRef.current(),
+	}), [setAppToken, setRefreshToken]);
 
 	const getAppToken = useCallback((): string | null => {
 		return appToken;
@@ -188,7 +217,8 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		path: string,
 		dbKey: string,
 		options?: { appToken?: string, headers?: { [header: string]: string } },
-		forceIndexDB: boolean = false
+		forceIndexDB: boolean = false,
+		_retried: boolean = false
 	): Promise<AxiosResponse> => {
 		console.log(`Get: ${path} ${isOnline ? 'online' : 'offline'} mode ${isOnline}`);
 
@@ -206,19 +236,31 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			}
 		}
 		// Online case
-		const respBackend = await axios.get(
-			`${walletBackendUrl}${path}`,
-			{
-				headers: buildGetHeaders(options?.headers ?? {}, { appToken: options?.appToken }),
-				validateStatus: status => (status >= 200 && status < 300) || status === 304,
-				transformResponse,
-			},
-		);
-		if (!EXCLUDED_INDEXEDDB_PATHS.has(path)) {
-			await addItem(path, dbKey, respBackend.data);
+		try {
+			const respBackend = await axios.get(
+				`${walletBackendUrl}${path}`,
+				{
+					headers: buildGetHeaders(options?.headers ?? {}, { appToken: options?.appToken }),
+					validateStatus: status => (status >= 200 && status < 300) || status === 304,
+					transformResponse,
+				},
+			);
+			if (!EXCLUDED_INDEXEDDB_PATHS.has(path)) {
+				await addItem(path, dbKey, respBackend.data);
+			}
+			return respBackend;
+		} catch (error) {
+			// Attempt token refresh on 401 if not already retried
+			if (!_retried && isUnauthorizedError(error)) {
+				const refreshResult = await refreshAccessToken(getTokenRefreshConfig());
+				if (refreshResult.success) {
+					// Retry with new token
+					return getWithLocalDbKey(path, dbKey, options, forceIndexDB, true);
+				}
+			}
+			throw error;
 		}
-		return respBackend;
-	}, [buildGetHeaders, isOnline]);
+	}, [buildGetHeaders, isOnline, getTokenRefreshConfig]);
 
 	const get = useCallback(async (
 		path: string,
@@ -263,6 +305,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		path: string,
 		body: object,
 		options?: { appToken?: string, headers?: { [header: string]: string } },
+		_retried: boolean = false
 	): Promise<AxiosResponse> => {
 		try {
 			return await axios.post(
@@ -281,16 +324,25 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			if (e?.response?.status === 412 && (e?.response?.headers ?? {})['x-private-data-etag']) {
 				return Promise.reject({ cause: 'x-private-data-etag' });
 			}
+			// Attempt token refresh on 401 if not already retried
+			if (!_retried && isUnauthorizedError(e)) {
+				const refreshResult = await refreshAccessToken(getTokenRefreshConfig());
+				if (refreshResult.success) {
+					// Retry with new token
+					return post(path, body, options, true);
+				}
+			}
 			throw e;
 		}
-	}, [buildMutationHeaders]);
+	}, [buildMutationHeaders, getTokenRefreshConfig]);
 
-	const del = useCallback((
+	const del = useCallback(async (
 		path: string,
 		options?: { appToken?: string, headers?: { [header: string]: string } },
+		_retried: boolean = false
 	): Promise<AxiosResponse> => {
 		try {
-			return axios.delete(
+			return await axios.delete(
 				`${walletBackendUrl}${path}`,
 				{
 					headers: buildMutationHeaders(options?.headers ?? {}, { appToken: options?.appToken }),
@@ -300,9 +352,17 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			if (e?.response?.status === 412 && (e?.response?.headers ?? {})['x-private-data-etag']) {
 				return Promise.reject({ cause: 'x-private-data-etag' });
 			}
+			// Attempt token refresh on 401 if not already retried
+			if (!_retried && isUnauthorizedError(e)) {
+				const refreshResult = await refreshAccessToken(getTokenRefreshConfig());
+				if (refreshResult.success) {
+					// Retry with new token
+					return del(path, options, true);
+				}
+			}
 			throw e;
 		}
-	}, [buildMutationHeaders]);
+	}, [buildMutationHeaders, getTokenRefreshConfig]);
 
 	const syncPrivateData = useCallback(async (
 		cachedUser: CachedUser | undefined
@@ -372,6 +432,10 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		authenticationType: 'signup' | 'login'
 	): Promise<void> => {
 		setAppToken(response.data.appToken);
+		// Store refresh token if provided by backend (when refresh-tokens capability enabled)
+		if (response.data.refreshToken) {
+			setRefreshToken(response.data.refreshToken);
+		}
 		setSessionState({
 			uuid: response.data.uuid,
 			displayName: response.data.displayName,
@@ -385,7 +449,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		if (isOnline) {
 			await fetchInitialData(response.data.appToken, response.data.uuid).catch((error) => console.error('Error in performGetRequests', error));
 		}
-	}, [setAppToken, setSessionState, fetchInitialData, isOnline]);
+	}, [setAppToken, setRefreshToken, setSessionState, fetchInitialData, isOnline]);
 
 	const updatePrivateData = useCallback(async (
 		newPrivateData: EncryptedContainer,
