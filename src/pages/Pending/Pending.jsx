@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { formatDate } from "@/utils";
+import { formatDate } from "wallet-common";
 import { reverse, compareBy } from "@/util";
 import CredentialsContext from "@/context/CredentialsContext";
 import { useOpenID4VCIHelper } from "@/lib/services/OpenID4VCIHelper";
@@ -63,8 +63,7 @@ const Pending = () => {
 							const md = issuerMd[pt.credentialIssuerIdentifier];
 							const cfg = md?.credential_configurations_supported?.[pt.credentialConfigurationId];
 							const issuer = md ? filterItemByLang(md.display, "locale")?.name : null;
-							const cred = cfg ? filterItemByLang(cfg.display, "locale")?.name : null;
-
+							const cred = cfg ? filterItemByLang(cfg.credential_metadata.display, "locale")?.name : null;
 							return (
 								<div
 									key={pt.credentialEndpoint.transactionId}

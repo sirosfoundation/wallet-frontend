@@ -1,5 +1,5 @@
 import { useMemo, useRef, useContext, useEffect } from 'react';
-import axios from 'axios';
+import axios, { AxiosError, AxiosHeaders } from 'axios';
 import { IHttpProxy, RequestHeaders, ResponseHeaders } from '../../interfaces/IHttpProxy';
 import StatusContext from '@/context/StatusContext';
 import { addItem, getItem, removeItem } from '@/indexedDB';
@@ -11,7 +11,7 @@ import { toU8 } from '@/util';
 // @ts-ignore
 const walletBackendServerUrl = BACKEND_URL;
 const inFlightRequests = new Map<string, Promise<any>>();
-const TIMEOUT = 100 * 1000;
+const TIMEOUT = 3 * 1000;
 
 const parseCacheControl = (header: string) =>
 	Object.fromEntries(
@@ -38,9 +38,13 @@ export function useHttpProxy(): IHttpProxy {
 		async get(
 			url: string,
 			headers: RequestHeaders = {},
-			options?: { useCache?: boolean; }
+			options?: {
+				useCache?: boolean;
+				cacheOnError?: boolean;
+			}
 		): Promise<{ status: number; headers: ResponseHeaders; data: unknown }> {
 			const useCache = options?.useCache;
+			const cacheOnError = options?.cacheOnError ?? false;
 			const now = Math.floor(Date.now() / 1000);
 			const online = isOnlineRef.current;
 			const isBinaryRequest = /\.(png|jpe?g|gif|webp|bmp|tiff?|ico)(\?.*)?(#.*)?$/i.test(url);
@@ -118,6 +122,30 @@ export function useHttpProxy(): IHttpProxy {
 							url,
 						})
 						response.data = response.body;
+						if (response.data.status > 299 || response.data.status < 200) {
+							const axiosHeaders = AxiosHeaders.from(headers as Record<string, string>);
+							throw new AxiosError(
+								`Request failed with status code ${response.status}`,
+								undefined,
+								{
+									headers: axiosHeaders,
+									method: 'get',
+									url,
+								},
+								undefined,
+								{
+									data: response,
+									status: response.status,
+									statusText: String(response.status),
+									headers: response.headers || {},
+									config: {
+										headers: axiosHeaders,
+										method: 'get',
+										url,
+									},
+								}
+							);
+						}
 						if (isBinaryRequest) {
 							response = {
 								...response,
@@ -139,7 +167,7 @@ export function useHttpProxy(): IHttpProxy {
 						response = await axios.post(`${walletBackendServerUrl}/proxy`, {
 							headers,
 							url,
-							method: 'get',
+							method: 'GET',
 						}, {
 							timeout: TIMEOUT,
 							headers: {
@@ -221,6 +249,25 @@ export function useHttpProxy(): IHttpProxy {
 					};
 
 				} catch (err) {
+
+					// Optionally cache failed responses
+					if (cacheOnError) {
+						await addItem(
+							'proxyCache',
+							cacheKey,
+							{
+								data: {
+									status: err.response?.status || 500,
+									headers: err.response?.headers || {},
+									data: err.response?.data || 'GET proxy failed',
+									__error: true,
+								},
+								expiry: now + 60 * 60 * 24 * 30,
+							},
+							'proxyCache'
+						);
+					}
+
 					const fallback = await getItem('proxyCache', cacheKey, 'proxyCache');
 					if (fallback?.data) {
 						return {
@@ -272,6 +319,32 @@ export function useHttpProxy(): IHttpProxy {
 					response = {
 						data: { ...response }
 					};
+					if (response.data.status > 299 || response.data.status < 200) {
+						const axiosHeaders = AxiosHeaders.from(headers as Record<string, string>);
+						throw new AxiosError(
+							`Request failed with status code ${response.data.status}`,
+							undefined,
+							{
+								headers: axiosHeaders,
+								method: 'post',
+								url,
+								data: body,
+							},
+							undefined,
+							{
+								data: response.data,
+								status: response.data.status,
+								statusText: String(response.data.status),
+								headers: response.data.headers || {},
+								config: {
+									headers: axiosHeaders,
+									method: 'post',
+									url,
+									data: body,
+								},
+							}
+						);
+					}
 					const responseHeader = response?.data?.headers?.['content-type'];
 					console.log("Content-Type parsed: ", responseHeader);
 					if (responseHeader && responseHeader.trim().startsWith('application/json')) {
@@ -283,7 +356,7 @@ export function useHttpProxy(): IHttpProxy {
 					response = await axios.post(`${walletBackendServerUrl}/proxy`, {
 						headers: headers,
 						url: url,
-						method: 'post',
+						method: 'POST',
 						data: body,
 					}, {
 						timeout: TIMEOUT,

@@ -16,9 +16,10 @@ export async function initializeCredentialEngine(
 	const provider: VctDocumentProvider = {
 		getVctMetadataDocument: async (vct: string) => {
 			try {
+				if (!VCT_REGISTRY_URL) return err(VctResolutionErrors.NotFound);
 				const url = new URL(VCT_REGISTRY_URL);
-				url.searchParams.append('vct', vct);
-				const res = await httpProxy.get(url.toString(), { useCache: true });
+				url.searchParams.set('vct', vct);
+				const res = await httpProxy.get(url.toString(), {}, { useCache: true });
 				if (!res?.data || res.status!==200) return err(VctResolutionErrors.NotFound);
 				return ok(res.data as any);
 			} catch (e) {
@@ -38,7 +39,7 @@ export async function initializeCredentialEngine(
 		vctResolutionEngine: vctDocumentProvider
 	};
 
-	helper.fetchIssuerMetadataAndCertificates(
+	await helper.fetchIssuerMetadataAndCertificates(
 		getIssuers,
 		(pemCerts) => trustedCertificates.push(...pemCerts),
 		shouldUseCache,

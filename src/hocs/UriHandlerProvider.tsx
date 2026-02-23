@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext } from "react";
+import React, { useEffect, useState, useContext, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import StatusContext from "../context/StatusContext";
 import SessionContext from "../context/SessionContext";
@@ -19,6 +19,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 
 	const [usedAuthorizationCodes, setUsedAuthorizationCodes] = useState<string[]>([]);
 	const [usedRequestUris, setUsedRequestUris] = useState<string[]>([]);
+	const usedPreAuthorizedCodes = useRef<string[]>([]);
 
 	const { isLoggedIn, api, keystore, logout } = useContext(SessionContext);
 	const { syncPrivateData } = api;
@@ -139,6 +140,8 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 					console.log("Generating authorization request...");
 					if (!preAuthorizedCode) {
 						return generateAuthorizationRequest(credentialIssuer, selectedCredentialConfigurationId, issuer_state);
+					} else if (usedPreAuthorizedCodes.current.includes(preAuthorizedCode)) {
+						throw new Error("Already used pre-authorized code");
 					}
 
 					let userInput: string | undefined = undefined;
@@ -153,6 +156,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 							}
 						}
 					}
+					usedPreAuthorizedCodes.current.push(preAuthorizedCode);
 					return requestCredentialsWithPreAuthorization(credentialIssuer, selectedCredentialConfigurationId, preAuthorizedCode, userInput);
 				}).then((res) => {
 					if ('url' in res && typeof res.url === 'string' && res.url) {
@@ -160,6 +164,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 					}
 				})
 					.catch(err => {
+						setUrl(`${window.location.origin}${window.location.pathname}`);
 						window.history.replaceState({}, '', `${window.location.pathname}`);
 						console.error(err);
 					})
@@ -171,6 +176,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 				console.log("Handling authorization response...");
 				handleAuthorizationResponse(u.toString()).then(() => {
 				}).catch(err => {
+					setUrl(`${window.location.origin}${window.location.pathname}`);
 					console.log("Error during the handling of authorization response")
 					window.history.replaceState({}, '', `${window.location.pathname}`);
 					console.error(err)
@@ -209,6 +215,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 						setRedirectUri(res.url);
 					}
 				}).catch(err => {
+					setUrl(`${window.location.origin}${window.location.pathname}`);
 					console.log("Failed to handle authorization req");
 					window.history.replaceState({}, '', `${window.location.pathname}`);
 					console.error(err);
@@ -220,6 +227,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 			const state = urlParams.get('state');
 			const error = urlParams.get('error');
 			if (url && isLoggedIn && state && error) {
+				setUrl(`${window.location.origin}${window.location.pathname}`);
 				window.history.replaceState({}, '', `${window.location.pathname}`);
 				const errorDescription = urlParams.get('error_description');
 				setTextMessagePopup({ title: error, description: errorDescription });
