@@ -1,11 +1,11 @@
 import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { ConfigMap } from '../config';
+import { EnvConfigMap } from '../config';
 
 /**
  * Generates a robots.txt file.
  */
-export default async function robotsTxt(destDir: string, config: ConfigMap) {
+export default async function robotsTxt(destDir: string, config: EnvConfigMap) {
 	const content = generateRobotsTxt(config.META_STATIC_PUBLIC_URL);
 
 	const robotsPath = resolve(destDir, 'robots.txt');

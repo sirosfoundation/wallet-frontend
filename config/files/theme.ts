@@ -3,9 +3,9 @@ import { writeFile } from 'node:fs/promises';
 import { generateThemeCSS } from '../branding';
 import { TagsMap } from '../utils/resources';
 import { pathWithBase } from '../utils/paths';
-import { ConfigMap } from '../config';
+import { EnvConfigMap } from '../config';
 
-export default async function themeCSS(destDir: string, config: ConfigMap, tagsToInject?: TagsMap, brandingHash?: string) {
+export default async function themeCSS(destDir: string, config: EnvConfigMap, tagsToInject?: TagsMap, brandingHash?: string) {
 	const themeCss = generateThemeCSS({
 		sourceDir: resolve('branding')
 	});

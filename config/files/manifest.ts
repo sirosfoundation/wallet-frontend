@@ -2,14 +2,14 @@ import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { copyScreenshots, generateAllIcons, Icons } from '../branding';
 import type { ManifestOptions } from 'vite-plugin-pwa';
-import { type ConfigMap } from '../config';
+import { type EnvConfigMap } from '../config';
 import { type Tag } from '../utils/resources';
 import { pathWithBase } from '../utils/paths';
 
 /**
  * Generates a web app manifest and icons, and injects them into the build output.
  */
-export default async function brandingManifest(destDir: string, config: ConfigMap, tagsToInject?: Map<string, Tag>, brandingHash?: string) {
+export default async function brandingManifest(destDir: string, config: EnvConfigMap, tagsToInject?: Map<string, Tag>, brandingHash?: string) {
 	const sourceDir = resolve('branding');
 
 	const icons = await generateAllIcons({

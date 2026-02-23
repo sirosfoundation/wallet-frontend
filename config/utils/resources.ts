@@ -40,3 +40,8 @@ export async function readViteManifest(basePath: string): Promise<ViteManifest> 
 
 	return JSON.parse(manifestContent) as ViteManifest;
 }
+
+
+export type TransformKeysToLowercase<T> = {
+	[K in keyof T as Lowercase<K & string>]: T[K]
+};

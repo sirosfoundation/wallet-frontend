@@ -2,8 +2,7 @@ import { readdir, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { JSDOM } from 'jsdom';
 import { copyScreenshots, findLogoFiles, generateAllIcons, getBrandingHash } from './branding';
-import { ConfigMap } from './config';
-import { htmlMetaTags, metaTag } from './utils/meta-tags';
+import { ClientMetaConfigSchema, EnvConfigMap, getMetaConfigFromEnvConfig } from './config';
 import robotsTxt from './files/robots';
 import wellKnownFiles from './files/well-known';
 import sitemapXml from './files/sitemap';
@@ -11,7 +10,7 @@ import brandingManifest from './files/manifest';
 import themeCSS from './files/theme';
 import metadataImage from './files/metadata-image';
 import { Tag, TagsMap } from './utils/resources';
-import { getTagSortingPriority, insertTag } from './utils/tags';
+import { configMetaTag, getTagSortingPriority, insertTag } from './utils/tags';
 import { pathWithBase } from './utils/paths';
 
 export type InjectConfigOptions = {
@@ -28,7 +27,7 @@ export type InjectConfigOptions = {
 	/**
 	 * The environment variables to use for generating meta tags and other configuration.
 	 */
-	config: ConfigMap;
+	config: EnvConfigMap;
 	/**
 	 * Map of tags to later be injected into the HTML file.
 	 * Used to pass tags generated during file injection (e.g. manifest icons) to the HTML injection step.
@@ -41,7 +40,7 @@ export async function injectConfigFiles({ bundleDir, destDir, config, tagsToInje
 		throw new Error(`Destination directory ${destDir} does not exist or is not readable.`);
 	}
 
-	const brandingHash = process.env.VITE_BRANDING_HASH;
+	const brandingHash = process.env.BRANDING_HASH;
 
 	await Promise.all([
 		wellKnownFiles(destDir, config),
@@ -61,7 +60,7 @@ export type InjectHtmlOptions = {
 	/**
 	 * The configuration to use for generating meta tags.
 	 */
-	config: ConfigMap;
+	config: EnvConfigMap;
 	/**
 	 * Optional map of additional tags to inject into the HTML.
 	 */
@@ -79,21 +78,22 @@ export async function injectHtml({ html, config, tagsToInject, brandingHash }: I
 	const dom = new JSDOM(html);
 	const document = dom.window.document;
 	const head = document.head;
+
 	if (!head) {
 		throw new Error('No <head> element found in HTML.');
 	}
 
 	(function injectSocialMetaTags() {
 		const tags: Tag[] = [
-			{ tag: 'title', textContent: config.META_STATIC_NAME, props: {} },
-			{ tag: 'meta', props: { name: 'description', content: `${config.META_STATIC_NAME} is a secure web wallet for storing and managing verifiable credentials.` } },
+			{ tag: 'title', textContent: config.STATIC_NAME, props: {} },
+			{ tag: 'meta', props: { name: 'description', content: `${config.STATIC_NAME} is a secure web wallet for storing and managing verifiable credentials.` } },
 			{ tag: 'meta', props: { name: 'keywords', content: 'wwWallet, web wallet, wallet, secure storage, verifiable credentials, digital credentials, credentials management' } },
-			{ tag: 'meta', props: { property: 'og:title', content: `${config.META_STATIC_NAME}: Secure Storage and Management of Verifiable Credentials` } },
-			{ tag: 'meta', props: { property: 'og:description', content: `${config.META_STATIC_NAME} is a secure web wallet for storing and managing verifiable credentials.` } },
-			{ tag: 'meta', props: { property: 'og:url', content: config.META_STATIC_PUBLIC_URL } },
+			{ tag: 'meta', props: { property: 'og:title', content: `${config.STATIC_NAME}: Secure Storage and Management of Verifiable Credentials` } },
+			{ tag: 'meta', props: { property: 'og:description', content: `${config.STATIC_NAME} is a secure web wallet for storing and managing verifiable credentials.` } },
+			{ tag: 'meta', props: { property: 'og:url', content: config.STATIC_PUBLIC_URL || '' } },
 			{ tag: 'meta', props: { property: 'og:type', content: 'website' } },
-			{ tag: 'meta', props: { name: 'twitter:title', content: `${config.META_STATIC_NAME}: Secure Storage and Management of Verifiable Credentials` } },
-			{ tag: 'meta', props: { name: 'twitter:description', content: `${config.META_STATIC_NAME} is a secure web wallet for storing and managing verifiable credentials.` } },
+			{ tag: 'meta', props: { name: 'twitter:title', content: `${config.STATIC_NAME}: Secure Storage and Management of Verifiable Credentials` } },
+			{ tag: 'meta', props: { name: 'twitter:description', content: `${config.STATIC_NAME} is a secure web wallet for storing and managing verifiable credentials.` } },
 			{ tag: 'meta', props: { name: 'twitter:card', content: 'summary_large_image' } },
 		];
 
@@ -112,18 +112,17 @@ export async function injectHtml({ html, config, tagsToInject, brandingHash }: I
 
 	// Inject meta tags
 	(function injectConfigMetaTags() {
-		const metaTags = htmlMetaTags(config);
+		const metaConfig = getMetaConfigFromEnvConfig(config);
 
 		// Add branding logo meta tags
 		const { logo_light, logo_dark } = findLogoFiles(resolve('branding'));
-		metaTags.push(
-			metaTag('branding_logo_light', pathWithBase(config.BASE_PATH, `${logo_light.filename}${brandingHash ? `?v=${brandingHash}` : ''}`)),
-			metaTag('branding_logo_dark', pathWithBase(config.BASE_PATH, `${logo_dark.filename}${brandingHash ? `?v=${brandingHash}` : ''}`)),
-		);
 
-		for (const { name, content } of metaTags) {
-			insertTag(document, head, { tag: 'meta', props: { name, content } });
-		}
+		metaConfig.branding = {
+			logo_light: pathWithBase(config.BASE_PATH, `${logo_light.filename}${brandingHash ? `?v=${brandingHash}` : ''}`),
+			logo_dark: pathWithBase(config.BASE_PATH, `${logo_dark.filename}${brandingHash ? `?v=${brandingHash}` : ''}`),
+		};
+
+		insertTag(document, head, configMetaTag(metaConfig));
 	})();
 
 	(function sortHead() {
@@ -146,7 +145,7 @@ export async function injectHtml({ html, config, tagsToInject, brandingHash }: I
 		for (const child of children) {
 			for (const attr of ['href', 'src'] as const) {
 				const value = child.getAttribute(attr);
-				if (value && !value.startsWith(config.BASE_PATH)) {
+				if (value && config.BASE_PATH && !value.startsWith(config.BASE_PATH)) {
 					child.setAttribute(attr, pathWithBase(config.BASE_PATH, value));
 				}
 			}

@@ -1,13 +1,13 @@
 import { resolve } from 'node:path';
 import { access, mkdir, rm, writeFile } from 'node:fs/promises';
 import { type FileToWrite } from '../utils/resources';
-import { type ConfigMap } from '../config';
+import { type EnvConfigMap } from '../config';
 
 
 /**
  * Generates .well-known files.
  */
-export default async function wellKnownFiles(destDir: string, config: ConfigMap) {
+export default async function wellKnownFiles(destDir: string, config: EnvConfigMap) {
 	// Remove existing .well-known directory in dist if it exists to ensure old files are cleared out
 	await rm(resolve(destDir, '.well-known'), { recursive: true }).catch(() => null);
 

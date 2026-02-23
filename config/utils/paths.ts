@@ -1,4 +1,4 @@
-export function pathWithBase(basePath: string, path: string): string {
+export function pathWithBase(basePath: string | undefined, path: string): string {
 	if (!basePath) return path;
 	if (!path) return basePath;
 

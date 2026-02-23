@@ -1,94 +1,104 @@
-export type ConfigMap = {
-	/*
-	 * Vite-specific environment variables.
-	 * These can't or shouldn't be set at runtime.
-	 */
-	HOST?: string;
-	PORT?: string;
-	GENERATE_SOURCEMAP?: string;
-	APP_VERSION?: string;
+import { z } from 'zod';
+import { TransformKeysToLowercase } from './utils/resources';
 
-	/*
-	 * Runtime base path.
-	 * Used for asset loading.
-	 */
-	BASE_PATH: string;
+/**
+ * Vite-specific environment variables.
+ * These can't or shouldn't be set at runtime.
+*/
+export const ViteEnvConfigSchema = z.object({
+	HOST: z.string().optional(),
+	PORT: z.string().optional(),
+	GENERATE_SOURCEMAP: z.string().optional(),
+	APP_VERSION: z.string().optional(),
+});
+export type ViteEnvConfig = z.infer<typeof ViteEnvConfigSchema>;
 
-	/*
-	 * Runtime injected variables.
-	 * These should be injected into index.html as meta tags.
-	 *
-	 * If in a multi-tenancy setup, these *should* likely differ between tenants.
-	 */
-	META_STATIC_PUBLIC_URL: string;
-	META_STATIC_NAME: string;
-	META_I18N_WALLET_NAME_OVERRIDE: string;
-	META_OPENID4VCI_REDIRECT_URI: string;
+/**
+ * Exposed to the client as meta tags and used for generating config files.
+ * These can be set at runtime and may differ between tenants in a multi-tenancy setup.
+ */
+export const ClientEnvConfigSchema = z.object({
+	// Runtime base path. Used for asset loading.
+	BASE_PATH: z.string().optional(),
 
-	/*
-	 * Runtime injected variables.
-	 * These should be injected into index.html as meta tags.
-	 *
-	 * If in a multi-tenancy setup, these *should not* likely differ between tenants.
-	 */
-	META_WS_URL: string;
-	META_WALLET_BACKEND_URL: string;
-	META_LOGIN_WITH_PASSWORD: string;
-	META_DID_KEY_VERSION: string;
-	META_DISPLAY_CONSOLE: string;
-	META_WEBAUTHN_RPID: string;
-	META_OPENID4VCI_PROOF_TYPE_PRECEDENCE: string;
-	META_OPENID4VP_SAN_DNS_CHECK: string;
-	META_OPENID4VP_SAN_DNS_CHECK_SSL_CERTS: string;
-	META_VALIDATE_CREDENTIALS_WITH_TRUST_ANCHORS: string;
-	META_MULTI_LANGUAGE_DISPLAY: string;
-	META_FOLD_EVENT_HISTORY_AFTER_SECONDS: string;
-	META_DISPLAY_ISSUANCE_WARNINGS: string;
-	META_OPENID4VCI_MAX_ACCEPTED_BATCH_SIZE: string;
-	META_OPENID4VCI_TRANSACTION_ID_POLLING_INTERVAL_IN_SECONDS: string;
-	META_OPENID4VCI_TRANSACTION_ID_LIFETIME_IN_SECONDS: string;
-	META_OHTTP_KEY_CONFIG: string;
-	META_OHTTP_RELAY: string;
-	META_VCT_REGISTRY_URL: string;
+	// If in a multi-tenancy setup, these *should* likely differ between tenants.
+	STATIC_PUBLIC_URL: z.string().optional(),
+	STATIC_NAME: z.string().optional(),
+	I18N_WALLET_NAME_OVERRIDE: z.string().optional(),
+	OPENID4VCI_REDIRECT_URI: z.string().optional(),
 
-	/*
-	 * Data for well-known files.
-	 * Are not injected as meta tags.
-	 */
-	WELLKNOWN_APPLE_APPIDS: string;
-	WELLKNOWN_ANDROID_PACKAGE_NAMES_AND_FINGERPRINTS: string;
+	// If in a multi-tenancy setup, these *should not* likely differ between tenants.
+	WS_URL: z.string().optional(),
+	WALLET_BACKEND_URL: z.string().optional(),
+	LOGIN_WITH_PASSWORD: z.string().optional(),
+	DID_KEY_VERSION: z.string().optional(),
+	DISPLAY_CONSOLE: z.string().optional(),
+	WEBAUTHN_RPID: z.string().optional(),
+	OPENID4VCI_PROOF_TYPE_PRECEDENCE: z.string().optional(),
+	OPENID4VP_SAN_DNS_CHECK: z.string().optional(),
+	OPENID4VP_SAN_DNS_CHECK_SSL_CERTS: z.string().optional(),
+	VALIDATE_CREDENTIALS_WITH_TRUST_ANCHORS: z.string().optional(),
+	MULTI_LANGUAGE_DISPLAY: z.string().optional(),
+	FOLD_EVENT_HISTORY_AFTER_SECONDS: z.string().optional(),
+	DISPLAY_ISSUANCE_WARNINGS: z.string().optional(),
+	OPENID4VCI_MAX_ACCEPTED_BATCH_SIZE: z.string().optional(),
+	OPENID4VCI_TRANSACTION_ID_POLLING_INTERVAL_IN_SECONDS: z.string().optional(),
+	OPENID4VCI_TRANSACTION_ID_LIFETIME_IN_SECONDS: z.string().optional(),
+	OHTTP_KEY_CONFIG: z.string().optional(),
+	OHTTP_RELAY: z.string().optional(),
+	VCT_REGISTRY_URL: z.string().optional(),
+});
+export type ClientEnvConfig = z.infer<typeof ClientEnvConfigSchema>;
 
+/**
+ * Data for well-known files.
+ */
+export const WellKnownEnvConfigSchema = z.object({
+	WELLKNOWN_APPLE_APPIDS: z.string().optional(),
+	WELLKNOWN_ANDROID_PACKAGE_NAMES_AND_FINGERPRINTS: z.string().optional(),
+});
+export type WellKnownEnvConfig = z.infer<typeof WellKnownEnvConfigSchema>;
+
+/**
+ * The full environment configuration map.
+ */
+export const EnvConfigMapSchema = ViteEnvConfigSchema
+	.merge(ClientEnvConfigSchema)
+	.merge(WellKnownEnvConfigSchema);
+export type EnvConfigMap = z.infer<typeof EnvConfigMapSchema>;
+
+/**
+ * Client configuration meta tags that will be injected into the HTML.
+ */
+export const ClientMetaConfigSchema = transformSchemaKeysToLowercase(ClientEnvConfigSchema).extend({
+	branding: z.object({
+		logo_light: z.string().optional(),
+		logo_dark: z.string().optional(),
+	}).optional(),
+});
+export type ClientMetaConfig = z.infer<typeof ClientMetaConfigSchema>;
+
+/**
+ * Extracts the client meta configuration from the full environment configuration.
+ */
+export function getMetaConfigFromEnvConfig(config: EnvConfigMap): ClientMetaConfig {
+	return ClientMetaConfigSchema.parse(
+		Object.fromEntries(
+			Object.entries(config).map(([key, value]) => [key.toLowerCase(), value])
+		)
+	);
 }
 
-export function getConfigFromEnv(env: Record<string, string>): ConfigMap {
-	return {
-		BASE_PATH: env.BASE_PATH || '/',
-		META_STATIC_PUBLIC_URL: env.META_STATIC_PUBLIC_URL,
-		META_STATIC_NAME: env.META_STATIC_NAME,
-		META_I18N_WALLET_NAME_OVERRIDE: env.META_I18N_WALLET_NAME_OVERRIDE,
-		META_OPENID4VCI_REDIRECT_URI: env.META_OPENID4VCI_REDIRECT_URI,
-
-		META_WS_URL: env.META_WS_URL,
-		META_WALLET_BACKEND_URL: env.META_WALLET_BACKEND_URL,
-		META_LOGIN_WITH_PASSWORD: env.META_LOGIN_WITH_PASSWORD,
-		META_DID_KEY_VERSION: env.META_DID_KEY_VERSION,
-		META_DISPLAY_CONSOLE: env.META_DISPLAY_CONSOLE,
-		META_WEBAUTHN_RPID: env.META_WEBAUTHN_RPID,
-		META_OPENID4VCI_PROOF_TYPE_PRECEDENCE: env.META_OPENID4VCI_PROOF_TYPE_PRECEDENCE,
-		META_OPENID4VP_SAN_DNS_CHECK: env.META_OPENID4VP_SAN_DNS_CHECK,
-		META_OPENID4VP_SAN_DNS_CHECK_SSL_CERTS: env.META_OPENID4VP_SAN_DNS_CHECK_SSL_CERTS,
-		META_VALIDATE_CREDENTIALS_WITH_TRUST_ANCHORS: env.META_VALIDATE_CREDENTIALS_WITH_TRUST_ANCHORS,
-		META_MULTI_LANGUAGE_DISPLAY: env.META_MULTI_LANGUAGE_DISPLAY,
-		META_FOLD_EVENT_HISTORY_AFTER_SECONDS: env.META_FOLD_EVENT_HISTORY_AFTER_SECONDS,
-		META_DISPLAY_ISSUANCE_WARNINGS: env.META_DISPLAY_ISSUANCE_WARNINGS,
-		META_OPENID4VCI_MAX_ACCEPTED_BATCH_SIZE: env.META_OPENID4VCI_MAX_ACCEPTED_BATCH_SIZE,
-		META_OPENID4VCI_TRANSACTION_ID_POLLING_INTERVAL_IN_SECONDS: env.META_OPENID4VCI_TRANSACTION_ID_POLLING_INTERVAL_IN_SECONDS,
-		META_OPENID4VCI_TRANSACTION_ID_LIFETIME_IN_SECONDS: env.META_OPENID4VCI_TRANSACTION_ID_LIFETIME_IN_SECONDS,
-		META_OHTTP_KEY_CONFIG: env.META_OHTTP_KEY_CONFIG,
-		META_OHTTP_RELAY: env.META_OHTTP_RELAY,
-		META_VCT_REGISTRY_URL: env.META_VCT_REGISTRY_URL,
-
-		WELLKNOWN_APPLE_APPIDS: env.WELLKNOWN_APPLE_APPIDS,
-		WELLKNOWN_ANDROID_PACKAGE_NAMES_AND_FINGERPRINTS: env.WELLKNOWN_ANDROID_PACKAGE_NAMES_AND_FINGERPRINTS,
+/**
+ * Transforms a Zod object schema's keys to lowercase.
+ * Returns a properly typed Zod schema.
+ */
+function transformSchemaKeysToLowercase<T extends z.ZodRawShape>(
+	schema: z.ZodObject<T>
+): z.ZodObject<{ [K in keyof TransformKeysToLowercase<T>]: z.ZodOptional<z.ZodString> }> {
+	const shape: Record<string, z.ZodTypeAny> = {};
+	for (const [key, value] of Object.entries(schema.shape)) {
+		shape[key.toLowerCase()] = value;
 	}
+	return z.object(shape) as any;
 }

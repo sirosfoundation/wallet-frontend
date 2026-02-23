@@ -1,11 +1,11 @@
 import { resolve } from 'node:path';
-import { ConfigMap } from '../config';
+import { EnvConfigMap } from '../config';
 import { writeFile } from 'node:fs/promises';
 
 /**
  * Generates a sitemap.xml file.
  */
-export default async function sitemapXml(destDir: string, config: ConfigMap) {
+export default async function sitemapXml(destDir: string, config: EnvConfigMap) {
 	const content = generateSitemapXml(config.META_STATIC_PUBLIC_URL);
 
 	const sitemapPath = resolve(destDir, 'sitemap.xml');

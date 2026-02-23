@@ -2,7 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { getBrandingHash } from './branding';
 import { injectConfigFiles, injectHtml } from './inject';
-import { getConfigFromEnv } from './config';
+import { EnvConfigMapSchema } from './config';
 import { Tag } from './utils/resources';
 
 /**
@@ -17,9 +17,9 @@ import { Tag } from './utils/resources';
 	}
 
 	const brandingHash = getBrandingHash(resolve('branding')); // Compute branding hash from your branding folder
-	env.VITE_BRANDING_HASH = brandingHash;
+	env.BRANDING_HASH = brandingHash;
 
-	const config = getConfigFromEnv(env);
+	const config = EnvConfigMapSchema.parse(env);
 
 	const tagsToInject = new Map<string, Tag>();
 

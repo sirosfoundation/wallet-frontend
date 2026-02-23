@@ -1,4 +1,5 @@
 import { Tag } from "./resources";
+import { ClientEnvConfig, ClientMetaConfig, type EnvConfigMap } from '../config';
 
 export function getTagSortingPriority(el: Element): number {
 	const tag = el.tagName.toLowerCase();
@@ -62,5 +63,15 @@ export function insertTag(document: Document, head: HTMLHeadElement, { tag, prop
 		existingElement.replaceWith(element);
 	} else {
 		head.appendChild(element);
+	}
+}
+
+export function configMetaTag(config: ClientMetaConfig): Tag {
+	return {
+		tag: 'meta',
+		props: {
+			name: 'www:config',
+			content: JSON.stringify(config),
+		}
 	}
 }

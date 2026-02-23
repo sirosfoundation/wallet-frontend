@@ -1,13 +1,13 @@
 import path from 'node:path';
 import { writeFile } from 'node:fs/promises';
 import { MetadataImage } from '../branding';
-import { ConfigMap } from '../config';
+import { EnvConfigMap } from '../config';
 import { TagsMap } from '../utils/resources';
 
 /**
  * Generates a metadata image based on the provided configuration and writes it to the specified destination directory.
  */
-export default async function metadataImage(destDir: string, config: ConfigMap, tagsToInject?: TagsMap, brandingHash?: string) {
+export default async function metadataImage(destDir: string, config: EnvConfigMap, tagsToInject?: TagsMap, brandingHash?: string) {
 	const fileName = 'image.png';
 
 	const generationConfig = {
