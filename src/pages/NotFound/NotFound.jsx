@@ -4,15 +4,20 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Button from '../../components/Buttons/Button';
 import { useTenant } from '@/context/TenantContext';
+import { matchesTenantFromUrl } from '@/lib/tenant';
 
 
 const NotFound = () => {
 	const navigate = useNavigate();
 	const { t } = useTranslation();
-	const { buildPath } = useTenant();
+	const { buildPath, effectiveTenantId, urlTenantId } = useTenant();
 
 	const handleBackToHome = () => {
-		navigate(buildPath());
+		if (!matchesTenantFromUrl(effectiveTenantId, urlTenantId)) {
+			window.location.href = buildPath();
+		} else {
+			navigate(buildPath());
+		}
 	};
 
 	return (
