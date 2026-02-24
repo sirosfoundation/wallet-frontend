@@ -2,9 +2,11 @@
 
 import { clientsClaim } from "workbox-core";
 import { ExpirationPlugin } from "workbox-expiration";
-import { precacheAndRoute, createHandlerBoundToURL, cleanupOutdatedCaches, } from "workbox-precaching";
+import { precacheAndRoute, cleanupOutdatedCaches, } from "workbox-precaching";
 import { registerRoute } from "workbox-routing";
 import { StaleWhileRevalidate } from "workbox-strategies";
+
+const basePath = new URL(self.registration.scope).pathname.replace(/\/$/, '') || '/';
 
 clientsClaim();
 
@@ -35,7 +37,13 @@ registerRoute(
 
 		return SPA_ROUTE_ALLOWLIST.some((re) => re.test(url.pathname));
 	},
-	createHandlerBoundToURL('/index.html')
+	async () => {
+		const indexPath = `${basePath}/index.html`;
+		const cached = await caches.match(indexPath);
+
+		console.log(cached || fetch(indexPath))
+		return cached || fetch(indexPath);
+	}
 );
 
 registerRoute(
