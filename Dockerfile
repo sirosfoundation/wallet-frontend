@@ -25,7 +25,14 @@ RUN --mount=type=secret,id=wallet_frontend_envfile,dst=/home/node/app/.env,requi
 
 FROM nginx:alpine AS deploy
 
-RUN apk add --no-cache nodejs=~24 npm=~11
+RUN apk add --no-cache nodejs=~24 npm=~11 && npm install -g \
+	tsx@^4.21.0 \
+	sharp@^0.34.5 \
+	jsdom@^28.0.0 \
+	zod@^3.23.8 \
+	color-convert@^3.1.3
+
+ENV NODE_PATH=/usr/local/lib/node_modules
 
 WORKDIR /usr/share/nginx/
 
@@ -35,13 +42,6 @@ COPY --from=builder --chown=nginx:nginx /home/node/app/dist/ ./html/
 COPY --from=builder --chown=nginx:nginx /home/node/app/dist/ ./dist/
 COPY --from=builder --chown=nginx:nginx /home/node/app/config/ ./config/
 COPY --from=builder --chown=nginx:nginx /home/node/app/branding/ ./branding/
-
-RUN npm install -g tsx@^4.21.0
-RUN cd ./config && npm install \
-	sharp@^0.34.5 \
-	jsdom@^28.0.0 \
-	zod@^3.23.8 \
-	color-convert@^3.1.3
 
 EXPOSE 80
 
