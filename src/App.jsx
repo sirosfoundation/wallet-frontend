@@ -109,6 +109,7 @@ function App() {
 						}>
 							<Route path="login" element={<Login />} />
 							<Route path="login-state" element={<LoginState />} />
+							<Route path="*" element={<NotFound />} />
 						</Route>
 					</Route>
 
