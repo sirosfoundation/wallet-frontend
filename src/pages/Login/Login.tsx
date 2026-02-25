@@ -748,9 +748,8 @@ const Auth = () => {
 					error={webauthnError}
 					setError={setWebauthnError}
 				/>
-
 				{!isLoginCache ? (
-					<p className="text-sm font-light text-lm-gray-900 dark:text-dm-gray-100 text-center">
+					<p className="text-sm font-light text-lm-gray-900 dark:text-dm-gray-100">
 						{isLogin ? t('loginSignup.newHereQuestion') : t('loginSignup.alreadyHaveAccountQuestion')}
 						<Button
 							id={`${isLogin ? 'signUp' : 'loginSignup.login'}-switch-loginsignup`}
@@ -773,13 +772,14 @@ const Auth = () => {
 						</Button>
 					</p>
 				)}
-
-				{!isLoginCache && (
+			</div>
+			{!isLoginCache && (
+				<div className="relative mt-4 p-6 sm:px-12 bg-white rounded-lg dark:bg-dm-gray-900 border border-lm-gray-400 dark:border-dm-gray-600">
 					<div className="flex justify-center">
 						<PasskeyInfoPopup/>
 					</div>
-				)}
-			</div>
+				</div>
+			)}
 		</LoginLayout>
 	);
 };
