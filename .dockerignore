@@ -9,3 +9,6 @@ dist
 .npmrc.template
 .vscode
 README.md
+# Exclude local env files to prevent them from overriding Docker build args
+.env.local
+.env.*.local
