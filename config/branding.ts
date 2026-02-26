@@ -616,11 +616,18 @@ export class MetadataImage {
 
 	private static fontsConfDirName = "fonts";
 
+	public static getFontsConfigDir(baseDir: string): string {
+		const fontsConfDir = path.resolve(baseDir, this.fontsConfDirName);
+		process.env.FONTCONFIG_PATH = fontsConfDir;
+
+		return fontsConfDir;
+	}
+
 	/**
 	 * Check if `baseDir` contains the files required for a font environment.
 	 */
 	public static async hasFontsEnvironment(baseDir: string): Promise<boolean> {
-		const fontsConfDir = path.resolve(baseDir, this.fontsConfDirName);
+		const fontsConfDir = this.getFontsConfigDir(baseDir);
 
 		try {
 			const dir = await readdir(fontsConfDir);
@@ -638,7 +645,7 @@ export class MetadataImage {
 	 * Sets up a self-contained font environment.
 	 */
 	public static async setupFontsEnvironment(baseDir: string) {
-		const fontsConfDir = path.resolve(baseDir, this.fontsConfDirName);
+		const fontsConfDir = this.getFontsConfigDir(baseDir);
 
 		await mkdir(fontsConfDir, { recursive: true });
 
@@ -659,8 +666,6 @@ export class MetadataImage {
 		}
 
 		await writeFile(path.join(fontsConfDir, "fonts.conf"), MetadataImage.FONTCONFIG_XML);
-
-		process.env.FONTCONFIG_PATH = fontsConfDir;
 	}
 
 	/**
