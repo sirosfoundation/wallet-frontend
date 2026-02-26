@@ -27,7 +27,7 @@ FROM nginx:alpine AS deploy
 
 # Alpine mirrors don't keep old versions of packages around for so long.
 # If pinned dependencies fail to install, check if they still exist.
-RUN apk add --no-cache nodejs=~24 npm=~11 && npm install -g \
+RUN apk add --no-cache nodejs=~24 npm=~11 fontconfig && npm install -g \
 	tsx@^4.21.0 \
 	sharp@^0.34.5 \
 	jsdom@^28.0.0 \
