@@ -19,11 +19,11 @@ import SeparatorLine from '../../components/Shared/SeparatorLine';
 import PasswordStrength from '../../components/Auth/PasswordStrength';
 import LoginLayout from '../../components/Auth/LoginLayout';
 import checkForUpdates from '../../offlineUpdateSW';
-import ConnectionStatusIcon from '../../components/Layout/Navigation/ConnectionStatusIcon';
 
-import useScreenType from '@/hooks/useScreenType';
-import { CircleQuestionMark, Eye, EyeOff, FingerprintIcon, Info, Lock, LockKeyholeOpen,SmartphoneNfcIcon, User, UserLock, X } from 'lucide-react';
+import { Eye, EyeOff, Info, KeyRoundIcon, Lock, LockKeyholeOpen, User, Wallet, X } from 'lucide-react';
 import { UsbStickDotIcon } from '@/components/Shared/CustomIcons';
+import PolicyLinks from '@/components/Shared/PolicyLinks';
+import PasskeyInfoPopup from '@/components/Popups/PasskeyInfoPopup';
 
 const FormInputRow = ({
 	IconComponent,
@@ -219,7 +219,6 @@ const WebauthnSignupLogin = ({
 	const { isOnline, updateOnlineStatus } = useContext(StatusContext);
 	const { api, keystore } = useContext(SessionContext);
 	const { effectiveTenantId, urlTenantId } = useTenant();
-	const screenType = useScreenType();
 	const navigate = useNavigate();
 	const location = useLocation();
 
@@ -439,7 +438,7 @@ const WebauthnSignupLogin = ({
 	const nameByteLimitApproaching = nameByteLength >= nameByteLimit / 2;
 
 	return (
-		<form onSubmit={onSubmit}>
+		<form className='mb-4' onSubmit={onSubmit}>
 			{inProgress || retrySignupFrom
 				? (
 					needPrfRetry
@@ -526,7 +525,7 @@ const WebauthnSignupLogin = ({
 					<>
 						{!isLogin && (
 							<>
-								<FormInputRow label={t('loginSignup.choosePasskeyUsername')} name="name" IconComponent={User}>
+								<FormInputRow label={t('loginSignup.choosePasskeyUsername')} name="name" IconComponent={Wallet}>
 									<FormInputField
 										ariaLabel="Passkey name"
 										name="name"
@@ -551,6 +550,18 @@ const WebauthnSignupLogin = ({
 										</div>
 									</div>
 								</FormInputRow>
+								{PolicyLinks && (
+									<label className="mb-4 text-sm relative block pl-6">
+										<input className="absolute top-1 left-0 w-4 h-4 accent-primary cursor-pointer" type="checkbox" required />
+										<span>
+											<Trans
+												i18nKey="loginSignup.acceptPolicies"
+												values={{ walletName: config.STATIC_NAME }}
+												components={{ policyLinks: <PolicyLinks /> }}
+											/>
+										</span>
+									</label>
+								)}
 							</>)}
 
 						{isLoginCache && (
@@ -571,7 +582,6 @@ const WebauthnSignupLogin = ({
 												ariaLabel={t('loginSignup.loginAsUser', { name: cachedUser.displayName })}
 												title={t('loginSignup.loginAsUser', { name: cachedUser.displayName })}
 											>
-												<UserLock size={20} className="inline text-xl mr-2 shrink-0" />
 												<span className="truncate">
 													{isSubmitting
 														? t('loginSignup.submitting')
@@ -598,26 +608,19 @@ const WebauthnSignupLogin = ({
 							</ul>
 						)}
 
-						{!isLoginCache && !isLogin && (
-							<label className="block text-dm-gray-800 dark:text-lm-gray-200 text-sm font-bold mb-2" htmlFor={name}>
-								{t('loginSignup.choosePasskeyPlatform')}
-							</label>
-						)}
-
 						{!isLoginCache && (
 							[
-								{ hint: "client-device", btnLabel: t('common.platformPasskey'), Icon: FingerprintIcon, variant: coerce<Variant>("primary"), helpText: "Fastest option, recommended" },
-								{ hint: "security-key", btnLabel: t('common.externalPasskey'), Icon: UsbStickDotIcon, variant: coerce<Variant>("outline"), helpText: "Use a USB or hardware security key" },
-								{ hint: "hybrid", btnLabel: t('common.hybridPasskey'), Icon: SmartphoneNfcIcon, variant: coerce<Variant>("outline"), helpText: "Scan QR or link mobile device" },
-							].map(({ Icon, hint, btnLabel, variant, helpText }) => (
-								<div key={hint} className='mt-2 relative w-full flex flex-col justify-center'>
+								{ btnLabel: isLogin ? t('loginSignup.loginWithPasskey') : t('loginSignup.signUpWithPasskey'), Icon: KeyRoundIcon, variant: coerce<Variant>("primary") },
+								{ btnLabel: isLogin ? t('loginSignup.loginWithSecurityKey') : t('loginSignup.signUpWithSecurityKey'), Icon: UsbStickDotIcon, variant: coerce<Variant>("outline"), hint: "security-key", },
+							].map(({ Icon, btnLabel, variant, hint }) => (
+								<div key={btnLabel} className='mt-2 relative w-full flex flex-col justify-center'>
 									<Button
 										id={`${isSubmitting ? 'submitting' : isLogin ? 'loginPasskey' : 'loginSignup.signUpPasskey'}-${hint}-submit-loginsignup`}
 										type="submit"
 										variant={variant}
 										size="lg"
 										textSize="md"
-										additionalClassName="items-center justify-center relative"
+										additionalClassName={`items-center justify-center relative passkey-button-${hint}`}
 										title={!isLogin && !isOnline && t("common.offlineTitle")}
 										value={hint}
 									>
@@ -630,24 +633,8 @@ const WebauthnSignupLogin = ({
 													: btnLabel
 												}
 											</div>
-
-											{screenType !== 'desktop' && (
-												<span className="mt-2 text-xs">
-													{helpText}
-												</span>
-											)}
 										</div>
 									</Button>
-
-									{screenType === 'desktop' && (
-										<div className="absolute -right-8 flex items-center ml-2 group">
-											<CircleQuestionMark className={`w-4 h-4 text-lm-gray-800 dark:text-dm-gray-200 cursor-pointer`} aria-hidden="true" />
-
-											<div className="absolute left-1/2 -translate-x-1/2 mt-2 z-10 hidden group-hover:flex group-focus-within:flex px-3 py-2 rounded bg-lm-gray-800 text-lm-gray-100 text-xs whitespace-nowrap shadow-lg bottom-6">
-												{helpText}
-											</div>
-										</div>
-									)}
 								</div>
 							))
 						)}
@@ -772,7 +759,7 @@ const Auth = () => {
 	return (
 		<LoginLayout heading={
 			<Trans
-				i18nKey="loginSignup.welcomeMessage"
+				i18nKey={(isLoginCache || isLogin) ? 'loginSignup.loginMessage' : 'loginSignup.welcomeMessage'}
 				components={{
 					highlight: <span className="text-primary dark:text-brand-light" />
 				}}
@@ -782,9 +769,6 @@ const Auth = () => {
 				<h1 className="pt-4 text-xl font-bold leading-tight tracking-tight text-dm-gray-900 md:text-2xl text-center dark:text-white">
 					{isLoginCache ? t('loginSignup.loginCache') : isLogin ? t('loginSignup.loginTitle') : t('loginSignup.signUp')}
 				</h1>
-				<div className='absolute text-lm-gray-900 dark:text-white top-5 left-5'>
-					<ConnectionStatusIcon backgroundColor='light' />
-				</div>
 
 				<div className='absolute top-5 right-5'>
 					<LanguageSelector className='min-w-12 text-sm text-lm-gray-900 dark:text-white cursor-pointer bg-white dark:bg-dm-gray-900 appearance-none' />
@@ -821,41 +805,45 @@ const Auth = () => {
 					error={webauthnError}
 					setError={setWebauthnError}
 				/>
-
-				{!isLoginCache ? (
-					<p className="mb-4 text-sm font-light text-lm-gray-900 dark:text-dm-gray-100 text-center">
-						{isLogin ? t('loginSignup.newHereQuestion') : t('loginSignup.alreadyHaveAccountQuestion')}
-						<Button
-							id={`${isLogin ? 'signUp' : 'loginSignup.login'}-switch-loginsignup`}
-							variant="link"
-							onClick={toggleForm}
-							disabled={!isOnline}
-							title={!isOnline && t('common.offlineTitle')}
-						>
-							{isLogin ? t('loginSignup.signUp') : t('loginSignup.login')}
-						</Button>
-					</p>
-				) : (
-					<p className="mb-4 text-sm font-light text-lm-gray-900 dark:text-dm-gray-100 cursor-pointer">
-						<Button
-							id="useOtherAccount-switch-loginsignup"
-							variant="link"
-							onClick={useOtherAccount}
-						>
-							{t('loginSignup.useOtherAccount')}
-						</Button>
-					</p>
-				)}
-
-				{TenantSelector && (
-					<div className="mb-4 text-sm flex justify-center">
-						<TenantSelector
-							currentTenantId={urlTenantId || 'default'}
-							isAuthenticated={false}
-						/>
-					</div>
-				)}
+				<div className='space-y-2'>
+					{!isLoginCache ? (
+						<p className="text-sm font-light text-lm-gray-900 dark:text-dm-gray-100">
+							{isLogin ? t('loginSignup.newHereQuestion') : t('loginSignup.alreadyHaveAccountQuestion')}
+							<Button
+								id={`${isLogin ? 'signUp' : 'loginSignup.login'}-switch-loginsignup`}
+								variant="link"
+								onClick={toggleForm}
+								disabled={!isOnline}
+								title={!isOnline && t('common.offlineTitle')}
+							>
+								{isLogin ? t('loginSignup.signUp') : t('loginSignup.login')}
+							</Button>
+						</p>
+					) : (
+						<p className="text-sm font-light text-lm-gray-900 dark:text-dm-gray-100 cursor-pointer">
+							<Button
+								id="useOtherAccount-switch-loginsignup"
+								variant="link"
+								onClick={useOtherAccount}
+							>
+								{t('loginSignup.useOtherAccount')}
+							</Button>
+						</p>
+					)}
+					<TenantSelector
+						currentTenantId={urlTenantId || 'default'}
+						isAuthenticated={false}
+						button={<Button variant="link" linkClassName='text-sm' />}
+					/>
 				</div>
+			</div>
+			{!isLoginCache && (
+				<div className="relative mt-4 p-6 sm:px-12 bg-white rounded-lg dark:bg-dm-gray-900 border border-lm-gray-400 dark:border-dm-gray-600">
+					<div className="flex justify-center">
+						<PasskeyInfoPopup/>
+					</div>
+				</div>
+			)}
 		</LoginLayout>
 	);
 };
