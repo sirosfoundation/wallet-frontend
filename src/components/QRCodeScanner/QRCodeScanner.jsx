@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Webcam from 'react-webcam';
 import { useTranslation } from 'react-i18next';
 import QrScanner from '../../utils/qr/qr-scanner';
+import { logger } from '@/logger';
 import PopupLayout from '../Popups/PopupLayout';
 import useScreenType from '../../hooks/useScreenType';
 import { H1 } from '../Shared/Heading';
@@ -44,7 +45,7 @@ const QRScanner = ({ onClose }) => {
 				stream.getTracks().forEach(track => track.stop());
 			})
 			.catch(error => {
-				console.error("Camera access denied:", error);
+				logger.error("Camera access denied:", error);
 				setHasCameraPermission(false);
 			});
 	}, []);
@@ -101,7 +102,7 @@ const QRScanner = ({ onClose }) => {
 					setCameraReady(true);
 				})
 				.catch(error => {
-					console.error("Error enumerating devices:", error);
+					logger.error("Error enumerating devices:", error);
 				});
 		}
 	}, [hasCameraPermission]);
@@ -128,7 +129,7 @@ const QRScanner = ({ onClose }) => {
 
 			const videoElement = webcamRef.current.video;
 			const qrScanner = new QrScanner(videoElement, (result) => {
-				console.log('decoded qr code:', result);
+				logger.debug('decoded qr code:', result);
 				setQrDetected(true);
 				// Redirect to the URL found in the QR code
 				const scannedUrl = result.data;
@@ -144,7 +145,7 @@ const QRScanner = ({ onClose }) => {
 			}, { highlightScanRegion: true, highlightCodeOutline: false });
 
 			qrScanner.start().catch(err => {
-				console.error('Error starting QR Scanner: ', err);
+				logger.error('Error starting QR Scanner: ', err);
 				// Optionally update UI or state to reflect the error
 			});
 

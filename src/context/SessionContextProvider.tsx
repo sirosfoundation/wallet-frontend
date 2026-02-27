@@ -8,6 +8,7 @@ import SessionContext, { SessionContextValue } from './SessionContext';
 import { useLocalStorage, useSessionStorage } from '@/hooks/useStorage';
 import { fetchKeyConfig, HpkeConfig } from '@/lib/utils/ohttpHelpers';
 import { OHTTP_KEY_CONFIG } from '@/config';
+import { logger } from '../logger';
 
 export const SessionContextProvider = ({ children }: React.PropsWithChildren) => {
 	const { isOnline } = useContext(StatusContext);
@@ -32,7 +33,7 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	// Memoize clearSession using useCallback
 	const clearSession = useCallback(async () => {
 		window.history.replaceState({}, '', `${window.location.pathname}`);
-		console.log('[Session Context] Clear Session');
+		logger.debug('[Session Context] Clear Session');
 		api.clearSession();
 	}, [api]);
 
@@ -43,7 +44,7 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 
 	// The close() will dispatch Event CloseSessionTabLocal in order to call the clearSession
 	const logout = useCallback(async () => {
-		console.log('[Session Context] Close Keystore');
+		logger.debug('[Session Context] Close Keystore');
 		await keystore.close();
 	}, [keystore]);
 

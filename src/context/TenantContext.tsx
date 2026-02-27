@@ -24,6 +24,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useCallback, ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
 import { getStoredTenant, setStoredTenant, clearStoredTenant, buildTenantRoutePath, TENANT_PATH_PREFIX } from '../lib/tenant';
+import { logger } from '../logger';
 
 export interface TenantContextValue {
 	/** Current tenant ID (from URL, prop, or storage) */
@@ -136,7 +137,7 @@ export function useTenant(): TenantContextValue {
 			urlTenantId,
 			isMultiTenant: false,
 			switchTenant: () => {
-				console.warn('switchTenant called outside TenantProvider');
+				logger.warn('switchTenant called outside TenantProvider');
 			},
 			clearTenant: clearStoredTenant,
 			buildPath: (subPath?: string) => buildTenantRoutePath(storedTenant, subPath),

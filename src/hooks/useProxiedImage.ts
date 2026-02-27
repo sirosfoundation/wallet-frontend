@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useHttpProxy } from "@/lib/services/HttpProxy/HttpProxy";
+import { logger } from '@/logger';
 
 export const useProxiedImage = (uri?: string | null) => {
 	const proxy = useHttpProxy();
@@ -40,7 +41,7 @@ export const useProxiedImage = (uri?: string | null) => {
 				})
 				.catch(() => setSrc(null));
 		} else {
-			console.warn("Unsupported logo URI scheme:", uri);
+			logger.warn("Unsupported logo URI scheme:", uri);
 			setSrc(null);
 		}
 	}, [uri, proxy]);

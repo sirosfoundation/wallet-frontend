@@ -6,7 +6,7 @@ import PopupLayout from './PopupLayout';
 import { CheckCircle, CircleAlert } from 'lucide-react';
 
 const MessagePopup = ({ type, message, onClose }) => {
-	const { title, description } = message || {};
+	const { title, description, emphasis } = message || {};
 	const { t } = useTranslation();
 
 	const IconComponent = type === 'error' ? CircleAlert : CheckCircle;
@@ -32,6 +32,11 @@ const MessagePopup = ({ type, message, onClose }) => {
 				</Button>
 			</div>
 			<hr className={`mb-2 border-t border-lm-gray-400 dark:border-dm-gray-600`} />
+			{emphasis && (
+				<p className="mb-2 mt-4 font-semibold dark:text-white">
+					{emphasis}
+				</p>
+			)}
 			<p className="mb-2 mt-4 dark:text-white">
 				{description}
 			</p>

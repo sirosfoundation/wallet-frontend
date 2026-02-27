@@ -1,5 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import { compareBy, reverse } from '../util';
+import { logger } from '../logger';
 
 // Context
 import CredentialsContext from '@/context/CredentialsContext';
@@ -12,7 +13,7 @@ const useFetchPresentations = (keystore, batchId = null, transactionId = null) =
 
 	useEffect(() => {
 		const fetchPresentations = async () => {
-			console.log('FetchPresentations');
+			logger.debug('FetchPresentations');
 			try {
 				let presentations = await keystore.getAllPresentations();
 				if (presentations.length === 0) {
@@ -91,7 +92,7 @@ const useFetchPresentations = (keystore, batchId = null, transactionId = null) =
 				}, {});
 				setHistory(presentationsGroupedByTransactionId);
 			} catch (error) {
-				console.error('Error fetching presentations:', error);
+				logger.error('Error fetching presentations:', error);
 			}
 		};
 

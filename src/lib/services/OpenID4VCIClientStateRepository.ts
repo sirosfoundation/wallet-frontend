@@ -5,6 +5,7 @@ import { WalletStateUtils } from "@/services/WalletStateUtils";
 import { IOpenID4VCIClientStateRepository } from "../interfaces/IOpenID4VCIClientStateRepository";
 import { CLOCK_TOLERANCE, OPENID4VCI_TRANSACTION_ID_LIFETIME_IN_SECONDS } from "@/config";
 import { last } from "@/util";
+import { logger } from '@/logger';
 
 type WalletStateCredentialIssuanceSession = CurrentSchema.WalletStateCredentialIssuanceSession;
 
@@ -59,7 +60,7 @@ export function useOpenID4VCIClientStateRepository(): IOpenID4VCIClientStateRepo
 			return;
 		}
 		const rememberIssuerForSeconds = await getRememberIssuerAge();
-		console.log("Rememeber issuer for seconds = ", rememberIssuerForSeconds)
+		logger.debug("Rememeber issuer for seconds = ", rememberIssuerForSeconds)
 
 		if (rememberIssuerForSeconds == null) {
 			return;
@@ -93,7 +94,7 @@ export function useOpenID4VCIClientStateRepository(): IOpenID4VCIClientStateRepo
 		const [, newPrivateData, keystoreCommit] = await saveCredentialIssuanceSessions(Array.from(sessions.current.values()), deletedSessions);
 		await api.updatePrivateData(newPrivateData);
 		await keystoreCommit();
-		console.log("CHANGES WRITTEN")
+		logger.debug("CHANGES WRITTEN")
 	}, [getCalculatedWalletState, saveCredentialIssuanceSessions, api, cleanupExpired]);
 
 

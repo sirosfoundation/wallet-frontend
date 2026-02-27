@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
+import { logger } from '@/logger';
 
 import StatusContext from '@/context/StatusContext';
 import SessionContext from '@/context/SessionContext';
@@ -34,7 +35,7 @@ const SendCredentials = () => {
 			throw new Error("Could not get cached user");
 		}
 		const result = await api.syncPrivateData(cachedUser);
-		console.log("Result: ", result)
+		logger.debug("Result: ", result)
 		if (!result.ok) {
 			throw new Error("PrivateData needs synchronization");
 		}
@@ -47,7 +48,7 @@ const SendCredentials = () => {
 				const fetchedVerifiers = await api.getAllVerifiers();
 				setVerifiers(fetchedVerifiers);
 			} catch (error) {
-				console.error('Error fetching verifiers:', error);
+				logger.error('Error fetching verifiers:', error);
 			}
 		};
 
@@ -71,7 +72,7 @@ const SendCredentials = () => {
 		syncPrivateData().then(() => {
 			setLoading(true);
 
-			console.log('Continue with:', selectedVerifier);
+			logger.debug('Continue with:', selectedVerifier);
 
 			if (selectedVerifier) {
 				window.location.href = selectedVerifier.url;
@@ -79,7 +80,7 @@ const SendCredentials = () => {
 
 			setLoading(false);
 			setShowRedirectPopup(false);
-		}).catch((err) => console.error(err));
+		}).catch((err) => logger.error(err));
 	};
 
 	return (

@@ -1,9 +1,11 @@
 export type DidKeyVersion = "p256-pub" | "jwk_jcs-pub";
+export type LogLevel = "error" | "info" | "warn" | "debug";
 
 export const APP_VERSION = import.meta.env.VITE_APP_VERSION;
 export const BACKEND_URL = import.meta.env.VITE_WALLET_BACKEND_URL;
 export const DID_KEY_VERSION: DidKeyVersion = import.meta.env.VITE_DID_KEY_VERSION as DidKeyVersion;
 export const DISPLAY_CONSOLE = import.meta.env.VITE_DISPLAY_CONSOLE;
+export const LOG_LEVEL: LogLevel = (import.meta.env.VITE_LOG_LEVEL as LogLevel) || 'debug';
 
 /**
  * Engine URL for WebSocket transport (wallet engine service).

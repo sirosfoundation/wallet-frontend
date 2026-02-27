@@ -1,6 +1,7 @@
 import React, { useCallback, useContext, useState } from 'react';
 import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { Trans, useTranslation } from 'react-i18next';
+import { logger } from '@/logger';
 
 import StatusContext from '@/context/StatusContext';
 import SessionContext from '@/context/SessionContext';
@@ -41,7 +42,7 @@ const WebauthnLogin = ({
 
 				// Handle tenant discovery error - redirect to tenant-specific login
 				if (typeof err === 'object' && err.errorId === 'tenantDiscovered') {
-					console.log('Tenant discovered during login state:', err.tenantId, '- redirecting with auto-retry...');
+					logger.debug('Tenant discovered during login state:', err.tenantId, '- redirecting with auto-retry...');
 					navigate(`${buildTenantRoutePath(err.tenantId, 'login')}?autoRetry=true`, { replace: true });
 					return;
 				}
@@ -131,12 +132,12 @@ const LoginState = () => {
 		}
 		if (state) {
 			try {
-				console.log('state', state);
+				logger.debug('state', state);
 				const decodedState = atob(state);
 				const stateObj = JSON.parse(decodedState);
 				return [cachedUsers.find(user => user.userHandleB64u === stateObj.userHandleB64u), false, authenticated === 'true'];
 			} catch (error) {
-				console.error('Error decoding state:', error);
+				logger.error('Error decoding state:', error);
 			}
 		}
 

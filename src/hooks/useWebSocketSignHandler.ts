@@ -14,6 +14,7 @@ import { useFlowTransportSafe, SignRequest, SignResponse } from '@/context/FlowT
 import SessionContext from '@/context/SessionContext';
 import { useApi } from '@/api';
 import StatusContext from '@/context/StatusContext';
+import { logger } from '@/logger';
 
 /**
  * Hook that registers a sign handler with the WebSocket transport.
@@ -35,7 +36,7 @@ export function useWebSocketSignHandler(): void {
       throw new Error('Keystore not available');
     }
 
-    console.log('[WS Sign Handler] Received sign request:', request.action);
+    logger.debug('[WS Sign Handler] Received sign request:', request.action);
 
     switch (request.action) {
       case 'generate_proof': {
@@ -58,7 +59,7 @@ export function useWebSocketSignHandler(): void {
         await api.updatePrivateData(newPrivateData);
         await keystoreCommit();
 
-        console.log('[WS Sign Handler] Generated proof JWT');
+        logger.debug('[WS Sign Handler] Generated proof JWT');
         return { proofJwt };
       }
 
@@ -85,7 +86,7 @@ export function useWebSocketSignHandler(): void {
           verifiableCredentials
         );
 
-        console.log('[WS Sign Handler] Signed VP JWT');
+        logger.debug('[WS Sign Handler] Signed VP JWT');
         return { vpToken: vpjwt };
       }
 
@@ -100,11 +101,11 @@ export function useWebSocketSignHandler(): void {
       return;
     }
 
-    console.log('[WS Sign Handler] Registering sign handler');
+    logger.debug('[WS Sign Handler] Registering sign handler');
     const unsubscribe = registerSignHandler(handleSignRequest);
 
     return () => {
-      console.log('[WS Sign Handler] Unregistering sign handler');
+      logger.debug('[WS Sign Handler] Unregistering sign handler');
       unsubscribe();
     };
   }, [transportType, registerSignHandler, keystore, handleSignRequest]);

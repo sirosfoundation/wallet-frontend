@@ -6,6 +6,7 @@ import { useClearStorages, useLocalStorage, useSessionStorage } from "../hooks/u
 import { fromBase64Url, jsonStringifyTaggedBinary, toBase64Url } from "../util";
 import { useIndexedDb } from "../hooks/useIndexedDb";
 import { useOnUserInactivity } from "../hooks/useOnUserInactivity";
+import { logger } from "../logger";
 
 import * as keystore from "./keystore";
 import type { AsymmetricEncryptedContainer, AsymmetricEncryptedContainerKeys, EncryptedContainer, OpenedContainer, PrivateData, UnlockSuccess, WebauthnPrfEncryptionKeyInfo, WebauthnPrfSaltInfo, WrappedKeyInfo } from "./keystore";
@@ -212,7 +213,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 
 	const close = useCallback(
 		async (): Promise<void> => {
-			console.log('Keystore Close');
+			logger.debug('Keystore Close');
 			await clearPrivateData(userHandleB64u);
 			await idb.destroy();
 			setCalculatedWalletState(null);
@@ -288,8 +289,8 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 			return await keystore.openPrivateData(mainKey, privateData);
 		}
 		catch (err) {
-			console.error(err);
-			console.log("Navigating to login-state to handle JWE decryption failure");
+			logger.error(err);
+			logger.debug("Navigating to login-state to handle JWE decryption failure");
 			const queryParams = new URLSearchParams(window.location.search);
 			queryParams.delete('user');
 			queryParams.delete('sync');

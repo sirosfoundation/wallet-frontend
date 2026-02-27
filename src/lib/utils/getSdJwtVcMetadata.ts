@@ -1,5 +1,6 @@
 import axios from "axios";
 import { fromBase64 } from "../../util";
+import { logger } from '@/logger';
 
 /** uses https://datatracker.ietf.org/doc/draft-ietf-oauth-sd-jwt-vc/05/ to fetch the metadata */
 export async function getSdJwtVcMetadata(credential: string): Promise<{ credentialMetadata: any } | { error: "NOT_FOUND" }> {
@@ -26,7 +27,7 @@ export async function getSdJwtVcMetadata(credential: string): Promise<{ credenti
 		return { error: "NOT_FOUND" };
 	}
 	catch (err) {
-		console.log(err);
+		logger.debug(err);
 		return { error: "NOT_FOUND" };
 	}
 }

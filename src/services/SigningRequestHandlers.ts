@@ -1,6 +1,7 @@
 import { BackendApi } from "../api";
 import { ClientSocketMessage, SignatureAction } from "../types/shared.types";
 import { LocalStorageKeystore } from "./LocalStorageKeystore";
+import { logger } from "../logger";
 
 
 interface SigningRequestHandlers {
@@ -13,7 +14,7 @@ export function SigningRequestHandlerService(): SigningRequestHandlers {
 	return {
 		handleSignJwtPresentation: async (socket, keystore, { message_id, audience, nonce, verifiableCredentials }) => {
 			const { vpjwt } = await keystore.signJwtPresentation(nonce, audience, verifiableCredentials)
-			console.log("vp jwt = ", vpjwt);
+			logger.debug("vp jwt = ", vpjwt);
 			const outgoingMessage: ClientSocketMessage = {
 				message_id: message_id,
 				response: {
@@ -28,7 +29,7 @@ export function SigningRequestHandlerService(): SigningRequestHandlers {
 			const [{ proof_jwts: [proof_jwt] }, newPrivateData, keystoreCommit] = await keystore.generateOpenid4vciProofs([{ nonce, audience, issuer }])
 			await api.updatePrivateData(newPrivateData);
 			await keystoreCommit();
-			console.log("proof jwt = ", proof_jwt);
+			logger.debug("proof jwt = ", proof_jwt);
 			const outgoingMessage: ClientSocketMessage = {
 				message_id: message_id,
 				response: {

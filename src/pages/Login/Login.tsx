@@ -24,6 +24,7 @@ import ConnectionStatusIcon from '../../components/Layout/Navigation/ConnectionS
 import useScreenType from '@/hooks/useScreenType';
 import { CircleQuestionMark, Eye, EyeOff, FingerprintIcon, Info, Lock, LockKeyholeOpen,SmartphoneNfcIcon, User, UserLock, X } from 'lucide-react';
 import { UsbStickDotIcon } from '@/components/Shared/CustomIcons';
+import { logger } from '@/logger';
 
 const FormInputRow = ({
 	IconComponent,
@@ -264,7 +265,7 @@ const WebauthnSignupLogin = ({
 
 			// Handle tenant discovery error - redirect to tenant-specific login
 			if (typeof err === 'object' && err.errorId === 'tenantDiscovered') {
-				console.log('Tenant discovered during login:', err.tenantId, '- redirecting with auto-retry...');
+				logger.debug('Tenant discovered during login:', err.tenantId, '- redirecting with auto-retry...');
 				// Redirect to tenant-specific login page with retry flag
 				// The autoRetry param signals that we should automatically trigger login after redirect
 				navigate(`${buildTenantRoutePath(err.tenantId, 'login')}?autoRetry=true`, { replace: true });
@@ -313,7 +314,7 @@ const WebauthnSignupLogin = ({
 			navigate(`${location.pathname}${newSearch ? '?' + newSearch : ''}`, { replace: true });
 
 			// Trigger login automatically
-			console.log('Auto-retrying login after tenant discovery redirect');
+			logger.debug('Auto-retrying login after tenant discovery redirect');
 			(async () => {
 				setInProgress(true);
 				setIsSubmitting(true);
@@ -424,7 +425,7 @@ const WebauthnSignupLogin = ({
 	};
 
 	const onCancel = () => {
-		console.log("onCancel");
+		logger.debug("onCancel");
 		setInProgress(false);
 		setNeedPrfRetry(false);
 		setPrfRetryAccepted(false);

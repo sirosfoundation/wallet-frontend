@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
+import { logger } from '@/logger';
 
 import StatusContext from '@/context/StatusContext';
 import SessionContext from '@/context/SessionContext';
@@ -137,17 +138,17 @@ const AddCredentials = () => {
 						});
 					}
 					catch (err) {
-						console.error(err);
+						logger.error(err);
 						return null;
 					}
 				})
 			} catch (error) {
-				console.error('Error fetching issuers:', error);
+				logger.error('Error fetching issuers:', error);
 			}
 		};
 
 		if (openID4VCIHelper && openID4VCI && filterItemByLang) {
-			console.log("Fetching issuers...")
+			logger.debug("Fetching issuers...")
 			fetchIssuers();
 		}
 	}, [api, isOnline, openID4VCIHelper, openID4VCI, filterItemByLang]);
@@ -178,7 +179,7 @@ const AddCredentials = () => {
 
 			const userHandleB64u = keystore.getUserHandleB64u();
 			if (userHandleB64u == null) {
-				console.error("Could not generate authorization request because user handle is null");
+				logger.error("Could not generate authorization request because user handle is null");
 				return;
 			}
 			openID4VCI.generateAuthorizationRequest(credentialIssuerIdentifier, credentialConfigurationId).then((result) => {
@@ -187,8 +188,8 @@ const AddCredentials = () => {
 					window.location.href = url;
 				}
 			}).catch((err) => {
-				console.error(err)
-				console.error("Couldn't generate authz req")
+				logger.error(err)
+				logger.error("Couldn't generate authz req")
 			});
 		}
 

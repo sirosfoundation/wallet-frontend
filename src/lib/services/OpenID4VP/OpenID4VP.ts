@@ -17,6 +17,7 @@ import { getLeastUsedCredentialInstance } from "../CredentialBatchHelper";
 import { WalletStateUtils } from "@/services/WalletStateUtils";
 import { TransactionDataResponse } from "wallet-common";
 import { verifyRequestUriAndCerts } from "../../utils/verifyRequestUriAndCerts";
+import { logger } from '@/logger';
 
 export function useOpenID4VP({
 	showCredentialSelectionPopup,
@@ -151,7 +152,7 @@ export function useOpenID4VP({
 
 		const transactionId = WalletStateUtils.getRandomUint32();
 		const [, newPrivateData, keystoreCommit] = await keystore.addPresentations(generatedVPs.map((vpData, index) => {
-			console.log("Presentation: ")
+			logger.debug("Presentation: ")
 
 			return {
 				transactionId: transactionId,
@@ -164,13 +165,13 @@ export function useOpenID4VP({
 		await keystoreCommit();
 
 		const bodyString = formData.toString();
-		console.log('bodyString: ', bodyString)
+		logger.debug('bodyString: ', bodyString)
 		try {
 			const res = await httpProxy.post(response_uri, formData.toString(), {
 				'Content-Type': 'application/x-www-form-urlencoded'
 			});
 			const responseData = res.data as { presentation_during_issuance_session?: string, redirect_uri?: string };
-			console.log("Direct post response = ", JSON.stringify(res.data));
+			logger.debug("Direct post response = ", JSON.stringify(res.data));
 			if (responseData.presentation_during_issuance_session) {
 				return { presentation_during_issuance_session: responseData.presentation_during_issuance_session };
 			}
@@ -182,7 +183,7 @@ export function useOpenID4VP({
 				description: "The verification process has been completed",
 			}, 'success');
 		} catch (err) {
-			console.error(err);
+			logger.error(err);
 			showStatusPopup({
 				title: "Error in verification",
 				description: "The verification process was not completed successfully",
