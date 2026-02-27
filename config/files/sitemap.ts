@@ -6,7 +6,7 @@ import { writeFile } from 'node:fs/promises';
  * Generates a sitemap.xml file.
  */
 export default async function sitemapXml(destDir: string, config: EnvConfigMap) {
-	const content = generateSitemapXml(config.META_STATIC_PUBLIC_URL);
+	const content = generateSitemapXml(config.STATIC_PUBLIC_URL);
 
 	const sitemapPath = resolve(destDir, 'sitemap.xml');
 	await writeFile(sitemapPath, content, 'utf-8');

@@ -6,7 +6,7 @@ import { EnvConfigMap } from '../config';
  * Generates a robots.txt file.
  */
 export default async function robotsTxt(destDir: string, config: EnvConfigMap) {
-	const content = generateRobotsTxt(config.META_STATIC_PUBLIC_URL);
+	const content = generateRobotsTxt(config.STATIC_PUBLIC_URL);
 
 	const robotsPath = resolve(destDir, 'robots.txt');
 	await writeFile(robotsPath, content, 'utf-8');
