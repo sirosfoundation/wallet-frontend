@@ -718,7 +718,20 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		const storedTenant = tenantId || getStoredTenant();
 
 		try {
-			const beginData = retryFrom?.beginData || (await post('/user/register-webauthn-begin', { tenantId: storedTenant })).data;
+			const res = await post(
+				'/user/register-webauthn-begin',
+				{
+					tenantId: storedTenant,
+				},
+				{
+					headers: {
+						// We set tenant ID header to make sure the URL tenant ID is used.
+						'X-Tenant-ID': storedTenant,
+					},
+				},
+			);
+
+			const beginData = retryFrom?.beginData || res.data;
 			console.log("begin", beginData);
 
 			try {
