@@ -72,6 +72,7 @@ export default function TenantSelector({
 	}
 
 	const buttonElement = cloneElement(button, {
+		id: 'tenant-selector-trigger',
 		onClick: handleOpen,
 		'aria-expanded': isOpen,
 		'aria-haspopup': 'dialog',
@@ -132,4 +133,3 @@ export default function TenantSelector({
 		</>
 	);
 }
-
