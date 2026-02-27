@@ -73,7 +73,6 @@ export interface BackendApi {
 			| 'passkeyLoginFailedTryAgain'
 			| 'passkeyLoginFailedServerError'
 			| 'x-private-data-etag'
-			| { errorId: 'tenantDiscovered', tenantId: string }
 		>
 	>,
 	signupWebauthn(
@@ -103,7 +102,6 @@ export interface BackendApi {
 		| 'passkeyLoginFailedTryAgain'
 		| 'passkeyLoginFailedServerError'
 		| 'x-private-data-etag'
-		| { errorId: 'tenantDiscovered', tenantId: string }
 	>>;
 }
 
@@ -546,7 +544,6 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		| 'passkeyLoginFailedTryAgain'
 		| 'passkeyLoginFailedServerError'
 		| 'x-private-data-etag'
-		| { errorId: 'tenantDiscovered', tenantId: string }
 	>> => {
 		try {
 			// Login always uses global endpoints - the backend discovers the tenant
@@ -679,14 +676,6 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 
 		} catch (e) {
 			console.error("Login failed", e);
-
-			// Handle 409 tenant redirect - user's passkey belongs to a different tenant
-			// This enables "tenant discovery from passkey" when logging in via global endpoint
-			if (e?.response?.status === 409 && e?.response?.data?.redirect_tenant) {
-				const discoveredTenant = e.response.data.redirect_tenant;
-				console.log("Login: tenant redirect required to:", discoveredTenant);
-				return Err({ errorId: 'tenantDiscovered', tenantId: discoveredTenant });
-			}
 
 			if (e?.response?.status === 403) {
 				// Tenant access denied - passkey belongs to different tenant
