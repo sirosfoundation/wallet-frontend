@@ -754,14 +754,14 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 		if (!openID4VCIClientStateRepository || !api.isLoggedIn() || receivedCredentialsArray !== null || commitStateChanges === 1 || verificationFlowInProgress || issuanceFlowInProgress) {
 			return null;
 		}
-		await openID4VCIClientStateRepository.getAllStatesWithNonEmptyTransactionId().then(async (sessions) => {
-			const credsCollected = [];
-			let stateUpdated = false;
-			for (const s of sessions) {
-				const { created, credentialIssuerIdentifier, credentialEndpoint: { transactionId }, tokenResponse: { data: { access_token } } } = s;
-				const { metadata } = await openID4VCIHelper.getCredentialIssuerMetadata(credentialIssuerIdentifier);
-				const now = Math.floor(new Date().getTime() / 1000);
-				logger.debug("Transaction id: ", transactionId)
+		const sessions = await openID4VCIClientStateRepository.getAllStatesWithNonEmptyTransactionId();
+		const credsCollected = [];
+		let stateUpdated = false;
+		for (const s of sessions) {
+			const { created, credentialIssuerIdentifier, credentialEndpoint: { transactionId }, tokenResponse: { data: { access_token } } } = s;
+			const { metadata } = await openID4VCIHelper.getCredentialIssuerMetadata(credentialIssuerIdentifier);
+			const now = Math.floor(new Date().getTime() / 1000);
+			logger.debug("Transaction id: ", transactionId)
 				if (!transactionId) {
 					continue;
 				}
@@ -860,7 +860,6 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 			else if (stateUpdated) {
 				setCommitStateChanges(1);
 			}
-		})
 	}, [
 		openID4VCIClientStateRepository,
 		api,
@@ -874,10 +873,9 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 	]);
 
 	useEffect(() => {
-		setTimeout(() => {
-			intervalCallback().then(() => {
-				setTick((current) => current + 1);
-			});
+		setTimeout(async () => {
+			await intervalCallback();
+			setTick((current) => current + 1);
 		}, config.OPENID4VCI_TRANSACTION_ID_POLLING_INTERVAL_IN_SECONDS * 1000);
 	}, [tick, intervalCallback])
 
