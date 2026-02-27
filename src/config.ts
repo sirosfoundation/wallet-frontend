@@ -1,5 +1,6 @@
 import { type ClientMetaConfig } from '../config';
 export type DidKeyVersion = "p256-pub" | "jwk_jcs-pub";
+export type LogLevel = "error" | "info" | "warn" | "debug";
 
 type Config = ClientMetaConfig & Record<string, string | undefined>;
 
@@ -23,10 +24,12 @@ const config: Config = {};
 		}
 	}
 })();
+export const APP_VERSION = config.app_version;
 export const BASE_PATH = config.base_path || '/';
 export const BACKEND_URL = config.wallet_backend_url;
 export const DID_KEY_VERSION: DidKeyVersion = config.did_key_version as DidKeyVersion;
 export const DISPLAY_CONSOLE = config.display_console;
+export const LOG_LEVEL: LogLevel = (config.log_level as LogLevel) || 'debug';
 
 /**
  * Engine URL for WebSocket transport (wallet engine service).

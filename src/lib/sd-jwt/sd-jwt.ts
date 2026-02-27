@@ -1,5 +1,6 @@
 import * as jose from 'jose';
 import { fromPemToPKIJSCertificate, toPem, validateChain, getPublicKeyFromB64Cert } from '../utils/pki';
+import { logger } from '@/logger';
 
 export async function verifySdJwtBasedOnTrustAnchors(credential: string) {
 	let cred = credential.split('~')[0];
@@ -20,7 +21,7 @@ export async function verifySdJwtBasedOnTrustAnchors(credential: string) {
 		await jose.jwtVerify(cred, publicKey);
 		return true;
 	} catch (err) {
-		console.error('JWT verification failed:', err);
+		logger.error('JWT verification failed:', err);
 		return false;
 	}
 }

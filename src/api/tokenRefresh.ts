@@ -10,6 +10,7 @@
 import axios, { AxiosError } from 'axios';
 import { jsonParseTaggedBinary } from '../util';
 import { getStoredTenant } from '../lib/tenant';
+import { logger } from '@/logger';
 
 // Module-level state for managing concurrent refresh attempts
 let isRefreshing = false;

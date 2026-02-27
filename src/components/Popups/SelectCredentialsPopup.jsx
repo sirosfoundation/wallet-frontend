@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import PopupLayout from './PopupLayout';
 import { useTranslation, Trans } from 'react-i18next';
 import CredentialImage from '../Credentials/CredentialImage';
+import { logger } from '@/logger';
 import CredentialInfo from '../Credentials/CredentialInfo';
 import Button from '../Buttons/Button';
 import useScreenType from '../../hooks/useScreenType';
@@ -222,12 +223,12 @@ function SelectCredentialsPopup({ popupState, setPopupState, showPopup, hidePopu
 				);
 				setVcEntities(filteredVcEntities);
 			} catch (error) {
-				console.error('Failed to fetch data', error);
+				logger.error('Failed to fetch data', error);
 			}
 		};
 
 		if (popupState?.options && vcEntityList) {
-			console.log("opts = ", popupState.options)
+			logger.debug("opts = ", popupState.options)
 			getData();
 		}
 	}, [

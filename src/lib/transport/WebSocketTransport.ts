@@ -18,8 +18,81 @@ import type {
 	FlowResponse,
 	FlowProgressEvent
 } from './types/FlowTypes';
-import type { OID4VCIFlowParams, OID4VCIFlowResult } from './types/OID4VCITypes';
-import type { OID4VPFlowParams, OID4VPFlowResult } from './types/OID4VPTypes';
+import type { OID4VCIFlowParams, OID4VCIFlowResult, OID4VCIIssuerInfo } from './types/OID4VCITypes';
+import type { OID4VPFlowParams, OID4VPFlowResult, OID4VPVerifierInfo } from './types/OID4VPTypes';
+import type { TrustStatus } from './types/TrustTypes';
+import { VerifiableCredentialFormat } from 'wallet-common';
+import { logger } from '@/logger';
+
+/**
+ * Extract a logo URL from a raw backend value.
+ * Handles string URLs and objects with a `uri` property.
+ */
+function parseLogo(raw: unknown): string | undefined {
+	if (typeof raw === 'string') return raw;
+	if (raw != null && typeof raw === 'object') return (raw as Record<string, unknown>).uri as string | undefined;
+	return undefined;
+}
+
+/**
+ * Map a raw verifier info object from the backend into the typed frontend
+ * representation. Handles the backend's snake_case `trusted_status` field
+ * as well as the legacy `trusted` boolean.
+ */
+function mapVerifierInfo(raw: Record<string, unknown>): OID4VPVerifierInfo {
+	return {
+		name: raw.name as string | undefined,
+		purpose: raw.purpose as string | undefined,
+		trustedStatus: parseTrustStatus(raw.trusted_status, raw.trusted),
+		reason: raw.reason as string | undefined,
+		metadata: raw.metadata as Record<string, unknown> | undefined,
+		domain: raw.domain as string | undefined,
+		logo: parseLogo(raw.logo),
+		clientIdScheme: raw.client_id_scheme as string | undefined,
+		trustFramework: raw.framework as string | undefined,
+	};
+}
+
+/**
+ * Map a raw issuer info object from the backend into the typed frontend
+ * representation. Handles the backend's snake_case `trusted_status` field
+ * as well as the legacy `trusted` boolean.
+ */
+function mapIssuerInfo(raw: Record<string, unknown>): OID4VCIIssuerInfo {
+	return {
+		identifier: (raw.identifier as string) || '',
+		name: raw.name as string | undefined,
+		logo: parseLogo(raw.logo),
+		trustedStatus: parseTrustStatus(raw.trusted_status, raw.trusted),
+		reason: raw.reason as string | undefined,
+		metadata: raw.metadata as Record<string, unknown> | undefined,
+	};
+}
+
+/**
+ * Parse a trust status value from the backend.
+ *
+ * Supports:
+ * - New wire format: `trusted_status` string ("trusted"|"unknown"|"untrusted")
+ * - Legacy wire format: `trusted` boolean → maps true→"trusted", false→"untrusted"
+ * - Missing/null → "unknown"
+ */
+function parseTrustStatus(
+	trustedStatus: unknown,
+	legacyTrusted?: unknown,
+): TrustStatus {
+	// New format: string tri-state
+	if (typeof trustedStatus === 'string') {
+		if (trustedStatus === 'trusted' || trustedStatus === 'untrusted' || trustedStatus === 'unknown') {
+			return trustedStatus;
+		}
+	}
+	// Legacy format: boolean
+	if (typeof legacyTrusted === 'boolean') {
+		return legacyTrusted ? 'trusted' : 'untrusted';
+	}
+	return 'unknown';
+}
 
 /**
  * Pending request waiting for a response
@@ -144,7 +217,7 @@ export class WebSocketTransport implements IFlowTransport {
 				};
 
 				this.ws.onerror = (event) => {
-					console.error('WebSocket error:', event);
+					logger.error('WebSocket error:', event);
 					this.connectionPromise = null;
 					reject(new Error('WebSocket connection failed'));
 				};
@@ -154,7 +227,7 @@ export class WebSocketTransport implements IFlowTransport {
 						const message = JSON.parse(event.data) as ServerMessage;
 						this.handleMessage(message);
 					} catch (e) {
-						console.error('Failed to parse WebSocket message:', e);
+						logger.error('Failed to parse WebSocket message:', e);
 					}
 				};
 
@@ -300,12 +373,37 @@ export class WebSocketTransport implements IFlowTransport {
 			result.credential = response.credential as string;
 		}
 		if (response.format) {
-			result.format = response.format as string;
+			const formatStr = response.format as string;
+			const validFormats = Object.values(VerifiableCredentialFormat) as string[];
+			if (validFormats.includes(formatStr)) {
+				result.format = formatStr as VerifiableCredentialFormat;
+			} else {
+				logger.warn(`Unknown credential format from server: ${formatStr}`);
+			}
 		}
 
 		// Deferred
 		if (response.transactionId) {
 			result.transactionId = response.transactionId as string;
+		}
+
+		// Issuer trust info — populated from either an IssuerInfo object
+		// (new backend format) or a raw TrustInfo (legacy trust_evaluated step).
+		const issuerInfoRaw = response.issuerInfo as Record<string, unknown> | undefined;
+		if (issuerInfoRaw) {
+			result.issuerInfo = mapIssuerInfo(issuerInfoRaw);
+		} else {
+			// Legacy: backend may send a raw TrustInfo from the trust_evaluated step.
+			// Wrap it into an IssuerInfo so downstream consumers have one place to look.
+			const trustInfo = response.trustInfo as Record<string, unknown> | undefined;
+			if (trustInfo) {
+				result.issuerInfo = {
+					identifier: (result.issuerMetadata as Record<string, unknown>)?.credential_issuer as string ?? '',
+					trustedStatus: parseTrustStatus(trustInfo.trusted_status, trustInfo.trusted),
+					reason: trustInfo.reason as string | undefined,
+					metadata: trustInfo.metadata as Record<string, unknown> | undefined,
+				};
+			}
 		}
 
 		return result;
@@ -369,7 +467,7 @@ export class WebSocketTransport implements IFlowTransport {
 			}
 		}
 		if (response.verifierInfo) {
-			result.verifierInfo = response.verifierInfo as OID4VPFlowResult['verifierInfo'];
+			result.verifierInfo = mapVerifierInfo(response.verifierInfo as Record<string, unknown>);
 		}
 		if (response.transactionData) {
 			result.transactionData = response.transactionData as OID4VPFlowResult['transactionData'];
@@ -477,7 +575,7 @@ export class WebSocketTransport implements IFlowTransport {
 			// so higher-level callers can uniformly map them into success/error results.
 			pending.resolve(message);
 		} else {
-			console.warn('Received message for unknown flowId:', flowId);
+			logger.warn('Received message for unknown flowId:', flowId);
 		}
 	}
 
@@ -493,7 +591,7 @@ export class WebSocketTransport implements IFlowTransport {
 		};
 
 		if (this.signHandlers.size === 0) {
-			console.error('No sign handlers registered, cannot respond to sign request');
+			logger.error('No sign handlers registered, cannot respond to sign request');
 			this.sendSignResponse(request.flowId, request.messageId, {}, 'No sign handler available');
 			return;
 		}
@@ -507,7 +605,7 @@ export class WebSocketTransport implements IFlowTransport {
 				return;
 			} catch (err) {
 				lastError = err instanceof Error ? err : new Error(String(err));
-				console.warn('Sign handler failed:', lastError.message);
+				logger.warn('Sign handler failed:', lastError.message);
 			}
 		}
 
@@ -530,7 +628,7 @@ export class WebSocketTransport implements IFlowTransport {
 		error?: string
 	): void {
 		if (!this.isConnected()) {
-			console.error('Cannot send sign response: WebSocket not connected');
+			logger.error('Cannot send sign response: WebSocket not connected');
 			return;
 		}
 
@@ -551,7 +649,7 @@ export class WebSocketTransport implements IFlowTransport {
 		try {
 			this.ws!.send(JSON.stringify(msg));
 		} catch (err) {
-			console.error('Failed to send sign response:', err);
+			logger.error('Failed to send sign response:', err);
 		}
 	}
 
@@ -577,11 +675,11 @@ export class WebSocketTransport implements IFlowTransport {
 			const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts);
 			this.reconnectAttempts++;
 
-			console.log(`WebSocket reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
+			logger.debug(`WebSocket reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
 
 			setTimeout(() => {
 				this.connect().catch((error) => {
-					console.error('WebSocket reconnect failed:', error);
+					logger.error('WebSocket reconnect failed:', error);
 					this.emitError(new Error('WebSocket reconnection failed'));
 				});
 			}, delay);
@@ -627,7 +725,7 @@ export class WebSocketTransport implements IFlowTransport {
 			try {
 				callback(event);
 			} catch (e) {
-				console.error('Error in progress callback:', e);
+				logger.error('Error in progress callback:', e);
 			}
 		});
 	}
@@ -637,7 +735,7 @@ export class WebSocketTransport implements IFlowTransport {
 			try {
 				callback(error);
 			} catch (e) {
-				console.error('Error in error callback:', e);
+				logger.error('Error in error callback:', e);
 			}
 		});
 	}
@@ -655,7 +753,7 @@ export class WebSocketTransport implements IFlowTransport {
 	 */
 	sendFlowAction(action: FlowAction): void {
 		if (!this.isConnected()) {
-			console.error('Cannot send flow action: WebSocket not connected');
+			logger.error('Cannot send flow action: WebSocket not connected');
 			return;
 		}
 
@@ -669,9 +767,9 @@ export class WebSocketTransport implements IFlowTransport {
 
 		try {
 			this.ws!.send(JSON.stringify(msg));
-			console.log('[WS Transport] Sent flow action:', action.action);
+			logger.debug('[WS Transport] Sent flow action:', action.action);
 		} catch (err) {
-			console.error('Failed to send flow action:', err);
+			logger.error('Failed to send flow action:', err);
 		}
 	}
 
