@@ -1,17 +1,6 @@
-import { MODE } from './config';
+import { BASE_PATH, MODE } from './config';
 
-const basePath = (() => {
-	const path = window.location.pathname;
-	const match = path.match(/^(?<path>\/id\/(?<id>[a-z0-9-]+))/);
-
-	if (match && 'groups' in match) {
-		return match.groups.path;
-	}
-
-	return '/';
-})();
-
-const swScope = basePath.replace(/\/?$/, '/');
+const swScope = BASE_PATH.replace(/\/?$/, '/');
 const swPath = `${swScope}service-worker.js`;
 
 const tt = window.trustedTypes || window.TrustedTypes;
