@@ -4,7 +4,7 @@ import StatusContext from "../context/StatusContext";
 import { logger } from "@/logger";
 import SessionContext from "../context/SessionContext";
 import { useTranslation } from "react-i18next";
-import { HandleAuthorizationRequestErrors as HandleAuthorizationRequestError } from "wallet-common";
+import { HandleAuthorizationRequestError } from "wallet-common";
 import OpenID4VCIContext from "../context/OpenID4VCIContext";
 import OpenID4VPContext from "../context/OpenID4VPContext";
 import CredentialsContext from "@/context/CredentialsContext";
@@ -13,13 +13,14 @@ import SyncPopup from "@/components/Popups/SyncPopup";
 import { useSessionStorage } from "@/hooks/useStorage";
 import { useTxCodeInput } from "@/context/TxCodeInputContext";
 import TxCodeInputPopup from "@/components/Popups/TxCodeInputPopup";
+import useErrorDialog from "@/hooks/useErrorDialog";
 
-const MessagePopup = React.lazy(() => import('../components/Popups/MessagePopup'));
 const PinInputPopup = React.lazy(() => import('../components/Popups/PinInput'));
 
 export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	const { isOnline } = useContext(StatusContext);
 	const { requestTxCode, state: txCodeState, handleSubmit: handleTxCodeSubmit, handleCancel: handleTxCodeCancel } = useTxCodeInput();
+	const { displayError } = useErrorDialog();
 
 	const [usedAuthorizationCodes, setUsedAuthorizationCodes] = useState<string[]>([]);
 	const [usedRequestUris, setUsedRequestUris] = useState<string[]>([]);
@@ -42,9 +43,6 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	const [showSyncPopup, setSyncPopup] = useState<boolean>(false);
 	const [textSyncPopup, setTextSyncPopup] = useState<{ description: string }>({ description: "" });
 
-	const [showMessagePopup, setMessagePopup] = useState<boolean>(false);
-	const [textMessagePopup, setTextMessagePopup] = useState<{ title: string, description: string }>({ title: "", description: "" });
-	const [typeMessagePopup, setTypeMessagePopup] = useState<string>("");
 	const { t } = useTranslation();
 
 	const [redirectUri, setRedirectUri] = useState(null);
@@ -101,14 +99,13 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 		const params = new URLSearchParams(location.search);
 		if (synced === false && getCalculatedWalletState() && params.get('sync') !== 'fail') {
 			logger.debug("Actually syncing...");
-			syncPrivateData(cachedUser).then((r) => {
+			(async () => {
+				const r = await syncPrivateData(cachedUser);
 				if (!r.ok) {
 					return;
 				}
 				setSynced(true);
-				// checkForUpdates();
-				// updateOnlineStatus(false);
-			});
+			})();
 		}
 
 	}, [cachedUser, synced, setSynced, getCalculatedWalletState, syncPrivateData, location.search]);
@@ -219,19 +216,15 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 
 						if ('error' in result) {
 							if (result.error === HandleAuthorizationRequestError.INSUFFICIENT_CREDENTIALS) {
-								setTextMessagePopup({
+								displayError({
 									title: t('messagePopup.insufficientCredentials.title'),
 									description: t('messagePopup.insufficientCredentials.description')
 								});
-								setTypeMessagePopup('error');
-								setMessagePopup(true);
 							} else if (result.error === HandleAuthorizationRequestError.NONTRUSTED_VERIFIER) {
-								setTextMessagePopup({
+								displayError({
 									title: t('messagePopup.nonTrustedVerifier.title'),
 									description: t('messagePopup.nonTrustedVerifier.description')
 								});
-								setTypeMessagePopup('error');
-								setMessagePopup(true);
 							}
 							return;
 						}
@@ -266,9 +259,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 			if (url && isLoggedIn && state && error) {
 				window.history.replaceState({}, '', `${window.location.pathname}`);
 				const errorDescription = urlParams.get('error_description');
-				setTextMessagePopup({ title: error, description: errorDescription });
-				setTypeMessagePopup('error');
-				setMessagePopup(true);
+				displayError({ title: error, description: errorDescription ?? '' });
 			}
 		}
 		if (getCalculatedWalletState()) {
@@ -293,6 +284,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 		sendAuthorizationResponse,
 		requestCredentialsWithPreAuthorization,
 		requestTxCode,
+		displayError,
 	]);
 
 	useEffect(() => {
@@ -313,9 +305,6 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 			{children}
 			{showPinInputPopup &&
 				<PinInputPopup isOpen={showPinInputPopup} setIsOpen={setShowPinInputPopup} />
-			}
-			{showMessagePopup &&
-				<MessagePopup type={typeMessagePopup} message={textMessagePopup} onClose={() => setMessagePopup(false)} />
 			}
 			{showSyncPopup &&
 				<SyncPopup message={textSyncPopup}

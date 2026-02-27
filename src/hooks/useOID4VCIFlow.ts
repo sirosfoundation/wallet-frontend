@@ -15,6 +15,8 @@ import type {
   OID4VCIFlowResult
 } from '@/lib/transport/types/OID4VCITypes';
 import type { FlowProgressEvent } from '@/lib/transport/types/FlowTypes';
+import type { OID4VCIStep, OID4VCIStepInfo } from '@/lib/transport/types/ProtocolSteps';
+import { OID4VCI_STEP_INFO } from '@/lib/transport/types/ProtocolSteps';
 
 export interface UseOID4VCIFlowOptions {
   /** Called when flow progress updates */
@@ -42,6 +44,12 @@ export interface UseOID4VCIFlowReturn {
   /** Whether a flow is currently in progress */
   isLoading: boolean;
 
+  /** Current protocol step */
+  currentStep: OID4VCIStep;
+
+  /** Metadata for the current step (message, progress, etc.) */
+  stepInfo: OID4VCIStepInfo;
+
   /** Last error if any */
   error: Error | null;
 
@@ -65,12 +73,15 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const [currentStep, setCurrentStep] = useState<OID4VCIStep>('idle');
 
   const transportType = transportContext?.transportType ?? 'none';
+  const stepInfo = OID4VCI_STEP_INFO[currentStep];
   const transport = transportContext?.transport;
 
   const clearError = useCallback(() => {
     setError(null);
+    setCurrentStep('idle');
     transportContext?.clearError?.();
   }, [transportContext]);
 
@@ -82,6 +93,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
   ): Promise<OID4VCIFlowResult> => {
     setIsLoading(true);
     setError(null);
+    setCurrentStep('parsing_offer');
 
     try {
       // WebSocket transport: delegate to backend
@@ -108,7 +120,17 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
       // HTTP transport: use existing implementation
       if (transportType === 'http' && openID4VCI) {
         try {
+          setCurrentStep('fetching_issuer_metadata');
           const result = await openID4VCI.handleCredentialOffer(credentialOfferUri);
+          
+          // Determine next step based on flow type
+          if (result.preAuthorizedCode && result.txCode) {
+            setCurrentStep('awaiting_tx_code');
+          } else if (result.preAuthorizedCode) {
+            setCurrentStep('exchanging_token');
+          } else {
+            setCurrentStep('requesting_authorization');
+          }
 
           // Convert to OID4VCIFlowResult format
           return {
@@ -129,6 +151,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       setError(error);
+      setCurrentStep('error');
       onError?.(error);
       return {
         success: false,
@@ -151,6 +174,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
   ): Promise<OID4VCIFlowResult> => {
     setIsLoading(true);
     setError(null);
+    setCurrentStep('exchanging_token');
 
     try {
       // WebSocket transport: continue flow on backend
@@ -174,7 +198,9 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
       if (transportType === 'http' && openID4VCI) {
         // Note: handleAuthorizationResponse in the current implementation
         // takes the full URL with the code as a parameter
+        setCurrentStep('requesting_credential');
         await openID4VCI.handleAuthorizationResponse(authCode);
+        setCurrentStep('completed');
 
         return {
           success: true,
@@ -186,6 +212,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       setError(error);
+      setCurrentStep('error');
       onError?.(error);
       return {
         success: false,
@@ -208,6 +235,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
   ): Promise<OID4VCIFlowResult> => {
     setIsLoading(true);
     setError(null);
+    setCurrentStep('exchanging_token');
 
     try {
       // WebSocket transport
@@ -246,6 +274,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       setError(error);
+      setCurrentStep('error');
       onError?.(error);
       return {
         success: false,
@@ -265,6 +294,8 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
     requestWithPreAuthorization,
     transportType,
     isLoading,
+    currentStep,
+    stepInfo,
     error,
     clearError,
   };
