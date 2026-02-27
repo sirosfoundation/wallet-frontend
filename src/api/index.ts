@@ -105,11 +105,6 @@ export interface BackendApi {
 		| 'x-private-data-etag'
 		| { errorId: 'tenantDiscovered', tenantId: string }
 	>>;
-
-	/** Get the current tenant ID (from session storage) */
-	getTenantId(): string | undefined,
-	/** Set the current tenant ID (stored in session storage) */
-	setTenantId(tenantId: string): void,
 }
 
 export function useApi(isOnlineProp: boolean = true): BackendApi {
@@ -877,10 +872,6 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		removeEventListener,
 
 		syncPrivateData,
-
-		// Tenant utilities
-		getTenantId: getStoredTenant,
-		setTenantId: setStoredTenant,
 	}), [
 		del,
 		get,
