@@ -1,6 +1,7 @@
 import { useMemo, useRef, useContext, useEffect } from 'react';
 import axios, { AxiosError, AxiosHeaders } from 'axios';
 import { IHttpProxy, RequestHeaders, ResponseHeaders } from '../../interfaces/IHttpProxy';
+import { logger } from '@/logger';
 import StatusContext from '@/context/StatusContext';
 import { addItem, getItem } from '@/indexedDB';
 import { encryptedHttpRequest, toArrayBuffer } from '@/lib/utils/ohttpHelpers';
@@ -83,7 +84,7 @@ export function useHttpProxy(): IHttpProxy {
 					}
 
 				} catch (err) {
-					console.warn('[Proxy] Failed cache read', err);
+					logger.warn('[Proxy] Failed cache read', err);
 				}
 			}
 
@@ -112,7 +113,7 @@ export function useHttpProxy(): IHttpProxy {
 					let response;
 					const shouldUseOblivious = obliviousKeyConfig !== null;
 					if (shouldUseOblivious) {
-						console.log("Using oblivious");
+						logger.debug("Using oblivious");
 						const keyConfig = obliviousKeyConfig;
 						if (keyConfig === null) {
 							throw new Error("Oblivious HTTP configuration error");
@@ -157,7 +158,7 @@ export function useHttpProxy(): IHttpProxy {
 								data: {...response}
 							};
 							const responseHeader = response?.data?.headers?.['content-type'];
-							console.log("Content-Type parsed: ", responseHeader);
+							logger.debug("Content-Type parsed: ", responseHeader);
 							if (responseHeader && responseHeader.trim().startsWith('application/json')) {
 								response.data.data = JSON.parse(new TextDecoder().decode(response.data.data));
 							} else {
@@ -304,7 +305,7 @@ export function useHttpProxy(): IHttpProxy {
 			try {
 				const shouldUseOblivious = obliviousKeyConfig !== null;
 				if (shouldUseOblivious) {
-					console.log("Using oblivious");
+					logger.debug("Using oblivious");
 					const keyConfig = obliviousKeyConfig;
 					if (keyConfig === null) {
 						throw new Error("Oblivious HTTP configuration error");
@@ -346,7 +347,7 @@ export function useHttpProxy(): IHttpProxy {
 						);
 					}
 					const responseHeader = response?.data?.headers?.['content-type'];
-					console.log("Content-Type parsed: ", responseHeader);
+					logger.debug("Content-Type parsed: ", responseHeader);
 					if (responseHeader && responseHeader.trim().startsWith('application/json')) {
 						response.data.data = JSON.parse(new TextDecoder().decode(response.data.data));
 					} else {
@@ -369,8 +370,8 @@ export function useHttpProxy(): IHttpProxy {
 				}
 				return response.data;
 			} catch (err) {
-				console.log("Post failed");
-				console.log(JSON.stringify(err, Object.getOwnPropertyNames(err)));
+				logger.debug("Post failed");
+				logger.debug(JSON.stringify(err, Object.getOwnPropertyNames(err)));
 				return {
 					data: err.response.data.data,
 					headers: err.response.data.headers,

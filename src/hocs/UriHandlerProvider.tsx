@@ -1,25 +1,30 @@
-import React, { useEffect, useState, useContext, useRef } from "react";
+import React, { useEffect, useState, useContext, Suspense } from "react";
 import { useLocation } from "react-router-dom";
 import StatusContext from "../context/StatusContext";
+import { logger } from "@/logger";
 import SessionContext from "../context/SessionContext";
 import { useTranslation } from "react-i18next";
-import { HandleAuthorizationRequestErrors as HandleAuthorizationRequestError } from "wallet-common";
+import { HandleAuthorizationRequestErrors } from "wallet-common";
 import OpenID4VCIContext from "../context/OpenID4VCIContext";
 import OpenID4VPContext from "../context/OpenID4VPContext";
 import CredentialsContext from "@/context/CredentialsContext";
 import { CachedUser } from "@/services/LocalStorageKeystore";
 import SyncPopup from "@/components/Popups/SyncPopup";
 import { useSessionStorage } from "@/hooks/useStorage";
+import { useTxCodeInput } from "@/context/TxCodeInputContext";
+import TxCodeInputPopup from "@/components/Popups/TxCodeInputPopup";
+import useErrorDialog from "@/hooks/useErrorDialog";
 
 const MessagePopup = React.lazy(() => import('../components/Popups/MessagePopup'));
 const PinInputPopup = React.lazy(() => import('../components/Popups/PinInput'));
 
 export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	const { isOnline } = useContext(StatusContext);
+	const { requestTxCode, state: txCodeState, handleSubmit: handleTxCodeSubmit, handleCancel: handleTxCodeCancel } = useTxCodeInput();
+	const { displayError } = useErrorDialog();
 
 	const [usedAuthorizationCodes, setUsedAuthorizationCodes] = useState<string[]>([]);
 	const [usedRequestUris, setUsedRequestUris] = useState<string[]>([]);
-	const usedPreAuthorizedCodes = useRef<string[]>([]);
 
 	const { isLoggedIn, api, keystore, logout } = useContext(SessionContext);
 	const { syncPrivateData } = api;
@@ -39,9 +44,6 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	const [showSyncPopup, setSyncPopup] = useState<boolean>(false);
 	const [textSyncPopup, setTextSyncPopup] = useState<{ description: string }>({ description: "" });
 
-	const [showMessagePopup, setMessagePopup] = useState<boolean>(false);
-	const [textMessagePopup, setTextMessagePopup] = useState<{ title: string, description: string }>({ title: "", description: "" });
-	const [typeMessagePopup, setTypeMessagePopup] = useState<string>("");
 	const { t } = useTranslation();
 
 	const [redirectUri, setRedirectUri] = useState(null);
@@ -50,6 +52,27 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	const [cachedUser, setCachedUser] = useState<CachedUser | null>(null);
 	const [synced, setSynced] = useState(false);
 	const [latestIsOnlineStatus, setLatestIsOnlineStatus,] = api.useClearOnClearSession(useSessionStorage('latestIsOnlineStatus', null));
+
+	const [showPinInput, setShowPinInput] = useState(false);
+
+
+	const [pinInputMode, setPinInputMode] = useState<"numeric" | "text">("numeric");
+	const [pinLength, setPinLength] = useState<number>(4);
+	const [activeUrl, setActiveUrl] = useState<string | null>(null);
+
+
+	const [showMessagePopup, setMessagePopup] = useState(false);
+	const [textMessagePopup, setTextMessagePopup] = useState({ title: "", description: "" });
+	const [typeMessagePopup, setTypeMessagePopup] = useState("");
+
+	const [pinResolver, setPinResolver] = useState<{ resolve: (val: string) => void, reject: (err: any) => void } | null>(null);
+
+	const requestPin = (): Promise<string> => {
+		setShowPinInput(true);
+		return new Promise<string>((resolve, reject) => {
+			setPinResolver({ resolve, reject });
+		});
+	};
 
 	useEffect(() => {
 		if (!keystore || cachedUser !== null || !isLoggedIn) {
@@ -97,15 +120,14 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 		}
 		const params = new URLSearchParams(location.search);
 		if (synced === false && getCalculatedWalletState() && params.get('sync') !== 'fail') {
-			console.log("Actually syncing...");
-			syncPrivateData(cachedUser).then((r) => {
+			logger.debug("Actually syncing...");
+			(async () => {
+				const r = await syncPrivateData(cachedUser);
 				if (!r.ok) {
 					return;
 				}
 				setSynced(true);
-				// checkForUpdates();
-				// updateOnlineStatus(false);
-			});
+			})();
 		}
 
 	}, [cachedUser, synced, setSynced, getCalculatedWalletState, syncPrivateData, location.search]);
@@ -133,93 +155,141 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 			const u = new URL(urlToCheck);
 			if (u.searchParams.size === 0) return;
 			// setUrl(window.location.origin);
-			console.log('[Uri Handler]: check', url);
+			logger.debug('[Uri Handler]: check', url);
 
 			if (u.protocol === 'openid-credential-offer' || u.searchParams.get('credential_offer') || u.searchParams.get('credential_offer_uri')) {
-				handleCredentialOffer(u.toString()).then(({ credentialIssuer, selectedCredentialConfigurationId, issuer_state, preAuthorizedCode, txCode }) => {
-					console.log("Generating authorization request...");
-					if (!preAuthorizedCode) {
-						return generateAuthorizationRequest(credentialIssuer, selectedCredentialConfigurationId, issuer_state);
-					} else if (usedPreAuthorizedCodes.current.includes(preAuthorizedCode)) {
-						throw new Error("Already used pre-authorized code");
-					}
+				// Handle credential offer with async/await for proper React state updates
+				(async () => {
+					try {
 
-					let userInput: string | undefined = undefined;
-					if (txCode) {
-						while (1) {
-							userInput = prompt(txCode.description ?? "Input Transaction Code displayed on your screen")
-							if (txCode.length && txCode.length === userInput.length) {
-								break;
+						let offerData;
+
+						try {
+							// Try the standard handler first
+							offerData = await handleCredentialOffer(u.toString());
+						} catch (error) {
+							logger.warn("Standard handleCredentialOffer failed, attempting manual fallback", error);
+							// Fallback: Parse the nested JSON manually
+							const offerUri = u.searchParams.get('credential_offer_uri');
+							const nestedUrl = new URL(offerUri);
+							const nestedJson = nestedUrl.searchParams.get('credential_offer');
+							const decoded = nestedJson ? JSON.parse(decodeURIComponent(nestedJson)) : {};
+							const preAuthGrant = decoded.grants?.["urn:ietf:params:oauth:grant-type:pre-authorized_code"];
+							offerData = {
+								credentialIssuer: decoded?.credential_issuer,
+								selectedCredentialConfigurationId: decoded?.credential_configuration_ids,
+								preAuthorizedCode: preAuthGrant,
+								txCode: preAuthGrant?.tx_code,
+								issuer_state: decoded?.issuer_state
+							};
+						}
+						const {
+							credentialIssuer,
+							selectedCredentialConfigurationId,
+							issuer_state,
+							preAuthorizedCode,
+							txCode
+						} = offerData;
+
+						logger.debug("Handling credential offer...", { credentialIssuer, preAuthorizedCode: !!preAuthorizedCode });
+
+						if (!preAuthorizedCode) {
+							// Authorization code flow - redirect to authorization
+							logger.debug("Generating authorization request...");
+							const authResult = await generateAuthorizationRequest(credentialIssuer, selectedCredentialConfigurationId, issuer_state);
+							if ('url' in authResult && typeof authResult.url === 'string' && authResult.url) {
+								window.location.href = authResult.url;
 							}
-							else if (txCode.length) {
-								alert(`Length of transaction code must be ${txCode.length}`);
+							return;
+						}
+
+						// Pre-authorized code flow
+						let userInput;
+						if (txCode) {
+							try {
+								const rawTxCode = txCode as { input_mode?: string; length?: number };
+								setPinInputMode(rawTxCode?.input_mode === "text" ? "text" : "numeric");
+								setPinLength(rawTxCode?.length || 4);
+								userInput = await requestPin();
+							} catch (err) {
+								logger.info("User cancelled PIN input");
+								return;
 							}
 						}
-					}
-					usedPreAuthorizedCodes.current.push(preAuthorizedCode);
-					return requestCredentialsWithPreAuthorization(credentialIssuer, selectedCredentialConfigurationId, preAuthorizedCode, userInput);
-				}).then((res) => {
-					if ('url' in res && typeof res.url === 'string' && res.url) {
-						window.location.href = res.url;
-					}
-				})
-					.catch(err => {
-						setUrl(`${window.location.origin}${window.location.pathname}`);
+						logger.debug("Requesting credential with pre-authorization...");
+						const result = await requestCredentialsWithPreAuthorization(
+							credentialIssuer,
+							selectedCredentialConfigurationId,
+							preAuthorizedCode,
+							userInput
+						);
+						if ('url' in result && typeof result.url === 'string' && result.url) {
+							window.location.href = result.url;
+						}
+					} catch (err) {
 						window.history.replaceState({}, '', `${window.location.pathname}`);
-						console.error(err);
-					})
+						logger.error("Error handling credential offer:", err);
+					}
+				})();
 				return;
 			}
 			else if (u.searchParams.get('code') && !usedAuthorizationCodes.includes(u.searchParams.get('code'))) {
 				setUsedAuthorizationCodes((codes) => [...codes, u.searchParams.get('code')]);
 
-				console.log("Handling authorization response...");
-				handleAuthorizationResponse(u.toString()).then(() => {
-				}).catch(err => {
-					setUrl(`${window.location.origin}${window.location.pathname}`);
-					console.log("Error during the handling of authorization response")
-					window.history.replaceState({}, '', `${window.location.pathname}`);
-					console.error(err)
-				})
+				logger.debug("Handling authorization response...");
+				(async () => {
+					try {
+						await handleAuthorizationResponse(u.toString());
+					} catch (err) {
+						logger.error("Error during the handling of authorization response:", err);
+						window.history.replaceState({}, '', `${window.location.pathname}`);
+					}
+				})();
 			}
 			else if (u.searchParams.get('client_id') && u.searchParams.get('request_uri') && !usedRequestUris.includes(u.searchParams.get('request_uri'))) {
 				setUsedRequestUris((uriArray) => [...uriArray, u.searchParams.get('request_uri')]);
-				await handleAuthorizationRequest(u.toString(), vcEntityList).then((result) => {
-					console.log("Result = ", result);
-					if ('error' in result) {
-						if (result.error === HandleAuthorizationRequestError.INSUFFICIENT_CREDENTIALS) {
-							setTextMessagePopup({ title: `${t('messagePopup.insufficientCredentials.title')}`, description: `${t('messagePopup.insufficientCredentials.description')}` });
-							setTypeMessagePopup('error');
-							setMessagePopup(true);
-						}
-						else if (result.error === HandleAuthorizationRequestError.NONTRUSTED_VERIFIER) {
-							setTextMessagePopup({ title: `${t('messagePopup.nonTrustedVerifier.title')}`, description: `${t('messagePopup.nonTrustedVerifier.description')}` });
-							setTypeMessagePopup('error');
-							setMessagePopup(true);
-						}
-						return;
-					}
-					const { conformantCredentialsMap, verifierDomainName, verifierPurpose, parsedTransactionData } = result;
-					const jsonedMap = Object.fromEntries(conformantCredentialsMap);
-					console.log("Prompting for selection..")
-					return promptForCredentialSelection(jsonedMap, verifierDomainName, verifierPurpose, parsedTransactionData);
-				}).then((selection) => {
-					if (!(selection instanceof Map)) {
-						return;
-					}
-					console.log("Selection = ", selection);
-					return sendAuthorizationResponse(selection, vcEntityList);
+				// Handle OID4VP authorization request with async/await
+				(async () => {
+					try {
+						const result = await handleAuthorizationRequest(u.toString(), vcEntityList);
+						logger.debug("Authorization request result:", result);
 
-				}).then((res) => {
-					if (res && 'url' in res && res.url) {
-						setRedirectUri(res.url);
+						if ('error' in result) {
+							if (result.error === HandleAuthorizationRequestErrors.INSUFFICIENT_CREDENTIALS) {
+								displayError({
+									title: t('messagePopup.insufficientCredentials.title'),
+									description: t('messagePopup.insufficientCredentials.description')
+								});
+							} else if (result.error === HandleAuthorizationRequestErrors.NONTRUSTED_VERIFIER) {
+								displayError({
+									title: t('messagePopup.nonTrustedVerifier.title'),
+									description: t('messagePopup.nonTrustedVerifier.description')
+								});
+							}
+							return;
+						}
+
+						const { conformantCredentialsMap, verifierDomainName, verifierPurpose, parsedTransactionData } = result;
+						const jsonedMap = Object.fromEntries(conformantCredentialsMap);
+						logger.debug("Prompting for credential selection...");
+
+						const selection = await promptForCredentialSelection(jsonedMap, verifierDomainName, verifierPurpose, parsedTransactionData);
+
+						if (!(selection instanceof Map)) {
+							return;
+						}
+
+						logger.debug("User selection:", selection);
+						const res = await sendAuthorizationResponse(selection, vcEntityList);
+
+						if (res && 'url' in res && res.url) {
+							setRedirectUri(res.url);
+						}
+					} catch (err) {
+						logger.error("Failed to handle authorization request:", err);
+						window.history.replaceState({}, '', `${window.location.pathname}`);
 					}
-				}).catch(err => {
-					setUrl(`${window.location.origin}${window.location.pathname}`);
-					console.log("Failed to handle authorization req");
-					window.history.replaceState({}, '', `${window.location.pathname}`);
-					console.error(err);
-				})
+				})();
 				return;
 			}
 
@@ -227,12 +297,9 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 			const state = urlParams.get('state');
 			const error = urlParams.get('error');
 			if (url && isLoggedIn && state && error) {
-				setUrl(`${window.location.origin}${window.location.pathname}`);
 				window.history.replaceState({}, '', `${window.location.pathname}`);
 				const errorDescription = urlParams.get('error_description');
-				setTextMessagePopup({ title: error, description: errorDescription });
-				setTypeMessagePopup('error');
-				setMessagePopup(true);
+				displayError({ title: error, description: errorDescription ?? '' });
 			}
 		}
 		if (getCalculatedWalletState()) {
@@ -256,6 +323,8 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 		promptForCredentialSelection,
 		sendAuthorizationResponse,
 		requestCredentialsWithPreAuthorization,
+		requestTxCode,
+		displayError,
 	]);
 
 	useEffect(() => {
@@ -274,20 +343,45 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	return (
 		<>
 			{children}
-			{showPinInputPopup &&
-				<PinInputPopup isOpen={showPinInputPopup} setIsOpen={setShowPinInputPopup} />
-			}
-			{showMessagePopup &&
-				<MessagePopup type={typeMessagePopup} message={textMessagePopup} onClose={() => setMessagePopup(false)} />
-			}
-			{showSyncPopup &&
-				<SyncPopup message={textSyncPopup}
-					onClose={() => {
-						setSyncPopup(false);
-						logout();
+			<Suspense fallback={null}>
+				<PinInputPopup
+					isOpen={showPinInput}
+					setIsOpen={setShowPinInput}
+					inputsCount={pinLength}
+					inputsMode={pinInputMode}
+					onCancel={() => {
+						setShowPinInput(false);
+						window.history.replaceState({}, '', window.location.pathname);
+						setUrl(window.location.origin);
+						if (pinResolver) {
+							pinResolver.reject("cancelled");
+							setPinResolver(null);
+						}
+					}}
+					onSubmit={(pin) => {
+						setShowPinInput(false);
+						window.history.replaceState({}, '', window.location.pathname);
+						setUrl(window.location.origin);
+						if (pinResolver) {
+							pinResolver.resolve(pin);
+							setPinResolver(null);
+						}
 					}}
 				/>
-			}
+				{showMessagePopup && (
+					<MessagePopup
+						type={typeMessagePopup}
+						message={textMessagePopup}
+						onClose={() => setMessagePopup(false)}
+					/>
+				)}
+				{showSyncPopup && (
+					<SyncPopup
+						message={textSyncPopup}
+						onClose={() => { setSyncPopup(false); logout(); }}
+					/>
+				)}
+			</Suspense>
 		</>
 	);
 }

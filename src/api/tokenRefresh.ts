@@ -10,6 +10,7 @@
 import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { jsonParseTaggedBinary, jsonStringifyTaggedBinary } from '../util';
 import { getStoredTenant } from '../lib/tenant';
+import { logger } from '@/logger';
 
 // Module-level state for managing concurrent refresh attempts
 let isRefreshing = false;
@@ -91,7 +92,7 @@ async function performRefresh(
 
 		return { success: false };
 	} catch (error) {
-		console.warn('Token refresh failed:', error);
+		logger.warn('Token refresh failed:', error);
 
 		// If refresh token is expired or invalid, clear the session
 		if (axios.isAxiosError(error)) {
