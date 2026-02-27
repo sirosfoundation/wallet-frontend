@@ -336,7 +336,7 @@ const WebauthnSignupLogin = ({
 				: promptForPrfRetry,
 			webauthnHints,
 			retrySignupFrom,
-			effectiveTenantId, // Tenant from URL path or storage
+			urlTenantId || 'default',
 		);
 		if (result.ok) {
 
