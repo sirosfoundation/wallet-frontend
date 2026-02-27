@@ -20,6 +20,7 @@ import type {
 } from './types/FlowTypes';
 import type { OID4VCIFlowParams, OID4VCIFlowResult } from './types/OID4VCITypes';
 import type { OID4VPFlowParams, OID4VPFlowResult } from './types/OID4VPTypes';
+import { logger } from '@/logger';
 
 /**
  * Pending request waiting for a response
@@ -131,7 +132,7 @@ export class WebSocketTransport implements IFlowTransport {
         };
 
         this.ws.onerror = (event) => {
-          console.error('WebSocket error:', event);
+          logger.error('WebSocket error:', event);
           this.connectionPromise = null;
           reject(new Error('WebSocket connection failed'));
         };
@@ -141,7 +142,7 @@ export class WebSocketTransport implements IFlowTransport {
             const message = JSON.parse(event.data) as ServerMessage;
             this.handleMessage(message);
           } catch (e) {
-            console.error('Failed to parse WebSocket message:', e);
+            logger.error('Failed to parse WebSocket message:', e);
           }
         };
 
@@ -468,7 +469,7 @@ export class WebSocketTransport implements IFlowTransport {
         pending.resolve(message);
       }
     } else {
-      console.warn('Received message for unknown flowId:', flowId);
+      logger.warn('Received message for unknown flowId:', flowId);
     }
   }
 
@@ -484,7 +485,7 @@ export class WebSocketTransport implements IFlowTransport {
     };
 
     if (this.signHandlers.size === 0) {
-      console.error('No sign handlers registered, cannot respond to sign request');
+      logger.error('No sign handlers registered, cannot respond to sign request');
       this.sendSignResponse(request.flowId, request.messageId, {}, 'No sign handler available');
       return;
     }
@@ -498,7 +499,7 @@ export class WebSocketTransport implements IFlowTransport {
         return;
       } catch (err) {
         lastError = err instanceof Error ? err : new Error(String(err));
-        console.warn('Sign handler failed:', lastError.message);
+        logger.warn('Sign handler failed:', lastError.message);
       }
     }
 
@@ -521,7 +522,7 @@ export class WebSocketTransport implements IFlowTransport {
     error?: string
   ): void {
     if (!this.isConnected()) {
-      console.error('Cannot send sign response: WebSocket not connected');
+      logger.error('Cannot send sign response: WebSocket not connected');
       return;
     }
 
@@ -542,7 +543,7 @@ export class WebSocketTransport implements IFlowTransport {
     try {
       this.ws!.send(JSON.stringify(msg));
     } catch (err) {
-      console.error('Failed to send sign response:', err);
+      logger.error('Failed to send sign response:', err);
     }
   }
 
@@ -568,11 +569,11 @@ export class WebSocketTransport implements IFlowTransport {
       const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts);
       this.reconnectAttempts++;
 
-      console.log(`WebSocket reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
+      logger.debug(`WebSocket reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
 
       setTimeout(() => {
         this.connect().catch((error) => {
-          console.error('WebSocket reconnect failed:', error);
+          logger.error('WebSocket reconnect failed:', error);
           this.emitError(new Error('WebSocket reconnection failed'));
         });
       }, delay);
@@ -618,7 +619,7 @@ export class WebSocketTransport implements IFlowTransport {
       try {
         callback(event);
       } catch (e) {
-        console.error('Error in progress callback:', e);
+        logger.error('Error in progress callback:', e);
       }
     });
   }
@@ -628,7 +629,7 @@ export class WebSocketTransport implements IFlowTransport {
       try {
         callback(error);
       } catch (e) {
-        console.error('Error in error callback:', e);
+        logger.error('Error in error callback:', e);
       }
     });
   }
@@ -646,7 +647,7 @@ export class WebSocketTransport implements IFlowTransport {
    */
   sendFlowAction(action: FlowAction): void {
     if (!this.isConnected()) {
-      console.error('Cannot send flow action: WebSocket not connected');
+      logger.error('Cannot send flow action: WebSocket not connected');
       return;
     }
 
@@ -660,9 +661,9 @@ export class WebSocketTransport implements IFlowTransport {
 
     try {
       this.ws!.send(JSON.stringify(msg));
-      console.log('[WS Transport] Sent flow action:', action.action);
+      logger.debug('[WS Transport] Sent flow action:', action.action);
     } catch (err) {
-      console.error('Failed to send flow action:', err);
+      logger.error('Failed to send flow action:', err);
     }
   }
 

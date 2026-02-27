@@ -4,6 +4,7 @@ import { BACKEND_URL } from '../config';
 import StatusContext, { Connectivity } from './StatusContext';
 import { useLocalStorage } from '@/hooks/useStorage';
 import { getTenantFromUrlPath } from '../lib/tenant';
+import { logger } from '../logger';
 
 // Function to calculate speed based on RTT (lower RTT means higher speed)
 function calculateNetworkSpeed(rtt: number): number {
@@ -104,7 +105,7 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 	}, []);
 
 	useEffect(() => {
-		console.log('Online status:', isOnline);
+		logger.debug('Online status:', isOnline);
 	}, [isOnline]);
 
 	// Polling logic when offline

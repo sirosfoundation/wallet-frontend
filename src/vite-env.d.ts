@@ -1,5 +1,13 @@
 /// <reference types="vite/client" />
 
+import type { Logger } from './logger';
+
+declare global {
+	interface Window {
+		logger: Logger;
+	}
+}
+
 interface ImportMetaEnv {
 	readonly VITE_APP_TITLE: string;
 	readonly VITE_WS_URL: string;
@@ -9,6 +17,7 @@ interface ImportMetaEnv {
 	readonly VITE_APP_VERSION: string;
 	readonly VITE_GENERATE_SOURCEMAP: string;
 	readonly VITE_DISPLAY_CONSOLE: string;
+	readonly VITE_LOG_LEVEL?: string;
 	readonly VITE_INACTIVE_LOGOUT_SECONDS: string;
 	readonly VITE_WEBAUTHN_RPID: string;
 	readonly VITE_OPENID4VCI_REDIRECT_URI: string;

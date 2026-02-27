@@ -24,6 +24,7 @@ import ConnectionStatusIcon from '../../components/Layout/Navigation/ConnectionS
 import useScreenType from '@/hooks/useScreenType';
 import { CircleQuestionMark, Eye, EyeOff, FingerprintIcon, Info, Lock, LockKeyholeOpen,SmartphoneNfcIcon, User, UserLock, X } from 'lucide-react';
 import { UsbStickDotIcon } from '@/components/Shared/CustomIcons';
+import { logger } from '@/logger';
 
 const FormInputRow = ({
 	IconComponent,
@@ -259,6 +260,7 @@ const WebauthnSignupLogin = ({
 		} else {
 			const err = result.val;
 
+
 			// Using a switch here so the t() argument can be a literal, to ease searching
 			switch (err) {
 				case 'loginKeystoreFailed':
@@ -286,6 +288,7 @@ const WebauthnSignupLogin = ({
 			}
 		}
 	}, [api, keystore, effectiveTenantId, navigate, setError, t]);
+
 
 	const onSignup = async (name: string, webauthnHints: string[]) => {
 		// Pass tenantId to ensure the passkey's userHandle includes the tenant prefix
@@ -385,7 +388,7 @@ const WebauthnSignupLogin = ({
 	};
 
 	const onCancel = () => {
-		console.log("onCancel");
+		logger.debug("onCancel");
 		setInProgress(false);
 		setNeedPrfRetry(false);
 		setPrfRetryAccepted(false);

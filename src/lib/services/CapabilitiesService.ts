@@ -6,6 +6,7 @@
  */
 
 import { BACKEND_URL, ENGINE_URL } from '@/config';
+import { logger } from '@/logger';
 
 /**
  * Status response from /status endpoint
@@ -106,7 +107,7 @@ async function fetchStatusCached(baseUrl: string): Promise<StatusResponse | null
       error: error instanceof Error ? error : new Error(String(error)),
     });
     // Don't throw - return null to indicate unavailable
-    console.warn(`Failed to fetch status from ${baseUrl}:`, error);
+    logger.warn(`Failed to fetch status from ${baseUrl}:`, error);
     return null;
   }
 }

@@ -24,7 +24,7 @@ const PrivateRoute = ({ children }: { children?: React.ReactNode }): React.React
 			const decodedState = JSON.parse(atob(state));
 			return cachedUsers.some(user => user.userHandleB64u === decodedState.userHandleB64u);
 		} catch (error) {
-			console.error('Error decoding state:', error);
+			logger.error('Error decoding state:', error);
 			return false;
 		}
 	};

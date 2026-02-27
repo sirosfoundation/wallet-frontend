@@ -3,6 +3,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import ConsoleBehavior from './ConsoleBehavior';
+import { logger } from './logger';
 import { initializeDataSource } from './indexedDB';
 import Modal from 'react-modal';
 import '@fontsource/inter/400.css';
@@ -19,8 +20,8 @@ ConsoleBehavior();
 
 // Initialize IndexedDB BEFORE React renders
 initializeDataSource()
-	.then(() => console.log('Database initialized'))
-	.catch((err) => console.error('Error initializing database', err));
+	.then(() => logger.debug('Database initialized'))
+	.catch((err) => logger.error('Error initializing database', err));
 
 // Create root and render app
 const root = createRoot(document.getElementById('root'));
