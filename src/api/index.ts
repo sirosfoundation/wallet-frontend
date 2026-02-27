@@ -169,7 +169,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		const tenantId = getStoredTenant() || 'default';
 		return {
 			...headers,
-			'X-Tenant-ID': tenantId,
+			'X-Tenant-ID': headers['X-Tenant-ID'] || tenantId,
 			...(authz ? { Authorization: `Bearer ${authz}` } : {}),
 		};
 	}, [appToken]);
