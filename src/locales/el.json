@@ -64,7 +64,7 @@
 		"messageResetPermission": "Κάτι <strong>δεν λειτουργεί σωστά με τις ειδοποιήσεις</strong>, <reloadButton>ανανεώστε αυτή τη σελίδα</reloadButton>."
 	},
 	"loginSignup": {
-		"acceptPolicies": "Αποδέχομαι τους όρους του {{walletName}} <policyLinks/>.",
+		"acceptPolicies": "Αποδέχομαι την <policyLinks/>.",
 		"alreadyHaveAccountQuestion": "Έχετε ήδη λογαριασμό πορτοφολιού; ",
 		"authOnceMoreLogin": "Για να ολοκληρώσετε το ξεκλείδωμα του wallet αυθεντικοποιηθείτε με το κλειδί πρόσβασής σας μία ακόμη φορά.",
 		"capitalLetter": "Τουλάχιστον ένα κεφαλαίο γράμμα",
