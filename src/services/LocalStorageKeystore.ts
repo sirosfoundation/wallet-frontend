@@ -182,11 +182,12 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 
 	useEffect(() => {
 		if (userHandleB64u) {
-			readPrivateDataFromIdb(userHandleB64u).then((val) => {
+			(async () => {
+				const val = await readPrivateDataFromIdb(userHandleB64u);
 				if (val) {
 					setPrivateData(val);
 				}
-			})
+			})();
 		}
 	}, [userHandleB64u, readPrivateDataFromIdb]);
 
@@ -441,10 +442,10 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 	useEffect(() => {
 		// initialize calculated wallet state
 		if (mainKey && privateData && calculatedWalletState === null) {
-			openPrivateData().then(([, , newCalculatedWalletState]) => {
-
+			(async () => {
+				const [, , newCalculatedWalletState] = await openPrivateData();
 				setCalculatedWalletState(newCalculatedWalletState);
-			});
+			})();
 		}
 	}, [mainKey, privateData, calculatedWalletState, openPrivateData]);
 

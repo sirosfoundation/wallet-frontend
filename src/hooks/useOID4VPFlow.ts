@@ -17,6 +17,8 @@ import type {
   OID4VPSelectedCredential,
 } from '@/lib/transport/types/OID4VPTypes';
 import type { FlowProgressEvent } from '@/lib/transport/types/FlowTypes';
+import type { OID4VPStep, OID4VPStepInfo } from '@/lib/transport/types/ProtocolSteps';
+import { OID4VP_STEP_INFO } from '@/lib/transport/types/ProtocolSteps';
 
 export interface UseOID4VPFlowOptions {
   /** Called when flow progress updates */
@@ -42,6 +44,12 @@ export interface UseOID4VPFlowReturn {
   /** Whether a flow is currently in progress */
   isLoading: boolean;
 
+  /** Current protocol step */
+  currentStep: OID4VPStep;
+
+  /** Metadata for the current step (message, progress, etc.) */
+  stepInfo: OID4VPStepInfo;
+
   /** Last error if any */
   error: Error | null;
 
@@ -66,12 +74,15 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const [currentStep, setCurrentStep] = useState<OID4VPStep>('idle');
 
   const transportType = transportContext?.transportType ?? 'none';
+  const stepInfo = OID4VP_STEP_INFO[currentStep];
   const transport = transportContext?.transport;
 
   const clearError = useCallback(() => {
     setError(null);
+    setCurrentStep('idle');
     transportContext?.clearError?.();
   }, [transportContext]);
 
@@ -83,6 +94,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
   ): Promise<OID4VPFlowResult> => {
     setIsLoading(true);
     setError(null);
+    setCurrentStep('parsing_request');
 
     try {
       // WebSocket transport: delegate to backend
@@ -108,6 +120,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
       // HTTP transport: use existing implementation
       if (transportType === 'http' && openID4VP) {
         try {
+          setCurrentStep('fetching_verifier_metadata');
           const result = await openID4VP.handleAuthorizationRequest(
             authorizationRequestUri,
             vcEntityList || []
@@ -115,6 +128,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 
           // Check for error response
           if ('error' in result) {
+            setCurrentStep('error');
             return {
               success: false,
               error: {
@@ -123,6 +137,9 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
               },
             };
           }
+
+          // Successfully parsed request, now awaiting credential selection
+          setCurrentStep('awaiting_credential_selection');
 
           // Convert to OID4VPFlowResult format
           // The conformantCredentialsMap is a Map<string, any>
@@ -153,6 +170,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       setError(error);
+      setCurrentStep('error');
       onError?.(error);
       return {
         success: false,
@@ -174,6 +192,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
   ): Promise<OID4VPFlowResult> => {
     setIsLoading(true);
     setError(null);
+    setCurrentStep('creating_presentation');
 
     try {
       // WebSocket transport: continue flow on backend
@@ -211,6 +230,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
           }
         });
 
+        setCurrentStep('sending_response');
         const result = await openID4VP.sendAuthorizationResponse(
           selectionMap,
           vcEntityList || []
@@ -218,6 +238,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 
         // Check result type
         if ('url' in result && result.url) {
+          setCurrentStep('completed');
           return {
             success: true,
             redirectUri: result.url,
@@ -225,6 +246,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
         }
 
         if ('presentation_during_issuance_session' in result) {
+          setCurrentStep('completed');
           return {
             success: true,
             responseData: {
@@ -234,6 +256,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
           };
         }
 
+        setCurrentStep('completed');
         return {
           success: true,
         };
@@ -244,6 +267,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       setError(error);
+      setCurrentStep('error');
       onError?.(error);
       return {
         success: false,
@@ -262,6 +286,8 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
     sendAuthorizationResponse,
     transportType,
     isLoading,
+    currentStep,
+    stepInfo,
     error,
     clearError,
   };

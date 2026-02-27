@@ -20,9 +20,9 @@ export const useProxiedImage = (uri?: string | null) => {
 
 		// Handle HTTPS or HTTP fetch via proxy
 		if (uri.startsWith("http")) {
-			proxy
-				.get(uri, {}, { useCache: true })
-				.then((res) => {
+			(async () => {
+				try {
+					const res = await proxy.get(uri, {}, { useCache: true });
 					if (res.status === 200 && typeof res.data === "string") {
 						const contentType = String(res.headers?.["content-type"] || "");
 
@@ -38,8 +38,10 @@ export const useProxiedImage = (uri?: string | null) => {
 							setSrc(res.data);
 						}
 					}
-				})
-				.catch(() => setSrc(null));
+				} catch {
+					setSrc(null);
+				}
+			})();
 		} else {
 			logger.warn("Unsupported logo URI scheme:", uri);
 			setSrc(null);

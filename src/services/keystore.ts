@@ -1147,11 +1147,12 @@ async function createDid(publicKey: CryptoKey, didKeyVersion: DidKeyVersion): Pr
 }
 
 export async function signJwtPresentation([privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState], nonce: string, audience: string, verifiableCredentials: any[], transactionDataResponseParams?: { transaction_data_hashes: string[], transaction_data_hashes_alg: string[] }): Promise<{ vpjwt: string }> {
-	const hasher = (data: string | ArrayBuffer, alg: string) => {
+	const hasher = async (data: string | ArrayBuffer, alg: string) => {
 		const encoded =
 			typeof data === 'string' ? new TextEncoder().encode(data) : new Uint8Array(data);
 
-		return crypto.subtle.digest(alg, encoded).then((v) => new Uint8Array(v));
+		const digest = await crypto.subtle.digest(alg, encoded);
+		return new Uint8Array(digest);
 	}
 
 	const inputJwt = await SDJwt.fromEncode(verifiableCredentials[0], hasher);

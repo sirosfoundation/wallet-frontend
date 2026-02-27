@@ -149,16 +149,17 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
     setWsTransport(ws);
 
     // Connect to WebSocket
-    ws.connect()
-      .then(() => {
+    (async () => {
+      try {
+        await ws.connect();
         setIsConnected(true);
         setLastError(null);
-      })
-      .catch((error) => {
+      } catch (error) {
         logger.error('WebSocket connection failed:', error);
         setIsConnected(false);
-        setLastError(error);
-      });
+        setLastError(error as Error);
+      }
+    })();
 
     // Subscribe to errors
     const unsubscribeError = ws.onError((error) => {

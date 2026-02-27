@@ -248,11 +248,17 @@ export function useCredentialRequest() {
 
 		const credentialResponse = await httpProxy.post(credentialEndpointURLRef.current, credentialEndpointBody, httpHeaders);
 		if (encryptionRequested && credentialResponse.headers['content-type'] === 'application/jwt') {
-			const result = await compactDecrypt(credentialResponse.data as string, ephemeralKeypair.privateKey).then((r) => ({ data: r, err: null })).catch((err) => ({ data: null, err: err }));
-			if (result.err) {
+			let decryptResult: { data: CompactDecryptResult | null; err: Error | null };
+			try {
+				const decrypted = await compactDecrypt(credentialResponse.data as string, ephemeralKeypair.privateKey);
+				decryptResult = { data: decrypted, err: null };
+			} catch (err) {
+				decryptResult = { data: null, err: err as Error };
+			}
+			if (decryptResult.err) {
 				throw new Error("Credential Response decryption failed");
 			}
-			const { plaintext } = result.data as CompactDecryptResult;
+			const { plaintext } = decryptResult.data as CompactDecryptResult;
 			const payload = JSON.parse(new TextDecoder().decode(plaintext));
 			credentialResponse.data = payload;
 		}
