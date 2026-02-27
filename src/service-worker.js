@@ -35,14 +35,15 @@ registerRoute(
 		if (url.pathname.startsWith("/_")) return false;
 		if (/\.[a-zA-Z0-9]+$/.test(url.pathname)) return false;
 
-		return SPA_ROUTE_ALLOWLIST.some((re) => re.test(url.pathname));
+		const pathname = url.pathname.replace(/^(\/id\/([a-z0-9-]+))/, '');
+
+		return SPA_ROUTE_ALLOWLIST.some((re) => re.test(pathname));
 	},
 	async () => {
 		const indexPath = `${basePath}index.html`;
 		const cached = await caches.match(indexPath);
 
-		console.log(cached || fetch(indexPath))
-		return cached || fetch(indexPath);
+		return cached || await fetch(indexPath);
 	}
 );
 
