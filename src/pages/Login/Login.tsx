@@ -556,7 +556,6 @@ const WebauthnSignupLogin = ({
 										<span>
 											<Trans
 												i18nKey="loginSignup.acceptPolicies"
-												values={{ walletName: config.STATIC_NAME }}
 												components={{ policyLinks: <PolicyLinks /> }}
 											/>
 										</span>
