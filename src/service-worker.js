@@ -6,7 +6,7 @@ import { precacheAndRoute, cleanupOutdatedCaches, } from "workbox-precaching";
 import { registerRoute } from "workbox-routing";
 import { StaleWhileRevalidate } from "workbox-strategies";
 
-const basePath = new URL(self.registration.scope).pathname.replace(/\/$/, '') || '/';
+const basePath = new URL(self.registration.scope).pathname.replace(/\/?$/, '/') || '/';
 
 clientsClaim();
 
@@ -38,7 +38,7 @@ registerRoute(
 		return SPA_ROUTE_ALLOWLIST.some((re) => re.test(url.pathname));
 	},
 	async () => {
-		const indexPath = `${basePath}/index.html`;
+		const indexPath = `${basePath}index.html`;
 		const cached = await caches.match(indexPath);
 
 		console.log(cached || fetch(indexPath))
