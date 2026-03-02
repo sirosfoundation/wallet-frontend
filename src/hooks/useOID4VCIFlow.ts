@@ -122,7 +122,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
         try {
           setCurrentStep('fetching_issuer_metadata');
           const result = await openID4VCI.handleCredentialOffer(credentialOfferUri);
-          
+
           // Determine next step based on flow type
           if (result.preAuthorizedCode && result.txCode) {
             setCurrentStep('awaiting_tx_code');
