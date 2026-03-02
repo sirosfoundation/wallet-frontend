@@ -58,8 +58,8 @@ export default defineConfig(async ({ mode }) => {
 		},
 		build: {
 			manifest: true,
-			sourcemap: env.GENERATE_SOURCEMAP === 'true',
-			minify: env.GENERATE_SOURCEMAP !== 'true'
+			sourcemap: true,
+			minify: mode === 'production',
 		},
 	}
 });
