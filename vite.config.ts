@@ -14,7 +14,7 @@ export default defineConfig(async ({ mode }) => {
 	mkdirSync(resolve('public'), { recursive: true });
 
 	return {
-		base: '/',
+		base: './',
 		plugins: [
 			InjectConfigPlugin(env),
 			react(),
