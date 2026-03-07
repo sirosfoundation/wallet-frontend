@@ -27,7 +27,7 @@ FROM nginx:alpine AS deploy
 
 # Alpine mirrors don't keep old versions of packages around for so long.
 # If pinned dependencies fail to install, check if they still exist.
-RUN apk add --no-cache nodejs=~24 npm=~11 fontconfig && npm install -g \
+RUN apk add --no-cache nodejs=~24 npm=~11 bash=~5 && npm install -g \
 	tsx@^4.21.0 \
 	sharp@^0.34.5 \
 	jsdom@^28.0.0 \
@@ -38,6 +38,7 @@ ENV NODE_PATH=/usr/local/lib/node_modules
 
 WORKDIR /usr/share/nginx/
 
+COPY ./utils/apply_branding.sh /usr/local/bin
 COPY ./nginx/nginx.conf /etc/nginx/conf.d/default.conf
 COPY ./nginx/docker-entrypoint.d/wallet-config.sh /docker-entrypoint.d/wallet-config.sh
 

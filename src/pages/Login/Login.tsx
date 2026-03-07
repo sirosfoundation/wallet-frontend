@@ -19,11 +19,11 @@ import SeparatorLine from '../../components/Shared/SeparatorLine';
 import PasswordStrength from '../../components/Auth/PasswordStrength';
 import LoginLayout from '../../components/Auth/LoginLayout';
 import checkForUpdates from '../../offlineUpdateSW';
+import ConnectionStatusIcon from '../../components/Layout/Navigation/ConnectionStatusIcon';
 
-import { Eye, EyeOff, Info, KeyRoundIcon, Lock, LockKeyholeOpen, User, Wallet, X } from 'lucide-react';
+import useScreenType from '@/hooks/useScreenType';
+import { CircleQuestionMark, Eye, EyeOff, FingerprintIcon, Info, Lock, LockKeyholeOpen,SmartphoneNfcIcon, User, UserLock, X } from 'lucide-react';
 import { UsbStickDotIcon } from '@/components/Shared/CustomIcons';
-import PolicyLinks from '@/components/Shared/PolicyLinks';
-import PasskeyInfoPopup from '@/components/Popups/PasskeyInfoPopup';
 
 const FormInputRow = ({
 	IconComponent,
@@ -219,6 +219,7 @@ const WebauthnSignupLogin = ({
 	const { isOnline, updateOnlineStatus } = useContext(StatusContext);
 	const { api, keystore } = useContext(SessionContext);
 	const { effectiveTenantId, urlTenantId } = useTenant();
+	const screenType = useScreenType();
 	const navigate = useNavigate();
 	const location = useLocation();
 
@@ -227,7 +228,6 @@ const WebauthnSignupLogin = ({
 	const [needPrfRetry, setNeedPrfRetry] = useState(false);
 	const [resolvePrfRetryPrompt, setResolvePrfRetryPrompt] = useState<(accept: boolean) => void>(null);
 	const [prfRetryAccepted, setPrfRetryAccepted] = useState(false);
-	const [autoRetryTriggered, setAutoRetryTriggered] = useState(false);
 
 	const { t } = useTranslation();
 	const [retrySignupFrom, setRetrySignupFrom] = useState(null);
@@ -253,22 +253,11 @@ const WebauthnSignupLogin = ({
 	};
 
 	const onLogin = useCallback(async (webauthnHints: string[], cachedUser?: CachedUser) => {
-		// Pass the tenantId from URL path to ensure proper tenant-scoped login
-		// This is critical for auto-retry after tenant discovery redirect
 		const result = await api.loginWebauthn(keystore, promptForPrfRetry, webauthnHints, cachedUser, effectiveTenantId);
 		if (result.ok) {
 			// Success - no action needed, session will be set by API
 		} else {
 			const err = result.val;
-
-			// Handle tenant discovery error - redirect to tenant-specific login
-			if (typeof err === 'object' && err.errorId === 'tenantDiscovered') {
-				console.log('Tenant discovered during login:', err.tenantId, '- redirecting with auto-retry...');
-				// Redirect to tenant-specific login page with retry flag
-				// The autoRetry param signals that we should automatically trigger login after redirect
-				navigate(`${buildTenantRoutePath(err.tenantId, 'login')}?autoRetry=true`, { replace: true });
-				return;
-			}
 
 			// Using a switch here so the t() argument can be a literal, to ease searching
 			switch (err) {
@@ -297,33 +286,6 @@ const WebauthnSignupLogin = ({
 			}
 		}
 	}, [api, keystore, effectiveTenantId, navigate, setError, t]);
-
-	// Auto-retry login after tenant discovery redirect
-	// When redirected from global /login with ?autoRetry=true, automatically trigger login
-	useEffect(() => {
-		const params = new URLSearchParams(location.search);
-		const shouldAutoRetry = params.get('autoRetry') === 'true';
-
-		if (shouldAutoRetry && isLogin && !autoRetryTriggered && !inProgress && !isSubmitting) {
-			setAutoRetryTriggered(true);
-			// Clear the autoRetry param from URL
-			params.delete('autoRetry');
-			const newSearch = params.toString();
-			navigate(`${location.pathname}${newSearch ? '?' + newSearch : ''}`, { replace: true });
-
-			// Trigger login automatically
-			console.log('Auto-retrying login after tenant discovery redirect');
-			(async () => {
-				setInProgress(true);
-				setIsSubmitting(true);
-				await onLogin([]);
-				setInProgress(false);
-				setIsSubmitting(false);
-				checkForUpdates();
-				updateOnlineStatus();
-			})();
-		}
-	}, [location.search, isLogin, autoRetryTriggered, inProgress, isSubmitting, navigate, location.pathname, onLogin, setIsSubmitting, updateOnlineStatus]);
 
 	const onSignup = async (name: string, webauthnHints: string[]) => {
 		// Pass tenantId to ensure the passkey's userHandle includes the tenant prefix
@@ -438,7 +400,7 @@ const WebauthnSignupLogin = ({
 	const nameByteLimitApproaching = nameByteLength >= nameByteLimit / 2;
 
 	return (
-		<form className='mb-4' onSubmit={onSubmit}>
+		<form onSubmit={onSubmit}>
 			{inProgress || retrySignupFrom
 				? (
 					needPrfRetry
@@ -525,7 +487,7 @@ const WebauthnSignupLogin = ({
 					<>
 						{!isLogin && (
 							<>
-								<FormInputRow label={t('loginSignup.choosePasskeyUsername')} name="name" IconComponent={Wallet}>
+								<FormInputRow label={t('loginSignup.choosePasskeyUsername')} name="name" IconComponent={User}>
 									<FormInputField
 										ariaLabel="Passkey name"
 										name="name"
@@ -550,17 +512,6 @@ const WebauthnSignupLogin = ({
 										</div>
 									</div>
 								</FormInputRow>
-								{PolicyLinks && (
-									<label className="mb-4 text-sm relative block pl-6">
-										<input className="absolute top-1 left-0 w-4 h-4 accent-primary cursor-pointer" type="checkbox" required />
-										<span>
-											<Trans
-												i18nKey="loginSignup.acceptPolicies"
-												components={{ policyLinks: <PolicyLinks /> }}
-											/>
-										</span>
-									</label>
-								)}
 							</>)}
 
 						{isLoginCache && (
@@ -581,6 +532,7 @@ const WebauthnSignupLogin = ({
 												ariaLabel={t('loginSignup.loginAsUser', { name: cachedUser.displayName })}
 												title={t('loginSignup.loginAsUser', { name: cachedUser.displayName })}
 											>
+												<UserLock size={20} className="inline text-xl mr-2 shrink-0" />
 												<span className="truncate">
 													{isSubmitting
 														? t('loginSignup.submitting')
@@ -607,19 +559,26 @@ const WebauthnSignupLogin = ({
 							</ul>
 						)}
 
+						{!isLoginCache && !isLogin && (
+							<label className="block text-dm-gray-800 dark:text-lm-gray-200 text-sm font-bold mb-2" htmlFor={name}>
+								{t('loginSignup.choosePasskeyPlatform')}
+							</label>
+						)}
+
 						{!isLoginCache && (
 							[
-								{ btnLabel: isLogin ? t('loginSignup.loginWithPasskey') : t('loginSignup.signUpWithPasskey'), Icon: KeyRoundIcon, variant: coerce<Variant>("primary") },
-								{ btnLabel: isLogin ? t('loginSignup.loginWithSecurityKey') : t('loginSignup.signUpWithSecurityKey'), Icon: UsbStickDotIcon, variant: coerce<Variant>("outline"), hint: "security-key", },
-							].map(({ Icon, btnLabel, variant, hint }) => (
-								<div key={btnLabel} className='mt-2 relative w-full flex flex-col justify-center'>
+								{ hint: "client-device", btnLabel: t('common.platformPasskey'), Icon: FingerprintIcon, variant: coerce<Variant>("primary"), helpText: "Fastest option, recommended" },
+								{ hint: "security-key", btnLabel: t('common.externalPasskey'), Icon: UsbStickDotIcon, variant: coerce<Variant>("outline"), helpText: "Use a USB or hardware security key" },
+								{ hint: "hybrid", btnLabel: t('common.hybridPasskey'), Icon: SmartphoneNfcIcon, variant: coerce<Variant>("outline"), helpText: "Scan QR or link mobile device" },
+							].map(({ Icon, hint, btnLabel, variant, helpText }) => (
+								<div key={hint} className='mt-2 relative w-full flex flex-col justify-center'>
 									<Button
 										id={`${isSubmitting ? 'submitting' : isLogin ? 'loginPasskey' : 'loginSignup.signUpPasskey'}-${hint}-submit-loginsignup`}
 										type="submit"
 										variant={variant}
 										size="lg"
 										textSize="md"
-										additionalClassName={`items-center justify-center relative passkey-button-${hint}`}
+										additionalClassName="items-center justify-center relative"
 										title={!isLogin && !isOnline && t("common.offlineTitle")}
 										value={hint}
 									>
@@ -632,8 +591,24 @@ const WebauthnSignupLogin = ({
 													: btnLabel
 												}
 											</div>
+
+											{screenType !== 'desktop' && (
+												<span className="mt-2 text-xs">
+													{helpText}
+												</span>
+											)}
 										</div>
 									</Button>
+
+									{screenType === 'desktop' && (
+										<div className="absolute -right-8 flex items-center ml-2 group">
+											<CircleQuestionMark className={`w-4 h-4 text-lm-gray-800 dark:text-dm-gray-200 cursor-pointer`} aria-hidden="true" />
+
+											<div className="absolute left-1/2 -translate-x-1/2 mt-2 z-10 hidden group-hover:flex group-focus-within:flex px-3 py-2 rounded bg-lm-gray-800 text-lm-gray-100 text-xs whitespace-nowrap shadow-lg bottom-6">
+												{helpText}
+											</div>
+										</div>
+									)}
 								</div>
 							))
 						)}
@@ -758,7 +733,7 @@ const Auth = () => {
 	return (
 		<LoginLayout heading={
 			<Trans
-				i18nKey={(isLoginCache || isLogin) ? 'loginSignup.loginMessage' : 'loginSignup.welcomeMessage'}
+				i18nKey="loginSignup.welcomeMessage"
 				components={{
 					highlight: <span className="text-primary dark:text-brand-light" />
 				}}
@@ -768,6 +743,9 @@ const Auth = () => {
 				<h1 className="pt-4 text-xl font-bold leading-tight tracking-tight text-dm-gray-900 md:text-2xl text-center dark:text-white">
 					{isLoginCache ? t('loginSignup.loginCache') : isLogin ? t('loginSignup.loginTitle') : t('loginSignup.signUp')}
 				</h1>
+				<div className='absolute text-lm-gray-900 dark:text-white top-5 left-5'>
+					<ConnectionStatusIcon backgroundColor='light' />
+				</div>
 
 				<div className='absolute top-5 right-5'>
 					<LanguageSelector className='min-w-12 text-sm text-lm-gray-900 dark:text-white cursor-pointer bg-white dark:bg-dm-gray-900 appearance-none' />
@@ -804,45 +782,41 @@ const Auth = () => {
 					error={webauthnError}
 					setError={setWebauthnError}
 				/>
-				<div className='space-y-2'>
-					{!isLoginCache ? (
-						<p className="text-sm font-light text-lm-gray-900 dark:text-dm-gray-100">
-							{isLogin ? t('loginSignup.newHereQuestion') : t('loginSignup.alreadyHaveAccountQuestion')}
-							<Button
-								id={`${isLogin ? 'signUp' : 'loginSignup.login'}-switch-loginsignup`}
-								variant="link"
-								onClick={toggleForm}
-								disabled={!isOnline}
-								title={!isOnline && t('common.offlineTitle')}
-							>
-								{isLogin ? t('loginSignup.signUp') : t('loginSignup.login')}
-							</Button>
-						</p>
-					) : (
-						<p className="text-sm font-light text-lm-gray-900 dark:text-dm-gray-100 cursor-pointer">
-							<Button
-								id="useOtherAccount-switch-loginsignup"
-								variant="link"
-								onClick={useOtherAccount}
-							>
-								{t('loginSignup.useOtherAccount')}
-							</Button>
-						</p>
-					)}
-					<TenantSelector
-						currentTenantId={urlTenantId || 'default'}
-						isAuthenticated={false}
-						button={<Button variant="link" linkClassName='text-sm' />}
-					/>
-				</div>
-			</div>
-			{!isLoginCache && (
-				<div className="relative mt-4 p-6 sm:px-12 bg-white rounded-lg dark:bg-dm-gray-900 border border-lm-gray-400 dark:border-dm-gray-600">
-					<div className="flex justify-center">
-						<PasskeyInfoPopup/>
+
+				{!isLoginCache ? (
+					<p className="mb-4 text-sm font-light text-lm-gray-900 dark:text-dm-gray-100 text-center">
+						{isLogin ? t('loginSignup.newHereQuestion') : t('loginSignup.alreadyHaveAccountQuestion')}
+						<Button
+							id={`${isLogin ? 'signUp' : 'loginSignup.login'}-switch-loginsignup`}
+							variant="link"
+							onClick={toggleForm}
+							disabled={!isOnline}
+							title={!isOnline && t('common.offlineTitle')}
+						>
+							{isLogin ? t('loginSignup.signUp') : t('loginSignup.login')}
+						</Button>
+					</p>
+				) : (
+					<p className="mb-4 text-sm font-light text-lm-gray-900 dark:text-dm-gray-100 cursor-pointer">
+						<Button
+							id="useOtherAccount-switch-loginsignup"
+							variant="link"
+							onClick={useOtherAccount}
+						>
+							{t('loginSignup.useOtherAccount')}
+						</Button>
+					</p>
+				)}
+
+				{TenantSelector && (
+					<div className="mb-4 text-sm flex justify-center">
+						<TenantSelector
+							currentTenantId={urlTenantId || 'default'}
+							isAuthenticated={false}
+						/>
 					</div>
+				)}
 				</div>
-			)}
 		</LoginLayout>
 	);
 };
