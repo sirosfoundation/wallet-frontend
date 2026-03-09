@@ -18,9 +18,72 @@ import type {
 	FlowResponse,
 	FlowProgressEvent
 } from './types/FlowTypes';
-import type { OID4VCIFlowParams, OID4VCIFlowResult } from './types/OID4VCITypes';
-import type { OID4VPFlowParams, OID4VPFlowResult } from './types/OID4VPTypes';
+import type { OID4VCIFlowParams, OID4VCIFlowResult, OID4VCIIssuerInfo } from './types/OID4VCITypes';
+import type { OID4VPFlowParams, OID4VPFlowResult, OID4VPVerifierInfo } from './types/OID4VPTypes';
+import type { TrustStatus } from './types/TrustTypes';
 import { logger } from '@/logger';
+
+/**
+ * Map a raw verifier info object from the backend into the typed frontend
+ * representation. Handles the backend's snake_case `trusted_status` field
+ * as well as the legacy `trusted` boolean.
+ */
+function mapVerifierInfo(raw: Record<string, unknown>): OID4VPVerifierInfo {
+	return {
+		name: raw.name as string | undefined,
+		purpose: raw.purpose as string | undefined,
+		trustedStatus: parseTrustStatus(raw.trusted_status, raw.trusted),
+		reason: raw.reason as string | undefined,
+		metadata: raw.metadata as Record<string, unknown> | undefined,
+		domain: raw.domain as string | undefined,
+		logo: raw.logo != null
+			? (typeof raw.logo === 'string' ? raw.logo : (raw.logo as Record<string, unknown>)?.uri as string | undefined)
+			: undefined,
+	};
+}
+
+/**
+ * Map a raw issuer info object from the backend into the typed frontend
+ * representation. Handles the backend's snake_case `trusted_status` field
+ * as well as the legacy `trusted` boolean.
+ */
+function mapIssuerInfo(raw: Record<string, unknown>): OID4VCIIssuerInfo {
+	return {
+		identifier: (raw.identifier as string) || '',
+		name: raw.name as string | undefined,
+		logo: raw.logo != null
+			? (typeof raw.logo === 'string' ? raw.logo : (raw.logo as Record<string, unknown>)?.uri as string | undefined)
+			: undefined,
+		trustedStatus: parseTrustStatus(raw.trusted_status, raw.trusted),
+		reason: raw.reason as string | undefined,
+		metadata: raw.metadata as Record<string, unknown> | undefined,
+	};
+}
+
+/**
+ * Parse a trust status value from the backend.
+ *
+ * Supports:
+ * - New wire format: `trusted_status` string ("trusted"|"unknown"|"untrusted")
+ * - Legacy wire format: `trusted` boolean → maps true→"trusted", false→"untrusted"
+ * - Missing/null → "unknown"
+ */
+function parseTrustStatus(
+	trustedStatus: unknown,
+	legacyTrusted?: unknown,
+): TrustStatus {
+	// New format: string tri-state
+	if (typeof trustedStatus === 'string') {
+		if (trustedStatus === 'trusted' || trustedStatus === 'untrusted' || trustedStatus === 'unknown') {
+			return trustedStatus;
+		}
+	}
+	// Legacy format: boolean
+	if (typeof legacyTrusted === 'boolean') {
+		return legacyTrusted ? 'trusted' : 'untrusted';
+	}
+	return 'unknown';
+}
 
 /**
  * Pending request waiting for a response
@@ -270,6 +333,9 @@ export class WebSocketTransport implements IFlowTransport {
 		if (response.issuerMetadata) {
 			result.issuerMetadata = response.issuerMetadata as OID4VCIFlowResult['issuerMetadata'];
 		}
+		if (response.issuerInfo) {
+			result.issuerInfo = mapIssuerInfo(response.issuerInfo as Record<string, unknown>);
+		}
 		if (response.credentialConfigurations) {
 			result.credentialConfigurations = response.credentialConfigurations as OID4VCIFlowResult['credentialConfigurations'];
 		}
@@ -370,7 +436,7 @@ export class WebSocketTransport implements IFlowTransport {
 			}
 		}
 		if (response.verifierInfo) {
-			result.verifierInfo = response.verifierInfo as OID4VPFlowResult['verifierInfo'];
+			result.verifierInfo = mapVerifierInfo(response.verifierInfo as Record<string, unknown>);
 		}
 		if (response.transactionData) {
 			result.transactionData = response.transactionData as OID4VPFlowResult['transactionData'];
