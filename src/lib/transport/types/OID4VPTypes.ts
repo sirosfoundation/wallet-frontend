@@ -2,6 +2,8 @@
  * OID4VP (Verifiable Presentation) flow types for transport abstraction
  */
 
+import type { TrustStatus } from './TrustTypes';
+
 // Note: These types are defined locally to avoid coupling to wallet-common exports
 // which may vary between versions. The transport layer handles conversion.
 
@@ -10,12 +12,12 @@
  */
 export interface OID4VPFlowParams {
   // ===== Entry point =====
-  
+
   /** Authorization request URI */
   authorizationRequestUri?: string;
-  
+
   // ===== Continuation parameters (after credential selection) =====
-  
+
   /** Selected credentials for presentation */
   selectedCredentials?: OID4VPSelectedCredential[];
 }
@@ -40,31 +42,31 @@ export interface OID4VPSelectedCredential {
 export interface OID4VPFlowResult {
   /** Whether this step succeeded */
   success: boolean;
-  
+
   // ===== Presentation request (for consent UI) =====
-  
+
   /** Presentation definition from verifier (generic type for transport layer) */
   presentationDefinition?: unknown;
-  
+
   /** Map of descriptor ID to matching credentials */
   conformantCredentials?: Map<string, unknown[]>;
-  
+
   /** Verifier information */
   verifierInfo?: OID4VPVerifierInfo;
-  
+
   /** Transaction data requiring explicit consent */
   transactionData?: OID4VPTransactionData[];
-  
+
   // ===== After submission =====
-  
+
   /** Redirect URI (for same-device flow) */
   redirectUri?: string;
-  
+
   /** Response for cross-device flow */
   responseData?: unknown;
-  
+
   // ===== Error =====
-  
+
   /** Error information if success is false */
   error?: {
     code: string;
@@ -73,15 +75,23 @@ export interface OID4VPFlowResult {
 }
 
 /**
- * Verifier information for display
+ * Verifier information for display.
+ *
+ * Trust fields (`trustedStatus`, `reason`, `metadata`) are populated by the
+ * backend after PDP evaluation and made available for UI designers to render
+ * trust indicators (shields, badges, warnings, etc.).
  */
 export interface OID4VPVerifierInfo {
   /** Verifier display name */
   name?: string;
   /** Purpose of the verification request */
   purpose?: string;
-  /** Trust status from registry */
-  trustedStatus?: 'trusted' | 'unknown' | 'untrusted';
+  /** Tri-state trust status from backend evaluation */
+  trustedStatus?: TrustStatus;
+  /** Human-readable reason for the trust decision */
+  reason?: string;
+  /** Auxiliary metadata from PDP evaluation (opaque display data) */
+  metadata?: Record<string, unknown>;
   /** Domain name of the verifier */
   domain?: string;
   /** Logo URL */
@@ -103,8 +113,8 @@ export interface OID4VPTransactionData {
 /**
  * Response mode for OID4VP flows
  */
-export type OID4VPResponseMode = 
-  | 'direct_post' 
-  | 'direct_post.jwt' 
-  | 'fragment' 
+export type OID4VPResponseMode =
+  | 'direct_post'
+  | 'direct_post.jwt'
+  | 'fragment'
   | 'query';
