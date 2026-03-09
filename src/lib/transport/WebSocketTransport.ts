@@ -18,9 +18,72 @@ import type {
   FlowResponse,
   FlowProgressEvent
 } from './types/FlowTypes';
-import type { OID4VCIFlowParams, OID4VCIFlowResult } from './types/OID4VCITypes';
-import type { OID4VPFlowParams, OID4VPFlowResult } from './types/OID4VPTypes';
+import type { OID4VCIFlowParams, OID4VCIFlowResult, OID4VCIIssuerInfo } from './types/OID4VCITypes';
+import type { OID4VPFlowParams, OID4VPFlowResult, OID4VPVerifierInfo } from './types/OID4VPTypes';
+import type { TrustStatus } from './types/TrustTypes';
 import { logger } from '@/logger';
+
+/**
+ * Map a raw verifier info object from the backend into the typed frontend
+ * representation. Handles the backend's snake_case `trusted_status` field
+ * as well as the legacy `trusted` boolean.
+ */
+function mapVerifierInfo(raw: Record<string, unknown>): OID4VPVerifierInfo {
+  return {
+    name: raw.name as string | undefined,
+    purpose: raw.purpose as string | undefined,
+    trustedStatus: parseTrustStatus(raw.trusted_status, raw.trusted),
+    reason: raw.reason as string | undefined,
+    metadata: raw.metadata as Record<string, unknown> | undefined,
+    domain: raw.domain as string | undefined,
+    logo: raw.logo != null
+      ? (typeof raw.logo === 'string' ? raw.logo : (raw.logo as Record<string, unknown>)?.uri as string | undefined)
+      : undefined,
+  };
+}
+
+/**
+ * Map a raw issuer info object from the backend into the typed frontend
+ * representation. Handles the backend's snake_case `trusted_status` field
+ * as well as the legacy `trusted` boolean.
+ */
+function mapIssuerInfo(raw: Record<string, unknown>): OID4VCIIssuerInfo {
+  return {
+    identifier: (raw.identifier as string) || '',
+    name: raw.name as string | undefined,
+    logo: raw.logo != null
+      ? (typeof raw.logo === 'string' ? raw.logo : (raw.logo as Record<string, unknown>)?.uri as string | undefined)
+      : undefined,
+    trustedStatus: parseTrustStatus(raw.trusted_status, raw.trusted),
+    reason: raw.reason as string | undefined,
+    metadata: raw.metadata as Record<string, unknown> | undefined,
+  };
+}
+
+/**
+ * Parse a trust status value from the backend.
+ *
+ * Supports:
+ * - New wire format: `trusted_status` string ("trusted"|"unknown"|"untrusted")
+ * - Legacy wire format: `trusted` boolean → maps true→"trusted", false→"untrusted"
+ * - Missing/null → "unknown"
+ */
+function parseTrustStatus(
+  trustedStatus: unknown,
+  legacyTrusted?: unknown,
+): TrustStatus {
+  // New format: string tri-state
+  if (typeof trustedStatus === 'string') {
+    if (trustedStatus === 'trusted' || trustedStatus === 'untrusted' || trustedStatus === 'unknown') {
+      return trustedStatus;
+    }
+  }
+  // Legacy format: boolean
+  if (typeof legacyTrusted === 'boolean') {
+    return legacyTrusted ? 'trusted' : 'untrusted';
+  }
+  return 'unknown';
+}
 
 /**
  * Pending request waiting for a response
@@ -296,6 +359,25 @@ export class WebSocketTransport implements IFlowTransport {
       result.transactionId = response.transactionId as string;
     }
 
+    // Issuer trust info — populated from either an IssuerInfo object
+    // (new backend format) or a raw TrustInfo (legacy trust_evaluated step).
+    const issuerInfoRaw = response.issuerInfo as Record<string, unknown> | undefined;
+    if (issuerInfoRaw) {
+      result.issuerInfo = mapIssuerInfo(issuerInfoRaw);
+    } else {
+      // Legacy: backend may send a raw TrustInfo from the trust_evaluated step.
+      // Wrap it into an IssuerInfo so downstream consumers have one place to look.
+      const trustInfo = response.trustInfo as Record<string, unknown> | undefined;
+      if (trustInfo) {
+        result.issuerInfo = {
+          identifier: (result.issuerMetadata as Record<string, unknown>)?.credential_issuer as string ?? '',
+          trustedStatus: parseTrustStatus(trustInfo.trusted_status, trustInfo.trusted),
+          reason: trustInfo.reason as string | undefined,
+          metadata: trustInfo.metadata as Record<string, unknown> | undefined,
+        };
+      }
+    }
+
     return result;
   }
 
@@ -357,7 +439,7 @@ export class WebSocketTransport implements IFlowTransport {
       }
     }
     if (response.verifierInfo) {
-      result.verifierInfo = response.verifierInfo as OID4VPFlowResult['verifierInfo'];
+      result.verifierInfo = mapVerifierInfo(response.verifierInfo as Record<string, unknown>);
     }
     if (response.transactionData) {
       result.transactionData = response.transactionData as OID4VPFlowResult['transactionData'];
