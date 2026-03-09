@@ -3,136 +3,150 @@
  */
 
 import type {
-	CredentialConfigurationSupported,
-	OpenidCredentialIssuerMetadata
+  CredentialConfigurationSupported,
+  OpenidCredentialIssuerMetadata
 } from 'wallet-common';
+import type { TrustStatus } from './TrustTypes';
 
 /**
  * Parameters for starting or continuing an OID4VCI flow
  */
 export interface OID4VCIFlowParams {
-	// ===== Entry points (one of these starts the flow) =====
+  // ===== Entry points (one of these starts the flow) =====
 
-	/** Credential offer URI (e.g., openid-credential-offer://...) */
-	credentialOfferUri?: string;
+  /** Credential offer URI (e.g., openid-credential-offer://...) */
+  credentialOfferUri?: string;
 
-	/** JSON-encoded credential offer (alternative to URI) */
-	credentialOffer?: string;
+  /** JSON-encoded credential offer (alternative to URI) */
+  credentialOffer?: string;
 
-	// ===== Continuation parameters =====
+  // ===== Continuation parameters =====
 
-	/** Holder binding information (sent after user consent) */
-	holderBinding?: OID4VCIHolderBinding;
+  /** Holder binding information (sent after user consent) */
+  holderBinding?: OID4VCIHolderBinding;
 
-	/** Selected credential configuration ID */
-	credentialConfigurationId?: string;
+  /** Selected credential configuration ID */
+  credentialConfigurationId?: string;
 
-	// ===== Authorization code flow =====
+  // ===== Authorization code flow =====
 
-	/** Authorization code (after redirect from authorization server) */
-	authorizationCode?: string;
+  /** Authorization code (after redirect from authorization server) */
+  authorizationCode?: string;
 
-	/** PKCE code verifier */
-	codeVerifier?: string;
+  /** PKCE code verifier */
+  codeVerifier?: string;
 
-	// ===== Pre-authorized code flow =====
+  // ===== Pre-authorized code flow =====
 
-	/** Pre-authorized code from credential offer */
-	preAuthorizedCode?: string;
+  /** Pre-authorized code from credential offer */
+  preAuthorizedCode?: string;
 
-	/** Transaction code input (PIN) if required */
-	txCodeInput?: string;
+  /** Transaction code input (PIN) if required */
+  txCodeInput?: string;
 }
 
 /**
  * Holder binding information for credential issuance
  */
 export interface OID4VCIHolderBinding {
-	/** Binding method */
-	method: 'dpop' | 'attestation' | 'jwt_key';
-	/** Public key in JWK format */
-	publicKeyJwk: JsonWebKey;
+  /** Binding method */
+  method: 'dpop' | 'attestation' | 'jwt_key';
+  /** Public key in JWK format */
+  publicKeyJwk: JsonWebKey;
 }
 
 /**
  * Result of an OID4VCI flow operation
  */
 export interface OID4VCIFlowResult {
-	/** Whether this step succeeded */
-	success: boolean;
+  /** Whether this step succeeded */
+  success: boolean;
 
-	// ===== Metadata (for consent UI) =====
+  // ===== Metadata (for consent UI) =====
 
-	/** Issuer metadata */
-	issuerMetadata?: OpenidCredentialIssuerMetadata;
+  /** Issuer metadata */
+  issuerMetadata?: OpenidCredentialIssuerMetadata;
 
-	/** Available credential configurations */
-	credentialConfigurations?: Record<string, CredentialConfigurationSupported>;
+  /** Issuer information including trust evaluation result */
+  issuerInfo?: OID4VCIIssuerInfo;
 
-	/** Selected credential configuration ID */
-	selectedCredentialConfigurationId?: string;
+  /** Available credential configurations */
+  credentialConfigurations?: Record<string, CredentialConfigurationSupported>;
 
-	// ===== Authorization =====
+  /** Selected credential configuration ID */
+  selectedCredentialConfigurationId?: string;
 
-	/** Whether user authorization is required */
-	authorizationRequired?: boolean;
+  // ===== Authorization =====
 
-	/** URL to redirect user for authorization */
-	authorizationUrl?: string;
+  /** Whether user authorization is required */
+  authorizationRequired?: boolean;
 
-	/** Issuer state (for authorization flow) */
-	issuerState?: string;
+  /** URL to redirect user for authorization */
+  authorizationUrl?: string;
 
-	// ===== Pre-authorized flow =====
+  /** Issuer state (for authorization flow) */
+  issuerState?: string;
 
-	/** Pre-authorized code */
-	preAuthorizedCode?: string;
+  // ===== Pre-authorized flow =====
 
-	/** Transaction code requirements */
-	txCode?: OID4VCITxCode;
+  /** Pre-authorized code */
+  preAuthorizedCode?: string;
 
-	// ===== Credential (when flow completes) =====
+  /** Transaction code requirements */
+  txCode?: OID4VCITxCode;
 
-	/** Issued credential (raw string) */
-	credential?: string;
+  // ===== Credential (when flow completes) =====
 
-	/** Credential format */
-	format?: string;
+  /** Issued credential (raw string) */
+  credential?: string;
 
-	// ===== Deferred issuance =====
+  /** Credential format */
+  format?: string;
 
-	/** Transaction ID for deferred credential polling */
-	transactionId?: string;
+  // ===== Deferred issuance =====
 
-	// ===== Error =====
+  /** Transaction ID for deferred credential polling */
+  transactionId?: string;
 
-	/** Error information if success is false */
-	error?: {
-		code: string;
-		message: string;
-	};
+  // ===== Error =====
+
+  /** Error information if success is false */
+  error?: {
+    code: string;
+    message: string;
+  };
 }
 
 /**
  * Transaction code requirements for pre-authorized flows
  */
 export interface OID4VCITxCode {
-	/** Input mode (numeric, text, etc.) */
-	inputMode?: string;
-	/** Expected length of the code */
-	length?: number;
-	/** Description to show the user */
-	description?: string;
+  /** Input mode (numeric, text, etc.) */
+  inputMode?: string;
+  /** Expected length of the code */
+  length?: number;
+  /** Description to show the user */
+  description?: string;
 }
 
 /**
- * Credential issuer information for display
+ * Credential issuer information for display.
+ *
+ * Trust fields (`trustedStatus`, `reason`, `metadata`) are populated by the
+ * backend after PDP evaluation and made available for UI designers to render
+ * trust indicators (shields, badges, warnings, etc.).
  */
 export interface OID4VCIIssuerInfo {
-	/** Issuer identifier (URL) */
-	identifier: string;
-	/** Display name */
-	name?: string;
-	/** Logo URL */
-	logo?: string;
+  /** Issuer identifier (URL) */
+  identifier: string;
+  /** Display name */
+  name?: string;
+  /** Logo URL */
+  logo?: string;
+  /** Tri-state trust status from backend evaluation */
+  trustedStatus?: TrustStatus;
+  /** Human-readable reason for the trust decision */
+  reason?: string;
+  /** Auxiliary metadata from PDP evaluation (opaque display data) */
+  metadata?: Record<string, unknown>;
 }

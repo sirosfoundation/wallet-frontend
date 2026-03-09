@@ -14,57 +14,120 @@
 
 import type { IFlowTransport } from './IFlowTransport';
 import type {
-	FlowRequest,
-	FlowResponse,
-	FlowProgressEvent
+  FlowRequest,
+  FlowResponse,
+  FlowProgressEvent
 } from './types/FlowTypes';
-import type { OID4VCIFlowParams, OID4VCIFlowResult } from './types/OID4VCITypes';
-import type { OID4VPFlowParams, OID4VPFlowResult } from './types/OID4VPTypes';
+import type { OID4VCIFlowParams, OID4VCIFlowResult, OID4VCIIssuerInfo } from './types/OID4VCITypes';
+import type { OID4VPFlowParams, OID4VPFlowResult, OID4VPVerifierInfo } from './types/OID4VPTypes';
+import type { TrustStatus } from './types/TrustTypes';
 import { logger } from '@/logger';
+
+/**
+ * Map a raw verifier info object from the backend into the typed frontend
+ * representation. Handles the backend's snake_case `trusted_status` field
+ * as well as the legacy `trusted` boolean.
+ */
+function mapVerifierInfo(raw: Record<string, unknown>): OID4VPVerifierInfo {
+  return {
+    name: raw.name as string | undefined,
+    purpose: raw.purpose as string | undefined,
+    trustedStatus: parseTrustStatus(raw.trusted_status, raw.trusted),
+    reason: raw.reason as string | undefined,
+    metadata: raw.metadata as Record<string, unknown> | undefined,
+    domain: raw.domain as string | undefined,
+    logo: raw.logo != null
+      ? (typeof raw.logo === 'string' ? raw.logo : (raw.logo as Record<string, unknown>)?.uri as string | undefined)
+      : undefined,
+  };
+}
+
+/**
+ * Map a raw issuer info object from the backend into the typed frontend
+ * representation. Handles the backend's snake_case `trusted_status` field
+ * as well as the legacy `trusted` boolean.
+ */
+function mapIssuerInfo(raw: Record<string, unknown>): OID4VCIIssuerInfo {
+  return {
+    identifier: (raw.identifier as string) || '',
+    name: raw.name as string | undefined,
+    logo: raw.logo != null
+      ? (typeof raw.logo === 'string' ? raw.logo : (raw.logo as Record<string, unknown>)?.uri as string | undefined)
+      : undefined,
+    trustedStatus: parseTrustStatus(raw.trusted_status, raw.trusted),
+    reason: raw.reason as string | undefined,
+    metadata: raw.metadata as Record<string, unknown> | undefined,
+  };
+}
+
+/**
+ * Parse a trust status value from the backend.
+ *
+ * Supports:
+ * - New wire format: `trusted_status` string ("trusted"|"unknown"|"untrusted")
+ * - Legacy wire format: `trusted` boolean → maps true→"trusted", false→"untrusted"
+ * - Missing/null → "unknown"
+ */
+function parseTrustStatus(
+  trustedStatus: unknown,
+  legacyTrusted?: unknown,
+): TrustStatus {
+  // New format: string tri-state
+  if (typeof trustedStatus === 'string') {
+    if (trustedStatus === 'trusted' || trustedStatus === 'untrusted' || trustedStatus === 'unknown') {
+      return trustedStatus;
+    }
+  }
+  // Legacy format: boolean
+  if (typeof legacyTrusted === 'boolean') {
+    return legacyTrusted ? 'trusted' : 'untrusted';
+  }
+  return 'unknown';
+}
 
 /**
  * Pending request waiting for a response
  */
 interface PendingRequest<T = unknown> {
-	resolve: (response: T) => void;
-	reject: (error: Error) => void;
-	flowId: string;
-	timeout: ReturnType<typeof setTimeout>;
+  resolve: (response: T) => void;
+  reject: (error: Error) => void;
+  flowId: string;
+  timeout: ReturnType<typeof setTimeout>;
 }
 
 /**
  * WebSocket message from server
  */
 interface ServerMessage {
-	flowId: string;
-	type: string;
-	[key: string]: unknown;
+  flowId: string;
+  type: string;
+  [key: string]: unknown;
 }
 
 /**
  * Sign request from server
  */
 export interface SignRequest {
-	flowId: string;
-	messageId: string;
-	action: 'generate_proof' | 'sign_presentation';
-	params: {
-		audience?: string;
-		nonce?: string;
-		proofType?: string;
-		credentialsToInclude?: Array<{
-			credentialId: string;
-			disclosedClaims?: string[];
-		}>;
-	};
+  flowId: string;
+  messageId: string;
+  action: 'generate_proof' | 'sign_presentation';
+  params: {
+    audience?: string;
+    nonce?: string;
+    proofType?: string;
+    credentialsToInclude?: Array<{
+      credentialId: string;
+      disclosedClaims?: string[];
+    }>;
+  };
 }
 
 /**
  * Sign response to send back to server
  */
 export interface SignResponse {
-	proofJwt?: string;
-	vpToken?: string;
+  proofJwt?: string;
+  vpToken?: string;
 }
 
 /**
@@ -76,609 +139,628 @@ export type SignRequestHandler = (request: SignRequest) => Promise<SignResponse>
  * Flow action message to send to server
  */
 export interface FlowAction {
-	flowId: string;
-	action: string;
-	payload: Record<string, unknown>;
+  flowId: string;
+  action: string;
+  payload: Record<string, unknown>;
 }
 
 /**
  * WebSocket Transport implementation
  */
 export class WebSocketTransport implements IFlowTransport {
-	private ws: WebSocket | null = null;
-	private wsUrl: string;
-	private authToken: string;
-
-	private pending = new Map<string, PendingRequest>();
-	private progressCallbacks = new Set<(event: FlowProgressEvent) => void>();
-	private errorCallbacks = new Set<(error: Error) => void>();
-	private signHandlers = new Set<SignRequestHandler>();
-
-	private reconnectAttempts = 0;
-	private maxReconnectAttempts = 5;
-	private reconnectDelay = 1000;
-	private requestTimeout = 60000; // 60 seconds
-
-	private connectionPromise: Promise<void> | null = null;
-
-	constructor(wsUrl: string, authToken: string) {
-		this.wsUrl = wsUrl;
-		this.authToken = authToken;
-	}
-
-	// ===== Connection Lifecycle =====
-
-	async connect(): Promise<void> {
-		// If already connecting, return the existing promise
-		if (this.connectionPromise) {
-			return this.connectionPromise;
-		}
-
-		// If already connected, return immediately
-		if (this.isConnected()) {
-			return Promise.resolve();
-		}
-
-		this.connectionPromise = new Promise((resolve, reject) => {
-			try {
-				// Add auth token as query parameter
-				const url = `${this.wsUrl}?token=${encodeURIComponent(this.authToken)}`;
-				this.ws = new WebSocket(url);
-
-				this.ws.onopen = () => {
-					this.reconnectAttempts = 0;
-					this.connectionPromise = null;
-					resolve();
-				};
-
-				this.ws.onerror = (event) => {
-					logger.error('WebSocket error:', event);
-					this.connectionPromise = null;
-					reject(new Error('WebSocket connection failed'));
-				};
-
-				this.ws.onmessage = (event) => {
-					try {
-						const message = JSON.parse(event.data) as ServerMessage;
-						this.handleMessage(message);
-					} catch (e) {
-						logger.error('Failed to parse WebSocket message:', e);
-					}
-				};
-
-				this.ws.onclose = (event) => {
-					this.handleDisconnect(event);
-				};
-			} catch (error) {
-				this.connectionPromise = null;
-				reject(error);
-			}
-		});
-
-		return this.connectionPromise;
-	}
-
-	async disconnect(): Promise<void> {
-		if (this.ws) {
-			// Cancel all pending requests
-			Array.from(this.pending.entries()).forEach(([id, pending]) => {
-				clearTimeout(pending.timeout);
-				pending.reject(new Error('WebSocket disconnected'));
-			});
-			this.pending.clear();
-
-			this.ws.close(1000, 'Client disconnect');
-			this.ws = null;
-		}
-		this.connectionPromise = null;
-	}
-
-	isConnected(): boolean {
-		return this.ws?.readyState === WebSocket.OPEN;
-	}
-
-	// ===== OID4VCI Flow =====
-
-	async startOID4VCIFlow(params: OID4VCIFlowParams): Promise<OID4VCIFlowResult> {
-		// Determine which phase of the flow we're in based on params
-
-		if (params.credentialOfferUri || params.credentialOffer) {
-			// Phase 1: Start flow with credential offer
-			const response = await this.send({
-				type: 'flow.start',
-				flow: 'oid4vci',
-				credentialOfferUri: params.credentialOfferUri,
-				credentialOffer: params.credentialOffer,
-			});
-
-			return this.mapOID4VCIResponse(response);
-		}
-
-		if (params.holderBinding && params.credentialConfigurationId) {
-			// Phase 2: User consented, provide holder binding
-			const response = await this.send({
-				type: 'flow.continue',
-				flow: 'oid4vci',
-				action: 'consent',
-				holderPublicKey: params.holderBinding.publicKeyJwk,
-				holderBindingMethod: params.holderBinding.method,
-				credentialConfigurationId: params.credentialConfigurationId,
-			});
-
-			return this.mapOID4VCIResponse(response);
-		}
-
-		if (params.authorizationCode) {
-			// Phase 3: Authorization code received
-			const response = await this.send({
-				type: 'flow.continue',
-				flow: 'oid4vci',
-				action: 'token_exchange',
-				authorizationCode: params.authorizationCode,
-				codeVerifier: params.codeVerifier,
-			});
-
-			return this.mapOID4VCIResponse(response);
-		}
-
-		if (params.preAuthorizedCode) {
-			// Pre-authorized flow
-			const response = await this.send({
-				type: 'flow.continue',
-				flow: 'oid4vci',
-				action: 'pre_authorized',
-				preAuthorizedCode: params.preAuthorizedCode,
-				txCodeInput: params.txCodeInput,
-			});
-
-			return this.mapOID4VCIResponse(response);
-		}
-
-		throw new Error('Invalid OID4VCI flow params: no valid entry point or continuation');
-	}
-
-	private mapOID4VCIResponse(response: ServerMessage): OID4VCIFlowResult {
-		if (response.type === 'error') {
-			return {
-				success: false,
-				error: {
-					code: (response.error as { code?: string })?.code ?? 'UNKNOWN_ERROR',
-					message: (response.error as { message?: string })?.message ?? 'Unknown error',
-				},
-			};
-		}
-
-		// Map server response to OID4VCIFlowResult
-		const result: OID4VCIFlowResult = {
-			success: true,
-		};
-
-		// Metadata phase
-		if (response.issuerMetadata) {
-			result.issuerMetadata = response.issuerMetadata as OID4VCIFlowResult['issuerMetadata'];
-		}
-		if (response.credentialConfigurations) {
-			result.credentialConfigurations = response.credentialConfigurations as OID4VCIFlowResult['credentialConfigurations'];
-		}
-		if (response.selectedCredentialConfigurationId) {
-			result.selectedCredentialConfigurationId = response.selectedCredentialConfigurationId as string;
-		}
-
-		// Authorization
-		if (response.authorizationRequired !== undefined) {
-			result.authorizationRequired = response.authorizationRequired as boolean;
-		}
-		if (response.authorizationUrl) {
-			result.authorizationUrl = response.authorizationUrl as string;
-		}
-		if (response.issuerState) {
-			result.issuerState = response.issuerState as string;
-		}
-
-		// Pre-auth
-		if (response.preAuthorizedCode) {
-			result.preAuthorizedCode = response.preAuthorizedCode as string;
-		}
-		if (response.txCode) {
-			result.txCode = response.txCode as OID4VCIFlowResult['txCode'];
-		}
-
-		// Credential
-		if (response.credential) {
-			result.credential = response.credential as string;
-		}
-		if (response.format) {
-			result.format = response.format as string;
-		}
-
-		// Deferred
-		if (response.transactionId) {
-			result.transactionId = response.transactionId as string;
-		}
-
-		return result;
-	}
-
-	// ===== OID4VP Flow =====
-
-	async startOID4VPFlow(params: OID4VPFlowParams): Promise<OID4VPFlowResult> {
-		if (params.authorizationRequestUri && !params.selectedCredentials) {
-			// Phase 1: Start flow with authorization request
-			const response = await this.send({
-				type: 'flow.start',
-				flow: 'oid4vp',
-				authorizationRequestUri: params.authorizationRequestUri,
-			});
-
-			return this.mapOID4VPResponse(response);
-		}
-
-		if (params.selectedCredentials) {
-			// Phase 2: User selected credentials, submit response
-			const response = await this.send({
-				type: 'flow.continue',
-				flow: 'oid4vp',
-				action: 'submit',
-				selectedCredentials: params.selectedCredentials,
-			});
-
-			return this.mapOID4VPResponse(response);
-		}
-
-		throw new Error('Invalid OID4VP flow params: no valid entry point or continuation');
-	}
-
-	private mapOID4VPResponse(response: ServerMessage): OID4VPFlowResult {
-		if (response.type === 'error') {
-			return {
-				success: false,
-				error: {
-					code: (response.error as { code?: string })?.code ?? 'UNKNOWN_ERROR',
-					message: (response.error as { message?: string })?.message ?? 'Unknown error',
-				},
-			};
-		}
-
-		const result: OID4VPFlowResult = {
-			success: true,
-		};
-
-		// Presentation definition phase
-		if (response.presentationDefinition) {
-			result.presentationDefinition = response.presentationDefinition as OID4VPFlowResult['presentationDefinition'];
-		}
-		if (response.conformantCredentials) {
-			// Convert from object to Map if needed
-			const creds = response.conformantCredentials;
-			if (creds instanceof Map) {
-				result.conformantCredentials = creds;
-			} else if (typeof creds === 'object') {
-				result.conformantCredentials = new Map(Object.entries(creds as Record<string, unknown[]>));
-			}
-		}
-		if (response.verifierInfo) {
-			result.verifierInfo = response.verifierInfo as OID4VPFlowResult['verifierInfo'];
-		}
-		if (response.transactionData) {
-			result.transactionData = response.transactionData as OID4VPFlowResult['transactionData'];
-		}
-
-		// Submission result
-		if (response.redirectUri) {
-			result.redirectUri = response.redirectUri as string;
-		}
-		if (response.responseData) {
-			result.responseData = response.responseData;
-		}
-
-		return result;
-	}
-
-	// ===== Generic Request =====
-
-	async request<T>(flowRequest: FlowRequest): Promise<FlowResponse<T>> {
-		try {
-			const response = await this.send({
-				type: 'generic.request',
-				flowType: flowRequest.type,
-				action: flowRequest.action,
-				payload: flowRequest.payload,
-			});
-
-			if (response.type === 'error') {
-				return {
-					success: false,
-					error: {
-						code: (response.error as { code?: string })?.code ?? 'UNKNOWN_ERROR',
-						message: (response.error as { message?: string })?.message ?? 'Unknown error',
-					},
-				};
-			}
-
-			return {
-				success: true,
-				data: response.data as T,
-			};
-		} catch (error) {
-			return {
-				success: false,
-				error: {
-					code: 'WEBSOCKET_ERROR',
-					message: error instanceof Error ? error.message : 'Unknown error',
-				},
-			};
-		}
-	}
-
-	// ===== Event Subscriptions =====
-
-	onProgress(callback: (event: FlowProgressEvent) => void): () => void {
-		this.progressCallbacks.add(callback);
-		return () => this.progressCallbacks.delete(callback);
-	}
-
-	onError(callback: (error: Error) => void): () => void {
-		this.errorCallbacks.add(callback);
-		return () => this.errorCallbacks.delete(callback);
-	}
-
-	/**
-	 * Register a handler for sign requests from the server.
-	 * When the server needs a signature (proof or VP), it sends a sign_request.
-	 * The handler should generate the signature and return it.
-	 */
-	onSignRequest(handler: SignRequestHandler): () => void {
-		this.signHandlers.add(handler);
-		return () => this.signHandlers.delete(handler);
-	}
-
-	// ===== Internal Methods =====
-
-	private handleMessage(message: ServerMessage): void {
-		const { flowId, type } = message;
-
-		// Handle progress events separately
-		if (type === 'progress' || type === 'flow_progress') {
-			this.emitProgress({
-				flowId,
-				stage: (message.step as string) || (message.stage as string),
-				progress: message.progress as number | undefined,
-				message: message.message as string | undefined,
-				payload: message.payload,
-			});
-			return;
-		}
-
-		// Handle sign requests from server
-		if (type === 'sign_request') {
-			this.handleSignRequest(message);
-			return;
-		}
-
-		// All other message types resolve a pending request
-		const pending = this.pending.get(flowId);
-		if (pending) {
-			clearTimeout(pending.timeout);
-			this.pending.delete(flowId);
-
-			if (type === 'error' || type === 'flow_error') {
-				const errorMsg = (message.error as { message?: string })?.message ??
-												(message.message as string) ?? 'Unknown error';
-				pending.reject(new Error(errorMsg));
-			} else {
-				pending.resolve(message);
-			}
-		} else {
-			logger.warn('Received message for unknown flowId:', flowId);
-		}
-	}
-
-	/**
-	 * Handle a sign request from the server
-	 */
-	private async handleSignRequest(message: ServerMessage): Promise<void> {
-		const request: SignRequest = {
-			flowId: message.flowId,
-			messageId: (message.message_id as string) || (message.messageId as string) || '',
-			action: message.action as 'generate_proof' | 'sign_presentation',
-			params: (message.params as SignRequest['params']) || {},
-		};
-
-		if (this.signHandlers.size === 0) {
-			logger.error('No sign handlers registered, cannot respond to sign request');
-			this.sendSignResponse(request.flowId, request.messageId, {}, 'No sign handler available');
-			return;
-		}
-
-		// Call all handlers until one succeeds
-		let lastError: Error | null = null;
-		for (const handler of this.signHandlers) {
-			try {
-				const response = await handler(request);
-				this.sendSignResponse(request.flowId, request.messageId, response);
-				return;
-			} catch (err) {
-				lastError = err instanceof Error ? err : new Error(String(err));
-				logger.warn('Sign handler failed:', lastError.message);
-			}
-		}
-
-		// All handlers failed
-		this.sendSignResponse(
-			request.flowId,
-			request.messageId,
-			{},
-			lastError?.message || 'Sign operation failed'
-		);
-	}
-
-	/**
-	 * Send a sign response back to the server
-	 */
-	private sendSignResponse(
-		flowId: string,
-		messageId: string,
-		response: SignResponse,
-		error?: string
-	): void {
-		if (!this.isConnected()) {
-			logger.error('Cannot send sign response: WebSocket not connected');
-			return;
-		}
-
-		const msg: Record<string, unknown> = {
-			type: 'sign_response',
-			flowId,
-			message_id: messageId,
-			timestamp: new Date().toISOString(),
-		};
-
-		if (error) {
-			msg.error = error;
-		} else {
-			if (response.proofJwt) msg.proof_jwt = response.proofJwt;
-			if (response.vpToken) msg.vp_token = response.vpToken;
-		}
-
-		try {
-			this.ws!.send(JSON.stringify(msg));
-		} catch (err) {
-			logger.error('Failed to send sign response:', err);
-		}
-	}
-
-	private handleDisconnect(event: CloseEvent): void {
-		// Reject all pending requests
-		Array.from(this.pending.entries()).forEach(([id, pending]) => {
-			clearTimeout(pending.timeout);
-			pending.reject(new Error('WebSocket disconnected'));
-		});
-		this.pending.clear();
-
-		// Reset connection state
-		this.ws = null;
-		this.connectionPromise = null;
-
-		// Don't reconnect if it was a clean close
-		if (event.code === 1000) {
-			return;
-		}
-
-		// Attempt reconnect with exponential backoff
-		if (this.reconnectAttempts < this.maxReconnectAttempts) {
-			const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts);
-			this.reconnectAttempts++;
-
-			logger.debug(`WebSocket reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
-
-			setTimeout(() => {
-				this.connect().catch((error) => {
-					logger.error('WebSocket reconnect failed:', error);
-					this.emitError(new Error('WebSocket reconnection failed'));
-				});
-			}, delay);
-		} else {
-			this.emitError(new Error('WebSocket connection lost after max reconnect attempts'));
-		}
-	}
-
-	private send(message: Record<string, unknown>): Promise<ServerMessage> {
-		return new Promise((resolve, reject) => {
-			if (!this.isConnected()) {
-				reject(new Error('WebSocket not connected'));
-				return;
-			}
-
-			const flowId = (message.flowId as string) || crypto.randomUUID();
-			const fullMessage = { ...message, flowId };
-
-			// Set up timeout
-			const timeout = setTimeout(() => {
-				if (this.pending.has(flowId)) {
-					this.pending.delete(flowId);
-					reject(new Error('Request timeout'));
-				}
-			}, this.requestTimeout);
-
-			// Store pending request
-			this.pending.set(flowId, { resolve, reject, flowId, timeout });
-
-			// Send message
-			try {
-				this.ws!.send(JSON.stringify(fullMessage));
-			} catch (error) {
-				clearTimeout(timeout);
-				this.pending.delete(flowId);
-				reject(error);
-			}
-		});
-	}
-
-	private emitProgress(event: FlowProgressEvent): void {
-		Array.from(this.progressCallbacks).forEach(callback => {
-			try {
-				callback(event);
-			} catch (e) {
-				logger.error('Error in progress callback:', e);
-			}
-		});
-	}
-
-	private emitError(error: Error): void {
-		Array.from(this.errorCallbacks).forEach(callback => {
-			try {
-				callback(error);
-			} catch (e) {
-				logger.error('Error in error callback:', e);
-			}
-		});
-	}
-
-	/**
-	 * Update the auth token (e.g., after token refresh)
-	 */
-	updateAuthToken(token: string): void {
-		this.authToken = token;
-	}
-
-	/**
-	 * Send a flow action to the server.
-	 * Used for responding to server requests during a flow (e.g., credential matching).
-	 */
-	sendFlowAction(action: FlowAction): void {
-		if (!this.isConnected()) {
-			logger.error('Cannot send flow action: WebSocket not connected');
-			return;
-		}
-
-		const msg = {
-			type: 'flow_action',
-			flow_id: action.flowId,
-			action: action.action,
-			payload: action.payload,
-			timestamp: new Date().toISOString(),
-		};
-
-		try {
-			this.ws!.send(JSON.stringify(msg));
-			logger.debug('[WS Transport] Sent flow action:', action.action);
-		} catch (err) {
-			logger.error('Failed to send flow action:', err);
-		}
-	}
-
-	/**
-	 * Get the current connection state
-	 */
-	getConnectionState(): {
-		connected: boolean;
-		reconnectAttempts: number;
-		pendingRequests: number;
-	} {
-		return {
-			connected: this.isConnected(),
-			reconnectAttempts: this.reconnectAttempts,
-			pendingRequests: this.pending.size,
-		};
-	}
+  private ws: WebSocket | null = null;
+  private wsUrl: string;
+  private authToken: string;
+
+  private pending = new Map<string, PendingRequest>();
+  private progressCallbacks = new Set<(event: FlowProgressEvent) => void>();
+  private errorCallbacks = new Set<(error: Error) => void>();
+  private signHandlers = new Set<SignRequestHandler>();
+
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 5;
+  private reconnectDelay = 1000;
+  private requestTimeout = 60000; // 60 seconds
+
+  private connectionPromise: Promise<void> | null = null;
+
+  constructor(wsUrl: string, authToken: string) {
+    this.wsUrl = wsUrl;
+    this.authToken = authToken;
+  }
+
+  // ===== Connection Lifecycle =====
+
+  async connect(): Promise<void> {
+    // If already connecting, return the existing promise
+    if (this.connectionPromise) {
+      return this.connectionPromise;
+    }
+
+    // If already connected, return immediately
+    if (this.isConnected()) {
+      return Promise.resolve();
+    }
+
+    this.connectionPromise = new Promise((resolve, reject) => {
+      try {
+        // Add auth token as query parameter
+        const url = `${this.wsUrl}?token=${encodeURIComponent(this.authToken)}`;
+        this.ws = new WebSocket(url);
+
+        this.ws.onopen = () => {
+          this.reconnectAttempts = 0;
+          this.connectionPromise = null;
+          resolve();
+        };
+
+        this.ws.onerror = (event) => {
+          logger.error('WebSocket error:', event);
+          this.connectionPromise = null;
+          reject(new Error('WebSocket connection failed'));
+        };
+
+        this.ws.onmessage = (event) => {
+          try {
+            const message = JSON.parse(event.data) as ServerMessage;
+            this.handleMessage(message);
+          } catch (e) {
+            logger.error('Failed to parse WebSocket message:', e);
+          }
+        };
+
+        this.ws.onclose = (event) => {
+          this.handleDisconnect(event);
+        };
+      } catch (error) {
+        this.connectionPromise = null;
+        reject(error);
+      }
+    });
+
+    return this.connectionPromise;
+  }
+
+  async disconnect(): Promise<void> {
+    if (this.ws) {
+      // Cancel all pending requests
+      Array.from(this.pending.entries()).forEach(([id, pending]) => {
+        clearTimeout(pending.timeout);
+        pending.reject(new Error('WebSocket disconnected'));
+      });
+      this.pending.clear();
+
+      this.ws.close(1000, 'Client disconnect');
+      this.ws = null;
+    }
+    this.connectionPromise = null;
+  }
+
+  isConnected(): boolean {
+    return this.ws?.readyState === WebSocket.OPEN;
+  }
+
+  // ===== OID4VCI Flow =====
+
+  async startOID4VCIFlow(params: OID4VCIFlowParams): Promise<OID4VCIFlowResult> {
+    // Determine which phase of the flow we're in based on params
+
+    if (params.credentialOfferUri || params.credentialOffer) {
+      // Phase 1: Start flow with credential offer
+      const response = await this.send({
+        type: 'flow.start',
+        flow: 'oid4vci',
+        credentialOfferUri: params.credentialOfferUri,
+        credentialOffer: params.credentialOffer,
+      });
+
+      return this.mapOID4VCIResponse(response);
+    }
+
+    if (params.holderBinding && params.credentialConfigurationId) {
+      // Phase 2: User consented, provide holder binding
+      const response = await this.send({
+        type: 'flow.continue',
+        flow: 'oid4vci',
+        action: 'consent',
+        holderPublicKey: params.holderBinding.publicKeyJwk,
+        holderBindingMethod: params.holderBinding.method,
+        credentialConfigurationId: params.credentialConfigurationId,
+      });
+
+      return this.mapOID4VCIResponse(response);
+    }
+
+    if (params.authorizationCode) {
+      // Phase 3: Authorization code received
+      const response = await this.send({
+        type: 'flow.continue',
+        flow: 'oid4vci',
+        action: 'token_exchange',
+        authorizationCode: params.authorizationCode,
+        codeVerifier: params.codeVerifier,
+      });
+
+      return this.mapOID4VCIResponse(response);
+    }
+
+    if (params.preAuthorizedCode) {
+      // Pre-authorized flow
+      const response = await this.send({
+        type: 'flow.continue',
+        flow: 'oid4vci',
+        action: 'pre_authorized',
+        preAuthorizedCode: params.preAuthorizedCode,
+        txCodeInput: params.txCodeInput,
+      });
+
+      return this.mapOID4VCIResponse(response);
+    }
+
+    throw new Error('Invalid OID4VCI flow params: no valid entry point or continuation');
+  }
+
+  private mapOID4VCIResponse(response: ServerMessage): OID4VCIFlowResult {
+    if (response.type === 'error') {
+      return {
+        success: false,
+        error: {
+          code: (response.error as { code?: string })?.code ?? 'UNKNOWN_ERROR',
+          message: (response.error as { message?: string })?.message ?? 'Unknown error',
+        },
+      };
+    }
+
+    // Map server response to OID4VCIFlowResult
+    const result: OID4VCIFlowResult = {
+      success: true,
+    };
+
+    // Metadata phase
+    if (response.issuerMetadata) {
+      result.issuerMetadata = response.issuerMetadata as OID4VCIFlowResult['issuerMetadata'];
+    }
+    if (response.credentialConfigurations) {
+      result.credentialConfigurations = response.credentialConfigurations as OID4VCIFlowResult['credentialConfigurations'];
+    }
+    if (response.selectedCredentialConfigurationId) {
+      result.selectedCredentialConfigurationId = response.selectedCredentialConfigurationId as string;
+    }
+
+    // Authorization
+    if (response.authorizationRequired !== undefined) {
+      result.authorizationRequired = response.authorizationRequired as boolean;
+    }
+    if (response.authorizationUrl) {
+      result.authorizationUrl = response.authorizationUrl as string;
+    }
+    if (response.issuerState) {
+      result.issuerState = response.issuerState as string;
+    }
+
+    // Pre-auth
+    if (response.preAuthorizedCode) {
+      result.preAuthorizedCode = response.preAuthorizedCode as string;
+    }
+    if (response.txCode) {
+      result.txCode = response.txCode as OID4VCIFlowResult['txCode'];
+    }
+
+    // Credential
+    if (response.credential) {
+      result.credential = response.credential as string;
+    }
+    if (response.format) {
+      result.format = response.format as string;
+    }
+
+    // Deferred
+    if (response.transactionId) {
+      result.transactionId = response.transactionId as string;
+    }
+
+    // Issuer trust info — populated from either an IssuerInfo object
+    // (new backend format) or a raw TrustInfo (legacy trust_evaluated step).
+    const issuerInfoRaw = response.issuerInfo as Record<string, unknown> | undefined;
+    if (issuerInfoRaw) {
+      result.issuerInfo = mapIssuerInfo(issuerInfoRaw);
+    } else {
+      // Legacy: backend may send a raw TrustInfo from the trust_evaluated step.
+      // Wrap it into an IssuerInfo so downstream consumers have one place to look.
+      const trustInfo = response.trustInfo as Record<string, unknown> | undefined;
+      if (trustInfo) {
+        result.issuerInfo = {
+          identifier: (result.issuerMetadata as Record<string, unknown>)?.credential_issuer as string ?? '',
+          trustedStatus: parseTrustStatus(trustInfo.trusted_status, trustInfo.trusted),
+          reason: trustInfo.reason as string | undefined,
+          metadata: trustInfo.metadata as Record<string, unknown> | undefined,
+        };
+      }
+    }
+
+    return result;
+  }
+
+  // ===== OID4VP Flow =====
+
+  async startOID4VPFlow(params: OID4VPFlowParams): Promise<OID4VPFlowResult> {
+    if (params.authorizationRequestUri && !params.selectedCredentials) {
+      // Phase 1: Start flow with authorization request
+      const response = await this.send({
+        type: 'flow.start',
+        flow: 'oid4vp',
+        authorizationRequestUri: params.authorizationRequestUri,
+      });
+
+      return this.mapOID4VPResponse(response);
+    }
+
+    if (params.selectedCredentials) {
+      // Phase 2: User selected credentials, submit response
+      const response = await this.send({
+        type: 'flow.continue',
+        flow: 'oid4vp',
+        action: 'submit',
+        selectedCredentials: params.selectedCredentials,
+      });
+
+      return this.mapOID4VPResponse(response);
+    }
+
+    throw new Error('Invalid OID4VP flow params: no valid entry point or continuation');
+  }
+
+  private mapOID4VPResponse(response: ServerMessage): OID4VPFlowResult {
+    if (response.type === 'error') {
+      return {
+        success: false,
+        error: {
+          code: (response.error as { code?: string })?.code ?? 'UNKNOWN_ERROR',
+          message: (response.error as { message?: string })?.message ?? 'Unknown error',
+        },
+      };
+    }
+
+    const result: OID4VPFlowResult = {
+      success: true,
+    };
+
+    // Presentation definition phase
+    if (response.presentationDefinition) {
+      result.presentationDefinition = response.presentationDefinition as OID4VPFlowResult['presentationDefinition'];
+    }
+    if (response.conformantCredentials) {
+      // Convert from object to Map if needed
+      const creds = response.conformantCredentials;
+      if (creds instanceof Map) {
+        result.conformantCredentials = creds;
+      } else if (typeof creds === 'object') {
+        result.conformantCredentials = new Map(Object.entries(creds as Record<string, unknown[]>));
+      }
+    }
+    if (response.verifierInfo) {
+      result.verifierInfo = mapVerifierInfo(response.verifierInfo as Record<string, unknown>);
+    }
+    if (response.transactionData) {
+      result.transactionData = response.transactionData as OID4VPFlowResult['transactionData'];
+    }
+
+    // Submission result
+    if (response.redirectUri) {
+      result.redirectUri = response.redirectUri as string;
+    }
+    if (response.responseData) {
+      result.responseData = response.responseData;
+    }
+
+    return result;
+  }
+
+  // ===== Generic Request =====
+
+  async request<T>(flowRequest: FlowRequest): Promise<FlowResponse<T>> {
+    try {
+      const response = await this.send({
+        type: 'generic.request',
+        flowType: flowRequest.type,
+        action: flowRequest.action,
+        payload: flowRequest.payload,
+      });
+
+      if (response.type === 'error') {
+        return {
+          success: false,
+          error: {
+            code: (response.error as { code?: string })?.code ?? 'UNKNOWN_ERROR',
+            message: (response.error as { message?: string })?.message ?? 'Unknown error',
+          },
+        };
+      }
+
+      return {
+        success: true,
+        data: response.data as T,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: {
+          code: 'WEBSOCKET_ERROR',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
+      };
+    }
+  }
+
+  // ===== Event Subscriptions =====
+
+  onProgress(callback: (event: FlowProgressEvent) => void): () => void {
+    this.progressCallbacks.add(callback);
+    return () => this.progressCallbacks.delete(callback);
+  }
+
+  onError(callback: (error: Error) => void): () => void {
+    this.errorCallbacks.add(callback);
+    return () => this.errorCallbacks.delete(callback);
+  }
+
+  /**
+   * Register a handler for sign requests from the server.
+   * When the server needs a signature (proof or VP), it sends a sign_request.
+   * The handler should generate the signature and return it.
+   */
+  onSignRequest(handler: SignRequestHandler): () => void {
+    this.signHandlers.add(handler);
+    return () => this.signHandlers.delete(handler);
+  }
+
+  // ===== Internal Methods =====
+
+  private handleMessage(message: ServerMessage): void {
+    const { flowId, type } = message;
+
+    // Handle progress events separately
+    if (type === 'progress' || type === 'flow_progress') {
+      this.emitProgress({
+        flowId,
+        stage: (message.step as string) || (message.stage as string),
+        progress: message.progress as number | undefined,
+        message: message.message as string | undefined,
+        payload: message.payload,
+      });
+      return;
+    }
+
+    // Handle sign requests from server
+    if (type === 'sign_request') {
+      this.handleSignRequest(message);
+      return;
+    }
+
+    // All other message types resolve a pending request
+    const pending = this.pending.get(flowId);
+    if (pending) {
+      clearTimeout(pending.timeout);
+      this.pending.delete(flowId);
+
+      if (type === 'error' || type === 'flow_error') {
+        const errorMsg = (message.error as { message?: string })?.message ??
+                        (message.message as string) ?? 'Unknown error';
+        pending.reject(new Error(errorMsg));
+      } else {
+        pending.resolve(message);
+      }
+    } else {
+      logger.warn('Received message for unknown flowId:', flowId);
+    }
+  }
+
+  /**
+   * Handle a sign request from the server
+   */
+  private async handleSignRequest(message: ServerMessage): Promise<void> {
+    const request: SignRequest = {
+      flowId: message.flowId,
+      messageId: (message.message_id as string) || (message.messageId as string) || '',
+      action: message.action as 'generate_proof' | 'sign_presentation',
+      params: (message.params as SignRequest['params']) || {},
+    };
+
+    if (this.signHandlers.size === 0) {
+      logger.error('No sign handlers registered, cannot respond to sign request');
+      this.sendSignResponse(request.flowId, request.messageId, {}, 'No sign handler available');
+      return;
+    }
+
+    // Call all handlers until one succeeds
+    let lastError: Error | null = null;
+    for (const handler of this.signHandlers) {
+      try {
+        const response = await handler(request);
+        this.sendSignResponse(request.flowId, request.messageId, response);
+        return;
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+        logger.warn('Sign handler failed:', lastError.message);
+      }
+    }
+
+    // All handlers failed
+    this.sendSignResponse(
+      request.flowId,
+      request.messageId,
+      {},
+      lastError?.message || 'Sign operation failed'
+    );
+  }
+
+  /**
+   * Send a sign response back to the server
+   */
+  private sendSignResponse(
+    flowId: string,
+    messageId: string,
+    response: SignResponse,
+    error?: string
+  ): void {
+    if (!this.isConnected()) {
+      logger.error('Cannot send sign response: WebSocket not connected');
+      return;
+    }
+
+    const msg: Record<string, unknown> = {
+      type: 'sign_response',
+      flowId,
+      message_id: messageId,
+      timestamp: new Date().toISOString(),
+    };
+
+    if (error) {
+      msg.error = error;
+    } else {
+      if (response.proofJwt) msg.proof_jwt = response.proofJwt;
+      if (response.vpToken) msg.vp_token = response.vpToken;
+    }
+
+    try {
+      this.ws!.send(JSON.stringify(msg));
+    } catch (err) {
+      logger.error('Failed to send sign response:', err);
+    }
+  }
+
+  private handleDisconnect(event: CloseEvent): void {
+    // Reject all pending requests
+    Array.from(this.pending.entries()).forEach(([id, pending]) => {
+      clearTimeout(pending.timeout);
+      pending.reject(new Error('WebSocket disconnected'));
+    });
+    this.pending.clear();
+
+    // Reset connection state
+    this.ws = null;
+    this.connectionPromise = null;
+
+    // Don't reconnect if it was a clean close
+    if (event.code === 1000) {
+      return;
+    }
+
+    // Attempt reconnect with exponential backoff
+    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts);
+      this.reconnectAttempts++;
+
+      logger.debug(`WebSocket reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
+
+      setTimeout(() => {
+        this.connect().catch((error) => {
+          logger.error('WebSocket reconnect failed:', error);
+          this.emitError(new Error('WebSocket reconnection failed'));
+        });
+      }, delay);
+    } else {
+      this.emitError(new Error('WebSocket connection lost after max reconnect attempts'));
+    }
+  }
+
+  private send(message: Record<string, unknown>): Promise<ServerMessage> {
+    return new Promise((resolve, reject) => {
+      if (!this.isConnected()) {
+        reject(new Error('WebSocket not connected'));
+        return;
+      }
+
+      const flowId = (message.flowId as string) || crypto.randomUUID();
+      const fullMessage = { ...message, flowId };
+
+      // Set up timeout
+      const timeout = setTimeout(() => {
+        if (this.pending.has(flowId)) {
+          this.pending.delete(flowId);
+          reject(new Error('Request timeout'));
+        }
+      }, this.requestTimeout);
+
+      // Store pending request
+      this.pending.set(flowId, { resolve, reject, flowId, timeout });
+
+      // Send message
+      try {
+        this.ws!.send(JSON.stringify(fullMessage));
+      } catch (error) {
+        clearTimeout(timeout);
+        this.pending.delete(flowId);
+        reject(error);
+      }
+    });
+  }
+
+  private emitProgress(event: FlowProgressEvent): void {
+    Array.from(this.progressCallbacks).forEach(callback => {
+      try {
+        callback(event);
+      } catch (e) {
+        logger.error('Error in progress callback:', e);
+      }
+    });
+  }
+
+  private emitError(error: Error): void {
+    Array.from(this.errorCallbacks).forEach(callback => {
+      try {
+        callback(error);
+      } catch (e) {
+        logger.error('Error in error callback:', e);
+      }
+    });
+  }
+
+  /**
+   * Update the auth token (e.g., after token refresh)
+   */
+  updateAuthToken(token: string): void {
+    this.authToken = token;
+  }
+
+  /**
+   * Send a flow action to the server.
+   * Used for responding to server requests during a flow (e.g., credential matching).
+   */
+  sendFlowAction(action: FlowAction): void {
+    if (!this.isConnected()) {
+      logger.error('Cannot send flow action: WebSocket not connected');
+      return;
+    }
+
+    const msg = {
+      type: 'flow_action',
+      flow_id: action.flowId,
+      action: action.action,
+      payload: action.payload,
+      timestamp: new Date().toISOString(),
+    };
+
+    try {
+      this.ws!.send(JSON.stringify(msg));
+      logger.debug('[WS Transport] Sent flow action:', action.action);
+    } catch (err) {
+      logger.error('Failed to send flow action:', err);
+    }
+  }
+
+  /**
+   * Get the current connection state
+   */
+  getConnectionState(): {
+    connected: boolean;
+    reconnectAttempts: number;
+    pendingRequests: number;
+  } {
+    return {
+      connected: this.isConnected(),
+      reconnectAttempts: this.reconnectAttempts,
+      pendingRequests: this.pending.size,
+    };
+  }
 }
