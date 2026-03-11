@@ -129,7 +129,7 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 			return acc;
 		}, {});
 
-		const { sdJwtVerifier, msoMdocVerifier } = engine;
+		const { sdJwtVerifier, msoMdocVerifier, jwtVcJsonVerifier } = engine;
 		// Filter and map the fetched list in one go
 		let filteredVcEntityList = await Promise.all(
 			credentials
@@ -155,6 +155,10 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 								return sdJwtVerifier.verify({ rawCredential: credential.data, opts: {} });
 							case VerifiableCredentialFormat.MSO_MDOC:
 								return msoMdocVerifier.verify({ rawCredential: credential.data, opts: {} });
+							case VerifiableCredentialFormat.JWT_VC_JSON:
+								return jwtVcJsonVerifier.verify({ rawCredential: credential.data, opts: {} });
+							default:
+								throw new Error(`Unsupported credential format`);
 						}
 					})();
 
