@@ -9,6 +9,7 @@ type CredentialEngine = {
 	credentialParsingEngine: ParsingEngineI;
 	sdJwtVerifier: CredentialVerifier;
 	msoMdocVerifier: CredentialVerifier;
+	jwtVcJsonVerifier: CredentialVerifier;
 };
 
 export type Instance = {
