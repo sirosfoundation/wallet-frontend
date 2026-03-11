@@ -5,7 +5,7 @@ import { logger } from '../logger';
 // Context
 import CredentialsContext from '@/context/CredentialsContext';
 
-import { CredentialVerificationError, VerifiableCredentialFormat } from "wallet-common";
+import { CredentialVerificationError } from "wallet-common";
 
 const useFetchPresentations = (keystore, batchId = null, transactionId = null) => {
 	const [history, setHistory] = useState({});
@@ -65,19 +65,7 @@ const useFetchPresentations = (keystore, batchId = null, transactionId = null) =
 							credentialIssuerIdentifier: firstVC?.credentialIssuerIdentifier ?? null,
 						});
 
-						const result = await (async () => {
-							switch (parsedCredential.metadata.credential.format) {
-								case VerifiableCredentialFormat.VC_SDJWT:
-									return credentialEngine.sdJwtVerifier.verify({ rawCredential: presentation.data, opts: {} });
-								case VerifiableCredentialFormat.DC_SDJWT:
-									return credentialEngine.sdJwtVerifier.verify({ rawCredential: presentation.data, opts: {} });
-								case VerifiableCredentialFormat.MSO_MDOC:
-									return credentialEngine.msoMdocVerifier.verify({ rawCredential: presentation.data, opts: {} });
-								case VerifiableCredentialFormat.JWT_VC_JSON:
-									return credentialEngine.jwtVcJsonVerifier.verify({ rawCredential: presentation.data, opts: {} });
-								default:								logger.warn(`Unknown credential format in presentation: ${parsedCredential.metadata.credential.format}`);									return null;
-							}
-						})();
+						const result = await credentialEngine.credentialVerifyingEngine.verify({ rawCredential: presentation.data, opts: {} });
 
 						return {
 							presentation,
