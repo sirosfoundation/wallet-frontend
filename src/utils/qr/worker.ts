@@ -44,7 +44,14 @@ let grayscaleWeights: GrayscaleWeights = {
 	useIntegerApproximation: true,
 };
 
-const ctx = globalThis as unknown as DedicatedWorkerGlobalScope;
+// Web Worker context type (avoids pulling in the full webworker lib)
+type WorkerGlobalScope = {
+	onmessage: ((ev: MessageEvent) => void) | null;
+	postMessage(message: unknown): void;
+	close(): void;
+};
+
+const ctx = globalThis as unknown as WorkerGlobalScope;
 
 ctx.onmessage = (event) => {
 	const id = event["data"]["id"];

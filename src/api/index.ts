@@ -935,7 +935,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		getAllPresentations,
 		getAppToken,
 		initiatePresentationExchange,
-		refreshAccessToken,
+		refreshAccessToken: async () => (await refreshAccessToken(getTokenRefreshConfig())).success,
 
 		loginWebauthn,
 		signupWebauthn,
@@ -964,7 +964,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		getAllPresentations,
 		getAppToken,
 		initiatePresentationExchange,
-		refreshAccessToken,
+		getTokenRefreshConfig,
 
 		loginWebauthn,
 		signupWebauthn,
