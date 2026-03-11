@@ -230,6 +230,9 @@ const WebauthnSignupLogin = ({
 	const [resolvePrfRetryPrompt, setResolvePrfRetryPrompt] = useState<(accept: boolean) => void>(null);
 	const [prfRetryAccepted, setPrfRetryAccepted] = useState(false);
 
+	// Read invite code from URL query parameter
+	const inviteCode = new URLSearchParams(location.search).get('invite') || undefined;
+
 	const { t } = useTranslation();
 	const [retrySignupFrom, setRetrySignupFrom] = useState(null);
 
@@ -302,6 +305,7 @@ const WebauthnSignupLogin = ({
 			webauthnHints,
 			retrySignupFrom,
 			urlTenantId || 'default',
+			inviteCode, // Invite code from URL query param
 		);
 		if (result.ok) {
 
@@ -322,6 +326,14 @@ const WebauthnSignupLogin = ({
 
 				case 'passkeySignupKeystoreFailed':
 					setError(t('loginSignup.passkeySignupKeystoreFailed'));
+					break;
+
+				case 'inviteRequired':
+					setError(t('loginSignup.inviteRequired'));
+					break;
+
+				case 'inviteInvalid':
+					setError(t('loginSignup.inviteInvalid'));
 					break;
 
 				case 'passkeySignupPrfNotSupported':
