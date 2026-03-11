@@ -183,7 +183,7 @@ export function useMdocAppCommunication(): IMdocAppCommunication {
 				{
 					"id": "eu.europa.ec.eudi.pid.1",
 					"format": {
-						"mso_mdoc": {
+						[VerifiableCredentialFormat.MSO_MDOC]: {
 							"alg": [
 								"ES256"
 							]

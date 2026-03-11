@@ -11,6 +11,7 @@
  */
 
 import { ExtendedVcEntity } from '@/context/CredentialsContext';
+import { VerifiableCredentialFormat } from 'wallet-common';
 
 // Types for presentation definition matching (DIF PEX format)
 export interface PresentationDefinition {
@@ -104,7 +105,7 @@ function matchDescriptor(
       matches.push({
         input_descriptor_id: descriptor.id,
         credential_id: String(credential.credentialId),
-        format: credential.format || 'vc+sd-jwt', // Default to SD-JWT if not specified
+        format: credential.format || VerifiableCredentialFormat.VC_SDJWT,
         vct: credentialMeta && 'vct' in credentialMeta ? credentialMeta.vct : undefined,
         available_claims: availableClaims,
       });
@@ -123,7 +124,7 @@ function credentialMatchesDescriptor(
 ): boolean {
   // Check format constraints
   if (descriptor.format) {
-    const credFormat = credential.format || 'vc+sd-jwt';
+    const credFormat = credential.format || VerifiableCredentialFormat.VC_SDJWT;
     const allowedFormats = Object.keys(descriptor.format);
 
     if (allowedFormats.length > 0 && !allowedFormats.includes(credFormat)) {
