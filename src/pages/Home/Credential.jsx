@@ -10,6 +10,7 @@ import SessionContext from '@/context/SessionContext';
 import CredentialsContext from '@/context/CredentialsContext';
 import { useTenant } from '@/context/TenantContext';
 import { useCredentialName } from '@/hooks/useCredentialName';
+import { VerifiableCredentialFormat } from 'wallet-common';
 
 // Hooks
 import useFetchPresentations from '../../hooks/useFetchPresentations';
@@ -144,7 +145,7 @@ const Credential = () => {
 				setShareWithQr(false);
 				return;
 			}
-			if (vcEntity.format === "mso_mdoc") {
+			if (vcEntity.format === VerifiableCredentialFormat.MSO_MDOC) {
 				setShareWithQr(true);
 			} else {
 				setShareWithQr(false);

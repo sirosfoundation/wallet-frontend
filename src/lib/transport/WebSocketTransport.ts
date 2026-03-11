@@ -21,6 +21,7 @@ import type {
 import type { OID4VCIFlowParams, OID4VCIFlowResult, OID4VCIIssuerInfo } from './types/OID4VCITypes';
 import type { OID4VPFlowParams, OID4VPFlowResult, OID4VPVerifierInfo } from './types/OID4VPTypes';
 import type { TrustStatus } from './types/TrustTypes';
+import { VerifiableCredentialFormat } from 'wallet-common';
 import { logger } from '@/logger';
 
 /**
@@ -353,7 +354,13 @@ export class WebSocketTransport implements IFlowTransport {
 			result.credential = response.credential as string;
 		}
 		if (response.format) {
-			result.format = response.format as string;
+      const formatStr = response.format as string;
+      const validFormats = Object.values(VerifiableCredentialFormat) as string[];
+      if (validFormats.includes(formatStr)) {
+        result.format = formatStr as VerifiableCredentialFormat;
+      } else {
+        logger.warn(`Unknown credential format from server: ${formatStr}`);
+      }
 		}
 
 		// Deferred
