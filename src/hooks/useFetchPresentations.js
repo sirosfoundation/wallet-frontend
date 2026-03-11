@@ -73,6 +73,8 @@ const useFetchPresentations = (keystore, batchId = null, transactionId = null) =
 									return credentialEngine.sdJwtVerifier.verify({ rawCredential: presentation.data, opts: {} });
 								case VerifiableCredentialFormat.MSO_MDOC:
 									return credentialEngine.msoMdocVerifier.verify({ rawCredential: presentation.data, opts: {} });
+								case VerifiableCredentialFormat.JWT_VC_JSON:
+									return credentialEngine.jwtVcJsonVerifier.verify({ rawCredential: presentation.data, opts: {} });
 								default:
 									return null;
 							}
