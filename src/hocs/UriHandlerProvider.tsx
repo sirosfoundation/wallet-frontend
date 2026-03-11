@@ -4,7 +4,7 @@ import StatusContext from "../context/StatusContext";
 import { logger } from "@/logger";
 import SessionContext from "../context/SessionContext";
 import { useTranslation } from "react-i18next";
-import { HandleAuthorizationRequestError } from "wallet-common";
+import { HandleAuthorizationRequestErrors } from "wallet-common";
 import OpenID4VCIContext from "../context/OpenID4VCIContext";
 import OpenID4VPContext from "../context/OpenID4VPContext";
 import CredentialsContext from "@/context/CredentialsContext";
@@ -255,12 +255,12 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 						logger.debug("Authorization request result:", result);
 
 						if ('error' in result) {
-							if (result.error === HandleAuthorizationRequestError.INSUFFICIENT_CREDENTIALS) {
+							if (result.error === HandleAuthorizationRequestErrors.INSUFFICIENT_CREDENTIALS) {
 								displayError({
 									title: t('messagePopup.insufficientCredentials.title'),
 									description: t('messagePopup.insufficientCredentials.description')
 								});
-							} else if (result.error === HandleAuthorizationRequestError.NONTRUSTED_VERIFIER) {
+							} else if (result.error === HandleAuthorizationRequestErrors.NONTRUSTED_VERIFIER) {
 								displayError({
 									title: t('messagePopup.nonTrustedVerifier.title'),
 									description: t('messagePopup.nonTrustedVerifier.description')
