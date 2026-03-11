@@ -4,7 +4,8 @@
 
 import type {
   CredentialConfigurationSupported,
-  OpenidCredentialIssuerMetadata
+  OpenidCredentialIssuerMetadata,
+  VerifiableCredentialFormat
 } from 'wallet-common';
 import type { TrustStatus } from './TrustTypes';
 
@@ -101,7 +102,7 @@ export interface OID4VCIFlowResult {
   credential?: string;
 
   /** Credential format */
-  format?: string;
+  format?: VerifiableCredentialFormat;
 
   // ===== Deferred issuance =====
 
