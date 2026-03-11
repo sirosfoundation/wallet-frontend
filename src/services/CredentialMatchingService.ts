@@ -100,11 +100,12 @@ function matchDescriptor(
       // Extract available claims from the credential
       const availableClaims = extractAvailableClaims(credential);
 
+      const credentialMeta = credential.parsedCredential?.metadata?.credential;
       matches.push({
         input_descriptor_id: descriptor.id,
         credential_id: String(credential.credentialId),
         format: credential.format || 'vc+sd-jwt', // Default to SD-JWT if not specified
-        vct: credential.parsedCredential?.metadata?.credential?.vct,
+        vct: credentialMeta && 'vct' in credentialMeta ? credentialMeta.vct : undefined,
         available_claims: availableClaims,
       });
     }

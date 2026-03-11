@@ -132,8 +132,8 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
             return {
               success: false,
               error: {
-                code: result.error.code || 'VP_ERROR',
-                message: result.error.message || 'Unknown error',
+                code: result.error || 'VP_ERROR',
+                message: result.error || 'Unknown error',
               },
             };
           }
