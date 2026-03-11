@@ -75,8 +75,7 @@ const useFetchPresentations = (keystore, batchId = null, transactionId = null) =
 									return credentialEngine.msoMdocVerifier.verify({ rawCredential: presentation.data, opts: {} });
 								case VerifiableCredentialFormat.JWT_VC_JSON:
 									return credentialEngine.jwtVcJsonVerifier.verify({ rawCredential: presentation.data, opts: {} });
-								default:
-									return null;
+								default:								logger.warn(`Unknown credential format in presentation: ${parsedCredential.metadata.credential.format}`);									return null;
 							}
 						})();
 
