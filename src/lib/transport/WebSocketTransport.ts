@@ -25,6 +25,16 @@ import { VerifiableCredentialFormat } from 'wallet-common';
 import { logger } from '@/logger';
 
 /**
+ * Extract a logo URL from a raw backend value.
+ * Handles string URLs and objects with a `uri` property.
+ */
+function parseLogo(raw: unknown): string | undefined {
+  if (typeof raw === 'string') return raw;
+  if (raw != null && typeof raw === 'object') return (raw as Record<string, unknown>).uri as string | undefined;
+  return undefined;
+}
+
+/**
  * Map a raw verifier info object from the backend into the typed frontend
  * representation. Handles the backend's snake_case `trusted_status` field
  * as well as the legacy `trusted` boolean.
@@ -37,9 +47,7 @@ function mapVerifierInfo(raw: Record<string, unknown>): OID4VPVerifierInfo {
     reason: raw.reason as string | undefined,
     metadata: raw.metadata as Record<string, unknown> | undefined,
     domain: raw.domain as string | undefined,
-    logo: raw.logo != null
-      ? (typeof raw.logo === 'string' ? raw.logo : (raw.logo as Record<string, unknown>)?.uri as string | undefined)
-      : undefined,
+    logo: parseLogo(raw.logo),
   };
 }
 
@@ -52,9 +60,7 @@ function mapIssuerInfo(raw: Record<string, unknown>): OID4VCIIssuerInfo {
   return {
     identifier: (raw.identifier as string) || '',
     name: raw.name as string | undefined,
-    logo: raw.logo != null
-      ? (typeof raw.logo === 'string' ? raw.logo : (raw.logo as Record<string, unknown>)?.uri as string | undefined)
-      : undefined,
+    logo: parseLogo(raw.logo),
     trustedStatus: parseTrustStatus(raw.trusted_status, raw.trusted),
     reason: raw.reason as string | undefined,
     metadata: raw.metadata as Record<string, unknown> | undefined,
