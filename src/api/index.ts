@@ -168,6 +168,11 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		clearSession: () => clearSessionRef.current(),
 	}), [setAppToken, setRefreshToken]);
 
+	const doRefreshAccessToken = useCallback(async (): Promise<boolean> => {
+		const result = await refreshAccessToken(getTokenRefreshConfig());
+		return result.success;
+	}, [getTokenRefreshConfig]);
+
 	const getAppToken = useCallback((): string | null => {
 		return appToken;
 	}, [appToken]);
@@ -935,7 +940,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		getAllPresentations,
 		getAppToken,
 		initiatePresentationExchange,
-		refreshAccessToken: async () => (await refreshAccessToken(getTokenRefreshConfig())).success,
+		refreshAccessToken: doRefreshAccessToken,
 
 		loginWebauthn,
 		signupWebauthn,
@@ -964,7 +969,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		getAllPresentations,
 		getAppToken,
 		initiatePresentationExchange,
-		getTokenRefreshConfig,
+		doRefreshAccessToken,
 
 		loginWebauthn,
 		signupWebauthn,
