@@ -100,11 +100,14 @@ function matchDescriptor(
       // Extract available claims from the credential
       const availableClaims = extractAvailableClaims(credential);
 
+      const credentialMeta = credential.parsedCredential?.metadata?.credential;
+      const format = credential.format || credentialMeta?.format;
+      if (!format) continue; // Skip credentials with unknown format
       matches.push({
         input_descriptor_id: descriptor.id,
         credential_id: String(credential.credentialId),
-        format: credential.format || 'vc+sd-jwt', // Default to SD-JWT if not specified
-        vct: credential.parsedCredential?.metadata?.credential?.vct,
+        format,
+        vct: credentialMeta && 'vct' in credentialMeta ? credentialMeta.vct : undefined,
         available_claims: availableClaims,
       });
     }
@@ -122,7 +125,8 @@ function credentialMatchesDescriptor(
 ): boolean {
   // Check format constraints
   if (descriptor.format) {
-    const credFormat = credential.format || 'vc+sd-jwt';
+    const credFormat = credential.format || credential.parsedCredential?.metadata?.credential?.format;
+    if (!credFormat) return false; // Cannot match without a known format
     const allowedFormats = Object.keys(descriptor.format);
 
     if (allowedFormats.length > 0 && !allowedFormats.includes(credFormat)) {

@@ -21,7 +21,18 @@ import type {
 import type { OID4VCIFlowParams, OID4VCIFlowResult, OID4VCIIssuerInfo } from './types/OID4VCITypes';
 import type { OID4VPFlowParams, OID4VPFlowResult, OID4VPVerifierInfo } from './types/OID4VPTypes';
 import type { TrustStatus } from './types/TrustTypes';
+import { VerifiableCredentialFormat } from 'wallet-common';
 import { logger } from '@/logger';
+
+/**
+ * Extract a logo URL from a raw backend value.
+ * Handles string URLs and objects with a `uri` property.
+ */
+function parseLogo(raw: unknown): string | undefined {
+  if (typeof raw === 'string') return raw;
+  if (raw != null && typeof raw === 'object') return (raw as Record<string, unknown>).uri as string | undefined;
+  return undefined;
+}
 
 /**
  * Map a raw verifier info object from the backend into the typed frontend
@@ -36,9 +47,7 @@ function mapVerifierInfo(raw: Record<string, unknown>): OID4VPVerifierInfo {
     reason: raw.reason as string | undefined,
     metadata: raw.metadata as Record<string, unknown> | undefined,
     domain: raw.domain as string | undefined,
-    logo: raw.logo != null
-      ? (typeof raw.logo === 'string' ? raw.logo : (raw.logo as Record<string, unknown>)?.uri as string | undefined)
-      : undefined,
+    logo: parseLogo(raw.logo),
   };
 }
 
@@ -51,9 +60,7 @@ function mapIssuerInfo(raw: Record<string, unknown>): OID4VCIIssuerInfo {
   return {
     identifier: (raw.identifier as string) || '',
     name: raw.name as string | undefined,
-    logo: raw.logo != null
-      ? (typeof raw.logo === 'string' ? raw.logo : (raw.logo as Record<string, unknown>)?.uri as string | undefined)
-      : undefined,
+    logo: parseLogo(raw.logo),
     trustedStatus: parseTrustStatus(raw.trusted_status, raw.trusted),
     reason: raw.reason as string | undefined,
     metadata: raw.metadata as Record<string, unknown> | undefined,
@@ -351,7 +358,13 @@ export class WebSocketTransport implements IFlowTransport {
       result.credential = response.credential as string;
     }
     if (response.format) {
-      result.format = response.format as string;
+      const formatStr = response.format as string;
+      const validFormats = Object.values(VerifiableCredentialFormat) as string[];
+      if (validFormats.includes(formatStr)) {
+        result.format = formatStr as VerifiableCredentialFormat;
+      } else {
+        logger.warn(`Unknown credential format from server: ${formatStr}`);
+      }
     }
 
     // Deferred
