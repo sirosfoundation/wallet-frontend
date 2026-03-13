@@ -15,6 +15,7 @@ import { useTxCodeInput } from "@/context/TxCodeInputContext";
 import TxCodeInputPopup from "@/components/Popups/TxCodeInputPopup";
 import useErrorDialog from "@/hooks/useErrorDialog";
 
+const MessagePopup = React.lazy(() => import('../components/Popups/MessagePopup'));
 const PinInputPopup = React.lazy(() => import('../components/Popups/PinInput'));
 
 export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
@@ -51,6 +52,26 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	const [cachedUser, setCachedUser] = useState<CachedUser | null>(null);
 	const [synced, setSynced] = useState(false);
 	const [latestIsOnlineStatus, setLatestIsOnlineStatus,] = api.useClearOnClearSession(useSessionStorage('latestIsOnlineStatus', null));
+
+	const [showPinInput, setShowPinInput] = useState(false);
+
+
+	const [pinResolver, setPinResolver] = useState(null);
+	const [pinInputMode, setPinInputMode] = useState<"numeric" | "text">("numeric");
+	const [pinLength, setPinLength] = useState<number>(4);
+	const [activeUrl, setActiveUrl] = useState<string | null>(null);
+
+
+	const [showMessagePopup, setMessagePopup] = useState(false);
+	const [textMessagePopup, setTextMessagePopup] = useState({ title: "", description: "" });
+	const [typeMessagePopup, setTypeMessagePopup] = useState("");
+
+	const requestPin = () => {
+		setShowPinInput(true);
+		return new Promise((resolve) => {
+			setPinResolver(() => resolve);
+		});
+	};
 
 	useEffect(() => {
 		if (!keystore || cachedUser !== null || !isLoggedIn) {
@@ -129,7 +150,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 			!handleAuthorizationRequest || !promptForCredentialSelection || !sendAuthorizationResponse
 		) return;
 
-		async function handle(urlToCheck: string) {
+		async function handle(urlToCheck: string, submittedPin?: boolean) {
 			const u = new URL(urlToCheck);
 			if (u.searchParams.size === 0) return;
 			// setUrl(window.location.origin);
@@ -139,8 +160,35 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 				// Handle credential offer with async/await for proper React state updates
 				(async () => {
 					try {
-						const offer = await handleCredentialOffer(u.toString());
-						const { credentialIssuer, selectedCredentialConfigurationId, issuer_state, preAuthorizedCode, txCode } = offer;
+
+						let offerData;
+
+						try {
+							// Try the standard handler first
+							offerData = await handleCredentialOffer(u.toString());
+						} catch (error) {
+							logger.warn("Standard handleCredentialOffer failed, attempting manual fallback", error);
+							// Fallback: Parse the nested JSON manually
+							const offerUri = u.searchParams.get('credential_offer_uri');
+							const nestedUrl = new URL(offerUri);
+							const nestedJson = nestedUrl.searchParams.get('credential_offer');
+							const decoded = nestedJson ? JSON.parse(decodeURIComponent(nestedJson)) : {};
+							const preAuthGrant = decoded.grants?.["urn:ietf:params:oauth:grant-type:pre-authorized_code"];
+							offerData = {
+								credentialIssuer: decoded?.credential_issuer,
+								selectedCredentialConfigurationId: decoded?.credential_configuration_ids,
+								preAuthorizedCode: preAuthGrant,
+								txCode: preAuthGrant?.tx_code,
+								issuer_state: decoded?.issuer_state
+							};
+						}
+						const {
+							credentialIssuer,
+							selectedCredentialConfigurationId,
+							issuer_state,
+							preAuthorizedCode,
+							txCode
+						} = offerData;
 
 						logger.debug("Handling credential offer...", { credentialIssuer, preAuthorizedCode: !!preAuthorizedCode });
 
@@ -155,25 +203,22 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 						}
 
 						// Pre-authorized code flow
-						let userInput: string | undefined = undefined;
+						let userInput;
 						if (txCode) {
 							try {
-								// Use React popup instead of blocking prompt()
-								// Note: txCode from JSON uses snake_case (input_mode) per OID4VCI spec
 								const rawTxCode = txCode as { input_mode?: string; length?: number; description?: string };
-								userInput = await requestTxCode({
-									description: rawTxCode.description ?? undefined,
-									length: rawTxCode.length ?? undefined,
-									inputMode: rawTxCode.input_mode === 'numeric' ? 'numeric' : 'text',
-								});
+								if (!submittedPin) {
+									setPinInputMode(rawTxCode?.input_mode === "text" ? "text" : "numeric");
+									setPinLength(rawTxCode?.length || 4);
+									userInput = await (requestPin() as any);
+									return;
+								}
 							} catch (err) {
-								// User cancelled tx code input
 								logger.info("User cancelled transaction code input");
 								window.history.replaceState({}, '', `${window.location.pathname}`);
 								return;
 							}
 						}
-
 						logger.debug("Requesting credential with pre-authorization...");
 						const result = await requestCredentialsWithPreAuthorization(
 							credentialIssuer,
@@ -181,7 +226,6 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 							preAuthorizedCode,
 							userInput
 						);
-
 						if ('url' in result && typeof result.url === 'string' && result.url) {
 							window.location.href = result.url;
 						}
@@ -207,7 +251,6 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 			}
 			else if (u.searchParams.get('client_id') && u.searchParams.get('request_uri') && !usedRequestUris.includes(u.searchParams.get('request_uri'))) {
 				setUsedRequestUris((uriArray) => [...uriArray, u.searchParams.get('request_uri')]);
-
 				// Handle OID4VP authorization request with async/await
 				(async () => {
 					try {
@@ -301,25 +344,45 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	}, [location, t, synced]);
 
 	return (
-		<Suspense fallback={null}>
+		<>
 			{children}
-			{showPinInputPopup &&
-				<PinInputPopup isOpen={showPinInputPopup} setIsOpen={setShowPinInputPopup} />
-			}
-			{showSyncPopup &&
-				<SyncPopup message={textSyncPopup}
-					onClose={() => {
-						setSyncPopup(false);
-						logout();
+			<Suspense fallback={null}>
+				<PinInputPopup
+					isOpen={showPinInput}
+					setIsOpen={setShowPinInput}
+					inputsCount={pinLength}
+					inputsMode={pinInputMode}
+					onCancel={() => {
+						setShowPinInput(false);
+						window.history.replaceState({}, '', window.location.pathname);
+						if (pinResolver) {
+							pinResolver.reject();
+							setPinResolver(null);
+						}
+					}}
+					onSubmit={(pin) => {
+						setShowPinInput(false);
+						window.history.replaceState({}, '', window.location.pathname);
+						if (pinResolver) {
+							pinResolver.resolve(pin);
+							setPinResolver(null);
+						}
 					}}
 				/>
-			}
-			<TxCodeInputPopup
-				isOpen={txCodeState.isOpen}
-				txCodeConfig={txCodeState.config}
-				onSubmit={handleTxCodeSubmit}
-				onCancel={handleTxCodeCancel}
-			/>
-		</Suspense>
+				{showMessagePopup && (
+					<MessagePopup
+						type={typeMessagePopup}
+						message={textMessagePopup}
+						onClose={() => setMessagePopup(false)}
+					/>
+				)}
+				{showSyncPopup && (
+					<SyncPopup
+						message={textSyncPopup}
+						onClose={() => { setSyncPopup(false); logout(); }}
+					/>
+				)}
+			</Suspense>
+		</>
 	);
 }
