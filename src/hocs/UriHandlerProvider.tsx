@@ -56,7 +56,6 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	const [showPinInput, setShowPinInput] = useState(false);
 
 
-	const [pinResolver, setPinResolver] = useState(null);
 	const [pinInputMode, setPinInputMode] = useState<"numeric" | "text">("numeric");
 	const [pinLength, setPinLength] = useState<number>(4);
 	const [activeUrl, setActiveUrl] = useState<string | null>(null);
@@ -66,12 +65,14 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	const [textMessagePopup, setTextMessagePopup] = useState({ title: "", description: "" });
 	const [typeMessagePopup, setTypeMessagePopup] = useState("");
 
-	const requestPin = () => {
-		setShowPinInput(true);
-		return new Promise((resolve) => {
-			setPinResolver(() => resolve);
-		});
-	};
+  const [pinResolver, setPinResolver] = useState<{ resolve: (val: string) => void, reject: (err: any) => void } | null>(null);
+
+  const requestPin = (): Promise<string> => {
+    setShowPinInput(true);
+    return new Promise<string>((resolve, reject) => {
+      setPinResolver({ resolve, reject });
+    });
+  };
 
 	useEffect(() => {
 		if (!keystore || cachedUser !== null || !isLoggedIn) {
@@ -150,7 +151,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 			!handleAuthorizationRequest || !promptForCredentialSelection || !sendAuthorizationResponse
 		) return;
 
-		async function handle(urlToCheck: string, submittedPin?: boolean) {
+		async function handle(urlToCheck: string) {
 			const u = new URL(urlToCheck);
 			if (u.searchParams.size === 0) return;
 			// setUrl(window.location.origin);
@@ -205,19 +206,15 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 						// Pre-authorized code flow
 						let userInput;
 						if (txCode) {
-							try {
-								const rawTxCode = txCode as { input_mode?: string; length?: number; description?: string };
-								if (!submittedPin) {
-									setPinInputMode(rawTxCode?.input_mode === "text" ? "text" : "numeric");
-									setPinLength(rawTxCode?.length || 4);
-									userInput = await (requestPin() as any);
-									return;
-								}
-							} catch (err) {
-								logger.info("User cancelled transaction code input");
-								window.history.replaceState({}, '', `${window.location.pathname}`);
-								return;
-							}
+              try {
+                const rawTxCode = txCode as { input_mode?: string; length?: number };
+                setPinInputMode(rawTxCode?.input_mode === "text" ? "text" : "numeric");
+                setPinLength(rawTxCode?.length || 4);                
+                userInput = await requestPin();
+              } catch (err) {
+                logger.info("User cancelled PIN input");
+                return;
+              }
 						}
 						logger.debug("Requesting credential with pre-authorization...");
 						const result = await requestCredentialsWithPreAuthorization(
@@ -352,22 +349,24 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 					setIsOpen={setShowPinInput}
 					inputsCount={pinLength}
 					inputsMode={pinInputMode}
-					onCancel={() => {
-						setShowPinInput(false);
-						window.history.replaceState({}, '', window.location.pathname);
-						if (pinResolver) {
-							pinResolver.reject();
-							setPinResolver(null);
-						}
-					}}
-					onSubmit={(pin) => {
-						setShowPinInput(false);
-						window.history.replaceState({}, '', window.location.pathname);
-						if (pinResolver) {
-							pinResolver.resolve(pin);
-							setPinResolver(null);
-						}
-					}}
+          onCancel={() => {
+            setShowPinInput(false);
+            window.history.replaceState({}, '', window.location.pathname);
+            setUrl(window.location.origin);
+            if (pinResolver) {
+              pinResolver.reject("cancelled");
+              setPinResolver(null);
+            }
+          }}
+          onSubmit={(pin) => {
+            setShowPinInput(false);
+            window.history.replaceState({}, '', window.location.pathname);
+            setUrl(window.location.origin);
+            if (pinResolver) {
+              pinResolver.resolve(pin);
+              setPinResolver(null);
+            }
+          }}
 				/>
 				{showMessagePopup && (
 					<MessagePopup
