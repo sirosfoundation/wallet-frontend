@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Button from '../Buttons/Button';
 import SessionContext from '@/context/SessionContext';
-import { useTenant } from '@/context/TenantContext'; // Kept
+import { useTenant } from '@/context/TenantContext';
 import PopupLayout from './PopupLayout';
 import { last } from '@/util';
 import { Lock } from 'lucide-react';
