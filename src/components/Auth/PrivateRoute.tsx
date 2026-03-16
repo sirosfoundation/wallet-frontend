@@ -2,6 +2,7 @@ import React, { useContext, useMemo, useEffect, useState } from 'react';
 import { Navigate, useParams, useLocation } from 'react-router-dom';
 import SessionContext from '@/context/SessionContext';
 import { getStoredTenant, buildTenantRoutePath, isDefaultTenant, TENANT_PATH_PREFIX } from '@/lib/tenant';
+import { logger } from '@/logger';
 
 const PrivateRoute = ({ children }: { children?: React.ReactNode }): React.ReactElement => {
 	const { isLoggedIn, keystore } = useContext(SessionContext);

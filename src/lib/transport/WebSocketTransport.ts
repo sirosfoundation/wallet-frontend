@@ -29,9 +29,9 @@ import { logger } from '@/logger';
  * Handles string URLs and objects with a `uri` property.
  */
 function parseLogo(raw: unknown): string | undefined {
-  if (typeof raw === 'string') return raw;
-  if (raw != null && typeof raw === 'object') return (raw as Record<string, unknown>).uri as string | undefined;
-  return undefined;
+	if (typeof raw === 'string') return raw;
+	if (raw != null && typeof raw === 'object') return (raw as Record<string, unknown>).uri as string | undefined;
+	return undefined;
 }
 
 /**
@@ -62,7 +62,7 @@ function mapIssuerInfo(raw: Record<string, unknown>): OID4VCIIssuerInfo {
 	return {
 		identifier: (raw.identifier as string) || '',
 		name: raw.name as string | undefined,
-    logo: parseLogo(raw.logo),
+		logo: parseLogo(raw.logo),
 		trustedStatus: parseTrustStatus(raw.trusted_status, raw.trusted),
 		reason: raw.reason as string | undefined,
 		metadata: raw.metadata as Record<string, unknown> | undefined,
@@ -360,13 +360,13 @@ export class WebSocketTransport implements IFlowTransport {
 			result.credential = response.credential as string;
 		}
 		if (response.format) {
-      const formatStr = response.format as string;
-      const validFormats = Object.values(VerifiableCredentialFormat) as string[];
-      if (validFormats.includes(formatStr)) {
-        result.format = formatStr as VerifiableCredentialFormat;
-      } else {
-        logger.warn(`Unknown credential format from server: ${formatStr}`);
-      }
+			const formatStr = response.format as string;
+			const validFormats = Object.values(VerifiableCredentialFormat) as string[];
+			if (validFormats.includes(formatStr)) {
+				result.format = formatStr as VerifiableCredentialFormat;
+			} else {
+				logger.warn(`Unknown credential format from server: ${formatStr}`);
+			}
 		}
 
 		// Deferred
