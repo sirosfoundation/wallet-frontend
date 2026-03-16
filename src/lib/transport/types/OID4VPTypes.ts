@@ -96,6 +96,10 @@ export interface OID4VPVerifierInfo {
 	domain?: string;
 	/** Logo URL */
 	logo?: string;
+	/** Client ID scheme (did, redirect_uri, x509_san_dns, etc.) */
+	clientIdScheme?: string;
+	/** Trust framework identifier from PDP evaluation */
+	trustFramework?: string;
 }
 
 /**
