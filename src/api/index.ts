@@ -170,6 +170,11 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		return appToken;
 	}, [appToken]);
 
+	const doRefreshAccessToken = useCallback(async (): Promise<boolean> => {
+		const result = await refreshAccessToken(getTokenRefreshConfig());
+		return result.success;
+	}, [getTokenRefreshConfig]);
+
 	function transformResponse(data: any): any {
 		if (data) {
 			return jsonParseTaggedBinary(data);
@@ -930,7 +935,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		getAllPresentations,
 		getAppToken,
 		initiatePresentationExchange,
-		refreshAccessToken,
+		refreshAccessToken: doRefreshAccessToken,
 
 		loginWebauthn,
 		signupWebauthn,
@@ -959,7 +964,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		getAllPresentations,
 		getAppToken,
 		initiatePresentationExchange,
-		refreshAccessToken,
+		doRefreshAccessToken,
 
 		loginWebauthn,
 		signupWebauthn,
