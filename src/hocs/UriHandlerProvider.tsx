@@ -65,14 +65,14 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	const [textMessagePopup, setTextMessagePopup] = useState({ title: "", description: "" });
 	const [typeMessagePopup, setTypeMessagePopup] = useState("");
 
-  const [pinResolver, setPinResolver] = useState<{ resolve: (val: string) => void, reject: (err: any) => void } | null>(null);
+	const [pinResolver, setPinResolver] = useState<{ resolve: (val: string) => void, reject: (err: any) => void } | null>(null);
 
-  const requestPin = (): Promise<string> => {
-    setShowPinInput(true);
-    return new Promise<string>((resolve, reject) => {
-      setPinResolver({ resolve, reject });
-    });
-  };
+	const requestPin = (): Promise<string> => {
+		setShowPinInput(true);
+		return new Promise<string>((resolve, reject) => {
+			setPinResolver({ resolve, reject });
+		});
+	};
 
 	useEffect(() => {
 		if (!keystore || cachedUser !== null || !isLoggedIn) {
@@ -206,15 +206,15 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 						// Pre-authorized code flow
 						let userInput;
 						if (txCode) {
-              try {
-                const rawTxCode = txCode as { input_mode?: string; length?: number };
-                setPinInputMode(rawTxCode?.input_mode === "text" ? "text" : "numeric");
-                setPinLength(rawTxCode?.length || 4);                
-                userInput = await requestPin();
-              } catch (err) {
-                logger.info("User cancelled PIN input");
-                return;
-              }
+							try {
+								const rawTxCode = txCode as { input_mode?: string; length?: number };
+								setPinInputMode(rawTxCode?.input_mode === "text" ? "text" : "numeric");
+								setPinLength(rawTxCode?.length || 4);
+								userInput = await requestPin();
+							} catch (err) {
+								logger.info("User cancelled PIN input");
+								return;
+							}
 						}
 						logger.debug("Requesting credential with pre-authorization...");
 						const result = await requestCredentialsWithPreAuthorization(
@@ -349,24 +349,24 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 					setIsOpen={setShowPinInput}
 					inputsCount={pinLength}
 					inputsMode={pinInputMode}
-          onCancel={() => {
-            setShowPinInput(false);
-            window.history.replaceState({}, '', window.location.pathname);
-            setUrl(window.location.origin);
-            if (pinResolver) {
-              pinResolver.reject("cancelled");
-              setPinResolver(null);
-            }
-          }}
-          onSubmit={(pin) => {
-            setShowPinInput(false);
-            window.history.replaceState({}, '', window.location.pathname);
-            setUrl(window.location.origin);
-            if (pinResolver) {
-              pinResolver.resolve(pin);
-              setPinResolver(null);
-            }
-          }}
+					onCancel={() => {
+						setShowPinInput(false);
+						window.history.replaceState({}, '', window.location.pathname);
+						setUrl(window.location.origin);
+						if (pinResolver) {
+							pinResolver.reject("cancelled");
+							setPinResolver(null);
+						}
+					}}
+					onSubmit={(pin) => {
+						setShowPinInput(false);
+						window.history.replaceState({}, '', window.location.pathname);
+						setUrl(window.location.origin);
+						if (pinResolver) {
+							pinResolver.resolve(pin);
+							setPinResolver(null);
+						}
+					}}
 				/>
 				{showMessagePopup && (
 					<MessagePopup
