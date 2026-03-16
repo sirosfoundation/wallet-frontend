@@ -20,8 +20,8 @@ export const ENGINE_URL = import.meta.env.VITE_WALLET_ENGINE_URL || BACKEND_URL;
  * Can be overridden with VITE_WS_URL for custom configurations.
  */
 export const WS_URL = import.meta.env.VITE_WS_URL || (ENGINE_URL
-  ? ENGINE_URL.replace(/^http/, 'ws') + '/api/v2/wallet'
-  : undefined);
+	? ENGINE_URL.replace(/^http/, 'ws') + '/api/v2/wallet'
+	: undefined);
 
 export const MULTI_LANGUAGE_DISPLAY: boolean = import.meta.env.VITE_MULTI_LANGUAGE_DISPLAY ? JSON.parse(import.meta.env.VITE_MULTI_LANGUAGE_DISPLAY) : false;
 export const I18N_WALLET_NAME_OVERRIDE: string | undefined = import.meta.env.VITE_I18N_WALLET_NAME_OVERRIDE;
@@ -57,20 +57,20 @@ export type TransportType = 'http' | 'websocket' | 'direct';
  * 'direct' disabled by default (requires ecosystem CORS support)
  */
 export const ALLOWED_TRANSPORTS: TransportType[] =
-  (import.meta.env.VITE_ALLOWED_TRANSPORTS || 'http,websocket')
-    .split(',')
-    .map((t: string) => t.trim())
-    .filter((t: string) => ['http', 'websocket', 'direct'].includes(t)) as TransportType[];
+	(import.meta.env.VITE_ALLOWED_TRANSPORTS || 'http,websocket')
+		.split(',')
+		.map((t: string) => t.trim())
+		.filter((t: string) => ['http', 'websocket', 'direct'].includes(t)) as TransportType[];
 
 /**
  * Transport preference order (first available wins)
  * Default prefers WebSocket over HTTP over Direct
  */
 export const TRANSPORT_PREFERENCE: TransportType[] =
-  (import.meta.env.VITE_TRANSPORT_PREFERENCE || 'websocket,http,direct')
-    .split(',')
-    .map((t: string) => t.trim())
-    .filter((t: string) => ['http', 'websocket', 'direct'].includes(t)) as TransportType[];
+	(import.meta.env.VITE_TRANSPORT_PREFERENCE || 'websocket,http,direct')
+		.split(',')
+		.map((t: string) => t.trim())
+		.filter((t: string) => ['http', 'websocket', 'direct'].includes(t)) as TransportType[];
 
 /** Derived convenience checks */
 export const HTTP_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('http');

@@ -25,18 +25,18 @@ export type TrustStatus = 'trusted' | 'unknown' | 'untrusted';
  * badges, warnings) at the designer's discretion.
  */
 export interface TrustEvaluation {
-  /** Tri-state trust status from backend evaluation */
-  trustedStatus?: TrustStatus;
+	/** Tri-state trust status from backend evaluation */
+	trustedStatus?: TrustStatus;
 
-  /** Human-readable reason for the trust decision (from PDP) */
-  reason?: string;
+	/** Human-readable reason for the trust decision (from PDP) */
+	reason?: string;
 
-  /**
-   * Auxiliary metadata from the PDP evaluation.
-   *
-   * May contain trust chain details, DID document fragments, ETSI TSL
-   * service information, or other PDP-specific context. Structure depends
-   * on the PDP implementation; treat as opaque display data.
-   */
-  metadata?: Record<string, unknown>;
+	/**
+	 * Auxiliary metadata from the PDP evaluation.
+	 *
+	 * May contain trust chain details, DID document fragments, ETSI TSL
+	 * service information, or other PDP-specific context. Structure depends
+	 * on the PDP implementation; treat as opaque display data.
+	 */
+	metadata?: Record<string, unknown>;
 }
