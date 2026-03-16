@@ -107,8 +107,8 @@ wallet-common (must ship first)
   ├─ H5  as-any cleanup (independent, parallel with C1-C3)
   │
   └─ Release / tag
-       │
-       └─ wallet-frontend (depends on wallet-common release)
+      │
+      └─ wallet-frontend (depends on wallet-common release)
             │
             ├─ H1  Bump wallet-common pin
             │    ├─ C4  Add default cases to format switches
