@@ -39,6 +39,8 @@ function mapVerifierInfo(raw: Record<string, unknown>): OID4VPVerifierInfo {
 		logo: raw.logo != null
 			? (typeof raw.logo === 'string' ? raw.logo : (raw.logo as Record<string, unknown>)?.uri as string | undefined)
 			: undefined,
+		clientIdScheme: raw.client_id_scheme as string | undefined,
+		trustFramework: raw.framework as string | undefined,
 	};
 }
 
