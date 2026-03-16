@@ -121,4 +121,3 @@ export const BRANDING = {
 }
 
 export const MODE = import.meta.env.MODE as 'development' | 'production' || 'production';
-export const APP_VERSION = import.meta.env.VITE_APP_VERSION;
