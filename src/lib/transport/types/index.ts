@@ -1,6 +1,6 @@
 /**
  * Transport type definitions
- * 
+ *
  * This module exports all transport-related types for the wallet frontend.
  */
 

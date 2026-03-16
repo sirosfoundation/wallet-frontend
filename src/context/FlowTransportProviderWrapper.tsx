@@ -13,7 +13,7 @@ import { FlowTransportProvider } from './FlowTransportContext';
 import { useSessionStorage } from '@/hooks/useStorage';
 
 interface FlowTransportProviderWrapperProps {
-  children: React.ReactNode;
+	children: React.ReactNode;
 }
 
 /**
@@ -21,17 +21,17 @@ interface FlowTransportProviderWrapperProps {
  * and provides it to FlowTransportProvider
  */
 export const FlowTransportProviderWrapper: React.FC<FlowTransportProviderWrapperProps> = ({
-  children,
+	children,
 }) => {
-  // Get the appToken from session storage
-  // This is the same token used by the rest of the app
-  const [appToken] = useSessionStorage<string | null>('appToken', null);
+	// Get the appToken from session storage
+	// This is the same token used by the rest of the app
+	const [appToken] = useSessionStorage<string | null>('appToken', null);
 
-  return (
-    <FlowTransportProvider authToken={appToken}>
-      {children}
-    </FlowTransportProvider>
-  );
+	return (
+		<FlowTransportProvider authToken={appToken}>
+			{children}
+		</FlowTransportProvider>
+	);
 };
 
 export default FlowTransportProviderWrapper;
