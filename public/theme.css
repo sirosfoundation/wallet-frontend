@@ -1,0 +1,7 @@
+:root {
+	--theme-brand-color: hsl(217 66% 32%);
+	--theme-brand-color-light: hsl(217 46% 45%);
+	--theme-brand-color-lighter: hsl(217 27% 60%);
+	--theme-brand-color-dark: hsl(217 42% 42%);
+	--theme-brand-color-darker: hsl(217 16% 40%);
+}
