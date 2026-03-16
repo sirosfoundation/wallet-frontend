@@ -247,16 +247,16 @@ const usersByTenant = useMemo(() => {
 │    • Default                                                 │
 │    • University X                                           │
 └─────────────────────────────────────────────────────────────┘
-                           │
-                           │ User selects "University X"
-                           ▼
+                            │
+                            │ User selects "University X"
+                            ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  1. Logout from current session                             │
 │  2. Clear tenant from sessionStorage                        │
 │  3. Redirect to /id/university-x/login?user=<handle>        │
 └─────────────────────────────────────────────────────────────┘
-                           │
-                           ▼
+                            │
+                            ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  Login Page (University X)                                  │
 │  ─────────────────────────                                  │
@@ -300,22 +300,22 @@ Users who logged in before this feature will have:
 **Migration approach:**
 1. On next login, populate the tenant fields
 2. Parse legacy `displayName` format (`"name @ tenant"`) as fallback:
-   ```typescript
-   function migrateLegacyCachedUser(user: CachedUser): CachedUser {
-       if (user.tenantId !== undefined) return user;
+    ```typescript
+    function migrateLegacyCachedUser(user: CachedUser): CachedUser {
+        if (user.tenantId !== undefined) return user;
 
-       const match = user.displayName.match(/^(.+) @ (.+)$/);
-       if (match) {
-           return {
-               ...user,
-               displayName: match[1],
-               tenantDisplayName: match[2],
-               tenantId: undefined, // Will be set on next login
-           };
-       }
-       return { ...user, tenantId: 'default' };
-   }
-   ```
+        const match = user.displayName.match(/^(.+) @ (.+)$/);
+        if (match) {
+            return {
+                ...user,
+                displayName: match[1],
+                tenantDisplayName: match[2],
+                tenantId: undefined, // Will be set on next login
+            };
+        }
+        return { ...user, tenantId: 'default' };
+    }
+    ```
 
 ---
 
@@ -326,8 +326,8 @@ Users who logged in before this feature will have:
 2. **Session Isolation**: Switching tenants requires a full logout/login cycle. No session tokens or credentials leak between tenants.
 
 3. **localStorage vs sessionStorage**:
-   - `cachedUsers` → localStorage (persists across sessions)
-   - `currentTenant` → sessionStorage (per-tab isolation)
+    - `cachedUsers` → localStorage (persists across sessions)
+    - `currentTenant` → sessionStorage (per-tab isolation)
 
 4. **Cross-Site Considerations**: If tenants are on different origins (future feature), this architecture still works since cached users are stored locally and passkeys are origin-bound.
 
@@ -377,13 +377,13 @@ Users who logged in before this feature will have:
 ## Open Questions
 
 1. **Should switching require explicit confirmation?**
-   Recommendation: Yes, show a confirmation dialog: "Switch to {tenant}? You will be logged out of {currentTenant}."
+    Recommendation: Yes, show a confirmation dialog: "Switch to {tenant}? You will be logged out of {currentTenant}."
 
 2. **What if user has 10+ cached identities?**
-   Consider pagination or a dedicated "manage identities" page in settings.
+    Consider pagination or a dedicated "manage identities" page in settings.
 
 3. **Should we auto-login after switch, or always show passkey prompt?**
-   Recommendation: Always show passkey prompt for security. The `?user=<handle>` hint pre-selects the account but doesn't bypass authentication.
+    Recommendation: Always show passkey prompt for security. The `?user=<handle>` hint pre-selects the account but doesn't bypass authentication.
 
 4. **Mobile UX for tenant switcher?**
-   Consider a bottom sheet modal instead of dropdown for better touch interaction.
+    Consider a bottom sheet modal instead of dropdown for better touch interaction.

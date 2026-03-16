@@ -9,7 +9,7 @@ import React from 'react';
 import { useWebSocketSignHandler } from '@/hooks/useWebSocketSignHandler';
 
 interface WebSocketSignHandlerProviderProps {
-  children: React.ReactNode;
+	children: React.ReactNode;
 }
 
 /**
@@ -17,12 +17,12 @@ interface WebSocketSignHandlerProviderProps {
  * Renders children unchanged - only side effect is registering the handler.
  */
 export const WebSocketSignHandlerProvider: React.FC<WebSocketSignHandlerProviderProps> = ({
-  children,
+	children,
 }) => {
-  // Register the sign handler
-  useWebSocketSignHandler();
+	// Register the sign handler
+	useWebSocketSignHandler();
 
-  return <>{children}</>;
+	return <>{children}</>;
 };
 
 export default WebSocketSignHandlerProvider;
