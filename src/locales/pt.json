@@ -322,8 +322,8 @@
 	},
 	"sidebar": {
 		"navItemLogout": "Sair",
-		"poweredBy": "Desenvolvido por <docLinkWalletGithub>wwWallet</docLinkWalletGithub>",
-		"poweredByAriaLabel": "Repositório GitHub da wwWallet"
+		"poweredBy": "Powered by <docLinkWalletGithub>SIROS ID</docLinkWalletGithub>",
+		"poweredByAriaLabel": "SIROS ID documentation"
 	},
 	"tenantSelector": {
 		"closePopup": "Fechar popup",

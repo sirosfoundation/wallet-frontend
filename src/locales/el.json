@@ -346,8 +346,8 @@
 	},
 	"sidebar": {
 		"navItemLogout": "Αποσύνδεση",
-		"poweredBy": "Powered by <docLinkWalletGithub>wwWallet</docLinkWalletGithub>",
-		"poweredByAriaLabel": "GitHub repository του wwWallet"
+		"poweredBy": "Powered by <docLinkWalletGithub>SIROS ID</docLinkWalletGithub>",
+		"poweredByAriaLabel": "SIROS ID documentation"
 	},
 	"tenantSelector": {
 		"closePopup": "Κλείσιμο παραθύρου",
