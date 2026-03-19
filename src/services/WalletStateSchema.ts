@@ -4,16 +4,19 @@ import { compareBy, last, splitWhen } from "@/util";
 import * as SchemaV1 from "./WalletStateSchemaVersion1";
 import * as SchemaV2 from "./WalletStateSchemaVersion2";
 import * as SchemaV3 from "./WalletStateSchemaVersion3";
-import * as CurrentSchema from "./WalletStateSchemaVersion3";
+import * as SchemaV4 from "./WalletStateSchemaVersion4";
+import * as SchemaV5 from "./WalletStateSchemaVersion5";
+import * as CurrentSchema from "./WalletStateSchemaVersion5";
 import { WalletSessionEvent, WalletState, WalletStateContainerGeneric, WalletStateOperations } from "./WalletStateSchemaCommon";
 import { WalletStateUtils } from "./WalletStateUtils";
-import { CredentialKeyPair } from "./keystore";
 import { JWK } from "jose";
 
 export * as SchemaV1 from "./WalletStateSchemaVersion1";
 export * as SchemaV2 from "./WalletStateSchemaVersion2";
 export * as SchemaV3 from "./WalletStateSchemaVersion3";
-export * as CurrentSchema from "./WalletStateSchemaVersion3";
+export * as SchemaV4 from "./WalletStateSchemaVersion4";
+export * as SchemaV5 from "./WalletStateSchemaVersion5";
+export * as CurrentSchema from "./WalletStateSchemaVersion5";
 
 
 const {
@@ -26,6 +29,8 @@ const {
 
 type WalletStateContainer = CurrentSchema.WalletStateContainer;
 type WalletStateSettings = CurrentSchema.WalletStateSettings;
+type CredentialKeyPair = CurrentSchema.CredentialKeyPair;
+type WebauthnSignArkgPublicSeed = CurrentSchema.WebauthnSignArkgPublicSeed;
 
 
 export function getSchema(schemaVersion: number): WalletStateOperations<WalletState, WalletSessionEvent> {
@@ -36,6 +41,10 @@ export function getSchema(schemaVersion: number): WalletStateOperations<WalletSt
 			return SchemaV2.WalletStateOperations;
 		case 3:
 			return SchemaV3.WalletStateOperations;
+		case 4:
+			return SchemaV4.WalletStateOperations;
+		case 5:
+			return SchemaV5.WalletStateOperations;
 		default:
 			throw new Error(`Unknown schema version: ${schemaVersion}`);
 	}
@@ -277,6 +286,24 @@ export async function addDeleteCredentialIssuanceSessionEvent(container: WalletS
 	};
 	await validateEventHistoryContinuity(newContainer);
 	return newContainer;
+}
+
+export async function addNewArkgSeedEvent(
+	container: WalletStateContainer,
+	arkgSeed: WebauthnSignArkgPublicSeed,
+	name: string | null,
+): Promise<WalletStateContainer> {
+	return {
+		...container,
+		events: [
+			...container.events,
+			{
+				...await createWalletSessionEvent(container),
+				type: "new_arkg_seed",
+				arkgSeed,
+				name,
+			}],
+	};
 }
 
 /**

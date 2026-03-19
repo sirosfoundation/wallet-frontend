@@ -225,7 +225,6 @@ const WebauthnSignupLogin = ({
 
 	const [inProgress, setInProgress] = useState(false);
 	const [name, setName] = useState("");
-	const [needPrfRetry, setNeedPrfRetry] = useState(false);
 	const [resolvePrfRetryPrompt, setResolvePrfRetryPrompt] = useState<(accept: boolean) => void>(null);
 	const [prfRetryAccepted, setPrfRetryAccepted] = useState(false);
 
@@ -246,11 +245,9 @@ const WebauthnSignupLogin = ({
 	);
 
 	const promptForPrfRetry = async (): Promise<boolean> => {
-		setNeedPrfRetry(true);
 		return new Promise((resolve: (accept: boolean) => void, _reject) => {
 			setResolvePrfRetryPrompt(() => resolve);
 		}).finally(() => {
-			setNeedPrfRetry(false);
 			setPrfRetryAccepted(true);
 			setResolvePrfRetryPrompt(null);
 		});
@@ -265,6 +262,10 @@ const WebauthnSignupLogin = ({
 
 			// Using a switch here so the t() argument can be a literal, to ease searching
 			switch (err) {
+				case 'canceled':
+					onCancel();
+					break;
+
 				case 'loginKeystoreFailed':
 					setError(t('loginSignup.loginKeystoreFailed'));
 					break;
@@ -310,6 +311,10 @@ const WebauthnSignupLogin = ({
 		} else if (result.err) {
 			// Using a switch here so the t() argument can be a literal, to ease searching
 			switch (result.val) {
+				case 'canceled':
+					onCancel();
+					break;
+
 				case 'passkeySignupFailedServerError':
 					setError(t('loginSignup.passkeySignupFailedServerError'));
 					break;
@@ -350,12 +355,14 @@ const WebauthnSignupLogin = ({
 					break;
 
 				default:
-					if (result.val?.errorId === 'prfRetryFailed') {
-						setRetrySignupFrom(result.val?.retryFrom);
+					switch (result.val?.errorId) {
+						case 'prfRetryFailed':
+							setRetrySignupFrom(result.val?.retryFrom);
+							break;
 
-					} else {
-						setError(t('loginSignup.passkeySignupPrfRetryFailed'));
-						throw result;
+						default:
+							setError(t('loginSignup.passkeySignupPrfRetryFailed'));
+							throw result;
 					}
 			}
 		}
@@ -400,7 +407,6 @@ const WebauthnSignupLogin = ({
 	const onCancel = () => {
 		console.log("onCancel");
 		setInProgress(false);
-		setNeedPrfRetry(false);
 		setPrfRetryAccepted(false);
 		setResolvePrfRetryPrompt(null);
 		setIsSubmitting(false);
@@ -416,13 +422,13 @@ const WebauthnSignupLogin = ({
 		<form className='mb-4' onSubmit={onSubmit}>
 			{inProgress || retrySignupFrom
 				? (
-					needPrfRetry
+					resolvePrfRetryPrompt
 						? (
 							<div className="text-center">
 								{
 									prfRetryAccepted
 										? (
-											<p className="dark:text-white pb-3">{t('registerPasskey.messageInteract')}</p>
+											<p className="dark:text-white pb-3">{t('webauthn.messageInteract')}</p>
 										)
 										: (
 											<>
@@ -484,7 +490,7 @@ const WebauthnSignupLogin = ({
 								)
 								: (
 									<>
-										<p className="dark:text-white pb-3">{t('registerPasskey.messageInteract')}</p>
+										<p className="dark:text-white pb-3">{t('webauthn.messageInteract')}</p>
 										<Button
 											id="cancel-in-progress-prf-loginsignup"
 											onClick={onCancel}
