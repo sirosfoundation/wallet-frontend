@@ -76,7 +76,7 @@ function WebauthnInteractionDialog({
 
 			<p className="mb-2 dark:text-white">{bodyText}</p>
 
-			<form method="dialog" onSubmit={() => onContinue(inputValue)}>
+			<form method="dialog" onSubmit={() => onContinue?.(inputValue)}>
 				{input &&
 					<input
 						type="text"

@@ -18,6 +18,7 @@
 	"common": {
 		"and": "e",
 		"cancel": "Cancelar",
+		"action-close": "Fechar",
 		"continue": "Continuar",
 		"delete": "Eliminar",
 		"navItemAddCredentials": "Adicionar Credenciais",

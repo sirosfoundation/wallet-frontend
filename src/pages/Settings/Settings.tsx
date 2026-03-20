@@ -713,7 +713,7 @@ const Settings = () => {
 	const webauthnInteractionCtx = useContext(WebauthnInteractionDialogContext);
 	const walletState = keystore.getCalculatedWalletState();
 
-	const hasHardwareArkg = walletState.arkgSeeds.length > 0;
+	const hasHardwareArkg = walletState?.arkgSeeds?.length > 0;
 	function findCredential(credentialId?: BufferSource): WebauthnCredential | undefined {
 		return credentialId
 			? userData?.webauthnCredentials?.find(cred => byteArrayEquals(cred.credentialId, credentialId))
@@ -723,7 +723,7 @@ const Settings = () => {
 		const parentNickname = useWebauthnCredentialNickname(findCredential(hardwareKey?.credentialId));
 		return hardwareKey?.name ?? parentNickname;
 	}
-	const hardwareArkgName = useHardwareKeyNickname(walletState.arkgSeeds[0]);
+	const hardwareArkgName = useHardwareKeyNickname(walletState?.arkgSeeds?.[0]);
 	const hardwareArkgUses = hasHardwareArkg
 		? walletState.credentials.filter(cred => {
 			const keypair = walletState.keypairs.find(kp => kp.kid === cred.kid)?.keypair;
@@ -978,6 +978,7 @@ const Settings = () => {
 						}
 					}
 				}
+				throw new Error('WebAuthn registration cancelled by user');
 			}
 
 			const [newKeypair, newPrivateData, keystoreCommit] = await keystore.registerWebauthnSignKeypair(alg, async options => {

@@ -24,6 +24,6 @@ export function toArrayBuffer(buf: BufferSource): ArrayBuffer {
 	if (buf instanceof ArrayBuffer) {
 		return buf;
 	} else {
-		return buf.buffer;
+		return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
 	}
 }

@@ -25,17 +25,22 @@ type KeyPairs = {
 function getCredentialStatusIndicators(vcEntity: ExtendedVcEntity, keypairs: KeyPairs ): StatusIndicators {
 	const credentialKeyPair = keypairs?.find(kp => kp.kid === vcEntity.kid);
 
-	let alg: string, keypair: CredentialKeyPair;
+	let alg: string | undefined;
+	let keypair: CredentialKeyPair | undefined;
 
 	if (credentialKeyPair) {
 		keypair = credentialKeyPair.keypair;
 		alg = keypair.alg
 	} else {
-		if (vcEntity.data) {
-			const credParts = vcEntity.data.split('.');
-			const dpkJwk = JSON.parse(new TextDecoder().decode(fromBase64Url(credParts[credParts.length - 1].split('~')[1])));
+		try {
+			if (vcEntity.data) {
+				const credParts = vcEntity.data.split('.');
+				const dpkJwk = JSON.parse(new TextDecoder().decode(fromBase64Url(credParts[credParts.length - 1].split('~')[1])));
 
-			keypair = keypairs.find(keypair => keypair.kid === dpkJwk.kid)?.keypair;
+				keypair = keypairs.find(keypair => keypair.kid === dpkJwk.kid)?.keypair;
+			}
+		} catch {
+			// Credential data could not be parsed; leave keypair undefined
 		}
 	}
 
@@ -150,7 +155,7 @@ const CredentialStatusIndicatorsRibbon = (
 		<button onClick={handleOnClick} className={`z-40 absolute top-[-5px] font-semibold right-[-5px] cursor-default text-gray-900 dark:text-white text-xs px-2 flex gap-1 items-center rounded-lg border-2 ${borderColor ?? 'border-gray-100 dark:border-gray-900'} bg-white dark:bg-gray-800`}>
 			{type && <CredentialType type={type} />}
 			{privacyLevel && <CredentialPrivacyLevel level={privacyLevel} />}
-			{zeroSigCount && <CredentialUsages count={zeroSigCount} />}
+			{zeroSigCount !== undefined && <CredentialUsages count={zeroSigCount} />}
 		</button>
 	);
 }

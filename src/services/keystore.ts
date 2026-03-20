@@ -334,7 +334,7 @@ function makeWebauthnSignFunction(
 			}
 		} catch (e) {
 			console.error("Failed to extract signature from WebAuthn response:", e);
-			throw new Error('Signature not found', { cause: { id: 'error', err: e, credential: pkc } });
+			throw new Error('Signature not found', { cause: { id: e?.cause?.id ?? 'error', err: e, credential: pkc } });
 		}
 	};
 }

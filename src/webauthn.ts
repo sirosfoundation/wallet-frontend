@@ -20,7 +20,7 @@ export type AuthenticatorData = {
 export function parseAuthenticatorData(bytes: Uint8Array): AuthenticatorData {
 	const rpIdHash = bytes.slice(0, 32);
 	const flagsByte = bytes[32]; // eslint-disable-line prefer-destructuring
-	const signCount = new DataView(bytes.buffer).getUint32(32 + 1, false);
+	const signCount = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(32 + 1, false);
 
 	const flags = {
 		UP: (flagsByte & 0x01) !== 0,
@@ -70,7 +70,7 @@ function parseAttestedCredentialData(bytes: Uint8Array): [
 	{ [extensionId: string]: any }?,
 ] {
 	const aaguid = bytes.slice(0, 16);
-	const credentialIdLength = new DataView(bytes.buffer).getUint16(16, false);
+	const credentialIdLength = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint16(16, false);
 	const credentialId = bytes.slice(16 + 2, 16 + 2 + credentialIdLength);
 	const [credentialPublicKey, extensions] = cbor.decodeAllSync(bytes.slice(16 + 2 + credentialIdLength));
 	return [
@@ -96,5 +96,5 @@ export function getAuthenticatorExtensionOutputs(credential: PublicKeyCredential
 		throw new Error(`Failed to get authenticator data from credential: ${credential}`, { cause: { credential } });
 	}
 
-	return parseAuthenticatorData(authenticatorData).extensions;
+	return parseAuthenticatorData(authenticatorData).extensions ?? {};
 }

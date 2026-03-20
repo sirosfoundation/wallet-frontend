@@ -733,6 +733,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 					}
 				}
 			}
+			throw new Error('WebAuthn signing cancelled by user');
 		},
 		[
 			t,

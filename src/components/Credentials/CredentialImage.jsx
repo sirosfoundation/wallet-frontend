@@ -18,10 +18,11 @@ const CredentialImage = ({
 }) => {
 	const { keystore } = useContext(SessionContext);
 	const [imageSrc, setImageSrc] = useState(undefined);
-	const [walletStateKeypairs, setWalletStateKeyPairs] = useState(null);
+	const [walletStateKeypairs, setWalletStateKeyPairs] = useState([]);
 
 	useEffect(() => {
-		setWalletStateKeyPairs(keystore.getCalculatedWalletState().keypairs);
+		const state = keystore?.getCalculatedWalletState?.();
+		setWalletStateKeyPairs(state?.keypairs ?? []);
 	}, [keystore]);
 
 	useEffect(() => {

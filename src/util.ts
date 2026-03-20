@@ -8,7 +8,7 @@ export function toU8(b: BufferSource): Uint8Array {
 	if (b instanceof Uint8Array) {
 		return b;
 	} else if ("buffer" in b) {
-		return new Uint8Array(b.buffer);
+		return new Uint8Array(b.buffer, b.byteOffset, b.byteLength);
 	} else if ("byteLength" in b) {
 		const u = new Uint8Array(b);
 		if (u.length === b.byteLength) {

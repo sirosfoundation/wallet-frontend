@@ -18,6 +18,7 @@
 	"common": {
 		"and": "και",
 		"cancel": "Ακύρωση",
+		"action-close": "Κλείσιμο",
 		"continue": "Συνέχεια",
 		"delete": "Διαγραφή",
 		"navItemAddCredentials": "Προσθήκη Πιστοποιητικών",
