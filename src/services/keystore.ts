@@ -1368,10 +1368,6 @@ async function createDid(publicKey: CryptoKey | JWK, didKeyVersion: DidKeyVersio
 	}
 }
 
-<<<<<<< HEAD
-export async function signJwtPresentation([privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState], nonce: string, audience: string, verifiableCredentials: any[], transactionDataResponseParams?: { transaction_data_hashes: string[], transaction_data_hashes_alg: string[] }): Promise<{ vpjwt: string }> {
-	const hasher = async (data: string | ArrayBuffer, alg: string) => {
-=======
 export async function signJwtPresentation(
 	[privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState],
 	nonce: string,
@@ -1380,8 +1376,7 @@ export async function signJwtPresentation(
 	executeWebauthn: (options: CredentialRequestOptions) => Promise<PublicKeyCredential>,
 	transactionDataResponseParams?: { transaction_data_hashes: string[], transaction_data_hashes_alg: string[] },
 ): Promise<{ vpjwt: string }> {
-	const hasher = (data: string | ArrayBuffer, alg: string) => {
->>>>>>> origin/sign-extension-arkg-sirosid
+	const hasher = async (data: string | ArrayBuffer, alg: string) => {
 		const encoded =
 			typeof data === 'string' ? new TextEncoder().encode(data) : new Uint8Array(data);
 
