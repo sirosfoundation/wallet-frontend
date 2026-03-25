@@ -1,16 +1,16 @@
 import { useMemo, useRef, useContext, useEffect } from 'react';
-import axios from 'axios';
+import axios, { AxiosError, AxiosHeaders } from 'axios';
 import { IHttpProxy, RequestHeaders, ResponseHeaders } from '../../interfaces/IHttpProxy';
 import StatusContext from '@/context/StatusContext';
-import { addItem, getItem, removeItem } from '@/indexedDB';
+import { addItem, getItem } from '@/indexedDB';
 import { encryptedHttpRequest, toArrayBuffer } from '@/lib/utils/ohttpHelpers';
-import { OHTTP_RELAY } from "@/config";
+import { BACKEND_URL, OHTTP_RELAY } from "@/config";
 import SessionContext from '@/context/SessionContext';
 import { toU8 } from '@/util';
 import { getStoredTenant } from '@/lib/tenant';
 
 // @ts-ignore
-const walletBackendServerUrl = import.meta.env.VITE_WALLET_BACKEND_URL;
+const walletBackendServerUrl = BACKEND_URL;
 const inFlightRequests = new Map<string, Promise<any>>();
 const TIMEOUT = 3 * 1000;
 
@@ -44,6 +44,7 @@ export function useHttpProxy(): IHttpProxy {
 				cacheOnError?: boolean;
 			}
 		): Promise<{ status: number; headers: ResponseHeaders; data: unknown }> {
+			const tenantId = getStoredTenant() || 'default';
 			const useCache = options?.useCache;
 			const cacheOnError = options?.cacheOnError ?? false;
 			const now = Math.floor(Date.now() / 1000);
@@ -108,21 +109,52 @@ export function useHttpProxy(): IHttpProxy {
 			}
 
 			const requestPromise = (async () => {
+				const shouldUseOblivious = obliviousKeyConfig !== null;
+				const targetIsBackend = (new URL(url)).origin === (new URL(BACKEND_URL)).origin;
+
 				try {
 					let response;
-					const shouldUseOblivious = obliviousKeyConfig !== null;
 					if (shouldUseOblivious) {
 						console.log("Using oblivious");
 						const keyConfig = obliviousKeyConfig;
 						if (keyConfig === null) {
 							throw new Error("Oblivious HTTP configuration error");
 						}
+
 						response = await encryptedHttpRequest(OHTTP_RELAY, keyConfig, {
 							method: 'GET',
-							headers,
+							headers: {
+								...headers,
+								// If request target is backend, include tenant id header in proxied request.
+								...(targetIsBackend && { 'X-Tenant-ID': tenantId }),
+							},
 							url,
 						})
 						response.data = response.body;
+						if (response.data.status > 299 || response.data.status < 200) {
+							const axiosHeaders = AxiosHeaders.from(headers as Record<string, string>);
+							throw new AxiosError(
+								`Request failed with status code ${response.status}`,
+								undefined,
+								{
+									headers: axiosHeaders,
+									method: 'get',
+									url,
+								},
+								undefined,
+								{
+									data: response,
+									status: response.status,
+									statusText: String(response.status),
+									headers: response.headers || {},
+									config: {
+										headers: axiosHeaders,
+										method: 'get',
+										url,
+									},
+								}
+							);
+						}
 						if (isBinaryRequest) {
 							response = {
 								...response,
@@ -140,8 +172,14 @@ export function useHttpProxy(): IHttpProxy {
 								response.data.data = new TextDecoder().decode(response.data.data);
 							}
 						}
+					} else if (targetIsBackend) {
+						response = await axios.get(url, {
+							headers: {
+								Authorization: 'Bearer ' + JSON.parse(sessionStorage.getItem('appToken')!),
+								'X-Tenant-ID': tenantId,
+							},
+						});
 					} else {
-						const tenantId = getStoredTenant() || 'default';
 						response = await axios.post(`${walletBackendServerUrl}/proxy`, {
 							headers,
 							url,
@@ -157,10 +195,11 @@ export function useHttpProxy(): IHttpProxy {
 						);
 					}
 
+					const res = (!shouldUseOblivious && targetIsBackend) ? response : response.data;
 
-					const res = response.data;
-
-					const sourceHeaders = isBinaryRequest ? response.headers : response.data?.headers;
+					const sourceHeaders = (isBinaryRequest || (!shouldUseOblivious && targetIsBackend))
+						? response.headers
+						: response.data?.headers;
 					const contentTypeHeader: string | undefined = sourceHeaders?.['content-type'];
 					const cacheControlHeader: string | undefined = sourceHeaders?.['cache-control'];
 
@@ -248,16 +287,13 @@ export function useHttpProxy(): IHttpProxy {
 					}
 
 					const fallback = await getItem('proxyCache', cacheKey, 'proxyCache');
+
 					if (fallback?.data) {
 						return {
 							status: 200,
 							headers: {},
 							data: fallback.data,
 						};
-					}
-
-					if (isOnlineRef.current) {
-						await removeItem('proxyCache', cacheKey, 'proxyCache');
 					}
 
 					return {
@@ -279,18 +315,26 @@ export function useHttpProxy(): IHttpProxy {
 			body: any,
 			headers: Record<string, string>
 		): Promise<{ status: number; headers: Record<string, unknown>; data: unknown }> {
+			const tenantId = getStoredTenant() || 'default';
+			const shouldUseOblivious = obliviousKeyConfig !== null;
+			const targetIsBackend = (new URL(url)).origin === (new URL(BACKEND_URL)).origin;
+
 			let response;
 			try {
-				const shouldUseOblivious = obliviousKeyConfig !== null;
 				if (shouldUseOblivious) {
 					console.log("Using oblivious");
 					const keyConfig = obliviousKeyConfig;
 					if (keyConfig === null) {
 						throw new Error("Oblivious HTTP configuration error");
 					}
+
 					response = await encryptedHttpRequest(OHTTP_RELAY, keyConfig, {
 						method: 'POST',
-						headers,
+						headers: {
+							...headers,
+							// If request target is backend, include tenant id header in proxied request.
+							...(targetIsBackend && { 'X-Tenant-ID': tenantId }),
+						},
 						url,
 						body
 					})
@@ -298,6 +342,32 @@ export function useHttpProxy(): IHttpProxy {
 					response = {
 						data: { ...response }
 					};
+					if (response.data.status > 299 || response.data.status < 200) {
+						const axiosHeaders = AxiosHeaders.from(headers as Record<string, string>);
+						throw new AxiosError(
+							`Request failed with status code ${response.data.status}`,
+							undefined,
+							{
+								headers: axiosHeaders,
+								method: 'post',
+								url,
+								data: body,
+							},
+							undefined,
+							{
+								data: response.data,
+								status: response.data.status,
+								statusText: String(response.data.status),
+								headers: response.data.headers || {},
+								config: {
+									headers: axiosHeaders,
+									method: 'post',
+									url,
+									data: body,
+								},
+							}
+						);
+					}
 					const responseHeader = response?.data?.headers?.['content-type'];
 					console.log("Content-Type parsed: ", responseHeader);
 					if (responseHeader && responseHeader.trim().startsWith('application/json')) {
@@ -305,8 +375,15 @@ export function useHttpProxy(): IHttpProxy {
 					} else {
 						response.data.data = new TextDecoder().decode(response.data.data);
 					}
+				} else if (targetIsBackend) {
+					response = await axios.post(url, body, {
+						timeout: TIMEOUT,
+						headers: {
+							Authorization: 'Bearer ' + JSON.parse(sessionStorage.getItem('appToken')),
+							'X-Tenant-ID': tenantId,
+						},
+					});
 				} else {
-					const tenantId = getStoredTenant() || 'default';
 					response = await axios.post(`${walletBackendServerUrl}/proxy`, {
 						headers: headers,
 						url: url,
@@ -320,14 +397,26 @@ export function useHttpProxy(): IHttpProxy {
 						}
 					});
 				}
-				return response.data;
+
+				const res = (targetIsBackend && !shouldUseOblivious) ? response : response.data;
+
+				return {
+					status: res.status,
+					headers: res.headers,
+					data: res.data,
+				};
 			} catch (err) {
 				console.log("Post failed");
 				console.log(JSON.stringify(err, Object.getOwnPropertyNames(err)));
+
+				const errRes = (targetIsBackend && !shouldUseOblivious)
+					? err.response
+					: err.response?.data;
+
 				return {
-					data: err.response.data.data,
-					headers: err.response.data.headers,
-					status: err.response.data.status || 500,
+					data: errRes?.data ?? 'POST proxy failed',
+					headers: errRes?.headers ?? {},
+					status: errRes?.status ?? 500,
 				};
 			}
 		},
