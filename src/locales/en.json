@@ -23,6 +23,7 @@
 		"delete": "Delete",
 		"externalPasskey": "Passkey on a security key",
 		"hybridPasskey": "Passkey on nearby device",
+		"loading": "Loading...",
 		"navItemAddCredentials": "Add Credentials",
 		"navItemAddCredentialsSimple": "Add",
 		"navItemCredentials": "Credentials",
@@ -130,6 +131,23 @@
 		"usernameLabel": "Username",
 		"weakPasswordError": "Weak password",
 		"welcomeMessage": "Welcome to <highlight>$t(common.walletName)</highlight>"
+	},
+	"oidcGate": {
+		"signUpWith": "Sign up with {{provider}}",
+		"signInWith": "Sign in with {{provider}}",
+		"registrationExplanation": "Your organization ({{provider}}) requires you to verify your identity before creating a wallet.",
+		"loginExplanation": "Your organization ({{provider}}) requires you to verify your identity before accessing your wallet.",
+		"awaitingAuth": "Waiting for authentication...",
+		"awaitingAuthHint": "Complete the sign-in process in the popup or new tab.",
+		"verified": "Verified: {{name}}",
+		"verifiedUser": "Identity verified",
+		"errorGeneric": "Authentication failed. Please try again.",
+		"errorCancelled": "Authentication was cancelled.",
+		"errorExpired": "Your session has expired. Please try again.",
+		"errorIdentityMismatch": "This wallet is registered to a different identity.",
+		"callbackProcessing": "Processing authentication...",
+		"callbackError": "Authentication error",
+		"callbackSuccess": "Authentication successful! Redirecting..."
 	},
 	"loginState": {
 		"confirm": "Confirm",

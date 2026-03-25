@@ -36,6 +36,7 @@ const Layout = lazyWithDelay(() => import('./components/Layout/Layout'), 400);
 const Login = lazyWithDelay(() => import('./pages/Login/Login'), 400);
 const LoginState = lazyWithDelay(() => import('./pages/Login/LoginState'), 400);
 const NotFound = lazyWithDelay(() => import('./pages/NotFound/NotFound'), 400);
+const OIDCCallback = lazyWithDelay(() => import('./pages/OIDCCallback/OIDCCallback'), 400);
 
 /**
  * Protected routes layout - wraps authenticated content with Layout and transitions.
@@ -109,6 +110,7 @@ function App() {
 						}>
 							<Route path="login" element={<Login />} />
 							<Route path="login-state" element={<LoginState />} />
+							<Route path="cb" element={<OIDCCallback />} />
 							<Route path="*" element={<NotFound />} />
 						</Route>
 					</Route>
@@ -130,6 +132,7 @@ function App() {
 					}>
 						<Route path="/login" element={<Login />} />
 						<Route path="/login-state" element={<LoginState />} />
+						<Route path="/cb" element={<OIDCCallback />} />
 						<Route path="*" element={<NotFound />} />
 					</Route>
 				</Routes>

@@ -9,6 +9,8 @@ import StatusContext from '@/context/StatusContext';
 import SessionContext from '@/context/SessionContext';
 import { useTenant } from '../../context/TenantContext';
 import { buildTenantRoutePath, filterUsersByTenantID, matchesTenantFromUrl } from '../../lib/tenant';
+import { useOIDCGate } from '../../hooks/useOIDCGate';
+import { getStoredIdToken } from '../../lib/oidc';
 
 import * as config from '../../config';
 import Button, { Variant } from '../../components/Buttons/Button';
@@ -18,6 +20,7 @@ import TenantSelector from '../../components/TenantSelector/TenantSelector';
 import SeparatorLine from '../../components/Shared/SeparatorLine';
 import PasswordStrength from '../../components/Auth/PasswordStrength';
 import LoginLayout from '../../components/Auth/LoginLayout';
+import OIDCGateUI from '../../components/Auth/OIDCGateUI';
 import checkForUpdates from '../../offlineUpdateSW';
 
 import { Eye, EyeOff, Info, KeyRoundIcon, Lock, LockKeyholeOpen, User, Wallet, X } from 'lucide-react';
@@ -219,9 +222,17 @@ const WebauthnSignupLogin = ({
 }) => {
 	const { isOnline, updateOnlineStatus } = useContext(StatusContext);
 	const { api, keystore } = useContext(SessionContext);
-	const { urlTenantId } = useTenant();
+	const { urlTenantId, buildPath } = useTenant();
 	const navigate = useNavigate();
 	const location = useLocation();
+
+	// OIDC gate hooks - registration and login are independent
+	const redirectUri = window.location.origin + buildPath('/cb');
+	const registrationGate = useOIDCGate({ purpose: 'registration', redirectUri });
+	const loginGate = useOIDCGate({ purpose: 'login', redirectUri });
+
+	// Determine which gate applies based on current mode
+	const activeGate = isLogin ? loginGate : registrationGate;
 
 	const [inProgress, setInProgress] = useState(false);
 	const [name, setName] = useState("");
@@ -412,8 +423,60 @@ const WebauthnSignupLogin = ({
 	const nameByteLimitReached = nameByteLength > nameByteLimit;
 	const nameByteLimitApproaching = nameByteLength >= nameByteLimit / 2;
 
+	// Handle OIDC gate flow start
+	const handleStartGateFlow = useCallback(() => {
+		activeGate.startFlow({ username: name });
+	}, [activeGate, name]);
+
+	// Check if we need to show the OIDC gate UI
+	const showOIDCGate = activeGate.requiresGate && !activeGate.isGateComplete;
+
+	// If OIDC gate is required and not complete, show the gate UI
+	if (showOIDCGate && activeGate.providerConfig) {
+		return (
+			<div className='mb-4'>
+				{/* For registration, show username field before gate */}
+				{!isLogin && (
+					<div className="mb-6">
+						<FormInputRow label={t('loginSignup.choosePasskeyUsername')} name="name" IconComponent={Wallet}>
+							<FormInputField
+								ariaLabel="Passkey name"
+								name="name"
+								onChange={(event) => setName(event.target.value)}
+								placeholder={t('loginSignup.enterPasskeyName')}
+								type="text"
+								value={name}
+								required
+							/>
+						</FormInputRow>
+					</div>
+				)}
+				<OIDCGateUI
+					state={activeGate.state}
+					provider={activeGate.providerConfig}
+					purpose={isLogin ? 'login' : 'registration'}
+					onStart={handleStartGateFlow}
+					onRetry={activeGate.reset}
+				/>
+				{error && <div className="text-lm-red dark:text-dm-red pt-2 mt-4">{error}</div>}
+			</div>
+		);
+	}
+
 	return (
 		<form className='mb-4' onSubmit={onSubmit}>
+			{/* Show verified badge if gate was completed */}
+			{activeGate.isGateComplete && activeGate.state.status === 'oidc-complete' && (
+				<div className="mb-4">
+					<OIDCGateUI
+						state={activeGate.state}
+						provider={activeGate.providerConfig!}
+						purpose={isLogin ? 'login' : 'registration'}
+						onStart={handleStartGateFlow}
+						onRetry={activeGate.reset}
+					/>
+				</div>
+			)}
 			{inProgress || retrySignupFrom
 				? (
 					needPrfRetry

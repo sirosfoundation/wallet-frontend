@@ -21,9 +21,12 @@
  * See go-wallet-backend/docs/adr/011-multi-tenancy.md for full design.
  */
 
-import React, { createContext, useContext, useEffect, useMemo, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo, useCallback, ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
+import axios from 'axios';
 import { getStoredTenant, setStoredTenant, clearStoredTenant, buildTenantRoutePath, TENANT_PATH_PREFIX } from '../lib/tenant';
+import { BACKEND_URL } from '../config';
+import type { TenantConfig, OIDCProviderConfig } from '../api/types';
 
 export interface TenantContextValue {
 	/** Current tenant ID (from URL, prop, or storage) */
@@ -32,6 +35,20 @@ export interface TenantContextValue {
 	urlTenantId: string | undefined;
 	/** Whether we're in a tenant-scoped context */
 	isMultiTenant: boolean;
+	/** Fetched tenant configuration (includes OIDC gate config) */
+	tenantConfig: TenantConfig | null;
+	/** Whether tenant config is currently being fetched */
+	isLoadingConfig: boolean;
+	/** Error from fetching tenant config */
+	configError: string | null;
+	/** Check if registration requires OIDC gate */
+	requiresOIDCGateForRegistration: () => boolean;
+	/** Check if login requires OIDC gate */
+	requiresOIDCGateForLogin: () => boolean;
+	/** Get OIDC provider config for registration (if gated) */
+	getRegistrationOIDCProvider: () => OIDCProviderConfig | null;
+	/** Get OIDC provider config for login (if gated) */
+	getLoginOIDCProvider: () => OIDCProviderConfig | null;
 	/** Switch to a different tenant (navigates to new tenant's home) */
 	switchTenant: (newTenantId: string) => void;
 	/** Clear tenant context (on logout) */
@@ -60,6 +77,7 @@ interface TenantProviderProps {
  * 1. Reads tenantId from URL params (useParams)
  * 2. Falls back to sessionStorage if not in URL
  * 3. Stores tenant in sessionStorage when found in URL
+ * 4. Fetches tenant config (including OIDC gate settings) from backend
  */
 export function TenantProvider({ children, tenantId: propTenantId }: TenantProviderProps) {
 	// Get tenant from URL path parameter
@@ -77,6 +95,50 @@ export function TenantProvider({ children, tenantId: propTenantId }: TenantProvi
 	// - Otherwise, use prop > URL > storage as before
 	const effectiveTenantId = storedTenantId || propTenantId || urlTenantId;
 
+	// Tenant config state
+	const [tenantConfig, setTenantConfig] = useState<TenantConfig | null>(null);
+	const [isLoadingConfig, setIsLoadingConfig] = useState(false);
+	const [configError, setConfigError] = useState<string | null>(null);
+
+	// Fetch tenant config from backend
+	useEffect(() => {
+		const fetchTenantConfig = async () => {
+			// Use URL tenant for pre-auth config (registration/login decisions)
+			// Fall back to effectiveTenantId for authenticated users
+			const tenantToFetch = urlTenantId || effectiveTenantId;
+			if (!tenantToFetch) {
+				setTenantConfig(null);
+				return;
+			}
+
+			setIsLoadingConfig(true);
+			setConfigError(null);
+
+			try {
+				const response = await axios.get<TenantConfig>(
+					`${BACKEND_URL}/api/v1/tenants/${tenantToFetch}/config`,
+					{ timeout: 10000 }
+				);
+				setTenantConfig(response.data);
+			} catch (error) {
+				if (axios.isAxiosError(error)) {
+					if (error.response?.status === 404) {
+						// Tenant not found - use default (no OIDC gate)
+						setTenantConfig({ id: tenantToFetch, name: tenantToFetch });
+					} else {
+						setConfigError(`Failed to fetch tenant config: ${error.message}`);
+					}
+				} else {
+					setConfigError('Failed to fetch tenant config');
+				}
+			} finally {
+				setIsLoadingConfig(false);
+			}
+		};
+
+		fetchTenantConfig();
+	}, [urlTenantId, effectiveTenantId]);
+
 	// Only sync URL tenant to storage if:
 	// 1. There's a URL tenant, AND
 	// 2. No existing stored tenant (user is not yet authenticated)
@@ -87,6 +149,28 @@ export function TenantProvider({ children, tenantId: propTenantId }: TenantProvi
 			setStoredTenant(urlTenantId);
 		}
 	}, [urlTenantId, storedTenantId]);
+
+	// OIDC gate helper functions
+	const requiresOIDCGateForRegistration = useCallback((): boolean => {
+		const mode = tenantConfig?.oidc_gate?.mode;
+		return mode === 'registration' || mode === 'both';
+	}, [tenantConfig]);
+
+	const requiresOIDCGateForLogin = useCallback((): boolean => {
+		const mode = tenantConfig?.oidc_gate?.mode;
+		return mode === 'login' || mode === 'both';
+	}, [tenantConfig]);
+
+	const getRegistrationOIDCProvider = useCallback((): OIDCProviderConfig | null => {
+		if (!requiresOIDCGateForRegistration()) return null;
+		return tenantConfig?.oidc_gate?.registration_op || null;
+	}, [tenantConfig, requiresOIDCGateForRegistration]);
+
+	const getLoginOIDCProvider = useCallback((): OIDCProviderConfig | null => {
+		if (!requiresOIDCGateForLogin()) return null;
+		// Fall back to registration_op if login_op not specified
+		return tenantConfig?.oidc_gate?.login_op || tenantConfig?.oidc_gate?.registration_op || null;
+	}, [tenantConfig, requiresOIDCGateForLogin]);
 
 	const switchTenant = useCallback((newTenantId: string) => {
 		setStoredTenant(newTenantId);
@@ -107,10 +191,20 @@ export function TenantProvider({ children, tenantId: propTenantId }: TenantProvi
 		effectiveTenantId,
 		urlTenantId,
 		isMultiTenant: !!effectiveTenantId,
+		tenantConfig,
+		isLoadingConfig,
+		configError,
+		requiresOIDCGateForRegistration,
+		requiresOIDCGateForLogin,
+		getRegistrationOIDCProvider,
+		getLoginOIDCProvider,
 		switchTenant,
 		clearTenant,
 		buildPath,
-	}), [effectiveTenantId, urlTenantId, switchTenant, clearTenant, buildPath]);
+	}), [effectiveTenantId, urlTenantId, tenantConfig, isLoadingConfig, configError,
+		requiresOIDCGateForRegistration, requiresOIDCGateForLogin,
+		getRegistrationOIDCProvider, getLoginOIDCProvider,
+		switchTenant, clearTenant, buildPath]);
 
 	return (
 		<TenantContext.Provider value={value}>
@@ -135,6 +229,13 @@ export function useTenant(): TenantContextValue {
 			effectiveTenantId: storedTenant,
 			urlTenantId,
 			isMultiTenant: false,
+			tenantConfig: null,
+			isLoadingConfig: false,
+			configError: null,
+			requiresOIDCGateForRegistration: () => false,
+			requiresOIDCGateForLogin: () => false,
+			getRegistrationOIDCProvider: () => null,
+			getLoginOIDCProvider: () => null,
 			switchTenant: () => {
 				console.warn('switchTenant called outside TenantProvider');
 			},
