@@ -34,7 +34,7 @@ const SendCredentials = () => {
 		if (!cachedUser) {
 			throw new Error("Could not get cached user");
 		}
-		const result = await api.syncPrivateData(cachedUser);
+		const result = await api.syncPrivateData(cachedUser, keystore);
 		logger.debug("Result: ", result)
 		if (!result.ok) {
 			throw new Error("PrivateData needs synchronization");
