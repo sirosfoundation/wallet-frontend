@@ -12,7 +12,7 @@ import { UseStorageHandle, useClearStorages, useLocalStorage, useSessionStorage 
 import { addItem, getItem, EXCLUDED_INDEXEDDB_PATHS } from '../indexedDB';
 import { loginWebAuthnBeginOffline } from './LocalAuthentication';
 import { withAuthenticatorAttachmentFromHints, withHintsFromAllowCredentials } from '@/util-webauthn';
-import { getStoredTenant, setStoredTenant, clearStoredTenant } from '../lib/tenant';
+import { getTenantFromUrlPath, setStoredTenant, clearStoredTenant } from '../lib/tenant';
 
 const walletBackendUrl = config.BACKEND_URL;
 
@@ -113,7 +113,6 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 	const [appToken, setAppToken, clearAppToken] = useSessionStorage<string | null>("appToken", null);
 	const [userHandle,] = useSessionStorage<string | null>("userHandle", null);
 	const [cachedUsers] = useLocalStorage<CachedUser[] | null>("cachedUsers", null);
-
 	const [sessionState, setSessionState, clearSessionState] = useSessionStorage<SessionState | null>("sessionState", null);
 
 	/**
@@ -161,8 +160,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		options: { appToken?: string },
 	): { [header: string]: string } => {
 		const authz = options?.appToken || appToken;
-		// Get tenant ID from storage, defaulting to 'default' for single-tenant and backwards compatibility
-		const tenantId = getStoredTenant() || 'default';
+		const tenantId = getTenantFromUrlPath() || 'default';
 		return {
 			...headers,
 			'X-Tenant-ID': headers['X-Tenant-ID'] || tenantId,
@@ -232,8 +230,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		options?: { appToken?: string, headers?: { [header: string]: string } },
 		force: boolean = false
 	): Promise<AxiosResponse> => {
-		// Get current tenant for cache key (X-Tenant-ID header is added by buildGetHeaders)
-		const tenantId = getStoredTenant() || 'default';
+		const tenantId = getTenantFromUrlPath() || 'default';
 		// Include tenant in cache key so different tenants have separate caches
 		const cacheKey = `${tenantId}:${path}`;
 		return getWithLocalDbKey(path, cacheKey, options, force);
@@ -709,7 +706,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 	): Promise<Result<void, SignupWebauthnError>> => {
 		// Registration uses the global endpoint with tenantId in request body
 		// This ensures the passkey's userHandle encodes the tenant for proper isolation
-		const storedTenant = tenantId || getStoredTenant();
+		const storedTenant = tenantId || getTenantFromUrlPath();
 
 		try {
 			const res = await post(
