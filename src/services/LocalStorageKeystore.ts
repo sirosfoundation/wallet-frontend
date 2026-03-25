@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useContext, useEffect, useState, useMemo } from "react";
 import { useNavigate } from 'react-router-dom';
 
 import * as config from "../config";
@@ -9,10 +9,25 @@ import { useOnUserInactivity } from "../hooks/useOnUserInactivity";
 import { logger } from "../logger";
 
 import * as keystore from "./keystore";
-import type { AsymmetricEncryptedContainer, AsymmetricEncryptedContainerKeys, EncryptedContainer, OpenedContainer, PrivateData, UnlockSuccess, WebauthnPrfEncryptionKeyInfo, WebauthnPrfSaltInfo, WrappedKeyInfo } from "./keystore";
+import type {
+	AsymmetricEncryptedContainer,
+	AsymmetricEncryptedContainerKeys,
+	EncryptedContainer,
+	OpenedContainer,
+	PrecreatedPublicKeyCredential,
+	PrivateData,
+	UnlockSuccess,
+	WebauthnPrfEncryptionKeyInfo,
+	WebauthnPrfSaltInfo,
+	WrappedKeyInfo,
+} from "./keystore";
 import { MDoc } from "@auth0/mdl";
 import { WalletStateUtils } from "./WalletStateUtils";
 import { addAlterSettingsEvent, addDeleteCredentialEvent, addDeleteCredentialIssuanceSessionEvent, addDeleteKeypairEvent, addNewCredentialEvent, addNewPresentationEvent, addSaveCredentialIssuanceSessionEvent, CurrentSchema, foldOldEventsIntoBaseState, foldState, mergeEventHistories } from "./WalletStateSchema";
+import { PublicKeyCredentialCreation } from "../types/webauthn";
+import WebauthnInteractionDialogContext from "../context/WebauthnInteractionDialogContext";
+import { useTranslation } from "react-i18next";
+
 import { UserId } from "@/api/types";
 import { getItem } from "@/indexedDB";
 import { WalletStateContainerGeneric } from "./WalletStateSchemaCommon";
@@ -22,6 +37,8 @@ type WalletStateCredential = CurrentSchema.WalletStateCredential;
 type WalletStateCredentialIssuanceSession = CurrentSchema.WalletStateCredentialIssuanceSession;
 type WalletStatePresentation = CurrentSchema.WalletStatePresentation;
 type WalletStateSettings = CurrentSchema.WalletStateSettings;
+type NewWebauthnSignKeypair = CurrentSchema.NewWebauthnSignKeypair;
+type CredentialKeyPair = CurrentSchema.CredentialKeyPair;
 
 type UserData = {
 	displayName: string;
@@ -58,14 +75,14 @@ export interface LocalStorageKeystore {
 	close(): Promise<void>,
 
 	initPassword(password: string): Promise<[EncryptedContainer, (userHandleB64u: string) => void]>,
-	initPrf(
-		credential: PublicKeyCredential,
-		prfSalt: Uint8Array,
+	initWebauthn(
+		credentialOrCreateOptions: PrecreatedPublicKeyCredential | CredentialCreationOptions,
 		promptForPrfRetry: () => Promise<boolean | AbortSignal>,
 		user: UserData,
-	): Promise<EncryptedContainer>,
-	addPrf(
-		credential: PublicKeyCredential,
+	): Promise<[PublicKeyCredential & { response: AuthenticatorAttestationResponse }, EncryptedContainer]>,
+	beginAddPrf(createOptions: CredentialCreationOptions): Promise<PrecreatedPublicKeyCredential>,
+	finishAddPrf(
+		credential: PrecreatedPublicKeyCredential,
 		promptForPrfRetry: () => Promise<boolean | AbortSignal>,
 	): Promise<[EncryptedContainer, CommitCallback]>,
 	deletePrf(credentialId: Uint8Array): [EncryptedContainer, CommitCallback],
@@ -80,7 +97,7 @@ export interface LocalStorageKeystore {
 		promptForPrfRetry: () => Promise<boolean | AbortSignal>,
 		user: CachedUser | UserData,
 	): Promise<[EncryptedContainer, CommitCallback] | null>,
-	getPrfKeyInfo(id: BufferSource): WebauthnPrfEncryptionKeyInfo,
+	getPrfKeyInfo(id: BufferSource): WebauthnPrfEncryptionKeyInfo | undefined,
 	getPasswordOrPrfKeyFromSession(
 		promptForPassword: () => Promise<string | null>,
 		promptForPrfRetry: () => Promise<boolean | AbortSignal>,
@@ -98,8 +115,16 @@ export interface LocalStorageKeystore {
 		CommitCallback,
 	]>,
 
+	registerWebauthnSignKeypair(
+		alg: number,
+		executeWebauthn: (options: CredentialCreationOptions) => Promise<{ credential: PublicKeyCredential, name: string }>,
+	): Promise<[
+		NewWebauthnSignKeypair | null,
+		AsymmetricEncryptedContainer,
+		CommitCallback,
+	]>
 	generateKeypairs(n: number): Promise<[
-		{ keypairs: keystore.CredentialKeyPair[] },
+		{ keypairs: CredentialKeyPair[] },
 		AsymmetricEncryptedContainer,
 		CommitCallback,
 	]>,
@@ -155,6 +180,9 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 	const clearSessionStorage = useClearStorages(clearUserHandleB64u, clearMainKey, clearTabId);
 
 	const navigate = useNavigate();
+
+	const { t } = useTranslation();
+	const webauthnInteractionCtx = useContext(WebauthnInteractionDialogContext);
 
 	const idb = useIndexedDb("wallet-frontend", 3, useCallback((db, prevVersion, newVersion) => {
 		if (prevVersion < 1) {
@@ -452,10 +480,11 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 	const init = useCallback(async (
 		mainKey: CryptoKey,
 		keyInfo: AsymmetricEncryptedContainerKeys,
-		user: UserData,
+		user: UserData | null,
+		credential: PublicKeyCredentialCreation | null,
 	): Promise<EncryptedContainer> => {
-		const unlocked = await keystore.init(mainKey, keyInfo);
-		const privateData = await finishUnlock(unlocked, user, null, async () => false);
+		const unlocked = await keystore.init(mainKey, keyInfo, credential);
+		const privateData = await finishUnlock(unlocked, user, credential, async () => false);
 		return privateData;
 	},
 		[finishUnlock]
@@ -484,16 +513,15 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		[finishUnlock, setPrivateData, writePrivateDataOnIdb, userHandleB64u]
 	);
 
-	const initPrf = useCallback(
+	const initWebauthn = useCallback(
 		async (
-			credential: PublicKeyCredential,
-			prfSalt: Uint8Array,
+			credentialOrCreateOptions: PrecreatedPublicKeyCredential | CredentialCreationOptions,
 			promptForPrfRetry: () => Promise<boolean | AbortSignal>,
 			user: UserData,
-		): Promise<EncryptedContainer> => {
-			const { mainKey, keyInfo } = await keystore.initPrf(credential, prfSalt, promptForPrfRetry);
-			const result = await init(mainKey, keyInfo, user);
-			return result;
+		): Promise<[PublicKeyCredentialCreation, EncryptedContainer]> => {
+			const { credential, mainKey, keyInfo } = await keystore.initWebauthn(credentialOrCreateOptions, promptForPrfRetry);
+			const result = await init(mainKey, keyInfo, user, credential);
+			return [credential, result];
 		},
 		[init]
 	);
@@ -501,7 +529,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 	const initPassword = useCallback(
 		async (password: string): Promise<[EncryptedContainer, (userHandleB64u: string) => void]> => {
 			const { mainKey, keyInfo } = await keystore.initPassword(password);
-			return [await init(mainKey, keyInfo, null), setUserHandleB64u];
+			return [await init(mainKey, keyInfo, null, null), setUserHandleB64u];
 		},
 		[init, setUserHandleB64u]
 	);
@@ -543,13 +571,20 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 	}, [userHandleB64u]);
 
 
-	const addPrf = useCallback(
+	const beginAddPrf = useCallback(
+		async (createOptions: CredentialCreationOptions): Promise<PrecreatedPublicKeyCredential> => {
+			return await keystore.beginAddPrf(createOptions);
+		},
+		[],
+	);
+
+	const finishAddPrf = useCallback(
 		async (
-			credential: PublicKeyCredential,
+			credential: PrecreatedPublicKeyCredential,
 			promptForPrfRetry: () => Promise<boolean | AbortSignal>,
 		): Promise<[EncryptedContainer, CommitCallback]> => {
 			const [privateData, mainKey] = await assertKeystoreOpen();
-			const newPrivateData = await keystore.addPrf(privateData, credential, mainKey, promptForPrfRetry);
+			const newPrivateData = await keystore.finishAddPrf(privateData, credential, mainKey, promptForPrfRetry);
 			return [
 				newPrivateData,
 				async () => {
@@ -652,11 +687,81 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		[privateData, setPrivateData, writePrivateDataOnIdb, userHandleB64u]
 	);
 
+	const webauthnSignRetryLoop = useCallback(
+		async (
+			heading: React.ReactNode,
+			options: CredentialRequestOptions,
+		): Promise<PublicKeyCredential> => {
+			const webauthnDialog = webauthnInteractionCtx.setup({ heading });
+
+			let retry = true;
+			while (retry) {
+				try {
+					const result = await webauthnDialog.beginGet(options, {
+						bodyText: t('signPresentation.usePasskey'),
+					});
+					webauthnDialog.success({
+						bodyText: t('signPresentation.success'),
+					});
+					return result;
+
+				} catch (e) {
+					switch (e.cause?.id) {
+						case 'signature-not-found': {
+							const result = await webauthnDialog.error({
+								bodyText: t('signPresentation.errorSignatureNotFound'),
+								buttons: {
+									retry: true,
+								},
+							});
+							retry = result.retry;
+							break;
+						}
+
+						case 'user-abort':
+							throw e;
+
+						case 'err':
+						default: {
+							const result = await webauthnDialog.error({
+								bodyText: t('signPresentation.errorUnknown'),
+								buttons: {
+									retry: true,
+								},
+							});
+							retry = result.retry;
+							break;
+						}
+					}
+				}
+			}
+			throw new Error('WebAuthn signing cancelled by user');
+		},
+		[
+			t,
+			webauthnInteractionCtx,
+		],
+	);
+
 	const signJwtPresentation = useCallback(
-		async (nonce: string, audience: string, verifiableCredentials: any[], transactionDataResponseParams?: { transaction_data_hashes: string[], transaction_data_hashes_alg: string[] }): Promise<{ vpjwt: string }> => (
-			await keystore.signJwtPresentation(await openPrivateData(), nonce, audience, verifiableCredentials, transactionDataResponseParams)
-		),
-		[openPrivateData]
+		async (nonce: string, audience: string, verifiableCredentials: any[], transactionDataResponseParams?: { transaction_data_hashes: string[], transaction_data_hashes_alg: string[] }): Promise<{ vpjwt: string }> => {
+			return keystore.signJwtPresentation(
+				await openPrivateData(),
+				nonce,
+				audience,
+				verifiableCredentials,
+				async options => webauthnSignRetryLoop(
+					t('signPresentation.heading'),
+					options,
+				),
+				transactionDataResponseParams,
+			);
+		},
+		[
+			openPrivateData,
+			t,
+			webauthnSignRetryLoop,
+		]
 	);
 
 	const generateDeviceResponse = useCallback(
@@ -690,14 +795,64 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 				nonce,
 				audience,
 				issuer,
-				requests.length
+				(index: number) => async options => webauthnSignRetryLoop(
+					t("signIssuance.heading", { currentNumber: index + 1, totalNumber: requests.length }),
+					options,
+				),
+				requests.length,
 			);
 		})
-	), [editPrivateData]);
+	), [
+		editPrivateData,
+		t,
+		webauthnSignRetryLoop,
+	]);
+
+	const currentUser: CachedUser | undefined = useMemo(
+		() => {
+			if (userHandleB64u) {
+				return cachedUsers.find(u => u.userHandleB64u === userHandleB64u);
+			} else {
+				return undefined;
+			}
+		},
+		[cachedUsers, userHandleB64u],
+	);
+
+	const registerWebauthnSignKeypair = useCallback(
+		async (
+			alg: number,
+			executeWebauthn: (options: CredentialCreationOptions) => Promise<{ credential: PublicKeyCredential, name: string }>,
+		) => {
+			return editPrivateData(async originalContainer => {
+				if (!currentUser?.displayName) {
+					throw new Error('User display name not set');
+				}
+				const displayName = currentUser.displayName;
+				return keystore.registerWebauthnSignKeypair(
+					originalContainer,
+					{ id: config.WEBAUTHN_RPID, name: config.WEBAUTHN_RPID },
+					{
+						// Very important! Don't use the real user handle, or existing
+						// credentials on the authenticator may be overwritten.
+						id: crypto.getRandomValues(new Uint8Array(32)),
+						name: displayName,
+						displayName,
+					},
+					alg,
+					executeWebauthn,
+				);
+			});
+		},
+		[
+			currentUser?.displayName,
+			editPrivateData,
+		],
+	);
 
 	const generateKeypairs = useCallback(
 		async (n: number): Promise<[
-			{ keypairs: keystore.CredentialKeyPair[] },
+			{ keypairs: CredentialKeyPair[] },
 			AsymmetricEncryptedContainer,
 			CommitCallback,
 		]> => (
@@ -705,13 +860,12 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 				return await keystore.generateKeypairs(
 					originalContainer,
 					config.DID_KEY_VERSION,
-					n
+					n,
 				);
 			})
 		),
 		[editPrivateData]
 	);
-
 
 	const getCalculatedWalletState = useCallback((): WalletState | null => {
 		return (calculatedWalletState);
@@ -851,8 +1005,9 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		isOpen,
 		close,
 		initPassword,
-		initPrf,
-		addPrf,
+		initWebauthn,
+		beginAddPrf,
+		finishAddPrf,
 		deletePrf,
 		unlockPassword,
 		unlockPrf,
@@ -866,6 +1021,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		getUserHandleB64u,
 		signJwtPresentation,
 		generateOpenid4vciProofs,
+		registerWebauthnSignKeypair,
 		generateKeypairs,
 		generateDeviceResponse,
 		generateDeviceResponseWithProximity,
@@ -882,8 +1038,9 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		isOpen,
 		close,
 		initPassword,
-		initPrf,
-		addPrf,
+		initWebauthn,
+		beginAddPrf,
+		finishAddPrf,
 		deletePrf,
 		unlockPassword,
 		unlockPrf,
@@ -909,5 +1066,6 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		saveCredentialIssuanceSessions,
 		getCredentialIssuanceSessionByState,
 		alterSettings,
+		registerWebauthnSignKeypair,
 	]);
 }

@@ -70,7 +70,7 @@ const CredentialLayout = ({ children, title = null, displayCredentialInfo = null
 
 	const CredentialImageButton = ({
 		showRibbon,
-		className = "w-full object-cover",
+		className = "w-full object-cover rounded-xl",
 		onClick = () => setShowFullscreenImgPopup(true),
 		ariaLabel,
 		title,
@@ -78,7 +78,7 @@ const CredentialLayout = ({ children, title = null, displayCredentialInfo = null
 	}) => (
 		<button
 			id="show-full-screen-credential"
-			className="relative rounded-xl xm:rounded-lg w-full overflow-hidden transition-shadow shadow-md hover:shadow-lg cursor-pointer"
+			className="relative xm:rounded-lg w-full transition-shadow shadow-md hover:shadow-lg cursor-pointer"
 			onClick={onClick}
 			aria-label={ariaLabel ?? credentialName}
 			title={title ?? t('pageCredentials.credentialFullScreenTitle', { friendlyName: credentialName })}
@@ -97,8 +97,8 @@ const CredentialLayout = ({ children, title = null, displayCredentialInfo = null
 		<div className="w-full flex flex-col lg:flex-row gap-4">
 			{/* LEFT COLUMN (always full width, shrinks on lg) */}
 			<div className="w-full lg:w-1/2 flex flex-col gap-4">
-				<CredentialImageButton showRibbon fixedRatioImage={false} />
-				{zeroSigCount !== null && sigTotal && (
+					<CredentialImageButton showRibbon fixedRatioImage={false} />
+					{zeroSigCount !== null && sigTotal && vcEntity.instances?.length > 1 && (
 					<UsageStats zeroSigCount={zeroSigCount} sigTotal={sigTotal} screenType={screenType} t={t} />
 
 				)}
@@ -122,13 +122,13 @@ const CredentialLayout = ({ children, title = null, displayCredentialInfo = null
 		<div className="w-full flex flex-col">
 			<div className={`flex flex-row items-center gap-5 mt-2 mb-4 px-2`}>
 				<div className='flex flex-col gap-4 w-4/5 xm:w-4/12'>
-					<CredentialImageButton showRibbon={false} fixedRatioImage={fixedRatioImage} />
-					{screenType !== 'mobile' && zeroSigCount !== null && sigTotal && (
+							<CredentialImageButton showRibbon={false} fixedRatioImage={fixedRatioImage} />
+							{screenType !== 'mobile' && vcEntity.instances?.length > 1 && zeroSigCount !== null && sigTotal && (
 						<UsageStats zeroSigCount={zeroSigCount} sigTotal={sigTotal} screenType={screenType} t={t} />
 
 					)}
 				</div>
-				{screenType === 'mobile' && (
+				{screenType === 'mobile' && vcEntity.instances?.length > 1 && (
 					<div className='flex flex-start flex-col gap-1'>
 						<p className='text-xl font-bold text-lm-gray-900 dark:text-dm-gray-100'>{credentialName}</p>
 						<UsageStats zeroSigCount={zeroSigCount} sigTotal={sigTotal} screenType={screenType} t={t} />

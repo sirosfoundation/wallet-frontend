@@ -67,6 +67,13 @@ export default defineConfig(async ({ mode }) => {
 			manifest: true,
 			sourcemap: true,
 			minify: mode === 'production',
+			rollupOptions: {
+				output: {
+					manualChunks: {
+						keystore: ['@/services/keystore', '@/services/LocalStorageKeystore'],
+					},
+				},
+			},
 		},
 	}
 });
