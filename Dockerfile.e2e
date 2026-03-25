@@ -6,6 +6,9 @@ FROM node:22-bullseye-slim AS builder-base
 
 RUN apt-get update -y && apt-get install -y git fontconfig && rm -rf /var/lib/apt/lists/*
 
+# Force git to use HTTPS instead of SSH for GitHub (no SSH keys in Docker build)
+RUN git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+
 WORKDIR /home/node/app
 
 # Install dependencies first so rebuild of these layers is only needed when dependencies change
@@ -19,7 +22,7 @@ COPY . .
 
 # Build-time environment variables for Vite
 ARG VITE_WALLET_BACKEND_URL=http://localhost:8080
-ARG VITE_WS_URL=ws://localhost:8080
+ARG VITE_WALLET_ENGINE_URL=http://localhost:8082
 ARG VITE_WEBAUTHN_RPID=localhost
 ARG VITE_OPENID4VCI_REDIRECT_URI=http://localhost:3000/
 ARG VITE_STATIC_PUBLIC_URL=http://localhost:3000
@@ -37,7 +40,7 @@ ARG VITE_DISPLAY_ISSUANCE_WARNINGS=false
 
 # Set them as environment variables for the build
 ENV VITE_WALLET_BACKEND_URL=$VITE_WALLET_BACKEND_URL
-ENV VITE_WS_URL=$VITE_WS_URL
+ENV VITE_WALLET_ENGINE_URL=$VITE_WALLET_ENGINE_URL
 ENV VITE_WEBAUTHN_RPID=$VITE_WEBAUTHN_RPID
 ENV VITE_OPENID4VCI_REDIRECT_URI=$VITE_OPENID4VCI_REDIRECT_URI
 ENV VITE_STATIC_PUBLIC_URL=$VITE_STATIC_PUBLIC_URL

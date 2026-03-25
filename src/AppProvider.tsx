@@ -13,6 +13,10 @@ import { OpenID4VPContextProvider } from './context/OpenID4VPContextProvider';
 import { OpenID4VCIContextProvider } from './context/OpenID4VCIContextProvider';
 import { AppSettingsProvider } from './context/AppSettingsProvider';
 import { NotificationProvider } from './context/NotificationProvider';
+import { FlowTransportProviderWrapper } from './context/FlowTransportProviderWrapper';
+import { WebSocketSignHandlerProvider } from './context/WebSocketSignHandlerProvider';
+import { ErrorDialogContextProvider } from './context/ErrorDialogContextProvider';
+import { TxCodeInputProvider } from './context/TxCodeInputContext';
 
 // Hocs
 import { UriHandlerProvider } from './hocs/UriHandlerProvider';
@@ -27,21 +31,29 @@ const AppProvider: React.FC<RootProviderProps> = ({ children }) => {
 		<StatusContextProvider>
 			<SessionContextProvider>
 				<CredentialsContextProvider>
-					<I18nextProvider i18n={i18n}>
-						<OpenID4VPContextProvider>
-							<OpenID4VCIContextProvider>
-								<UriHandlerProvider>
-									<AppSettingsProvider>
-										<NotificationProvider>
-											<NativeWrapperProvider>
-												{children}
-											</NativeWrapperProvider>
-										</NotificationProvider>
-									</AppSettingsProvider>
-								</UriHandlerProvider>
-							</OpenID4VCIContextProvider>
-						</OpenID4VPContextProvider>
-					</I18nextProvider>
+					<FlowTransportProviderWrapper>
+						<WebSocketSignHandlerProvider>
+							<I18nextProvider i18n={i18n}>
+										<ErrorDialogContextProvider>
+											<OpenID4VPContextProvider>
+												<OpenID4VCIContextProvider>
+													<TxCodeInputProvider>
+														<UriHandlerProvider>
+															<AppSettingsProvider>
+																<NotificationProvider>
+																	<NativeWrapperProvider>
+																		{children}
+																	</NativeWrapperProvider>
+																</NotificationProvider>
+															</AppSettingsProvider>
+														</UriHandlerProvider>
+													</TxCodeInputProvider>
+												</OpenID4VCIContextProvider>
+											</OpenID4VPContextProvider>
+										</ErrorDialogContextProvider>
+									</I18nextProvider>
+						</WebSocketSignHandlerProvider>
+					</FlowTransportProviderWrapper>
 				</CredentialsContextProvider>
 			</SessionContextProvider>
 		</StatusContextProvider>

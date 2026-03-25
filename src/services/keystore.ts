@@ -16,6 +16,7 @@ import { SupportedAlgs } from "@auth0/mdl/lib/mdoc/model/types";
 import { COSEKeyToJWK } from "cose-kit";
 import { withHintsFromAllowCredentials } from "@/util-webauthn";
 import { addDeleteKeypairEvent, addNewKeypairEvent, CurrentSchema, foldState, SchemaV1, SchemaV2, SchemaV3 } from "./WalletStateSchema";
+import { logger } from "../logger";
 
 type WalletState = CurrentSchema.WalletState;
 type WalletStateContainerV2 = SchemaV2.WalletStateContainer;
@@ -1111,7 +1112,7 @@ async function addNewCredentialKeypairs(
 
 
 
-	console.log("addNewredentialKeypair: Before update private data")
+	logger.debug("addNewredentialKeypair: Before update private data")
 	return {
 		privateKeys: keypairsWithPrivateKeys.map((k) => k.privateKey),
 		keypairs: keypairsWithPrivateKeys.map((k) => k.keypair),
@@ -1146,11 +1147,12 @@ async function createDid(publicKey: CryptoKey, didKeyVersion: DidKeyVersion): Pr
 }
 
 export async function signJwtPresentation([privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState], nonce: string, audience: string, verifiableCredentials: any[], transactionDataResponseParams?: { transaction_data_hashes: string[], transaction_data_hashes_alg: string[] }): Promise<{ vpjwt: string }> {
-	const hasher = (data: string | ArrayBuffer, alg: string) => {
+	const hasher = async (data: string | ArrayBuffer, alg: string) => {
 		const encoded =
 			typeof data === 'string' ? new TextEncoder().encode(data) : new Uint8Array(data);
 
-		return crypto.subtle.digest(alg, encoded).then((v) => new Uint8Array(v));
+		const digest = await crypto.subtle.digest(alg, encoded);
+		return new Uint8Array(digest);
 	}
 
 	const inputJwt = await SDJwt.fromEncode(verifiableCredentials[0], hasher);
@@ -1267,15 +1269,15 @@ export async function generateDeviceResponse([privateData, mainKey, calculatedSt
 	const p: DataItem = cborDecode(mdocCredential.documents[0].issuerSigned.issuerAuth.payload);
 	const deviceKeyInfo = p.data.get('deviceKeyInfo');
 	const deviceKey = deviceKeyInfo.get('deviceKey');
-	console.log("Device key = ", deviceKey);
+	logger.debug("Device key = ", deviceKey);
 
 	// @ts-ignore
 	const devicePublicKeyJwk = COSEKeyToJWK(deviceKey);
 	const kid = await jose.calculateJwkThumbprint(devicePublicKeyJwk, "sha256");
-	console.log("KID = ", kid)
+	logger.debug("KID = ", kid)
 	// get the keypair based on the jwk Thumbprint
 	const keypair = calculatedState.keypairs.filter((k) => k.kid === kid)[0];
-	console.log("Found keypair = ", keypair);
+	logger.debug("Found keypair = ", keypair);
 	if (!keypair) {
 		throw new Error("Key pair not found for kid (key ID): " + kid);
 	}
@@ -1283,10 +1285,10 @@ export async function generateDeviceResponse([privateData, mainKey, calculatedSt
 	const { alg, privateKey } = keypair.keypair;
 	const privateKeyJwk = privateKey;
 
-	console.log("mdocGeneratedNonce = ", mdocGeneratedNonce);
-	console.log("verifierGeneratedNonce = ", verifierGeneratedNonce);
-	console.log("clientId = ", clientId);
-	console.log("responseUri = ", responseUri);
+	logger.debug("mdocGeneratedNonce = ", mdocGeneratedNonce);
+	logger.debug("verifierGeneratedNonce = ", verifierGeneratedNonce);
+	logger.debug("clientId = ", clientId);
+	logger.debug("responseUri = ", responseUri);
 
 	const sessionTranscriptBytes = await getSessionTranscriptBytesForOID4VP(
 		clientId,
@@ -1296,7 +1298,7 @@ export async function generateDeviceResponse([privateData, mainKey, calculatedSt
 	);
 
 	const uint8ArrayToHexString = (uint8Array: Uint8Array) => Array.from(uint8Array, byte => byte.toString(16).padStart(2, '0')).join('');
-	console.log("Session transcript bytes (HEX): ", uint8ArrayToHexString(new Uint8Array(sessionTranscriptBytes)));
+	logger.debug("Session transcript bytes (HEX): ", uint8ArrayToHexString(new Uint8Array(sessionTranscriptBytes)));
 
 	const deviceResponseMDoc = await DeviceResponse.from(mdocCredential)
 		.usingPresentationDefinition(presentationDefinition)

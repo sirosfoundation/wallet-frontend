@@ -1,10 +1,11 @@
 import { useState, useEffect, useContext } from 'react';
 import { compareBy, reverse } from '../util';
+import { logger } from '../logger';
 
 // Context
 import CredentialsContext from '@/context/CredentialsContext';
 
-import { CredentialVerificationError, VerifiableCredentialFormat } from "wallet-common";
+import { CredentialVerificationError } from "wallet-common";
 
 const useFetchPresentations = (keystore, batchId = null, transactionId = null) => {
 	const [history, setHistory] = useState({});
@@ -12,7 +13,7 @@ const useFetchPresentations = (keystore, batchId = null, transactionId = null) =
 
 	useEffect(() => {
 		const fetchPresentations = async () => {
-			console.log('FetchPresentations');
+			logger.debug('FetchPresentations');
 			try {
 				let presentations = await keystore.getAllPresentations();
 				if (presentations.length === 0) {
@@ -64,18 +65,7 @@ const useFetchPresentations = (keystore, batchId = null, transactionId = null) =
 							credentialIssuerIdentifier: firstVC?.credentialIssuerIdentifier ?? null,
 						});
 
-						const result = await (async () => {
-							switch (parsedCredential.metadata.credential.format) {
-								case VerifiableCredentialFormat.VC_SDJWT:
-									return credentialEngine.sdJwtVerifier.verify({ rawCredential: presentation.data, opts: {} });
-								case VerifiableCredentialFormat.DC_SDJWT:
-									return credentialEngine.sdJwtVerifier.verify({ rawCredential: presentation.data, opts: {} });
-								case VerifiableCredentialFormat.MSO_MDOC:
-									return credentialEngine.msoMdocVerifier.verify({ rawCredential: presentation.data, opts: {} });
-								default:
-									return null;
-							}
-						})();
+						const result = await credentialEngine.credentialVerifyingEngine.verify({ rawCredential: presentation.data, opts: {} });
 
 						return {
 							presentation,
@@ -91,7 +81,7 @@ const useFetchPresentations = (keystore, batchId = null, transactionId = null) =
 				}, {});
 				setHistory(presentationsGroupedByTransactionId);
 			} catch (error) {
-				console.error('Error fetching presentations:', error);
+				logger.error('Error fetching presentations:', error);
 			}
 		};
 
