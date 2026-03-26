@@ -1408,8 +1408,13 @@ export async function signJwtPresentation(
 			return signJwt.sign(privateKey);
 
 		} else {
+			const { privateKey: dummyPrivateKey } = await crypto.subtle.generateKey(
+				{ name: "ECDSA", namedCurve: "P-256" },
+				false,
+				["sign"],
+			) as CryptoKeyPair;
 			return signJwt.sign(
-				null as jose.KeyLike,
+				dummyPrivateKey,
 				{ signFunction: makeWebauthnSignFunction(config.WEBAUTHN_RPID, keypair, executeWebauthn) },
 			);
 		}
@@ -1455,8 +1460,14 @@ export async function generateOpenid4vciProofs(
 					return signJwt.sign(privateKey);
 
 				} else if ("externalPrivateKey" in keypair) {
+					const { privateKey: dummyPrivateKey } = await crypto.subtle.generateKey(
+						{ name: "ECDSA", namedCurve: "P-256" },
+						false,
+						["sign"],
+					) as CryptoKeyPair;
+
 					return signJwt.sign(
-						null as jose.KeyLike,
+						dummyPrivateKey,
 						{ signFunction: makeWebauthnSignFunction(config.WEBAUTHN_RPID, keypair, executeWebauthn(index)) },
 					);
 
