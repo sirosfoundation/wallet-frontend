@@ -48,6 +48,11 @@ export const OPENID4VCI_TRANSACTION_ID_POLLING_INTERVAL_IN_SECONDS = config.open
 export const OPENID4VCI_TRANSACTION_ID_LIFETIME_IN_SECONDS = config.openid4vci_transaction_id_lifetime_in_seconds && !isNaN(parseInt(config.openid4vci_transaction_id_lifetime_in_seconds)) ? parseInt(config.openid4vci_transaction_id_lifetime_in_seconds) : 2592000;
 export const OHTTP_KEY_CONFIG = config.ohttp_key_config;
 export const OHTTP_RELAY = config.ohttp_relay;
+/**
+ * @deprecated AuthZEN is now always enabled. All trust evaluation is delegated to the backend.
+ */
+export const AUTHZEN_ENABLED = true;
+export const AUTHZEN_TENANT_ID = config.authzen_tenant_id || 'default';
 export const VCT_REGISTRY_URL: string | undefined = config.vct_registry_url;
 export const POLICY_LINKS = config.policy_links;
 export const SHOW_PWA_INSTALL_PROMPT = config.show_pwa_install_prompt ? config.show_pwa_install_prompt === 'true' : false;

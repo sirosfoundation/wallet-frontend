@@ -2,8 +2,8 @@ import { IOpenID4VP } from "../../interfaces/IOpenID4VP";
 import {
 	HandleAuthorizationRequestError as HandleAuthorizationRequestErrorType,
 } from "wallet-common";
-import type { OpenID4VPServerCredential } from "wallet-common";
-import { OpenID4VPServerAPI, OpenID4VPResponseMode } from "wallet-common";
+import type { OpenID4VPServerCredential, TrustEvaluationResult } from "wallet-common";
+import { OpenID4VPServerAPI, OpenID4VPResponseMode, defaultHttpClient } from "wallet-common";
 import { OpenID4VPRelyingPartyState } from "../../types/OpenID4VPRelyingPartyState";
 import { useOpenID4VPRelyingPartyStateRepository } from "../OpenID4VPRelyingPartyStateRepository";
 import { useHttpProxy } from "../HttpProxy/HttpProxy";
@@ -16,7 +16,8 @@ import { ExtendedVcEntity } from "@/context/CredentialsContext";
 import { getLeastUsedCredentialInstance } from "../CredentialBatchHelper";
 import { WalletStateUtils } from "@/services/WalletStateUtils";
 import { TransactionDataResponse } from "wallet-common";
-import { verifyRequestUriAndCerts } from "../../utils/verifyRequestUriAndCerts";
+import { createTrustEvaluator } from "../TrustEvaluator";
+import { BACKEND_URL, AUTHZEN_TENANT_ID } from "../../../config";
 
 export function useOpenID4VP({
 	showCredentialSelectionPopup,
@@ -93,6 +94,14 @@ export function useOpenID4VP({
 			return getLeastUsedCredentialInstance(batchId, vcEntityList, walletState);
 		};
 
+		// Create trust evaluator - all trust evaluation delegated to AuthZEN backend
+		const evaluateTrust = createTrustEvaluator({
+			httpClient: defaultHttpClient,
+			backendUrl: BACKEND_URL,
+			getAuthToken: () => JSON.parse(sessionStorage.getItem('appToken') || '""'),
+			tenantId: AUTHZEN_TENANT_ID,
+		});
+
 		return new OpenID4VPServerAPI<OpenID4VPServerCredential, ParsedTransactionData>({
 			httpClient: { get: httpProxy.get },
 			rpStateStore,
@@ -106,8 +115,8 @@ export function useOpenID4VP({
 			lastUsedNonceStore,
 			parseTransactionData: parseTransactionDataWithUI,
 			transactionDataResponseGenerator: TransactionDataResponse,
-			verifyRequestUriAndCerts: async ({ request_uri, response_uri, parsedHeader }) =>
-				verifyRequestUriAndCerts(request_uri, response_uri, parsedHeader),
+			// All trust evaluation delegated to AuthZEN backend
+			evaluateTrust,
 		});
 	}, [
 		httpProxy.get,
@@ -126,6 +135,7 @@ export function useOpenID4VP({
 			verifierDomainName: string,
 			verifierPurpose: string,
 			parsedTransactionData: ParsedTransactionData[] | null,
+			trustInfo?: TrustEvaluationResult,
 		}
 		| { error: HandleAuthorizationRequestErrorType }
 	> => {

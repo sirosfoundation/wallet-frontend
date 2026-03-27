@@ -1,6 +1,6 @@
 import { ExtendedVcEntity } from "@/context/CredentialsContext";
 import { ParsedTransactionData } from "../services/OpenID4VP/TransactionData/parseTransactionData";
-import type { HandleAuthorizationRequestError } from "wallet-common";
+import type { HandleAuthorizationRequestError, TrustEvaluationResult } from "wallet-common";
 
 export interface IOpenID4VP {
 	handleAuthorizationRequest(
@@ -12,6 +12,7 @@ export interface IOpenID4VP {
 			verifierDomainName: string,
 			verifierPurpose: string,
 			parsedTransactionData: ParsedTransactionData[] | null,
+			trustInfo?: TrustEvaluationResult,
 		}
 		| { error: HandleAuthorizationRequestError }
 	>;
