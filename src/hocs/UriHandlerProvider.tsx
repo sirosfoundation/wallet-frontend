@@ -136,7 +136,21 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 			console.log('[Uri Handler]: check', url);
 
 			if (u.protocol === 'openid-credential-offer' || u.searchParams.get('credential_offer') || u.searchParams.get('credential_offer_uri')) {
-				handleCredentialOffer(u.toString()).then(({ credentialIssuer, selectedCredentialConfigurationId, issuer_state, preAuthorizedCode, txCode }) => {
+				handleCredentialOffer(u.toString()).then(({ credentialIssuer, selectedCredentialConfigurationId, issuer_state, preAuthorizedCode, txCode, trustInfo }) => {
+					// Check issuer trust before proceeding
+					if (!trustInfo?.trusted) {
+						console.warn('Untrusted issuer:', credentialIssuer, trustInfo);
+						setTextMessagePopup({
+							title: t('issuance.untrustedIssuer'),
+							description: t('issuance.untrustedIssuerDescription', {
+								issuer: trustInfo?.name || credentialIssuer
+							})
+						});
+						setTypeMessagePopup('error');
+						setMessagePopup(true);
+						throw new Error('UNTRUSTED_ISSUER');
+					}
+
 					console.log("Generating authorization request...");
 					if (!preAuthorizedCode) {
 						return generateAuthorizationRequest(credentialIssuer, selectedCredentialConfigurationId, issuer_state);

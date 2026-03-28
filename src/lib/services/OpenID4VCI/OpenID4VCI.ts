@@ -12,7 +12,7 @@ import { GrantType, TokenRequestError, useTokenRequest } from './OAuth/TokenRequ
 import { useCredentialRequest } from './CredentialRequest';
 import { CurrentSchema } from '@/services/WalletStateSchema';
 import SessionContext from '@/context/SessionContext';
-import { CredentialConfigurationSupported, VerifiableCredentialFormat } from 'wallet-common';
+import { CredentialConfigurationSupported, VerifiableCredentialFormat, defaultHttpClient } from 'wallet-common';
 import { useTranslation } from 'react-i18next';
 import CredentialsContext from "@/context/CredentialsContext";
 import { WalletStateUtils } from '@/services/WalletStateUtils';
@@ -23,6 +23,13 @@ import { COSEKeyToJWK } from "cose-kit";
 import { notify } from "@/context/notifier";
 import { IOpenID4VCIClientStateRepository } from '@/lib/interfaces/IOpenID4VCIClientStateRepository';
 import { useNavigate } from 'react-router-dom';
+import { createIssuerTrustEvaluator, IssuerTrustResult } from '../TrustEvaluator';
+import { BACKEND_URL, AUTHZEN_TENANT_ID } from '../../../config';
+
+type WalletStateCredentialIssuanceSession = CurrentSchema.WalletStateCredentialIssuanceSession;
+
+const redirectUri = config.OPENID4VCI_REDIRECT_URI as string;
+const openid4vciProofTypePrecedence = config.OPENID4VCI_PROOF_TYPE_PRECEDENCE.split(',') as string[];
 
 type WalletStateCredentialIssuanceSession = CurrentSchema.WalletStateCredentialIssuanceSession;
 
@@ -582,6 +589,14 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 		return {};
 	}, [tokenRequestBuilder, credentialRequest, openID4VCIHelper]);
 
+	// Create issuer trust evaluator
+	const evaluateIssuerTrust = useMemo(() => createIssuerTrustEvaluator({
+		httpClient: defaultHttpClient,
+		backendUrl: BACKEND_URL,
+		getAuthToken: () => JSON.parse(sessionStorage.getItem('appToken') || '""'),
+		tenantId: AUTHZEN_TENANT_ID,
+	}), []);
+
 	/**
  *
  * @param response
@@ -591,7 +606,14 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
  */
 
 	const handleCredentialOffer = useCallback(
-		async (credentialOfferURL: string): Promise<{ credentialIssuer: string, selectedCredentialConfigurationId: string; issuer_state?: string; txCode?: { inputMode?: string; length?: number; description?: string; }; preAuthorizedCode?: string; }> => {
+		async (credentialOfferURL: string): Promise<{
+			credentialIssuer: string;
+			selectedCredentialConfigurationId: string;
+			issuer_state?: string;
+			txCode?: { inputMode?: string; length?: number; description?: string; };
+			preAuthorizedCode?: string;
+			trustInfo: IssuerTrustResult;
+		}> => {
 			const parsedUrl = new URL(credentialOfferURL);
 			let offer;
 			if (parsedUrl.searchParams.get("credential_offer")) {
@@ -618,11 +640,42 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 				throw new Error("Credential configuration not found");
 			}
 
+			// Evaluate issuer trust via AuthZEN
+			// Extract key material from signed_metadata if available
+			let keyMaterial: { type: 'x5c'; key: string[] } | undefined;
+			if (credentialIssuerMetadata.metadata.signed_metadata) {
+				try {
+					const signedMetadataHeader = JSON.parse(
+						new TextDecoder().decode(
+							jose.base64url.decode(credentialIssuerMetadata.metadata.signed_metadata.split('.')[0])
+						)
+					);
+					if (signedMetadataHeader.x5c) {
+						keyMaterial = { type: 'x5c', key: signedMetadataHeader.x5c };
+					}
+				} catch (err) {
+					console.warn('Could not extract x5c from signed_metadata:', err);
+				}
+			}
+
+			const trustInfo = await evaluateIssuerTrust({
+				issuerId: offer.credential_issuer,
+				keyMaterial,
+				context: {
+					credential_configuration_id: selectedConfigurationId,
+				},
+			});
+
+			if (!trustInfo.trusted) {
+				console.warn('Issuer trust evaluation failed for:', offer.credential_issuer);
+				// Return with untrusted status - caller decides how to proceed
+			}
+
 			if (GrantType.PRE_AUTHORIZED_CODE in offer.grants) {
 				const preAuthorizedCodeObject = offer.grants[GrantType.PRE_AUTHORIZED_CODE];
 				const preAuthorizedCode = preAuthorizedCodeObject["pre-authorized_code"];
 				const txCode = preAuthorizedCodeObject["tx_code"];
-				return { credentialIssuer: offer.credential_issuer, selectedCredentialConfigurationId: selectedConfigurationId, txCode, preAuthorizedCode };
+				return { credentialIssuer: offer.credential_issuer, selectedCredentialConfigurationId: selectedConfigurationId, txCode, preAuthorizedCode, trustInfo };
 			}
 
 			let issuer_state = undefined;
@@ -630,9 +683,9 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 				issuer_state = offer.grants.authorization_code.issuer_state;
 			}
 
-			return { credentialIssuer: offer.credential_issuer, selectedCredentialConfigurationId: selectedConfigurationId, issuer_state };
+			return { credentialIssuer: offer.credential_issuer, selectedCredentialConfigurationId: selectedConfigurationId, issuer_state, trustInfo };
 		},
-		[httpProxy, openID4VCIHelper]
+		[httpProxy, openID4VCIHelper, evaluateIssuerTrust]
 	);
 
 	const getAvailableCredentialConfigurations = useCallback(
