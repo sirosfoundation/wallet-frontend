@@ -1,9 +1,12 @@
 /**
- * Trust Evaluator adapter for OpenID4VP using AuthZEN client.
+ * Trust Evaluator adapters using AuthZEN client.
  *
  * This module bridges the wallet-common AuthZEN client with the
- * OpenID4VP trust evaluation interface, enabling multi-scheme
- * verifier authentication (did:web, https, x509_san_dns, etc.).
+ * wallet trust evaluation interfaces, enabling trust evaluation for:
+ * - Verifiers (OpenID4VP): did:web, https, x509_san_dns schemes
+ * - Issuers (OpenID4VCI): credential issuer trust evaluation
+ *
+ * All trust decisions are delegated to the AuthZEN backend.
  */
 
 import {
@@ -113,6 +116,136 @@ export function createTrustEvaluator(config: TrustEvaluatorConfig): OpenID4VPTru
 		if (!result.ok) {
 			console.error('Trust evaluation failed:', result.error);
 			// Return untrusted on error
+			return {
+				trusted: false,
+				metadata: { error: result.error },
+			};
+		}
+
+		const trustInfo = result.value;
+
+		return {
+			trusted: trustInfo.status === TrustStatus.TRUSTED,
+			name: trustInfo.name,
+			logo: trustInfo.logo,
+			metadata: trustInfo.metadata,
+		};
+	};
+}
+
+/**
+ * Issuer trust evaluation parameters.
+ */
+export interface IssuerTrustEvaluationParams {
+	/**
+	 * The credential issuer identifier (URL).
+	 */
+	issuerId: string;
+
+	/**
+	 * Key material from the issuer's signed_metadata JWT or certificate.
+	 * If not available, pass undefined and trust evaluation will be based on the issuer ID only.
+	 */
+	keyMaterial?: {
+		type: 'jwk' | 'x5c';
+		key: unknown | unknown[];
+	};
+
+	/**
+	 * Additional context (e.g., credential configuration).
+	 */
+	context?: Record<string, unknown>;
+}
+
+/**
+ * Issuer trust evaluation result.
+ */
+export interface IssuerTrustResult {
+	/**
+	 * Whether the issuer is trusted.
+	 */
+	trusted: boolean;
+
+	/**
+	 * Issuer's display name (from OIDF entity statement or DID document).
+	 */
+	name?: string;
+
+	/**
+	 * Issuer's logo URL.
+	 */
+	logo?: string;
+
+	/**
+	 * Additional metadata from trust evaluation.
+	 */
+	metadata?: Record<string, unknown>;
+}
+
+/**
+ * Issuer trust evaluator function type.
+ */
+export type IssuerTrustEvaluator = (params: IssuerTrustEvaluationParams) => Promise<IssuerTrustResult>;
+
+/**
+ * Create an issuer trust evaluator using the AuthZEN client.
+ *
+ * This evaluator calls the wallet backend's /v1/evaluate endpoint
+ * to verify issuer trustworthiness before credential issuance.
+ *
+ * @example
+ * ```typescript
+ * const evaluateIssuer = createIssuerTrustEvaluator({
+ *   httpClient: defaultHttpClient,
+ *   backendUrl: BACKEND_URL,
+ *   getAuthToken: () => sessionStorage.getItem('appToken'),
+ *   tenantId: 'default',
+ * });
+ *
+ * // Check issuer trust before issuance
+ * const result = await evaluateIssuer({
+ *   issuerId: 'https://issuer.example.com',
+ *   keyMaterial: { type: 'x5c', key: x5cChain },
+ * });
+ *
+ * if (!result.trusted) {
+ *   throw new Error('Untrusted issuer');
+ * }
+ * ```
+ */
+export function createIssuerTrustEvaluator(config: TrustEvaluatorConfig): IssuerTrustEvaluator {
+	const clientConfig: AuthZENClientConfig = {
+		httpClient: config.httpClient,
+		baseUrl: config.backendUrl,
+		getAuthToken: config.getAuthToken,
+		tenantId: config.tenantId,
+		timeout: config.timeout,
+	};
+
+	const authzenClient = AuthZENClient(clientConfig);
+
+	return async (params: IssuerTrustEvaluationParams): Promise<IssuerTrustResult> => {
+		const { issuerId, keyMaterial, context } = params;
+
+		// If no key material, use a minimal request with just the issuer ID
+		const authzenKeyMaterial = keyMaterial
+			? {
+				type: keyMaterial.type as 'jwk' | 'x5c',
+				key: keyMaterial.key,
+			}
+			: {
+				type: 'jwk' as const,
+				key: {}, // Empty JWK - trust based on issuer ID resolution only
+			};
+
+		const result = await authzenClient.evaluateIssuer({
+			issuerId,
+			keyMaterial: authzenKeyMaterial,
+			context,
+		});
+
+		if (!result.ok) {
+			console.error('Issuer trust evaluation failed:', result.error);
 			return {
 				trusted: false,
 				metadata: { error: result.error },

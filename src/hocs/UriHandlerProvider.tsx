@@ -188,8 +188,23 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 							selectedCredentialConfigurationId,
 							issuer_state,
 							preAuthorizedCode,
-							txCode
+							txCode,
+							trustInfo
 						} = offerData;
+
+						// Check issuer trust before proceeding
+						if (!trustInfo?.trusted) {
+							logger.warn('Untrusted issuer:', credentialIssuer, trustInfo);
+							setTextMessagePopup({
+								title: t('issuance.untrustedIssuer'),
+								description: t('issuance.untrustedIssuerDescription', {
+									issuer: trustInfo?.name || credentialIssuer
+								})
+							});
+							setTypeMessagePopup('error');
+							setMessagePopup(true);
+							return;
+						}
 
 						logger.debug("Handling credential offer...", { credentialIssuer, preAuthorizedCode: !!preAuthorizedCode });
 
