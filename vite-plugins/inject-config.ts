@@ -48,6 +48,21 @@ export function InjectConfigPlugin(env: Record<string, string>): Plugin {
 					await runInjectConfigFiles();
 				}
 			});
+
+			// Make sure paths resolve in dev server
+			server.middlewares.use((req, res, next) => {
+				if (req.url === '/' && config.BASE_PATH.startsWith('/id/')) {
+					res.writeHead(302, { Location: config.BASE_PATH });
+					res.end();
+					return;
+				}
+
+				if (req.url?.startsWith(config.BASE_PATH) && req.headers['content-type'] !== 'text/html') {
+					req.url = req.url.slice(config.BASE_PATH.length, req.url.length);
+				}
+
+				next();
+			});
 		},
 	};
 }
