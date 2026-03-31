@@ -13,10 +13,10 @@ import React, { createContext, useContext, useMemo, useEffect, useState, useCall
 import type { IFlowTransport } from '@/lib/transport/IFlowTransport';
 import { nullTransport } from '@/lib/transport/IFlowTransport';
 import { HttpProxyTransport } from '@/lib/transport/HttpProxyTransport';
-import { WebSocketTransport, SignRequest, SignResponse, SignRequestHandler } from '@/lib/transport/WebSocketTransport';
+import { WebSocketTransport } from '@/lib/transport/WebSocketTransport';
+import type { SignRequest, SignResponse, SignRequestHandler } from '@/lib/transport/WebSocketTransport';
 import { useHttpProxy } from '@/lib/services/HttpProxy/HttpProxy';
 import {
-	isWebSocketAvailable,
 	Capabilities,
 	getEngineCapabilities,
 } from '@/lib/services/CapabilitiesService';

@@ -41,7 +41,19 @@ export const ENGINE_URL = config.wallet_engine_url || BACKEND_URL;
  * Can be overridden with ws_url for custom configurations.
  */
 export const WS_URL = config.ws_url || (ENGINE_URL
-	? ENGINE_URL.replace(/^http/, 'ws') + '/api/v2/wallet'
+	? (() => {
+		try {
+			const url = new URL('/api/v2/wallet', ENGINE_URL);
+			if (url.protocol === 'http:') {
+				url.protocol = 'ws:';
+			} else if (url.protocol === 'https:') {
+				url.protocol = 'wss:';
+			}
+			return url.toString();
+		} catch {
+			return undefined;
+		}
+	})()
 	: undefined);
 
 export const MULTI_LANGUAGE_DISPLAY: boolean = config.multi_language_display ? JSON.parse(config.multi_language_display) : false;

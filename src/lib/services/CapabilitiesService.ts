@@ -57,7 +57,10 @@ async function fetchStatusCached(baseUrl: string): Promise<StatusResponse | null
 
 	// Return cached if fresh
 	if (cached && (now - cached.fetchedAt) < CACHE_TTL) {
-		if (cached.error) throw cached.error;
+		// Previous fetch failed; honor non-throwing contract and indicate unavailable
+		if (cached.error) {
+			return null;
+		}
 		return cached.response;
 	}
 

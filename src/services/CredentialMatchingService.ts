@@ -209,7 +209,12 @@ function matchesFilter(value: unknown, filter: Record<string, unknown>): boolean
 			if (filter.type === 'array' && !Array.isArray(value)) {
 				return false;
 			}
-			if (filter.type !== 'array' && filter.type !== actualType) {
+			// Special case: integer is type "integer" but typeof says "number"
+			if (filter.type === 'integer') {
+				if (typeof value !== 'number' || !Number.isInteger(value)) {
+					return false;
+				}
+			} else if (filter.type !== 'array' && filter.type !== actualType) {
 				return false;
 			}
 		}

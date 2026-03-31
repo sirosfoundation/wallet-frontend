@@ -10,10 +10,7 @@
 import { useCallback, useContext, useState } from 'react';
 import { useFlowTransportSafe } from '@/context/FlowTransportContext';
 import OpenID4VCIContext from '@/context/OpenID4VCIContext';
-import type {
-	OID4VCIFlowParams,
-	OID4VCIFlowResult
-} from '@/lib/transport/types/OID4VCITypes';
+import type { OID4VCIFlowResult } from '@/lib/transport/types/OID4VCITypes';
 import type { FlowProgressEvent } from '@/lib/transport/types/FlowTypes';
 
 export interface UseOID4VCIFlowOptions {
@@ -173,8 +170,16 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			// HTTP transport: use existing implementation
 			if (transportType === 'http' && openID4VCI) {
 				// Note: handleAuthorizationResponse in the current implementation
-				// takes the full URL with the code as a parameter
-				await openID4VCI.handleAuthorizationResponse(authCode);
+				// takes the full URL with the code as a parameter. The hook may
+				// receive either a bare authorization code or the full redirect URL,
+				// so normalize to a full URL here.
+				let redirectUrl = authCode;
+				if (typeof authCode === 'string' && !authCode.includes('://') && typeof window !== 'undefined') {
+					const url = new URL(window.location.href);
+					url.searchParams.set('code', authCode);
+					redirectUrl = url.toString();
+				}
+				await openID4VCI.handleAuthorizationResponse(redirectUrl);
 
 				return {
 					success: true,

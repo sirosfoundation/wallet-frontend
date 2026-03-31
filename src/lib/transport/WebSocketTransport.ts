@@ -120,11 +120,24 @@ export class WebSocketTransport implements IFlowTransport {
 
 		this.connectionPromise = new Promise((resolve, reject) => {
 			try {
-				// Add auth token as query parameter
-				const url = `${this.wsUrl}?token=${encodeURIComponent(this.authToken)}`;
+				// Connect using the base WebSocket URL; send auth token in a message after connection
+				const url = this.wsUrl;
 				this.ws = new WebSocket(url);
 
 				this.ws.onopen = () => {
+					// Send auth token as first message for security (avoids logging in URL)
+					try {
+						if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+							this.ws.send(
+								JSON.stringify({
+									type: 'auth',
+									token: this.authToken
+								})
+							);
+						}
+					} catch (e) {
+						console.error('Failed to send auth message over WebSocket:', e);
+					}
 					this.reconnectAttempts = 0;
 					this.connectionPromise = null;
 					resolve();
@@ -460,13 +473,9 @@ export class WebSocketTransport implements IFlowTransport {
 			clearTimeout(pending.timeout);
 			this.pending.delete(flowId);
 
-			if (type === 'error' || type === 'flow_error') {
-				const errorMsg = (message.error as { message?: string })?.message ??
-												(message.message as string) ?? 'Unknown error';
-				pending.reject(new Error(errorMsg));
-			} else {
-				pending.resolve(message);
-			}
+			// Resolve all non-progress, non-sign_request messages (including error/flow_error)
+			// so higher-level callers can uniformly map them into success/error results.
+			pending.resolve(message);
 		} else {
 			console.warn('Received message for unknown flowId:', flowId);
 		}

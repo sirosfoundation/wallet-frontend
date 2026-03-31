@@ -10,7 +10,8 @@
  */
 
 import { useEffect, useContext, useCallback } from 'react';
-import { useFlowTransportSafe, SignRequest, SignResponse } from '@/context/FlowTransportContext';
+import { useFlowTransportSafe } from '@/context/FlowTransportContext';
+import type { SignRequest, SignResponse } from '@/context/FlowTransportContext';
 import SessionContext from '@/context/SessionContext';
 import { useApi } from '@/api';
 import StatusContext from '@/context/StatusContext';

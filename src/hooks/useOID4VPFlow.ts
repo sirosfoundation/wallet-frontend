@@ -12,7 +12,6 @@ import { useFlowTransportSafe } from '@/context/FlowTransportContext';
 import OpenID4VPContext from '@/context/OpenID4VPContext';
 import CredentialsContext, { ExtendedVcEntity } from '@/context/CredentialsContext';
 import type {
-	OID4VPFlowParams,
 	OID4VPFlowResult,
 	OID4VPSelectedCredential,
 } from '@/lib/transport/types/OID4VPTypes';
@@ -138,7 +137,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 						},
 						transactionData: result.parsedTransactionData?.map(td => ({
 							type: 'transaction',
-							description: String(td),
+							description: td.parsed?.description || JSON.stringify(td.parsed || td).slice(0, 100),
 							data: td,
 						})),
 					};
