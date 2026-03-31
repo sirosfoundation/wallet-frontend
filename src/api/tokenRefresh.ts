@@ -7,9 +7,8 @@
  * - Prevent concurrent refresh attempts
  */
 
-import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { jsonParseTaggedBinary, jsonStringifyTaggedBinary } from '../util';
-import { getStoredTenant } from '../lib/tenant';
+import axios, { AxiosError } from 'axios';
+import { jsonParseTaggedBinary } from '../util';
 
 // Module-level state for managing concurrent refresh attempts
 let isRefreshing = false;
@@ -68,7 +67,6 @@ async function performRefresh(
 			{
 				headers: {
 					'Content-Type': 'application/json',
-					'X-Tenant-ID': getStoredTenant() || 'default',
 				},
 				transformResponse: (data) => data ? jsonParseTaggedBinary(data) : data,
 			}
