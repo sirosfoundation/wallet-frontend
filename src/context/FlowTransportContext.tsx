@@ -10,8 +10,8 @@
  */
 
 import React, { createContext, useContext, useMemo, useEffect, useState, useCallback } from 'react';
-import type { IFlowTransport } from '@/lib/transport/IFlowTransport';
-import { nullTransport } from '@/lib/transport/IFlowTransport';
+import type { IFlowTransport } from '@/lib/transport/types/IFlowTransport';
+import { nullTransport } from '@/lib/transport/types/IFlowTransport';
 import { HttpProxyTransport } from '@/lib/transport/HttpProxyTransport';
 import { WebSocketTransport } from '@/lib/transport/WebSocketTransport';
 import type { SignRequest, SignResponse, SignRequestHandler } from '@/lib/transport/WebSocketTransport';
@@ -22,15 +22,19 @@ import {
 } from '@/lib/services/CapabilitiesService';
 import {
 	WS_URL,
-	HTTP_TRANSPORT_ALLOWED,
+	HTTP_PROXY_TRANSPORT_ALLOWED,
 	WEBSOCKET_TRANSPORT_ALLOWED,
 	DIRECT_TRANSPORT_ALLOWED,
 	TRANSPORT_PREFERENCE,
 	TransportType,
 } from '@/config';
 
-// Re-export sign types for convenience
-export type { SignRequest, SignResponse, SignRequestHandler } from '@/lib/transport/WebSocketTransport';
+// Re-export sign types with WS prefix for clarity
+export type {
+	SignRequest as WSSignRequest,
+	SignResponse as WSSignResponse,
+	SignRequestHandler as WSSignRequestHandler,
+} from '@/lib/transport/WebSocketTransport';
 
 /**
  * Value provided by the FlowTransportContext
@@ -115,7 +119,7 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 	// Determine which transports are available based on config AND capabilities
 	const availableTransports = useMemo(() => {
 		const available: TransportType[] = [];
-		if (HTTP_TRANSPORT_ALLOWED) available.push('http');
+		if (HTTP_PROXY_TRANSPORT_ALLOWED) available.push('http_proxy');
 		// Only add websocket if config allows AND engine has capability
 		if (WEBSOCKET_TRANSPORT_ALLOWED && WS_URL && wsCapabilityAvailable) {
 			available.push('websocket');
@@ -124,9 +128,9 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 		return available;
 	}, [wsCapabilityAvailable]);
 
-	// Create HTTP transport only if allowed
+	// Create HTTP proxy transport only if allowed
 	const httpTransport = useMemo(() => {
-		if (!HTTP_TRANSPORT_ALLOWED) return null;
+		if (!HTTP_PROXY_TRANSPORT_ALLOWED) return null;
 		return new HttpProxyTransport(httpProxy);
 	}, [httpProxy]);
 
@@ -191,9 +195,9 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 						return { transport: wsTransport, transportType: 'websocket' as const };
 					}
 					break;
-				case 'http':
+				case 'http_proxy':
 					if (httpTransport) {
-						return { transport: httpTransport, transportType: 'http' as const };
+						return { transport: httpTransport, transportType: 'http_proxy' as const };
 					}
 					break;
 				case 'direct':
@@ -237,7 +241,7 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 	const value = useMemo(() => ({
 		transport,
 		transportType,
-		isConnected: transportType === 'websocket' ? isConnected : transportType === 'http',
+		isConnected: transportType === 'websocket' ? isConnected : transportType === 'http_proxy',
 		reconnect,
 		availableTransports,
 		lastError,

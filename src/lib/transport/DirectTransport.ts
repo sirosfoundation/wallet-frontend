@@ -19,7 +19,7 @@
  * - Fall back to proxy transport if CORS not available
  */
 
-import type { IFlowTransport } from './IFlowTransport';
+import type { IFlowTransport } from './types/IFlowTransport';
 import type { FlowRequest, FlowResponse, FlowProgressEvent } from './types/FlowTypes';
 import type { OID4VCIFlowParams, OID4VCIFlowResult } from './types/OID4VCITypes';
 import type { OID4VPFlowParams, OID4VPFlowResult } from './types/OID4VPTypes';

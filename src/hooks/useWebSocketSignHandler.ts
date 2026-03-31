@@ -11,7 +11,7 @@
 
 import { useEffect, useContext, useCallback } from 'react';
 import { useFlowTransportSafe } from '@/context/FlowTransportContext';
-import type { SignRequest, SignResponse } from '@/context/FlowTransportContext';
+import type { WSSignRequest, WSSignResponse } from '@/context/FlowTransportContext';
 import SessionContext from '@/context/SessionContext';
 import { useApi } from '@/api';
 import StatusContext from '@/context/StatusContext';
@@ -31,7 +31,7 @@ export function useWebSocketSignHandler(): void {
 	const transportType = transportContext?.transportType;
 
 	// Sign handler callback
-	const handleSignRequest = useCallback(async (request: SignRequest): Promise<SignResponse> => {
+	const handleSignRequest = useCallback(async (request: WSSignRequest): Promise<WSSignResponse> => {
 		if (!keystore) {
 			throw new Error('Keystore not available');
 		}

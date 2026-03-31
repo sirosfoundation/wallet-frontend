@@ -12,7 +12,7 @@
  * - Better error handling with flow state
  */
 
-import type { IFlowTransport } from './IFlowTransport';
+import type { IFlowTransport } from './types/IFlowTransport';
 import type {
 	FlowRequest,
 	FlowResponse,

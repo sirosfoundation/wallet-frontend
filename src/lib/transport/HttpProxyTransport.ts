@@ -12,7 +12,7 @@
  * HTTP transport preserves the existing behavior.
  */
 
-import type { IFlowTransport } from './IFlowTransport';
+import type { IFlowTransport } from './types/IFlowTransport';
 import type { IHttpProxy } from '../interfaces/IHttpProxy';
 import type {
 	FlowRequest,

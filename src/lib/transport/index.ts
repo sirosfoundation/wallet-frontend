@@ -7,7 +7,7 @@
  */
 
 // Main interface
-export { IFlowTransport, NullTransport, nullTransport } from './IFlowTransport';
+export { IFlowTransport, NullTransport, nullTransport } from './types/IFlowTransport';
 
 // Transport implementations
 export { HttpProxyTransport } from './HttpProxyTransport';
