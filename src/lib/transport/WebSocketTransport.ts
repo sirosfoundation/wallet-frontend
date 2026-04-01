@@ -137,7 +137,7 @@ export class WebSocketTransport implements IFlowTransport {
 							);
 						}
 					} catch (e) {
-						console.error('Failed to send auth message over WebSocket:', e);
+						logger.error('Failed to send auth message over WebSocket:', e);
 					}
 					this.reconnectAttempts = 0;
 					this.connectionPromise = null;

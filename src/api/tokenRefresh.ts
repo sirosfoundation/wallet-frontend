@@ -98,14 +98,14 @@ async function performRefresh(
 			const code = error.code;
 			const message = error.message;
 			// Log only non-sensitive details to avoid leaking tokens or request data
-			console.warn('Token refresh failed:', { status, code, message });
+			logger.warn('Token refresh failed:', { status, code, message });
 
 			if (status === 401 || status === 403) {
 				config.clearSession();
 			}
 		} else {
 			const message = (error as Error)?.message ?? String(error);
-			console.warn('Token refresh failed:', { message });
+			logger.warn('Token refresh failed:', { message });
 		}
 
 		return { success: false };
