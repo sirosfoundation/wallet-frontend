@@ -36,7 +36,7 @@ export interface UseOID4VPFlowReturn {
 	) => Promise<OID4VPFlowResult>;
 
 	/** Current transport type being used */
-	transportType: 'http' | 'websocket' | 'direct' | 'none';
+	transportType: 'http_proxy' | 'websocket' | 'direct' | 'none';
 
 	/** Whether a flow is currently in progress */
 	isLoading: boolean;
@@ -104,8 +104,8 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				}
 			}
 
-			// HTTP transport: use existing implementation
-			if (transportType === 'http' && openID4VP) {
+			// HTTP proxy transport: use existing implementation
+			if (transportType === 'http_proxy' && openID4VP) {
 				try {
 					const result = await openID4VP.handleAuthorizationRequest(
 						authorizationRequestUri,
@@ -191,8 +191,8 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				}
 			}
 
-			// HTTP transport: use existing implementation
-			if (transportType === 'http' && openID4VP) {
+			// HTTP proxy transport: use existing implementation
+			if (transportType === 'http_proxy' && openID4VP) {
 				// Convert OID4VPSelectedCredential[] to Map<string, number>
 				// The existing implementation uses descriptor ID -> credential index
 				const selectionMap = new Map<string, number>();

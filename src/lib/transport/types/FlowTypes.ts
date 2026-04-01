@@ -5,7 +5,7 @@
 /**
  * Transport type enumeration
  */
-export type TransportType = 'http' | 'websocket' | 'direct';
+export type TransportType = 'http_proxy' | 'websocket' | 'direct';
 
 /**
  * Generic flow request that can be sent to any transport

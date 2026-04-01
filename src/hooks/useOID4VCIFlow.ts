@@ -34,7 +34,7 @@ export interface UseOID4VCIFlowReturn {
 	) => Promise<OID4VCIFlowResult>;
 
 	/** Current transport type being used */
-	transportType: 'http' | 'websocket' | 'direct' | 'none';
+	transportType: 'http_proxy' | 'websocket' | 'direct' | 'none';
 
 	/** Whether a flow is currently in progress */
 	isLoading: boolean;
@@ -102,8 +102,8 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 				}
 			}
 
-			// HTTP transport: use existing implementation
-			if (transportType === 'http' && openID4VCI) {
+			// HTTP proxy transport: use existing implementation
+			if (transportType === 'http_proxy' && openID4VCI) {
 				try {
 					const result = await openID4VCI.handleCredentialOffer(credentialOfferUri);
 
@@ -167,8 +167,8 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 				}
 			}
 
-			// HTTP transport: use existing implementation
-			if (transportType === 'http' && openID4VCI) {
+			// HTTP proxy transport: use existing implementation
+			if (transportType === 'http_proxy' && openID4VCI) {
 				// Note: handleAuthorizationResponse in the current implementation
 				// takes the full URL with the code as a parameter. The hook may
 				// receive either a bare authorization code or the full redirect URL,
@@ -232,10 +232,10 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 				}
 			}
 
-			// HTTP transport: use existing implementation
+			// HTTP proxy transport: use existing implementation
 			// Note: requestCredentialsWithPreAuthorization requires additional params
 			// that need to be tracked from the initial handleCredentialOffer call
-			if (transportType === 'http' && openID4VCI) {
+			if (transportType === 'http_proxy' && openID4VCI) {
 				// The existing implementation stores state internally,
 				// but the interface needs credentialIssuer and selectedCredentialConfigurationId
 				// This is a limitation of the current architecture that would need
