@@ -48,6 +48,11 @@ export class Logger {
 		}
 	}
 
+	/**
+	 * Change log level at runtime. Intended for development/debugging only
+	 * (e.g., window.logger.setLevel('debug')). Production log level should
+	 * be set via tenant configuration (LOG_LEVEL env var).
+	 */
 	setLevel(logLevel: LogLevel) {
 		this.level = logLevel;
 		this.bindMethods();

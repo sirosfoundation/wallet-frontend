@@ -36,6 +36,7 @@ export const ClientEnvConfigSchema = z.object({
 	LOGIN_WITH_PASSWORD: z.string().optional(),
 	DID_KEY_VERSION: z.string().optional(),
 	DISPLAY_CONSOLE: z.string().optional(),
+	LOG_LEVEL: z.string().optional(),
 	WEBAUTHN_RPID: z.string().optional(),
 	OPENID4VCI_PROOF_TYPE_PRECEDENCE: z.string().optional(),
 	OPENID4VP_SAN_DNS_CHECK: z.string().optional(),
