@@ -102,7 +102,10 @@ describe('WebSocketTransport', () => {
 			expect(transport.isConnected()).toBe(true);
 			expect(mockWebSocketInstances).toHaveLength(1);
 			expect(mockWebSocketInstances[0].url).toContain(wsUrl);
-			expect(mockWebSocketInstances[0].url).toContain(`token=${encodeURIComponent(authToken)}`);
+			// Auth token is now sent as the first message, not in URL
+			const authMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[0]);
+			expect(authMessage.type).toBe('auth');
+			expect(authMessage.token).toBe(authToken);
 		});
 
 		it('should handle connection errors', async () => {
@@ -158,12 +161,12 @@ describe('WebSocketTransport', () => {
 			// Start flow and prepare response
 			const flowPromise = transport.startOID4VCIFlow({ credentialOfferUri });
 
-			// Wait for message to be sent
+			// Wait for message to be sent (index 1 because index 0 is auth message)
 			await vi.waitFor(() => {
-				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(0);
+				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(1);
 			});
 
-			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[0]);
+			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[1]);
 			expect(sentMessage.type).toBe('flow.start');
 			expect(sentMessage.flow).toBe('oid4vci');
 			expect(sentMessage.credentialOfferUri).toBe(credentialOfferUri);
@@ -196,10 +199,10 @@ describe('WebSocketTransport', () => {
 			});
 
 			await vi.waitFor(() => {
-				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(0);
+				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(1);
 			});
 
-			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[0]);
+			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[1]);
 			expect(sentMessage.type).toBe('flow.continue');
 			expect(sentMessage.flow).toBe('oid4vci');
 			expect(sentMessage.action).toBe('consent');
@@ -229,10 +232,10 @@ describe('WebSocketTransport', () => {
 			});
 
 			await vi.waitFor(() => {
-				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(0);
+				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(1);
 			});
 
-			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[0]);
+			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[1]);
 			expect(sentMessage.type).toBe('flow.continue');
 			expect(sentMessage.action).toBe('token_exchange');
 			expect(sentMessage.authorizationCode).toBe('auth-code-123');
@@ -258,10 +261,10 @@ describe('WebSocketTransport', () => {
 			});
 
 			await vi.waitFor(() => {
-				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(0);
+				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(1);
 			});
 
-			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[0]);
+			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[1]);
 
 			// Simulate error response - this causes the promise to reject
 			mockWebSocketInstances[0].simulateMessage({
@@ -295,10 +298,10 @@ describe('WebSocketTransport', () => {
 			const flowPromise = transport.startOID4VCIFlow({ credentialOfferUri });
 
 			await vi.waitFor(() => {
-				expect(mockWs.sentMessages.length).toBeGreaterThan(0);
+				expect(mockWs.sentMessages.length).toBeGreaterThan(1);
 			});
 
-			const sentMessage = JSON.parse(mockWs.sentMessages[0]);
+			const sentMessage = JSON.parse(mockWs.sentMessages[1]);
 			expect(sentMessage.type).toBe('flow.start');
 
 			// Simulate deferred issuance response with transactionId
@@ -326,10 +329,10 @@ describe('WebSocketTransport', () => {
 			const flowPromise = transport.startOID4VPFlow({ authorizationRequestUri });
 
 			await vi.waitFor(() => {
-				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(0);
+				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(1);
 			});
 
-			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[0]);
+			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[1]);
 			expect(sentMessage.type).toBe('flow.start');
 			expect(sentMessage.flow).toBe('oid4vp');
 			expect(sentMessage.authorizationRequestUri).toBe(authorizationRequestUri);
@@ -366,10 +369,10 @@ describe('WebSocketTransport', () => {
 			});
 
 			await vi.waitFor(() => {
-				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(0);
+				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(1);
 			});
 
-			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[0]);
+			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[1]);
 			expect(sentMessage.type).toBe('flow.continue');
 			expect(sentMessage.flow).toBe('oid4vp');
 			expect(sentMessage.action).toBe('submit');
@@ -757,12 +760,12 @@ describe('WebSocketTransport', () => {
 				},
 			});
 
-			// Verify message was sent
+			// Verify message was sent (index 1 because index 0 is auth message)
 			await vi.waitFor(() => {
-				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(0);
+				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(1);
 			});
 
-			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[0]);
+			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[1]);
 			expect(sentMessage.type).toBe('flow_action');
 			expect(sentMessage.flow_id).toBe('flow-123');
 			expect(sentMessage.action).toBe('credentials_matched');
@@ -788,10 +791,10 @@ describe('WebSocketTransport', () => {
 			});
 
 			await vi.waitFor(() => {
-				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(0);
+				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(1);
 			});
 
-			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[0]);
+			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[1]);
 			expect(sentMessage.type).toBe('flow_action');
 			expect(sentMessage.action).toBe('consent');
 			expect(sentMessage.payload.selectedCredentials).toHaveLength(1);
