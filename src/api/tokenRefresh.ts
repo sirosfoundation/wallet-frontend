@@ -7,8 +7,8 @@
  * - Prevent concurrent refresh attempts
  */
 
-import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { jsonParseTaggedBinary, jsonStringifyTaggedBinary } from '../util';
+import axios, { AxiosError } from 'axios';
+import { jsonParseTaggedBinary } from '../util';
 import { getStoredTenant } from '../lib/tenant';
 
 // Module-level state for managing concurrent refresh attempts
@@ -91,14 +91,20 @@ async function performRefresh(
 
 		return { success: false };
 	} catch (error) {
-		console.warn('Token refresh failed:', error);
-
 		// If refresh token is expired or invalid, clear the session
 		if (axios.isAxiosError(error)) {
 			const status = error.response?.status;
+			const code = error.code;
+			const message = error.message;
+			// Log only non-sensitive details to avoid leaking tokens or request data
+			console.warn('Token refresh failed:', { status, code, message });
+
 			if (status === 401 || status === 403) {
 				config.clearSession();
 			}
+		} else {
+			const message = (error as Error)?.message ?? String(error);
+			console.warn('Token refresh failed:', { message });
 		}
 
 		return { success: false };

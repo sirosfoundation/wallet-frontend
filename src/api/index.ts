@@ -139,20 +139,25 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 	const navigate = useNavigate();
 	const clearSessionStorage = useClearStorages(clearAppToken, clearRefreshToken, clearSessionState);
 
-	// Refs to store current token values for the refresh config
-	// This allows the refresh mechanism to access the latest values without stale closures
+	// Ref to store current refresh token for the refresh config
+	// This allows the refresh mechanism to access the latest value without stale closures
 	const refreshTokenRef = useRef(refreshToken);
-	const appTokenRef = useRef(appToken);
 	refreshTokenRef.current = refreshToken;
-	appTokenRef.current = appToken;
 
-	// Stable ref for clearSession to avoid circular dependency
-	const clearSessionRef = useRef<() => void>(() => {
+	// Define clearSession early so it can be used by token refresh config
+	const clearSession = useCallback((): void => {
 		clearSessionStorage();
 		removePrivateDataEtag();
 		clearStoredTenant();
 		events.dispatchEvent(new CustomEvent<ClearSessionEvent>(CLEAR_SESSION_EVENT));
-	});
+	}, [clearSessionStorage, removePrivateDataEtag]);
+
+	// Stable ref for clearSession to avoid stale closures in token refresh
+	const clearSessionRef = useRef<() => void>(clearSession);
+
+	useEffect(() => {
+		clearSessionRef.current = clearSession;
+	}, [clearSession]);
 
 	/**
 	 * Get the token refresh configuration.
@@ -255,8 +260,12 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			if (!_retried && isUnauthorizedError(error)) {
 				const refreshResult = await refreshAccessToken(getTokenRefreshConfig());
 				if (refreshResult.success) {
-					// Retry with new token
-					return getWithLocalDbKey(path, dbKey, options, forceIndexDB, true);
+					// Retry with new token. Drop any stale appToken so headers use the refreshed access token.
+					const retryOptions = options ? { ...options } : undefined;
+					if (retryOptions && 'appToken' in retryOptions) {
+						delete retryOptions.appToken;
+					}
+					return getWithLocalDbKey(path, dbKey, retryOptions, forceIndexDB, true);
 				}
 			}
 			throw error;
@@ -328,8 +337,9 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			if (!_retried && isUnauthorizedError(e)) {
 				const refreshResult = await refreshAccessToken(getTokenRefreshConfig());
 				if (refreshResult.success) {
-					// Retry with new token
-					return post(path, body, options, true);
+					// Retry with new token: do not reuse an explicit (possibly expired) appToken
+					const retryOptions = options ? { ...options, appToken: undefined } : undefined;
+					return post(path, body, retryOptions, true);
 				}
 			}
 			throw e;
@@ -356,8 +366,9 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			if (!_retried && isUnauthorizedError(e)) {
 				const refreshResult = await refreshAccessToken(getTokenRefreshConfig());
 				if (refreshResult.success) {
-					// Retry with new token
-					return del(path, options, true);
+					// Retry with new token: do not reuse an explicit (possibly expired) appToken
+					const retryOptions = options ? { ...options, appToken: undefined } : undefined;
+					return del(path, retryOptions, true);
 				}
 			}
 			throw e;
@@ -418,13 +429,6 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 	const isLoggedIn = useCallback((): boolean => {
 		return getSession() !== null;
 	}, [getSession]);
-
-	const clearSession = useCallback((): void => {
-		clearSessionStorage();
-		removePrivateDataEtag();
-		clearStoredTenant(); // Clear tenant on logout
-		events.dispatchEvent(new CustomEvent<ClearSessionEvent>(CLEAR_SESSION_EVENT));
-	}, [clearSessionStorage, removePrivateDataEtag]);
 
 	const setSession = useCallback(async (
 		response: AxiosResponse,
