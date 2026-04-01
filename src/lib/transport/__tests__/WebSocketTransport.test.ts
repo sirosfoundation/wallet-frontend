@@ -252,7 +252,7 @@ describe('WebSocketTransport', () => {
 			expect(result.success).toBe(true);
 		});
 
-		it('should handle error responses by throwing', async () => {
+		it('should handle error responses by returning success: false', async () => {
 			const transport = new WebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
@@ -266,15 +266,18 @@ describe('WebSocketTransport', () => {
 
 			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[1]);
 
-			// Simulate error response - this causes the promise to reject
+			// Simulate error response
 			mockWebSocketInstances[0].simulateMessage({
 				flowId: sentMessage.flowId,
 				type: 'error',
 				error: { code: 'INVALID_OFFER', message: 'Invalid credential offer' },
 			});
 
-			// The implementation rejects error responses from the server
-			await expect(flowPromise).rejects.toThrow('Invalid credential offer');
+			// The implementation returns success: false with error details
+			const result = await flowPromise;
+			expect(result.success).toBe(false);
+			expect(result.error?.code).toBe('INVALID_OFFER');
+			expect(result.error?.message).toBe('Invalid credential offer');
 		});
 
 		it('should reject invalid params', async () => {
