@@ -27,12 +27,40 @@ export const BASE_PATH = config.base_path || '/';
 export const BACKEND_URL = config.wallet_backend_url;
 export const DID_KEY_VERSION: DidKeyVersion = config.did_key_version as DidKeyVersion;
 export const DISPLAY_CONSOLE = config.display_console;
+
+/**
+ * Engine URL for WebSocket transport (wallet engine service).
+ * In split deployments, this points to the engine service.
+ * Defaults to BACKEND_URL for monolithic deployments.
+ */
+export const ENGINE_URL = config.wallet_engine_url || BACKEND_URL;
+
+/**
+ * WebSocket endpoint URL derived from ENGINE_URL.
+ * Converts http(s):// to ws(s):// and appends /api/v2/wallet.
+ * Can be overridden with ws_url for custom configurations.
+ */
+export const WS_URL = config.ws_url || (ENGINE_URL
+	? (() => {
+		try {
+			const url = new URL('/api/v2/wallet', ENGINE_URL);
+			if (url.protocol === 'http:') {
+				url.protocol = 'ws:';
+			} else if (url.protocol === 'https:') {
+				url.protocol = 'wss:';
+			}
+			return url.toString();
+		} catch {
+			return undefined;
+		}
+	})()
+	: undefined);
+
 export const MULTI_LANGUAGE_DISPLAY: boolean = config.multi_language_display ? JSON.parse(config.multi_language_display) : false;
 export const I18N_WALLET_NAME_OVERRIDE: string | undefined = config.i18n_wallet_name_override;
 export const INACTIVE_LOGOUT_MILLIS = (config.inactive_logout_seconds ? parseInt(config.inactive_logout_seconds, 10) : 60 * 15) * 1000
 export const LOGIN_WITH_PASSWORD: boolean = config.login_with_password ? JSON.parse(config.login_with_password) === true : false;
 export const WEBAUTHN_RPID = config.webauthn_rpid ?? "localhost";
-export const WS_URL = config.ws_url;
 export const OPENID4VP_SAN_DNS_CHECK = config.openid4vp_san_dns_check ? config.openid4vp_san_dns_check === 'true' : false;
 export const OPENID4VP_SAN_DNS_CHECK_SSL_CERTS = config.openid4vp_san_dns_check_ssl_certs ? config.openid4vp_san_dns_check_ssl_certs === 'true' : false;
 export const VALIDATE_CREDENTIALS_WITH_TRUST_ANCHORS = config.validate_credentials_with_trust_anchors ? config.validate_credentials_with_trust_anchors  === 'true' : false;
@@ -51,6 +79,39 @@ export const OHTTP_RELAY = config.ohttp_relay;
 export const VCT_REGISTRY_URL: string | undefined = config.vct_registry_url;
 export const POLICY_LINKS = config.policy_links;
 export const SHOW_PWA_INSTALL_PROMPT = config.show_pwa_install_prompt === 'true';
+export const POWERED_BY = config.powered_by;
+
+// ===== Transport Configuration =====
+
+/** Transport type enumeration */
+export type TransportType = 'http_proxy' | 'websocket' | 'direct';
+
+/**
+ * Transport allow-list
+ * Controls which transports are permitted
+ * Default: http_proxy,websocket enabled for backwards compatibility
+ * 'direct' disabled by default (requires ecosystem CORS support)
+ */
+export const ALLOWED_TRANSPORTS: TransportType[] =
+	(config.allowed_transports || 'http_proxy,websocket')
+		.split(',')
+		.map((t: string) => t.trim())
+		.filter((t: string) => ['http_proxy', 'websocket', 'direct'].includes(t)) as TransportType[];
+
+/**
+ * Transport preference order (first available wins)
+ * Default prefers WebSocket over HTTP proxy over Direct
+ */
+export const TRANSPORT_PREFERENCE: TransportType[] =
+	(config.transport_preference || 'websocket,http_proxy,direct')
+		.split(',')
+		.map((t: string) => t.trim())
+		.filter((t: string) => ['http_proxy', 'websocket', 'direct'].includes(t)) as TransportType[];
+
+/** Derived convenience checks */
+export const HTTP_PROXY_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('http_proxy');
+export const WEBSOCKET_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('websocket');
+export const DIRECT_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('direct');
 export const BRANDING = {
 	LOGO_LIGHT: config.branding?.logo_light || '/logo_light.svg',
 	LOGO_DARK: config.branding?.logo_dark || '/logo_dark.svg',
