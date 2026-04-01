@@ -29,7 +29,7 @@ export const BASE_PATH = config.base_path || '/';
 export const BACKEND_URL = config.wallet_backend_url;
 export const DID_KEY_VERSION: DidKeyVersion = config.did_key_version as DidKeyVersion;
 export const DISPLAY_CONSOLE = config.display_console;
-export const LOG_LEVEL: LogLevel = (config.log_level as LogLevel) || 'debug';
+export const LOG_LEVEL: LogLevel = (config.log_level as LogLevel) || 'info';
 
 /**
  * Engine URL for WebSocket transport (wallet engine service).

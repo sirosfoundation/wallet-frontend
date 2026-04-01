@@ -54,3 +54,4 @@ variables.vars
 
 public/
 pnpm-lock.yaml
+config/.cache/

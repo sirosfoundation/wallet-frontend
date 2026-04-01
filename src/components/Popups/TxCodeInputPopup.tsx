@@ -94,15 +94,27 @@ export function TxCodeInputPopup({
 	}
 
 	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+		<div
+			className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="txcode-dialog-title"
+			aria-describedby="txcode-dialog-description"
+		>
 			<div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
 				{/* Header */}
-				<h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+				<h2
+					id="txcode-dialog-title"
+					className="text-xl font-semibold text-gray-900 dark:text-white mb-4"
+				>
 					{t('txCodeInput.title', 'Transaction Code Required')}
 				</h2>
 
 				{/* Description */}
-				<p className="text-gray-600 dark:text-gray-300 mb-4">
+				<p
+					id="txcode-dialog-description"
+					className="text-gray-600 dark:text-gray-300 mb-4"
+				>
 					{description || t('txCodeInput.defaultDescription', 'Enter the transaction code displayed on your screen')}
 				</p>
 
@@ -135,11 +147,14 @@ export function TxCodeInputPopup({
 					autoCorrect="off"
 					autoCapitalize="off"
 					spellCheck="false"
+					aria-label={t('txCodeInput.inputLabel', 'Transaction code')}
+					aria-invalid={error ? 'true' : 'false'}
+					aria-describedby={error ? 'txcode-error' : undefined}
 				/>
 
 				{/* Error message */}
 				{error && (
-					<p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>
+					<p id="txcode-error" role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>
 				)}
 
 				{/* Buttons */}

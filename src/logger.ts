@@ -4,7 +4,9 @@ export type { LogLevel };
 
 export class Logger {
 	level: LogLevel;
-	logLevels: Array<LogLevel> = ["error", "info", "warn", "debug"];
+	// Severity ordering: error (0) > warn (1) > info (2) > debug (3)
+	// Lower index = more severe, always enabled
+	logLevels: Array<LogLevel> = ["error", "warn", "info", "debug"];
 
 	levelColors: Record<LogLevel, string> = {
 		error: "#FF5C5C",
@@ -15,9 +17,18 @@ export class Logger {
 
 	constructor(level: LogLevel = "info") {
 		this.level = level;
+		this.bindMethods();
+	}
+
+	/**
+	 * Bind console methods based on current log level.
+	 * Methods with severity <= level are bound to console, others are no-ops.
+	 */
+	private bindMethods() {
+		const levelIndex = this.logLevels.indexOf(this.level);
 
 		for (const [index, logLevel] of this.logLevels.entries()) {
-			if (index <= this.logLevels.indexOf(this.level)) {
+			if (index <= levelIndex) {
 				this.group[logLevel] = Function.prototype.bind.call(
 					console.group,
 					console,
@@ -29,12 +40,17 @@ export class Logger {
 					console,
 					...this.logPrefix(logLevel)
 				);
+			} else {
+				// Disable methods for levels below current threshold
+				this.group[logLevel] = () => {};
+				this[logLevel] = () => {};
 			}
 		}
 	}
 
 	setLevel(logLevel: LogLevel) {
-		this.level = logLevel
+		this.level = logLevel;
+		this.bindMethods();
 	}
 
 	logPrefix(level: string) {
@@ -60,7 +76,7 @@ export class Logger {
 	debug(..._args: unknown[]) {}
 }
 
-export const logger = new Logger(LOG_LEVEL || "debug");
+export const logger = new Logger(LOG_LEVEL || "info");
 
 // Make logger available on window for debugging
 if (typeof window !== 'undefined') {

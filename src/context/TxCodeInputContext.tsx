@@ -60,6 +60,11 @@ export function TxCodeInputProvider({ children }: { children: React.ReactNode })
 
 	const requestTxCode = useCallback((config: TxCodeConfig): Promise<string> => {
 		return new Promise((resolve, reject) => {
+			// Reject any existing pending request before starting a new one
+			if (pendingRef.current) {
+				pendingRef.current.reject(new Error('Transaction code request superseded by new request'));
+			}
+
 			// Store the promise handlers
 			pendingRef.current = { resolve, reject };
 

@@ -60,7 +60,7 @@ export function useOpenID4VCIClientStateRepository(): IOpenID4VCIClientStateRepo
 			return;
 		}
 		const rememberIssuerForSeconds = await getRememberIssuerAge();
-		logger.debug("Rememeber issuer for seconds = ", rememberIssuerForSeconds)
+		logger.debug("Remember issuer for seconds =", rememberIssuerForSeconds)
 
 		if (rememberIssuerForSeconds == null) {
 			return;

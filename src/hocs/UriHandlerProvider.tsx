@@ -24,6 +24,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 
 	const [usedAuthorizationCodes, setUsedAuthorizationCodes] = useState<string[]>([]);
 	const [usedRequestUris, setUsedRequestUris] = useState<string[]>([]);
+	const [usedPreAuthorizedCodes, setUsedPreAuthorizedCodes] = useState<string[]>([]);
 
 	const { isLoggedIn, api, keystore, logout } = useContext(SessionContext);
 	const { syncPrivateData } = api;
@@ -133,7 +134,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 			const u = new URL(urlToCheck);
 			if (u.searchParams.size === 0) return;
 			// setUrl(window.location.origin);
-			logger.debug('[Uri Handler]: check', url);
+			logger.debug('[Uri Handler]: check', u.toString());
 
 			if (u.protocol === 'openid-credential-offer' || u.searchParams.get('credential_offer') || u.searchParams.get('credential_offer_uri')) {
 				// Handle credential offer with async/await for proper React state updates
@@ -153,6 +154,13 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 							}
 							return;
 						}
+
+						// Check for pre-authorized code replay
+						if (usedPreAuthorizedCodes.includes(preAuthorizedCode)) {
+							logger.debug("Already used pre-authorized code, ignoring");
+							return;
+						}
+						setUsedPreAuthorizedCodes((codes) => [...codes, preAuthorizedCode]);
 
 						// Pre-authorized code flow
 						let userInput: string | undefined = undefined;

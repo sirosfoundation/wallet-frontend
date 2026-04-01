@@ -316,7 +316,7 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 				credentialConfigurationId: string;
 			}
 		}) => {
-			logger.debug(JSON.stringify(requestCredentialsParams));
+			logger.debug("requestCredentials called for issuer:", credentialIssuerIdentifier);
 			const [authzServerMetadata, clientId] = await Promise.all([
 				openID4VCIHelper.getAuthorizationServerMetadata(credentialIssuerIdentifier),
 				openID4VCIHelper.getClientId(credentialIssuerIdentifier)
@@ -759,9 +759,14 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 		let stateUpdated = false;
 		for (const s of sessions) {
 			const { created, credentialIssuerIdentifier, credentialEndpoint: { transactionId }, tokenResponse: { data: { access_token } } } = s;
-			const { metadata } = await openID4VCIHelper.getCredentialIssuerMetadata(credentialIssuerIdentifier);
+			const metadataResult = await openID4VCIHelper.getCredentialIssuerMetadata(credentialIssuerIdentifier);
+			if (!metadataResult) {
+				logger.debug("getCredentialIssuerMetadata returned null for", credentialIssuerIdentifier);
+				continue;
+			}
+			const { metadata } = metadataResult;
 			const now = Math.floor(new Date().getTime() / 1000);
-			logger.debug("Transaction id: ", transactionId)
+			logger.debug("Processing deferred credential, hasTransactionId:", !!transactionId)
 				if (!transactionId) {
 					continue;
 				}
@@ -787,17 +792,17 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 					await deferredCredentialRequestBuilder.setDpopHeader();
 				}
 
-				logger.debug("attemtping deferred...")
+				logger.debug("Attempting deferred credential fetch...")
 				try {
 					const { credentialResponse } = await deferredCredentialRequestBuilder.executeDeferredFetch(transactionId);
-					logger.debug("Credential response = ", credentialResponse)
+					logger.debug("Deferred credential response received, status:", credentialResponse?.status);
 					if (credentialResponse?.data?.error && credentialResponse?.data?.error !== "issuance_pending") {
-						logger.debug("Error deferred: ", credentialResponse?.data?.error)
+						logger.debug("Deferred credential error:", credentialResponse?.data?.error)
 						await openID4VCIClientStateRepository.updateState({
 							...s,
 							credentialEndpoint: { transactionId: undefined },
 						});
-						logger.debug("Invalidated transaction id: ", transactionId)
+						logger.debug("Invalidated deferred session")
 						stateUpdated = true;
 						continue;
 					}

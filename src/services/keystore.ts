@@ -1112,7 +1112,7 @@ async function addNewCredentialKeypairs(
 
 
 
-	logger.debug("addNewredentialKeypair: Before update private data")
+	logger.debug("addNewCredentialKeypair: Before update private data")
 	return {
 		privateKeys: keypairsWithPrivateKeys.map((k) => k.privateKey),
 		keypairs: keypairsWithPrivateKeys.map((k) => k.keypair),
@@ -1269,15 +1269,15 @@ export async function generateDeviceResponse([privateData, mainKey, calculatedSt
 	const p: DataItem = cborDecode(mdocCredential.documents[0].issuerSigned.issuerAuth.payload);
 	const deviceKeyInfo = p.data.get('deviceKeyInfo');
 	const deviceKey = deviceKeyInfo.get('deviceKey');
-	logger.debug("Device key = ", deviceKey);
+	logger.debug("Device key extracted from mdoc");
 
 	// @ts-ignore
 	const devicePublicKeyJwk = COSEKeyToJWK(deviceKey);
 	const kid = await jose.calculateJwkThumbprint(devicePublicKeyJwk, "sha256");
-	logger.debug("KID = ", kid)
+	logger.debug("Calculated kid thumbprint");
 	// get the keypair based on the jwk Thumbprint
 	const keypair = calculatedState.keypairs.filter((k) => k.kid === kid)[0];
-	logger.debug("Found keypair = ", keypair);
+	logger.debug("Keypair lookup completed, found:", !!keypair);
 	if (!keypair) {
 		throw new Error("Key pair not found for kid (key ID): " + kid);
 	}
@@ -1285,10 +1285,7 @@ export async function generateDeviceResponse([privateData, mainKey, calculatedSt
 	const { alg, privateKey } = keypair.keypair;
 	const privateKeyJwk = privateKey;
 
-	logger.debug("mdocGeneratedNonce = ", mdocGeneratedNonce);
-	logger.debug("verifierGeneratedNonce = ", verifierGeneratedNonce);
-	logger.debug("clientId = ", clientId);
-	logger.debug("responseUri = ", responseUri);
+	logger.debug("Building session transcript for OID4VP response");
 
 	const sessionTranscriptBytes = await getSessionTranscriptBytesForOID4VP(
 		clientId,
@@ -1297,8 +1294,7 @@ export async function generateDeviceResponse([privateData, mainKey, calculatedSt
 		mdocGeneratedNonce
 	);
 
-	const uint8ArrayToHexString = (uint8Array: Uint8Array) => Array.from(uint8Array, byte => byte.toString(16).padStart(2, '0')).join('');
-	logger.debug("Session transcript bytes (HEX): ", uint8ArrayToHexString(new Uint8Array(sessionTranscriptBytes)));
+	logger.debug("Session transcript bytes created, length:", sessionTranscriptBytes.byteLength);
 
 	const deviceResponseMDoc = await DeviceResponse.from(mdocCredential)
 		.usingPresentationDefinition(presentationDefinition)

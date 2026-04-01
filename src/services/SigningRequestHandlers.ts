@@ -14,7 +14,7 @@ export function SigningRequestHandlerService(): SigningRequestHandlers {
 	return {
 		handleSignJwtPresentation: async (socket, keystore, { message_id, audience, nonce, verifiableCredentials }) => {
 			const { vpjwt } = await keystore.signJwtPresentation(nonce, audience, verifiableCredentials)
-			logger.debug("vp jwt = ", vpjwt);
+			logger.debug("VP JWT generated for audience:", audience, "credentials:", verifiableCredentials.length);
 			const outgoingMessage: ClientSocketMessage = {
 				message_id: message_id,
 				response: {
@@ -29,7 +29,7 @@ export function SigningRequestHandlerService(): SigningRequestHandlers {
 			const [{ proof_jwts: [proof_jwt] }, newPrivateData, keystoreCommit] = await keystore.generateOpenid4vciProofs([{ nonce, audience, issuer }])
 			await api.updatePrivateData(newPrivateData);
 			await keystoreCommit();
-			logger.debug("proof jwt = ", proof_jwt);
+			logger.debug("Proof JWT generated for issuer:", issuer);
 			const outgoingMessage: ClientSocketMessage = {
 				message_id: message_id,
 				response: {

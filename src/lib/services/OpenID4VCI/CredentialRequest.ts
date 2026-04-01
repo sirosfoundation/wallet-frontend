@@ -224,7 +224,7 @@ export function useCredentialRequest() {
 
 		credentialEndpointBody.credential_configuration_id = credentialConfigurationId;
 
-		logger.debug("Credential endpoint body = ", credentialEndpointBody);
+		logger.debug("Credential endpoint body prepared, configId:", credentialConfigurationId);
 
 		let encryptionRequested = false;
 		const ephemeralKeypair = await generateKeyPair('ECDH-ES');
@@ -283,7 +283,7 @@ export function useCredentialRequest() {
 
 
 		// receivedCredentialsArrayRef.current = credentialArray;
-		logger.debug("Credential response: ", credentialResponse);
+		logger.debug("Credential response received, status:", credentialResponse.status);
 		return { credentialResponse };
 	}, [updatePrivateData, httpProxy, keystore, openID4VCIHelper, setDpopHeader, setDpopNonce, httpHeaders, requestKeyAttestation]);
 
