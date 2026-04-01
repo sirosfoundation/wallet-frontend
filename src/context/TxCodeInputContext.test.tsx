@@ -152,22 +152,31 @@ describe('TxCodeInputContext', () => {
 		});
 
 		describe('handleCancel', () => {
-			it('should close popup even without pending request', () => {
+			it('should close popup even without pending request', async () => {
 				const { result } = renderHook(() => useTxCodeInput(), { wrapper });
 
 				// Manually set open state by requesting
+				let rejectedError: Error | undefined;
 				act(() => {
-					result.current.requestTxCode({});
+					result.current.requestTxCode({}).catch((err) => {
+						rejectedError = err;
+					});
 				});
 
 				expect(result.current.state.isOpen).toBe(true);
 
-				// Cancel should close (but we need to handle the rejection)
+				// Cancel should close and reject the pending promise
 				act(() => {
 					result.current.handleCancel();
 				});
 
 				expect(result.current.state.isOpen).toBe(false);
+
+				// Verify the promise was rejected
+				await vi.waitFor(() => {
+					expect(rejectedError).toBeDefined();
+					expect(rejectedError?.message).toContain('cancelled');
+				});
 			});
 		});
 

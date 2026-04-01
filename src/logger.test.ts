@@ -45,7 +45,8 @@ describe('Logger', () => {
 
 		it('should have all log levels defined', () => {
 			const logger = new Logger('debug');
-			expect(logger.logLevels).toEqual(['error', 'info', 'warn', 'debug']);
+			// Severity ordering: error > warn > info > debug
+			expect(logger.logLevels).toEqual(['error', 'warn', 'info', 'debug']);
 		});
 	});
 
