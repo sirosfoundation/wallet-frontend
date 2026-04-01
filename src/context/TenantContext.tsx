@@ -117,13 +117,25 @@ export function TenantProvider({ children, tenantId: propTenantId }: TenantProvi
 			try {
 				const response = await axios.get<TenantConfig>(
 					`${BACKEND_URL}/api/v1/tenants/${tenantToFetch}/config`,
-					{ timeout: 10000 }
+					{
+						timeout: 10000,
+						headers: {
+							// Include X-Tenant-ID for proxy routing even though
+							// the endpoint uses URL path for tenant identification
+							'X-Tenant-ID': tenantToFetch,
+						},
+					}
 				);
 				setTenantConfig(response.data);
 			} catch (error) {
 				if (axios.isAxiosError(error)) {
 					if (error.response?.status === 404) {
 						// Tenant not found - use default (no OIDC gate)
+						// WARNING: This disables OIDC gate! Ensure tenant config is properly set up.
+						console.warn(
+							`[TenantContext] Tenant config 404 for "${tenantToFetch}". ` +
+							`OIDC gate will be disabled. Verify tenant exists and is enabled in backend.`
+						);
 						setTenantConfig({ id: tenantToFetch, name: tenantToFetch });
 					} else {
 						setConfigError(`Failed to fetch tenant config: ${error.message}`);
