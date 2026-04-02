@@ -38,8 +38,17 @@ export const OpenID4VCIContextProvider = ({ children }: React.PropsWithChildren)
 
 	const { displayError } = useErrorDialog();
 
-	const showMessagePopup = useCallback((message: { title: string, description: string }) => {
-		displayError(message);
+	/**
+	 * Show a message popup - routes to error dialog for errors,
+	 * success messages are handled by the notification system.
+	 * Note: Currently only used for error messages in OID4VCI flow.
+	 * A centralized popup/message hook may replace this later.
+	 */
+	const showMessagePopup = useCallback((message: { title: string, description: string }, type: 'error' | 'success' = 'error') => {
+		if (type === 'error') {
+			displayError(message);
+		}
+		// Success messages are handled by the notification system (notify("newCredential"))
 	}, [displayError]);
 
 	const errorCallback = (title: string, msg: string) => {

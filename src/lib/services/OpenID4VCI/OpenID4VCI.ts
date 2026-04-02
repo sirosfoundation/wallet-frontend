@@ -67,7 +67,7 @@ export const deriveHolderKidFromCredential = async (credential: string, format: 
 	}
 }
 
-export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopup, openID4VCIClientStateRepository }: { errorCallback: (title: string, message: string) => void, showPopupConsent: (options: Record<string, unknown>) => Promise<boolean>, showMessagePopup: (message: { title: string, description: string }) => void, openID4VCIClientStateRepository: IOpenID4VCIClientStateRepository }): IOpenID4VCI {
+export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopup, openID4VCIClientStateRepository }: { errorCallback: (title: string, message: string) => void, showPopupConsent: (options: Record<string, unknown>) => Promise<boolean>, showMessagePopup: (message: { title: string, description: string }, type?: 'error' | 'success') => void, openID4VCIClientStateRepository: IOpenID4VCIClientStateRepository }): IOpenID4VCI {
 	const { search } = useLocation();
 	const params = useMemo(() => new URLSearchParams(search), [search]);
 	const navigate = useNavigate();
@@ -153,7 +153,7 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 					}
 				} else {
 					logger.error(`Credential failed to parse:`, result.error, result.message);
-					showMessagePopup({ title: t('issuance.error'), description: t(`parsing.error${result.error}`) });
+					showMessagePopup({ title: t('issuance.error'), description: t(`parsing.error${result.error}`) }, 'error');
 					return;
 				}
 
