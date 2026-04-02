@@ -24,7 +24,8 @@ const config: Config = {};
 		}
 	}
 })();
-export const APP_VERSION = config.app_version;
+export const MODE = import.meta.env.MODE as 'development' | 'production' || 'production';
+export const APP_VERSION = import.meta.env.VITE_APP_VERSION;
 export const BASE_PATH = config.base_path || '/';
 export const BACKEND_URL = config.wallet_backend_url;
 export const DID_KEY_VERSION: DidKeyVersion = config.did_key_version as DidKeyVersion;
@@ -120,4 +121,4 @@ export const BRANDING = {
 	LOGO_DARK: config.branding?.logo_dark || '/logo_dark.svg',
 }
 
-export const MODE = import.meta.env.MODE as 'development' | 'production' || 'production';
+

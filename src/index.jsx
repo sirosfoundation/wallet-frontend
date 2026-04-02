@@ -19,9 +19,14 @@ Modal.setAppElement('#root');
 ConsoleBehavior();
 
 // Initialize IndexedDB BEFORE React renders
-initializeDataSource()
-	.then(() => logger.debug('Database initialized'))
-	.catch((err) => logger.error('Error initializing database', err));
+(async () => {
+	try {
+		await initializeDataSource();
+		logger.debug('Database initialized');
+	} catch (err) {
+		logger.error('Error initializing database', err);
+	}
+})();
 
 // Create root and render app
 const root = createRoot(document.getElementById('root'));
