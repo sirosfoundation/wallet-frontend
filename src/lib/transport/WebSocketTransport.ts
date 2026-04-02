@@ -24,6 +24,19 @@ import type { TrustStatus } from './types/TrustTypes';
 import { logger } from '@/logger';
 
 /**
+ * Parse a logo value from the backend.
+ * Handles both string URLs and object formats with a `uri` field.
+ */
+function parseLogo(logo: unknown): string | undefined {
+	if (logo == null) return undefined;
+	if (typeof logo === 'string') return logo;
+	if (typeof logo === 'object' && logo !== null) {
+		return (logo as Record<string, unknown>).uri as string | undefined;
+	}
+	return undefined;
+}
+
+/**
  * Map a raw verifier info object from the backend into the typed frontend
  * representation. Handles the backend's snake_case `trusted_status` field
  * as well as the legacy `trusted` boolean.
@@ -36,9 +49,7 @@ function mapVerifierInfo(raw: Record<string, unknown>): OID4VPVerifierInfo {
 		reason: raw.reason as string | undefined,
 		metadata: raw.metadata as Record<string, unknown> | undefined,
 		domain: raw.domain as string | undefined,
-		logo: raw.logo != null
-			? (typeof raw.logo === 'string' ? raw.logo : (raw.logo as Record<string, unknown>)?.uri as string | undefined)
-			: undefined,
+		logo: parseLogo(raw.logo),
 	};
 }
 
@@ -46,14 +57,15 @@ function mapVerifierInfo(raw: Record<string, unknown>): OID4VPVerifierInfo {
  * Map a raw issuer info object from the backend into the typed frontend
  * representation. Handles the backend's snake_case `trusted_status` field
  * as well as the legacy `trusted` boolean.
+ *
+ * Returns undefined for identifier if the backend doesn't provide a valid string,
+ * rather than defaulting to empty string which could mask wire-format issues.
  */
 function mapIssuerInfo(raw: Record<string, unknown>): OID4VCIIssuerInfo {
 	return {
-		identifier: (raw.identifier as string) || '',
+		identifier: typeof raw.identifier === 'string' ? raw.identifier : undefined,
 		name: raw.name as string | undefined,
-		logo: raw.logo != null
-			? (typeof raw.logo === 'string' ? raw.logo : (raw.logo as Record<string, unknown>)?.uri as string | undefined)
-			: undefined,
+		logo: parseLogo(raw.logo),
 		trustedStatus: parseTrustStatus(raw.trusted_status, raw.trusted),
 		reason: raw.reason as string | undefined,
 		metadata: raw.metadata as Record<string, unknown> | undefined,
