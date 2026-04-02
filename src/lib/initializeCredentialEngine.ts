@@ -3,7 +3,7 @@ import { IHttpProxy } from "./interfaces/IHttpProxy";
 import { ParsingEngine, SDJWTVCParser, PublicKeyResolverEngine, SDJWTVCVerifier, MsoMdocParser, MsoMdocVerifier } from "wallet-common";
 import { IOpenID4VCIHelper } from "./interfaces/IOpenID4VCIHelper";
 import { createVctDocumentResolutionEngine, VctDocumentProvider, VctResolutionErrors, ok, err } from 'wallet-common';
-import { logger } from '@/logger';
+import { logger, jsonToLog } from '@/logger';
 
 export async function initializeCredentialEngine(
 	httpProxy: IHttpProxy,
@@ -24,7 +24,7 @@ export async function initializeCredentialEngine(
 				if (!res?.data || res.status!==200) return err(VctResolutionErrors.NotFound);
 				return ok(res.data as any);
 			} catch (e) {
-				logger.error('Error in VCT SDJWT Metadata retrieval: ' + JSON.stringify(e));
+				logger.error('Error in VCT SDJWT Metadata retrieval: ' + jsonToLog(e));
 				return err(VctResolutionErrors.NotFound);
 			}
 		},

@@ -9,6 +9,8 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import PopupLayout from './PopupLayout';
+import Button from '../Buttons/Button';
 
 export interface TxCodeConfig {
 	/** Description to display to the user */
@@ -89,95 +91,83 @@ export function TxCodeInputPopup({
 		[handleSubmit, onCancel]
 	);
 
-	if (!isOpen) {
-		return null;
-	}
-
 	return (
-		<div
-			className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="txcode-dialog-title"
-			aria-describedby="txcode-dialog-description"
+		<PopupLayout
+			isOpen={isOpen}
+			onClose={onCancel}
+			shouldCloseOnOverlayClick={false}
 		>
-			<div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
-				{/* Header */}
-				<h2
-					id="txcode-dialog-title"
-					className="text-xl font-semibold text-gray-900 dark:text-white mb-4"
-				>
-					{t('txCodeInput.title', 'Transaction Code Required')}
-				</h2>
+			{/* Header */}
+			<h2
+				id="txcode-dialog-title"
+				className="text-xl font-semibold text-lm-gray-900 dark:text-dm-gray-100 mb-4"
+			>
+				{t('txCodeInput.title', 'Transaction Code Required')}
+			</h2>
 
-				{/* Description */}
-				<p
-					id="txcode-dialog-description"
-					className="text-gray-600 dark:text-gray-300 mb-4"
-				>
-					{description || t('txCodeInput.defaultDescription', 'Enter the transaction code displayed on your screen')}
+			{/* Description */}
+			<p
+				id="txcode-dialog-description"
+				className="text-lm-gray-700 dark:text-dm-gray-300 mb-4"
+			>
+				{description || t('txCodeInput.defaultDescription', 'Enter the transaction code displayed on your screen')}
+			</p>
+
+			{/* Length hint */}
+			{length && (
+				<p className="text-sm text-lm-gray-500 dark:text-dm-gray-400 mb-2">
+					{t('txCodeInput.lengthHint', 'Code length: {{length}} characters', { length })}
 				</p>
+			)}
 
-				{/* Length hint */}
-				{length && (
-					<p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-						{t('txCodeInput.lengthHint', 'Code length: {{length}} characters', { length })}
-					</p>
-				)}
+			{/* Input */}
+			<input
+				ref={inputRef}
+				type="text"
+				inputMode={inputMode}
+				value={code}
+				onChange={(e) => setCode(e.target.value)}
+				onKeyDown={handleKeyDown}
+				placeholder={
+					length
+						? t('txCodeInput.placeholderWithLength', 'Enter {{length}}-character code', { length })
+						: t('txCodeInput.placeholder', 'Enter code')
+				}
+				maxLength={length}
+				className="w-full px-4 py-3 border border-lm-gray-400 dark:border-dm-gray-600 rounded-lg
+									text-center text-2xl tracking-widest font-mono
+									bg-lm-gray-100 dark:bg-dm-gray-800 text-lm-gray-900 dark:text-dm-gray-100
+									focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+				autoComplete="off"
+				autoCorrect="off"
+				autoCapitalize="off"
+				spellCheck="false"
+				aria-label={t('txCodeInput.inputLabel', 'Transaction code')}
+				aria-invalid={error ? 'true' : 'false'}
+				aria-describedby={error ? 'txcode-error' : undefined}
+			/>
 
-				{/* Input */}
-				<input
-					ref={inputRef}
-					type="text"
-					inputMode={inputMode}
-					value={code}
-					onChange={(e) => setCode(e.target.value)}
-					onKeyDown={handleKeyDown}
-					placeholder={
-						length
-							? t('txCodeInput.placeholderWithLength', 'Enter {{length}}-character code', { length })
-							: t('txCodeInput.placeholder', 'Enter code')
-					}
-					maxLength={length}
-					className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg
-										text-center text-2xl tracking-widest font-mono
-										bg-white dark:bg-gray-700 text-gray-900 dark:text-white
-										focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-					autoComplete="off"
-					autoCorrect="off"
-					autoCapitalize="off"
-					spellCheck="false"
-					aria-label={t('txCodeInput.inputLabel', 'Transaction code')}
-					aria-invalid={error ? 'true' : 'false'}
-					aria-describedby={error ? 'txcode-error' : undefined}
-				/>
+			{/* Error message */}
+			{error && (
+				<p id="txcode-error" role="alert" className="mt-2 text-sm text-lm-red-light dark:text-dm-red-light">{error}</p>
+			)}
 
-				{/* Error message */}
-				{error && (
-					<p id="txcode-error" role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>
-				)}
-
-				{/* Buttons */}
-				<div className="mt-6 flex justify-end space-x-3">
-					<button
-						type="button"
-						onClick={onCancel}
-						className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700
-											rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-					>
-						{t('common.cancel', 'Cancel')}
-					</button>
-					<button
-						type="button"
-						onClick={handleSubmit}
-						className="px-4 py-2 text-white bg-blue-600 rounded-lg
-											hover:bg-blue-700 transition-colors"
-					>
-						{t('common.submit', 'Submit')}
-					</button>
-				</div>
+			{/* Buttons */}
+			<div className="mt-6 flex justify-end space-x-3">
+				<Button
+					variant="outline"
+					onClick={onCancel}
+				>
+					{t('common.cancel', 'Cancel')}
+				</Button>
+				<Button
+					variant="primary"
+					onClick={handleSubmit}
+				>
+					{t('common.submit', 'Submit')}
+				</Button>
 			</div>
-		</div>
+		</PopupLayout>
 	);
 }
 

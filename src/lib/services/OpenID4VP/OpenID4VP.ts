@@ -17,7 +17,7 @@ import { getLeastUsedCredentialInstance } from "../CredentialBatchHelper";
 import { WalletStateUtils } from "@/services/WalletStateUtils";
 import { TransactionDataResponse } from "wallet-common";
 import { verifyRequestUriAndCerts } from "../../utils/verifyRequestUriAndCerts";
-import { logger } from '@/logger';
+import { logger, jsonToLog } from '@/logger';
 
 export function useOpenID4VP({
 	showCredentialSelectionPopup,
@@ -171,7 +171,7 @@ export function useOpenID4VP({
 				'Content-Type': 'application/x-www-form-urlencoded'
 			});
 			const responseData = res.data as { presentation_during_issuance_session?: string, redirect_uri?: string };
-			logger.debug("Direct post response = ", JSON.stringify(res.data));
+			logger.debug("Direct post response = ", jsonToLog(res.data));
 			if (responseData.presentation_during_issuance_session) {
 				return { presentation_during_issuance_session: responseData.presentation_during_issuance_session };
 			}

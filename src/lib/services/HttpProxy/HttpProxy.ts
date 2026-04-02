@@ -1,7 +1,7 @@
 import { useMemo, useRef, useContext, useEffect } from 'react';
 import axios, { AxiosError, AxiosHeaders } from 'axios';
 import { IHttpProxy, RequestHeaders, ResponseHeaders } from '../../interfaces/IHttpProxy';
-import { logger } from '@/logger';
+import { logger, jsonToLog } from '@/logger';
 import StatusContext from '@/context/StatusContext';
 import { addItem, getItem } from '@/indexedDB';
 import { encryptedHttpRequest, toArrayBuffer } from '@/lib/utils/ohttpHelpers';
@@ -408,7 +408,7 @@ export function useHttpProxy(): IHttpProxy {
 				};
 			} catch (err) {
 				logger.debug("Post failed");
-				logger.debug(JSON.stringify(err, Object.getOwnPropertyNames(err)));
+				logger.debug(jsonToLog(err));
 
 				const errRes = (targetIsBackend && !shouldUseOblivious)
 					? err.response

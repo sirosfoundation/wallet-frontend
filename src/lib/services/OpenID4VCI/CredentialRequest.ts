@@ -6,7 +6,7 @@ import { useContext, useCallback, useMemo, useRef } from "react";
 import SessionContext from "@/context/SessionContext";
 import { OpenidCredentialIssuerMetadata } from "wallet-common";
 import { OPENID4VCI_MAX_ACCEPTED_BATCH_SIZE } from "@/config";
-import { logger } from '@/logger';
+import { logger, jsonToLog } from '@/logger';
 
 export function useCredentialRequest() {
 	const httpProxy = useHttpProxy();
@@ -263,7 +263,7 @@ export function useCredentialRequest() {
 			credentialResponse.data = payload;
 		}
 		if (credentialResponse.status >= 400) {
-			logger.error("Error: Credential response = ", JSON.stringify(credentialResponse));
+			logger.error("Error: Credential response = ", jsonToLog(credentialResponse));
 			if (credentialResponse.headers?.["www-authenticate"] && (
 				(credentialResponse.headers?.["www-authenticate"] as string).includes("invalid_dpop_proof") ||
 				(credentialResponse.headers?.["www-authenticate"] as string).includes("use_dpop_nonce")
