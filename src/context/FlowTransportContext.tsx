@@ -28,6 +28,7 @@ import {
 	TRANSPORT_PREFERENCE,
 	TransportType,
 } from '@/config';
+import { logger } from '@/logger';
 
 // Re-export sign types with WS prefix for clarity
 export type {
@@ -101,7 +102,7 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 				setWsCapabilityAvailable(caps.includes(Capabilities.WEBSOCKET));
 				setCapabilitiesLoaded(true);
 			} catch (error) {
-				console.warn('Failed to fetch engine capabilities:', error);
+				logger.warn('Failed to fetch engine capabilities:', error);
 				if (!cancelled) {
 					setCapabilitiesLoaded(true);
 					setWsCapabilityAvailable(false);
@@ -158,14 +159,14 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 				setLastError(null);
 			})
 			.catch((error) => {
-				console.error('WebSocket connection failed:', error);
+				logger.error('WebSocket connection failed:', error);
 				setIsConnected(false);
 				setLastError(error);
 			});
 
 		// Subscribe to errors
 		const unsubscribeError = ws.onError((error) => {
-			console.error('WebSocket error:', error);
+			logger.error('WebSocket error:', error);
 			setIsConnected(false);
 			setLastError(error);
 		});

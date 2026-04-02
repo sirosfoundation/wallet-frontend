@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import ExpiredRibbon from './ExpiredRibbon';
 import UsagesRibbon from "./UsagesRibbon";
+import { logger } from '@/logger';
 import DefaultCred from "../../assets/images/cred.png";
 import { CredentialCardSkeleton } from '../Skeletons';
 
@@ -37,7 +38,7 @@ const CredentialImage = ({
 					setImageSrc(DefaultCred);
 				}
 			} catch (error) {
-				console.warn('Failed to load credential image:', error);
+				logger.warn('Failed to load credential image:', error);
 				if (isMounted) {
 					setImageSrc(DefaultCred);
 					onLoad?.();

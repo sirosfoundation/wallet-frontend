@@ -1,25 +1,30 @@
-import React, { useEffect, useState, useContext, useRef } from "react";
+import React, { useEffect, useState, useContext, Suspense } from "react";
 import { useLocation } from "react-router-dom";
 import StatusContext from "../context/StatusContext";
+import { logger } from "@/logger";
 import SessionContext from "../context/SessionContext";
 import { useTranslation } from "react-i18next";
-import { HandleAuthorizationRequestErrors as HandleAuthorizationRequestError } from "wallet-common";
+import { HandleAuthorizationRequestErrors } from "wallet-common";
 import OpenID4VCIContext from "../context/OpenID4VCIContext";
 import OpenID4VPContext from "../context/OpenID4VPContext";
 import CredentialsContext from "@/context/CredentialsContext";
 import { CachedUser } from "@/services/LocalStorageKeystore";
 import SyncPopup from "@/components/Popups/SyncPopup";
 import { useSessionStorage } from "@/hooks/useStorage";
+import { useTxCodeInput } from "@/context/TxCodeInputContext";
+import TxCodeInputPopup from "@/components/Popups/TxCodeInputPopup";
+import useErrorDialog from "@/hooks/useErrorDialog";
 
-const MessagePopup = React.lazy(() => import('../components/Popups/MessagePopup'));
 const PinInputPopup = React.lazy(() => import('../components/Popups/PinInput'));
 
 export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	const { isOnline } = useContext(StatusContext);
+	const { requestTxCode, state: txCodeState, handleSubmit: handleTxCodeSubmit, handleCancel: handleTxCodeCancel } = useTxCodeInput();
+	const { displayError } = useErrorDialog();
 
 	const [usedAuthorizationCodes, setUsedAuthorizationCodes] = useState<string[]>([]);
 	const [usedRequestUris, setUsedRequestUris] = useState<string[]>([]);
-	const usedPreAuthorizedCodes = useRef<string[]>([]);
+	const [usedPreAuthorizedCodes, setUsedPreAuthorizedCodes] = useState<string[]>([]);
 
 	const { isLoggedIn, api, keystore, logout } = useContext(SessionContext);
 	const { syncPrivateData } = api;
@@ -39,9 +44,6 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	const [showSyncPopup, setSyncPopup] = useState<boolean>(false);
 	const [textSyncPopup, setTextSyncPopup] = useState<{ description: string }>({ description: "" });
 
-	const [showMessagePopup, setMessagePopup] = useState<boolean>(false);
-	const [textMessagePopup, setTextMessagePopup] = useState<{ title: string, description: string }>({ title: "", description: "" });
-	const [typeMessagePopup, setTypeMessagePopup] = useState<string>("");
 	const { t } = useTranslation();
 
 	const [redirectUri, setRedirectUri] = useState(null);
@@ -97,15 +99,14 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 		}
 		const params = new URLSearchParams(location.search);
 		if (synced === false && getCalculatedWalletState() && params.get('sync') !== 'fail') {
-			console.log("Actually syncing...");
-			syncPrivateData(cachedUser).then((r) => {
+			logger.debug("Actually syncing...");
+			(async () => {
+				const r = await syncPrivateData(cachedUser);
 				if (!r.ok) {
 					return;
 				}
 				setSynced(true);
-				// checkForUpdates();
-				// updateOnlineStatus(false);
-			});
+			})();
 		}
 
 	}, [cachedUser, synced, setSynced, getCalculatedWalletState, syncPrivateData, location.search]);
@@ -133,93 +134,130 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 			const u = new URL(urlToCheck);
 			if (u.searchParams.size === 0) return;
 			// setUrl(window.location.origin);
-			console.log('[Uri Handler]: check', url);
+			logger.debug('[Uri Handler]: check', u.toString());
 
 			if (u.protocol === 'openid-credential-offer' || u.searchParams.get('credential_offer') || u.searchParams.get('credential_offer_uri')) {
-				handleCredentialOffer(u.toString()).then(({ credentialIssuer, selectedCredentialConfigurationId, issuer_state, preAuthorizedCode, txCode }) => {
-					console.log("Generating authorization request...");
-					if (!preAuthorizedCode) {
-						return generateAuthorizationRequest(credentialIssuer, selectedCredentialConfigurationId, issuer_state);
-					} else if (usedPreAuthorizedCodes.current.includes(preAuthorizedCode)) {
-						throw new Error("Already used pre-authorized code");
-					}
+				// Handle credential offer with async/await for proper React state updates
+				(async () => {
+					try {
+						const offer = await handleCredentialOffer(u.toString());
+						const { credentialIssuer, selectedCredentialConfigurationId, issuer_state, preAuthorizedCode, txCode } = offer;
 
-					let userInput: string | undefined = undefined;
-					if (txCode) {
-						while (1) {
-							userInput = prompt(txCode.description ?? "Input Transaction Code displayed on your screen")
-							if (txCode.length && txCode.length === userInput.length) {
-								break;
+						logger.debug("Handling credential offer...", { credentialIssuer, preAuthorizedCode: !!preAuthorizedCode });
+
+						if (!preAuthorizedCode) {
+							// Authorization code flow - redirect to authorization
+							logger.debug("Generating authorization request...");
+							const authResult = await generateAuthorizationRequest(credentialIssuer, selectedCredentialConfigurationId, issuer_state);
+							if ('url' in authResult && typeof authResult.url === 'string' && authResult.url) {
+								window.location.href = authResult.url;
 							}
-							else if (txCode.length) {
-								alert(`Length of transaction code must be ${txCode.length}`);
+							return;
+						}
+
+						// Check for pre-authorized code replay
+						if (usedPreAuthorizedCodes.includes(preAuthorizedCode)) {
+							logger.debug("Already used pre-authorized code, ignoring");
+							return;
+						}
+						setUsedPreAuthorizedCodes((codes) => [...codes, preAuthorizedCode]);
+
+						// Pre-authorized code flow
+						let userInput: string | undefined = undefined;
+						if (txCode) {
+							try {
+								// Use React popup instead of blocking prompt()
+								// Note: txCode from JSON uses snake_case (input_mode) per OID4VCI spec
+								const rawTxCode = txCode as { input_mode?: string; length?: number; description?: string };
+								userInput = await requestTxCode({
+									description: rawTxCode.description ?? undefined,
+									length: rawTxCode.length ?? undefined,
+									inputMode: rawTxCode.input_mode === 'numeric' ? 'numeric' : 'text',
+								});
+							} catch (err) {
+								// User cancelled tx code input
+								logger.info("User cancelled transaction code input");
+								window.history.replaceState({}, '', `${window.location.pathname}`);
+								return;
 							}
 						}
-					}
-					usedPreAuthorizedCodes.current.push(preAuthorizedCode);
-					return requestCredentialsWithPreAuthorization(credentialIssuer, selectedCredentialConfigurationId, preAuthorizedCode, userInput);
-				}).then((res) => {
-					if ('url' in res && typeof res.url === 'string' && res.url) {
-						window.location.href = res.url;
-					}
-				})
-					.catch(err => {
-						setUrl(`${window.location.origin}${window.location.pathname}`);
+
+						logger.debug("Requesting credential with pre-authorization...");
+						const result = await requestCredentialsWithPreAuthorization(
+							credentialIssuer,
+							selectedCredentialConfigurationId,
+							preAuthorizedCode,
+							userInput
+						);
+
+						if ('url' in result && typeof result.url === 'string' && result.url) {
+							window.location.href = result.url;
+						}
+					} catch (err) {
 						window.history.replaceState({}, '', `${window.location.pathname}`);
-						console.error(err);
-					})
+						logger.error("Error handling credential offer:", err);
+					}
+				})();
 				return;
 			}
 			else if (u.searchParams.get('code') && !usedAuthorizationCodes.includes(u.searchParams.get('code'))) {
 				setUsedAuthorizationCodes((codes) => [...codes, u.searchParams.get('code')]);
 
-				console.log("Handling authorization response...");
-				handleAuthorizationResponse(u.toString()).then(() => {
-				}).catch(err => {
-					setUrl(`${window.location.origin}${window.location.pathname}`);
-					console.log("Error during the handling of authorization response")
-					window.history.replaceState({}, '', `${window.location.pathname}`);
-					console.error(err)
-				})
+				logger.debug("Handling authorization response...");
+				(async () => {
+					try {
+						await handleAuthorizationResponse(u.toString());
+					} catch (err) {
+						logger.error("Error during the handling of authorization response:", err);
+						window.history.replaceState({}, '', `${window.location.pathname}`);
+					}
+				})();
 			}
 			else if (u.searchParams.get('client_id') && u.searchParams.get('request_uri') && !usedRequestUris.includes(u.searchParams.get('request_uri'))) {
 				setUsedRequestUris((uriArray) => [...uriArray, u.searchParams.get('request_uri')]);
-				await handleAuthorizationRequest(u.toString(), vcEntityList).then((result) => {
-					console.log("Result = ", result);
-					if ('error' in result) {
-						if (result.error === HandleAuthorizationRequestError.INSUFFICIENT_CREDENTIALS) {
-							setTextMessagePopup({ title: `${t('messagePopup.insufficientCredentials.title')}`, description: `${t('messagePopup.insufficientCredentials.description')}` });
-							setTypeMessagePopup('error');
-							setMessagePopup(true);
-						}
-						else if (result.error === HandleAuthorizationRequestError.NONTRUSTED_VERIFIER) {
-							setTextMessagePopup({ title: `${t('messagePopup.nonTrustedVerifier.title')}`, description: `${t('messagePopup.nonTrustedVerifier.description')}` });
-							setTypeMessagePopup('error');
-							setMessagePopup(true);
-						}
-						return;
-					}
-					const { conformantCredentialsMap, verifierDomainName, verifierPurpose, parsedTransactionData } = result;
-					const jsonedMap = Object.fromEntries(conformantCredentialsMap);
-					console.log("Prompting for selection..")
-					return promptForCredentialSelection(jsonedMap, verifierDomainName, verifierPurpose, parsedTransactionData);
-				}).then((selection) => {
-					if (!(selection instanceof Map)) {
-						return;
-					}
-					console.log("Selection = ", selection);
-					return sendAuthorizationResponse(selection, vcEntityList);
 
-				}).then((res) => {
-					if (res && 'url' in res && res.url) {
-						setRedirectUri(res.url);
+				// Handle OID4VP authorization request with async/await
+				(async () => {
+					try {
+						const result = await handleAuthorizationRequest(u.toString(), vcEntityList);
+						logger.debug("Authorization request result:", result);
+
+						if ('error' in result) {
+											if (result.error === HandleAuthorizationRequestErrors.INSUFFICIENT_CREDENTIALS) {
+								displayError({
+									title: t('messagePopup.insufficientCredentials.title'),
+									description: t('messagePopup.insufficientCredentials.description')
+								});
+											} else if (result.error === HandleAuthorizationRequestErrors.NONTRUSTED_VERIFIER) {
+								displayError({
+									title: t('messagePopup.nonTrustedVerifier.title'),
+									description: t('messagePopup.nonTrustedVerifier.description')
+								});
+							}
+							return;
+						}
+
+						const { conformantCredentialsMap, verifierDomainName, verifierPurpose, parsedTransactionData } = result;
+						const jsonedMap = Object.fromEntries(conformantCredentialsMap);
+						logger.debug("Prompting for credential selection...");
+
+						const selection = await promptForCredentialSelection(jsonedMap, verifierDomainName, verifierPurpose, parsedTransactionData);
+
+						if (!(selection instanceof Map)) {
+							return;
+						}
+
+						logger.debug("User selection:", selection);
+						const res = await sendAuthorizationResponse(selection, vcEntityList);
+
+						if (res && 'url' in res && res.url) {
+							setRedirectUri(res.url);
+						}
+					} catch (err) {
+						logger.error("Failed to handle authorization request:", err);
+						window.history.replaceState({}, '', `${window.location.pathname}`);
 					}
-				}).catch(err => {
-					setUrl(`${window.location.origin}${window.location.pathname}`);
-					console.log("Failed to handle authorization req");
-					window.history.replaceState({}, '', `${window.location.pathname}`);
-					console.error(err);
-				})
+				})();
 				return;
 			}
 
@@ -227,12 +265,9 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 			const state = urlParams.get('state');
 			const error = urlParams.get('error');
 			if (url && isLoggedIn && state && error) {
-				setUrl(`${window.location.origin}${window.location.pathname}`);
 				window.history.replaceState({}, '', `${window.location.pathname}`);
 				const errorDescription = urlParams.get('error_description');
-				setTextMessagePopup({ title: error, description: errorDescription });
-				setTypeMessagePopup('error');
-				setMessagePopup(true);
+				displayError({ title: error, description: errorDescription ?? '' });
 			}
 		}
 		if (getCalculatedWalletState()) {
@@ -256,6 +291,8 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 		promptForCredentialSelection,
 		sendAuthorizationResponse,
 		requestCredentialsWithPreAuthorization,
+		requestTxCode,
+		displayError,
 	]);
 
 	useEffect(() => {
@@ -272,13 +309,10 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	}, [location, t, synced]);
 
 	return (
-		<>
+		<Suspense fallback={null}>
 			{children}
 			{showPinInputPopup &&
 				<PinInputPopup isOpen={showPinInputPopup} setIsOpen={setShowPinInputPopup} />
-			}
-			{showMessagePopup &&
-				<MessagePopup type={typeMessagePopup} message={textMessagePopup} onClose={() => setMessagePopup(false)} />
 			}
 			{showSyncPopup &&
 				<SyncPopup message={textSyncPopup}
@@ -288,6 +322,12 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 					}}
 				/>
 			}
-		</>
+			<TxCodeInputPopup
+				isOpen={txCodeState.isOpen}
+				txCodeConfig={txCodeState.config}
+				onSubmit={handleTxCodeSubmit}
+				onCancel={handleTxCodeCancel}
+			/>
+		</Suspense>
 	);
 }

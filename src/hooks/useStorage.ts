@@ -1,5 +1,6 @@
 import { Dispatch, SetStateAction, useCallback, useEffect, useState } from 'react';
 import { jsonParseTaggedBinary, jsonStringifyTaggedBinary } from '../util';
+import { logger } from '../logger';
 
 type ClearHandle = () => void;
 export type UseStorageHandle<T> = [T, Dispatch<SetStateAction<T>>, ClearHandle];
@@ -44,7 +45,7 @@ function makeUseStorage<T>(
 				try {
 					storage.setItem(name, jsonStringifyTaggedBinary(newValue));
 				} catch (e) {
-					console.error(`Failed to update storage "${name}"`, e);
+					logger.error(`Failed to update storage "${name}"`, e);
 				}
 				window.dispatchEvent(
 					new CustomEvent<SetValueEvent<T>>('useStorage.set', {
@@ -64,7 +65,7 @@ function makeUseStorage<T>(
 				try {
 					storage.removeItem(name);
 				} catch (e) {
-					console.error(`Failed to remove storage "${name}"`, e);
+					logger.error(`Failed to remove storage "${name}"`, e);
 				}
 				window.dispatchEvent(
 					new CustomEvent<SetValueEvent<T>>('useStorage.set', {
