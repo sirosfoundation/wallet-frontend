@@ -42,6 +42,7 @@ export const ClientEnvConfigSchema = z.object({
 	OPENID4VP_SAN_DNS_CHECK: z.string().optional(),
 	OPENID4VP_SAN_DNS_CHECK_SSL_CERTS: z.string().optional(),
 	VALIDATE_CREDENTIALS_WITH_TRUST_ANCHORS: z.string().optional(),
+	DELEGATE_TRUST_TO_BACKEND: z.string().optional(),
 	MULTI_LANGUAGE_DISPLAY: z.string().optional(),
 	FOLD_EVENT_HISTORY_AFTER_SECONDS: z.string().optional(),
 	DISPLAY_ISSUANCE_WARNINGS: z.string().optional(),
