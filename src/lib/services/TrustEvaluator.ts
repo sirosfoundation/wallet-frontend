@@ -1,99 +1,100 @@
 /**
- * Trust Evaluator adapters using AuthZEN client.
+ * Trust Evaluator adapters using AuthZEN client from wallet-common.
  *
  * This module bridges the wallet-common AuthZEN client with the
  * wallet trust evaluation interfaces, enabling trust evaluation for:
  * - Verifiers (OpenID4VP): did:web, https, x509_san_dns schemes
  * - Issuers (OpenID4VCI): credential issuer trust evaluation
  *
- * All trust decisions are delegated to the AuthZEN backend.
- *
- * NOTE: This is a stub implementation. Full AuthZEN client integration
- * will be added when wallet-common exports the AuthZEN client types.
- * Currently, trust evaluation falls back to the backend WebSocket transport
- * which handles trust evaluation server-side.
+ * All trust decisions are delegated to the wallet backend's AuthZEN proxy,
+ * which routes requests to the configured AuthZEN PDP (go-trust service).
  */
 
+import {
+	AuthZENClient,
+	AuthZENClientConfig,
+	TrustStatus,
+	TrustInfo,
+	KeyMaterial,
+} from 'wallet-common';
 import type { HttpClient } from 'wallet-common';
-import { TrustStatus } from '@/lib/transport/types/TrustTypes';
 import { logger } from '@/logger';
 
-// Re-export TrustStatus for convenience
-export { TrustStatus };
+// Re-export types from wallet-common for convenience
+export { TrustStatus, TrustInfo, KeyMaterial };
 
 /**
  * Client ID scheme for OpenID4VP
  */
 export interface ClientIdScheme {
-scheme: 'did' | 'https' | 'x509_san_dns' | 'redirect_uri';
-clientId: string;
+	scheme: 'did' | 'https' | 'x509_san_dns' | 'redirect_uri';
+	clientId: string;
 }
 
 /**
- * Key material for trust evaluation
+ * Key material for trust evaluation (matches wallet-common KeyMaterial)
  */
 export interface OpenID4VPKeyMaterial {
-type: 'jwk' | 'x5c' | 'x509_san_dns';
-key: unknown;
+	type: 'jwk' | 'x5c' | 'x509_san_dns';
+	key: unknown;
 }
 
 /**
  * Result of trust evaluation
  */
 export interface TrustEvaluationResult {
-trusted: boolean;
-name?: string;
-logo?: string;
-metadata?: Record<string, unknown>;
+	trusted: boolean;
+	status: TrustStatus;
+	name?: string;
+	logo?: string;
+	metadata?: Record<string, unknown>;
 }
 
 /**
  * Trust evaluator function type for OpenID4VP
  */
 export type OpenID4VPTrustEvaluator = (params: {
-clientIdScheme: ClientIdScheme;
-keyMaterial: OpenID4VPKeyMaterial;
-requestUri?: string;
-responseUri?: string;
+	clientIdScheme: ClientIdScheme;
+	keyMaterial: OpenID4VPKeyMaterial;
+	requestUri?: string;
+	responseUri?: string;
 }) => Promise<TrustEvaluationResult>;
 
 /**
  * Configuration for creating a trust evaluator.
  */
 export interface TrustEvaluatorConfig {
-/**
- * HTTP client for making requests.
- */
-httpClient: HttpClient;
+	/**
+	 * HTTP client for making requests.
+	 */
+	httpClient: HttpClient;
 
-/**
- * Base URL of the wallet backend (e.g., "https://wallet-backend.example.com").
- */
-backendUrl: string;
+	/**
+	 * Base URL of the wallet backend (e.g., "https://wallet-backend.example.com").
+	 */
+	backendUrl: string;
 
-/**
- * Function to retrieve the current auth token.
- */
-getAuthToken: () => string | Promise<string>;
+	/**
+	 * Function to retrieve the current auth token.
+	 */
+	getAuthToken: () => string | Promise<string>;
 
-/**
- * Tenant ID for multi-tenant backend.
- */
-tenantId: string;
+	/**
+	 * Tenant ID for multi-tenant backend.
+	 */
+	tenantId: string;
 
-/**
- * Request timeout in milliseconds (default: 30000).
- */
-timeout?: number;
+	/**
+	 * Request timeout in milliseconds (default: 30000).
+	 */
+	timeout?: number;
 }
 
 /**
- * Create an OpenID4VP trust evaluator.
+ * Create an OpenID4VP trust evaluator using the AuthZEN client.
  *
- * NOTE: This is a placeholder implementation. In production, trust evaluation
- * is performed by the wallet backend (via WebSocket transport) which delegates
- * to the configured AuthZEN PDP. This function is provided for future direct
- * client-side AuthZEN integration.
+ * This evaluator calls the wallet backend's /v1/evaluate endpoint,
+ * which proxies requests to the configured AuthZEN PDP (go-trust service).
  *
  * @example
  * ```typescript
@@ -103,51 +104,127 @@ timeout?: number;
  *   getAuthToken: () => sessionStorage.getItem('appToken'),
  *   tenantId: 'default',
  * });
+ *
+ * const result = await evaluateTrust({
+ *   clientIdScheme: { scheme: 'did', clientId: 'did:web:verifier.example.com' },
+ *   keyMaterial: { type: 'jwk', key: verifierJwk },
+ * });
+ *
+ * if (result.trusted) {
+ *   console.log(`Trusted verifier: ${result.name}`);
+ * }
  * ```
  */
-export function createTrustEvaluator(_config: TrustEvaluatorConfig): OpenID4VPTrustEvaluator {
-// Stub implementation - returns unknown trust status
-// Real trust evaluation is done server-side via WebSocket transport
-return async (_params): Promise<TrustEvaluationResult> => {
-logger.warn('TrustEvaluator: Client-side trust evaluation not yet implemented. Using backend evaluation.');
-return {
-trusted: false,
-metadata: { stub: true, message: 'Client-side AuthZEN not available; use WebSocket transport for trust evaluation' },
-};
-};
+export function createTrustEvaluator(config: TrustEvaluatorConfig): OpenID4VPTrustEvaluator {
+	const clientConfig: AuthZENClientConfig = {
+		httpClient: config.httpClient,
+		baseUrl: config.backendUrl,
+		getAuthToken: config.getAuthToken,
+		tenantId: config.tenantId,
+		timeout: config.timeout,
+	};
+
+	const authzenClient = AuthZENClient(clientConfig);
+
+	return async (params): Promise<TrustEvaluationResult> => {
+		const { clientIdScheme, keyMaterial, requestUri, responseUri } = params;
+
+		// Build context with request/response URIs for additional validation
+		const context: Record<string, unknown> = {};
+		if (requestUri) {
+			context.request_uri = requestUri;
+		}
+		if (responseUri) {
+			context.response_uri = responseUri;
+		}
+
+		// Map key material to AuthZEN format
+		const authzenKeyMaterial: KeyMaterial = {
+			type: keyMaterial.type,
+			key: keyMaterial.key,
+		};
+
+		// Call the AuthZEN evaluator
+		const result = await authzenClient.evaluateVerifier({
+			clientId: clientIdScheme.clientId,
+			keyMaterial: authzenKeyMaterial,
+			context,
+		});
+
+		if (result.ok === false) {
+			logger.error('Trust evaluation failed:', result.error);
+			// Return untrusted on error
+			return {
+				trusted: false,
+				status: TrustStatus.UNKNOWN,
+				metadata: { error: String(result.error) },
+			};
+		}
+
+		const trustInfo = result.value;
+
+		return {
+			trusted: trustInfo.status === TrustStatus.TRUSTED,
+			status: trustInfo.status,
+			name: trustInfo.name,
+			logo: trustInfo.logo,
+			metadata: (trustInfo.metadata ?? {}) as Record<string, unknown>,
+		};
+	};
 }
 
 /**
  * Issuer trust evaluation parameters.
  */
 export interface IssuerTrustEvaluationParams {
-/**
- * The credential issuer identifier (URL).
- */
-issuerId: string;
+	/**
+	 * The credential issuer identifier (URL).
+	 */
+	issuerId: string;
 
-/**
- * Key material from the issuer's signed_metadata JWT or certificate.
- */
-keyMaterial?: {
-type: 'jwk' | 'x5c';
-key: unknown | unknown[];
-};
+	/**
+	 * Key material from the issuer's signed_metadata JWT or certificate.
+	 * If not available, pass undefined and trust evaluation will be based on the issuer ID only.
+	 */
+	keyMaterial?: {
+		type: 'jwk' | 'x5c';
+		key: unknown | unknown[];
+	};
 
-/**
- * Additional context (e.g., credential configuration).
- */
-context?: Record<string, unknown>;
+	/**
+	 * Additional context (e.g., credential configuration).
+	 */
+	context?: Record<string, unknown>;
 }
 
 /**
  * Issuer trust evaluation result.
  */
 export interface IssuerTrustResult {
-trusted: boolean;
-name?: string;
-logo?: string;
-metadata?: Record<string, unknown>;
+	/**
+	 * Whether the issuer is trusted.
+	 */
+	trusted: boolean;
+
+	/**
+	 * Trust status from AuthZEN evaluation.
+	 */
+	status: TrustStatus;
+
+	/**
+	 * Issuer's display name (from OIDF entity statement or DID document).
+	 */
+	name?: string;
+
+	/**
+	 * Issuer's logo URL.
+	 */
+	logo?: string;
+
+	/**
+	 * Additional metadata from trust evaluation.
+	 */
+	metadata?: Record<string, unknown>;
 }
 
 /**
@@ -156,20 +233,78 @@ metadata?: Record<string, unknown>;
 export type IssuerTrustEvaluator = (params: IssuerTrustEvaluationParams) => Promise<IssuerTrustResult>;
 
 /**
- * Create an issuer trust evaluator.
+ * Create an issuer trust evaluator using the AuthZEN client.
  *
- * NOTE: This is a placeholder implementation. In production, trust evaluation
- * is performed by the wallet backend (via WebSocket transport) which delegates
- * to the configured AuthZEN PDP.
+ * This evaluator calls the wallet backend's /v1/evaluate endpoint
+ * to verify issuer trustworthiness before credential issuance.
+ *
+ * @example
+ * ```typescript
+ * const evaluateIssuer = createIssuerTrustEvaluator({
+ *   httpClient: defaultHttpClient,
+ *   backendUrl: BACKEND_URL,
+ *   getAuthToken: () => sessionStorage.getItem('appToken'),
+ *   tenantId: 'default',
+ * });
+ *
+ * const result = await evaluateIssuer({
+ *   issuerId: 'https://issuer.example.com',
+ *   keyMaterial: { type: 'x5c', key: x5cChain },
+ * });
+ *
+ * if (!result.trusted) {
+ *   throw new Error('Untrusted issuer');
+ * }
+ * ```
  */
-export function createIssuerTrustEvaluator(_config: TrustEvaluatorConfig): IssuerTrustEvaluator {
-// Stub implementation - returns unknown trust status
-// Real trust evaluation is done server-side via WebSocket transport
-return async (_params): Promise<IssuerTrustResult> => {
-logger.warn('TrustEvaluator: Client-side issuer trust evaluation not yet implemented. Using backend evaluation.');
-return {
-trusted: false,
-metadata: { stub: true, message: 'Client-side AuthZEN not available; use WebSocket transport for trust evaluation' },
-};
-};
+export function createIssuerTrustEvaluator(config: TrustEvaluatorConfig): IssuerTrustEvaluator {
+	const clientConfig: AuthZENClientConfig = {
+		httpClient: config.httpClient,
+		baseUrl: config.backendUrl,
+		getAuthToken: config.getAuthToken,
+		tenantId: config.tenantId,
+		timeout: config.timeout,
+	};
+
+	const authzenClient = AuthZENClient(clientConfig);
+
+	return async (params: IssuerTrustEvaluationParams): Promise<IssuerTrustResult> => {
+		const { issuerId, keyMaterial, context } = params;
+
+		// If no key material, use a minimal request with just the issuer ID
+		const authzenKeyMaterial: KeyMaterial = keyMaterial
+			? {
+					type: keyMaterial.type,
+					key: keyMaterial.key,
+				}
+			: {
+					type: 'jwk' as const,
+					key: {}, // Empty JWK - trust based on issuer ID resolution only
+				};
+
+		const result = await authzenClient.evaluateIssuer({
+			issuerId,
+			keyMaterial: authzenKeyMaterial,
+			context,
+		});
+
+		if (result.ok === false) {
+			logger.error('Issuer trust evaluation failed:', result.error);
+			return {
+				trusted: false,
+				status: TrustStatus.UNKNOWN,
+				metadata: { error: String(result.error) },
+			};
+		}
+
+		const trustInfo = result.value;
+
+		return {
+			trusted: trustInfo.status === TrustStatus.TRUSTED,
+			status: trustInfo.status,
+			name: trustInfo.name,
+			logo: trustInfo.logo,
+			metadata: (trustInfo.metadata ?? {}) as Record<string, unknown>,
+		};
+	};
 }
