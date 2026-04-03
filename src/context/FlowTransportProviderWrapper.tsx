@@ -1,7 +1,7 @@
 /**
  * Flow Transport Provider Wrapper
  *
- * This wrapper component provides the authToken from session storage
+ * This wrapper component provides the authToken and tenantId from session storage
  * to the FlowTransportProvider. It should be placed in the component
  * tree after SessionContextProvider.
  *
@@ -11,6 +11,7 @@
 import React from 'react';
 import { FlowTransportProvider } from './FlowTransportContext';
 import { useSessionStorage } from '@/hooks/useStorage';
+import { getStoredTenant } from '@/lib/tenant';
 
 interface FlowTransportProviderWrapperProps {
 	children: React.ReactNode;
@@ -27,8 +28,11 @@ export const FlowTransportProviderWrapper: React.FC<FlowTransportProviderWrapper
 	// This is the same token used by the rest of the app
 	const [appToken] = useSessionStorage<string | null>('appToken', null);
 
+	// Get the tenant ID (stored in sessionStorage by TenantContext)
+	const tenantId = getStoredTenant() ?? 'default';
+
 	return (
-		<FlowTransportProvider authToken={appToken}>
+		<FlowTransportProvider authToken={appToken} tenantId={tenantId}>
 			{children}
 		</FlowTransportProvider>
 	);

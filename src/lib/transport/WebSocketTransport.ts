@@ -89,6 +89,7 @@ export class WebSocketTransport implements IFlowTransport {
 	private ws: WebSocket | null = null;
 	private wsUrl: string;
 	private authToken: string;
+	private tenantId: string;
 
 	private pending = new Map<string, PendingRequest>();
 	private progressCallbacks = new Set<(event: FlowProgressEvent) => void>();
@@ -102,9 +103,10 @@ export class WebSocketTransport implements IFlowTransport {
 
 	private connectionPromise: Promise<void> | null = null;
 
-	constructor(wsUrl: string, authToken: string) {
+	constructor(wsUrl: string, authToken: string, tenantId: string = 'default') {
 		this.wsUrl = wsUrl;
 		this.authToken = authToken;
+		this.tenantId = tenantId;
 	}
 
 	// ===== Connection Lifecycle =====
@@ -127,13 +129,14 @@ export class WebSocketTransport implements IFlowTransport {
 				this.ws = new WebSocket(url);
 
 				this.ws.onopen = () => {
-					// Send auth token as first message for security (avoids logging in URL)
+					// Send auth token and tenant ID as first message for security (avoids logging in URL)
 					try {
 						if (this.ws && this.ws.readyState === WebSocket.OPEN) {
 							this.ws.send(
 								JSON.stringify({
 									type: 'auth',
-									token: this.authToken
+									token: this.authToken,
+									tenantId: this.tenantId
 								})
 							);
 						}
@@ -650,8 +653,11 @@ export class WebSocketTransport implements IFlowTransport {
 	/**
 	 * Update the auth token (e.g., after token refresh)
 	 */
-	updateAuthToken(token: string): void {
+	updateAuthToken(token: string, tenantId?: string): void {
 		this.authToken = token;
+		if (tenantId !== undefined) {
+			this.tenantId = tenantId;
+		}
 	}
 
 	/**

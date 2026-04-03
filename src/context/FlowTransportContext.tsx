@@ -69,6 +69,8 @@ interface FlowTransportProviderProps {
 	children: React.ReactNode;
 	/** Auth token for WebSocket connection */
 	authToken: string | null;
+	/** Tenant ID for multi-tenant routing */
+	tenantId: string;
 }
 
 /**
@@ -76,7 +78,8 @@ interface FlowTransportProviderProps {
  */
 export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 	children,
-	authToken
+	authToken,
+	tenantId
 }) => {
 	const httpProxy = useHttpProxy();
 
@@ -149,7 +152,7 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 			return;
 		}
 
-		const ws = new WebSocketTransport(WS_URL, authToken);
+		const ws = new WebSocketTransport(WS_URL, authToken, tenantId);
 		setWsTransport(ws);
 
 		// Connect to WebSocket
@@ -175,14 +178,14 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 			unsubscribeError();
 			ws.disconnect();
 		};
-	}, [authToken, capabilitiesLoaded, wsCapabilityAvailable]);
+	}, [authToken, tenantId, capabilitiesLoaded, wsCapabilityAvailable]);
 
-	// Update auth token on WebSocket when it changes
+	// Update auth token and tenant ID on WebSocket when they change
 	useEffect(() => {
 		if (wsTransport && authToken) {
-			wsTransport.updateAuthToken(authToken);
+			wsTransport.updateAuthToken(authToken, tenantId);
 		}
-	}, [wsTransport, authToken]);
+	}, [wsTransport, authToken, tenantId]);
 
 	// Select active transport based on preference order and availability
 	const { transport, transportType } = useMemo(() => {
