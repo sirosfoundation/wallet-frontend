@@ -1,6 +1,6 @@
 /**
  * OIDCGateUI - Container component for OIDC gate flow
- * 
+ *
  * Renders different UI states based on gate flow status:
  * - idle: Shows IdP button with explanation text
  * - awaiting-oidc: Shows loading/progress indicator

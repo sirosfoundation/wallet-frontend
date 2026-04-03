@@ -1,6 +1,6 @@
 /**
  * OIDCGateButton - Button to initiate OIDC IdP authentication
- * 
+ *
  * Displays a branded button with the IdP's display name.
  * Shows "Sign up with {IdP}" or "Sign in with {IdP}" based on purpose.
  */
