@@ -340,7 +340,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 						return Ok.EMPTY;
 					}
 				}
-				console.log('syncPrivateData: merge failed, falling back to re-authentication flow');
+				console.debug('syncPrivateData: merge failed, falling back to re-authentication flow');
 			}
 
 			// Fallback: navigate to sync-fail state for re-authentication
