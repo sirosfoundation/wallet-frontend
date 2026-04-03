@@ -64,12 +64,17 @@ if [ -n "${BRANDING_LOGO_LIGHT}" ]; then
 
 	log INFO "Validating logo light image type from data URL"
 	LOGO_LIGHT_IMAGE_TYPE="$(get_image_type "${BRANDING_LOGO_LIGHT}")"
-	if [ "${LOGO_LIGHT_IMAGE_TYPE}" != "png" ] && [ "${LOGO_LIGHT_IMAGE_TYPE}" != "svg" ]; then
+	if [ "${LOGO_LIGHT_IMAGE_TYPE}" != "png" ] && [ "${LOGO_LIGHT_IMAGE_TYPE}" != "svg" ] && [ "${LOGO_LIGHT_IMAGE_TYPE}" != "svg+xml" ]; then
 		log ERROR "Invalid logo light image type in data URL"
 	fi
 
+	LOGO_LIGHT_IMAGE_EXT="${LOGO_LIGHT_IMAGE_TYPE}"
+	if [ "${LOGO_LIGHT_IMAGE_TYPE}" == "svg+xml" ]; then
+		LOGO_LIGHT_IMAGE_EXT="svg"
+	fi
+
 	log INFO "Writing logo light data to output file"
-	get_data "${BRANDING_LOGO_LIGHT}" > "${OUTPUT_PATH}/logo/logo_light.${LOGO_LIGHT_IMAGE_TYPE}"
+	get_data "${BRANDING_LOGO_LIGHT}" > "${OUTPUT_PATH}/logo/logo_light.${LOGO_LIGHT_IMAGE_EXT}"
 fi
 
 # -------------------------------------------------------------------------------------------------
@@ -78,12 +83,17 @@ if [ -n "${BRANDING_LOGO_DARK}" ]; then
 
 	log INFO "Validating logo dark image type from data URL"
 	LOGO_DARK_IMAGE_TYPE="$(get_image_type "${BRANDING_LOGO_DARK}")"
-	if [ "${LOGO_DARK_IMAGE_TYPE}" != "png" ] && [ "${LOGO_DARK_IMAGE_TYPE}" != "svg" ]; then
+	if [ "${LOGO_DARK_IMAGE_TYPE}" != "png" ] && [ "${LOGO_DARK_IMAGE_TYPE}" != "svg" ] && [ "${LOGO_DARK_IMAGE_TYPE}" != "svg+xml" ]; then
 		log ERROR "Invalid logo dark image type in data URL"
 	fi
 
+	LOGO_DARK_IMAGE_EXT="${LOGO_DARK_IMAGE_TYPE}"
+	if [ "${LOGO_DARK_IMAGE_TYPE}" == "svg+xml" ]; then
+		LOGO_DARK_IMAGE_EXT="svg"
+	fi
+
 	log INFO "Writing logo dark data to output file"
-	get_data "${BRANDING_LOGO_DARK}" > "${OUTPUT_PATH}/logo/logo_dark.${LOGO_DARK_IMAGE_TYPE}"
+	get_data "${BRANDING_LOGO_DARK}" > "${OUTPUT_PATH}/logo/logo_dark.${LOGO_DARK_IMAGE_EXT}"
 fi
 
 # -------------------------------------------------------------------------------------------------
