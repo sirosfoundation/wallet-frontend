@@ -16,49 +16,19 @@ import {
 	TrustStatus,
 	TrustInfo,
 	KeyMaterial,
+	DIDResolutionResult,
+	DIDDocument,
+	DIDResolver,
+	ClientIdScheme,
+	OpenID4VPKeyMaterial,
+	TrustEvaluationResult,
+	OpenID4VPTrustEvaluator,
 } from 'wallet-common';
 import type { HttpClient } from 'wallet-common';
 import { logger } from '@/logger';
 
 // Re-export types from wallet-common for convenience
-export { TrustStatus, TrustInfo, KeyMaterial };
-
-/**
- * Client ID scheme for OpenID4VP
- */
-export interface ClientIdScheme {
-	scheme: 'did' | 'https' | 'x509_san_dns' | 'redirect_uri';
-	clientId: string;
-}
-
-/**
- * Key material for trust evaluation (matches wallet-common KeyMaterial)
- */
-export interface OpenID4VPKeyMaterial {
-	type: 'jwk' | 'x5c' | 'x509_san_dns';
-	key: unknown;
-}
-
-/**
- * Result of trust evaluation
- */
-export interface TrustEvaluationResult {
-	trusted: boolean;
-	status: TrustStatus;
-	name?: string;
-	logo?: string;
-	metadata?: Record<string, unknown>;
-}
-
-/**
- * Trust evaluator function type for OpenID4VP
- */
-export type OpenID4VPTrustEvaluator = (params: {
-	clientIdScheme: ClientIdScheme;
-	keyMaterial: OpenID4VPKeyMaterial;
-	requestUri?: string;
-	responseUri?: string;
-}) => Promise<TrustEvaluationResult>;
+export { TrustStatus, TrustInfo, KeyMaterial, DIDResolutionResult, DIDDocument, DIDResolver, ClientIdScheme, OpenID4VPKeyMaterial, TrustEvaluationResult, OpenID4VPTrustEvaluator };
 
 /**
  * Configuration for creating a trust evaluator.
@@ -305,6 +275,75 @@ export function createIssuerTrustEvaluator(config: TrustEvaluatorConfig): Issuer
 			name: trustInfo.name,
 			logo: trustInfo.logo,
 			metadata: (trustInfo.metadata ?? {}) as Record<string, unknown>,
+		};
+	};
+}
+
+/**
+ * Create a DID resolver that uses the AuthZEN backend for resolution.
+ *
+ * This resolver calls the wallet backend's /v1/resolve endpoint,
+ * which resolves DIDs and returns the DID document with public keys.
+ *
+ * @example
+ * ```typescript
+ * const resolveDid = createDIDResolver({
+ *   httpClient: defaultHttpClient,
+ *   backendUrl: BACKEND_URL,
+ *   getAuthToken: () => sessionStorage.getItem('appToken'),
+ *   tenantId: 'default',
+ * });
+ *
+ * const result = await resolveDid('did:web:verifier.example.com');
+ *
+ * if (result.resolved && result.didDocument) {
+ *   console.log('DID Document:', result.didDocument);
+ * }
+ * ```
+ */
+export function createDIDResolver(config: TrustEvaluatorConfig): DIDResolver {
+	const clientConfig: AuthZENClientConfig = {
+		httpClient: config.httpClient,
+		baseUrl: config.backendUrl,
+		getAuthToken: config.getAuthToken,
+		tenantId: config.tenantId,
+		timeout: config.timeout,
+	};
+
+	const authzenClient = AuthZENClient(clientConfig);
+
+	return async (did: string): Promise<DIDResolutionResult> => {
+		logger.debug('Resolving DID via AuthZEN backend:', did);
+
+		const result = await authzenClient.resolve(did);
+
+		if (result.ok === false) {
+			logger.error('DID resolution failed:', result.error);
+			return {
+				resolved: false,
+				error: String(result.error),
+			};
+		}
+
+		const response = result.value;
+
+		// Extract DID document from trust_metadata
+		const didDocument = response.context?.trust_metadata as DIDDocument | undefined;
+
+		if (!didDocument || !didDocument.id) {
+			logger.warn('DID resolved but no document returned for:', did);
+			return {
+				resolved: false,
+				error: 'No DID document in resolution response',
+			};
+		}
+
+		return {
+			resolved: true,
+			didDocument,
+			metadata: response.context?.trust_metadata
+				? { ...response.context.trust_metadata }
+				: undefined,
 		};
 	};
 }
