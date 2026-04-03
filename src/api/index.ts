@@ -348,7 +348,9 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			queryParams.delete('user');
 			queryParams.delete('sync');
 
-			queryParams.append('user', cachedUser.userHandleB64u);
+			if (cachedUser && cachedUser.userHandleB64u) {
+				queryParams.append('user', cachedUser.userHandleB64u);
+			}
 			queryParams.append('sync', 'fail');
 
 			navigate(`${window.location.pathname}?${queryParams.toString()}`, { replace: true });
@@ -359,7 +361,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			return Err('syncFailed');
 		}
 
-	}, [getPrivateDataEtag, get, navigate, isOnline, post, updatePrivateDataEtag]);
+	}, [getPrivateDataEtag, get, navigate, isOnline, post, updatePrivateDataEtag, cachedUser]);
 
 	const updateShowWelcome = useCallback((showWelcome: boolean): void => {
 		if (sessionState) {
