@@ -327,7 +327,9 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 				const remotePrivateData = getPrivateDataResponse.data.privateData;
 				const mergeResult = await keystore.syncWithRemoteData(remotePrivateData);
 				if (mergeResult.ok) {
-					const newEtag = getPrivateDataResponse.headers?.['etag'];
+					const newEtag =
+						getPrivateDataResponse.headers?.['x-private-data-etag'] ??
+						getPrivateDataResponse.headers?.['etag'];
 					const updateResp = updatePrivateDataEtag(
 						await post('/user/session/private-data', serializePrivateData(mergeResult.val), {
 							headers: newEtag ? { 'X-Private-Data-If-Match': newEtag } : {},
