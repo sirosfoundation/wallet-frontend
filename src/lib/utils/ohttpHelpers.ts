@@ -3,6 +3,7 @@ import { DhkemX25519HkdfSha256 } from '@hpke/dhkem-x25519'
 import axios from 'axios'
 import { decodeKnownLengthResponse, encodeKnownLengthRequest, headersFromObject } from './bhttp';
 import { RequestHeaders } from '../interfaces/IHttpProxy';
+import { logger } from '@/logger';
 
 export type HpkeConfig = {
 	keyId: number;
@@ -182,7 +183,7 @@ export const fetchKeyConfig = async (gatewayKeysUrl: string): Promise<HpkeConfig
 		const buf = res.data; // already an ArrayBuffer
 		cfgs = parseOhttpKeys(buf);
 	} catch (e: any) {
-		console.error(e);
+		logger.error(e);
 		throw new Error(e.message || "Unknown error while fetching/parsing keys");
 	}
 
@@ -203,7 +204,7 @@ export const fetchKeyConfig = async (gatewayKeysUrl: string): Promise<HpkeConfig
 
 export const encryptedHttpRequest = async (relayUrl: string, keysInfo: HpkeConfig, requestParams: HttpRequestParameters) => {
 	if (!keysInfo) {
-		console.error("Keys Info is unset")
+		logger.error("Keys Info is unset")
 		return
 	}
 	const { keyId, kemId, kdfId, aeadId, publicKey, pubHex } = keysInfo;
@@ -213,7 +214,7 @@ export const encryptedHttpRequest = async (relayUrl: string, keysInfo: HpkeConfi
 		aeadId === undefined ||
 		publicKey === undefined ||
 		pubHex === undefined) {
-		console.error("Missing field from keysInfo")
+		logger.error("Missing field from keysInfo")
 		return
 	}
 	const suite = buildSuite(kdfId, aeadId)
@@ -241,10 +242,10 @@ export const encryptedHttpRequest = async (relayUrl: string, keysInfo: HpkeConfi
 
 	let body;
 	if (requestParams.headers && requestParams.headers['Content-Type'] === 'application/json') { // TODO: assuming json or forms only
-		console.log('parsing as json');
+		logger.debug('parsing as json');
 		body = requestParams.body ? new TextEncoder().encode(JSON.stringify(requestParams.body)) : new TextEncoder().encode('{}')
 	} else {
-		console.log('parsing as form');
+		logger.debug('parsing as form');
 		body = typeof requestParams?.body === 'string' ? new TextEncoder().encode(requestParams.body) : new Uint8Array(0);
 	}
 

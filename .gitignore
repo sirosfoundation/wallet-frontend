@@ -53,3 +53,5 @@ ssl_keys/*
 variables.vars
 
 public/
+pnpm-lock.yaml
+config/.cache/

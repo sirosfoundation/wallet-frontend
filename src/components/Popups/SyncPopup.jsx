@@ -3,6 +3,7 @@ import React, { useContext, useState, useCallback } from 'react';
 import { useTranslation, Trans } from 'react-i18next';
 import Button from '../Buttons/Button';
 import PopupLayout from './PopupLayout';
+import { logger } from '@/logger';
 import SessionContext from '@/context/SessionContext';
 import { useTenant } from '@/context/TenantContext';
 import { buildTenantRoutePath } from '@/lib/tenant';
@@ -33,6 +34,7 @@ const WebauthnLogin = ({
 				navigate(`${window.location.pathname}?${params.toString()}`, { replace: true });
 			} else {
 				const err = result.val;
+
 
 				// Using a switch here so the t() argument can be a literal, to ease searching
 				switch (err) {
@@ -123,7 +125,7 @@ const SyncPopup = ({ message, onClose }) => {
 				const stateObj = JSON.parse(decodedState);
 				return [cachedUsers.find(user => user.userHandleB64u === stateObj.userHandleB64u), false, authenticated === 'true'];
 			} catch (error) {
-				console.error('Error decoding state:', error);
+				logger.error('Error decoding state:', error);
 			}
 		}
 
