@@ -35,7 +35,7 @@ export type OIDCGateState =
 export interface UseOIDCGateOptions {
 	/** The purpose of this gate (registration or login) */
 	purpose: OIDCGatePurpose;
-	/** Callback URL for browser redirect flow (e.g., /cb or /id/:tenantId/cb) */
+	/** Callback URL for browser redirect flow (e.g., /oidc/cb or /id/:tenantId/oidc/cb) */
 	redirectUri: string;
 }
 

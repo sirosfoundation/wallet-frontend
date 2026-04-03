@@ -10,7 +10,6 @@ import SessionContext from '@/context/SessionContext';
 import { useTenant } from '../../context/TenantContext';
 import { buildTenantRoutePath, filterUsersByTenantID, matchesTenantFromUrl } from '../../lib/tenant';
 import { useOIDCGate } from '../../hooks/useOIDCGate';
-import { getStoredIdToken } from '../../lib/oidc';
 
 import * as config from '../../config';
 import Button, { Variant } from '../../components/Buttons/Button';
@@ -227,7 +226,7 @@ const WebauthnSignupLogin = ({
 	const location = useLocation();
 
 	// OIDC gate hooks - registration and login are independent
-	const redirectUri = window.location.origin + buildPath('/cb');
+	const redirectUri = window.location.origin + buildPath('/oidc/cb');
 	const registrationGate = useOIDCGate({ purpose: 'registration', redirectUri });
 	const loginGate = useOIDCGate({ purpose: 'login', redirectUri });
 
@@ -428,8 +427,37 @@ const WebauthnSignupLogin = ({
 		activeGate.startFlow({ username: name });
 	}, [activeGate, name]);
 
+	// While OIDC gate / tenant config is loading, block the rest of the flow
+	const isOIDCGateLoading = activeGate.state.status === 'loading';
+
 	// Check if we need to show the OIDC gate UI
-	const showOIDCGate = activeGate.requiresGate && !activeGate.isGateComplete;
+	const showOIDCGate = activeGate.requiresGate && !activeGate.isGateComplete && !isOIDCGateLoading;
+
+	// If OIDC gate is loading, show the gate UI in loading state
+	if (isOIDCGateLoading) {
+		return (
+			<div className='mb-4'>
+				<OIDCGateUI
+					state={activeGate.state}
+					provider={activeGate.providerConfig}
+					purpose={isLogin ? 'login' : 'registration'}
+					onStart={handleStartGateFlow}
+					onRetry={activeGate.reset}
+				/>
+			</div>
+		);
+	}
+
+	// If OIDC gate is required but no provider is configured, show error
+	if (showOIDCGate && !activeGate.providerConfig) {
+		return (
+			<div className='mb-4'>
+				<div className="text-lm-red dark:text-dm-red pt-2">
+					{t('loginSignup.oidcGateError', 'OIDC gate configuration error. Please contact support.')}
+				</div>
+			</div>
+		);
+	}
 
 	// If OIDC gate is required and not complete, show the gate UI
 	if (showOIDCGate && activeGate.providerConfig) {

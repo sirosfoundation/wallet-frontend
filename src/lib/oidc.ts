@@ -78,12 +78,18 @@ interface OIDCState {
 }
 
 /**
- * Generate a cryptographically random string
+ * Generate a cryptographically random string using base64url encoding.
+ * Uses enough random bytes to produce at least `length` characters
+ * without discarding entropy.
  */
 function generateRandomString(length: number): string {
-	const array = new Uint8Array(length);
+	// Each base64 character represents 6 bits, so request enough bytes
+	// to produce at least `length` characters after encoding.
+	const bytesNeeded = Math.ceil((length * 6) / 8);
+	const array = new Uint8Array(bytesNeeded);
 	crypto.getRandomValues(array);
-	return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('').slice(0, length);
+	const encoded = base64UrlEncode(array);
+	return encoded.slice(0, length);
 }
 
 /**
@@ -313,7 +319,7 @@ export async function startOIDCFlow(
 
 /**
  * Handle OIDC callback (browser redirect mode only)
- * Should be called on the callback page (/cb or /id/:tenantId/cb)
+ * Should be called on the callback page (/oidc/cb or /id/:tenantId/oidc/cb)
  */
 export async function handleOIDCCallback(
 	config: OIDCFlowConfig
@@ -405,7 +411,15 @@ export async function handleOIDCCallback(
 export function extractIdTokenClaims(idToken: string): Record<string, unknown> {
 	try {
 		const [, payload] = idToken.split('.');
-		const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+		if (!payload) {
+			return {};
+		}
+
+		// Convert from base64url to base64 and add required padding
+		const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+		const paddedBase64 = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+
+		const decoded = atob(paddedBase64);
 		return JSON.parse(decoded);
 	} catch {
 		return {};

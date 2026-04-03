@@ -102,23 +102,29 @@ export function TenantProvider({ children, tenantId: propTenantId }: TenantProvi
 
 	// Fetch tenant config from backend
 	useEffect(() => {
+		// Use URL tenant for pre-auth config (registration/login decisions)
+		// Fall back to effectiveTenantId for authenticated users
+		const tenantToFetch = urlTenantId || effectiveTenantId;
+		if (!tenantToFetch) {
+			setTenantConfig(null);
+			return;
+		}
+
+		// Create AbortController to cancel pending requests when tenant changes
+		const abortController = new AbortController();
+
+		// Clear previous config when tenant changes to avoid stale data
+		setTenantConfig(null);
+		setIsLoadingConfig(true);
+		setConfigError(null);
+
 		const fetchTenantConfig = async () => {
-			// Use URL tenant for pre-auth config (registration/login decisions)
-			// Fall back to effectiveTenantId for authenticated users
-			const tenantToFetch = urlTenantId || effectiveTenantId;
-			if (!tenantToFetch) {
-				setTenantConfig(null);
-				return;
-			}
-
-			setIsLoadingConfig(true);
-			setConfigError(null);
-
 			try {
 				const response = await axios.get<TenantConfig>(
 					`${BACKEND_URL}/api/v1/tenants/${tenantToFetch}/config`,
 					{
 						timeout: 10000,
+						signal: abortController.signal,
 						headers: {
 							// Include X-Tenant-ID for proxy routing even though
 							// the endpoint uses URL path for tenant identification
@@ -128,6 +134,10 @@ export function TenantProvider({ children, tenantId: propTenantId }: TenantProvi
 				);
 				setTenantConfig(response.data);
 			} catch (error) {
+				// Ignore aborted requests (component unmounted or tenant changed)
+				if (axios.isCancel(error)) {
+					return;
+				}
 				if (axios.isAxiosError(error)) {
 					if (error.response?.status === 404) {
 						// Tenant not found - use default (no OIDC gate)
@@ -149,6 +159,11 @@ export function TenantProvider({ children, tenantId: propTenantId }: TenantProvi
 		};
 
 		fetchTenantConfig();
+
+		// Cleanup: abort pending request when deps change or component unmounts
+		return () => {
+			abortController.abort();
+		};
 	}, [urlTenantId, effectiveTenantId]);
 
 	// Only sync URL tenant to storage if:

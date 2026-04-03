@@ -110,7 +110,7 @@ function App() {
 						}>
 							<Route path="login" element={<Login />} />
 							<Route path="login-state" element={<LoginState />} />
-							<Route path="cb" element={<OIDCCallback />} />
+							<Route path="oidc/cb" element={<OIDCCallback />} />
 							<Route path="*" element={<NotFound />} />
 						</Route>
 					</Route>
@@ -132,7 +132,7 @@ function App() {
 					}>
 						<Route path="/login" element={<Login />} />
 						<Route path="/login-state" element={<LoginState />} />
-						<Route path="/cb" element={<OIDCCallback />} />
+						<Route path="/oidc/cb" element={<OIDCCallback />} />
 						<Route path="*" element={<NotFound />} />
 					</Route>
 				</Routes>

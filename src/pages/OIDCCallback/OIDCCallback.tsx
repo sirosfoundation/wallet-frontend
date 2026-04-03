@@ -23,7 +23,7 @@ type CallbackState =
 export default function OIDCCallback() {
 	const { t } = useTranslation();
 	const navigate = useNavigate();
-	const { urlTenantId, buildPath, getRegistrationOIDCProvider, getLoginOIDCProvider, isLoadingConfig } = useTenant();
+	const { buildPath, getRegistrationOIDCProvider, getLoginOIDCProvider, isLoadingConfig } = useTenant();
 
 	const [state, setState] = useState<CallbackState>({ status: 'processing' });
 
@@ -48,9 +48,9 @@ export default function OIDCCallback() {
 				}
 
 				// Look up purpose from sessionStorage (stored by startOIDCFlow)
-				const purpose = sessionStorage.getItem(`oidc_gate_state_${stateParam}`) as 'registration' | 'login' | null;
+				const purpose = sessionStorage.getItem(`oidc_gate_state_${stateParam}`);
 
-				if (!purpose) {
+				if (purpose !== 'registration' && purpose !== 'login') {
 					throw new Error('Invalid or expired session');
 				}
 
@@ -70,10 +70,9 @@ export default function OIDCCallback() {
 
 				setState({ status: 'success', returnPath: result.returnPath });
 
-				// Redirect back to login page after a brief delay
+				// Redirect back to the original return path (or login as a fallback) after a brief delay
 				setTimeout(() => {
-					// Build the return path with tenant prefix if needed
-					const targetPath = buildPath('/login');
+					const targetPath = result.returnPath || buildPath('/login');
 					navigate(targetPath, { replace: true });
 				}, 1500);
 
