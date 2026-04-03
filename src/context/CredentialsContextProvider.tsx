@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useContext, useRef, useEffect } from 'react';
 import SessionContext from './SessionContext';
 import { initializeCredentialEngine } from "../lib/initializeCredentialEngine";
-import { CredentialVerificationError, VerifiableCredentialFormat, ParsedCredential } from "wallet-common";
+import { CredentialVerificationError, ParsedCredential } from "wallet-common";
 import { useHttpProxy } from "@/lib/services/HttpProxy/HttpProxy";
 import CredentialsContext, { ExtendedVcEntity, Instance } from "./CredentialsContext";
 import { useOpenID4VCIHelper } from "@/lib/services/OpenID4VCIHelper";
@@ -129,7 +129,7 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 			return acc;
 		}, {});
 
-		const { sdJwtVerifier, msoMdocVerifier } = engine;
+		const { credentialVerifyingEngine } = engine;
 		// Filter and map the fetched list in one go
 		let filteredVcEntityList = await Promise.all(
 			credentials
@@ -147,16 +147,7 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 					if (parsedCredential === null) { // filter out the non parsable credentials
 						return null;
 					}
-					const result = await (async () => {
-						switch (parsedCredential.metadata.credential.format) {
-							case VerifiableCredentialFormat.VC_SDJWT:
-								return sdJwtVerifier.verify({ rawCredential: credential.data, opts: {} });
-							case VerifiableCredentialFormat.DC_SDJWT:
-								return sdJwtVerifier.verify({ rawCredential: credential.data, opts: {} });
-							case VerifiableCredentialFormat.MSO_MDOC:
-								return msoMdocVerifier.verify({ rawCredential: credential.data, opts: {} });
-						}
-					})();
+					const result = await credentialVerifyingEngine.verify({ rawCredential: credential.data, opts: {} });
 
 					// Attach the instances array from the map and add parsedCredential
 					return {

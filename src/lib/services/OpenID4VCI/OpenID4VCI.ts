@@ -34,36 +34,40 @@ const openid4vciProofTypePrecedence = config.OPENID4VCI_PROOF_TYPE_PRECEDENCE.sp
 const textDecoder = new TextDecoder();
 
 
-export const deriveHolderKidFromCredential = async (credential: string, format: string) => {
-	if (format === VerifiableCredentialFormat.VC_SDJWT || format === VerifiableCredentialFormat.DC_SDJWT) {
-		const payload = credential.split('.')[1];
-		const { cnf } = JSON.parse(textDecoder.decode(fromBase64Url(payload)));
-		if (cnf && cnf.jwk) {
-			const jwkThumbprint = await jose.calculateJwkThumbprint(cnf.jwk as jose.JWK, "sha256");
-			return jwkThumbprint;
+export const deriveHolderKidFromCredential = async (credential: string, format: VerifiableCredentialFormat): Promise<string | undefined> => {
+	switch (format) {
+		case VerifiableCredentialFormat.VC_SDJWT:
+		case VerifiableCredentialFormat.DC_SDJWT:
+		case VerifiableCredentialFormat.JWT_VC_JSON: {
+			const payload = credential.split('.')[1];
+			const decoded = JSON.parse(textDecoder.decode(fromBase64Url(payload)));
+			const cnf = decoded.cnf as { jwk?: jose.JWK } | undefined;
+			if (cnf?.jwk) {
+				return jose.calculateJwkThumbprint(cnf.jwk, "sha256");
+			}
+			return undefined;
 		}
-	}
-	else if (format === VerifiableCredentialFormat.MSO_MDOC) {
-		const credentialBytes = fromBase64Url(credential);
-		const issuerSigned = cborDecode(credentialBytes);
-		const dataItem = cborDecode(issuerSigned.get('issuerAuth')[2]);
-		const m = {
-			version: '1.0',
-			documents: [new Map([
-				['docType', dataItem.data.get('docType')],
-				['issuerSigned', issuerSigned]
-			])],
-			status: 0
-		};
-		const encoded = cborEncode(m);
-		const mdocCredential = parse(encoded);
-		const p: DataItem = cborDecode(mdocCredential.documents[0].issuerSigned.issuerAuth.payload);
-		const deviceKeyInfo = p.data.get('deviceKeyInfo');
-		const deviceKey = deviceKeyInfo.get('deviceKey');
-		// @ts-ignore
-		const devicePublicKeyJwk = COSEKeyToJWK(deviceKey);
-		const kid = await jose.calculateJwkThumbprint(devicePublicKeyJwk, "sha256");
-		return kid;
+		case VerifiableCredentialFormat.MSO_MDOC: {
+			const credentialBytes = fromBase64Url(credential);
+			const issuerSigned = cborDecode(credentialBytes);
+			const dataItem = cborDecode(issuerSigned.get('issuerAuth')[2]);
+			const m = {
+				version: '1.0',
+				documents: [new Map([
+					['docType', dataItem.data.get('docType')],
+					['issuerSigned', issuerSigned]
+				])],
+				status: 0
+			};
+			const encoded = cborEncode(m);
+			const mdocCredential = parse(encoded);
+			const p: DataItem = cborDecode(mdocCredential.documents[0].issuerSigned.issuerAuth.payload);
+			const deviceKeyInfo = p.data.get('deviceKeyInfo');
+			const deviceKey = deviceKeyInfo.get('deviceKey');
+			// @ts-ignore
+			const devicePublicKeyJwk = COSEKeyToJWK(deviceKey);
+			return jose.calculateJwkThumbprint(devicePublicKeyJwk, "sha256");
+		}
 	}
 }
 
