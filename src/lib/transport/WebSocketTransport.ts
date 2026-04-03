@@ -18,8 +18,9 @@ import type {
 	FlowResponse,
 	FlowProgressEvent
 } from './types/FlowTypes';
-import type { OID4VCIFlowParams, OID4VCIFlowResult } from './types/OID4VCITypes';
-import type { OID4VPFlowParams, OID4VPFlowResult } from './types/OID4VPTypes';
+import type { OID4VCIFlowParams, OID4VCIFlowResult, OID4VCIIssuerInfo } from './types/OID4VCITypes';
+import type { OID4VPFlowParams, OID4VPFlowResult, OID4VPVerifierInfo } from './types/OID4VPTypes';
+import type { TrustStatus } from './types/TrustTypes';
 import { logger } from '@/logger';
 
 /**
@@ -270,6 +271,9 @@ export class WebSocketTransport implements IFlowTransport {
 		if (response.issuerMetadata) {
 			result.issuerMetadata = response.issuerMetadata as OID4VCIFlowResult['issuerMetadata'];
 		}
+		if (response.issuerInfo) {
+			result.issuerInfo = mapIssuerInfo(response.issuerInfo as Record<string, unknown>);
+		}
 		if (response.credentialConfigurations) {
 			result.credentialConfigurations = response.credentialConfigurations as OID4VCIFlowResult['credentialConfigurations'];
 		}
@@ -370,7 +374,7 @@ export class WebSocketTransport implements IFlowTransport {
 			}
 		}
 		if (response.verifierInfo) {
-			result.verifierInfo = response.verifierInfo as OID4VPFlowResult['verifierInfo'];
+			result.verifierInfo = mapVerifierInfo(response.verifierInfo as Record<string, unknown>);
 		}
 		if (response.transactionData) {
 			result.transactionData = response.transactionData as OID4VPFlowResult['transactionData'];
@@ -690,4 +694,82 @@ export class WebSocketTransport implements IFlowTransport {
 			pendingRequests: this.pending.size,
 		};
 	}
+}
+
+// =============================================================================
+// Utility Functions
+// =============================================================================
+
+/**
+ * Parse a logo value from the backend.
+ * Handles both string URLs and object formats with a `uri` field.
+ */
+function parseLogo(logo: unknown): string | undefined {
+	if (logo == null) return undefined;
+	if (typeof logo === 'string') return logo;
+	if (typeof logo === 'object' && logo !== null) {
+		return (logo as Record<string, unknown>).uri as string | undefined;
+	}
+	return undefined;
+}
+
+/**
+ * Map a raw verifier info object from the backend into the typed frontend
+ * representation. Handles the backend's snake_case `trusted_status` field
+ * as well as the legacy `trusted` boolean.
+ */
+function mapVerifierInfo(raw: Record<string, unknown>): OID4VPVerifierInfo {
+	return {
+		name: raw.name as string | undefined,
+		purpose: raw.purpose as string | undefined,
+		trustedStatus: parseTrustStatus(raw.trusted_status, raw.trusted),
+		reason: raw.reason as string | undefined,
+		metadata: raw.metadata as Record<string, unknown> | undefined,
+		domain: raw.domain as string | undefined,
+		logo: parseLogo(raw.logo),
+	};
+}
+
+/**
+ * Map a raw issuer info object from the backend into the typed frontend
+ * representation. Handles the backend's snake_case `trusted_status` field
+ * as well as the legacy `trusted` boolean.
+ *
+ * Returns undefined for identifier if the backend doesn't provide a valid string,
+ * rather than defaulting to empty string which could mask wire-format issues.
+ */
+function mapIssuerInfo(raw: Record<string, unknown>): OID4VCIIssuerInfo {
+	return {
+		identifier: typeof raw.identifier === 'string' ? raw.identifier : undefined,
+		name: raw.name as string | undefined,
+		logo: parseLogo(raw.logo),
+		trustedStatus: parseTrustStatus(raw.trusted_status, raw.trusted),
+		reason: raw.reason as string | undefined,
+		metadata: raw.metadata as Record<string, unknown> | undefined,
+	};
+}
+
+/**
+ * Parse a trust status value from the backend.
+ *
+ * Supports:
+ * - New wire format: `trusted_status` string ("trusted"|"unknown"|"untrusted")
+ * - Legacy wire format: `trusted` boolean → maps true→"trusted", false→"untrusted"
+ * - Missing/null → "unknown"
+ */
+function parseTrustStatus(
+	trustedStatus: unknown,
+	legacyTrusted?: unknown,
+): TrustStatus {
+	// New format: string tri-state
+	if (typeof trustedStatus === 'string') {
+		if (trustedStatus === 'trusted' || trustedStatus === 'untrusted' || trustedStatus === 'unknown') {
+			return trustedStatus;
+		}
+	}
+	// Legacy format: boolean
+	if (typeof legacyTrusted === 'boolean') {
+		return legacyTrusted ? 'trusted' : 'untrusted';
+	}
+	return 'unknown';
 }

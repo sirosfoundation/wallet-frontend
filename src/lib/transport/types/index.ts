@@ -5,6 +5,8 @@
  */
 
 export * from './IFlowTransport';
+export * from './TrustTypes';
 export * from './OID4VCITypes';
 export * from './OID4VPTypes';
 export * from './FlowTypes';
+export * from './ProtocolSteps';

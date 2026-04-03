@@ -2,6 +2,8 @@
  * OID4VP (Verifiable Presentation) flow types for transport abstraction
  */
 
+import type { TrustEvaluation } from './TrustTypes';
+
 // Note: These types are defined locally to avoid coupling to wallet-common exports
 // which may vary between versions. The transport layer handles conversion.
 
@@ -73,15 +75,17 @@ export interface OID4VPFlowResult {
 }
 
 /**
- * Verifier information for display
+ * Verifier information for display.
+ *
+ * Extends TrustEvaluation for trust fields (`trustedStatus`, `reason`, `metadata`)
+ * which are populated by the backend after PDP evaluation and made available
+ * for UI designers to render trust indicators (shields, badges, warnings, etc.).
  */
-export interface OID4VPVerifierInfo {
+export interface OID4VPVerifierInfo extends TrustEvaluation {
 	/** Verifier display name */
 	name?: string;
 	/** Purpose of the verification request */
 	purpose?: string;
-	/** Trust status from registry */
-	trustedStatus?: 'trusted' | 'unknown' | 'untrusted';
 	/** Domain name of the verifier */
 	domain?: string;
 	/** Logo URL */

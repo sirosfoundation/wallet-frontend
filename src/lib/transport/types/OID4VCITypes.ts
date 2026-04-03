@@ -6,6 +6,7 @@ import type {
 	CredentialConfigurationSupported,
 	OpenidCredentialIssuerMetadata
 } from 'wallet-common';
+import type { TrustEvaluation } from './TrustTypes';
 
 /**
  * Parameters for starting or continuing an OID4VCI flow
@@ -65,6 +66,9 @@ export interface OID4VCIFlowResult {
 
 	/** Issuer metadata */
 	issuerMetadata?: OpenidCredentialIssuerMetadata;
+
+	/** Issuer information including trust evaluation result */
+	issuerInfo?: OID4VCIIssuerInfo;
 
 	/** Available credential configurations */
 	credentialConfigurations?: Record<string, CredentialConfigurationSupported>;
@@ -126,11 +130,15 @@ export interface OID4VCITxCode {
 }
 
 /**
- * Credential issuer information for display
+ * Credential issuer information for display.
+ *
+ * Extends TrustEvaluation for trust fields (`trustedStatus`, `reason`, `metadata`)
+ * which are populated by the backend after PDP evaluation and made available
+ * for UI designers to render trust indicators (shields, badges, warnings, etc.).
  */
-export interface OID4VCIIssuerInfo {
-	/** Issuer identifier (URL) */
-	identifier: string;
+export interface OID4VCIIssuerInfo extends TrustEvaluation {
+	/** Issuer identifier (URL). Optional — omitted if backend doesn't provide a valid identifier. */
+	identifier?: string;
 	/** Display name */
 	name?: string;
 	/** Logo URL */
