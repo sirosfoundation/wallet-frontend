@@ -1,6 +1,6 @@
 /**
  * OIDCCallback - Handle OIDC redirect callback
- * 
+ *
  * This page handles the redirect back from the IdP after authentication.
  * It exchanges the authorization code for tokens and stores the ID token,
  * then redirects back to the login page.

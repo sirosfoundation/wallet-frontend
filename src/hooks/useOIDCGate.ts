@@ -1,6 +1,6 @@
 /**
  * useOIDCGate - React hook for managing OIDC gate flow state
- * 
+ *
  * This hook manages the state machine for OIDC gate authentication:
  * - Detects if gate is required based on tenant config
  * - Tracks flow state (idle, awaiting-oidc, oidc-complete, error)

@@ -1,11 +1,11 @@
 /**
  * OIDC PKCE Flow Utilities
- * 
+ *
  * Handles OIDC authentication flows for the OIDC gate feature.
  * Supports two modes:
  * 1. Browser redirect - Standard PKCE flow using browser navigation
  * 2. Native bridge - Uses native app's OIDC SDK (AppAuth-iOS/Android)
- * 
+ *
  * Token storage is purpose-specific to prevent cross-contamination
  * between registration and login gates.
  */
@@ -29,7 +29,7 @@ export interface NativeOIDCBridge {
 	/** Check if native OIDC is available */
 	isAvailable(): boolean;
 
-	/** 
+	/**
 	 * Start OIDC flow via native SDK (AppAuth-iOS/Android)
 	 * Returns promise that resolves with ID token
 	 */
