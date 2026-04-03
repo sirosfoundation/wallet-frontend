@@ -336,7 +336,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 						}),
 					);
 					if (updateResp.status === 204) {
-						console.log('syncPrivateData: merged remote and local data successfully');
+						console.debug('syncPrivateData: merged remote and local data successfully');
 						return Ok.EMPTY;
 					}
 				}
