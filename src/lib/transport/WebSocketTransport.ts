@@ -727,6 +727,8 @@ function mapVerifierInfo(raw: Record<string, unknown>): OID4VPVerifierInfo {
 		metadata: raw.metadata as Record<string, unknown> | undefined,
 		domain: raw.domain as string | undefined,
 		logo: parseLogo(raw.logo),
+		clientIdScheme: raw.client_id_scheme as string | undefined,
+		trustFramework: raw.framework as string | undefined,
 	};
 }
 
