@@ -856,26 +856,30 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 			return Err('keystoreNotOpen');
 		}
 
-		const remotePrivateData = await keystore.parsePrivateData(remotePrivateDataRaw);
-		const [localPrivateData, localMainKey] = await assertKeystoreOpen();
-		const [remoteContainer, remoteMainKey,] = await keystore.openPrivateData(localMainKey, remotePrivateData);
-		const [localContainer, ,] = await keystore.openPrivateData(localMainKey, localPrivateData);
-		const mergedContainer = await mergeEventHistories(remoteContainer, localContainer);
+		try {
+			const remotePrivateData = await keystore.parsePrivateData(remotePrivateDataRaw);
+			const [localPrivateData, localMainKey] = await assertKeystoreOpen();
+			const [remoteContainer, remoteMainKey,] = await keystore.openPrivateData(localMainKey, remotePrivateData);
+			const [localContainer, ,] = await keystore.openPrivateData(localMainKey, localPrivateData);
+			const mergedContainer = await mergeEventHistories(remoteContainer, localContainer);
 
-		const { newContainer } = await keystore.updateWalletState([
-			keystore.assertAsymmetricEncryptedContainer(remotePrivateData),
-			remoteMainKey,
-		], mergedContainer as CurrentSchema.WalletStateContainer);
-		const [newPrivateDataEncryptedContainer, newMainKey] = newContainer;
+			const { newContainer } = await keystore.updateWalletState([
+				keystore.assertAsymmetricEncryptedContainer(remotePrivateData),
+				remoteMainKey,
+			], mergedContainer as CurrentSchema.WalletStateContainer);
+			const [newPrivateDataEncryptedContainer, newMainKey] = newContainer;
 
-		await writePrivateDataOnIdb(newPrivateDataEncryptedContainer, userHandleB64u);
-		setPrivateData(newPrivateDataEncryptedContainer);
-		setMainKey(await keystore.exportMainKey(newMainKey));
+			await writePrivateDataOnIdb(newPrivateDataEncryptedContainer, userHandleB64u);
+			setPrivateData(newPrivateDataEncryptedContainer);
+			setMainKey(await keystore.exportMainKey(newMainKey));
 
-		const foldedState = foldState(mergedContainer as CurrentSchema.WalletStateContainer);
-		setCalculatedWalletState(foldedState);
+			const foldedState = foldState(mergedContainer as CurrentSchema.WalletStateContainer);
+			setCalculatedWalletState(foldedState);
 
-		return Ok(newPrivateDataEncryptedContainer);
+			return Ok(newPrivateDataEncryptedContainer);
+		} catch {
+			return Err('mergeFailed');
+		}
 	}, [privateData, mainKey, assertKeystoreOpen, writePrivateDataOnIdb, userHandleB64u, setPrivateData, setMainKey, setCalculatedWalletState]);
 
 	return useMemo(() => ({
