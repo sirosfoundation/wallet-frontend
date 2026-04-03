@@ -12,12 +12,12 @@
 
 ```
 release/sirosid (15227f77)
-       └── feat/v2-openid-transports (+31 commits, 5f0e8170)
-              └── phase-4/trust-types (+2 commits) ← PR #16 READY
+└── feat/v2-openid-transports (+31 commits, 5f0e8170)
+    └── phase-4/trust-types (+2 commits) ← PR #16 READY
 
 phase-5/invite-pin (DIVERGED - created before PRs #13-15)
-       └── phase-6/format-handling (+8 commits)
-              └── phase-7/authzen-trust (+3 commits)
+└── phase-6/format-handling (+8 commits)
+    └── phase-7/authzen-trust (+3 commits)
 ```
 
 ### Key Finding: Invite Code Already Present
