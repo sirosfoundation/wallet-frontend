@@ -877,7 +877,8 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 			setCalculatedWalletState(foldedState);
 
 			return Ok(newPrivateDataEncryptedContainer);
-		} catch {
+		} catch (error) {
+			console.error("Failed to sync with remote data", error);
 			return Err('mergeFailed');
 		}
 	}, [privateData, mainKey, assertKeystoreOpen, writePrivateDataOnIdb, userHandleB64u, setPrivateData, setMainKey, setCalculatedWalletState]);

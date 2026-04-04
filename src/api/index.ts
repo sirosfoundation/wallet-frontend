@@ -324,21 +324,25 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 
 			// Try to merge without re-authentication if keystore is available
 			if (keystore) {
-				const remotePrivateData = getPrivateDataResponse.data.privateData;
-				const mergeResult = await keystore.syncWithRemoteData(remotePrivateData);
-				if (mergeResult.ok) {
-					const newEtag =
-						getPrivateDataResponse.headers?.['x-private-data-etag'] ??
-						getPrivateDataResponse.headers?.['etag'];
-					const updateResp = updatePrivateDataEtag(
-						await post('/user/session/private-data', serializePrivateData(mergeResult.val), {
-							headers: newEtag ? { 'X-Private-Data-If-Match': newEtag } : {},
-						}),
-					);
-					if (updateResp.status === 204) {
-						console.debug('syncPrivateData: merged remote and local data successfully');
-						return Ok.EMPTY;
+				try {
+					const remotePrivateData = getPrivateDataResponse.data.privateData;
+					const mergeResult = await keystore.syncWithRemoteData(remotePrivateData);
+					if (mergeResult.ok) {
+						const newEtag =
+							getPrivateDataResponse.headers?.['x-private-data-etag'] ??
+							getPrivateDataResponse.headers?.['etag'];
+						const updateResp = updatePrivateDataEtag(
+							await post('/user/session/private-data', serializePrivateData(mergeResult.val), {
+								headers: newEtag ? { 'X-Private-Data-If-Match': newEtag } : {},
+							}),
+						);
+						if (updateResp.status === 204) {
+							console.debug('syncPrivateData: merged remote and local data successfully');
+							return Ok.EMPTY;
+						}
 					}
+				} catch (mergeErr) {
+					console.debug('syncPrivateData: silent merge threw, falling back to re-auth', mergeErr);
 				}
 				console.debug('syncPrivateData: merge failed, falling back to re-authentication flow');
 			}
@@ -357,11 +361,15 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			return Err('syncFailed');
 		}
 		catch (err) {
-			console.error(err);
+			if (typeof err === 'object' && err !== null && 'cause' in err && err.cause === 'x-private-data-etag') {
+				console.debug('syncPrivateData: private data etag conflict', err);
+				return Err('x-private-data-etag');
+			}
+			console.error('syncPrivateData failed', err);
 			return Err('syncFailed');
 		}
 
-	}, [getPrivateDataEtag, get, navigate, isOnline, post, updatePrivateDataEtag, cachedUser]);
+	}, [getPrivateDataEtag, get, navigate, isOnline, post, updatePrivateDataEtag]);
 
 	const updateShowWelcome = useCallback((showWelcome: boolean): void => {
 		if (sessionState) {
