@@ -40,10 +40,18 @@ export const deriveHolderKidFromCredential = async (credential: string, format: 
 		case VerifiableCredentialFormat.DC_SDJWT:
 		case VerifiableCredentialFormat.JWT_VC_JSON: {
 			const payload = credential.split('.')[1];
-			const decoded = JSON.parse(textDecoder.decode(fromBase64Url(payload)));
-			const cnf = decoded.cnf as { jwk?: jose.JWK } | undefined;
-			if (cnf?.jwk) {
-				return jose.calculateJwkThumbprint(cnf.jwk, "sha256");
+			if (!payload) {
+				return undefined;
+			}
+
+			try {
+				const decoded = JSON.parse(textDecoder.decode(fromBase64Url(payload)));
+				const cnf = decoded.cnf as { jwk?: jose.JWK } | undefined;
+				if (cnf?.jwk) {
+					return jose.calculateJwkThumbprint(cnf.jwk, "sha256");
+				}
+			} catch {
+				return undefined;
 			}
 			return undefined;
 		}

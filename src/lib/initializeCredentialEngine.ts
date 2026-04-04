@@ -24,7 +24,7 @@ export async function initializeCredentialEngine(
 				if (!res?.data || res.status!==200) return err(VctResolutionErrors.NotFound);
 				return ok(res.data as any);
 			} catch (e) {
-				logger.error('Error in VCT SDJWT Metadata retrieval: ' + JSON.stringify(e));
+				logger.error('Error in VCT SDJWT Metadata retrieval:', e);
 				return err(VctResolutionErrors.NotFound);
 			}
 		},
