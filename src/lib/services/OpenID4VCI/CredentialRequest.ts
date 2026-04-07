@@ -231,26 +231,27 @@ export function useCredentialRequest() {
 		if (credentialIssuerMetadata.metadata.credential_response_encryption) {
 			encryptionRequested = true;
 
-			const walletSupportedAlg = 'ECDH-ES';
+			const walletSupportedAlg = ['ECDH-ES'];
 			const issuerSupportedAlgs = credentialIssuerMetadata.metadata.credential_response_encryption.alg_values_supported;
-			if (!issuerSupportedAlgs.includes(walletSupportedAlg)) {
-				throw new Error("Unsupported credential_response_encryption.alg_values_supported. ['ECDH-ES'] are supported");
+			const mutuallySupportedAlg = walletSupportedAlg.find(alg => issuerSupportedAlgs.includes(alg));
+			if (!mutuallySupportedAlg) {
+				throw new Error(`Unsupported credential_response_encryption.alg_values_supported. [${walletSupportedAlg.join(', ')}] are supported`);
 			}
 
 			const walletSupportedEnc = ['A128CBC-HS256', 'A256GCM'];
 			const issuerSupportedEnc = credentialIssuerMetadata.metadata.credential_response_encryption.enc_values_supported;
 			const mutuallySupportedEnc = walletSupportedEnc.find(enc => issuerSupportedEnc.includes(enc));
 			if (!mutuallySupportedEnc) {
-				throw new Error("Unsupported credential_response_encryption.enc_values_supported. ['A128CBC-HS256', 'A256GCM'] are supported");
+				throw new Error(`Unsupported credential_response_encryption.enc_values_supported. [${walletSupportedEnc.join(', ')}] are supported`);
 			}
 
 			const ephemeralPublicKeyJwk = await exportJWK(ephemeralKeypair.publicKey);
 			credentialEndpointBody.credential_response_encryption = {
-				alg: walletSupportedAlg,
+				alg: mutuallySupportedAlg,
 				enc: mutuallySupportedEnc,
 				jwk: {
 					...ephemeralPublicKeyJwk,
-					alg: walletSupportedAlg,
+					alg: mutuallySupportedAlg,
 					use: 'enc'
 				},
 			};
