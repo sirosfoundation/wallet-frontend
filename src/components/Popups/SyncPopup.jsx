@@ -5,7 +5,6 @@ import Button from '../Buttons/Button';
 import PopupLayout from './PopupLayout';
 import SessionContext from '@/context/SessionContext';
 import { useTenant } from '@/context/TenantContext';
-import { buildTenantRoutePath } from '@/lib/tenant';
 import { useLocation, useNavigate } from 'react-router-dom';
 import checkForUpdates from '@/offlineUpdateSW';
 import { UserLock } from 'lucide-react';
