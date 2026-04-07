@@ -238,7 +238,6 @@ export function useCredentialRequest() {
 			const issuerSupportedEnc = credentialIssuerMetadata.metadata.credential_response_encryption.enc_values_supported;
 			const mutuallySupportedEnc = walletSupportedEnc.find(enc => issuerSupportedEnc.includes(enc));
 			if (!mutuallySupportedEnc) {
-				console.log(credentialIssuerMetadata)
 				throw new Error("Unsupported credential_response_encryption.enc_values_supported. ['A128CBC-HS256', 'A256GCM'] are supported");
 			}
 
