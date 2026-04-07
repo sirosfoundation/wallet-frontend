@@ -1,9 +1,9 @@
 import { CLOCK_TOLERANCE, VCT_REGISTRY_URL } from "../config";
 import { IHttpProxy } from "./interfaces/IHttpProxy";
-import { ParsingEngine, SDJWTVCParser, PublicKeyResolverEngine, SDJWTVCVerifier, MsoMdocParser, MsoMdocVerifier } from "wallet-common";
+import { ParsingEngine, SDJWTVCParser, PublicKeyResolverEngine, SDJWTVCVerifier, MsoMdocParser, MsoMdocVerifier, JWTVCJSONParser, JWTVCJSONVerifier, VerifyingEngine } from "wallet-common";
 import { IOpenID4VCIHelper } from "./interfaces/IOpenID4VCIHelper";
 import { createVctDocumentResolutionEngine, VctDocumentProvider, VctResolutionErrors, ok, err } from 'wallet-common';
-import { logger, jsonToLog } from '@/logger';
+import { logger } from '@/logger';
 
 export async function initializeCredentialEngine(
 	httpProxy: IHttpProxy,
@@ -24,7 +24,7 @@ export async function initializeCredentialEngine(
 				if (!res?.data || res.status!==200) return err(VctResolutionErrors.NotFound);
 				return ok(res.data as any);
 			} catch (e) {
-				logger.error('Error in VCT SDJWT Metadata retrieval: ' + jsonToLog(e));
+				logger.error('Error in VCT SDJWT Metadata retrieval:', e);
 				return err(VctResolutionErrors.NotFound);
 			}
 		},
@@ -54,10 +54,13 @@ export async function initializeCredentialEngine(
 	const credentialParsingEngine = ParsingEngine();
 	credentialParsingEngine.register(SDJWTVCParser({ context: ctx, httpClient: httpProxy }));
 	credentialParsingEngine.register(MsoMdocParser({ context: ctx, httpClient: httpProxy }));
+	credentialParsingEngine.register(JWTVCJSONParser({ context: ctx, httpClient: httpProxy }));
 
 	const pkResolverEngine = PublicKeyResolverEngine();
-	const sdJwtVerifier = SDJWTVCVerifier({ context: ctx, pkResolverEngine: pkResolverEngine, httpClient: httpProxy });
-	const msoMdocVerifier = MsoMdocVerifier({ context: ctx, pkResolverEngine: pkResolverEngine });
+	const credentialVerifyingEngine = VerifyingEngine();
+	credentialVerifyingEngine.register(SDJWTVCVerifier({ context: ctx, pkResolverEngine: pkResolverEngine, httpClient: httpProxy }));
+	credentialVerifyingEngine.register(MsoMdocVerifier({ context: ctx, pkResolverEngine: pkResolverEngine }));
+	credentialVerifyingEngine.register(JWTVCJSONVerifier({ context: ctx, pkResolverEngine: pkResolverEngine, httpClient: httpProxy }));
 
-	return { credentialParsingEngine, sdJwtVerifier, msoMdocVerifier };
+	return { credentialParsingEngine, credentialVerifyingEngine };
 }

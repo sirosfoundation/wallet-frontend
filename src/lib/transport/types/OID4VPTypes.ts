@@ -90,6 +90,10 @@ export interface OID4VPVerifierInfo extends TrustEvaluation {
 	domain?: string;
 	/** Logo URL */
 	logo?: string;
+	/** Client ID scheme (e.g., 'x509_san_dns', 'redirect_uri', etc.) */
+	clientIdScheme?: string;
+	/** Trust framework identifier */
+	trustFramework?: string;
 }
 
 /**
