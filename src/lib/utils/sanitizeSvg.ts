@@ -44,31 +44,41 @@ const DOMPURIFY_CONFIG: DOMPurify.Config = {
  * Supports both base64-encoded and URL-encoded SVG data URIs.
  */
 function decodeSvgDataUri(dataUri: string): string | null {
-	// Base64 encoded: data:image/svg+xml;base64,PHN2Zy...
-	const base64Match = dataUri.match(/^data:image\/svg\+xml;base64,(.+)$/);
-	if (base64Match) {
+	const commaIndex = dataUri.indexOf(',');
+	if (commaIndex === -1) {
+		logger.warn('Unknown SVG data URI format');
+		return null;
+	}
+
+	const metadata = dataUri.slice(0, commaIndex);
+	const payload = dataUri.slice(commaIndex + 1);
+
+	const metadataParts = metadata.split(';');
+	const mediaType = metadataParts[0];
+
+	if (!/^data:image\/svg\+xml$/i.test(mediaType)) {
+		logger.warn('Unknown SVG data URI format');
+		return null;
+	}
+
+	const parameters = metadataParts.slice(1).map((part) => part.trim().toLowerCase());
+	const isBase64 = parameters.includes('base64');
+
+	if (isBase64) {
 		try {
-			return atob(base64Match[1]);
+			return atob(payload);
 		} catch (e) {
 			logger.warn('Failed to decode base64 SVG:', e);
 			return null;
 		}
 	}
 
-	// URL encoded: data:image/svg+xml,%3Csvg...
-	// Also handles: data:image/svg+xml;charset=utf-8,%3Csvg...
-	const urlEncodedMatch = dataUri.match(/^data:image\/svg\+xml(?:;charset=[^,]+)?,(.+)$/);
-	if (urlEncodedMatch) {
-		try {
-			return decodeURIComponent(urlEncodedMatch[1]);
-		} catch (e) {
-			logger.warn('Failed to decode URL-encoded SVG:', e);
-			return null;
-		}
+	try {
+		return decodeURIComponent(payload);
+	} catch (e) {
+		logger.warn('Failed to decode URL-encoded SVG:', e);
+		return null;
 	}
-
-	logger.warn('Unknown SVG data URI format');
-	return null;
 }
 
 /**
