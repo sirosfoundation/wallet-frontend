@@ -18,7 +18,7 @@ import { WalletStateUtils } from "@/services/WalletStateUtils";
 import { TransactionDataResponse } from "wallet-common";
 import { createTrustEvaluator, createDIDResolver } from "../TrustEvaluator";
 import { BACKEND_URL, DELEGATE_TRUST_TO_BACKEND } from "@/config";
-import { getStoredTenant } from "@/lib/tenant";
+import { getTenantFromUrlPath } from "@/lib/tenant";
 import { logger, jsonToLog } from '@/logger';
 
 export function useOpenID4VP({
@@ -97,11 +97,12 @@ export function useOpenID4VP({
 		};
 
 		// Create trust evaluator and DID resolver for verifier authentication
+		// Use URL tenant (more robust than sessionStorage) per smncd's recommendation
 		const trustEvaluatorConfig = {
 			httpClient: httpProxy,
 			backendUrl: BACKEND_URL,
 			getAuthToken: () => api.getAppToken() ?? '',
-			tenantId: getStoredTenant() ?? 'default',
+			tenantId: getTenantFromUrlPath() ?? 'default',
 		};
 		const evaluateTrust = createTrustEvaluator(trustEvaluatorConfig);
 		const resolveDid = createDIDResolver(trustEvaluatorConfig);

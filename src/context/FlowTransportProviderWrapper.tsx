@@ -11,7 +11,7 @@
 import React from 'react';
 import { FlowTransportProvider } from './FlowTransportContext';
 import { useSessionStorage } from '@/hooks/useStorage';
-import { getStoredTenant } from '@/lib/tenant';
+import { getTenantFromUrlPath } from '@/lib/tenant';
 
 interface FlowTransportProviderWrapperProps {
 	children: React.ReactNode;
@@ -28,8 +28,9 @@ export const FlowTransportProviderWrapper: React.FC<FlowTransportProviderWrapper
 	// This is the same token used by the rest of the app
 	const [appToken] = useSessionStorage<string | null>('appToken', null);
 
-	// Get the tenant ID (stored in sessionStorage by TenantContext)
-	const tenantId = getStoredTenant() ?? 'default';
+	// Get the tenant ID from URL path (more robust than sessionStorage)
+	// URL structure: /id/{tenantId}/* -> returns tenantId, or 'default' for root paths
+	const tenantId = getTenantFromUrlPath() ?? 'default';
 
 	return (
 		<FlowTransportProvider authToken={appToken} tenantId={tenantId}>
