@@ -75,6 +75,54 @@ export interface SignResponse {
 export type SignRequestHandler = (request: SignRequest) => Promise<SignResponse>;
 
 /**
+ * Credential match request from server
+ * Sent when server needs client to match credentials locally for privacy
+ */
+export interface MatchRequest {
+	flowId: string;
+	messageId: string;
+	presentationDefinition: {
+		id: string;
+		name?: string;
+		purpose?: string;
+		input_descriptors: Array<{
+			id: string;
+			name?: string;
+			purpose?: string;
+			format?: Record<string, unknown>;
+			constraints?: {
+				limit_disclosure?: 'required' | 'preferred';
+				fields?: Array<{
+					path: string[];
+					filter?: Record<string, unknown>;
+					optional?: boolean;
+				}>;
+			};
+		}>;
+		format?: Record<string, unknown>;
+	};
+}
+
+/**
+ * Credential match response to send back to server
+ */
+export interface MatchResponse {
+	matches: Array<{
+		input_descriptor_id: string;
+		credential_id: string;
+		format: string;
+		vct?: string;
+		available_claims?: string[];
+	}>;
+	no_match_reason?: string;
+}
+
+/**
+ * Match request handler callback type
+ */
+export type MatchRequestHandler = (request: MatchRequest) => Promise<MatchResponse>;
+
+/**
  * Flow action message to send to server
  */
 export interface FlowAction {
@@ -96,6 +144,7 @@ export class WebSocketTransport implements IFlowTransport {
 	private progressCallbacks = new Set<(event: FlowProgressEvent) => void>();
 	private errorCallbacks = new Set<(error: Error) => void>();
 	private signHandlers = new Set<SignRequestHandler>();
+	private matchHandlers = new Set<MatchRequestHandler>();
 
 	private reconnectAttempts = 0;
 	private maxReconnectAttempts = 5;
@@ -457,6 +506,17 @@ export class WebSocketTransport implements IFlowTransport {
 		return () => this.signHandlers.delete(handler);
 	}
 
+	/**
+	 * Register a handler for credential match requests from the server.
+	 * When the server needs client-side credential matching (for privacy),
+	 * it sends a match_request with the presentation definition.
+	 * The handler should return matching credential IDs/formats.
+	 */
+	onMatchRequest(handler: MatchRequestHandler): () => void {
+		this.matchHandlers.add(handler);
+		return () => this.matchHandlers.delete(handler);
+	}
+
 	// ===== Internal Methods =====
 
 	private handleMessage(message: ServerMessage): void {
@@ -479,6 +539,12 @@ export class WebSocketTransport implements IFlowTransport {
 		// Handle sign requests from server
 		if (type === 'sign_request') {
 			this.handleSignRequest(message);
+			return;
+		}
+
+		// Handle match requests from server (privacy-preserving credential matching)
+		if (type === 'match_request' || type === 'match_credentials') {
+			this.handleMatchRequest(message);
 			return;
 		}
 
@@ -568,6 +634,85 @@ export class WebSocketTransport implements IFlowTransport {
 			this.ws!.send(JSON.stringify(msg));
 		} catch (err) {
 			logger.error('Failed to send sign response:', err);
+		}
+	}
+
+	/**
+	 * Handle a match request from the server
+	 * This is called when the server needs client-side credential matching for privacy
+	 */
+	private async handleMatchRequest(message: ServerMessage): Promise<void> {
+		const flowId = (message.flow_id as string) || (message.flowId as string) || '';
+		const request: MatchRequest = {
+			flowId,
+			messageId: (message.message_id as string) || (message.messageId as string) || '',
+			presentationDefinition: (message.presentation_definition as MatchRequest['presentationDefinition'])
+				|| (message.presentationDefinition as MatchRequest['presentationDefinition'])
+				|| { id: '', input_descriptors: [] },
+		};
+
+		if (this.matchHandlers.size === 0) {
+			logger.error('No match handlers registered, cannot respond to match request');
+			this.sendMatchResponse(request.flowId, request.messageId, { matches: [] }, 'No match handler available');
+			return;
+		}
+
+		// Call all handlers until one succeeds
+		let lastError: Error | null = null;
+		for (const handler of this.matchHandlers) {
+			try {
+				const response = await handler(request);
+				this.sendMatchResponse(request.flowId, request.messageId, response);
+				return;
+			} catch (err) {
+				lastError = err instanceof Error ? err : new Error(String(err));
+				logger.warn('Match handler failed:', lastError.message);
+			}
+		}
+
+		// All handlers failed
+		this.sendMatchResponse(
+			request.flowId,
+			request.messageId,
+			{ matches: [] },
+			lastError?.message || 'Credential matching failed'
+		);
+	}
+
+	/**
+	 * Send a match response back to the server
+	 */
+	private sendMatchResponse(
+		flowId: string,
+		messageId: string,
+		response: MatchResponse,
+		error?: string
+	): void {
+		if (!this.isConnected()) {
+			logger.error('Cannot send match response: WebSocket not connected');
+			return;
+		}
+
+		const msg: Record<string, unknown> = {
+			type: 'match_response',
+			flow_id: flowId,
+			message_id: messageId,
+			timestamp: new Date().toISOString(),
+		};
+
+		if (error) {
+			msg.error = error;
+		} else {
+			msg.matches = response.matches;
+			if (response.no_match_reason) {
+				msg.no_match_reason = response.no_match_reason;
+			}
+		}
+
+		try {
+			this.ws!.send(JSON.stringify(msg));
+		} catch (err) {
+			logger.error('Failed to send match response:', err);
 		}
 	}
 

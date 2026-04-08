@@ -35,6 +35,7 @@ export type FlowCheckpoint =
 	| 'credential_received'
 	// OID4VP stages
 	| 'request_fetched'
+	| 'client_matching'  // Client-side credential matching for privacy
 	| 'awaiting_selection'
 	| 'selection_made'
 	| 'presentation_submitted'

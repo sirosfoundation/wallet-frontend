@@ -7,10 +7,12 @@
  * Phase 4 of Transport Abstraction
  */
 
-import { useCallback, useContext, useState } from 'react';
+import { useCallback, useContext, useEffect, useState } from 'react';
 import { useFlowTransportSafe } from '@/context/FlowTransportContext';
 import OpenID4VPContext from '@/context/OpenID4VPContext';
 import CredentialsContext, { ExtendedVcEntity } from '@/context/CredentialsContext';
+import { matchCredentials } from '@/services/CredentialMatchingService';
+import type { MatchRequest, MatchResponse } from '@/lib/transport/WebSocketTransport';
 import type {
 	OID4VPFlowResult,
 	OID4VPSelectedCredential,
@@ -73,6 +75,35 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		setError(null);
 		transportContext?.clearError?.();
 	}, [transportContext]);
+
+	/**
+	 * Register match handler for client-side credential matching
+	 * This is called when the server requests credential matching for privacy
+	 */
+	useEffect(() => {
+		if (transportType !== 'websocket' || !transportContext?.registerMatchHandler) {
+			return;
+		}
+
+		const handleMatchRequest = async (request: MatchRequest): Promise<MatchResponse> => {
+			try {
+				const result = matchCredentials(
+					vcEntityList || [],
+					request.presentationDefinition
+				);
+				return result;
+			} catch (err) {
+				const errMessage = err instanceof Error ? err.message : String(err);
+				return {
+					matches: [],
+					no_match_reason: `Matching error: ${errMessage}`,
+				};
+			}
+		};
+
+		const unsubscribe = transportContext.registerMatchHandler(handleMatchRequest);
+		return unsubscribe;
+	}, [transportType, transportContext, vcEntityList]);
 
 	/**
 	 * Handle authorization request using the appropriate transport

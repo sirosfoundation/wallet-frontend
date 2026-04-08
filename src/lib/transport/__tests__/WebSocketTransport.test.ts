@@ -746,6 +746,257 @@ describe('WebSocketTransport', () => {
 		});
 	});
 
+	describe('Match Request/Response', () => {
+		it('should call registered match handler on match_request', async () => {
+			const transport = new WebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+
+			const matchHandler = vi.fn().mockResolvedValue({
+				matches: [
+					{ input_descriptor_id: 'id-1', credential_id: 'cred-1', format: 'vc+sd-jwt' }
+				],
+			});
+			transport.onMatchRequest(matchHandler);
+
+			// Simulate a match_request from the server
+			mockWebSocketInstances[0].simulateMessage({
+				flowId: 'flow-1',
+				message_id: 'msg-1',
+				type: 'match_request',
+				presentation_definition: {
+					id: 'pd-1',
+					input_descriptors: [{ id: 'id-1', constraints: {} }],
+				},
+			});
+
+			await vi.waitFor(() => {
+				expect(matchHandler).toHaveBeenCalled();
+			});
+
+			expect(matchHandler).toHaveBeenCalledWith(expect.objectContaining({
+				flowId: 'flow-1',
+				messageId: 'msg-1',
+				presentationDefinition: expect.objectContaining({
+					id: 'pd-1',
+				}),
+			}));
+		});
+
+		it('should send match_response with matches from handler', async () => {
+			const transport = new WebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+			const mockWs = mockWebSocketInstances[0];
+
+			const matchHandler = vi.fn().mockResolvedValue({
+				matches: [
+					{ input_descriptor_id: 'id-1', credential_id: 'cred-1', format: 'vc+sd-jwt', vct: 'Photo' },
+					{ input_descriptor_id: 'id-2', credential_id: 'cred-2', format: 'jwt_vp_json' },
+				],
+			});
+			transport.onMatchRequest(matchHandler);
+
+			// Simulate a match_request
+			mockWs.simulateMessage({
+				flowId: 'flow-1',
+				message_id: 'msg-1',
+				type: 'match_request',
+				presentation_definition: {
+					id: 'pd-1',
+					input_descriptors: [{ id: 'id-1' }, { id: 'id-2' }],
+				},
+			});
+
+			// Wait for match_response to be sent
+			await vi.waitFor(() => {
+				const matchResponse = mockWs.sentMessages.find(m => {
+					const parsed = JSON.parse(m);
+					return parsed.type === 'match_response';
+				});
+				expect(matchResponse).toBeDefined();
+			});
+
+			const matchResponseMsg = mockWs.sentMessages.find(m =>
+				JSON.parse(m).type === 'match_response'
+			);
+			const parsed = JSON.parse(matchResponseMsg!);
+			expect(parsed.flow_id).toBe('flow-1');
+			expect(parsed.message_id).toBe('msg-1');
+			expect(parsed.matches).toHaveLength(2);
+			expect(parsed.matches[0].input_descriptor_id).toBe('id-1');
+			expect(parsed.matches[0].vct).toBe('Photo');
+		});
+
+		it('should send match_response with no_match_reason', async () => {
+			const transport = new WebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+			const mockWs = mockWebSocketInstances[0];
+
+			const matchHandler = vi.fn().mockResolvedValue({
+				matches: [],
+				no_match_reason: 'No matching credentials found',
+			});
+			transport.onMatchRequest(matchHandler);
+
+			mockWs.simulateMessage({
+				flowId: 'flow-1',
+				message_id: 'msg-1',
+				type: 'match_request',
+				presentation_definition: { id: 'pd-1', input_descriptors: [] },
+			});
+
+			await vi.waitFor(() => {
+				expect(mockWs.sentMessages.some(m =>
+					JSON.parse(m).type === 'match_response'
+				)).toBe(true);
+			});
+
+			const matchResponse = mockWs.sentMessages.find(m =>
+				JSON.parse(m).type === 'match_response'
+			);
+			const parsed = JSON.parse(matchResponse!);
+			expect(parsed.matches).toEqual([]);
+			expect(parsed.no_match_reason).toBe('No matching credentials found');
+		});
+
+		it('should support multiple match handlers', async () => {
+			const transport = new WebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+
+			const handler1 = vi.fn().mockResolvedValue({ matches: [{ input_descriptor_id: 'id-1', credential_id: 'c1', format: 'jwt' }] });
+			const handler2 = vi.fn().mockResolvedValue({ matches: [{ input_descriptor_id: 'id-2', credential_id: 'c2', format: 'jwt' }] });
+
+			transport.onMatchRequest(handler1);
+			transport.onMatchRequest(handler2);
+
+			mockWebSocketInstances[0].simulateMessage({
+				flowId: 'flow-1',
+				message_id: 'msg-1',
+				type: 'match_request',
+				presentation_definition: { id: 'pd-1', input_descriptors: [] },
+			});
+
+			await vi.waitFor(() => {
+				expect(handler1).toHaveBeenCalled();
+			});
+
+			// First registered handler should be used (succeeds first)
+			expect(handler1).toHaveBeenCalled();
+		});
+
+		it('should unregister match handler', async () => {
+			const transport = new WebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+
+			const matchHandler = vi.fn().mockResolvedValue({ matches: [] });
+			const unsubscribe = transport.onMatchRequest(matchHandler);
+
+			// Unsubscribe
+			unsubscribe();
+
+			// Simulate a match_request
+			mockWebSocketInstances[0].simulateMessage({
+				flowId: 'flow-1',
+				message_id: 'msg-1',
+				type: 'match_request',
+				presentation_definition: { id: 'pd-1', input_descriptors: [] },
+			});
+
+			// Give time for potential async handling
+			await new Promise(resolve => setTimeout(resolve, 50));
+
+			// Handler should not be called after unsubscribe
+			expect(matchHandler).not.toHaveBeenCalled();
+		});
+
+		it('should send error in match_response when handler fails', async () => {
+			const transport = new WebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+			const mockWs = mockWebSocketInstances[0];
+
+			// Register a handler that rejects
+			const matchHandler = vi.fn().mockRejectedValue(new Error('Credential store unavailable'));
+			transport.onMatchRequest(matchHandler);
+
+			// Simulate a match_request
+			mockWs.simulateMessage({
+				flowId: 'flow-1',
+				message_id: 'msg-1',
+				type: 'match_request',
+				presentation_definition: { id: 'pd-1', input_descriptors: [] },
+			});
+
+			// Wait for error match_response
+			await vi.waitFor(() => {
+				expect(mockWs.sentMessages.length).toBeGreaterThan(0);
+			});
+
+			await vi.waitFor(() => {
+				const matchResponseMsg = mockWs.sentMessages.find(
+					m => JSON.parse(m).type === 'match_response'
+				);
+				expect(matchResponseMsg).toBeDefined();
+			});
+
+			const matchResponseMsg = mockWs.sentMessages.find(
+				m => JSON.parse(m).type === 'match_response'
+			);
+			const parsed = JSON.parse(matchResponseMsg!);
+			expect(parsed.error).toBeDefined();
+			expect(parsed.error).toContain('Credential store unavailable');
+		});
+
+		it('should handle match_credentials message type as alias', async () => {
+			const transport = new WebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+
+			const matchHandler = vi.fn().mockResolvedValue({ matches: [] });
+			transport.onMatchRequest(matchHandler);
+
+			// Simulate using the alternative message type
+			mockWebSocketInstances[0].simulateMessage({
+				flowId: 'flow-1',
+				message_id: 'msg-1',
+				type: 'match_credentials',
+				presentation_definition: { id: 'pd-1', input_descriptors: [] },
+			});
+
+			await vi.waitFor(() => {
+				expect(matchHandler).toHaveBeenCalled();
+			});
+		});
+
+		it('should send error when no match handlers registered', async () => {
+			const transport = new WebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+			const mockWs = mockWebSocketInstances[0];
+
+			// Don't register any handler
+
+			// Simulate a match_request
+			mockWs.simulateMessage({
+				flowId: 'flow-1',
+				message_id: 'msg-1',
+				type: 'match_request',
+				presentation_definition: { id: 'pd-1', input_descriptors: [] },
+			});
+
+			// Wait for error match_response
+			await vi.waitFor(() => {
+				const matchResponseMsg = mockWs.sentMessages.find(
+					m => JSON.parse(m).type === 'match_response'
+				);
+				expect(matchResponseMsg).toBeDefined();
+			});
+
+			const matchResponseMsg = mockWs.sentMessages.find(
+				m => JSON.parse(m).type === 'match_response'
+			);
+			const parsed = JSON.parse(matchResponseMsg!);
+			expect(parsed.error).toBeDefined();
+			expect(parsed.error).toContain('No match handler available');
+		});
+	});
+
 	describe('Flow Action Sending', () => {
 		it('should send flow_action message with sendFlowAction', async () => {
 			const transport = new WebSocketTransport(wsUrl, authToken);
