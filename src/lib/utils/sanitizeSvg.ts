@@ -102,8 +102,8 @@ function encodeSvgDataUri(svgContent: string): string {
  * // Returns: 'data:image/svg+xml,%3Csvg%3E%3C%2Fsvg%3E' (script removed)
  */
 export function sanitizeSvgDataUri(dataUri: string): string | null {
-	// Only process SVG data URIs
-	if (!dataUri.startsWith('data:image/svg+xml')) {
+	// Only process SVG data URIs (case-insensitive MIME type check)
+	if (!/^data:image\/svg\+xml/i.test(dataUri)) {
 		logger.debug('sanitizeSvgDataUri: Not an SVG data URI, skipping');
 		return dataUri;
 	}
@@ -143,5 +143,5 @@ export function sanitizeSvgContent(svgContent: string): string {
  * Check if a data URI is an SVG
  */
 export function isSvgDataUri(dataUri: string): boolean {
-	return dataUri.startsWith('data:image/svg+xml');
+	return /^data:image\/svg\+xml/i.test(dataUri);
 }

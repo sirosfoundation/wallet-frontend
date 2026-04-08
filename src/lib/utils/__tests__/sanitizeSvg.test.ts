@@ -13,6 +13,11 @@ describe('sanitizeSvg', () => {
 			expect(isSvgDataUri('data:image/svg+xml;charset=utf-8,%3Csvg%3E%3C%2Fsvg%3E')).toBe(true);
 		});
 
+		it('should return true for SVG data URIs with uppercase MIME type', () => {
+			expect(isSvgDataUri('data:image/SVG+XML,<svg></svg>')).toBe(true);
+			expect(isSvgDataUri('data:IMAGE/SVG+XML;base64,PHN2Zz48L3N2Zz4=')).toBe(true);
+		});
+
 		it('should return false for non-SVG data URIs', () => {
 			expect(isSvgDataUri('data:image/png;base64,abc')).toBe(false);
 			expect(isSvgDataUri('data:text/html,<html></html>')).toBe(false);
@@ -95,6 +100,23 @@ describe('sanitizeSvg', () => {
 			const result = sanitizeSvgDataUri(uriWithCharset);
 			expect(result).not.toBeNull();
 			expect(result).toContain('data:image/svg+xml');
+		});
+
+		it('should handle SVG with charset and base64 encoding', () => {
+			// Base64 of: <svg><rect fill="blue"/></svg>
+			const uriWithCharsetAndBase64 = 'data:image/svg+xml;charset=utf-8;base64,PHN2Zz48cmVjdCBmaWxsPSJibHVlIi8+PC9zdmc+';
+			const result = sanitizeSvgDataUri(uriWithCharsetAndBase64);
+			expect(result).not.toBeNull();
+			expect(result).toContain('data:image/svg+xml');
+			expect(result).toContain('rect');
+		});
+
+		it('should sanitize uppercase MIME type SVG data URIs', () => {
+			// Base64 of: <svg><script>alert(1)</script></svg>
+			const upperCaseUri = 'data:image/SVG+XML;base64,PHN2Zz48c2NyaXB0PmFsZXJ0KDEpPC9zY3JpcHQ+PC9zdmc+';
+			const result = sanitizeSvgDataUri(upperCaseUri);
+			expect(result).not.toBeNull();
+			expect(result).not.toContain('script');
 		});
 
 		it('should return null for malformed base64', () => {
