@@ -10,9 +10,9 @@
  * - Direct: Browser makes direct CORS requests (future, when ecosystem ready)
  */
 
-import type { FlowRequest, FlowResponse, FlowProgressEvent } from './types/FlowTypes';
-import type { OID4VCIFlowParams, OID4VCIFlowResult } from './types/OID4VCITypes';
-import type { OID4VPFlowParams, OID4VPFlowResult } from './types/OID4VPTypes';
+import type { FlowRequest, FlowResponse, FlowProgressEvent } from './FlowTypes';
+import type { OID4VCIFlowParams, OID4VCIFlowResult } from './OID4VCITypes';
+import type { OID4VPFlowParams, OID4VPFlowResult } from './OID4VPTypes';
 
 /**
  * Transport interface for credential flows

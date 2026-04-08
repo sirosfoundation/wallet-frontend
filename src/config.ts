@@ -133,8 +133,10 @@ export const POWERED_BY = config.powered_by;
 
 // ===== Transport Configuration =====
 
-/** Transport type enumeration */
-export type TransportType = 'http_proxy' | 'websocket' | 'direct';
+// TransportType is defined in @/lib/transport/types/FlowTypes.ts
+// Re-export for backward compatibility
+export type { TransportType } from '@/lib/transport/types/FlowTypes';
+import type { TransportType } from '@/lib/transport/types/FlowTypes';
 
 /**
  * Transport allow-list

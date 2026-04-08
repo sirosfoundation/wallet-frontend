@@ -15,7 +15,7 @@ import type {
 	OID4VPFlowResult,
 	OID4VPSelectedCredential,
 } from '@/lib/transport/types/OID4VPTypes';
-import type { FlowProgressEvent } from '@/lib/transport/types/FlowTypes';
+import type { FlowProgressEvent, TransportType } from '@/lib/transport/types/FlowTypes';
 
 export interface UseOID4VPFlowOptions {
 	/** Called when flow progress updates */
@@ -36,7 +36,7 @@ export interface UseOID4VPFlowReturn {
 	) => Promise<OID4VPFlowResult>;
 
 	/** Current transport type being used */
-	transportType: 'http_proxy' | 'websocket' | 'direct' | 'none';
+	transportType: TransportType | 'none';
 
 	/** Whether a flow is currently in progress */
 	isLoading: boolean;
