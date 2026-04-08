@@ -285,6 +285,8 @@ function extractClaimPaths(
 	}
 }
 
-export default {
+const CredentialMatchingService = {
 	matchCredentials,
 };
+
+export default CredentialMatchingService;

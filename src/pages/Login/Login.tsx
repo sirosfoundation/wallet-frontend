@@ -221,7 +221,6 @@ const WebauthnSignupLogin = ({
 	const { isOnline, updateOnlineStatus } = useContext(StatusContext);
 	const { api, keystore } = useContext(SessionContext);
 	const { urlTenantId } = useTenant();
-	const navigate = useNavigate();
 	const location = useLocation();
 
 	const [inProgress, setInProgress] = useState(false);
@@ -291,7 +290,7 @@ const WebauthnSignupLogin = ({
 					throw result;
 			}
 		}
-	}, [api, keystore, urlTenantId, navigate, setError, t]);
+	}, [api, keystore, urlTenantId, setError, t]);
 
 
 	const onSignup = async (name: string, webauthnHints: string[]) => {

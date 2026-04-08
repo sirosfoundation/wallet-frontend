@@ -17,7 +17,7 @@ import { getLeastUsedCredentialInstance } from "../CredentialBatchHelper";
 import { WalletStateUtils } from "@/services/WalletStateUtils";
 import { TransactionDataResponse } from "wallet-common";
 import { createTrustEvaluator, createDIDResolver } from "../TrustEvaluator";
-import { BACKEND_URL, DELEGATE_TRUST_TO_BACKEND } from "@/config";
+import { BACKEND_URL } from "@/config";
 import { getTenantFromUrlPath } from "@/lib/tenant";
 import { logger, jsonToLog } from '@/logger';
 

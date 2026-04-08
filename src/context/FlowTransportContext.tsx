@@ -14,7 +14,7 @@ import type { IFlowTransport } from '@/lib/transport/types/IFlowTransport';
 import { nullTransport } from '@/lib/transport/types/IFlowTransport';
 import { HttpProxyTransport } from '@/lib/transport/HttpProxyTransport';
 import { WebSocketTransport } from '@/lib/transport/WebSocketTransport';
-import type { SignRequest, SignResponse, SignRequestHandler } from '@/lib/transport/WebSocketTransport';
+import type { SignRequestHandler } from '@/lib/transport/WebSocketTransport';
 import { useHttpProxy } from '@/lib/services/HttpProxy/HttpProxy';
 import {
 	Capabilities,

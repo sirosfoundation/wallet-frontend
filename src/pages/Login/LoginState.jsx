@@ -6,7 +6,6 @@ import { logger } from '@/logger';
 import StatusContext from '@/context/StatusContext';
 import SessionContext from '@/context/SessionContext';
 import { useTenant } from '@/context/TenantContext';
-import { buildTenantRoutePath } from '@/lib/tenant';
 
 import LanguageSelector from '../../components/LanguageSelector/LanguageSelector';
 import Button from '../../components/Buttons/Button';
