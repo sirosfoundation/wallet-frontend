@@ -136,7 +136,7 @@ export const POWERED_BY = config.powered_by;
 // TransportType is defined in @/lib/transport/types/FlowTypes.ts
 // Re-export for backward compatibility
 export type { TransportType } from '@/lib/transport/types/FlowTypes';
-import type { TransportType } from '@/lib/transport/types/FlowTypes';
+type TransportType = import('@/lib/transport/types/FlowTypes').TransportType;
 
 /**
  * Transport allow-list
