@@ -104,8 +104,8 @@ describe('WebSocketTransport', () => {
 			expect(mockWebSocketInstances[0].url).toContain(wsUrl);
 			// Auth token is now sent as the first message, not in URL
 			const authMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[0]);
-			expect(authMessage.type).toBe('auth');
-			expect(authMessage.token).toBe(authToken);
+			expect(authMessage.type).toBe('handshake');
+			expect(authMessage.app_token).toBe(authToken);
 		});
 
 		it('should handle connection errors', async () => {
