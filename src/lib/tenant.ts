@@ -301,8 +301,9 @@ const TENANT_SENSITIVE_CACHES = ['images', 'logos'];
  * logos and branding images. It should be called before navigating to a new
  * tenant URL to ensure the new tenant's assets are fetched fresh.
  *
- * The function also unregisters and re-registers the service worker to clear
- * the precache which contains index.html with tenant-specific config.
+ * It also attempts to activate any waiting service worker immediately and
+ * deletes the Workbox precache so resources such as index.html are fetched
+ * fresh on the next load.
  *
  * @returns Promise that resolves when caches are cleared
  */
