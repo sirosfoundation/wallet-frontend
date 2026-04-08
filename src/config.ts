@@ -1,4 +1,5 @@
 import { type ClientMetaConfig } from '../config';
+import type { TransportType } from '@/lib/transport/types/FlowTypes';
 export type DidKeyVersion = "p256-pub" | "jwk_jcs-pub";
 export type LogLevel = "error" | "info" | "warn" | "debug";
 
@@ -132,11 +133,6 @@ export const SHOW_PWA_INSTALL_PROMPT = config.show_pwa_install_prompt === 'true'
 export const POWERED_BY = config.powered_by;
 
 // ===== Transport Configuration =====
-
-// TransportType is defined in @/lib/transport/types/FlowTypes.ts
-// Re-export for backward compatibility
-export type { TransportType } from '@/lib/transport/types/FlowTypes';
-type TransportType = import('@/lib/transport/types/FlowTypes').TransportType;
 
 /**
  * Transport allow-list
