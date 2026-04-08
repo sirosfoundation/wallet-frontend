@@ -95,9 +95,14 @@ export function TenantProvider({ children, tenantId: propTenantId }: TenantProvi
 	// - Otherwise, use prop > URL > storage as before
 	const effectiveTenantId = storedTenantId || propTenantId || urlTenantId;
 
+	// Calculate initial tenant to determine loading state
+	const initialTenantToFetch = urlTenantId || effectiveTenantId;
+
 	// Tenant config state
+	// Initialize isLoadingConfig to true if there's a tenant to fetch, to avoid race conditions
+	// where components check the loading state before the effect runs
 	const [tenantConfig, setTenantConfig] = useState<TenantConfig | null>(null);
-	const [isLoadingConfig, setIsLoadingConfig] = useState(false);
+	const [isLoadingConfig, setIsLoadingConfig] = useState(!!initialTenantToFetch);
 	const [configError, setConfigError] = useState<string | null>(null);
 
 	// Fetch tenant config from backend

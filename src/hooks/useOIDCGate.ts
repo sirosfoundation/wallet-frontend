@@ -80,8 +80,10 @@ export function useOIDCGate({ purpose, redirectUri }: UseOIDCGateOptions): UseOI
 		? getRegistrationOIDCProvider()
 		: getLoginOIDCProvider();
 
-	// State management
-	const [state, setState] = useState<OIDCGateState>({ status: 'idle' });
+	// State management - initialize to 'loading' if config is being fetched to avoid race conditions
+	const [state, setState] = useState<OIDCGateState>(
+		() => isLoadingConfig ? { status: 'loading' } : { status: 'idle' }
+	);
 
 	// Check for existing token on mount and config changes
 	useEffect(() => {
