@@ -1,9 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
 	extractTenantFromUserHandle,
 	isDefaultTenant,
 	isReservedTenantName,
 	buildTenantRoutePath,
+	clearTenantCaches,
 	DEFAULT_TENANT_ID,
 	TENANT_PATH_PREFIX,
 } from './tenant';
@@ -123,6 +124,61 @@ describe('tenant utilities', () => {
 	describe('TENANT_PATH_PREFIX', () => {
 		it('should be "id"', () => {
 			expect(TENANT_PATH_PREFIX).toBe('id');
+		});
+	});
+
+	describe('clearTenantCaches', () => {
+		const mockCachesKeys = vi.fn();
+		const mockCachesDelete = vi.fn();
+		const originalCaches = globalThis.caches;
+
+		beforeEach(() => {
+			// Mock the Cache API
+			globalThis.caches = {
+				keys: mockCachesKeys,
+				delete: mockCachesDelete,
+			} as unknown as CacheStorage;
+			mockCachesKeys.mockResolvedValue([]);
+			mockCachesDelete.mockResolvedValue(true);
+		});
+
+		afterEach(() => {
+			globalThis.caches = originalCaches;
+			vi.clearAllMocks();
+		});
+
+		it('should clear images and logos caches', async () => {
+			mockCachesKeys.mockResolvedValue(['images', 'logos', 'fonts', 'other-cache']);
+
+			await clearTenantCaches();
+
+			expect(mockCachesDelete).toHaveBeenCalledWith('images');
+			expect(mockCachesDelete).toHaveBeenCalledWith('logos');
+			expect(mockCachesDelete).not.toHaveBeenCalledWith('fonts');
+			expect(mockCachesDelete).not.toHaveBeenCalledWith('other-cache');
+		});
+
+		it('should clear precache when found', async () => {
+			mockCachesKeys.mockResolvedValue(['workbox-precache-v2', 'images']);
+
+			await clearTenantCaches();
+
+			expect(mockCachesDelete).toHaveBeenCalledWith('images');
+			expect(mockCachesDelete).toHaveBeenCalledWith('workbox-precache-v2');
+		});
+
+		it('should not throw when caches is undefined', async () => {
+			globalThis.caches = undefined as unknown as CacheStorage;
+
+			// Should not throw
+			await expect(clearTenantCaches()).resolves.not.toThrow();
+		});
+
+		it('should handle errors gracefully', async () => {
+			mockCachesKeys.mockRejectedValue(new Error('Cache error'));
+
+			// Should not throw, just warn
+			await expect(clearTenantCaches()).resolves.not.toThrow();
 		});
 	});
 });

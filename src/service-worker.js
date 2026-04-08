@@ -4,7 +4,7 @@ import { clientsClaim } from "workbox-core";
 import { ExpirationPlugin } from "workbox-expiration";
 import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL, } from "workbox-precaching";
 import { registerRoute } from "workbox-routing";
-import { StaleWhileRevalidate, CacheFirst } from "workbox-strategies";
+import { StaleWhileRevalidate, CacheFirst, NetworkFirst } from "workbox-strategies";
 
 const basePath = new URL(self.registration.scope).pathname.replace(/\/?$/, '/') || '/';
 
@@ -12,6 +12,17 @@ clientsClaim();
 
 precacheAndRoute(self.__WB_MANIFEST, {
 	ignoreURLParametersMatching: [/^v$/],
+});
+
+/**
+ * Handle SKIP_WAITING message from client.
+ * This allows the client to force the waiting service worker to activate immediately,
+ * which is needed when switching tenants to ensure fresh precached content.
+ */
+self.addEventListener('message', (event) => {
+	if (event.data && event.data.type === 'SKIP_WAITING') {
+		self.skipWaiting();
+	}
 });
 
 const SPA_ROUTE_ALLOWLIST = [
@@ -44,13 +55,42 @@ registerRoute(
 	createHandlerBoundToURL(`${basePath}index.html`)
 );
 
+/**
+ * Tenant-specific logo files should use NetworkFirst to ensure fresh branding.
+ * This prevents showing stale logos when switching between tenants.
+ */
 registerRoute(
 	({ url }) =>
-		url.pathname.endsWith(".png") ||
+		url.pathname.includes('logo_') ||
+		url.pathname.includes('Logo') ||
+		url.pathname.endsWith('/logo.svg') ||
+		url.pathname.endsWith('/logo.png'),
+	new NetworkFirst({
+		cacheName: "logos",
+		plugins: [
+			new ExpirationPlugin({
+				maxEntries: 20,
+				maxAgeSeconds: 60 * 60, // 1 hour
+			}),
+		],
+	})
+);
+
+/**
+ * Other images use StaleWhileRevalidate for better performance.
+ */
+registerRoute(
+	({ url }) =>
+		(url.pathname.endsWith(".png") ||
 		url.pathname.endsWith(".jpg") ||
 		url.pathname.endsWith(".jpeg") ||
 		url.pathname.endsWith(".svg") ||
-		url.pathname.endsWith(".webp"),
+		url.pathname.endsWith(".webp")) &&
+		// Exclude logos (handled above)
+		!url.pathname.includes('logo_') &&
+		!url.pathname.includes('Logo') &&
+		!url.pathname.endsWith('/logo.svg') &&
+		!url.pathname.endsWith('/logo.png'),
 	new StaleWhileRevalidate({
 		cacheName: "images",
 		plugins: [

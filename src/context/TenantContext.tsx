@@ -23,7 +23,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useCallback, ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
-import { getStoredTenant, setStoredTenant, clearStoredTenant, buildTenantRoutePath, TENANT_PATH_PREFIX, isMultiTenant } from '../lib/tenant';
+import { getStoredTenant, setStoredTenant, clearStoredTenant, buildTenantRoutePath, TENANT_PATH_PREFIX, isMultiTenant, clearTenantCaches } from '../lib/tenant';
 import { logger } from '../logger';
 
 export interface TenantContextValue {
@@ -33,8 +33,8 @@ export interface TenantContextValue {
 	urlTenantId: string | undefined;
 	/** Whether we're in a tenant-scoped context */
 	isMultiTenant: boolean;
-	/** Switch to a different tenant (navigates to new tenant's home) */
-	switchTenant: (newTenantId: string) => void;
+	/** Switch to a different tenant (navigates to new tenant's home). Clears caches first. */
+	switchTenant: (newTenantId: string) => Promise<void>;
 	/** Clear tenant context (on logout) */
 	clearTenant: () => void;
 	/** Build a tenant-aware path for links and navigation */
@@ -89,7 +89,11 @@ export function TenantProvider({ children, tenantId: propTenantId }: TenantProvi
 		}
 	}, [urlTenantId, storedTenantId]);
 
-	const switchTenant = useCallback((newTenantId: string) => {
+	const switchTenant = useCallback(async (newTenantId: string) => {
+		// Clear tenant-sensitive caches before navigating to ensure fresh content
+		// This prevents the service worker from serving stale tenant logos and config
+		await clearTenantCaches();
+
 		setStoredTenant(newTenantId);
 		// Use full page reload instead of React navigation to ensure tenant-specific
 		// config (potentially in index.html) is loaded fresh
@@ -136,7 +140,7 @@ export function useTenant(): TenantContextValue {
 			effectiveTenantId: storedTenant,
 			urlTenantId,
 			isMultiTenant: false,
-			switchTenant: () => {
+			switchTenant: async () => {
 				logger.warn('switchTenant called outside TenantProvider');
 			},
 			clearTenant: clearStoredTenant,

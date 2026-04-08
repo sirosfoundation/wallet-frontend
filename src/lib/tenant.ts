@@ -287,3 +287,54 @@ export function filterUsersByTenantID(tenantId: string | undefined, users: Cache
 		return userTenantId === tenantId;
 	});
 }
+
+/**
+ * Cache names used by the service worker that contain tenant-specific content.
+ * These caches should be cleared when switching tenants to ensure fresh content.
+ */
+const TENANT_SENSITIVE_CACHES = ['images', 'logos'];
+
+/**
+ * Clear tenant-sensitive caches when switching tenants.
+ *
+ * This function clears caches that may contain tenant-specific content such as
+ * logos and branding images. It should be called before navigating to a new
+ * tenant URL to ensure the new tenant's assets are fetched fresh.
+ *
+ * The function also unregisters and re-registers the service worker to clear
+ * the precache which contains index.html with tenant-specific config.
+ *
+ * @returns Promise that resolves when caches are cleared
+ */
+export async function clearTenantCaches(): Promise<void> {
+	if (typeof caches === 'undefined') {
+		return; // Cache API not available (e.g., non-HTTPS in some browsers)
+	}
+
+	try {
+		// Clear runtime caches with tenant-specific content
+		const cacheNames = await caches.keys();
+		await Promise.all(
+			cacheNames
+				.filter((name) => TENANT_SENSITIVE_CACHES.includes(name))
+				.map((name) => caches.delete(name))
+		);
+
+		// Signal the service worker to skip waiting and activate immediately
+		// This ensures the precached index.html is not served stale
+		const registration = await navigator.serviceWorker?.getRegistration();
+		if (registration?.waiting) {
+			registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+		}
+
+		// Also clear the workbox precache to force a fresh index.html
+		const precacheName = await caches.keys().then(names =>
+			names.find(name => name.includes('precache'))
+		);
+		if (precacheName) {
+			await caches.delete(precacheName);
+		}
+	} catch (error) {
+		console.warn('Failed to clear tenant caches:', error);
+	}
+}
