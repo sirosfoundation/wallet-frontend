@@ -328,13 +328,13 @@ export async function clearTenantCaches(): Promise<void> {
 			registration.waiting.postMessage({ type: 'SKIP_WAITING' });
 		}
 
-		// Also clear the workbox precache to force a fresh index.html
-		const precacheName = await caches.keys().then(names =>
-			names.find(name => name.includes('precache'))
+		// Also clear all workbox precaches to force a fresh index.html
+		const precacheNames = await caches.keys().then((names) =>
+			names.filter(
+				(name) => name.includes('workbox-precache') || name.includes('precache')
+			)
 		);
-		if (precacheName) {
-			await caches.delete(precacheName);
-		}
+		await Promise.all(precacheNames.map((name) => caches.delete(name)));
 	} catch (error) {
 		console.warn('Failed to clear tenant caches:', error);
 	}
