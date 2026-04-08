@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useHttpProxy } from "@/lib/services/HttpProxy/HttpProxy";
+import { sanitizeSvgDataUri, sanitizeSvgContent, isSvgDataUri } from "@/lib/utils/sanitizeSvg";
 import { logger } from '@/logger';
 
 export const useProxiedImage = (uri?: string | null) => {
@@ -14,7 +15,13 @@ export const useProxiedImage = (uri?: string | null) => {
 
 		// Handle data URIs directly (e.g. data:image/svg+xml;base64,...)
 		if (uri.startsWith("data:")) {
-			setSrc(uri);
+			// Sanitize SVG data URIs to prevent XSS
+			if (isSvgDataUri(uri)) {
+				const sanitized = sanitizeSvgDataUri(uri);
+				setSrc(sanitized);
+			} else {
+				setSrc(uri);
+			}
 			return;
 		}
 
@@ -27,10 +34,11 @@ export const useProxiedImage = (uri?: string | null) => {
 						const contentType = String(res.headers?.["content-type"] || "");
 
 						if (contentType.includes("svg")) {
-							const svgText = res.data;
+							// Sanitize SVG content before encoding
+							const sanitizedSvg = sanitizeSvgContent(res.data);
 							const encoded = btoa(
 								new TextEncoder()
-									.encode(svgText)
+									.encode(sanitizedSvg)
 									.reduce((data, byte) => data + String.fromCharCode(byte), "")
 							);
 							setSrc(`data:image/svg+xml;base64,${encoded}`);
