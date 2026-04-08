@@ -232,6 +232,34 @@
 		},
 		"searchPlaceholder": "Search verifiers..."
 	},
+	"protocolSteps": {
+		"common": {
+			"error": "An error occurred"
+		},
+		"oid4vci": {
+			"awaitingAuthorizationResponse": "Waiting for authorization...",
+			"awaitingTxCode": "Waiting for transaction code...",
+			"completed": "Credential received successfully",
+			"exchangingToken": "Exchanging token...",
+			"fetchingIssuerMetadata": "Fetching issuer metadata...",
+			"idle": "Ready",
+			"parsingOffer": "Parsing credential offer...",
+			"requestingAuthorization": "Requesting authorization...",
+			"requestingCredential": "Requesting credential...",
+			"storingCredential": "Storing credential..."
+		},
+		"oid4vp": {
+			"awaitingConsent": "Confirm credential sharing...",
+			"awaitingCredentialSelection": "Select credentials to present...",
+			"completed": "Presentation sent successfully",
+			"creatingPresentation": "Creating presentation...",
+			"fetchingVerifierMetadata": "Fetching verifier metadata...",
+			"idle": "Ready",
+			"matchingCredentials": "Finding matching credentials...",
+			"parsingRequest": "Parsing authorization request...",
+			"sendingResponse": "Sending response..."
+		}
+	},
 	"pageSettings": {
 		"addPasskey": "Add passkey:",
 		"addPasskeyTitle": "Click to Add passkey",

@@ -31,8 +31,8 @@ export type OID4VCIStep =
  * Metadata for each OID4VCI step
  */
 export interface OID4VCIStepInfo {
-	/** Human-readable message for UI display */
-	message: string;
+	/** i18n key for step message (use with t() function) */
+	messageKey: string;
 	/** Progress percentage (0-100) */
 	progress: number;
 	/** Whether this is a terminal state */
@@ -64,8 +64,8 @@ export type OID4VPStep =
  * Metadata for each OID4VP step
  */
 export interface OID4VPStepInfo {
-	/** Human-readable message for UI display */
-	message: string;
+	/** i18n key for step message (use with t() function) */
+	messageKey: string;
 	/** Progress percentage (0-100) */
 	progress: number;
 	/** Whether this is a terminal state */
