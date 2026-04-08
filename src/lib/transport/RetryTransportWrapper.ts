@@ -12,12 +12,10 @@ import type { OID4VPFlowParams, OID4VPFlowResult } from './types/OID4VPTypes';
 import {
 	createFlowError,
 	inferErrorCode,
-	isRecoverableError,
 	calculateRetryDelay,
 	DEFAULT_RETRY_CONFIG,
 	type FlowRecoverableError,
 	type RetryConfig,
-	FlowErrorCodes,
 } from './types/FlowRecovery';
 import {
 	FlowStateManager,
@@ -155,9 +153,11 @@ export class RetryTransportWrapper implements IFlowTransport {
 
 	async request<T>(flowRequest: FlowRequest): Promise<FlowResponse<T>> {
 		try {
+			// Use type:action as entryUri to avoid exposing sensitive payload data
+			const entryUri = `${flowRequest.type}:${flowRequest.action}`;
 			return await this.executeWithRetry<FlowResponse<T>>(
 				'oid4vci', // Generic flows default to oid4vci protocol
-				JSON.stringify(flowRequest),
+				entryUri,
 				() => this.transport.request<T>(flowRequest),
 				'initialized'
 			);
@@ -280,8 +280,9 @@ export class RetryTransportWrapper implements IFlowTransport {
 					// Non-recoverable or exhausted retries
 					state = this.stateManager.recordError(flowId, recoverableError) ?? state;
 
-					if (recoverableError.recoverable) {
-						// Notify that manual retry is possible
+					// Only notify recoverable if manual retry is actually possible
+					// (i.e., hook's canRetry would be true based on current retry count)
+					if (recoverableError.recoverable && this.stateManager.canRetry(flowId, this.config.maxRetries)) {
 						this.emitRecoverable(state);
 					}
 				}
@@ -312,7 +313,8 @@ export class RetryTransportWrapper implements IFlowTransport {
 				// Non-recoverable or exhausted retries
 				state = this.stateManager.recordError(flowId, recoverableError) ?? state;
 
-				if (recoverableError.recoverable) {
+				// Only notify recoverable if manual retry is actually possible
+				if (recoverableError.recoverable && this.stateManager.canRetry(flowId, this.config.maxRetries)) {
 					this.emitRecoverable(state);
 				}
 

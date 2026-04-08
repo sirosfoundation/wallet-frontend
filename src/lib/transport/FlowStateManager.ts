@@ -172,7 +172,17 @@ export class FlowStateManager {
 			state.updatedAt = Date.now();
 			// Keep briefly for completion confirmation, then delete
 			this.save(state);
-			setTimeout(() => this.delete(flowId), 5000);
+			// Defer cleanup - use try-catch as storage may already be cleared
+			// Also guard for SSR where setTimeout behavior may differ
+			if (typeof window !== 'undefined') {
+				setTimeout(() => {
+					try {
+						this.delete(flowId);
+					} catch {
+						// Storage may already be cleared
+					}
+				}, 5000);
+			}
 		}
 	}
 
@@ -217,14 +227,21 @@ export class FlowStateManager {
 		const terminalStates: FlowCheckpoint[] = ['completed', 'failed', 'cancelled'];
 
 		try {
+			// Collect keys first to avoid mutation during iteration
+			// (this.get() may delete expired entries)
+			const keys: string[] = [];
 			for (let i = 0; i < sessionStorage.length; i++) {
 				const key = sessionStorage.key(i);
 				if (key?.startsWith(STORAGE_KEY_PREFIX)) {
-					const flowId = key.slice(STORAGE_KEY_PREFIX.length);
-					const state = this.get(flowId);
-					if (state && !terminalStates.includes(state.checkpoint)) {
-						flows.push(state);
-					}
+					keys.push(key);
+				}
+			}
+
+			for (const key of keys) {
+				const flowId = key.slice(STORAGE_KEY_PREFIX.length);
+				const state = this.get(flowId);
+				if (state && !terminalStates.includes(state.checkpoint)) {
+					flows.push(state);
 				}
 			}
 		} catch (e) {
@@ -258,7 +275,8 @@ export class FlowStateManager {
 	}
 
 	/**
-	 * Prepare flow for retry (increment counter, clear error)
+	 * Prepare flow for retry (clear error and roll back to safe checkpoint)
+	 * Note: retryCount is incremented by recordError(), not here
 	 */
 	prepareRetry(flowId: string): FlowState | null {
 		const state = this.get(flowId);
@@ -351,7 +369,14 @@ export class FlowStateManager {
 	private save(state: FlowState): void {
 		const key = STORAGE_KEY_PREFIX + state.flowId;
 		try {
-			sessionStorage.setItem(key, JSON.stringify(state));
+			// Strip originalError before serializing to avoid circular refs and large stacks
+			const serializable = { ...state };
+			if (serializable.lastError) {
+				// eslint-disable-next-line @typescript-eslint/no-unused-vars
+				const { originalError, ...rest } = serializable.lastError;
+				serializable.lastError = rest as typeof serializable.lastError;
+			}
+			sessionStorage.setItem(key, JSON.stringify(serializable));
 		} catch (e) {
 			logger.error('Failed to save flow state:', e);
 		}

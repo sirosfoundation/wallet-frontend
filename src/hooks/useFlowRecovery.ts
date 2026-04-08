@@ -14,7 +14,6 @@ import {
 import {
 	type FlowRecoverableError,
 	type RetryConfig,
-	calculateRetryDelay,
 	DEFAULT_RETRY_CONFIG,
 } from '../lib/transport/types/FlowRecovery';
 import { logger } from '@/logger';
@@ -149,7 +148,8 @@ export function useFlowRecovery(
 			isRetrying: false,
 		}));
 
-		if (!canRetry && !error.recoverable) {
+		// Call onFailed when no more retries are possible (either non-recoverable or retries exhausted)
+		if (!canRetry) {
 			options.onFailed?.(flowId, error);
 		}
 	}, [options]);
