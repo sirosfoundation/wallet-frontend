@@ -198,34 +198,6 @@
 		},
 		"searchPlaceholder": "Procurar verifiers..."
 	},
-	"protocolSteps": {
-		"common": {
-			"error": "Ocorreu um erro"
-		},
-		"oid4vci": {
-			"awaitingAuthorizationResponse": "Aguardando autorização...",
-			"awaitingTxCode": "Aguardando código de transação...",
-			"completed": "Credencial recebida com sucesso",
-			"exchangingToken": "Trocando token...",
-			"fetchingIssuerMetadata": "Obtendo metadados do emissor...",
-			"idle": "Pronto",
-			"parsingOffer": "Analisando oferta de credencial...",
-			"requestingAuthorization": "Solicitando autorização...",
-			"requestingCredential": "Solicitando credencial...",
-			"storingCredential": "Armazenando credencial..."
-		},
-		"oid4vp": {
-			"awaitingConsent": "Confirme o compartilhamento de credencial...",
-			"awaitingCredentialSelection": "Selecione credenciais para apresentar...",
-			"completed": "Apresentação enviada com sucesso",
-			"creatingPresentation": "Criando apresentação...",
-			"fetchingVerifierMetadata": "Obtendo metadados do verificador...",
-			"idle": "Pronto",
-			"matchingCredentials": "Encontrando credenciais correspondentes...",
-			"parsingRequest": "Analisando solicitação de autorização...",
-			"sendingResponse": "Enviando resposta..."
-		}
-	},
 	"pageSettings": {
 		"addPasskey": "Adicionar chave de acesso:",
 		"addPasskeyTitle": "Clique para adicionar chave de acesso",
@@ -307,6 +279,34 @@
 		"securityKeyLabel": "Chave de acesso numa chave de segurança",
 		"title": "Escolher onde criar a sua chave de acesso",
 		"triggerButton": "Como funcionam as chaves de acesso?"
+	},
+	"protocolSteps": {
+		"common": {
+			"error": "Ocorreu um erro"
+		},
+		"oid4vci": {
+			"awaitingAuthorizationResponse": "Aguardando autorização...",
+			"awaitingTxCode": "Aguardando código de transação...",
+			"completed": "Credencial recebida com sucesso",
+			"exchangingToken": "Trocando token...",
+			"fetchingIssuerMetadata": "Obtendo metadados do emissor...",
+			"idle": "Pronto",
+			"parsingOffer": "Analisando oferta de credencial...",
+			"requestingAuthorization": "Solicitando autorização...",
+			"requestingCredential": "Solicitando credencial...",
+			"storingCredential": "Armazenando credencial..."
+		},
+		"oid4vp": {
+			"awaitingConsent": "Confirme o compartilhamento de credencial...",
+			"awaitingCredentialSelection": "Selecione credenciais para apresentar...",
+			"completed": "Apresentação enviada com sucesso",
+			"creatingPresentation": "Criando apresentação...",
+			"fetchingVerifierMetadata": "Obtendo metadados do verificador...",
+			"idle": "Pronto",
+			"matchingCredentials": "Encontrando credenciais correspondentes...",
+			"parsingRequest": "Analisando solicitação de autorização...",
+			"sendingResponse": "Enviando resposta..."
+		}
 	},
 	"pwaInstallPrompt": {
 		"button": {
