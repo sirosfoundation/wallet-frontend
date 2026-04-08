@@ -292,6 +292,34 @@
 		"title": "Επιλογή τοποθεσίας δημιουργίας κλειδιού πρόσβασης",
 		"triggerButton": "Πώς λειτουργούν τα κλειδιά πρόσβασης;"
 	},
+	"protocolSteps": {
+		"common": {
+			"error": "Παρουσιάστηκε σφάλμα"
+		},
+		"oid4vci": {
+			"awaitingAuthorizationResponse": "Αναμονή για εξουσιοδότηση...",
+			"awaitingTxCode": "Αναμονή για κωδικό συναλλαγής...",
+			"completed": "Το πιστοποιητικό ελήφθη επιτυχώς",
+			"exchangingToken": "Ανταλλαγή διακριτικού...",
+			"fetchingIssuerMetadata": "Λήψη μεταδεδομένων εκδότη...",
+			"idle": "Έτοιμο",
+			"parsingOffer": "Ανάλυση προσφοράς πιστοποιητικού...",
+			"requestingAuthorization": "Αίτημα εξουσιοδότησης...",
+			"requestingCredential": "Αίτημα πιστοποιητικού...",
+			"storingCredential": "Αποθήκευση πιστοποιητικού..."
+		},
+		"oid4vp": {
+			"awaitingConsent": "Επιβεβαιώστε την κοινοποίηση πιστοποιητικών...",
+			"awaitingCredentialSelection": "Επιλέξτε πιστοποιητικά για παρουσίαση...",
+			"completed": "Η παρουσίαση στάλθηκε επιτυχώς",
+			"creatingPresentation": "Δημιουργία παρουσίασης...",
+			"fetchingVerifierMetadata": "Λήψη μεταδεδομένων επαληθευτή...",
+			"idle": "Έτοιμο",
+			"matchingCredentials": "Εύρεση αντίστοιχων πιστοποιητικών...",
+			"parsingRequest": "Ανάλυση αιτήματος εξουσιοδότησης...",
+			"sendingResponse": "Αποστολή απάντησης..."
+		}
+	},
 	"pwaInstallPrompt": {
 		"button": {
 			"closeTitle": "Κάντε κλικ για να κλείσετε την προτροπή εγκατάστασης του PWA",

@@ -1,4 +1,4 @@
-import { CLOCK_TOLERANCE, VCT_REGISTRY_URL } from "../config";
+import { CLOCK_TOLERANCE, VCT_REGISTRY_URL, DELEGATE_TRUST_TO_BACKEND } from "../config";
 import { IHttpProxy } from "./interfaces/IHttpProxy";
 import { ParsingEngine, SDJWTVCParser, PublicKeyResolverEngine, SDJWTVCVerifier, MsoMdocParser, MsoMdocVerifier, JWTVCJSONParser, JWTVCJSONVerifier, VerifyingEngine } from "wallet-common";
 import { IOpenID4VCIHelper } from "./interfaces/IOpenID4VCIHelper";
@@ -37,6 +37,7 @@ export async function initializeCredentialEngine(
 		subtle: crypto.subtle,
 		lang: 'en-US',
 		trustedCertificates,
+		delegateTrustToBackend: DELEGATE_TRUST_TO_BACKEND,
 		vctResolutionEngine: vctDocumentProvider
 	};
 

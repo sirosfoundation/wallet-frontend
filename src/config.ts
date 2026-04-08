@@ -68,6 +68,52 @@ export const WEBAUTHN_RPID = config.webauthn_rpid ?? "localhost";
 export const OPENID4VP_SAN_DNS_CHECK = config.openid4vp_san_dns_check ? config.openid4vp_san_dns_check === 'true' : false;
 export const OPENID4VP_SAN_DNS_CHECK_SSL_CERTS = config.openid4vp_san_dns_check_ssl_certs ? config.openid4vp_san_dns_check_ssl_certs === 'true' : false;
 export const VALIDATE_CREDENTIALS_WITH_TRUST_ANCHORS = config.validate_credentials_with_trust_anchors ? config.validate_credentials_with_trust_anchors  === 'true' : false;
+
+/**
+ * Delegate trust evaluation to the backend's AuthZEN proxy.
+ *
+ * When true (default, recommended): Trust evaluation is performed by the backend's
+ * AuthZEN proxy service before credentials are issued or presented. This is the
+ * secure production mode.
+ *
+ * When false (legacy, development only): Trust evaluation uses local certificate
+ * pinning against trustedCertificates. This mode is only permitted in development
+ * builds and requires explicit configuration. Using this in production is a
+ * security vulnerability.
+ *
+ * @security Setting this to false in production will cause the app to fail
+ *           with an error. For production deployments, always use the default (true).
+ */
+export const DELEGATE_TRUST_TO_BACKEND: boolean = (() => {
+	const configValue = config.delegate_trust_to_backend;
+
+	// Default is true (secure mode - delegate to backend)
+	if (configValue === undefined || configValue === '') {
+		return true;
+	}
+
+	const wantsLocalTrustValidation = configValue !== 'true';
+
+	if (wantsLocalTrustValidation) {
+		// Only allow disabling backend trust delegation in development mode
+		if (MODE !== 'development') {
+			console.error(
+				'[SECURITY] DELEGATE_TRUST_TO_BACKEND=false is only allowed in development mode. ' +
+				'Production builds must use backend trust evaluation via AuthZEN. ' +
+				'Forcing DELEGATE_TRUST_TO_BACKEND=true.'
+			);
+			return true;
+		}
+		console.warn(
+			'[SECURITY WARNING] DELEGATE_TRUST_TO_BACKEND=false: Using local certificate validation. ' +
+			'This bypasses AuthZEN trust evaluation and should NEVER be used in production.'
+		);
+		return false;
+	}
+
+	return true;
+})();
+
 export const OPENID4VCI_REDIRECT_URI = config.openid4vci_redirect_uri ?  config.openid4vci_redirect_uri : "http://localhost:3000/";
 export const CLOCK_TOLERANCE = config.clock_tolerance && !isNaN(parseInt(config.clock_tolerance)) ? parseInt(config.clock_tolerance) : 60;
 export const STATIC_PUBLIC_URL = config.static_public_url || 'https://demo.wwwallet.org';

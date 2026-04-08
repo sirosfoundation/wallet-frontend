@@ -16,7 +16,9 @@ import { ExtendedVcEntity } from "@/context/CredentialsContext";
 import { getLeastUsedCredentialInstance } from "../CredentialBatchHelper";
 import { WalletStateUtils } from "@/services/WalletStateUtils";
 import { TransactionDataResponse } from "wallet-common";
-import { verifyRequestUriAndCerts } from "../../utils/verifyRequestUriAndCerts";
+import { createTrustEvaluator, createDIDResolver } from "../TrustEvaluator";
+import { BACKEND_URL, DELEGATE_TRUST_TO_BACKEND } from "@/config";
+import { getTenantFromUrlPath } from "@/lib/tenant";
 import { logger, jsonToLog } from '@/logger';
 
 export function useOpenID4VP({
@@ -94,6 +96,17 @@ export function useOpenID4VP({
 			return getLeastUsedCredentialInstance(batchId, vcEntityList, walletState);
 		};
 
+		// Create trust evaluator and DID resolver for verifier authentication
+		// Use URL tenant (more robust than sessionStorage) per smncd's recommendation
+		const trustEvaluatorConfig = {
+			httpClient: httpProxy,
+			backendUrl: BACKEND_URL,
+			getAuthToken: () => api.getAppToken() ?? '',
+			tenantId: getTenantFromUrlPath() ?? 'default',
+		};
+		const evaluateTrust = createTrustEvaluator(trustEvaluatorConfig);
+		const resolveDid = createDIDResolver(trustEvaluatorConfig);
+
 		return new OpenID4VPServerAPI<OpenID4VPServerCredential, ParsedTransactionData>({
 			httpClient: { get: httpProxy.get },
 			rpStateStore,
@@ -107,15 +120,16 @@ export function useOpenID4VP({
 			lastUsedNonceStore,
 			parseTransactionData: parseTransactionDataWithUI,
 			transactionDataResponseGenerator: TransactionDataResponse,
-			verifyRequestUriAndCerts: async ({ request_uri, response_uri, parsedHeader }) =>
-				verifyRequestUriAndCerts(request_uri, response_uri, parsedHeader),
+			evaluateTrust,
+			resolveDid,
 		});
 	}, [
-		httpProxy.get,
+		httpProxy,
 		openID4VPRelyingPartyStateRepository,
 		parseCredential,
 		keystore,
 		t,
+		api,
 	]);
 
 	const handleAuthorizationRequest = useCallback(async (
