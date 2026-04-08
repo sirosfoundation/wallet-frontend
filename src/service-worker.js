@@ -126,11 +126,11 @@ self.addEventListener("activate", (event) => {
 			// Clean old Workbox precache caches
 			await cleanupOutdatedCaches();
 
-			// Delete runtime image cache
+			// Delete runtime image and logo caches
 			const cacheNames = await caches.keys();
 			await Promise.all(
 				cacheNames
-					.filter((name) => name === "images")
+					.filter((name) => name === "images" || name === "logos")
 					.map((name) => caches.delete(name))
 			);
 
