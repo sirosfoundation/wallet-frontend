@@ -37,7 +37,8 @@ interface PendingRequest<T = unknown> {
  * WebSocket message from server
  */
 interface ServerMessage {
-	flowId: string;
+	flow_id?: string;  // snake_case from backend
+	flowId?: string;   // camelCase for backwards compat
 	type: string;
 	[key: string]: unknown;
 }
@@ -202,10 +203,10 @@ export class WebSocketTransport implements IFlowTransport {
 		if (params.credentialOfferUri || params.credentialOffer) {
 			// Phase 1: Start flow with credential offer
 			const response = await this.send({
-				type: 'flow.start',
-				flow: 'oid4vci',
-				credentialOfferUri: params.credentialOfferUri,
-				credentialOffer: params.credentialOffer,
+				type: 'flow_start',
+				protocol: 'oid4vci',
+				credential_offer_uri: params.credentialOfferUri,
+				offer: params.credentialOffer,
 			});
 
 			return this.mapOID4VCIResponse(response);
@@ -214,12 +215,13 @@ export class WebSocketTransport implements IFlowTransport {
 		if (params.holderBinding && params.credentialConfigurationId) {
 			// Phase 2: User consented, provide holder binding
 			const response = await this.send({
-				type: 'flow.continue',
-				flow: 'oid4vci',
+				type: 'flow_action',
 				action: 'consent',
-				holderPublicKey: params.holderBinding.publicKeyJwk,
-				holderBindingMethod: params.holderBinding.method,
-				credentialConfigurationId: params.credentialConfigurationId,
+				payload: {
+					holder_public_key: params.holderBinding.publicKeyJwk,
+					holder_binding_method: params.holderBinding.method,
+					credential_configuration_id: params.credentialConfigurationId,
+				},
 			});
 
 			return this.mapOID4VCIResponse(response);
@@ -228,11 +230,12 @@ export class WebSocketTransport implements IFlowTransport {
 		if (params.authorizationCode) {
 			// Phase 3: Authorization code received
 			const response = await this.send({
-				type: 'flow.continue',
-				flow: 'oid4vci',
-				action: 'token_exchange',
-				authorizationCode: params.authorizationCode,
-				codeVerifier: params.codeVerifier,
+				type: 'flow_action',
+				action: 'authorization_complete',
+				payload: {
+					authorization_code: params.authorizationCode,
+					code_verifier: params.codeVerifier,
+				},
 			});
 
 			return this.mapOID4VCIResponse(response);
@@ -241,11 +244,12 @@ export class WebSocketTransport implements IFlowTransport {
 		if (params.preAuthorizedCode) {
 			// Pre-authorized flow
 			const response = await this.send({
-				type: 'flow.continue',
-				flow: 'oid4vci',
-				action: 'pre_authorized',
-				preAuthorizedCode: params.preAuthorizedCode,
-				txCodeInput: params.txCodeInput,
+				type: 'flow_action',
+				action: 'provide_pin',
+				payload: {
+					pre_authorized_code: params.preAuthorizedCode,
+					tx_code: params.txCodeInput,
+				},
 			});
 
 			return this.mapOID4VCIResponse(response);
@@ -325,9 +329,9 @@ export class WebSocketTransport implements IFlowTransport {
 		if (params.authorizationRequestUri && !params.selectedCredentials) {
 			// Phase 1: Start flow with authorization request
 			const response = await this.send({
-				type: 'flow.start',
-				flow: 'oid4vp',
-				authorizationRequestUri: params.authorizationRequestUri,
+				type: 'flow_start',
+				protocol: 'oid4vp',
+				request_uri: params.authorizationRequestUri,
 			});
 
 			return this.mapOID4VPResponse(response);
@@ -336,10 +340,11 @@ export class WebSocketTransport implements IFlowTransport {
 		if (params.selectedCredentials) {
 			// Phase 2: User selected credentials, submit response
 			const response = await this.send({
-				type: 'flow.continue',
-				flow: 'oid4vp',
-				action: 'submit',
-				selectedCredentials: params.selectedCredentials,
+				type: 'flow_action',
+				action: 'consent',
+				payload: {
+					selected_credentials: params.selectedCredentials,
+				},
 			});
 
 			return this.mapOID4VPResponse(response);
@@ -455,7 +460,9 @@ export class WebSocketTransport implements IFlowTransport {
 	// ===== Internal Methods =====
 
 	private handleMessage(message: ServerMessage): void {
-		const { flowId, type } = message;
+		// Support both snake_case (backend) and camelCase (legacy)
+		const flowId = (message.flow_id as string) || (message.flowId as string);
+		const { type } = message;
 
 		// Handle progress events separately
 		if (type === 'progress' || type === 'flow_progress') {
@@ -493,8 +500,9 @@ export class WebSocketTransport implements IFlowTransport {
 	 * Handle a sign request from the server
 	 */
 	private async handleSignRequest(message: ServerMessage): Promise<void> {
+		const flowId = (message.flow_id as string) || (message.flowId as string) || '';
 		const request: SignRequest = {
-			flowId: message.flowId,
+			flowId,
 			messageId: (message.message_id as string) || (message.messageId as string) || '',
 			action: message.action as 'generate_proof' | 'sign_presentation',
 			params: (message.params as SignRequest['params']) || {},
@@ -544,7 +552,7 @@ export class WebSocketTransport implements IFlowTransport {
 
 		const msg: Record<string, unknown> = {
 			type: 'sign_response',
-			flowId,
+			flow_id: flowId,
 			message_id: messageId,
 			timestamp: new Date().toISOString(),
 		};
@@ -605,8 +613,8 @@ export class WebSocketTransport implements IFlowTransport {
 				return;
 			}
 
-			const flowId = (message.flowId as string) || crypto.randomUUID();
-			const fullMessage = { ...message, flowId };
+			const flowId = (message.flow_id as string) || crypto.randomUUID();
+			const fullMessage = { ...message, flow_id: flowId };
 
 			// Set up timeout
 			const timeout = setTimeout(() => {

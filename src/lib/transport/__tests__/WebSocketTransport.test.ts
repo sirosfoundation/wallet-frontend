@@ -104,8 +104,8 @@ describe('WebSocketTransport', () => {
 			expect(mockWebSocketInstances[0].url).toContain(wsUrl);
 			// Auth token is now sent as the first message, not in URL
 			const authMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[0]);
-			expect(authMessage.type).toBe('auth');
-			expect(authMessage.token).toBe(authToken);
+			expect(authMessage.type).toBe('handshake');
+			expect(authMessage.app_token).toBe(authToken);
 		});
 
 		it('should handle connection errors', async () => {
@@ -152,7 +152,7 @@ describe('WebSocketTransport', () => {
 	});
 
 	describe('OID4VCI Flow', () => {
-		it('should send flow.start message with credentialOfferUri', async () => {
+		it('should send flow_start message with credential_offer_uri', async () => {
 			const transport = new WebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
@@ -167,15 +167,15 @@ describe('WebSocketTransport', () => {
 			});
 
 			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[1]);
-			expect(sentMessage.type).toBe('flow.start');
-			expect(sentMessage.flow).toBe('oid4vci');
-			expect(sentMessage.credentialOfferUri).toBe(credentialOfferUri);
-			expect(sentMessage.flowId).toBeDefined();
+			expect(sentMessage.type).toBe('flow_start');
+			expect(sentMessage.protocol).toBe('oid4vci');
+			expect(sentMessage.credential_offer_uri).toBe(credentialOfferUri);
+			expect(sentMessage.flow_id).toBeDefined();
 
 			// Simulate server response
 			mockWebSocketInstances[0].simulateMessage({
-				flowId: sentMessage.flowId,
-				type: 'flow.result',
+				flow_id: sentMessage.flow_id,
+				type: 'flow_complete',
 				issuerMetadata: { issuer: 'https://issuer.example.com' },
 			});
 
@@ -184,7 +184,7 @@ describe('WebSocketTransport', () => {
 			expect(result.issuerMetadata).toEqual({ issuer: 'https://issuer.example.com' });
 		});
 
-		it('should send flow.continue message with holder binding', async () => {
+		it('should send flow_action message with holder binding', async () => {
 			const transport = new WebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
@@ -203,16 +203,15 @@ describe('WebSocketTransport', () => {
 			});
 
 			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[1]);
-			expect(sentMessage.type).toBe('flow.continue');
-			expect(sentMessage.flow).toBe('oid4vci');
+			expect(sentMessage.type).toBe('flow_action');
 			expect(sentMessage.action).toBe('consent');
-			expect(sentMessage.holderPublicKey).toEqual(holderBinding.publicKeyJwk);
-			expect(sentMessage.holderBindingMethod).toBe('jwt_key');
+			expect(sentMessage.payload.holder_public_key).toEqual(holderBinding.publicKeyJwk);
+			expect(sentMessage.payload.holder_binding_method).toBe('jwt_key');
 
 			// Simulate successful credential response
 			mockWebSocketInstances[0].simulateMessage({
-				flowId: sentMessage.flowId,
-				type: 'flow.result',
+				flow_id: sentMessage.flow_id,
+				type: 'flow_complete',
 				credential: 'eyJ...',
 				format: 'jwt_vc_json',
 			});
@@ -236,15 +235,15 @@ describe('WebSocketTransport', () => {
 			});
 
 			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[1]);
-			expect(sentMessage.type).toBe('flow.continue');
-			expect(sentMessage.action).toBe('token_exchange');
-			expect(sentMessage.authorizationCode).toBe('auth-code-123');
-			expect(sentMessage.codeVerifier).toBe('verifier-abc');
+			expect(sentMessage.type).toBe('flow_action');
+			expect(sentMessage.action).toBe('authorization_complete');
+			expect(sentMessage.payload.authorization_code).toBe('auth-code-123');
+			expect(sentMessage.payload.code_verifier).toBe('verifier-abc');
 
 			// Respond with credential
 			mockWebSocketInstances[0].simulateMessage({
-				flowId: sentMessage.flowId,
-				type: 'flow.result',
+				flow_id: sentMessage.flow_id,
+				type: 'flow_complete',
 				credential: 'eyJ...',
 			});
 
@@ -268,7 +267,7 @@ describe('WebSocketTransport', () => {
 
 			// Simulate error response
 			mockWebSocketInstances[0].simulateMessage({
-				flowId: sentMessage.flowId,
+				flow_id: sentMessage.flow_id,
 				type: 'error',
 				error: { code: 'INVALID_OFFER', message: 'Invalid credential offer' },
 			});
@@ -305,12 +304,12 @@ describe('WebSocketTransport', () => {
 			});
 
 			const sentMessage = JSON.parse(mockWs.sentMessages[1]);
-			expect(sentMessage.type).toBe('flow.start');
+			expect(sentMessage.type).toBe('flow_start');
 
 			// Simulate deferred issuance response with transactionId
 			mockWs.simulateMessage({
-				flowId: sentMessage.flowId,
-				type: 'flow.result',
+				flow_id: sentMessage.flow_id,
+				type: 'flow_complete',
 				transactionId: 'txn-deferred-123',
 				// No credential yet - deferred
 			});
@@ -323,7 +322,7 @@ describe('WebSocketTransport', () => {
 	});
 
 	describe('OID4VP Flow', () => {
-		it('should send flow.start message with authorizationRequestUri', async () => {
+		it('should send flow_start message with request_uri', async () => {
 			const transport = new WebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
@@ -336,14 +335,14 @@ describe('WebSocketTransport', () => {
 			});
 
 			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[1]);
-			expect(sentMessage.type).toBe('flow.start');
-			expect(sentMessage.flow).toBe('oid4vp');
-			expect(sentMessage.authorizationRequestUri).toBe(authorizationRequestUri);
+			expect(sentMessage.type).toBe('flow_start');
+			expect(sentMessage.protocol).toBe('oid4vp');
+			expect(sentMessage.request_uri).toBe(authorizationRequestUri);
 
 			// Simulate response with presentation definition
 			mockWebSocketInstances[0].simulateMessage({
-				flowId: sentMessage.flowId,
-				type: 'flow.result',
+				flow_id: sentMessage.flow_id,
+				type: 'flow_complete',
 				presentationDefinition: { id: 'test-pd', input_descriptors: [] },
 				verifierInfo: { name: 'Test Verifier' },
 			});
@@ -354,7 +353,7 @@ describe('WebSocketTransport', () => {
 			expect(result.verifierInfo?.name).toBe('Test Verifier');
 		});
 
-		it('should send flow.continue with selected credentials', async () => {
+		it('should send flow_action with selected credentials', async () => {
 			const transport = new WebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
@@ -376,15 +375,14 @@ describe('WebSocketTransport', () => {
 			});
 
 			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[1]);
-			expect(sentMessage.type).toBe('flow.continue');
-			expect(sentMessage.flow).toBe('oid4vp');
-			expect(sentMessage.action).toBe('submit');
-			expect(sentMessage.selectedCredentials).toEqual(selectedCredentials);
+			expect(sentMessage.type).toBe('flow_action');
+			expect(sentMessage.action).toBe('consent');
+			expect(sentMessage.payload.selected_credentials).toEqual(selectedCredentials);
 
 			// Simulate success response
 			mockWebSocketInstances[0].simulateMessage({
-				flowId: sentMessage.flowId,
-				type: 'flow.result',
+				flow_id: sentMessage.flow_id,
+				type: 'flow_complete',
 				redirectUri: 'https://verifier.example.com/callback',
 			});
 
@@ -413,7 +411,7 @@ describe('WebSocketTransport', () => {
 
 			// Simulate progress message
 			mockWebSocketInstances[0].simulateMessage({
-				flowId: 'test-flow-id',
+				flow_id: 'test-flow-id',
 				type: 'progress',
 				stage: 'fetching_metadata',
 				progress: 0.25,
@@ -440,7 +438,7 @@ describe('WebSocketTransport', () => {
 
 			// Send progress - should not trigger callback
 			mockWebSocketInstances[0].simulateMessage({
-				flowId: 'test-flow-id',
+				flow_id: 'test-flow-id',
 				type: 'progress',
 				stage: 'done',
 			});
@@ -563,7 +561,7 @@ describe('WebSocketTransport', () => {
 
 			// Simulate a sign_request from server
 			mockWs.simulateMessage({
-				flowId: 'test-flow-id',
+				flow_id: 'test-flow-id',
 				message_id: 'msg-123',
 				type: 'sign_request',
 				action: 'generate_proof',
@@ -605,7 +603,7 @@ describe('WebSocketTransport', () => {
 			);
 			expect(signResponseMsg).toBeDefined();
 			const parsed = JSON.parse(signResponseMsg!);
-			expect(parsed.flowId).toBe('test-flow-id');
+			expect(parsed.flow_id).toBe('test-flow-id');
 			expect(parsed.message_id).toBe('msg-123');
 			expect(parsed.proof_jwt).toBe('eyJ...proof...');
 		});
@@ -623,7 +621,7 @@ describe('WebSocketTransport', () => {
 
 			// Simulate a sign_request from server
 			mockWs.simulateMessage({
-				flowId: 'test-flow-id',
+				flow_id: 'test-flow-id',
 				message_id: 'msg-456',
 				type: 'sign_request',
 				action: 'sign_presentation',
