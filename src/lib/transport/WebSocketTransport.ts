@@ -134,7 +134,7 @@ export class WebSocketTransport implements IFlowTransport {
 						if (this.ws && this.ws.readyState === WebSocket.OPEN) {
 							this.ws.send(
 								JSON.stringify({
-									type: 'auth',
+									type: 'handshake',
 									token: this.authToken,
 									tenantId: this.tenantId
 								})
