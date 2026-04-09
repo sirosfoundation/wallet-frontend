@@ -267,7 +267,7 @@ const WebauthnSignupLogin = ({
 	};
 
 	const onLogin = useCallback(async (webauthnHints: string[], cachedUser?: CachedUser) => {
-		const result = await api.loginWebauthn(keystore, promptForPrfRetry, webauthnHints, cachedUser, urlTenantId);
+		const result = await api.loginWebauthn(keystore, promptForPrfRetry, webauthnHints, cachedUser, urlTenantId, activeGate.idToken || undefined);
 		if (result.ok) {
 			// Success - no action needed, session will be set by API
 		} else {
@@ -299,7 +299,7 @@ const WebauthnSignupLogin = ({
 					throw result;
 			}
 		}
-	}, [api, keystore, urlTenantId, setError, t]);
+	}, [api, keystore, urlTenantId, activeGate.idToken, setError, t]);
 
 	const onSignup = async (name: string, webauthnHints: string[]) => {
 		// Pass tenantId to ensure the passkey's userHandle includes the tenant prefix
@@ -314,6 +314,7 @@ const WebauthnSignupLogin = ({
 			retrySignupFrom,
 			urlTenantId || 'default',
 			inviteCode,
+			activeGate.idToken || undefined,
 		);
 		if (result.ok) {
 
@@ -433,17 +434,14 @@ const WebauthnSignupLogin = ({
 	// Check if we need to show the OIDC gate UI
 	const showOIDCGate = activeGate.requiresGate && !activeGate.isGateComplete && !isOIDCGateLoading;
 
-	// If OIDC gate is loading, show the gate UI in loading state
+	// If OIDC gate is loading, show a simple loading indicator
+	// (providerConfig may be null while config loads, so don't render OIDCGateUI yet)
 	if (isOIDCGateLoading) {
 		return (
 			<div className='mb-4'>
-				<OIDCGateUI
-					state={activeGate.state}
-					provider={activeGate.providerConfig}
-					purpose={isLogin ? 'login' : 'registration'}
-					onStart={handleStartGateFlow}
-					onRetry={activeGate.reset}
-				/>
+				<div className="text-center py-4">
+					<p className="dark:text-white">{t('common.loading')}</p>
+				</div>
 			</div>
 		);
 	}
@@ -463,22 +461,6 @@ const WebauthnSignupLogin = ({
 	if (showOIDCGate && activeGate.providerConfig) {
 		return (
 			<div className='mb-4'>
-				{/* For registration, show username field before gate */}
-				{!isLogin && (
-					<div className="mb-6">
-						<FormInputRow label={t('loginSignup.choosePasskeyUsername')} name="name" IconComponent={Wallet}>
-							<FormInputField
-								ariaLabel="Passkey name"
-								name="name"
-								onChange={(event) => setName(event.target.value)}
-								placeholder={t('loginSignup.enterPasskeyName')}
-								type="text"
-								value={name}
-								required
-							/>
-						</FormInputRow>
-					</div>
-				)}
 				<OIDCGateUI
 					state={activeGate.state}
 					provider={activeGate.providerConfig}
@@ -723,7 +705,12 @@ const Auth = () => {
 
 	const [error, setError] = useState<React.ReactNode>('');
 	const [webauthnError, setWebauthnError] = useState<React.ReactNode>('');
-	const [isLogin, setIsLogin] = useState(true);
+	// Initialize isLogin from URL query parameter (mode=signup means registration)
+	// This allows OIDC callback to redirect back and preserve the registration state
+	const [isLogin, setIsLogin] = useState(() => {
+		const params = new URLSearchParams(location.search);
+		return params.get('mode') !== 'signup';
+	});
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	const navigate = useNavigate();

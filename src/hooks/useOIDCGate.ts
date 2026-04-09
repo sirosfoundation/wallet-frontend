@@ -136,8 +136,15 @@ export function useOIDCGate({ purpose, redirectUri }: UseOIDCGateOptions): UseOI
 			} else {
 				// Browser redirect - this will navigate away
 				// State will be restored on callback page
+				// Preserve the current mode in the return path so the user returns
+				// to the same tab (login vs registration) after OIDC callback
+				const currentUrl = new URL(window.location.href);
+				if (purpose === 'registration' && currentUrl.searchParams.get('mode') !== 'signup') {
+					currentUrl.searchParams.set('mode', 'signup');
+				}
+				const returnPath = currentUrl.pathname + currentUrl.search;
 				await startOIDCFlow(config, purpose, {
-					returnPath: window.location.pathname + window.location.search,
+					returnPath,
 					formData,
 				});
 				// If we get here without redirect, something went wrong
