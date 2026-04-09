@@ -26,8 +26,8 @@ import {
 	WEBSOCKET_TRANSPORT_ALLOWED,
 	DIRECT_TRANSPORT_ALLOWED,
 	TRANSPORT_PREFERENCE,
-	TransportType,
 } from '@/config';
+import type { TransportType } from '@/lib/transport/types/FlowTypes';
 import { logger } from '@/logger';
 
 // Re-export sign types with WS prefix for clarity

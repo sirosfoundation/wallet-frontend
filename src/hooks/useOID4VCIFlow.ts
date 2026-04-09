@@ -11,7 +11,7 @@ import { useCallback, useContext, useState } from 'react';
 import { useFlowTransportSafe } from '@/context/FlowTransportContext';
 import OpenID4VCIContext from '@/context/OpenID4VCIContext';
 import type { OID4VCIFlowResult } from '@/lib/transport/types/OID4VCITypes';
-import type { FlowProgressEvent } from '@/lib/transport/types/FlowTypes';
+import type { FlowProgressEvent, TransportType } from '@/lib/transport/types/FlowTypes';
 
 export interface UseOID4VCIFlowOptions {
 	/** Called when flow progress updates */
@@ -34,7 +34,7 @@ export interface UseOID4VCIFlowReturn {
 	) => Promise<OID4VCIFlowResult>;
 
 	/** Current transport type being used */
-	transportType: 'http_proxy' | 'websocket' | 'direct' | 'none';
+	transportType: TransportType | 'none';
 
 	/** Whether a flow is currently in progress */
 	isLoading: boolean;
