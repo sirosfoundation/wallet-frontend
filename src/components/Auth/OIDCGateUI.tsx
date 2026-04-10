@@ -24,6 +24,8 @@ export interface OIDCGateUIProps {
 	provider: OIDCProviderConfig;
 	/** Purpose: registration or login */
 	purpose: OIDCGatePurpose;
+	/** Tenant display name shown in the explanation text */
+	tenantDisplayName?: string;
 	/** Callback when user clicks to start OIDC flow */
 	onStart: () => void;
 	/** Callback when user wants to retry after error */
@@ -34,12 +36,14 @@ export default function OIDCGateUI({
 	state,
 	provider,
 	purpose,
+	tenantDisplayName,
 	onStart,
 	onRetry,
 }: OIDCGateUIProps) {
 	const { t } = useTranslation();
 
-	const displayName = provider.display_name || 'your organization';
+	const providerDisplayName = provider.display_name || 'your identity provider';
+	const orgDisplayName = tenantDisplayName || providerDisplayName;
 
 	// Loading config state
 	if (state.status === 'loading') {
@@ -61,8 +65,8 @@ export default function OIDCGateUI({
 				/>
 				<p className="text-sm text-lm-gray-600 dark:text-dm-gray-400 text-center">
 					{purpose === 'registration'
-						? t('oidcGate.registrationExplanation', { provider: displayName })
-						: t('oidcGate.loginExplanation', { provider: displayName })
+						? t('oidcGate.registrationExplanation', { tenant: orgDisplayName })
+						: t('oidcGate.loginExplanation', { tenant: orgDisplayName })
 					}
 				</p>
 			</div>

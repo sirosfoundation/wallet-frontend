@@ -135,8 +135,8 @@
 	"oidcGate": {
 		"signUpWith": "Sign up with {{provider}}",
 		"signInWith": "Sign in with {{provider}}",
-		"registrationExplanation": "Your organization ({{provider}}) requires you to verify your identity before creating a wallet.",
-		"loginExplanation": "Your organization ({{provider}}) requires you to verify your identity before accessing your wallet.",
+		"registrationExplanation": "Your organization ({{tenant}}) requires you to verify your identity before creating a wallet.",
+		"loginExplanation": "Your organization ({{tenant}}) requires you to verify your identity before accessing your wallet.",
 		"awaitingAuth": "Waiting for authentication...",
 		"awaitingAuthHint": "Complete the sign-in process in the popup or new tab.",
 		"verified": "Verified: {{name}}",

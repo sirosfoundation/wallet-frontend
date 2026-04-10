@@ -221,7 +221,7 @@ const WebauthnSignupLogin = ({
 }) => {
 	const { isOnline, updateOnlineStatus } = useContext(StatusContext);
 	const { api, keystore } = useContext(SessionContext);
-	const { urlTenantId, buildPath } = useTenant();
+	const { urlTenantId, buildPath, tenantConfig } = useTenant();
 	const navigate = useNavigate();
 	const location = useLocation();
 
@@ -465,6 +465,7 @@ const WebauthnSignupLogin = ({
 					state={activeGate.state}
 					provider={activeGate.providerConfig}
 					purpose={isLogin ? 'login' : 'registration'}
+					tenantDisplayName={tenantConfig?.display_name || tenantConfig?.name}
 					onStart={handleStartGateFlow}
 					onRetry={activeGate.reset}
 				/>
@@ -482,6 +483,7 @@ const WebauthnSignupLogin = ({
 						state={activeGate.state}
 						provider={activeGate.providerConfig!}
 						purpose={isLogin ? 'login' : 'registration'}
+						tenantDisplayName={tenantConfig?.display_name || tenantConfig?.name}
 						onStart={handleStartGateFlow}
 						onRetry={activeGate.reset}
 					/>
