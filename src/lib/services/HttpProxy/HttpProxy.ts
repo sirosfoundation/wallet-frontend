@@ -13,7 +13,7 @@ import { getStoredTenant } from '@/lib/tenant';
 // @ts-ignore
 const walletBackendServerUrl = BACKEND_URL;
 const inFlightRequests = new Map<string, Promise<any>>();
-const TIMEOUT = 3 * 1000;
+const TIMEOUT = 16 * 1000;
 
 const parseCacheControl = (header: string) =>
 	Object.fromEntries(
