@@ -13,6 +13,7 @@ import { addItem, getItem, EXCLUDED_INDEXEDDB_PATHS } from '../indexedDB';
 import { loginWebAuthnBeginOffline } from './LocalAuthentication';
 import { withAuthenticatorAttachmentFromHints, withHintsFromAllowCredentials } from '@/util-webauthn';
 import { getTenantFromUrlPath, setStoredTenant, clearStoredTenant } from '../lib/tenant';
+import { clearOIDCState } from '../lib/oidc';
 
 const walletBackendUrl = config.BACKEND_URL;
 
@@ -358,6 +359,8 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		clearSessionStorage();
 		removePrivateDataEtag();
 		clearStoredTenant(); // Clear tenant on logout
+		clearOIDCState('registration'); // Clear OIDC gate tokens on logout
+		clearOIDCState('login');
 		events.dispatchEvent(new CustomEvent<ClearSessionEvent>(CLEAR_SESSION_EVENT));
 	}, [clearSessionStorage, removePrivateDataEtag]);
 
