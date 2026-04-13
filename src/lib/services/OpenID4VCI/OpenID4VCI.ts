@@ -26,6 +26,17 @@ import { IOpenID4VCIClientStateRepository } from '@/lib/interfaces/IOpenID4VCICl
 import { useNavigate } from 'react-router-dom';
 import { logger } from '@/logger';
 
+/**
+ * Thrown when the issuer rejects the transaction code (tx_code) during pre-authorized flow.
+ * Callers should catch this to re-prompt the user for a new code.
+ */
+export class InvalidTxCodeError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'InvalidTxCodeError';
+	}
+}
+
 type WalletStateCredentialIssuanceSession = CurrentSchema.WalletStateCredentialIssuanceSession;
 
 const redirectUri = config.OPENID4VCI_REDIRECT_URI as string;
@@ -576,6 +587,9 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 		}
 		const result = await tokenRequestBuilder.execute();
 		if ('error' in result) {
+			if (result.error === TokenRequestError.INVALID_TX_CODE) {
+				throw new InvalidTxCodeError("Invalid transaction code");
+			}
 			logger.error(result.error);
 			throw new Error("Token Request failed");
 		}
@@ -615,7 +629,7 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 			} else {
 				try {
 					let response = await httpProxy.get(parsedUrl.searchParams.get("credential_offer_uri"), {})
-					offer = response.data;
+					offer = CredentialOfferSchema.parse(response.data);
 				}
 				catch (err) {
 					logger.error(err);

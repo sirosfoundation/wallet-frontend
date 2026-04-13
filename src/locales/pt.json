@@ -387,5 +387,16 @@
 		"question": "Está disponível para explorar as funcionalidades da $t(common.walletName) através de uma apresentação guiada?",
 		"startTourButton": "Começar",
 		"title": "Bem vindo(a) à $t(common.walletName)!"
+	},
+	"txCodeInput": {
+		"title": "Código de transação necessário",
+		"defaultDescription": "Introduza o código de transação apresentado no seu ecrã",
+		"lengthHint": "Comprimento do código: {{length}} caracteres",
+		"placeholderWithLength": "Introduza código de {{length}} caracteres",
+		"placeholder": "Introduza o código",
+		"inputLabel": "Código de transação",
+		"errorEmpty": "Por favor introduza o código de transação",
+		"errorLength": "O código de transação deve ter {{length}} caracteres",
+		"errorInvalid": "Código de transação inválido. Por favor tente novamente."
 	}
 }

@@ -63,6 +63,12 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<Error | null>(null);
 
+	// Track offer state from handleCredentialOffer for use in requestWithPreAuthorization
+	const [offerState, setOfferState] = useState<{
+		credentialIssuer: string;
+		selectedCredentialConfigurationId: string;
+	} | null>(null);
+
 	const transportType = transportContext?.transportType ?? 'none';
 	const transport = transportContext?.transport;
 
@@ -106,6 +112,14 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			if (transportType === 'http_proxy' && openID4VCI) {
 				try {
 					const result = await openID4VCI.handleCredentialOffer(credentialOfferUri);
+
+					// Save offer state for requestWithPreAuthorization
+					if (result.preAuthorizedCode) {
+						setOfferState({
+							credentialIssuer: result.credentialIssuer,
+							selectedCredentialConfigurationId: result.selectedCredentialConfigurationId,
+						});
+					}
 
 					// Convert to OID4VCIFlowResult format
 					return {
@@ -233,17 +247,21 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			}
 
 			// HTTP proxy transport: use existing implementation
-			// Note: requestCredentialsWithPreAuthorization requires additional params
-			// that need to be tracked from the initial handleCredentialOffer call
 			if (transportType === 'http_proxy' && openID4VCI) {
-				// The existing implementation stores state internally,
-				// but the interface needs credentialIssuer and selectedCredentialConfigurationId
-				// This is a limitation of the current architecture that would need
-				// state management to be refactored
-				throw new Error(
-					'Pre-authorization flow via HTTP transport requires ' +
-					'additional state management. Use the existing OpenID4VCI context directly.'
+				if (!offerState) {
+					throw new Error(
+						'Pre-authorization flow via HTTP transport requires calling ' +
+						'handleCredentialOffer first to establish offer state.'
+					);
+				}
+				await openID4VCI.requestCredentialsWithPreAuthorization(
+					offerState.credentialIssuer,
+					offerState.selectedCredentialConfigurationId,
+					preAuthorizedCode,
+					txCodeInput,
 				);
+				setOfferState(null);
+				return { success: true };
 			}
 
 			throw new Error('No transport available');
