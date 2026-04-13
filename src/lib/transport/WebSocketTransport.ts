@@ -21,6 +21,11 @@ import type {
 import type { OID4VCIFlowParams, OID4VCIFlowResult, OID4VCIIssuerInfo } from './types/OID4VCITypes';
 import type { OID4VPFlowParams, OID4VPFlowResult, OID4VPVerifierInfo } from './types/OID4VPTypes';
 import type { TrustStatus } from './types/TrustTypes';
+import type {
+	PresentationDefinition,
+	CredentialMatch,
+	CredentialsMatchedResult,
+} from '@/services/CredentialMatchingService';
 import { logger } from '@/logger';
 
 /**
@@ -81,41 +86,14 @@ export type SignRequestHandler = (request: SignRequest) => Promise<SignResponse>
 export interface MatchRequest {
 	flowId: string;
 	messageId: string;
-	presentationDefinition: {
-		id: string;
-		name?: string;
-		purpose?: string;
-		input_descriptors: Array<{
-			id: string;
-			name?: string;
-			purpose?: string;
-			format?: Record<string, unknown>;
-			constraints?: {
-				limit_disclosure?: 'required' | 'preferred';
-				fields?: Array<{
-					path: string[];
-					filter?: Record<string, unknown>;
-					optional?: boolean;
-				}>;
-			};
-		}>;
-		format?: Record<string, unknown>;
-	};
+	presentationDefinition: PresentationDefinition;
 }
 
 /**
- * Credential match response to send back to server
+ * Credential match response to send back to server.
+ * Re-uses CredentialsMatchedResult shape from CredentialMatchingService.
  */
-export interface MatchResponse {
-	matches: Array<{
-		input_descriptor_id: string;
-		credential_id: string;
-		format: string;
-		vct?: string;
-		available_claims?: string[];
-	}>;
-	no_match_reason?: string;
-}
+export type MatchResponse = CredentialsMatchedResult;
 
 /**
  * Match request handler callback type
@@ -643,12 +621,21 @@ export class WebSocketTransport implements IFlowTransport {
 	 */
 	private async handleMatchRequest(message: ServerMessage): Promise<void> {
 		const flowId = (message.flow_id as string) || (message.flowId as string) || '';
+		const messageId = (message.message_id as string) || (message.messageId as string) || '';
+		const presentationDefinition =
+			(message.presentation_definition as MatchRequest['presentationDefinition'])
+			|| (message.presentationDefinition as MatchRequest['presentationDefinition']);
+
+		if (!presentationDefinition || typeof presentationDefinition !== 'object') {
+			logger.error('Malformed match request: missing required presentation_definition');
+			this.sendMatchResponse(flowId, messageId, { matches: [] }, 'Missing required presentation_definition');
+			return;
+		}
+
 		const request: MatchRequest = {
 			flowId,
-			messageId: (message.message_id as string) || (message.messageId as string) || '',
-			presentationDefinition: (message.presentation_definition as MatchRequest['presentationDefinition'])
-				|| (message.presentationDefinition as MatchRequest['presentationDefinition'])
-				|| { id: '', input_descriptors: [] },
+			messageId,
+			presentationDefinition,
 		};
 
 		if (this.matchHandlers.size === 0) {

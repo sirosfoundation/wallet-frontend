@@ -8,11 +8,14 @@
  */
 
 import { useCallback, useContext, useEffect, useState } from 'react';
-import { useFlowTransportSafe } from '@/context/FlowTransportContext';
+import {
+	useFlowTransportSafe,
+	type WSMatchRequest as MatchRequest,
+	type WSMatchResponse as MatchResponse,
+} from '@/context/FlowTransportContext';
 import OpenID4VPContext from '@/context/OpenID4VPContext';
 import CredentialsContext, { ExtendedVcEntity } from '@/context/CredentialsContext';
 import { matchCredentials } from '@/services/CredentialMatchingService';
-import type { MatchRequest, MatchResponse } from '@/lib/transport/WebSocketTransport';
 import type {
 	OID4VPFlowResult,
 	OID4VPSelectedCredential,
@@ -93,10 +96,10 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				);
 				return result;
 			} catch (err) {
-				const errMessage = err instanceof Error ? err.message : String(err);
+				console.error('Credential matching failed', err);
 				return {
 					matches: [],
-					no_match_reason: `Matching error: ${errMessage}`,
+					no_match_reason: 'Credential matching failed',
 				};
 			}
 		};
