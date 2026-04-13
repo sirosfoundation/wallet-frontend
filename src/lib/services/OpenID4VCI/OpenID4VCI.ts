@@ -627,8 +627,12 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 			if (parsedUrl.searchParams.get("credential_offer")) {
 				offer = CredentialOfferSchema.parse(JSON.parse(parsedUrl.searchParams.get("credential_offer")));
 			} else {
+				const credentialOfferUri = parsedUrl.searchParams.get("credential_offer_uri");
+				if (!credentialOfferUri) {
+					throw new Error("Credential offer URL must contain either 'credential_offer' or 'credential_offer_uri' parameter");
+				}
 				try {
-					let response = await httpProxy.get(parsedUrl.searchParams.get("credential_offer_uri"), {})
+					let response = await httpProxy.get(credentialOfferUri, {})
 					offer = CredentialOfferSchema.parse(response.data);
 				}
 				catch (err) {

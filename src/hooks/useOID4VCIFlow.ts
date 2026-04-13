@@ -7,7 +7,7 @@
  * Phase 4 of Transport Abstraction
  */
 
-import { useCallback, useContext, useState } from 'react';
+import { useCallback, useContext, useRef, useState } from 'react';
 import { useFlowTransportSafe } from '@/context/FlowTransportContext';
 import OpenID4VCIContext from '@/context/OpenID4VCIContext';
 import { CredentialOfferSchema } from '@/lib/schemas/CredentialOfferSchema';
@@ -64,8 +64,10 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<Error | null>(null);
 
-	// Track offer state from handleCredentialOffer for use in requestWithPreAuthorization
-	const [offerState, setOfferState] = useState<{
+	// Track offer state from handleCredentialOffer for use in requestWithPreAuthorization.
+	// Uses useRef to avoid stale closure issues in useCallback — the ref always
+	// reflects the latest value without needing to be in dependency arrays.
+	const offerStateRef = useRef<{
 		credentialIssuer: string;
 		selectedCredentialConfigurationId: string;
 	} | null>(null);
@@ -137,10 +139,10 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 
 					// Save offer state for requestWithPreAuthorization
 					if (result.preAuthorizedCode) {
-						setOfferState({
+						offerStateRef.current = {
 							credentialIssuer: result.credentialIssuer,
 							selectedCredentialConfigurationId: result.selectedCredentialConfigurationId,
-						});
+						};
 					}
 
 					// Convert to OID4VCIFlowResult format
@@ -270,19 +272,19 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 
 			// HTTP proxy transport: use existing implementation
 			if (transportType === 'http_proxy' && openID4VCI) {
-				if (!offerState) {
+				if (!offerStateRef.current) {
 					throw new Error(
 						'Pre-authorization flow via HTTP transport requires calling ' +
 						'handleCredentialOffer first to establish offer state.'
 					);
 				}
 				await openID4VCI.requestCredentialsWithPreAuthorization(
-					offerState.credentialIssuer,
-					offerState.selectedCredentialConfigurationId,
+					offerStateRef.current.credentialIssuer,
+					offerStateRef.current.selectedCredentialConfigurationId,
 					preAuthorizedCode,
 					txCodeInput,
 				);
-				setOfferState(null);
+				offerStateRef.current = null;
 				return { success: true };
 			}
 
