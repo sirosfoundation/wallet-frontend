@@ -10,6 +10,7 @@
 import { useCallback, useContext, useState } from 'react';
 import { useFlowTransportSafe } from '@/context/FlowTransportContext';
 import OpenID4VCIContext from '@/context/OpenID4VCIContext';
+import { CredentialOfferSchema } from '@/lib/schemas/CredentialOfferSchema';
 import type { OID4VCIFlowResult } from '@/lib/transport/types/OID4VCITypes';
 import type { FlowProgressEvent, TransportType } from '@/lib/transport/types/FlowTypes';
 
@@ -78,6 +79,24 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 	}, [transportContext]);
 
 	/**
+	 * Validate a credential offer URI by parsing parameters through CredentialOfferSchema.
+	 * This provides defense-in-depth: even when the backend handles the flow (WebSocket),
+	 * the frontend validates the offer structure before dispatching.
+	 *
+	 * For `credential_offer_uri` (fetch-based) offers, validation is deferred to the
+	 * backend/service since the frontend hasn't fetched the offer content yet.
+	 */
+	const validateCredentialOffer = useCallback((credentialOfferUri: string): void => {
+		const parsedUrl = new URL(credentialOfferUri);
+		const inlineOffer = parsedUrl.searchParams.get("credential_offer");
+		if (inlineOffer) {
+			// Throws ZodError if the offer is malformed — caught by the outer try/catch
+			CredentialOfferSchema.parse(JSON.parse(inlineOffer));
+		}
+		// credential_offer_uri: content not available yet, validated when fetched
+	}, []);
+
+	/**
 	 * Handle credential offer using the appropriate transport
 	 */
 	const handleCredentialOffer = useCallback(async (
@@ -87,6 +106,9 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		setError(null);
 
 		try {
+			// Validate inline offers before dispatching to any transport
+			validateCredentialOffer(credentialOfferUri);
+
 			// WebSocket transport: delegate to backend
 			if (transportType === 'websocket' && transport) {
 				// Subscribe to progress events for this flow
@@ -151,7 +173,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		} finally {
 			setIsLoading(false);
 		}
-	}, [transportType, transport, openID4VCI, onProgress, onError]);
+	}, [transportType, transport, openID4VCI, onProgress, onError, validateCredentialOffer]);
 
 	/**
 	 * Handle authorization response (after OAuth redirect)
