@@ -8,11 +8,22 @@
  *
  * Token storage is purpose-specific to prevent cross-contamination
  * between registration and login gates.
+ *
+ * File organisation:
+ *   1. Types & constants
+ *   2. Storage utilities
+ *   3. Encoding & PKCE helpers
+ *   4. Token parsing
+ *   5. Configuration & discovery
+ *   6. Flow entry-points & callback
  */
 
 import type { OIDCProviderConfig } from '../api/types';
 
-// Storage keys for OIDC tokens and state
+// ---------------------------------------------------------------------------
+// 1. Types & constants
+// ---------------------------------------------------------------------------
+
 const STORAGE_PREFIX = 'oidc_gate_';
 const TOKEN_KEY_SUFFIX = '_token';
 const STATE_KEY_SUFFIX = '_state';
@@ -21,18 +32,26 @@ const VERIFIER_KEY_SUFFIX = '_verifier';
 export type OIDCGatePurpose = 'registration' | 'login';
 export type OIDCFlowMode = 'browser-redirect' | 'native-bridge';
 
+export interface OIDCFlowConfig {
+	issuer: string;
+	clientId: string;
+	redirectUri: string;
+	scopes: string;
+}
+
+interface OIDCState {
+	purpose: OIDCGatePurpose;
+	nonce: string;
+	returnPath: string;
+	formData?: Record<string, string>;
+}
+
 /**
  * Native bridge interface for WebView apps.
  * Native apps inject this object to handle OIDC flows via their native SDK.
  */
 export interface NativeOIDCBridge {
-	/** Check if native OIDC is available */
 	isAvailable(): boolean;
-
-	/**
-	 * Start OIDC flow via native SDK (AppAuth-iOS/Android)
-	 * Returns promise that resolves with ID token
-	 */
 	startFlow(config: {
 		issuer: string;
 		clientId: string;
@@ -46,97 +65,19 @@ declare global {
 	}
 }
 
-/**
- * Detect which OIDC flow mode to use.
- * Native bridge takes precedence if available.
- */
-export function getOIDCFlowMode(): OIDCFlowMode {
-	if (typeof window !== 'undefined' && window.NativeOIDCBridge?.isAvailable?.()) {
-		return 'native-bridge';
-	}
-	return 'browser-redirect';
-}
+// ---------------------------------------------------------------------------
+// 2. Storage utilities
+// ---------------------------------------------------------------------------
 
-/**
- * Configuration for OIDC flow
- */
-export interface OIDCFlowConfig {
-	issuer: string;
-	clientId: string;
-	redirectUri: string;
-	scopes: string;
-}
-
-/**
- * OIDC state stored during browser redirect flow
- */
-interface OIDCState {
-	purpose: OIDCGatePurpose;
-	nonce: string;
-	returnPath: string;
-	formData?: Record<string, string>;
-}
-
-/**
- * Generate a cryptographically random string using base64url encoding.
- * Uses enough random bytes to produce at least `length` characters
- * without discarding entropy.
- */
-function generateRandomString(length: number): string {
-	// Each base64 character represents 6 bits, so request enough bytes
-	// to produce at least `length` characters after encoding.
-	const bytesNeeded = Math.ceil((length * 6) / 8);
-	const array = new Uint8Array(bytesNeeded);
-	crypto.getRandomValues(array);
-	const encoded = base64UrlEncode(array);
-	return encoded.slice(0, length);
-}
-
-/**
- * Generate PKCE code verifier (43-128 characters)
- */
-function generateCodeVerifier(): string {
-	const array = new Uint8Array(32);
-	crypto.getRandomValues(array);
-	return base64UrlEncode(array);
-}
-
-/**
- * Generate PKCE code challenge from verifier
- */
-async function generateCodeChallenge(verifier: string): Promise<string> {
-	const encoder = new TextEncoder();
-	const data = encoder.encode(verifier);
-	const digest = await crypto.subtle.digest('SHA-256', data);
-	return base64UrlEncode(new Uint8Array(digest));
-}
-
-/**
- * Base64url encode
- */
-function base64UrlEncode(buffer: Uint8Array): string {
-	const base64 = btoa(String.fromCharCode(...buffer));
-	return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-/**
- * Get storage key for a given purpose and type
- */
 function getStorageKey(purpose: OIDCGatePurpose, suffix: string): string {
 	return `${STORAGE_PREFIX}${purpose}${suffix}`;
 }
 
-/**
- * Store OIDC state before redirect
- */
 function storeOIDCState(purpose: OIDCGatePurpose, state: OIDCState, verifier: string): void {
 	sessionStorage.setItem(getStorageKey(purpose, STATE_KEY_SUFFIX), JSON.stringify(state));
 	sessionStorage.setItem(getStorageKey(purpose, VERIFIER_KEY_SUFFIX), verifier);
 }
 
-/**
- * Retrieve and clear OIDC state after redirect
- */
 function retrieveOIDCState(purpose: OIDCGatePurpose): { state: OIDCState; verifier: string } | null {
 	const stateKey = getStorageKey(purpose, STATE_KEY_SUFFIX);
 	const verifierKey = getStorageKey(purpose, VERIFIER_KEY_SUFFIX);
@@ -148,7 +89,6 @@ function retrieveOIDCState(purpose: OIDCGatePurpose): { state: OIDCState; verifi
 		return null;
 	}
 
-	// Clear after retrieval
 	sessionStorage.removeItem(stateKey);
 	sessionStorage.removeItem(verifierKey);
 
@@ -159,39 +99,87 @@ function retrieveOIDCState(purpose: OIDCGatePurpose): { state: OIDCState; verifi
 	}
 }
 
-/**
- * Store ID token for a given purpose
- */
 export function storeIdToken(purpose: OIDCGatePurpose, token: string): void {
 	sessionStorage.setItem(getStorageKey(purpose, TOKEN_KEY_SUFFIX), token);
 }
 
-/**
- * Get stored ID token for a given purpose
- */
 export function getStoredIdToken(purpose: OIDCGatePurpose): string | null {
 	return sessionStorage.getItem(getStorageKey(purpose, TOKEN_KEY_SUFFIX));
 }
 
-/**
- * Clear stored ID token for a given purpose
- */
 export function clearStoredIdToken(purpose: OIDCGatePurpose): void {
 	sessionStorage.removeItem(getStorageKey(purpose, TOKEN_KEY_SUFFIX));
 }
 
-/**
- * Clear all OIDC state for a given purpose
- */
 export function clearOIDCState(purpose: OIDCGatePurpose): void {
 	sessionStorage.removeItem(getStorageKey(purpose, TOKEN_KEY_SUFFIX));
 	sessionStorage.removeItem(getStorageKey(purpose, STATE_KEY_SUFFIX));
 	sessionStorage.removeItem(getStorageKey(purpose, VERIFIER_KEY_SUFFIX));
 }
 
+// ---------------------------------------------------------------------------
+// 3. Encoding & PKCE helpers
+// ---------------------------------------------------------------------------
+
+function base64UrlEncode(buffer: Uint8Array): string {
+	const base64 = btoa(String.fromCharCode(...buffer));
+	return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function generateRandomString(length: number): string {
+	const bytesNeeded = Math.ceil((length * 6) / 8);
+	const array = new Uint8Array(bytesNeeded);
+	crypto.getRandomValues(array);
+	return base64UrlEncode(array).slice(0, length);
+}
+
+function generateCodeVerifier(): string {
+	const array = new Uint8Array(32);
+	crypto.getRandomValues(array);
+	return base64UrlEncode(array);
+}
+
+async function generateCodeChallenge(verifier: string): Promise<string> {
+	const encoder = new TextEncoder();
+	const data = encoder.encode(verifier);
+	const digest = await crypto.subtle.digest('SHA-256', data);
+	return base64UrlEncode(new Uint8Array(digest));
+}
+
+// ---------------------------------------------------------------------------
+// 4. Token parsing
+// ---------------------------------------------------------------------------
+
 /**
- * Build OIDC configuration from provider config
+ * Extract claims from JWT ID token (without validation).
+ * Used for display purposes only — actual validation happens on the backend.
  */
+export function extractIdTokenClaims(idToken: string): Record<string, unknown> {
+	try {
+		const [, payload] = idToken.split('.');
+		if (!payload) {
+			return {};
+		}
+
+		const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+		const paddedBase64 = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+
+		const decoded = atob(paddedBase64);
+		return JSON.parse(decoded);
+	} catch {
+		return {};
+	}
+}
+
+export function getDisplayNameFromToken(idToken: string): string | null {
+	const claims = extractIdTokenClaims(idToken);
+	return (claims.name as string) || (claims.email as string) || (claims.sub as string) || null;
+}
+
+// ---------------------------------------------------------------------------
+// 5. Configuration & discovery
+// ---------------------------------------------------------------------------
+
 export function buildOIDCConfig(
 	provider: OIDCProviderConfig,
 	redirectUri: string
@@ -204,9 +192,13 @@ export function buildOIDCConfig(
 	};
 }
 
-/**
- * Discover OIDC endpoints from issuer
- */
+export function getOIDCFlowMode(): OIDCFlowMode {
+	if (typeof window !== 'undefined' && window.NativeOIDCBridge?.isAvailable?.()) {
+		return 'native-bridge';
+	}
+	return 'browser-redirect';
+}
+
 async function discoverOIDCEndpoints(issuer: string): Promise<{
 	authorizationEndpoint: string;
 	tokenEndpoint: string;
@@ -228,9 +220,10 @@ async function discoverOIDCEndpoints(issuer: string): Promise<{
 	};
 }
 
-/**
- * Start OIDC flow using native bridge
- */
+// ---------------------------------------------------------------------------
+// 6. Flow entry-points & callback
+// ---------------------------------------------------------------------------
+
 async function startNativeBridgeFlow(
 	config: OIDCFlowConfig,
 	purpose: OIDCGatePurpose
@@ -245,31 +238,23 @@ async function startNativeBridgeFlow(
 		scopes: config.scopes,
 	});
 
-	// Store the token
 	storeIdToken(purpose, result.idToken);
-
 	return result;
 }
 
-/**
- * Start OIDC flow using browser redirect
- */
 async function startBrowserRedirectFlow(
 	config: OIDCFlowConfig,
 	purpose: OIDCGatePurpose,
 	returnPath: string,
 	formData?: Record<string, string>
 ): Promise<void> {
-	// Discover endpoints
 	const endpoints = await discoverOIDCEndpoints(config.issuer);
 
-	// Generate PKCE parameters
 	const codeVerifier = generateCodeVerifier();
 	const codeChallenge = await generateCodeChallenge(codeVerifier);
 	const nonce = generateRandomString(32);
 	const stateParam = generateRandomString(32);
 
-	// Store state for callback
 	const state: OIDCState = {
 		purpose,
 		nonce,
@@ -278,10 +263,8 @@ async function startBrowserRedirectFlow(
 	};
 	storeOIDCState(purpose, state, codeVerifier);
 
-	// Also store state param mapping
 	sessionStorage.setItem(`${STORAGE_PREFIX}state_${stateParam}`, purpose);
 
-	// Build authorization URL
 	const authUrl = new URL(endpoints.authorizationEndpoint);
 	authUrl.searchParams.set('response_type', 'code');
 	authUrl.searchParams.set('client_id', config.clientId);
@@ -292,13 +275,9 @@ async function startBrowserRedirectFlow(
 	authUrl.searchParams.set('code_challenge', codeChallenge);
 	authUrl.searchParams.set('code_challenge_method', 'S256');
 
-	// Redirect to IdP
 	window.location.href = authUrl.toString();
 }
 
-/**
- * Start OIDC flow - automatically selects browser or native mode
- */
 export async function startOIDCFlow(
 	config: OIDCFlowConfig,
 	purpose: OIDCGatePurpose,
@@ -318,8 +297,8 @@ export async function startOIDCFlow(
 }
 
 /**
- * Handle OIDC callback (browser redirect mode only)
- * Should be called on the callback page (/oidc/cb or /id/:tenantId/oidc/cb)
+ * Handle OIDC callback (browser redirect mode only).
+ * Should be called on the callback page (/oidc/cb or /id/:tenantId/oidc/cb).
  */
 export async function handleOIDCCallback(
 	config: OIDCFlowConfig
@@ -335,7 +314,6 @@ export async function handleOIDCCallback(
 	const error = url.searchParams.get('error');
 	const errorDescription = url.searchParams.get('error_description');
 
-	// Check for error response
 	if (error) {
 		throw new Error(errorDescription || error);
 	}
@@ -344,7 +322,6 @@ export async function handleOIDCCallback(
 		throw new Error('Missing authorization code or state');
 	}
 
-	// Look up purpose from state param
 	const purpose = sessionStorage.getItem(`${STORAGE_PREFIX}state_${stateParam}`) as OIDCGatePurpose;
 	sessionStorage.removeItem(`${STORAGE_PREFIX}state_${stateParam}`);
 
@@ -352,7 +329,6 @@ export async function handleOIDCCallback(
 		throw new Error('Invalid or expired state');
 	}
 
-	// Retrieve stored state
 	const storedData = retrieveOIDCState(purpose);
 	if (!storedData) {
 		throw new Error('Session expired, please try again');
@@ -360,10 +336,8 @@ export async function handleOIDCCallback(
 
 	const { state, verifier } = storedData;
 
-	// Discover token endpoint
 	const endpoints = await discoverOIDCEndpoints(config.issuer);
 
-	// Exchange code for tokens
 	const tokenResponse = await fetch(endpoints.tokenEndpoint, {
 		method: 'POST',
 		headers: {
@@ -393,7 +367,6 @@ export async function handleOIDCCallback(
 	// TODO: Validate ID token (nonce, signature, etc.)
 	// For now, we rely on backend validation
 
-	// Store the token
 	storeIdToken(purpose, idToken);
 
 	return {
@@ -402,34 +375,4 @@ export async function handleOIDCCallback(
 		returnPath: state.returnPath,
 		formData: state.formData,
 	};
-}
-
-/**
- * Extract claims from JWT ID token (without validation)
- * Used for display purposes only - actual validation happens on backend
- */
-export function extractIdTokenClaims(idToken: string): Record<string, unknown> {
-	try {
-		const [, payload] = idToken.split('.');
-		if (!payload) {
-			return {};
-		}
-
-		// Convert from base64url to base64 and add required padding
-		const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
-		const paddedBase64 = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
-
-		const decoded = atob(paddedBase64);
-		return JSON.parse(decoded);
-	} catch {
-		return {};
-	}
-}
-
-/**
- * Get display name from ID token claims
- */
-export function getDisplayNameFromToken(idToken: string): string | null {
-	const claims = extractIdTokenClaims(idToken);
-	return (claims.name as string) || (claims.email as string) || (claims.sub as string) || null;
 }

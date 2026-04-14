@@ -457,18 +457,23 @@ const WebauthnSignupLogin = ({
 		);
 	}
 
+	// Single element for OIDC gate status, used both during gate flow and as verified badge
+	const oidcGateStatusElement = activeGate.providerConfig ? (
+		<OIDCGateFlowStatus
+			state={activeGate.state}
+			provider={activeGate.providerConfig}
+			purpose={isLogin ? 'login' : 'registration'}
+			tenantDisplayName={tenantConfig?.display_name || tenantConfig?.name}
+			onStart={handleStartGateFlow}
+			onRetry={activeGate.reset}
+		/>
+	) : null;
+
 	// If OIDC gate is required and not complete, show the gate UI
 	if (showOIDCGate && activeGate.providerConfig) {
 		return (
 			<div className='mb-4'>
-				<OIDCGateFlowStatus
-					state={activeGate.state}
-					provider={activeGate.providerConfig}
-					purpose={isLogin ? 'login' : 'registration'}
-					tenantDisplayName={tenantConfig?.display_name || tenantConfig?.name}
-					onStart={handleStartGateFlow}
-					onRetry={activeGate.reset}
-				/>
+				{oidcGateStatusElement}
 				{error && <div className="text-lm-red dark:text-dm-red pt-2 mt-4">{error}</div>}
 			</div>
 		);
@@ -479,14 +484,7 @@ const WebauthnSignupLogin = ({
 			{/* Show verified badge if gate was completed */}
 			{activeGate.isGateComplete && activeGate.state.status === 'oidc-complete' && (
 				<div className="mb-4">
-					<OIDCGateFlowStatus
-						state={activeGate.state}
-						provider={activeGate.providerConfig!}
-						purpose={isLogin ? 'login' : 'registration'}
-						tenantDisplayName={tenantConfig?.display_name || tenantConfig?.name}
-						onStart={handleStartGateFlow}
-						onRetry={activeGate.reset}
-					/>
+					{oidcGateStatusElement}
 				</div>
 			)}
 			{inProgress || retrySignupFrom
