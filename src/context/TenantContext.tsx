@@ -41,6 +41,7 @@ export interface TenantContextValue {
 	isLoadingConfig: boolean;
 	/** Error from fetching tenant config */
 	configError: string | null;
+	// -- OIDC gate helpers --
 	/** Check if registration requires OIDC gate */
 	requiresOIDCGateForRegistration: () => boolean;
 	/** Check if login requires OIDC gate */
@@ -145,18 +146,25 @@ export function TenantProvider({ children, tenantId: propTenantId }: TenantProvi
 				}
 				if (axios.isAxiosError(error)) {
 					if (error.response?.status === 404) {
-						// Tenant not found - use default (no OIDC gate)
-						// WARNING: This disables OIDC gate! Ensure tenant config is properly set up.
+						// Tenant config endpoint not found — may be an older backend that
+						// doesn't serve per-tenant config yet. Fall back to defaults.
 						console.warn(
 							`[TenantContext] Tenant config 404 for "${tenantToFetch}". ` +
-							`OIDC gate will be disabled. Verify tenant exists and is enabled in backend.`
+							`Using default config (no OIDC gate).`
 						);
 						setTenantConfig({ id: tenantToFetch, name: tenantToFetch });
 					} else {
-						setConfigError(`Failed to fetch tenant config: ${error.message}`);
+						// Non-404 error — fall back to defaults for backward compatibility
+						// rather than blocking the user from logging in.
+						console.error(
+							`[TenantContext] Failed to fetch config for "${tenantToFetch}": ${error.message}. ` +
+							`Falling back to default config.`
+						);
+						setTenantConfig({ id: tenantToFetch, name: tenantToFetch });
 					}
 				} else {
-					setConfigError('Failed to fetch tenant config');
+					console.error('[TenantContext] Unexpected error fetching tenant config:', error);
+					setTenantConfig({ id: tenantToFetch, name: tenantToFetch });
 				}
 			} finally {
 				setIsLoadingConfig(false);

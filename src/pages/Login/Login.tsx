@@ -19,7 +19,7 @@ import TenantSelector from '../../components/TenantSelector/TenantSelector';
 import SeparatorLine from '../../components/Shared/SeparatorLine';
 import PasswordStrength from '../../components/Auth/PasswordStrength';
 import LoginLayout from '../../components/Auth/LoginLayout';
-import OIDCGateUI from '../../components/Auth/OIDCGateUI';
+import OIDCGateFlowStatus from '../../components/Auth/OIDCGateFlowStatus';
 import checkForUpdates from '../../offlineUpdateSW';
 
 import { Eye, EyeOff, Info, KeyRoundIcon, Lock, LockKeyholeOpen, User, Wallet, X } from 'lucide-react';
@@ -435,7 +435,7 @@ const WebauthnSignupLogin = ({
 	const showOIDCGate = activeGate.requiresGate && !activeGate.isGateComplete && !isOIDCGateLoading;
 
 	// If OIDC gate is loading, show a simple loading indicator
-	// (providerConfig may be null while config loads, so don't render OIDCGateUI yet)
+	// (providerConfig may be null while config loads, so don't render OIDCGateFlowStatus yet)
 	if (isOIDCGateLoading) {
 		return (
 			<div className='mb-4'>
@@ -461,7 +461,7 @@ const WebauthnSignupLogin = ({
 	if (showOIDCGate && activeGate.providerConfig) {
 		return (
 			<div className='mb-4'>
-				<OIDCGateUI
+				<OIDCGateFlowStatus
 					state={activeGate.state}
 					provider={activeGate.providerConfig}
 					purpose={isLogin ? 'login' : 'registration'}
@@ -479,7 +479,7 @@ const WebauthnSignupLogin = ({
 			{/* Show verified badge if gate was completed */}
 			{activeGate.isGateComplete && activeGate.state.status === 'oidc-complete' && (
 				<div className="mb-4">
-					<OIDCGateUI
+					<OIDCGateFlowStatus
 						state={activeGate.state}
 						provider={activeGate.providerConfig!}
 						purpose={isLogin ? 'login' : 'registration'}

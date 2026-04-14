@@ -1,5 +1,5 @@
 /**
- * OIDCGateUI - Container component for OIDC gate flow
+ * OIDCGateFlowStatus - Shows the current status of the OIDC gate authentication flow
  *
  * Renders different UI states based on gate flow status:
  * - idle: Shows IdP button with explanation text
@@ -10,14 +10,14 @@
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle, AlertCircle } from 'lucide-react';
+import { CheckCircle, AlertCircle, LoaderCircle } from 'lucide-react';
 import Button from '../Buttons/Button';
 import OIDCGateButton from './OIDCGateButton';
 import type { OIDCGateState } from '../../hooks/useOIDCGate';
 import type { OIDCProviderConfig } from '../../api/types';
 import type { OIDCGatePurpose } from '../../lib/oidc';
 
-export interface OIDCGateUIProps {
+export interface OIDCGateFlowStatusProps {
 	/** Current state of the OIDC gate flow */
 	state: OIDCGateState;
 	/** OIDC provider configuration */
@@ -32,14 +32,14 @@ export interface OIDCGateUIProps {
 	onRetry: () => void;
 }
 
-export default function OIDCGateUI({
+export default function OIDCGateFlowStatus({
 	state,
 	provider,
 	purpose,
 	tenantDisplayName,
 	onStart,
 	onRetry,
-}: OIDCGateUIProps) {
+}: OIDCGateFlowStatusProps) {
 	const { t } = useTranslation();
 
 	const providerDisplayName = provider.display_name || 'your identity provider';
@@ -78,7 +78,7 @@ export default function OIDCGateUI({
 		return (
 			<div className="text-center py-4 space-y-4">
 				<div className="flex justify-center">
-					<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+					<LoaderCircle size={36} className="rounded-full text-brand-base dark:text-white animate-spin" />
 				</div>
 				<p className="dark:text-white">
 					{t('oidcGate.awaitingAuth')}

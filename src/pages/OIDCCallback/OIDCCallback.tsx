@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { useTenant } from '../../context/TenantContext';
 import { handleOIDCCallback, buildOIDCConfig } from '../../lib/oidc';
 import LoginLayout from '../../components/Auth/LoginLayout';
-import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { LoaderCircle, CheckCircle, AlertCircle } from 'lucide-react';
 import Button from '../../components/Buttons/Button';
 
 type CallbackState =
@@ -98,7 +98,7 @@ export default function OIDCCallback() {
 			<div className="relative p-8 sm:px-12 space-y-4 md:space-y-6 lg:space-y-8 bg-white rounded-lg dark:bg-dm-gray-900 border border-lm-gray-400 dark:border-dm-gray-600">
 				{state.status === 'processing' && (
 					<div className="flex flex-col items-center gap-4 py-8">
-						<Loader2 className="animate-spin text-primary" size={48} />
+						<LoaderCircle className="rounded-full text-brand-base dark:text-white animate-spin" size={48} />
 						<p className="text-lm-gray-700 dark:text-dm-gray-300">
 							{t('oidcGate.callbackProcessing')}
 						</p>
