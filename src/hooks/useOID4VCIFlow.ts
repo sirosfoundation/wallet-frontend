@@ -10,7 +10,7 @@
 import { useCallback, useContext, useRef, useState } from 'react';
 import { useFlowTransportSafe } from '@/context/FlowTransportContext';
 import OpenID4VCIContext from '@/context/OpenID4VCIContext';
-import { CredentialOfferSchema } from '@/lib/schemas/CredentialOfferSchema';
+import { CredentialOfferSchema } from 'wallet-common';
 import type { OID4VCIFlowResult } from '@/lib/transport/types/OID4VCITypes';
 import type { FlowProgressEvent, TransportType } from '@/lib/transport/types/FlowTypes';
 
