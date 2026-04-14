@@ -115,11 +115,20 @@ export class RetryTransportWrapper implements IFlowTransport {
 
 	async startOID4VCIFlow(params: OID4VCIFlowParams): Promise<OID4VCIFlowResult> {
 		const entryUri = params.credentialOfferUri ?? params.credentialOffer ?? '';
+
+		// Credential offers (phase 1) may be single-use: if the backend has already
+		// consumed the offer and the connection dropped before we received the response,
+		// retrying with the same URI could fail or cause double-processing.
+		// Authorization codes (phase 3) are single-use at the authorization server.
+		// Both phases must not be automatically retried; users should start over instead.
+		const allowAutoRetry = !params.credentialOfferUri && !params.credentialOffer && !params.authorizationCode;
+
 		return this.executeWithRetry<OID4VCIFlowResult>(
 			'oid4vci',
 			entryUri,
 			() => this.transport.startOID4VCIFlow(params),
-			this.getOID4VCICheckpoint(params)
+			this.getOID4VCICheckpoint(params),
+			allowAutoRetry
 		);
 	}
 
@@ -236,23 +245,50 @@ export class RetryTransportWrapper implements IFlowTransport {
 	// ===== Private Methods =====
 
 	/**
-	 * Execute a flow operation with automatic retry for recoverable errors
+	 * Execute a flow operation with automatic retry for recoverable errors.
+	 *
+	 * @param allowAutoRetry - When false, automatic retry is disabled for this operation.
+	 *   Use false for operations whose parameters may be single-use (e.g. credential
+	 *   offer URIs, authorization codes) to avoid double-processing on reconnect.
+	 *   The onRecoverable callback is still invoked so the UI can offer manual retry.
 	 */
 	private async executeWithRetry<T>(
 		protocol: FlowProtocol,
 		entryUri: string,
 		operation: () => Promise<T>,
-		checkpoint: FlowCheckpoint
+		checkpoint: FlowCheckpoint,
+		allowAutoRetry: boolean = true
 	): Promise<T> {
 		const flowId = crypto.randomUUID();
 		let state = this.stateManager.create(flowId, protocol, entryUri, { checkpoint });
 		this.activeFlows.set(flowId, state);
 
+		// When auto-retry is disabled (e.g. single-use params), cap retries at 0.
+		const effectiveMaxRetries = allowAutoRetry ? this.config.maxRetries : 0;
+
 		let attemptNumber = 0;
 		let lastError: FlowRecoverableError | undefined;
 
-		while (attemptNumber <= this.config.maxRetries) {
+		while (attemptNumber <= effectiveMaxRetries) {
 			attemptNumber++;
+
+			// On retries, ensure the underlying transport is connected before
+			// attempting the operation. The WebSocket transport reconnects
+			// asynchronously in the background; calling connect() here waits for
+			// that reconnect to complete (or fails fast if it cannot reconnect).
+			if (attemptNumber > 1 && !this.transport.isConnected()) {
+				try {
+					await this.transport.connect();
+				} catch (connectError) {
+					const errorMessage = connectError instanceof Error ? connectError.message : 'Reconnection failed';
+					const recoverableError = this.classifyError(undefined, errorMessage);
+					state = this.stateManager.recordError(flowId, recoverableError) ?? state;
+					if (recoverableError.recoverable && this.stateManager.canRetry(flowId, effectiveMaxRetries)) {
+						this.emitRecoverable(state);
+					}
+					throw connectError;
+				}
+			}
 
 			try {
 				// Update checkpoint before operation
@@ -266,7 +302,7 @@ export class RetryTransportWrapper implements IFlowTransport {
 				if (flowError) {
 					const recoverableError = this.classifyError(flowError.code, flowError.message);
 
-					if (recoverableError.recoverable && attemptNumber < this.config.maxRetries) {
+					if (recoverableError.recoverable && attemptNumber < effectiveMaxRetries) {
 						lastError = recoverableError;
 						state = this.stateManager.recordError(flowId, recoverableError) ?? state;
 
@@ -282,7 +318,7 @@ export class RetryTransportWrapper implements IFlowTransport {
 
 					// Only notify recoverable if manual retry is actually possible
 					// (i.e., hook's canRetry would be true based on current retry count)
-					if (recoverableError.recoverable && this.stateManager.canRetry(flowId, this.config.maxRetries)) {
+					if (recoverableError.recoverable && this.stateManager.canRetry(flowId, effectiveMaxRetries)) {
 						this.emitRecoverable(state);
 					}
 				}
@@ -299,7 +335,7 @@ export class RetryTransportWrapper implements IFlowTransport {
 				const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 				const recoverableError = this.classifyError(undefined, errorMessage);
 
-				if (recoverableError.recoverable && attemptNumber < this.config.maxRetries) {
+				if (recoverableError.recoverable && attemptNumber < effectiveMaxRetries) {
 					lastError = recoverableError;
 					state = this.stateManager.recordError(flowId, recoverableError) ?? state;
 
@@ -314,7 +350,7 @@ export class RetryTransportWrapper implements IFlowTransport {
 				state = this.stateManager.recordError(flowId, recoverableError) ?? state;
 
 				// Only notify recoverable if manual retry is actually possible
-				if (recoverableError.recoverable && this.stateManager.canRetry(flowId, this.config.maxRetries)) {
+				if (recoverableError.recoverable && this.stateManager.canRetry(flowId, effectiveMaxRetries)) {
 					this.emitRecoverable(state);
 				}
 
