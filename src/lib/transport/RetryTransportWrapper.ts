@@ -283,7 +283,9 @@ export class RetryTransportWrapper implements IFlowTransport {
 					const errorMessage = connectError instanceof Error ? connectError.message : 'Reconnection failed';
 					const recoverableError = this.classifyError(undefined, errorMessage);
 					state = this.stateManager.recordError(flowId, recoverableError) ?? state;
-					if (recoverableError.recoverable && this.stateManager.canRetry(flowId, effectiveMaxRetries)) {
+					// Use config.maxRetries (not effectiveMaxRetries) so the callback fires
+					// even when allowAutoRetry=false: the UI can still offer manual retry.
+					if (recoverableError.recoverable && this.stateManager.canRetry(flowId, this.config.maxRetries)) {
 						this.emitRecoverable(state);
 					}
 					throw connectError;
