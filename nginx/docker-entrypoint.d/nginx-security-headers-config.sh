@@ -39,7 +39,7 @@ fi
 CSP="default-src 'self'; \
 script-src 'self'; \
 style-src 'self'; \
-font-src 'self' data: https:; \
+font-src 'self' data:; \
 img-src 'self' data: https:; \
 connect-src ${CONNECT_SRC}; \
 frame-ancestors 'none'; \
