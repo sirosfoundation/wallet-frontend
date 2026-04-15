@@ -8,8 +8,9 @@
  * Phase 5 of Transport Abstraction
  */
 
-import React from 'react';
+import React, { useCallback, useContext } from 'react';
 import { FlowTransportProvider } from './FlowTransportContext';
+import SessionContext from './SessionContext';
 import { useSessionStorage } from '@/hooks/useStorage';
 import { getTenantFromUrlPath } from '@/lib/tenant';
 
@@ -32,8 +33,18 @@ export const FlowTransportProviderWrapper: React.FC<FlowTransportProviderWrapper
 	// URL structure: /id/{tenantId}/* -> returns tenantId, or 'default' for root paths
 	const tenantId = getTenantFromUrlPath() ?? 'default';
 
+	// Use the api from SessionContext to refresh tokens before WS reconnect
+	const { api } = useContext(SessionContext);
+	const handleRefreshToken = useCallback(async (): Promise<string | null> => {
+		const success = await api.refreshAccessToken();
+		if (success) {
+			return api.getAppToken();
+		}
+		return null;
+	}, [api]);
+
 	return (
-		<FlowTransportProvider authToken={appToken} tenantId={tenantId}>
+		<FlowTransportProvider authToken={appToken} tenantId={tenantId} onRefreshToken={handleRefreshToken}>
 			{children}
 		</FlowTransportProvider>
 	);
