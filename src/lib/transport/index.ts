@@ -16,8 +16,8 @@ export { DirectTransport } from './DirectTransport';
 export type { CorsCheckResult } from './DirectTransport';
 
 // Retry and recovery
-export { TransportWithRetry, withRetry } from './decorators/TransportWithRetry';
-export type { RetryEvent, RetryTransportOptions, RecoverableFlowResult } from './decorators/TransportWithRetry';
+export { withRetry } from './decorators/TransportWithRetry';
+export type { TransportWithRetry, RetryEvent, TransportWithRetryOptions, RecoverableFlowResult } from './decorators/TransportWithRetry';
 export type { RetryConfig } from './types/FlowRecovery';
 export { FlowStateStore, getFlowStateStore, resetFlowStateStore } from './FlowStateStore';
 export type { FlowState, FlowProtocol, FlowCheckpoint, FlowRecoveryOptions } from './FlowStateStore';

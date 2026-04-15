@@ -3,6 +3,11 @@
  *
  * React hook for managing flow error recovery and retry state.
  * Provides UI-friendly state and callbacks for error handling.
+ *
+ * @remarks
+ * This hook is not yet consumed directly. It is intended to be integrated
+ * into {@link useOID4VCIFlow} and {@link useOID4VPFlow} once the transport
+ * layer retry infrastructure is validated end-to-end.
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';

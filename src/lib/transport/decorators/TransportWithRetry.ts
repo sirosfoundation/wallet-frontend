@@ -45,7 +45,7 @@ export type RecoveryCallback = (state: FlowState) => void;
 /**
  * Options for the retry wrapper
  */
-export interface RetryTransportOptions {
+export interface TransportWithRetryOptions {
 	/** Custom retry configuration */
 	retryConfig?: Partial<RetryConfig>;
 	/** Flow state store instance (uses default if not provided) */
@@ -79,7 +79,7 @@ export class TransportWithRetry implements IFlowTransport {
 	private onRetry?: RetryCallback;
 	private onRecoverable?: RecoveryCallback;
 
-	constructor(transport: IFlowTransport, options: RetryTransportOptions = {}) {
+	constructor(transport: IFlowTransport, options: TransportWithRetryOptions = {}) {
 		this.transport = transport;
 		this.config = {
 			...DEFAULT_RETRY_CONFIG,
@@ -423,7 +423,7 @@ export class TransportWithRetry implements IFlowTransport {
  */
 export function withRetry(
 	transport: IFlowTransport,
-	options?: RetryTransportOptions
+	options?: TransportWithRetryOptions
 ): TransportWithRetry {
 	return new TransportWithRetry(transport, options);
 }
