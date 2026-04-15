@@ -26,6 +26,15 @@ import { useNavigate } from 'react-router-dom';
 import { logger } from '@/logger';
 
 /**
+ * Raw tx_code spec from OID4VCI §4.1.1 (snake_case, matching protocol wire format).
+ */
+export interface RawTxCodeSpec {
+	input_mode?: string;
+	length?: number;
+	description?: string;
+}
+
+/**
  * Thrown when the issuer rejects the transaction code (tx_code) during pre-authorized flow.
  * Callers should catch this to re-prompt the user for a new code.
  */
@@ -620,7 +629,7 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
  */
 
 	const handleCredentialOffer = useCallback(
-		async (credentialOfferURL: string): Promise<{ credentialIssuer: string, selectedCredentialConfigurationId: string; issuer_state?: string; txCode?: { inputMode?: string; length?: number; description?: string; }; preAuthorizedCode?: string; }> => {
+		async (credentialOfferURL: string): Promise<{ credentialIssuer: string, selectedCredentialConfigurationId: string; issuer_state?: string; txCode?: RawTxCodeSpec; preAuthorizedCode?: string; }> => {
 			const parsedUrl = new URL(credentialOfferURL);
 			let offer;
 			if (parsedUrl.searchParams.get("credential_offer")) {

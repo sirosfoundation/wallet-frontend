@@ -6,7 +6,7 @@ import SessionContext from "../context/SessionContext";
 import { useTranslation } from "react-i18next";
 import { HandleAuthorizationRequestErrors } from "wallet-common";
 import OpenID4VCIContext from "../context/OpenID4VCIContext";
-import { InvalidTxCodeError } from "@/lib/services/OpenID4VCI/OpenID4VCI";
+import { InvalidTxCodeError, RawTxCodeSpec } from "@/lib/services/OpenID4VCI/OpenID4VCI";
 import OpenID4VPContext from "../context/OpenID4VPContext";
 import CredentialsContext from "@/context/CredentialsContext";
 import { CachedUser } from "@/services/LocalStorageKeystore";
@@ -168,8 +168,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 						if (txCode) {
 							try {
 								// Use React popup instead of blocking prompt()
-								// Note: txCode from JSON uses snake_case (input_mode) per OID4VCI spec
-								const rawTxCode = txCode as { input_mode?: string; length?: number; description?: string };
+							const rawTxCode = txCode as RawTxCodeSpec;
 								userInput = await requestTxCode({
 									description: rawTxCode.description ?? undefined,
 									length: rawTxCode.length ?? undefined,
@@ -202,7 +201,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 								if (retryErr instanceof InvalidTxCodeError && txCode && attempt < maxTxCodeRetries) {
 									logger.info("Invalid transaction code, prompting for retry");
 									try {
-										const rawTxCode = txCode as { input_mode?: string; length?: number; description?: string };
+										const rawTxCode = txCode as RawTxCodeSpec;
 										userInput = await requestTxCode({
 											description: t('txCodeInput.errorInvalid'),
 											length: rawTxCode.length ?? undefined,

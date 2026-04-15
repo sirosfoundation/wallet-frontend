@@ -284,7 +284,6 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 					preAuthorizedCode,
 					txCodeInput,
 				);
-				offerStateRef.current = null;
 				return { success: true };
 			}
 
@@ -302,6 +301,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 				},
 			};
 		} finally {
+			offerStateRef.current = null;
 			setIsLoading(false);
 		}
 	}, [transportType, transport, openID4VCI, onProgress, onError]);
