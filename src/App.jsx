@@ -37,6 +37,7 @@ const Layout = lazyWithDelay(() => import('./components/Layout/Layout'), 400);
 const Login = lazyWithDelay(() => import('./pages/Login/Login'), 400);
 const LoginState = lazyWithDelay(() => import('./pages/Login/LoginState'), 400);
 const NotFound = lazyWithDelay(() => import('./pages/NotFound/NotFound'), 400);
+const OIDCCallback = lazyWithDelay(() => import('./pages/OIDCCallback/OIDCCallback'), 400);
 
 const ProtectedLayout = () => {
 	const location = useLocation();
@@ -90,6 +91,7 @@ const authenticatedRoutes = [
 const publicRoutes = [
 	<Route key="login" path="login" element={<Login />} />,
 	<Route key="login-state" path="login-state" element={<LoginState />} />,
+	<Route key="oidc-cb" path="oidc/cb" element={<OIDCCallback />} />,
 	<Route key="not-found" path="*" element={<NotFound />} />,
 ];
 

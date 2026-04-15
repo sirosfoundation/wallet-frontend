@@ -13,6 +13,7 @@ import { addItem, getItem, EXCLUDED_INDEXEDDB_PATHS } from '../indexedDB';
 import { loginWebAuthnBeginOffline } from './LocalAuthentication';
 import { withAuthenticatorAttachmentFromHints, withHintsFromAllowCredentials } from '@/util-webauthn';
 import { getTenantFromUrlPath, setStoredTenant, clearStoredTenant } from '../lib/tenant';
+import { clearOIDCState } from '../lib/oidc';
 
 const walletBackendUrl = config.BACKEND_URL;
 
@@ -68,6 +69,7 @@ export interface BackendApi {
 		webauthnHints: string[],
 		cachedUser: CachedUser | undefined,
 		urlTenantId?: string,
+		oidcIdToken?: string,
 	): Promise<
 		Result<void,
 			| 'loginKeystoreFailed'
@@ -85,6 +87,7 @@ export interface BackendApi {
 		retryFrom?: SignupWebauthnRetryParams,
 		tenantId?: string,
 		inviteCode?: string,
+		oidcIdToken?: string,
 	): Promise<Result<void, SignupWebauthnError>>,
 	updatePrivateData(newPrivateData: EncryptedContainer): Promise<void>,
 	updatePrivateDataEtag(resp: AxiosResponse): AxiosResponse,
@@ -356,6 +359,8 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		clearSessionStorage();
 		removePrivateDataEtag();
 		clearStoredTenant(); // Clear tenant on logout
+		clearOIDCState('registration'); // Clear OIDC gate tokens on logout
+		clearOIDCState('login');
 		events.dispatchEvent(new CustomEvent<ClearSessionEvent>(CLEAR_SESSION_EVENT));
 	}, [clearSessionStorage, removePrivateDataEtag]);
 
@@ -537,7 +542,8 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		promptForPrfRetry: () => Promise<boolean | AbortSignal>,
 		webauthnHints: string[],
 		cachedUser: CachedUser | undefined,
-		urlTenantId?: string
+		urlTenantId?: string,
+		oidcIdToken?: string
 	): Promise<Result<void,
 		| 'loginKeystoreFailed'
 		| 'passkeyInvalid'
@@ -553,13 +559,19 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 
 			const loginTenantId = urlTenantId || 'default';
 
+			// Build headers - include OIDC token if provided for gate enforcement
+			const loginHeaders: Record<string, string> = { 'X-Tenant-ID': loginTenantId };
+			if (oidcIdToken) {
+				loginHeaders['Authorization'] = `Bearer ${oidcIdToken}`;
+			}
+
 			const beginData = await (async (): Promise<{
 				challengeId?: string,
 				getOptions: { publicKey: PublicKeyCredentialRequestOptions },
 			}> => {
 				if (isOnline) {
 					const beginResp = await post('/user/login-webauthn-begin', {}, {
-						headers: { 'X-Tenant-ID': loginTenantId },
+						headers: loginHeaders,
 					});
 					console.log("begin", beginResp);
 					return beginResp.data;
@@ -618,7 +630,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 							clientExtensionResults: credential.getClientExtensionResults(),
 						},
 					}, {
-						headers: { 'X-Tenant-ID': loginTenantId },
+						headers: loginHeaders,
 					}));
 				}
 				else {
@@ -703,10 +715,17 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		retryFrom?: SignupWebauthnRetryParams,
 		tenantId?: string,
 		inviteCode?: string,
+		oidcIdToken?: string,
 	): Promise<Result<void, SignupWebauthnError>> => {
 		// Registration uses the global endpoint with tenantId in request body
 		// This ensures the passkey's userHandle encodes the tenant for proper isolation
 		const storedTenant = tenantId || getTenantFromUrlPath();
+
+		// Build headers - include OIDC token if provided for gate enforcement
+		const signupHeaders: Record<string, string> = { 'X-Tenant-ID': storedTenant };
+		if (oidcIdToken) {
+			signupHeaders['Authorization'] = `Bearer ${oidcIdToken}`;
+		}
 
 		try {
 			const res = await post(
@@ -716,10 +735,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 					inviteCode,
 				},
 				{
-					headers: {
-						// We set tenant ID header to make sure the URL tenant ID is used.
-						'X-Tenant-ID': storedTenant,
-					},
+					headers: signupHeaders,
 				},
 			);
 
@@ -777,7 +793,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 								clientExtensionResults: credential.getClientExtensionResults(),
 							},
 						}, {
-							headers: { 'X-Tenant-ID': storedTenant },
+							headers: signupHeaders,
 						}));
 
 						// Store the tenant from the response, falling back to 'default' if not provided
