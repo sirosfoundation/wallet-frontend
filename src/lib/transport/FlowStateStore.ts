@@ -433,11 +433,3 @@ export function resetFlowStateStore(): void {
 	defaultStore?.clearAll();
 	defaultStore = null;
 }
-
-// Backward-compatible aliases
-/** @deprecated Use FlowStateStore */
-export type FlowStateManager = FlowStateStore;
-/** @deprecated Use getFlowStateStore */
-export const getFlowStateManager = getFlowStateStore;
-/** @deprecated Use resetFlowStateStore */
-export const resetFlowStateManager = resetFlowStateStore;

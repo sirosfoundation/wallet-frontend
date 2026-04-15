@@ -10,7 +10,7 @@ import {
 	inferErrorCode,
 	calculateRetryDelay,
 	shouldRetry,
-} from '../flowRecoveryUtils';
+} from '../utils/flowRecovery';
 
 describe('FlowRecovery', () => {
 	describe('getErrorCategory', () => {

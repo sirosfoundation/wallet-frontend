@@ -12,7 +12,7 @@ import {
 	type RetryConfig,
 	FlowErrorCodes,
 	DEFAULT_RETRY_CONFIG,
-} from './types/FlowRecovery';
+} from '../types/FlowRecovery';
 
 /**
  * Map error codes to categories

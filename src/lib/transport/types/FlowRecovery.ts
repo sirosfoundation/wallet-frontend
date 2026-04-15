@@ -2,7 +2,7 @@
  * Flow Recovery Types
  *
  * Type definitions for flow error handling, recovery, and retry.
- * Utility functions are in ../flowRecoveryUtils.ts.
+ * Utility functions are in ../utils/flowRecovery.ts.
  */
 
 /**

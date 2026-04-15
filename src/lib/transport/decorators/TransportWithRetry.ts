@@ -15,7 +15,7 @@ import {
 	createFlowError,
 	inferErrorCode,
 	calculateRetryDelay,
-} from '../flowRecoveryUtils';
+} from '../utils/flowRecovery';
 import {
 	FlowStateStore,
 	getFlowStateStore,
@@ -427,7 +427,3 @@ export function withRetry(
 ): TransportWithRetry {
 	return new TransportWithRetry(transport, options);
 }
-
-// Backward-compatible alias
-/** @deprecated Use TransportWithRetry */
-export type RetryTransportWrapper = TransportWithRetry;

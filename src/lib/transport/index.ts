@@ -17,14 +17,14 @@ export type { CorsCheckResult } from './DirectTransport';
 
 // Retry and recovery
 export { TransportWithRetry, withRetry } from './decorators/TransportWithRetry';
-export type { RetryTransportWrapper, RetryEvent, RetryTransportOptions, RecoverableFlowResult } from './decorators/TransportWithRetry';
+export type { RetryEvent, RetryTransportOptions, RecoverableFlowResult } from './decorators/TransportWithRetry';
 export type { RetryConfig } from './types/FlowRecovery';
-export { FlowStateStore, getFlowStateStore, resetFlowStateStore, getFlowStateManager, resetFlowStateManager } from './FlowStateStore';
-export type { FlowState, FlowProtocol, FlowCheckpoint, FlowRecoveryOptions, FlowStateManager } from './FlowStateStore';
+export { FlowStateStore, getFlowStateStore, resetFlowStateStore } from './FlowStateStore';
+export type { FlowState, FlowProtocol, FlowCheckpoint, FlowRecoveryOptions } from './FlowStateStore';
 
 // Error types and utilities
 export * from './types/FlowRecovery';
-export * from './flowRecoveryUtils';
+export * from './utils/flowRecovery';
 
 // Types
 export * from './types';

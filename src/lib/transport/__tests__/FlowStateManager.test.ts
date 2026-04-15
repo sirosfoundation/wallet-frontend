@@ -5,7 +5,7 @@ import {
 	resetFlowStateStore,
 	type FlowState,
 } from '../FlowStateStore';
-import { createFlowError } from '../flowRecoveryUtils';
+import { createFlowError } from '../utils/flowRecovery';
 import { FlowErrorCodes } from '../types/FlowRecovery';
 
 // Mock sessionStorage
