@@ -15,5 +15,16 @@ export { WebSocketTransport } from './WebSocketTransport';
 export { DirectTransport } from './DirectTransport';
 export type { CorsCheckResult } from './DirectTransport';
 
+// Retry and recovery
+export { withRetry } from './decorators/TransportWithRetry';
+export type { TransportWithRetry, RetryEvent, TransportWithRetryOptions, RecoverableFlowResult } from './decorators/TransportWithRetry';
+export type { RetryConfig } from './types/FlowRecovery';
+export { FlowStateStore, getFlowStateStore, resetFlowStateStore } from './FlowStateStore';
+export type { FlowState, FlowProtocol, FlowCheckpoint, FlowRecoveryOptions } from './FlowStateStore';
+
+// Error types and utilities
+export * from './types/FlowRecovery';
+export * from './utils/flowRecovery';
+
 // Types
 export * from './types';
