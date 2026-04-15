@@ -485,10 +485,9 @@ export class WebSocketTransport implements IFlowTransport {
 	}
 
 	/**
-	 * Register a handler for credential match requests from the server.
-	 * When the server needs client-side credential matching (for privacy),
-	 * it sends a match_request with the presentation definition.
-	 * The handler should return matching credential IDs/formats.
+	 * Register a handler for credential match requests initiated by the server.
+	 * The server sends a match_request containing a presentation definition;
+	 * the handler evaluates it against local credentials and returns matching IDs/formats.
 	 */
 	onMatchRequest(handler: MatchRequestHandler): () => void {
 		this.matchHandlers.add(handler);
@@ -616,8 +615,10 @@ export class WebSocketTransport implements IFlowTransport {
 	}
 
 	/**
-	 * Handle a match request from the server
-	 * This is called when the server needs client-side credential matching for privacy
+	 * Handle an incoming match_request from the server.
+	 * The server initiates client-side credential matching by sending a
+	 * presentation definition; the client evaluates it locally and responds
+	 * with the matching credential IDs/formats — credentials never leave the device.
 	 */
 	private async handleMatchRequest(message: ServerMessage): Promise<void> {
 		const flowId = (message.flow_id as string) || (message.flowId as string) || '';
@@ -697,7 +698,7 @@ export class WebSocketTransport implements IFlowTransport {
 		}
 
 		try {
-			this.ws!.send(JSON.stringify(msg));
+			this.ws.send(JSON.stringify(msg));
 		} catch (err) {
 			logger.error('Failed to send match response:', err);
 		}
