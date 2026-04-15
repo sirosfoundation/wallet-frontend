@@ -1,5 +1,5 @@
 /**
- * Flow State Manager
+ * Flow State Store
  *
  * Persists flow state to sessionStorage for recovery after connection issues.
  * Each flow gets a unique ID and its state is tracked through checkpoints.
@@ -79,9 +79,9 @@ export interface FlowRecoveryOptions {
 }
 
 /**
- * Flow State Manager - handles persistence and recovery of flow states
+ * Flow State Store - handles persistence and recovery of flow states
  */
-export class FlowStateManager {
+export class FlowStateStore {
 	private options: Required<FlowRecoveryOptions>;
 
 	constructor(options: FlowRecoveryOptions = {}) {
@@ -100,6 +100,7 @@ export class FlowStateManager {
 		entryUri: string,
 		initialData: Record<string, unknown> = {}
 	): FlowState {
+		this.cleanupExpired();
 		const now = Date.now();
 		const state: FlowState = {
 			flowId,
@@ -416,19 +417,27 @@ export class FlowStateManager {
 /**
  * Singleton instance for default usage
  */
-let defaultManager: FlowStateManager | null = null;
+let defaultStore: FlowStateStore | null = null;
 
-export function getFlowStateManager(options?: FlowRecoveryOptions): FlowStateManager {
-	if (!defaultManager) {
-		defaultManager = new FlowStateManager(options);
+export function getFlowStateStore(options?: FlowRecoveryOptions): FlowStateStore {
+	if (!defaultStore) {
+		defaultStore = new FlowStateStore(options);
 	}
-	return defaultManager;
+	return defaultStore;
 }
 
 /**
  * Reset the singleton (for testing)
  */
-export function resetFlowStateManager(): void {
-	defaultManager?.clearAll();
-	defaultManager = null;
+export function resetFlowStateStore(): void {
+	defaultStore?.clearAll();
+	defaultStore = null;
 }
+
+// Backward-compatible aliases
+/** @deprecated Use FlowStateStore */
+export type FlowStateManager = FlowStateStore;
+/** @deprecated Use getFlowStateStore */
+export const getFlowStateManager = getFlowStateStore;
+/** @deprecated Use resetFlowStateStore */
+export const resetFlowStateManager = resetFlowStateStore;

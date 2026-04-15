@@ -7,10 +7,10 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import {
-	FlowStateManager,
-	getFlowStateManager,
+	FlowStateStore,
+	getFlowStateStore,
 	type FlowState,
-} from '../lib/transport/FlowStateManager';
+} from '../lib/transport/FlowStateStore';
 import {
 	type FlowRecoverableError,
 	type RetryConfig,
@@ -46,8 +46,8 @@ export interface FlowRecoveryState {
 export interface UseFlowRecoveryOptions {
 	/** Custom retry configuration */
 	retryConfig?: Partial<RetryConfig>;
-	/** Custom flow state manager */
-	stateManager?: FlowStateManager;
+	/** Custom flow state store */
+	stateManager?: FlowStateStore;
 	/** Callback when flow recovery succeeds */
 	onRecovered?: (flowId: string) => void;
 	/** Callback when flow permanently fails */
@@ -99,8 +99,8 @@ export function useFlowRecovery(
 		maxRetries: options.retryConfig?.maxRetries ?? DEFAULT_RETRY_CONFIG.maxRetries,
 	});
 
-	const stateManagerRef = useRef<FlowStateManager>(
-		options.stateManager ?? getFlowStateManager()
+	const stateManagerRef = useRef<FlowStateStore>(
+		options.stateManager ?? getFlowStateStore()
 	);
 	const retryConfigRef = useRef<RetryConfig>({
 		...DEFAULT_RETRY_CONFIG,

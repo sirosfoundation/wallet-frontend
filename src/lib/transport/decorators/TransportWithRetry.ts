@@ -1,33 +1,29 @@
 /**
- * Retry Transport Wrapper
+ * Transport With Retry
  *
- * Wraps a transport with retry capabilities for transient errors.
- * Integrates with FlowStateManager for state persistence.
+ * Decorator that wraps a transport with retry capabilities for transient errors.
+ * Integrates with FlowStateStore for state persistence.
  */
 
-import type { IFlowTransport } from './types/IFlowTransport';
-import type { FlowRequest, FlowResponse, FlowProgressEvent } from './types/FlowTypes';
-import type { OID4VCIFlowParams, OID4VCIFlowResult } from './types/OID4VCITypes';
-import type { OID4VPFlowParams, OID4VPFlowResult } from './types/OID4VPTypes';
+import type { IFlowTransport } from '../types/IFlowTransport';
+import type { FlowRequest, FlowResponse, FlowProgressEvent } from '../types/FlowTypes';
+import type { OID4VCIFlowParams, OID4VCIFlowResult } from '../types/OID4VCITypes';
+import type { OID4VPFlowParams, OID4VPFlowResult } from '../types/OID4VPTypes';
+import type { FlowRecoverableError, RetryConfig } from '../types/FlowRecovery';
+import { DEFAULT_RETRY_CONFIG } from '../types/FlowRecovery';
 import {
 	createFlowError,
 	inferErrorCode,
 	calculateRetryDelay,
-	DEFAULT_RETRY_CONFIG,
-	type FlowRecoverableError,
-	type RetryConfig,
-} from './types/FlowRecovery';
+} from '../flowRecoveryUtils';
 import {
-	FlowStateManager,
-	getFlowStateManager,
+	FlowStateStore,
+	getFlowStateStore,
 	type FlowProtocol,
 	type FlowCheckpoint,
 	type FlowState,
-} from './FlowStateManager';
+} from '../FlowStateStore';
 import { logger } from '@/logger';
-
-// Re-export RetryConfig for convenience
-export type { RetryConfig } from './types/FlowRecovery';
 
 /**
  * Retry event for progress tracking
@@ -52,8 +48,8 @@ export type RecoveryCallback = (state: FlowState) => void;
 export interface RetryTransportOptions {
 	/** Custom retry configuration */
 	retryConfig?: Partial<RetryConfig>;
-	/** Flow state manager instance (uses default if not provided) */
-	stateManager?: FlowStateManager;
+	/** Flow state store instance (uses default if not provided) */
+	stateManager?: FlowStateStore;
 	/** Callback when a retry is about to happen */
 	onRetry?: RetryCallback;
 	/** Callback when a flow can be recovered */
@@ -74,17 +70,14 @@ export interface RecoverableFlowResult<T> {
 }
 
 /**
- * Retry Transport Wrapper - adds retry capabilities to any IFlowTransport
+ * Transport With Retry - adds retry capabilities to any IFlowTransport
  */
-export class RetryTransportWrapper implements IFlowTransport {
+export class TransportWithRetry implements IFlowTransport {
 	private transport: IFlowTransport;
 	private config: RetryConfig;
-	private stateManager: FlowStateManager;
+	private stateManager: FlowStateStore;
 	private onRetry?: RetryCallback;
 	private onRecoverable?: RecoveryCallback;
-
-	// Track active flow IDs for this session
-	private activeFlows = new Map<string, FlowState>();
 
 	constructor(transport: IFlowTransport, options: RetryTransportOptions = {}) {
 		this.transport = transport;
@@ -92,7 +85,7 @@ export class RetryTransportWrapper implements IFlowTransport {
 			...DEFAULT_RETRY_CONFIG,
 			...options.retryConfig,
 		};
-		this.stateManager = options.stateManager ?? getFlowStateManager();
+		this.stateManager = options.stateManager ?? getFlowStateStore();
 		this.onRetry = options.onRetry;
 		this.onRecoverable = options.onRecoverable;
 	}
@@ -215,23 +208,10 @@ export class RetryTransportWrapper implements IFlowTransport {
 	}
 
 	/**
-	 * Prepare a flow for manual retry
-	 * Returns the state ready for retry, or null if not possible
-	 */
-	prepareFlowRetry(flowId: string): FlowState | null {
-		const state = this.stateManager.prepareRetry(flowId);
-		if (state) {
-			this.activeFlows.set(flowId, state);
-		}
-		return state;
-	}
-
-	/**
 	 * Cancel a flow
 	 */
 	cancelFlow(flowId: string): void {
 		this.stateManager.cancel(flowId);
-		this.activeFlows.delete(flowId);
 	}
 
 	/**
@@ -239,7 +219,6 @@ export class RetryTransportWrapper implements IFlowTransport {
 	 */
 	clearAllFlows(): void {
 		this.stateManager.clearAll();
-		this.activeFlows.clear();
 	}
 
 	// ===== Private Methods =====
@@ -261,7 +240,6 @@ export class RetryTransportWrapper implements IFlowTransport {
 	): Promise<T> {
 		const flowId = crypto.randomUUID();
 		let state = this.stateManager.create(flowId, protocol, entryUri, { checkpoint });
-		this.activeFlows.set(flowId, state);
 
 		// When auto-retry is disabled (e.g. single-use params), cap retries at 0.
 		const effectiveMaxRetries = allowAutoRetry ? this.config.maxRetries : 0;
@@ -304,7 +282,7 @@ export class RetryTransportWrapper implements IFlowTransport {
 				if (flowError) {
 					const recoverableError = this.classifyError(flowError.code, flowError.message);
 
-					if (recoverableError.recoverable && attemptNumber < effectiveMaxRetries) {
+					if (recoverableError.recoverable && attemptNumber <= effectiveMaxRetries) {
 						lastError = recoverableError;
 						state = this.stateManager.recordError(flowId, recoverableError) ?? state;
 
@@ -328,7 +306,6 @@ export class RetryTransportWrapper implements IFlowTransport {
 				// Success or fatal error - clean up on success
 				if (!flowError) {
 					this.stateManager.complete(flowId);
-					this.activeFlows.delete(flowId);
 				}
 
 				return result;
@@ -337,7 +314,7 @@ export class RetryTransportWrapper implements IFlowTransport {
 				const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 				const recoverableError = this.classifyError(undefined, errorMessage);
 
-				if (recoverableError.recoverable && attemptNumber < effectiveMaxRetries) {
+				if (recoverableError.recoverable && attemptNumber <= effectiveMaxRetries) {
 					lastError = recoverableError;
 					state = this.stateManager.recordError(flowId, recoverableError) ?? state;
 
@@ -447,6 +424,10 @@ export class RetryTransportWrapper implements IFlowTransport {
 export function withRetry(
 	transport: IFlowTransport,
 	options?: RetryTransportOptions
-): RetryTransportWrapper {
-	return new RetryTransportWrapper(transport, options);
+): TransportWithRetry {
+	return new TransportWithRetry(transport, options);
 }
+
+// Backward-compatible alias
+/** @deprecated Use TransportWithRetry */
+export type RetryTransportWrapper = TransportWithRetry;

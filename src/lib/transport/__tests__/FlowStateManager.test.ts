@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
-	FlowStateManager,
-	getFlowStateManager,
-	resetFlowStateManager,
+	FlowStateStore,
+	getFlowStateStore,
+	resetFlowStateStore,
 	type FlowState,
-} from '../FlowStateManager';
-import { createFlowError, FlowErrorCodes } from '../types/FlowRecovery';
+} from '../FlowStateStore';
+import { createFlowError } from '../flowRecoveryUtils';
+import { FlowErrorCodes } from '../types/FlowRecovery';
 
 // Mock sessionStorage
 const mockStorage: Record<string, string> = {};
@@ -18,8 +19,8 @@ const mockSessionStorage = {
 	clear: vi.fn(() => { Object.keys(mockStorage).forEach(k => delete mockStorage[k]); }),
 };
 
-describe('FlowStateManager', () => {
-	let manager: FlowStateManager;
+describe('FlowStateStore', () => {
+	let manager: FlowStateStore;
 
 	beforeEach(() => {
 		// Clear mock storage
@@ -31,7 +32,7 @@ describe('FlowStateManager', () => {
 			writable: true,
 		});
 
-		manager = new FlowStateManager();
+		manager = new FlowStateStore();
 	});
 
 	afterEach(() => {
@@ -262,16 +263,16 @@ describe('FlowStateManager', () => {
 
 	describe('singleton', () => {
 		it('should return the same instance', () => {
-			const instance1 = getFlowStateManager();
-			const instance2 = getFlowStateManager();
+			const instance1 = getFlowStateStore();
+			const instance2 = getFlowStateStore();
 
 			expect(instance1).toBe(instance2);
 		});
 
 		it('should reset the singleton', () => {
-			const instance1 = getFlowStateManager();
-			resetFlowStateManager();
-			const instance2 = getFlowStateManager();
+			const instance1 = getFlowStateStore();
+			resetFlowStateStore();
+			const instance2 = getFlowStateStore();
 
 			expect(instance1).not.toBe(instance2);
 		});

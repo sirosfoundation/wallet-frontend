@@ -1,14 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import {
 	FlowErrorCodes,
+	DEFAULT_RETRY_CONFIG,
+} from '../types/FlowRecovery';
+import {
 	getErrorCategory,
 	isRecoverableError,
 	createFlowError,
 	inferErrorCode,
 	calculateRetryDelay,
 	shouldRetry,
-	DEFAULT_RETRY_CONFIG,
-} from '../types/FlowRecovery';
+} from '../flowRecoveryUtils';
 
 describe('FlowRecovery', () => {
 	describe('getErrorCategory', () => {
