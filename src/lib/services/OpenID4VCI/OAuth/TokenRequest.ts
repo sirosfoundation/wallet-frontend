@@ -29,6 +29,7 @@ export enum GrantType {
 export enum TokenRequestError {
 	FAILED,
 	AUTHORIZATION_REQUIRED,
+	INVALID_TX_CODE,
 }
 
 export function useTokenRequest() {
@@ -293,6 +294,9 @@ export function useTokenRequest() {
 				if (err.error === "authorization_required") {
 					return { error: TokenRequestError.AUTHORIZATION_REQUIRED, response: err };
 				}
+				if (err.error === "invalid_tx_code") {
+					return { error: TokenRequestError.INVALID_TX_CODE, response: err };
+				}
 				return { error: TokenRequestError.FAILED, response: err };
 			}
 			return null;
@@ -317,6 +321,9 @@ export function useTokenRequest() {
 		if (result && typeof result === 'object' && 'error' in result) {
 			if (result.error === "authorization_required") {
 				return { error: TokenRequestError.AUTHORIZATION_REQUIRED, response: result };
+			}
+			if (result.error === "invalid_tx_code") {
+				return { error: TokenRequestError.INVALID_TX_CODE, response: result };
 			}
 			return { error: TokenRequestError.FAILED, response: result };
 		}

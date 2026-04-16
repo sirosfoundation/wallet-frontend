@@ -487,5 +487,16 @@
 		"question": "Are you ready to explore the features of $t(common.walletName) through a guided tour?",
 		"startTourButton": "Start Tour",
 		"title": "Welcome to $t(common.walletName)!"
+	},
+	"txCodeInput": {
+		"title": "Transaction Code Required",
+		"defaultDescription": "Enter the transaction code displayed on your screen",
+		"lengthHint": "Code length: {{length}} characters",
+		"placeholderWithLength": "Enter {{length}}-character code",
+		"placeholder": "Enter code",
+		"inputLabel": "Transaction code",
+		"errorEmpty": "Please enter the transaction code",
+		"errorLength": "Transaction code must be {{length}} characters",
+		"errorInvalid": "Invalid transaction code. Please try again."
 	}
 }

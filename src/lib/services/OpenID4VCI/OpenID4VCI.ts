@@ -1,5 +1,4 @@
 import { IOpenID4VCI } from '../../interfaces/IOpenID4VCI';
-import { CredentialOfferSchema } from '../../schemas/CredentialOfferSchema';
 import * as jose from 'jose';
 import { generateRandomIdentifier } from '../../utils/generateRandomIdentifier';
 import * as config from '../../../config';
@@ -13,7 +12,7 @@ import { useCredentialRequest } from './CredentialRequest';
 import { CurrentSchema } from '@/services/WalletStateSchema';
 import SessionContext from '@/context/SessionContext';
 import { useTenant } from '@/context/TenantContext';
-import { CredentialConfigurationSupported, VerifiableCredentialFormat } from 'wallet-common';
+import { CredentialConfigurationSupported, CredentialOfferSchema, VerifiableCredentialFormat } from 'wallet-common';
 import { useTranslation } from 'react-i18next';
 import CredentialsContext from "@/context/CredentialsContext";
 import { WalletStateUtils } from '@/services/WalletStateUtils';
@@ -25,6 +24,26 @@ import { notify } from "@/context/notifier";
 import { IOpenID4VCIClientStateRepository } from '@/lib/interfaces/IOpenID4VCIClientStateRepository';
 import { useNavigate } from 'react-router-dom';
 import { logger } from '@/logger';
+
+/**
+ * Raw tx_code spec from OID4VCI §4.1.1 (snake_case, matching protocol wire format).
+ */
+export interface RawTxCodeSpec {
+	input_mode?: string;
+	length?: number;
+	description?: string;
+}
+
+/**
+ * Thrown when the issuer rejects the transaction code (tx_code) during pre-authorized flow.
+ * Callers should catch this to re-prompt the user for a new code.
+ */
+export class InvalidTxCodeError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'InvalidTxCodeError';
+	}
+}
 
 type WalletStateCredentialIssuanceSession = CurrentSchema.WalletStateCredentialIssuanceSession;
 
@@ -576,6 +595,9 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 		}
 		const result = await tokenRequestBuilder.execute();
 		if ('error' in result) {
+			if (result.error === TokenRequestError.INVALID_TX_CODE) {
+				throw new InvalidTxCodeError("Invalid transaction code");
+			}
 			logger.error(result.error);
 			throw new Error("Token Request failed");
 		}
@@ -607,15 +629,19 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
  */
 
 	const handleCredentialOffer = useCallback(
-		async (credentialOfferURL: string): Promise<{ credentialIssuer: string, selectedCredentialConfigurationId: string; issuer_state?: string; txCode?: { inputMode?: string; length?: number; description?: string; }; preAuthorizedCode?: string; }> => {
+		async (credentialOfferURL: string): Promise<{ credentialIssuer: string, selectedCredentialConfigurationId: string; issuer_state?: string; txCode?: RawTxCodeSpec; preAuthorizedCode?: string; }> => {
 			const parsedUrl = new URL(credentialOfferURL);
 			let offer;
 			if (parsedUrl.searchParams.get("credential_offer")) {
 				offer = CredentialOfferSchema.parse(JSON.parse(parsedUrl.searchParams.get("credential_offer")));
 			} else {
+				const credentialOfferUri = parsedUrl.searchParams.get("credential_offer_uri");
+				if (!credentialOfferUri) {
+					throw new Error("Credential offer URL must contain either 'credential_offer' or 'credential_offer_uri' parameter");
+				}
 				try {
-					let response = await httpProxy.get(parsedUrl.searchParams.get("credential_offer_uri"), {})
-					offer = response.data;
+					let response = await httpProxy.get(credentialOfferUri, {})
+					offer = CredentialOfferSchema.parse(response.data);
 				}
 				catch (err) {
 					logger.error(err);

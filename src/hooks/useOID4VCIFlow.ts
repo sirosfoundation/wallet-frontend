@@ -7,9 +7,10 @@
  * Phase 4 of Transport Abstraction
  */
 
-import { useCallback, useContext, useState } from 'react';
+import { useCallback, useContext, useRef, useState } from 'react';
 import { useFlowTransportSafe } from '@/context/FlowTransportContext';
 import OpenID4VCIContext from '@/context/OpenID4VCIContext';
+import { CredentialOfferSchema } from 'wallet-common';
 import type { OID4VCIFlowResult } from '@/lib/transport/types/OID4VCITypes';
 import type { FlowProgressEvent, TransportType } from '@/lib/transport/types/FlowTypes';
 
@@ -63,6 +64,14 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<Error | null>(null);
 
+	// Track offer state from handleCredentialOffer for use in requestWithPreAuthorization.
+	// Uses useRef to avoid stale closure issues in useCallback — the ref always
+	// reflects the latest value without needing to be in dependency arrays.
+	const offerStateRef = useRef<{
+		credentialIssuer: string;
+		selectedCredentialConfigurationId: string;
+	} | null>(null);
+
 	const transportType = transportContext?.transportType ?? 'none';
 	const transport = transportContext?.transport;
 
@@ -70,6 +79,24 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		setError(null);
 		transportContext?.clearError?.();
 	}, [transportContext]);
+
+	/**
+	 * Validate a credential offer URI by parsing parameters through CredentialOfferSchema.
+	 * This provides defense-in-depth: even when the backend handles the flow (WebSocket),
+	 * the frontend validates the offer structure before dispatching.
+	 *
+	 * For `credential_offer_uri` (fetch-based) offers, validation is deferred to the
+	 * backend/service since the frontend hasn't fetched the offer content yet.
+	 */
+	const validateCredentialOffer = useCallback((credentialOfferUri: string): void => {
+		const parsedUrl = new URL(credentialOfferUri);
+		const inlineOffer = parsedUrl.searchParams.get("credential_offer");
+		if (inlineOffer) {
+			// Throws ZodError if the offer is malformed — caught by the outer try/catch
+			CredentialOfferSchema.parse(JSON.parse(inlineOffer));
+		}
+		// credential_offer_uri: content not available yet, validated when fetched
+	}, []);
 
 	/**
 	 * Handle credential offer using the appropriate transport
@@ -81,6 +108,9 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		setError(null);
 
 		try {
+			// Validate inline offers before dispatching to any transport
+			validateCredentialOffer(credentialOfferUri);
+
 			// WebSocket transport: delegate to backend
 			if (transportType === 'websocket' && transport) {
 				// Subscribe to progress events for this flow
@@ -106,6 +136,14 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			if (transportType === 'http_proxy' && openID4VCI) {
 				try {
 					const result = await openID4VCI.handleCredentialOffer(credentialOfferUri);
+
+					// Save offer state for requestWithPreAuthorization
+					if (result.preAuthorizedCode) {
+						offerStateRef.current = {
+							credentialIssuer: result.credentialIssuer,
+							selectedCredentialConfigurationId: result.selectedCredentialConfigurationId,
+						};
+					}
 
 					// Convert to OID4VCIFlowResult format
 					return {
@@ -137,7 +175,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		} finally {
 			setIsLoading(false);
 		}
-	}, [transportType, transport, openID4VCI, onProgress, onError]);
+	}, [transportType, transport, openID4VCI, onProgress, onError, validateCredentialOffer]);
 
 	/**
 	 * Handle authorization response (after OAuth redirect)
@@ -233,17 +271,20 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			}
 
 			// HTTP proxy transport: use existing implementation
-			// Note: requestCredentialsWithPreAuthorization requires additional params
-			// that need to be tracked from the initial handleCredentialOffer call
 			if (transportType === 'http_proxy' && openID4VCI) {
-				// The existing implementation stores state internally,
-				// but the interface needs credentialIssuer and selectedCredentialConfigurationId
-				// This is a limitation of the current architecture that would need
-				// state management to be refactored
-				throw new Error(
-					'Pre-authorization flow via HTTP transport requires ' +
-					'additional state management. Use the existing OpenID4VCI context directly.'
+				if (!offerStateRef.current) {
+					throw new Error(
+						'Pre-authorization flow via HTTP transport requires calling ' +
+						'handleCredentialOffer first to establish offer state.'
+					);
+				}
+				await openID4VCI.requestCredentialsWithPreAuthorization(
+					offerStateRef.current.credentialIssuer,
+					offerStateRef.current.selectedCredentialConfigurationId,
+					preAuthorizedCode,
+					txCodeInput,
 				);
+				return { success: true };
 			}
 
 			throw new Error('No transport available');
@@ -260,6 +301,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 				},
 			};
 		} finally {
+			offerStateRef.current = null;
 			setIsLoading(false);
 		}
 	}, [transportType, transport, openID4VCI, onProgress, onError]);
