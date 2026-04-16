@@ -14,7 +14,7 @@ import type { IFlowTransport } from '@/lib/transport/types/IFlowTransport';
 import { nullTransport } from '@/lib/transport/types/IFlowTransport';
 import { HttpProxyTransport } from '@/lib/transport/HttpProxyTransport';
 import { WebSocketTransport } from '@/lib/transport/WebSocketTransport';
-import type { SignRequestHandler } from '@/lib/transport/WebSocketTransport';
+import type { SignRequestHandler, MatchRequestHandler } from '@/lib/transport/WebSocketTransport';
 import { useHttpProxy } from '@/lib/services/HttpProxy/HttpProxy';
 import {
 	Capabilities,
@@ -30,11 +30,14 @@ import {
 import type { TransportType } from '@/lib/transport/types/FlowTypes';
 import { logger } from '@/logger';
 
-// Re-export sign types with WS prefix for clarity
+// Re-export sign and match types with WS prefix for clarity
 export type {
 	SignRequest as WSSignRequest,
 	SignResponse as WSSignResponse,
 	SignRequestHandler as WSSignRequestHandler,
+	MatchRequest as WSMatchRequest,
+	MatchResponse as WSMatchResponse,
+	MatchRequestHandler as WSMatchRequestHandler,
 } from '@/lib/transport/WebSocketTransport';
 
 /**
@@ -61,6 +64,8 @@ interface FlowTransportContextValue {
 	engineCapabilities: string[];
 	/** Register a sign request handler (for WebSocket) */
 	registerSignHandler: (handler: SignRequestHandler) => () => void;
+	/** Register a match request handler for client-side credential matching (for WebSocket) */
+	registerMatchHandler: (handler: MatchRequestHandler) => () => void;
 }
 
 const FlowTransportContext = createContext<FlowTransportContextValue | null>(null);
@@ -242,6 +247,15 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 		return () => {};
 	}, [wsTransport]);
 
+	// Register match handler on WebSocket transport for client-side credential matching
+	const registerMatchHandler = useCallback((handler: MatchRequestHandler): (() => void) => {
+		if (wsTransport) {
+			return wsTransport.onMatchRequest(handler);
+		}
+		// Return no-op unsubscribe if no WebSocket transport
+		return () => {};
+	}, [wsTransport]);
+
 	const value = useMemo(() => ({
 		transport,
 		transportType,
@@ -253,7 +267,8 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 		capabilitiesLoaded,
 		engineCapabilities,
 		registerSignHandler,
-	}), [transport, transportType, isConnected, reconnect, availableTransports, lastError, clearError, capabilitiesLoaded, engineCapabilities, registerSignHandler]);
+		registerMatchHandler,
+	}), [transport, transportType, isConnected, reconnect, availableTransports, lastError, clearError, capabilitiesLoaded, engineCapabilities, registerSignHandler, registerMatchHandler]);
 
 	return (
 		<FlowTransportContext.Provider value={value}>
