@@ -116,6 +116,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 	const isOnline = useMemo(() => isOnlineProp === null ? true : isOnlineProp, [isOnlineProp]);
 	const [appToken, setAppToken, clearAppToken] = useSessionStorage<string | null>("appToken", null);
 	const [refreshToken, setRefreshToken, clearRefreshToken] = useSessionStorage<string | null>("refreshToken", null);
+	const [tokenExpiresIn, setTokenExpiresIn, clearTokenExpiresIn] = useSessionStorage<number | null>("tokenExpiresIn", null);
 	const [userHandle,] = useSessionStorage<string | null>("userHandle", null);
 	const [cachedUsers] = useLocalStorage<CachedUser[] | null>("cachedUsers", null);
 	const [sessionState, setSessionState, clearSessionState] = useSessionStorage<SessionState | null>("sessionState", null);
@@ -138,7 +139,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 	}, []);
 
 	const navigate = useNavigate();
-	const clearSessionStorage = useClearStorages(clearAppToken, clearRefreshToken, clearSessionState);
+	const clearSessionStorage = useClearStorages(clearAppToken, clearRefreshToken, clearTokenExpiresIn, clearSessionState);
 
 	// Ref to store current refresh token for the refresh config
 	// This allows the refresh mechanism to access the latest value without stale closures
@@ -169,8 +170,9 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		getRefreshToken: () => refreshTokenRef.current,
 		setAppToken,
 		setRefreshToken,
+		setTokenExpiresIn,
 		clearSession: () => clearSessionRef.current(),
-	}), [setAppToken, setRefreshToken]);
+	}), [setAppToken, setRefreshToken, setTokenExpiresIn]);
 
 	const getAppToken = useCallback((): string | null => {
 		return appToken;
@@ -180,6 +182,42 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		const result = await refreshAccessToken(getTokenRefreshConfig());
 		return result.success;
 	}, [getTokenRefreshConfig]);
+
+	// Proactive token refresh timer: refresh at 80% of token lifetime
+	// to avoid 401s on all transports (HTTP proxy, WebSocket, etc.)
+	const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	useEffect(() => {
+		// Clear any existing timer
+		if (refreshTimerRef.current) {
+			clearTimeout(refreshTimerRef.current);
+			refreshTimerRef.current = null;
+		}
+
+		// Only set timer if we have a valid session with refresh token and known expiry
+		if (!appToken || !refreshToken || !tokenExpiresIn || tokenExpiresIn <= 0) {
+			return;
+		}
+
+		// Schedule refresh at 80% of token lifetime (e.g., 12 min for 15 min tokens)
+		const refreshDelayMs = tokenExpiresIn * 800; // 80% of expiresIn in ms
+		logger.debug(`Scheduling proactive token refresh in ${Math.round(refreshDelayMs / 1000)}s`);
+
+		refreshTimerRef.current = setTimeout(async () => {
+			logger.debug('Proactive token refresh triggered');
+			const result = await refreshAccessToken(getTokenRefreshConfig());
+			if (!result.success) {
+				logger.warn('Proactive token refresh failed');
+			}
+		}, refreshDelayMs);
+
+		return () => {
+			if (refreshTimerRef.current) {
+				clearTimeout(refreshTimerRef.current);
+				refreshTimerRef.current = null;
+			}
+		};
+	}, [appToken, refreshToken, tokenExpiresIn, getTokenRefreshConfig]);
 
 	function transformResponse(data: any): any {
 		if (data) {
@@ -441,6 +479,10 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		if (response.data.refreshToken) {
 			setRefreshToken(response.data.refreshToken);
 		}
+		// Store token expiry for proactive refresh timer
+		if (response.data.expiresIn) {
+			setTokenExpiresIn(response.data.expiresIn);
+		}
 		setSessionState({
 			uuid: response.data.uuid,
 			displayName: response.data.displayName,
@@ -454,7 +496,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		if (isOnline) {
 			await fetchInitialData(response.data.appToken, response.data.uuid).catch((error) => logger.error('Error in performGetRequests', error));
 		}
-	}, [setAppToken, setRefreshToken, setSessionState, fetchInitialData, isOnline]);
+	}, [setAppToken, setRefreshToken, setTokenExpiresIn, setSessionState, fetchInitialData, isOnline]);
 
 	const updatePrivateData = useCallback(async (
 		newPrivateData: EncryptedContainer,

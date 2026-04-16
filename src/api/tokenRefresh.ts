@@ -20,6 +20,7 @@ export interface RefreshResult {
 	success: boolean;
 	appToken?: string;
 	refreshToken?: string;
+	expiresIn?: number;
 }
 
 export interface TokenRefreshConfig {
@@ -27,6 +28,7 @@ export interface TokenRefreshConfig {
 	getRefreshToken: () => string | null;
 	setAppToken: (token: string) => void;
 	setRefreshToken: (token: string) => void;
+	setTokenExpiresIn?: (expiresIn: number) => void;
 	clearSession: () => void;
 }
 
@@ -83,10 +85,16 @@ async function performRefresh(
 				config.setRefreshToken(response.data.refreshToken);
 			}
 
+			// Update token expiry for proactive refresh timer
+			if (response.data.expiresIn && config.setTokenExpiresIn) {
+				config.setTokenExpiresIn(response.data.expiresIn);
+			}
+
 			return {
 				success: true,
 				appToken: response.data.appToken,
 				refreshToken: response.data.refreshToken,
+				expiresIn: response.data.expiresIn,
 			};
 		}
 

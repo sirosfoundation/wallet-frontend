@@ -76,6 +76,8 @@ interface FlowTransportProviderProps {
 	authToken: string | null;
 	/** Tenant ID for multi-tenant routing */
 	tenantId: string;
+	/** Callback to refresh the access token before reconnect. Returns the new token or null on failure. */
+	onRefreshToken?: () => Promise<string | null>;
 }
 
 /**
@@ -84,7 +86,8 @@ interface FlowTransportProviderProps {
 export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 	children,
 	authToken,
-	tenantId
+	tenantId,
+	onRefreshToken
 }) => {
 	const httpProxy = useHttpProxy();
 
@@ -220,9 +223,20 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 		return { transport: nullTransport, transportType: 'none' as const };
 	}, [availableTransports, wsTransport, isConnected, httpTransport]);
 
-	// Reconnect function for WebSocket
+	// Reconnect function for WebSocket — refreshes token first if available
 	const reconnect = useCallback(async () => {
 		if (wsTransport && WEBSOCKET_TRANSPORT_ALLOWED) {
+			// Refresh access token before reconnect to avoid sending an expired token
+			if (onRefreshToken) {
+				const newToken = await onRefreshToken();
+				if (newToken) {
+					wsTransport.updateAuthToken(newToken, tenantId);
+				} else {
+					const err = new Error('Token refresh failed before reconnect');
+					setLastError(err);
+					throw err;
+				}
+			}
 			try {
 				await wsTransport.connect();
 				setIsConnected(true);
@@ -232,7 +246,7 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 				throw error;
 			}
 		}
-	}, [wsTransport]);
+	}, [wsTransport, onRefreshToken, tenantId]);
 
 	const clearError = useCallback(() => {
 		setLastError(null);
