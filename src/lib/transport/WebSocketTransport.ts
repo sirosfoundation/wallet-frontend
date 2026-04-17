@@ -415,12 +415,14 @@ export class WebSocketTransport implements IFlowTransport {
 			result.transactionData = response.transactionData as OID4VPFlowResult['transactionData'];
 		}
 
-		// Submission result
-		if (response.redirectUri) {
-			result.redirectUri = response.redirectUri as string;
+		// Submission result (support both snake_case from backend and camelCase)
+		const redirectUri = (response.redirect_uri || response.redirectUri) as string | undefined;
+		if (redirectUri) {
+			result.redirectUri = redirectUri;
 		}
-		if (response.responseData) {
-			result.responseData = response.responseData;
+		const responseData = response.response_data || response.responseData;
+		if (responseData) {
+			result.responseData = responseData;
 		}
 
 		return result;

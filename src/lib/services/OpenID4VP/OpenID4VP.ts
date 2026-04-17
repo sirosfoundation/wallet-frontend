@@ -156,12 +156,13 @@ export function useOpenID4VP({
 		if (!response || !(response as any).formData) {
 			return {};
 		}
-		const { formData, generatedVPs, filteredVCEntities, response_uri, client_id } = response as {
+		const { formData, generatedVPs, filteredVCEntities, response_uri, client_id, response_mode } = response as {
 			formData: URLSearchParams;
 			generatedVPs: string[];
 			filteredVCEntities: ExtendedVcEntity[];
 			response_uri: string;
 			client_id: string;
+			response_mode: OpenID4VPResponseMode;
 		};
 
 		const transactionId = WalletStateUtils.getRandomUint32();
@@ -177,6 +178,15 @@ export function useOpenID4VP({
 		}));
 		await api.updatePrivateData(newPrivateData);
 		await keystoreCommit();
+
+		// DC API: return VP response data for postMessage delivery (no HTTP POST)
+		if (response_mode === OpenID4VPResponseMode.DC_API || response_mode === OpenID4VPResponseMode.DC_API_JWT) {
+			const vpResponseData: Record<string, string> = {};
+			for (const [key, value] of formData.entries()) {
+				vpResponseData[key] = value;
+			}
+			return { dcApiResponse: vpResponseData };
+		}
 
 		const bodyString = formData.toString();
 		logger.debug('bodyString: ', bodyString)
