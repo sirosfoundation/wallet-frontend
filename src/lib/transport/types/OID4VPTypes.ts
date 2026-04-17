@@ -115,4 +115,6 @@ export type OID4VPResponseMode =
 	| 'direct_post'
 	| 'direct_post.jwt'
 	| 'fragment'
-	| 'query';
+	| 'query'
+	| 'dc_api'
+	| 'dc_api.jwt';

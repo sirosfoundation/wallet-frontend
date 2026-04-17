@@ -250,6 +250,13 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				);
 
 				// Check result type
+				if ('dcApiResponse' in result && result.dcApiResponse) {
+					return {
+						success: true,
+						responseData: result.dcApiResponse,
+					};
+				}
+
 				if ('url' in result && result.url) {
 					return {
 						success: true,

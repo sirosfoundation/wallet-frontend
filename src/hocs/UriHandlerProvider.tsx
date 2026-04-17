@@ -274,11 +274,78 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 						logger.debug("User selection:", selection);
 						const res = await sendAuthorizationResponse(selection, vcEntityList);
 
+						if (res && 'dcApiResponse' in res && res.dcApiResponse && window.opener) {
+							// DC API: deliver VP response via postMessage to opener (browser extension)
+							logger.debug("Delivering DC API response via postMessage");
+							window.opener.postMessage({
+								type: 'DC_WALLET_RESPONSE',
+								response: res.dcApiResponse,
+							}, '*');
+							window.close();
+							return;
+						}
+
 						if (res && 'url' in res && res.url) {
 							setRedirectUri(res.url);
 						}
 					} catch (err) {
 						logger.error("Failed to handle authorization request:", err);
+						window.history.replaceState({}, '', `${window.location.pathname}`);
+					}
+				})();
+				return;
+			}
+			else if (u.searchParams.get('client_id') && u.searchParams.get('response_type') === 'vp_token' && !u.searchParams.get('request_uri')) {
+				// Handle inline OID4VP authorization request (DC API / browser extension flow)
+				(async () => {
+					try {
+						const result = await handleAuthorizationRequest(u.toString(), vcEntityList);
+						logger.debug("DC API authorization request result:", result);
+
+						if ('error' in result) {
+							if (result.error === HandleAuthorizationRequestErrors.INSUFFICIENT_CREDENTIALS) {
+								displayError({
+									title: t('messagePopup.insufficientCredentials.title'),
+									description: t('messagePopup.insufficientCredentials.description')
+								});
+							} else if (result.error === HandleAuthorizationRequestErrors.NONTRUSTED_VERIFIER) {
+								displayError({
+									title: t('messagePopup.nonTrustedVerifier.title'),
+									description: t('messagePopup.nonTrustedVerifier.description')
+								});
+							}
+							return;
+						}
+
+						const { conformantCredentialsMap, verifierDomainName, verifierPurpose, parsedTransactionData } = result;
+						const jsonedMap = Object.fromEntries(conformantCredentialsMap);
+						logger.debug("Prompting for credential selection...");
+
+						const selection = await promptForCredentialSelection(jsonedMap, verifierDomainName, verifierPurpose, parsedTransactionData);
+
+						if (!(selection instanceof Map)) {
+							return;
+						}
+
+						logger.debug("User selection:", selection);
+						const res = await sendAuthorizationResponse(selection, vcEntityList);
+
+						if (res && 'dcApiResponse' in res && res.dcApiResponse && window.opener) {
+							// DC API: deliver VP response via postMessage to opener
+							logger.debug("Delivering DC API response via postMessage");
+							window.opener.postMessage({
+								type: 'DC_WALLET_RESPONSE',
+								response: res.dcApiResponse,
+							}, '*');
+							window.close();
+							return;
+						}
+
+						if (res && 'url' in res && res.url) {
+							setRedirectUri(res.url);
+						}
+					} catch (err) {
+						logger.error("Failed to handle DC API authorization request:", err);
 						window.history.replaceState({}, '', `${window.location.pathname}`);
 					}
 				})();
