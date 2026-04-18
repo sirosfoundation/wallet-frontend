@@ -5,8 +5,6 @@ import { logger } from "@/logger";
 import SessionContext from "../context/SessionContext";
 import { useTranslation } from "react-i18next";
 import { HandleAuthorizationRequestErrors } from "wallet-common";
-import OpenID4VCIContext from "../context/OpenID4VCIContext";
-import { InvalidTxCodeError, RawTxCodeSpec } from "@/lib/services/OpenID4VCI/OpenID4VCI";
 import OpenID4VPContext from "../context/OpenID4VPContext";
 import CredentialsContext from "@/context/CredentialsContext";
 import { CachedUser } from "@/services/LocalStorageKeystore";
@@ -15,6 +13,7 @@ import { useSessionStorage } from "@/hooks/useStorage";
 import { useTxCodeInput } from "@/context/TxCodeInputContext";
 import TxCodeInputPopup from "@/components/Popups/TxCodeInputPopup";
 import useErrorDialog from "@/hooks/useErrorDialog";
+import { useOID4VCIFlow } from "@/hooks/useOID4VCIFlow";
 
 const PinInputPopup = React.lazy(() => import('../components/Popups/PinInput'));
 
@@ -22,10 +21,10 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	const { isOnline } = useContext(StatusContext);
 	const { requestTxCode, state: txCodeState, handleSubmit: handleTxCodeSubmit, handleCancel: handleTxCodeCancel } = useTxCodeInput();
 	const { displayError } = useErrorDialog();
+	const { processCredentialOffer, handleAuthorizationResponse: hookHandleAuthResponse } = useOID4VCIFlow();
 
 	const [usedAuthorizationCodes, setUsedAuthorizationCodes] = useState<string[]>([]);
 	const [usedRequestUris, setUsedRequestUris] = useState<string[]>([]);
-	const [usedPreAuthorizedCodes, setUsedPreAuthorizedCodes] = useState<string[]>([]);
 
 	const { isLoggedIn, api, keystore, logout } = useContext(SessionContext);
 	const { syncPrivateData } = api;
@@ -34,10 +33,8 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	const location = useLocation();
 	const [url, setUrl] = useState(window.location.href);
 
-	const { openID4VCI } = useContext(OpenID4VCIContext);
 	const { openID4VP } = useContext(OpenID4VPContext);
 
-	const { handleCredentialOffer, generateAuthorizationRequest, handleAuthorizationResponse, requestCredentialsWithPreAuthorization } = openID4VCI;
 	const { handleAuthorizationRequest, promptForCredentialSelection, sendAuthorizationResponse } = openID4VP;
 
 	const [showPinInputPopup, setShowPinInputPopup] = useState<boolean>(false);
@@ -127,7 +124,6 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	useEffect(() => {
 		if (
 			!isLoggedIn || !url || !t || !vcEntityList || !synced ||
-			!handleCredentialOffer || !generateAuthorizationRequest || !handleAuthorizationResponse ||
 			!handleAuthorizationRequest || !promptForCredentialSelection || !sendAuthorizationResponse
 		) return;
 
@@ -138,88 +134,17 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 			logger.debug('[Uri Handler]: check', u.toString());
 
 			if (u.protocol === 'openid-credential-offer' || u.searchParams.get('credential_offer') || u.searchParams.get('credential_offer_uri')) {
-				// Handle credential offer with async/await for proper React state updates
 				(async () => {
-					try {
-						const offer = await handleCredentialOffer(u.toString());
-						const { credentialIssuer, selectedCredentialConfigurationId, issuer_state, preAuthorizedCode, txCode } = offer;
-
-						logger.debug("Handling credential offer...", { credentialIssuer, preAuthorizedCode: !!preAuthorizedCode });
-
-						if (!preAuthorizedCode) {
-							// Authorization code flow - redirect to authorization
-							logger.debug("Generating authorization request...");
-							const authResult = await generateAuthorizationRequest(credentialIssuer, selectedCredentialConfigurationId, issuer_state);
-							if ('url' in authResult && typeof authResult.url === 'string' && authResult.url) {
-								window.location.href = authResult.url;
-							}
-							return;
-						}
-
-						// Check for pre-authorized code replay
-						if (usedPreAuthorizedCodes.includes(preAuthorizedCode)) {
-							logger.debug("Already used pre-authorized code, ignoring");
-							return;
-						}
-						setUsedPreAuthorizedCodes((codes) => [...codes, preAuthorizedCode]);
-
-						// Pre-authorized code flow
-						let userInput: string | undefined = undefined;
-						if (txCode) {
-							try {
-								// Use React popup instead of blocking prompt()
-							const rawTxCode = txCode as RawTxCodeSpec;
-								userInput = await requestTxCode({
-									description: rawTxCode.description ?? undefined,
-									length: rawTxCode.length ?? undefined,
-									inputMode: rawTxCode.input_mode === 'numeric' ? 'numeric' : 'text',
-								});
-							} catch (err) {
-								// User cancelled tx code input
-								logger.info("User cancelled transaction code input");
-								window.history.replaceState({}, '', `${window.location.pathname}`);
-								return;
-							}
-						}
-
-						logger.debug("Requesting credential with pre-authorization...");
-						const maxTxCodeRetries = 3;
-						for (let attempt = 0; attempt <= maxTxCodeRetries; attempt++) {
-							try {
-								const result = await requestCredentialsWithPreAuthorization(
-									credentialIssuer,
-									selectedCredentialConfigurationId,
-									preAuthorizedCode,
-									userInput
-								);
-
-								if ('url' in result && typeof result.url === 'string' && result.url) {
-									window.location.href = result.url;
-								}
-								break;
-							} catch (retryErr) {
-								if (retryErr instanceof InvalidTxCodeError && txCode && attempt < maxTxCodeRetries) {
-									logger.info("Invalid transaction code, prompting for retry");
-									try {
-										const rawTxCode = txCode as RawTxCodeSpec;
-										userInput = await requestTxCode({
-											description: t('txCodeInput.errorInvalid'),
-											length: rawTxCode.length ?? undefined,
-											inputMode: rawTxCode.input_mode === 'numeric' ? 'numeric' : 'text',
-										});
-									} catch (_cancelErr) {
-										logger.info("User cancelled transaction code retry");
-										window.history.replaceState({}, '', `${window.location.pathname}`);
-										return;
-									}
-									continue;
-								}
-								throw retryErr;
-							}
-						}
-					} catch (err) {
+					const result = await processCredentialOffer(u.toString(), {
+						requestTxCode,
+						txCodeRetryDescription: t('txCodeInput.errorInvalid'),
+					});
+					if (result.authorizationUrl) {
+						window.location.href = result.authorizationUrl;
+					}
+					if (!result.success) {
+						logger.error('[Uri Handler]: credential offer processing failed', result.error ?? result);
 						window.history.replaceState({}, '', `${window.location.pathname}`);
-						logger.error("Error handling credential offer:", err);
 					}
 				})();
 				return;
@@ -229,10 +154,12 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 
 				logger.debug("Handling authorization response...");
 				(async () => {
-					try {
-						await handleAuthorizationResponse(u.toString());
-					} catch (err) {
-						logger.error("Error during the handling of authorization response:", err);
+					const result = await hookHandleAuthResponse(u.toString());
+					if (!result.success) {
+						logger.error("Error during the handling of authorization response", {
+							code: result.error?.code,
+							message: result.error?.message,
+						});
 						window.history.replaceState({}, '', `${window.location.pathname}`);
 					}
 				})();
@@ -307,15 +234,14 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 		getCalculatedWalletState,
 		usedAuthorizationCodes,
 		usedRequestUris,
-		// depend on methods, not whole context objects
-		handleCredentialOffer,
-		generateAuthorizationRequest,
-		handleAuthorizationResponse,
+		// OID4VCI: hook-based
+		processCredentialOffer,
+		hookHandleAuthResponse,
+		requestTxCode,
+		// OID4VP: context-based
 		handleAuthorizationRequest,
 		promptForCredentialSelection,
 		sendAuthorizationResponse,
-		requestCredentialsWithPreAuthorization,
-		requestTxCode,
 		displayError,
 	]);
 

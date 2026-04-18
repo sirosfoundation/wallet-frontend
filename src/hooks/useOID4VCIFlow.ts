@@ -13,6 +13,8 @@ import OpenID4VCIContext from '@/context/OpenID4VCIContext';
 import { CredentialOfferSchema } from 'wallet-common';
 import type { OID4VCIFlowResult } from '@/lib/transport/types/OID4VCITypes';
 import type { FlowProgressEvent, TransportType } from '@/lib/transport/types/FlowTypes';
+import { InvalidTxCodeError, RawTxCodeSpec } from '@/lib/services/OpenID4VCI/OpenID4VCI';
+import { logger } from '@/logger';
 
 export interface UseOID4VCIFlowOptions {
 	/** Called when flow progress updates */
@@ -21,7 +23,35 @@ export interface UseOID4VCIFlowOptions {
 	onError?: (error: Error) => void;
 }
 
+/** Callback for requesting TX code input from user */
+export type TxCodeRequestFn = (config: {
+	description?: string;
+	length?: number;
+	inputMode?: 'numeric' | 'text';
+}) => Promise<string>;
+
+export interface ProcessCredentialOfferOptions {
+	/** Callback to prompt user for transaction code. Required for pre-auth offers with tx_code. */
+	requestTxCode?: TxCodeRequestFn;
+	/** Maximum number of TX code retries after the initial attempt (default: 2, so 3 total attempts) */
+	maxTxCodeRetries?: number;
+	/** Description shown when re-prompting after invalid TX code */
+	txCodeRetryDescription?: string;
+}
+
 export interface UseOID4VCIFlowReturn {
+	/**
+	 * Process a credential offer end-to-end:
+	 * - Parses the offer and determines flow type (auth-code vs pre-auth)
+	 * - Auth-code flow: generates authorization request, returns authorizationUrl
+	 * - Pre-auth flow: prompts for TX code if needed, handles retries, issues credential
+	 * - Includes pre-authorized code replay protection
+	 */
+	processCredentialOffer: (
+		credentialOfferUri: string,
+		options?: ProcessCredentialOfferOptions,
+	) => Promise<OID4VCIFlowResult>;
+
 	/** Start an OID4VCI flow with a credential offer URI */
 	handleCredentialOffer: (credentialOfferUri: string) => Promise<OID4VCIFlowResult>;
 
@@ -71,6 +101,9 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		credentialIssuer: string;
 		selectedCredentialConfigurationId: string;
 	} | null>(null);
+
+	// Track used pre-authorized codes to prevent replay within this session
+	const usedPreAuthCodesRef = useRef<Set<string>>(new Set());
 
 	const transportType = transportContext?.transportType ?? 'none';
 	const transport = transportContext?.transport;
@@ -306,7 +339,151 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		}
 	}, [transportType, transport, openID4VCI, onProgress, onError]);
 
+	/**
+	 * Process a credential offer end-to-end.
+	 * For WebSocket transport, delegates the entire flow to the backend.
+	 * For HTTP proxy, orchestrates offer parsing, flow routing, TX code prompting,
+	 * and credential request with retry logic.
+	 */
+	const processCredentialOffer = useCallback(async (
+		credentialOfferUri: string,
+		options: ProcessCredentialOfferOptions = {},
+	): Promise<OID4VCIFlowResult> => {
+		const { requestTxCode, maxTxCodeRetries = 2, txCodeRetryDescription } = options;
+
+		setIsLoading(true);
+		setError(null);
+
+		try {
+			validateCredentialOffer(credentialOfferUri);
+
+			// WebSocket transport: delegate entire flow to backend
+			if (transportType === 'websocket' && transport) {
+				const unsubscribeProgress = onProgress
+					? transport.onProgress(onProgress)
+					: () => {};
+				const unsubscribeError = onError
+					? transport.onError(onError)
+					: () => {};
+
+				try {
+					return await transport.startOID4VCIFlow({ credentialOfferUri });
+				} finally {
+					unsubscribeProgress();
+					unsubscribeError();
+				}
+			}
+
+			// HTTP proxy transport: orchestrate the full flow
+			if (transportType === 'http_proxy' && openID4VCI) {
+				const offer = await openID4VCI.handleCredentialOffer(credentialOfferUri);
+
+				// Auth-code flow: generate authorization request and return URL
+				if (!offer.preAuthorizedCode) {
+					logger.debug("Generating authorization request...");
+					const authResult = await openID4VCI.generateAuthorizationRequest(
+						offer.credentialIssuer,
+						offer.selectedCredentialConfigurationId,
+						offer.issuer_state,
+					);
+					if (!authResult?.url) {
+						return {
+							success: false,
+							error: { code: 'AUTH_REQUEST_ERROR', message: 'Failed to generate authorization request URL' },
+						};
+					}
+					return {
+						success: true,
+						authorizationUrl: authResult.url,
+					};
+				}
+
+				// Pre-auth replay protection
+				if (usedPreAuthCodesRef.current.has(offer.preAuthorizedCode)) {
+					logger.debug("Already used pre-authorized code, ignoring");
+					return { success: true };
+				}
+				usedPreAuthCodesRef.current.add(offer.preAuthorizedCode);
+
+				// TX code is required but no callback to prompt user
+				if (offer.txCode && !requestTxCode) {
+					usedPreAuthCodesRef.current.delete(offer.preAuthorizedCode);
+					return {
+						success: false,
+						error: { code: 'TX_CODE_REQUIRED', message: 'Transaction code required but no requestTxCode callback provided' },
+					};
+				}
+
+				try {
+					// Prompt for TX code if required
+					let txCodeInput: string | undefined;
+					if (offer.txCode && requestTxCode) {
+						const rawTxCode = offer.txCode as RawTxCodeSpec;
+						txCodeInput = await requestTxCode({
+							description: rawTxCode.description ?? undefined,
+							length: rawTxCode.length ?? undefined,
+							inputMode: rawTxCode.input_mode === 'numeric' ? 'numeric' : 'text',
+						});
+					}
+
+					// Request credential with pre-authorization, retrying on invalid TX code
+					logger.debug("Requesting credential with pre-authorization...");
+					for (let attempt = 0; attempt <= maxTxCodeRetries; attempt++) {
+						try {
+							await openID4VCI.requestCredentialsWithPreAuthorization(
+								offer.credentialIssuer,
+								offer.selectedCredentialConfigurationId,
+								offer.preAuthorizedCode,
+								txCodeInput,
+							);
+							return { success: true };
+						} catch (retryErr) {
+							if (
+								retryErr instanceof InvalidTxCodeError &&
+								offer.txCode &&
+								requestTxCode &&
+								attempt < maxTxCodeRetries
+							) {
+								logger.info("Invalid transaction code, prompting for retry");
+								const rawTxCode = offer.txCode as RawTxCodeSpec;
+								txCodeInput = await requestTxCode({
+									description: txCodeRetryDescription ?? rawTxCode.description ?? undefined,
+									length: rawTxCode.length ?? undefined,
+									inputMode: rawTxCode.input_mode === 'numeric' ? 'numeric' : 'text',
+								});
+								continue;
+							}
+							throw retryErr;
+						}
+					}
+
+					return { success: true };
+				} catch (preAuthErr) {
+					usedPreAuthCodesRef.current.delete(offer.preAuthorizedCode);
+					throw preAuthErr;
+				}
+			}
+
+			throw new Error('No transport available for credential issuance');
+
+		} catch (err) {
+			const error = err instanceof Error ? err : new Error(String(err));
+			setError(error);
+			onError?.(error);
+			return {
+				success: false,
+				error: {
+					code: 'FLOW_ERROR',
+					message: error.message,
+				},
+			};
+		} finally {
+			setIsLoading(false);
+		}
+	}, [transportType, transport, openID4VCI, onProgress, onError, validateCredentialOffer]);
+
 	return {
+		processCredentialOffer,
 		handleCredentialOffer,
 		handleAuthorizationResponse,
 		requestWithPreAuthorization,
