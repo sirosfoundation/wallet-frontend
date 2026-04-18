@@ -33,7 +33,7 @@ export type TxCodeRequestFn = (config: {
 export interface ProcessCredentialOfferOptions {
 	/** Callback to prompt user for transaction code. Required for pre-auth offers with tx_code. */
 	requestTxCode?: TxCodeRequestFn;
-	/** Maximum TX code retry attempts on InvalidTxCodeError (default: 3) */
+	/** Maximum number of TX code retries after the initial attempt (default: 2, so 3 total attempts) */
 	maxTxCodeRetries?: number;
 	/** Description shown when re-prompting after invalid TX code */
 	txCodeRetryDescription?: string;
@@ -349,7 +349,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		credentialOfferUri: string,
 		options: ProcessCredentialOfferOptions = {},
 	): Promise<OID4VCIFlowResult> => {
-		const { requestTxCode, maxTxCodeRetries = 3, txCodeRetryDescription } = options;
+		const { requestTxCode, maxTxCodeRetries = 2, txCodeRetryDescription } = options;
 
 		setIsLoading(true);
 		setError(null);
@@ -386,6 +386,12 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 						offer.selectedCredentialConfigurationId,
 						offer.issuer_state,
 					);
+					if (!authResult?.url) {
+						return {
+							success: false,
+							error: { code: 'AUTH_REQUEST_ERROR', message: 'Failed to generate authorization request URL' },
+						};
+					}
 					return {
 						success: true,
 						authorizationUrl: authResult.url,
@@ -399,49 +405,63 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 				}
 				usedPreAuthCodesRef.current.add(offer.preAuthorizedCode);
 
-				// Prompt for TX code if required
-				let txCodeInput: string | undefined;
-				if (offer.txCode && requestTxCode) {
-					const rawTxCode = offer.txCode as RawTxCodeSpec;
-					txCodeInput = await requestTxCode({
-						description: rawTxCode.description ?? undefined,
-						length: rawTxCode.length ?? undefined,
-						inputMode: rawTxCode.input_mode === 'numeric' ? 'numeric' : 'text',
-					});
+				// TX code is required but no callback to prompt user
+				if (offer.txCode && !requestTxCode) {
+					usedPreAuthCodesRef.current.delete(offer.preAuthorizedCode);
+					return {
+						success: false,
+						error: { code: 'TX_CODE_REQUIRED', message: 'Transaction code required but no requestTxCode callback provided' },
+					};
 				}
 
-				// Request credential with pre-authorization, retrying on invalid TX code
-				logger.debug("Requesting credential with pre-authorization...");
-				for (let attempt = 0; attempt <= maxTxCodeRetries; attempt++) {
-					try {
-						await openID4VCI.requestCredentialsWithPreAuthorization(
-							offer.credentialIssuer,
-							offer.selectedCredentialConfigurationId,
-							offer.preAuthorizedCode,
-							txCodeInput,
-						);
-						return { success: true };
-					} catch (retryErr) {
-						if (
-							retryErr instanceof InvalidTxCodeError &&
-							offer.txCode &&
-							requestTxCode &&
-							attempt < maxTxCodeRetries
-						) {
-							logger.info("Invalid transaction code, prompting for retry");
-							const rawTxCode = offer.txCode as RawTxCodeSpec;
-							txCodeInput = await requestTxCode({
-								description: txCodeRetryDescription ?? rawTxCode.description ?? undefined,
-								length: rawTxCode.length ?? undefined,
-								inputMode: rawTxCode.input_mode === 'numeric' ? 'numeric' : 'text',
-							});
-							continue;
-						}
-						throw retryErr;
+				try {
+					// Prompt for TX code if required
+					let txCodeInput: string | undefined;
+					if (offer.txCode && requestTxCode) {
+						const rawTxCode = offer.txCode as RawTxCodeSpec;
+						txCodeInput = await requestTxCode({
+							description: rawTxCode.description ?? undefined,
+							length: rawTxCode.length ?? undefined,
+							inputMode: rawTxCode.input_mode === 'numeric' ? 'numeric' : 'text',
+						});
 					}
-				}
 
-				return { success: true };
+					// Request credential with pre-authorization, retrying on invalid TX code
+					logger.debug("Requesting credential with pre-authorization...");
+					for (let attempt = 0; attempt <= maxTxCodeRetries; attempt++) {
+						try {
+							await openID4VCI.requestCredentialsWithPreAuthorization(
+								offer.credentialIssuer,
+								offer.selectedCredentialConfigurationId,
+								offer.preAuthorizedCode,
+								txCodeInput,
+							);
+							return { success: true };
+						} catch (retryErr) {
+							if (
+								retryErr instanceof InvalidTxCodeError &&
+								offer.txCode &&
+								requestTxCode &&
+								attempt < maxTxCodeRetries
+							) {
+								logger.info("Invalid transaction code, prompting for retry");
+								const rawTxCode = offer.txCode as RawTxCodeSpec;
+								txCodeInput = await requestTxCode({
+									description: txCodeRetryDescription ?? rawTxCode.description ?? undefined,
+									length: rawTxCode.length ?? undefined,
+									inputMode: rawTxCode.input_mode === 'numeric' ? 'numeric' : 'text',
+								});
+								continue;
+							}
+							throw retryErr;
+						}
+					}
+
+					return { success: true };
+				} catch (preAuthErr) {
+					usedPreAuthCodesRef.current.delete(offer.preAuthorizedCode);
+					throw preAuthErr;
+				}
 			}
 
 			throw new Error('No transport available for credential issuance');

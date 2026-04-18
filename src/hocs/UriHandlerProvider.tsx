@@ -143,6 +143,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 						window.location.href = result.authorizationUrl;
 					}
 					if (!result.success) {
+						logger.error('[Uri Handler]: credential offer processing failed', result.error ?? result);
 						window.history.replaceState({}, '', `${window.location.pathname}`);
 					}
 				})();
@@ -155,7 +156,10 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 				(async () => {
 					const result = await hookHandleAuthResponse(u.toString());
 					if (!result.success) {
-						logger.error("Error during the handling of authorization response");
+						logger.error("Error during the handling of authorization response", {
+							code: result.error?.code,
+							message: result.error?.message,
+						});
 						window.history.replaceState({}, '', `${window.location.pathname}`);
 					}
 				})();
