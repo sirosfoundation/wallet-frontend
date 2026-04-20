@@ -777,7 +777,24 @@ export class WebSocketTransport implements IFlowTransport {
 		const rawRequest = payload.request as Record<string, unknown> | undefined;
 		if (!rawRequest?.subject_id) {
 			logger.error('Malformed trust evaluation request: missing subject_id');
-			this.sendTrustResult(flowId, { trusted: false, reason: 'Malformed request' });
+			this.sendTrustResult(flowId, { trusted: false, reason: 'Malformed request: missing subject_id' });
+			return;
+		}
+
+		const SUPPORTED_SUBJECT_TYPES = ['credential_verifier', 'credential_issuer'] as const;
+		type SupportedSubjectType = (typeof SUPPORTED_SUBJECT_TYPES)[number];
+		const rawSubjectType = rawRequest.subject_type;
+		if (
+			!rawSubjectType ||
+			!SUPPORTED_SUBJECT_TYPES.includes(rawSubjectType as SupportedSubjectType)
+		) {
+			logger.error('Malformed trust evaluation request: missing or unknown subject_type', {
+				subject_type: rawSubjectType,
+			});
+			this.sendTrustResult(flowId, {
+				trusted: false,
+				reason: `Malformed request: unknown subject_type '${String(rawSubjectType)}'`,
+			});
 			return;
 		}
 
