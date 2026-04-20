@@ -73,9 +73,22 @@ export function useWebSocketTrustHandler(): void {
 		};
 
 		// Map key material from backend format to TrustEvaluator format
-		const keyMaterial = request.keyMaterial
-			? { type: request.keyMaterial.type, key: request.keyMaterial.x5c ?? request.keyMaterial.jwk }
-			: undefined;
+		let keyMaterial: { type: string; key: unknown } | undefined;
+		if (request.keyMaterial) {
+			if (request.keyMaterial.type === 'x5c') {
+				if (request.keyMaterial.x5c === undefined) {
+					logger.warn('[WS Trust Handler] Invalid key material: missing x5c for type x5c');
+					return { trusted: false, reason: 'Invalid key material: missing x5c for type x5c' };
+				}
+				keyMaterial = { type: request.keyMaterial.type, key: request.keyMaterial.x5c };
+			} else if (request.keyMaterial.type === 'jwk') {
+				if (request.keyMaterial.jwk === undefined) {
+					logger.warn('[WS Trust Handler] Invalid key material: missing jwk for type jwk');
+					return { trusted: false, reason: 'Invalid key material: missing jwk for type jwk' };
+				}
+				keyMaterial = { type: request.keyMaterial.type, key: request.keyMaterial.jwk };
+			}
+		}
 
 		if (request.subjectType === 'credential_issuer') {
 			const evaluateIssuer = createIssuerTrustEvaluator(config);
