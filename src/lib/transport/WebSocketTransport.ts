@@ -559,7 +559,9 @@ export class WebSocketTransport implements IFlowTransport {
 		if (type === 'progress' || type === 'flow_progress') {
 			const payload = message.payload as Record<string, unknown> | undefined;
 			if (payload?.trust_evaluation_required) {
-				this.handleTrustEvaluationRequest(flowId, payload);
+				void this.handleTrustEvaluationRequest(flowId, payload).catch((error: unknown) => {
+					logger.error('Failed to handle trust evaluation request', { flowId, error });
+				});
 				return;
 			}
 			this.emitProgress({
