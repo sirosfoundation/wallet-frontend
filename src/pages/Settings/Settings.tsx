@@ -1,4 +1,4 @@
-import React, { FormEvent, KeyboardEvent, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { FormEvent, KeyboardEvent, useCallback, useContext, useEffect, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
 import StatusContext from '@/context/StatusContext';
@@ -8,20 +8,30 @@ import AppSettingsContext, { ColorScheme } from '@/context/AppSettingsContext';
 import useScreenType from '../../hooks/useScreenType';
 
 import { UserData, WebauthnCredential } from '../../api/types';
-import { compareBy, toBase64Url } from '../../util';
+import { byteArrayEquals, compareBy, toBase64Url } from '../../util';
 import { withAuthenticatorAttachmentFromHints } from '@/util-webauthn';
 import { formatDate } from 'wallet-common';
-import type { WebauthnPrfEncryptionKeyInfo } from '../../services/keystore';
+import type { PrecreatedPublicKeyCredential, WebauthnPrfEncryptionKeyInfo } from '../../services/keystore';
 import { isPrfKeyV2, serializePrivateData } from '../../services/keystore';
 
-import DeletePopup from '../../components/Popups/DeletePopup';
 import Button from '../../components/Buttons/Button';
+import DeletePopup from '../../components/Popups/DeletePopup';
+import Dialog from '../../components/Dialog';
 import { H1, H2, H3 } from '../../components/Shared/Heading';
 import PageDescription from '../../components/Shared/PageDescription';
 import LanguageSelector from '../../components/LanguageSelector/LanguageSelector';
-import { Bell, ChevronDown, Edit, FingerprintIcon, Laptop, Lock, LockOpen, Moon, RefreshCcw, Smartphone, SmartphoneNfcIcon, Sun, Trash2 } from 'lucide-react';
+import { PrivacyLevelIcon } from '@/components/PrivacyLevelIcon';
+import { COSE_ALG_ESP256_ARKG } from 'wallet-common/dist/cose';
+import WebauthnInteractionDialogContext from '@/context/WebauthnInteractionDialogContext';
+
+import { Bell, ChevronDown, Edit, FingerprintIcon, Laptop, Lock, LockOpen, Moon, PlusCircle, RefreshCcw, Smartphone, SmartphoneNfcIcon, Sun, Trash2 } from 'lucide-react';
 import { UsbStickDotIcon } from '@/components/Shared/CustomIcons';
 import { APP_VERSION } from '@/config';
+import { CurrentSchema } from '@/services/WalletStateSchema';
+
+type MaybeNamed<T> = CurrentSchema.MaybeNamed<T>;
+type WebauthnSignArkgPublicSeed = CurrentSchema.WebauthnSignArkgPublicSeed;
+
 
 function useWebauthnCredentialNickname(credential: WebauthnCredential): string {
 	const { t } = useTranslation();
@@ -48,42 +58,6 @@ type UpgradePrfState = (
 	}
 );
 
-const Dialog = ({
-	children,
-	open,
-	onCancel,
-}: {
-	children: ReactNode,
-	open: boolean,
-	onCancel: () => void,
-}) => {
-	const dialog = useRef<HTMLDialogElement>();
-
-	useEffect(
-		() => {
-			if (dialog.current) {
-				if (open) {
-					dialog.current.showModal();
-				} else {
-					dialog.current.close();
-				}
-			}
-		},
-		[dialog, open],
-	);
-
-	return (
-		<dialog
-			ref={dialog}
-			className="p-4 pt-8 text-center md:space-y-6 sm:p-8 bg-lm-gray-50 dark:bg-dm-gray-950 border border-lm-gray-400 dark:border-dm-gray-600 rounded-lg backdrop:bg-black/80"
-			style={{ minWidth: '30%' }}
-			onCancel={onCancel}
-		>
-			{children}
-		</dialog>
-	);
-};
-
 const WebauthnRegistation = ({
 	onSuccess,
 }: {
@@ -92,16 +66,15 @@ const WebauthnRegistation = ({
 	const { isOnline } = useContext(StatusContext);
 	const { api, keystore } = useContext(SessionContext);
 	const [beginData, setBeginData] = useState(null);
-	const [pendingCredential, setPendingCredential] = useState(null);
+	const [pendingCredential, setPendingCredential] = useState<PrecreatedPublicKeyCredential | null>(null);
 	const [nickname, setNickname] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
-	const [needPrfRetry, setNeedPrfRetry] = useState(false);
 	const [resolvePrfRetryPrompt, setResolvePrfRetryPrompt] = useState<null | ((accept: boolean) => void)>(null);
 	const [prfRetryAccepted, setPrfRetryAccepted] = useState(false);
 	const { t } = useTranslation();
 	const screenType = useScreenType();
 
-	const stateChooseNickname = Boolean(beginData) && !needPrfRetry;
+	const stateChooseNickname = Boolean(beginData) && !resolvePrfRetryPrompt;
 
 	const onBegin = useCallback(
 		async (webauthnHint) => {
@@ -127,7 +100,7 @@ const WebauthnRegistation = ({
 				};
 
 				try {
-					const credential = await navigator.credentials.create(createOptions);
+					const credential = await keystore.beginAddPrf(createOptions);
 					console.log("created", credential);
 					setPendingCredential(credential);
 				} catch (e) {
@@ -138,14 +111,13 @@ const WebauthnRegistation = ({
 				setIsSubmitting(false);
 			}
 		},
-		[api],
+		[api, keystore],
 	);
 
 	const onCancel = () => {
 		console.log("onCancel");
 		setPendingCredential(null);
 		setBeginData(null);
-		setNeedPrfRetry(false);
 		setResolvePrfRetryPrompt(null);
 		setPrfRetryAccepted(false);
 		setIsSubmitting(false);
@@ -157,35 +129,35 @@ const WebauthnRegistation = ({
 
 		if (beginData && pendingCredential) {
 			try {
-				const [newPrivateData, keystoreCommit] = await keystore.addPrf(
+				const [newPrivateData, keystoreCommit] = await keystore.finishAddPrf(
 					pendingCredential,
 					async () => {
-						setNeedPrfRetry(true);
 						return new Promise<boolean>((resolve, reject) => {
 							setResolvePrfRetryPrompt(() => resolve);
 						}).finally(() => {
-							setNeedPrfRetry(false);
 							setPrfRetryAccepted(true);
 							setResolvePrfRetryPrompt(null);
 						});
 					},
 				);
 
+				const { credential } = pendingCredential;
+
 				setIsSubmitting(true);
 				api.updatePrivateDataEtag(await api.post('/user/session/webauthn/register-finish', {
 					challengeId: beginData.challengeId,
 					nickname,
 					credential: {
-						type: pendingCredential.type,
-						id: pendingCredential.id,
-						rawId: pendingCredential.rawId,
+						type: credential.type,
+						id: credential.id,
+						rawId: credential.rawId,
 						response: {
-							attestationObject: pendingCredential.response.attestationObject,
-							clientDataJSON: pendingCredential.response.clientDataJSON,
-							transports: pendingCredential.response.getTransports(),
+							attestationObject: credential.response.attestationObject,
+							clientDataJSON: credential.response.clientDataJSON,
+							transports: credential.response.getTransports(),
 						},
-						authenticatorAttachment: pendingCredential.authenticatorAttachment,
-						clientExtensionResults: pendingCredential.getClientExtensionResults(),
+						authenticatorAttachment: credential.authenticatorAttachment,
+						clientExtensionResults: credential.getClientExtensionResults(),
 					},
 					privateData: serializePrivateData(newPrivateData),
 				}));
@@ -270,7 +242,7 @@ const WebauthnRegistation = ({
 						)
 						: (
 							<>
-								<p className='dark:text-white'>{t('registerPasskey.messageInteract')}</p>
+								<p className='dark:text-white'>{t('webauthn.messageInteract')}</p>
 							</>
 						)
 					}
@@ -300,7 +272,7 @@ const WebauthnRegistation = ({
 			</Dialog>
 
 			<Dialog
-				open={needPrfRetry && !prfRetryAccepted}
+				open={resolvePrfRetryPrompt && !prfRetryAccepted}
 				onCancel={() => resolvePrfRetryPrompt(false)}
 			>
 				<H2 heading={t('registerPasskey.messageDone')} flexJustifyContent='center' hr={false}/>
@@ -736,6 +708,31 @@ const Settings = () => {
 
 	const { getCalculatedWalletState } = keystore;
 
+	const [registerWebauthnSigningKeyInProgress, setRegisterWebauthnSigningKeyInProgress] = useState(false);
+
+	const webauthnInteractionCtx = useContext(WebauthnInteractionDialogContext);
+	const walletState = keystore.getCalculatedWalletState();
+
+	const hasHardwareArkg = walletState?.arkgSeeds?.length > 0;
+	function findCredential(credentialId?: BufferSource): WebauthnCredential | undefined {
+		return credentialId
+			? userData?.webauthnCredentials?.find(cred => byteArrayEquals(cred.credentialId, credentialId))
+			: undefined;
+	}
+	function useHardwareKeyNickname(hardwareKey?: MaybeNamed<WebauthnSignArkgPublicSeed>): string {
+		const parentNickname = useWebauthnCredentialNickname(findCredential(hardwareKey?.credentialId));
+		return hardwareKey?.name ?? parentNickname;
+	}
+	const hardwareArkgName = useHardwareKeyNickname(walletState?.arkgSeeds?.[0]);
+	const hardwareArkgUses = hasHardwareArkg
+		? walletState.credentials.filter(cred => {
+			const keypair = walletState.keypairs.find(kp => kp.kid === cred.kid)?.keypair;
+			return keypair
+				&& "externalPrivateKey" in keypair
+				&& byteArrayEquals(keypair.externalPrivateKey.credentialId, walletState.arkgSeeds[0].credentialId);
+		}).length
+		: 0;
+
 	const deleteAccount = async () => {
 		try {
 			await api.del('/user/session');
@@ -920,7 +917,82 @@ const Settings = () => {
 		} catch (error) {
 			console.error('Failed to update settings', error);
 		}
-	}
+	};
+
+	const onRegisterWebauthnSigningKey = async (alg: number) => {
+		try {
+			setRegisterWebauthnSigningKeyInProgress(true);
+
+			async function webauthnRegisterRetryLoop(
+				heading: React.ReactNode,
+				options: CredentialCreationOptions,
+			): Promise<{ credential: PublicKeyCredential, name: string }> {
+				const webauthnDialog = webauthnInteractionCtx.setup({ heading });
+
+				let retry = true;
+				while (retry) {
+					try {
+						const credential = await webauthnDialog.beginCreate(options, {
+							bodyText: t('registerHardwareKey.intro'),
+						});
+						const name = await webauthnDialog.input({
+							bodyText: t('registerHardwareKey.successGiveName'),
+							input: {
+								ariaLabel: t('registerHardwareKey.nicknameAriaLabel'),
+								autoFocus: true,
+								placeholder: t('registerHardwareKey.nicknamePlaceholder'),
+							},
+						});
+						webauthnDialog.success({
+							bodyText: t('registerHardwareKey.success'),
+						});
+						return { credential, name };
+
+					} catch (e) {
+						switch (e.cause?.id) {
+							case 'key-not-found': {
+								const result = await webauthnDialog.error({
+									bodyText: t('registerHardwareKey.errorKeyNotFound'),
+									buttons: {
+										retry: true,
+									},
+								});
+								retry = result.retry;
+								break;
+							}
+
+							case 'user-abort':
+								throw e;
+
+							case 'err':
+							default: {
+								const result = await webauthnDialog.error({
+									bodyText: t('registerHardwareKey.errorUnknown'),
+									buttons: {
+										retry: true,
+									},
+								});
+								retry = result.retry;
+								break;
+							}
+						}
+					}
+				}
+				throw new Error('WebAuthn registration cancelled by user');
+			}
+
+			const [newKeypair, newPrivateData, keystoreCommit] = await keystore.registerWebauthnSignKeypair(alg, async options => {
+				return await webauthnRegisterRetryLoop(t('registerHardwareKey.heading'), options);
+			});
+			if (newKeypair) {
+				await api.updatePrivateData(newPrivateData);
+				await keystoreCommit();
+			}
+
+		} finally {
+			setRegisterWebauthnSigningKeyInProgress(false);
+		}
+	};
 
 	return (
 		<>
@@ -1075,6 +1147,89 @@ const Settings = () => {
 											.filter(cred => !loggedInPasskey || cred.id !== loggedInPasskey.id).length === 0 && (
 												<p className='dark:text-white'>{t('pageSettings.noOtherPasskeys')}</p>
 											)}
+									</ul>
+								</div>
+
+								<div className="pt-4">
+									<H3 heading={<>{t('pageSettings.hardwareKeys.heading')} <UsbStickDotIcon className="inline" /></>} />
+									<p className="mb-2">
+										<Trans
+											i18nKey="pageSettings.hardwareKeys.description"
+											components={{ securityKeyIcon: <UsbStickDotIcon className="inline" /> }}
+										/>
+									</p>
+									<p className="mb-4">
+										{t('pageSettings.hardwareKeys.onlyOne')}
+									</p>
+									<ul className="grid grid-cols-[min-content_auto] sm:grid-cols-[min-content_auto_min-content] lg:grid-cols-[min-content_max-content_auto_min-content] gap-4">
+										{[
+											{
+												key: 'high',
+												Icon: PrivacyLevelIcon.High,
+												active: false, // hasHardwareBbs,
+												label: t('pageSettings.hardwareKeys.labelHigh'),
+												alg: null, // COSE_ALG_SPLIT_BBS,
+												name: null, // hardwareBbsName,
+												uses: 0, // hardwareBbsUses,
+											},
+											{
+												key: 'medium',
+												Icon: PrivacyLevelIcon.Medium,
+												active: hasHardwareArkg,
+												label: t('pageSettings.hardwareKeys.labelMedium'),
+												alg: COSE_ALG_ESP256_ARKG,
+												name: hardwareArkgName,
+												uses: hardwareArkgUses,
+											},
+											{
+												key: 'low',
+												Icon: PrivacyLevelIcon.Low,
+												active: hasHardwareArkg,
+												label: t('pageSettings.hardwareKeys.labelLow'),
+												alg: COSE_ALG_ESP256_ARKG,
+												name: hardwareArkgName,
+												uses: hardwareArkgUses,
+											},
+										].map(({ key, Icon, active, label, alg, name, uses }) =>
+											<li key={key} className="grid grid-cols-subgrid col-span-full items-baseline">
+												<Icon />
+												<span className="grid grid-cols-subgrid sm:col-span-2 lg:col-span-3 items-baseline">
+													<span className="sm:col-span-2 lg:col-span-1 items-baseline">{label}</span>
+													{active
+														? <span className="sm:col-span-2 lg:col-span-1">
+															<UsbStickDotIcon className="inline" />
+															{' '}
+															<Trans
+																i18nKey="pageSettings.hardwareKeys.hardwareKeyDescription"
+																components={{ strong: <strong /> }}
+																values={{ name, count: uses }}
+															/>
+														</span>
+														: <>
+															{t('pageSettings.hardwareKeys.softwareKey')}
+															{
+																alg !== null
+																	? <Button
+																		variant="primary"
+																		additionalClassName="whitespace-nowrap"
+																		disabled={registerWebauthnSigningKeyInProgress}
+																		onClick={() => onRegisterWebauthnSigningKey(alg)}
+																	>
+																		<PlusCircle /> {t('pageSettings.hardwareKeys.add')}
+																	</Button>
+																	: <Button
+																		variant="primary"
+																		additionalClassName="whitespace-nowrap"
+																		disabled={true}
+																	>
+																		<PlusCircle /> {t('pageSettings.hardwareKeys.notYetSupported')}
+																	</Button>
+															}
+														</>
+													}
+												</span>
+											</li>
+										)}
 									</ul>
 								</div>
 

@@ -8,18 +8,29 @@ import * as didUtil from "@cef-ebsi/key-did-resolver/dist/util.js";
 
 import * as config from '../config';
 import type { DidKeyVersion } from '../config';
-import { byteArrayEquals, filterObject, jsonParseTaggedBinary, jsonStringifyTaggedBinary, toBase64Url } from "../util";
+import { byteArrayEquals, filterObject, fromBase64Url, jsonParseTaggedBinary, jsonStringifyTaggedBinary, sequentialAll, toBase64Url } from "../util";
 import { SDJwt } from "@sd-jwt/core";
 import { cborEncode, cborDecode, DataItem, getCborEncodeDecodeOptions, setCborEncodeDecodeOptions } from "@auth0/mdl/lib/cbor";
 import { DeviceResponse, MDoc } from "@auth0/mdl";
 import { SupportedAlgs } from "@auth0/mdl/lib/mdoc/model/types";
 import { COSEKeyToJWK } from "cose-kit";
 import { withHintsFromAllowCredentials } from "@/util-webauthn";
-import { addDeleteKeypairEvent, addNewKeypairEvent, CurrentSchema, foldState, SchemaV1, SchemaV2, SchemaV3 } from "./WalletStateSchema";
+import { addDeleteKeypairEvent, addNewArkgSeedEvent, addNewKeypairEvent, CurrentSchema, foldOldEventsIntoBaseState, foldState, SchemaV1, SchemaV2, SchemaV3 } from "./WalletStateSchema";
+import { toArrayBuffer } from "../types/webauthn";
+import type { PublicKeyCredentialCreation } from "../types/webauthn";
+import * as signExtension from "@/webauthn/sign-extension";
+import { COSE_ALG_ESP256_ARKG } from "wallet-common/dist/cose";
+
 
 type WalletState = CurrentSchema.WalletState;
 type WalletStateContainerV2 = SchemaV2.WalletStateContainer;
 type WalletStateContainer = CurrentSchema.WalletStateContainer;
+type CredentialKeyPair = CurrentSchema.CredentialKeyPair;
+type CredentialKeyPairWithExternalPrivateKey = CurrentSchema.CredentialKeyPairWithExternalPrivateKey;
+type NewWebauthnSignKeypair = CurrentSchema.NewWebauthnSignKeypair;
+type WebauthnSignPrivateKey = CurrentSchema.WebauthnSignPrivateKey;
+
+const WalletStateOperations = CurrentSchema.WalletStateOperations;
 
 
 const keyDidResolver = KeyDidResolver.getResolver();
@@ -146,6 +157,11 @@ export function isAsymmetricPasswordKeyInfo(passwordKeyInfo: PasswordKeyInfo): p
 	);
 }
 
+export type PrecreatedPublicKeyCredential = {
+	credential: PublicKeyCredentialCreation,
+	prfSalt: Uint8Array,
+}
+
 export type WebauthnPrfSaltInfo = {
 	credentialId: Uint8Array,
 	transports?: AuthenticatorTransport[],
@@ -177,12 +193,9 @@ export function isPrfKeyV2(prfKeyInfo: WebauthnPrfEncryptionKeyInfo): prfKeyInfo
 	);
 }
 
-type PrfExtensionInput = { eval: { first: BufferSource } } | { evalByCredential: PrfEvalByCredential };
-type PrfEvalByCredential = { [credentialId: string]: { first: BufferSource } };
-type PrfExtensionOutput = { enabled: boolean, results?: { first?: ArrayBuffer } };
 type PrfInputs = {
 	allowCredentials?: PublicKeyCredentialDescriptor[],
-	prfInput: PrfExtensionInput,
+	prfInput: AuthenticationExtensionsPRFInputs,
 };
 
 export type KeystoreV0PublicData = {
@@ -192,7 +205,7 @@ export type KeystoreV0PublicData = {
 	verificationMethod: string,
 }
 export type KeystoreV0PrivateData = KeystoreV0PublicData & {
-	wrappedPrivateKey: WrappedPrivateKey,
+	wrappedPrivateKey: SchemaV1.WrappedPrivateKey,
 }
 
 export function isKeystoreV0PrivateData(privateData: KeystoreV0PrivateData | PrivateDataV1): privateData is KeystoreV0PrivateData {
@@ -248,8 +261,8 @@ export async function migrateV3PrivateData(privateData: PrivateDataV2 | PrivateD
 		.filter(k => "wrappedPrivateKey" in k.keypair) as unknown as SchemaV2.WalletState["keypairs"];
 	const unwrappedKeypairs = await Promise.all(wrappedKeypairs.map(async (k) => {
 		const unwrapped = await unwrapPrivateKey(k.keypair.wrappedPrivateKey, encryptionKey, true);
-		const jwk = await crypto.subtle.exportKey("jwk", unwrapped) as JWK;
-		const keypair: CredentialKeyPair = {
+		const jwk = unwrapped instanceof CryptoKey ? await crypto.subtle.exportKey("jwk", unwrapped) as JWK : unwrapped;
+		const keypair: SchemaV3.CredentialKeyPair = {
 			kid: k.kid,
 			did: k.keypair.did,
 			alg: k.keypair.alg,
@@ -269,29 +282,8 @@ export async function migrateV3PrivateData(privateData: PrivateDataV2 | PrivateD
 	return privateData;
 }
 
-export type CredentialKeyPair = {
-	kid: string,
-	did: string,
-	alg: string,
-	publicKey: JWK,
-	privateKey: JWK,
-}
-
-export type CredentialKeyPairV1 = {
-	kid: string,
-	did: string,
-	alg: string,
-	publicKey: JWK,
-	wrappedPrivateKey: WrappedPrivateKey,
-}
-
-export type WrappedPrivateKey = {
-	privateKey: BufferSource,
-	aesGcmParams: AesGcmParams,
-	unwrappedKeyAlgo: EcKeyImportParams,
-}
-
-export type PrivateDataV1 = {
+type CredentialKeyPairV1 = SchemaV1.CredentialKeyPair;
+type PrivateDataV1 = {
 	keypairs: {
 		[kid: string]: CredentialKeyPairV1,
 	},
@@ -299,6 +291,69 @@ export type PrivateDataV1 = {
 
 export type PrivateData = WalletStateContainer;
 export type PrivateDataV2 = WalletStateContainerV2;
+
+function makeWebauthnSignFunction(
+	rpId: string,
+	{ publicKey, externalPrivateKey }: CredentialKeyPairWithExternalPrivateKey,
+	executeWebauthn: (options: CredentialRequestOptions) => Promise<PublicKeyCredential>,
+): (alg: any, key: any, data: Uint8Array) => Promise<Uint8Array> {
+	return async (alg, _key, data) => {
+		async function createWebauthnArgs() {
+			try {
+				return {
+					publicKey: {
+						rpId: rpId,
+						challenge: crypto.getRandomValues(new Uint8Array(32)),
+						allowCredentials: [{ type: "public-key" as "public-key", id: externalPrivateKey.credentialId }],
+						extensions: {
+							...(await signExtension.makeSignInputs(externalPrivateKey, data)),
+						},
+					},
+				};
+			} catch (e) {
+				throw new Error('Failed to create WebAuthn arguments:', { cause: { id: 'create-args-failed' } });
+			}
+		}
+		const pkc = await executeWebauthn(await createWebauthnArgs());
+		try {
+			const sig = signExtension.parseSignature(pkc);
+			if (sig) {
+				switch (alg) {
+					case "ES256":
+						switch (publicKey.crv) {
+							case "P-256":
+								console.log("Reformatting signature for signature algorithm:", alg, "and public key:", publicKey);
+								return derSignatureToRaw(sig);
+						}
+						break;
+				}
+				console.log("Will not reformat signature for signature algorithm:", alg, "and public key:", publicKey);
+				return sig;
+			} else {
+				throw new Error('Signature not found', { cause: { id: 'signature-not-found' } });
+			}
+		} catch (e) {
+			console.error("Failed to extract signature from WebAuthn response:", e);
+			throw new Error('Signature not found', { cause: { id: e?.cause?.id ?? 'error', err: e, credential: pkc } });
+		}
+	};
+}
+
+function derSignatureToRaw(sig: Uint8Array): Uint8Array {
+	const x509Sig = sig;
+	const rLen = x509Sig[3];
+	const sLen = x509Sig[4 + rLen + 1];
+
+	const r = x509Sig.slice(4, 4 + rLen);
+	const s = x509Sig.slice(4 + rLen + 2, 4 + rLen + 2 + sLen);
+
+	return new Uint8Array([
+		...new Uint8Array(r.length < 32 ? 32 - r.length : 0),
+		...(r.length > 32 ? r.slice(r.length - 32) : r),
+		...new Uint8Array(s.length < 32 ? 32 - s.length : 0),
+		...(s.length > 32 ? s.slice(s.length - 32) : s),
+	]);
+}
 
 export async function parsePrivateData(privateData: BufferSource): Promise<EncryptedContainer> {
 	return jsonParseTaggedBinary(new TextDecoder().decode(privateData));
@@ -388,7 +443,7 @@ export async function importMainKey(exportedMainKey: BufferSource): Promise<Cryp
 		exportedMainKey,
 		"AES-GCM",
 		true,
-		["decrypt", "wrapKey", "unwrapKey"],
+		["encrypt", "decrypt", "wrapKey", "unwrapKey"],
 	);
 }
 
@@ -545,12 +600,12 @@ export async function unwrapKey(
 			keyInfo.unwrapAlgo,
 			keyInfo.unwrappedKeyAlgo,
 			extractable,
-			["decrypt", "wrapKey", "unwrapKey"],
+			["encrypt", "decrypt", "wrapKey", "unwrapKey"],
 		);
 	}
 }
 
-async function unwrapPrivateKey(wrappedPrivateKey: WrappedPrivateKey, wrappingKey: CryptoKey, extractable: boolean = false): Promise<CryptoKey> {
+async function unwrapPrivateKey(wrappedPrivateKey: SchemaV1.WrappedPrivateKey, wrappingKey: CryptoKey, extractable: boolean = false): Promise<CryptoKey | JWK> {
 	return await crypto.subtle.unwrapKey(
 		"jwk",
 		wrappedPrivateKey.privateKey,
@@ -561,7 +616,6 @@ async function unwrapPrivateKey(wrappedPrivateKey: WrappedPrivateKey, wrappingKe
 		["sign"],
 	);
 };
-
 
 async function encryptPrivateData(privateData: PrivateData, encryptionKey: CryptoKey): Promise<string> {
 	const cleartext = new TextEncoder().encode(jsonStringifyTaggedBinary(privateData));
@@ -581,7 +635,6 @@ async function decryptPrivateData(privateDataJwe: string, encryptionKey: CryptoK
 			)), encryptionKey);
 };
 
-
 async function derivePasswordKey(password: string, keyInfo: DerivePasswordKeyInfo): Promise<CryptoKey> {
 	const keyMaterial = await crypto.subtle.importKey(
 		"raw",
@@ -591,12 +644,13 @@ async function derivePasswordKey(password: string, keyInfo: DerivePasswordKeyInf
 		["deriveKey"],
 	);
 
+	const algParams = keyInfo.algorithm || { name: "AES-KW", length: 256 };
 	return await crypto.subtle.deriveKey(
 		keyInfo.pbkdf2Params,
 		keyMaterial,
-		keyInfo.algorithm || { name: "AES-KW", length: 256 },
+		algParams,
 		true,
-		["wrapKey", "unwrapKey"],
+		algParams?.name === "AES-KW" ? ["wrapKey", "unwrapKey"] : ["wrapKey", "unwrapKey", "encrypt", "decrypt"],
 	);
 };
 
@@ -646,19 +700,45 @@ async function derivePrfKey(
 		["deriveKey"],
 	);
 	const { hkdfSalt, hkdfInfo, algorithm } = deriveKeyParams;
+	const algParams = algorithm || { name: "AES-KW", length: 256 };
 
 	return await crypto.subtle.deriveKey(
 		{ name: "HKDF", hash: "SHA-256", salt: hkdfSalt, info: hkdfInfo },
 		hkdfKey,
-		algorithm || { name: "AES-KW", length: 256 },
+		algParams,
 		true,
-		["wrapKey", "unwrapKey"],
+		algParams?.name === "AES-KW" ? ["wrapKey", "unwrapKey"] : ["wrapKey", "unwrapKey", "encrypt", "decrypt"],
 	);
+}
+
+function addWebauthnRegistrationExtensionInputs(options: CredentialCreationOptions): [
+	CredentialCreationOptions,
+	Uint8Array,
+] {
+	const prfSalt = crypto.getRandomValues(new Uint8Array(32))
+	return [
+		{
+			...options,
+			publicKey: {
+				...options.publicKey,
+				extensions: {
+					...options.publicKey.extensions,
+					prf: {
+						eval: {
+							first: prfSalt,
+						},
+					},
+					...signExtension.makeGenerateKeyInputs(COSE_ALG_ESP256_ARKG),
+				}
+			},
+		},
+		prfSalt,
+	];
 }
 
 function makeRegistrationPrfExtensionInputs(credential: PublicKeyCredential, prfSalt: BufferSource): {
 	allowCredentials: PublicKeyCredentialDescriptor[],
-	prfInput: PrfExtensionInput,
+	prfInput: AuthenticationExtensionsPRFInputs,
 } {
 	return {
 		allowCredentials: [{
@@ -672,7 +752,7 @@ function makeRegistrationPrfExtensionInputs(credential: PublicKeyCredential, prf
 
 export function makeAssertionPrfExtensionInputs(prfKeys: WebauthnPrfSaltInfo[]): {
 	allowCredentials: PublicKeyCredentialDescriptor[],
-	prfInput: PrfExtensionInput,
+	prfInput: AuthenticationExtensionsPRFInputs,
 } {
 	return {
 		allowCredentials: prfKeys.map(
@@ -719,11 +799,11 @@ async function getPrfOutput(
 	prfInputs: PrfInputs,
 	promptForRetry: () => Promise<boolean | AbortSignal>,
 ): Promise<[ArrayBuffer, PublicKeyCredential]> {
-	const clientExtensionOutputs = credential?.getClientExtensionResults() as { prf?: PrfExtensionOutput } | null;
+	const clientExtensionOutputs = credential?.getClientExtensionResults();
 	const canRetry = !clientExtensionOutputs?.prf || clientExtensionOutputs?.prf?.enabled;
 
 	if (credential && clientExtensionOutputs?.prf?.results?.first) {
-		return [clientExtensionOutputs?.prf?.results?.first, credential];
+		return [toArrayBuffer(clientExtensionOutputs?.prf?.results?.first), credential];
 
 	} else if (canRetry) {
 		const retryOrAbortSignal = await promptForRetry();
@@ -740,7 +820,7 @@ async function getPrfOutput(
 						rpId: config.WEBAUTHN_RPID,
 						challenge: crypto.getRandomValues(new Uint8Array(32)),
 						allowCredentials: filteredPrfInputs?.allowCredentials,
-						extensions: { prf: filteredPrfInputs.prfInput } as AuthenticationExtensionsClientInputs,
+						extensions: { prf: filteredPrfInputs.prfInput },
 					}),
 					signal: retryOrAbortSignal === true ? undefined : retryOrAbortSignal,
 				}) as PublicKeyCredential;
@@ -780,6 +860,7 @@ async function createPrfKey(
 	const deriveKeyParams = { hkdfSalt, hkdfInfo, algorithm };
 	const prfKey = await derivePrfKey(prfOutput, deriveKeyParams);
 	const [prfKeypair, prfPrivateKey] = await generateWrappedEncapsulationKeypair(prfKey);
+
 	const keyInfo: WebauthnPrfEncryptionKeyInfoV2 = {
 		credentialId: new Uint8Array(credential.rawId),
 		transports: (credential.response as AuthenticatorAttestationResponse).getTransports() as AuthenticatorTransport[],
@@ -805,6 +886,62 @@ export async function getPrfKey(
 		throw new Error("PRF key not found");
 	}
 	return [await derivePrfKey(prfOutput, keyInfo), keyInfo, prfCredential];
+}
+
+async function addWebauthnSignKeypair(
+	container: OpenedContainer,
+	credential: PublicKeyCredential | null,
+	prfCredential: PublicKeyCredential | null,
+	name: string | null,
+): Promise<[NewWebauthnSignKeypair, OpenedContainer]> {
+	const newKeypair = signExtension.parseGeneratedKey(credential) ?? signExtension.parseGeneratedKey(prfCredential);
+	if (newKeypair) {
+		const newContainer = await updatePrivateData(
+			container,
+			async (privateData: PrivateData) => {
+				if (newKeypair && "arkg" in newKeypair) {
+					return addNewArkgSeedEvent(privateData, newKeypair.arkg, name);
+				} else {
+					return privateData;
+				}
+			},
+		);
+		return [newKeypair, newContainer];
+
+	} else {
+		return [null, container];
+	}
+}
+
+export async function registerWebauthnSignKeypair(
+	container: OpenedContainer,
+	rp: PublicKeyCredentialRpEntity,
+	user: PublicKeyCredentialUserEntity,
+	alg: number,
+	executeWebauthn: (options: CredentialCreationOptions) => Promise<{ credential: PublicKeyCredential, name: string }>,
+): Promise<[NewWebauthnSignKeypair, OpenedContainer]> {
+	const { credential, name } = await executeWebauthn({
+		publicKey: {
+			rp,
+			user,
+			// This challenge won't actually be checked - we only need the signing key, not the parent authentication key
+			challenge: crypto.getRandomValues(new Uint8Array(32)),
+			authenticatorSelection: {
+				residentKey: 'discouraged',
+				userVerification: 'required',
+			},
+			// Algorithm of parent credential doesn't matter since this we won't use this authentication key
+			pubKeyCredParams: [-7, -8, -257, -35, -36, -53].map(alg => ({ type: 'public-key', alg })),
+			extensions: {
+				...signExtension.makeGenerateKeyInputs(alg),
+			},
+		},
+	});
+	const [newKeypair, newContainer] = await addWebauthnSignKeypair(container, credential, null, name);
+	if (!newKeypair) {
+		throw new Error('Key not found', { cause: { id: 'key-not-found' } });
+	}
+	return [newKeypair, newContainer];
 }
 
 export async function upgradePrfKey(
@@ -846,32 +983,47 @@ export async function upgradePrfKey(
 		})),
 	};
 
-	return newPrivateData;
+	const [,[newNewPrivateData]] = await addWebauthnSignKeypair(
+		[newPrivateData as AsymmetricEncryptedContainer, mainKey],
+		credential, prfCredential, null,
+	);
+	return newNewPrivateData;
 };
 
-export async function addPrf(
+export async function beginAddPrf(createOptions: CredentialCreationOptions): Promise<PrecreatedPublicKeyCredential> {
+	const [options, prfSalt] = addWebauthnRegistrationExtensionInputs(createOptions)
+	const credential = await navigator.credentials.create(options) as PublicKeyCredentialCreation;
+	return { credential, prfSalt };
+}
+
+export async function finishAddPrf(
 	privateData: EncryptedContainer,
-	credential: PublicKeyCredential,
+	credential: PrecreatedPublicKeyCredential,
 	mainKey: CryptoKey,
 	promptForPrfRetry: () => Promise<boolean | AbortSignal>,
 ): Promise<EncryptedContainer> {
-	const prfSalt = crypto.getRandomValues(new Uint8Array(32))
 	const mainKeyInfo = privateData.mainKey || (await createAsymmetricMainKey(mainKey)).keyInfo;
 
 	const keyInfo = await createPrfKey(
-		credential,
-		prfSalt,
+		credential.credential,
+		credential.prfSalt,
 		mainKeyInfo,
 		mainKey,
 		promptForPrfRetry,
 	);
-	return {
+
+	const newPrivateData = {
 		...privateData,
 		prfKeys: [
 			...privateData.prfKeys,
 			keyInfo,
 		],
 	};
+	const [,[newNewPrivateData]] = await addWebauthnSignKeypair(
+		[newPrivateData as AsymmetricEncryptedContainer, mainKey],
+		credential.credential, null, null
+	);
+	return newNewPrivateData;
 }
 
 export function deletePrf(privateData: EncryptedContainer, credentialId: Uint8Array): EncryptedContainer {
@@ -956,10 +1108,21 @@ export async function unlockPrf(
 export async function init(
 	mainKey: CryptoKey,
 	keyInfo: AsymmetricEncryptedContainerKeys,
+	credential: PublicKeyCredentialCreation | null,
 ): Promise<UnlockSuccess> {
+	const webauthnSignGeneratedKey = credential ? signExtension.parseGeneratedKey(credential) : null;
+	const arkgSeed = (webauthnSignGeneratedKey && "arkg" in webauthnSignGeneratedKey) ? webauthnSignGeneratedKey.arkg : null;
+	let state = WalletStateOperations.initialWalletStateContainer();
+	if (arkgSeed) {
+		state = await addNewArkgSeedEvent(state, arkgSeed, null);
+	}
 	const privateData: EncryptedContainer = {
 		...keyInfo,
-		jwe: await encryptPrivateData(SchemaV3.WalletStateOperations.initialWalletStateContainer(), mainKey),
+		jwe: await encryptPrivateData(
+			// Fold events immediately since no conflicts can exist with a newly initialized state
+			await foldOldEventsIntoBaseState(state, -1),
+			mainKey,
+		),
 	};
 	return await unlock(mainKey, privateData);
 }
@@ -996,11 +1159,30 @@ export async function initPassword(
 	};
 }
 
-export async function initPrf(
-	credential: PublicKeyCredential,
-	prfSalt: Uint8Array,
+async function createPublicKeyCredentialIfNeeded(
+	credentialOrCreateOptions: PrecreatedPublicKeyCredential | CredentialCreationOptions,
+): Promise<PrecreatedPublicKeyCredential> {
+	if ("credential" in credentialOrCreateOptions) {
+		return credentialOrCreateOptions;
+
+	} else {
+		const [createOptions, prfSalt] = addWebauthnRegistrationExtensionInputs(credentialOrCreateOptions)
+		return {
+			credential: await navigator.credentials.create(createOptions) as PublicKeyCredentialCreation,
+			prfSalt,
+		};
+	}
+}
+
+export async function initWebauthn(
+	credentialOrCreateOptions: PrecreatedPublicKeyCredential | CredentialCreationOptions,
 	promptForPrfRetry: () => Promise<boolean | AbortSignal>,
-): Promise<{ mainKey: CryptoKey, keyInfo: AsymmetricEncryptedContainerKeys }> {
+): Promise<{
+	credential: PublicKeyCredentialCreation,
+	mainKey: CryptoKey,
+	keyInfo: AsymmetricEncryptedContainerKeys,
+}> {
+	const { credential, prfSalt } = await createPublicKeyCredentialIfNeeded(credentialOrCreateOptions);
 	const mainKeyInfo = await createAsymmetricMainKey();
 	const keyInfo = await createPrfKey(
 		credential,
@@ -1010,6 +1192,7 @@ export async function initPrf(
 		promptForPrfRetry,
 	);
 	return {
+		credential,
 		mainKey: mainKeyInfo.mainKey,
 		keyInfo: {
 			mainKey: mainKeyInfo.keyInfo,
@@ -1018,7 +1201,7 @@ export async function initPrf(
 	};
 }
 
-async function compressPublicKey(uncompressedRawPublicKey: Uint8Array): Promise<Uint8Array> {
+function compressPublicKey(uncompressedRawPublicKey: Uint8Array): Uint8Array {
 	// Check if the uncompressed public key has the correct length
 	if (uncompressedRawPublicKey.length !== 65 || uncompressedRawPublicKey[0] !== 0x04) {
 		throw new Error('Invalid uncompressed public key format');
@@ -1036,9 +1219,24 @@ async function compressPublicKey(uncompressedRawPublicKey: Uint8Array): Promise<
 	return compressedPublicKey;
 }
 
-async function createW3CDID(publicKey: CryptoKey): Promise<{ didKeyString: string }> {
-	const rawPublicKey = new Uint8Array(await crypto.subtle.exportKey("raw", publicKey));
-	const compressedPublicKeyBytes = await compressPublicKey(rawPublicKey)
+async function toUncompressedRaw(publicKey: CryptoKey | JWK): Promise<Uint8Array> {
+	if (publicKey instanceof CryptoKey) {
+		return new Uint8Array(await crypto.subtle.exportKey("raw", publicKey));
+	} else {
+		return new Uint8Array([0x04, ...fromBase64Url(publicKey.x), ...fromBase64Url(publicKey.y)]);
+	}
+}
+
+async function toJwk(publicKey: CryptoKey | JWK): Promise<JWK> {
+	if (publicKey instanceof CryptoKey) {
+		return (await crypto.subtle.exportKey("jwk", publicKey)) as JWK;
+	} else {
+		return publicKey;
+	}
+}
+
+async function createW3CDID(publicKey: CryptoKey | JWK): Promise<{ didKeyString: string }> {
+	const compressedPublicKeyBytes = compressPublicKey(await toUncompressedRaw(publicKey));
 	// Concatenate keyType and publicKey Uint8Arrays
 	const multicodecPublicKey = new Uint8Array(2 + compressedPublicKeyBytes.length);
 	varint.encodeTo(0x1200, multicodecPublicKey, 0);
@@ -1076,6 +1274,35 @@ export async function updateWalletState(
 	}
 }
 
+async function generateCredentialKeypair(
+	[encryptedContainer, mainKey]: OpenedContainer,
+): Promise<[
+	CryptoKey,
+	[CryptoKey, { privateKey: JWK } | { externalPrivateKey: WebauthnSignPrivateKey }],
+]> {
+	const [privateData,] = await openPrivateData(mainKey, encryptedContainer);
+	const state = foldState(privateData);
+	if (state.arkgSeeds?.length > 0) {
+		const { arkgSeeds } = state;
+		if (arkgSeeds.length > 1) {
+			throw new Error("Unimplemented: More than one ARKG seed available");
+		}
+
+		const [arkgSeed] = arkgSeeds;
+		const { publicKey, privateKey: externalPrivateKey } = await signExtension.generateArkgKeypair(arkgSeed);
+		return [publicKey, [null /* TODO: Remove assumption that private key will be returned */, { externalPrivateKey }]];
+
+	} else {
+		const { publicKey, privateKey } = await crypto.subtle.generateKey(
+			{ name: "ECDSA", namedCurve: "P-256" },
+			true,
+			['sign']
+		);
+		const privateKeyJwk = await crypto.subtle.exportKey("jwk", privateKey) as JWK;
+		return [publicKey, [privateKey, { privateKey: privateKeyJwk }]];
+	}
+}
+
 async function addNewCredentialKeypairs(
 	[privateData, mainKey]: OpenedContainer,
 	didKeyVersion: DidKeyVersion,
@@ -1088,13 +1315,8 @@ async function addNewCredentialKeypairs(
 }> {
 
 	const keypairsWithPrivateKeys = await Promise.all(Array.from({ length: numberOfKeyPairs }).map(async () => {
-		const { publicKey, privateKey } = await crypto.subtle.generateKey(
-			{ name: "ECDSA", namedCurve: "P-256" },
-			true,
-			['sign']
-		);
-		const publicKeyJwk: JWK = await crypto.subtle.exportKey("jwk", publicKey) as JWK;
-		const privateKeyJwk = await crypto.subtle.exportKey('jwk', privateKey) as JWK;
+		const [publicKey, [privateKey, wrappedPrivateKeyOrRef]] = await generateCredentialKeypair([privateData, mainKey]);
+		const publicKeyJwk: JWK = await toJwk(publicKey);
 		const did = await createDid(publicKey, didKeyVersion);
 		const kid = await deriveKid(publicKey, did);
 
@@ -1103,7 +1325,7 @@ async function addNewCredentialKeypairs(
 			did,
 			alg: "ES256",
 			publicKey: publicKeyJwk,
-			privateKey: privateKeyJwk,
+			...wrappedPrivateKeyOrRef,
 		};
 
 		return { kid, keypair, privateKey };
@@ -1135,17 +1357,24 @@ async function addNewCredentialKeypairs(
 	};
 }
 
-async function createDid(publicKey: CryptoKey, didKeyVersion: DidKeyVersion): Promise<string> {
+async function createDid(publicKey: CryptoKey | JWK, didKeyVersion: DidKeyVersion): Promise<string> {
 	if (didKeyVersion === "p256-pub") {
 		const { didKeyString } = await createW3CDID(publicKey);
 		return didKeyString;
 	} else if (didKeyVersion === "jwk_jcs-pub") {
-		const publicKeyJwk = await crypto.subtle.exportKey("jwk", publicKey);
+		const publicKeyJwk = await toJwk(publicKey);
 		return didUtil.createDid(publicKeyJwk as JWK);
 	}
 }
 
-export async function signJwtPresentation([privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState], nonce: string, audience: string, verifiableCredentials: any[], transactionDataResponseParams?: { transaction_data_hashes: string[], transaction_data_hashes_alg: string[] }): Promise<{ vpjwt: string }> {
+export async function signJwtPresentation(
+	[privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState],
+	nonce: string,
+	audience: string,
+	verifiableCredentials: any[],
+	executeWebauthn: (options: CredentialRequestOptions) => Promise<PublicKeyCredential>,
+	transactionDataResponseParams?: { transaction_data_hashes: string[], transaction_data_hashes_alg: string[] },
+): Promise<{ vpjwt: string }> {
 	const hasher = (data: string | ArrayBuffer, alg: string) => {
 		const encoded =
 			typeof data === 'string' ? new TextEncoder().encode(data) : new Uint8Array(data);
@@ -1162,21 +1391,29 @@ export async function signJwtPresentation([privateData, mainKey, calculatedState
 
 	const kid = await jose.calculateJwkThumbprint(cnf.jwk, "sha256");
 
-	const keypair = calculatedState.keypairs.filter((k) => k.kid === kid)[0];
+	const keypair = calculatedState.keypairs.filter((k) => k.kid === kid)[0]?.keypair;
 	if (!keypair) {
 		throw new Error("Key pair not found for kid (key ID): " + kid);
 	}
-	const { alg, privateKey } = keypair.keypair;
-	const importedPrivateKey = await crypto.subtle.importKey(
-		'jwk',
-		privateKey,
-		{ name: 'ECDSA', namedCurve: 'P-256' },
-		true,
-		['sign']
-	);
+
+	const { alg } = keypair;
 	const sdJwt = verifiableCredentials[0];
 	const sd_hash = toBase64Url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sdJwt)));
-	const kbJWT = await new SignJWT({
+
+	const performSignature = async (signJwt: SignJWT, keypair: CredentialKeyPair) => {
+		if ("privateKey" in keypair) {
+			const privateKey = await crypto.subtle.importKey("jwk", keypair.privateKey, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+			return signJwt.sign(privateKey);
+
+		} else {
+			return signJwt.sign(
+				null as jose.KeyLike,
+				{ signFunction: makeWebauthnSignFunction(config.WEBAUTHN_RPID, keypair, executeWebauthn) },
+			);
+		}
+	}
+
+	const signJwt = new SignJWT({
 		nonce,
 		aud: audience,
 		sd_hash,
@@ -1185,8 +1422,8 @@ export async function signJwtPresentation([privateData, mainKey, calculatedState
 		.setProtectedHeader({
 			typ: "kb+jwt",
 			alg: alg
-		})
-		.sign(importedPrivateKey);
+		});
+	const kbJWT = await performSignature(signJwt, keypair);
 
 	const jws = sdJwt + kbJWT;
 	return { vpjwt: jws };
@@ -1198,7 +1435,8 @@ export async function generateOpenid4vciProofs(
 	nonce: string,
 	audience: string,
 	issuer: string,
-	numberOfKeyPairs: number = 1
+	executeWebauthn: (index: number) => (options: CredentialRequestOptions) => Promise<PublicKeyCredential>,
+	numberOfKeyPairs: number = 1,
 ): Promise<[{ proof_jwts: string[] }, OpenedContainer]> {
 	const deriveKid = async (publicKey: CryptoKey) => {
 		const pubKey = await crypto.subtle.exportKey("jwk", publicKey);
@@ -1207,21 +1445,38 @@ export async function generateOpenid4vciProofs(
 	};
 	const { privateKeys, newPrivateData, keypairs } = await addNewCredentialKeypairs(container, didKeyVersion, deriveKid, numberOfKeyPairs);
 
-	const proof_jwts = await Promise.all(keypairs.map(async (keypair, index) => {
-		const privateKey = privateKeys[index];
-		const jws: string = await new SignJWT({
-			nonce: nonce,
-			aud: audience,
-			iss: issuer,
-		})
-			.setIssuedAt()
-			.setProtectedHeader({
-				alg: keypair.alg,
-				typ: "openid4vci-proof+jwt",
-				jwk: { ...keypair.publicKey, kid: keypair.kid, key_ops: ['verify'] } as JWK,
+	const proof_jwts = await sequentialAll(keypairs.map((keypair, index) => {
+		return async () => {
+			const privateKey = privateKeys[index];
+			const performSignature = async (signJwt: SignJWT, privateKey: CryptoKey, keypair: CredentialKeyPair) => {
+				if (privateKey) {
+					return signJwt.sign(privateKey);
+
+				} else if ("externalPrivateKey" in keypair) {
+					return signJwt.sign(
+						null as jose.KeyLike,
+						{ signFunction: makeWebauthnSignFunction(config.WEBAUTHN_RPID, keypair, executeWebauthn(index)) },
+					);
+
+				} else {
+					throw new Error("Failed to determine private signing key for new credential keypair");
+				}
+			}
+
+			const signJwt = new SignJWT({
+				nonce: nonce,
+				aud: audience,
+				iss: issuer,
 			})
-			.sign(privateKey);
-		return jws;
+				.setIssuedAt()
+				.setProtectedHeader({
+					alg: keypair.alg,
+					typ: "openid4vci-proof+jwt",
+					jwk: { ...keypair.publicKey, kid: keypair.kid, key_ops: ['verify'] } as JWK,
+				});
+
+			return await performSignature(signJwt, privateKey, keypair);
+		}
 	}));
 
 	return [{ proof_jwts: proof_jwts }, newPrivateData];
@@ -1280,6 +1535,10 @@ export async function generateDeviceResponse([privateData, mainKey, calculatedSt
 		throw new Error("Key pair not found for kid (key ID): " + kid);
 	}
 
+	if (!("privateKey" in keypair.keypair)) {
+		// TODO
+		throw new Error("Not implemented: generateDeviceResponse with external private key");
+	}
 	const { alg, privateKey } = keypair.keypair;
 	const privateKeyJwk = privateKey;
 
@@ -1321,6 +1580,10 @@ export async function generateDeviceResponseWithProximity([privateData, mainKey,
 		throw new Error("Key pair not found for kid (key ID): " + kid);
 	}
 
+	if (!("privateKey" in keypair.keypair)) {
+		// TODO
+		throw new Error("Not implemented: generateDeviceResponseWithProximity with external private key");
+	}
 	const { alg, privateKey } = keypair.keypair;
 	const privateKeyJwk = privateKey;
 
