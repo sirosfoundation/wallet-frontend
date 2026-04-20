@@ -823,18 +823,38 @@ export class WebSocketTransport implements IFlowTransport {
 			return;
 		}
 
+		const payload: {
+			trusted: TrustEvaluationResponse['trusted'];
+			name?: TrustEvaluationResponse['name'];
+			logo?: TrustEvaluationResponse['logo'];
+			framework?: TrustEvaluationResponse['framework'];
+			reason?: TrustEvaluationResponse['reason'];
+			metadata?: TrustEvaluationResponse['metadata'];
+		} = {
+			trusted: response.trusted,
+		};
+
+		if (response.name !== undefined) {
+			payload.name = response.name;
+		}
+		if (response.logo !== undefined) {
+			payload.logo = response.logo;
+		}
+		if (response.framework !== undefined) {
+			payload.framework = response.framework;
+		}
+		if (response.reason !== undefined) {
+			payload.reason = response.reason;
+		}
+		if (response.metadata !== undefined) {
+			payload.metadata = response.metadata;
+		}
+
 		const msg = {
 			type: 'flow_action',
 			flow_id: flowId,
 			action: 'trust_result',
-			payload: {
-				trusted: response.trusted,
-				name: response.name ?? '',
-				logo: response.logo ?? '',
-				framework: response.framework ?? '',
-				reason: response.reason ?? '',
-				metadata: response.metadata ?? {},
-			},
+			payload,
 			timestamp: new Date().toISOString(),
 		};
 
