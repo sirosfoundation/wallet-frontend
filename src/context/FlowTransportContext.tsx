@@ -38,6 +38,9 @@ export type {
 	MatchRequest as WSMatchRequest,
 	MatchResponse as WSMatchResponse,
 	MatchRequestHandler as WSMatchRequestHandler,
+	TrustEvaluationRequest as WSTrustEvaluationRequest,
+	TrustEvaluationResponse as WSTrustEvaluationResponse,
+	TrustEvaluationHandler as WSTrustEvaluationHandler,
 } from '@/lib/transport/WebSocketTransport';
 
 /**
@@ -66,6 +69,8 @@ interface FlowTransportContextValue {
 	registerSignHandler: (handler: SignRequestHandler) => () => void;
 	/** Register a match request handler for client-side credential matching (for WebSocket) */
 	registerMatchHandler: (handler: MatchRequestHandler) => () => void;
+	/** Register a trust evaluation handler for client-side trust evaluation (for WebSocket) */
+	registerTrustHandler: (handler: import('@/lib/transport/WebSocketTransport').TrustEvaluationHandler) => () => void;
 }
 
 const FlowTransportContext = createContext<FlowTransportContextValue | null>(null);
@@ -256,6 +261,14 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 		return () => {};
 	}, [wsTransport]);
 
+	// Register trust handler on WebSocket transport for client-side trust evaluation
+	const registerTrustHandler = useCallback((handler: import('@/lib/transport/WebSocketTransport').TrustEvaluationHandler): (() => void) => {
+		if (wsTransport) {
+			return wsTransport.onTrustEvaluation(handler);
+		}
+		return () => {};
+	}, [wsTransport]);
+
 	const value = useMemo(() => ({
 		transport,
 		transportType,
@@ -268,7 +281,8 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 		engineCapabilities,
 		registerSignHandler,
 		registerMatchHandler,
-	}), [transport, transportType, isConnected, reconnect, availableTransports, lastError, clearError, capabilitiesLoaded, engineCapabilities, registerSignHandler, registerMatchHandler]);
+		registerTrustHandler,
+	}), [transport, transportType, isConnected, reconnect, availableTransports, lastError, clearError, capabilitiesLoaded, engineCapabilities, registerSignHandler, registerMatchHandler, registerTrustHandler]);
 
 	return (
 		<FlowTransportContext.Provider value={value}>

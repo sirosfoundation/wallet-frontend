@@ -15,6 +15,7 @@ import { AppSettingsProvider } from './context/AppSettingsProvider';
 import { NotificationProvider } from './context/NotificationProvider';
 import { FlowTransportProviderWrapper } from './context/FlowTransportProviderWrapper';
 import { WebSocketSignHandlerProvider } from './context/WebSocketSignHandlerProvider';
+import { WebSocketTrustHandlerProvider } from './context/WebSocketTrustHandlerProvider';
 import { ErrorDialogContextProvider } from './context/ErrorDialogContextProvider';
 import { TxCodeInputProvider } from './context/TxCodeInputContext';
 
@@ -33,6 +34,7 @@ const AppProvider: React.FC<RootProviderProps> = ({ children }) => {
 				<CredentialsContextProvider>
 					<FlowTransportProviderWrapper>
 						<WebSocketSignHandlerProvider>
+						<WebSocketTrustHandlerProvider>
 							<I18nextProvider i18n={i18n}>
 										<ErrorDialogContextProvider>
 											<OpenID4VPContextProvider>
@@ -52,6 +54,7 @@ const AppProvider: React.FC<RootProviderProps> = ({ children }) => {
 											</OpenID4VPContextProvider>
 										</ErrorDialogContextProvider>
 									</I18nextProvider>
+						</WebSocketTrustHandlerProvider>
 						</WebSocketSignHandlerProvider>
 					</FlowTransportProviderWrapper>
 				</CredentialsContextProvider>
