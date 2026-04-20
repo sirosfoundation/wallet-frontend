@@ -782,11 +782,10 @@ export class WebSocketTransport implements IFlowTransport {
 		}
 
 		const SUPPORTED_SUBJECT_TYPES = ['credential_verifier', 'credential_issuer'] as const;
-		type SupportedSubjectType = (typeof SUPPORTED_SUBJECT_TYPES)[number];
 		const rawSubjectType = rawRequest.subject_type;
 		if (
 			!rawSubjectType ||
-			!SUPPORTED_SUBJECT_TYPES.includes(rawSubjectType as SupportedSubjectType)
+			!SUPPORTED_SUBJECT_TYPES.includes(rawSubjectType as (typeof SUPPORTED_SUBJECT_TYPES)[number])
 		) {
 			logger.error('Malformed trust evaluation request: missing or unknown subject_type', {
 				subject_type: rawSubjectType,
