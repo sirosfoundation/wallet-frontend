@@ -1,10 +1,10 @@
 /**
  * Shared trust evaluation types used across OID4VCI and OID4VP flows.
  *
- * Trust evaluation is performed server-side by the wallet backend, which
- * delegates to an AuthZEN PDP (Policy Decision Point). The frontend never
- * performs its own trust evaluation — it displays the result provided by
- * the backend.
+ * Trust evaluation is delegated to an AuthZEN PDP (Policy Decision Point)
+ * via the wallet backend's /v1/evaluate endpoint. Both the HTTP proxy and
+ * WebSocket transports use the same frontend-side TrustEvaluator interface
+ * to call this endpoint.
  *
  * The tri-state `TrustStatus` distinguishes:
  * - `'trusted'`   — PDP evaluated and approved the entity

@@ -101,6 +101,48 @@ export type MatchResponse = CredentialsMatchedResult;
 export type MatchRequestHandler = (request: MatchRequest) => Promise<MatchResponse>;
 
 /**
+ * Trust evaluation request from server.
+ * Sent via flow_progress when the backend needs the frontend to evaluate
+ * trust using the AuthZEN PDP (via /v1/evaluate and optionally /v1/resolve).
+ */
+export interface TrustEvaluationRequest {
+	flowId: string;
+	/** The subject identifier (client_id for verifiers, issuer URL for issuers) */
+	subjectId: string;
+	/** "credential_verifier" or "credential_issuer" */
+	subjectType: string;
+	/** Cryptographic key material for binding validation (nil for DID schemes) */
+	keyMaterial?: {
+		type: 'x5c' | 'jwk';
+		x5c?: string[];
+		jwk?: unknown;
+	};
+	/** Whether the frontend should resolve a DID document first */
+	requiresResolution?: boolean;
+	/** Signed request JWT (for DID schemes) */
+	requestJwt?: string;
+	/** Additional evaluation context */
+	context?: Record<string, unknown>;
+}
+
+/**
+ * Trust evaluation result to send back to server
+ */
+export interface TrustEvaluationResponse {
+	trusted: boolean;
+	name?: string;
+	logo?: string;
+	framework?: string;
+	reason?: string;
+	metadata?: Record<string, unknown>;
+}
+
+/**
+ * Trust evaluation handler callback type
+ */
+export type TrustEvaluationHandler = (request: TrustEvaluationRequest) => Promise<TrustEvaluationResponse>;
+
+/**
  * Flow action message to send to server
  */
 export interface FlowAction {
@@ -123,6 +165,7 @@ export class WebSocketTransport implements IFlowTransport {
 	private errorCallbacks = new Set<(error: Error) => void>();
 	private signHandlers = new Set<SignRequestHandler>();
 	private matchHandlers = new Set<MatchRequestHandler>();
+	private trustHandlers = new Set<TrustEvaluationHandler>();
 
 	private reconnectAttempts = 0;
 	private maxReconnectAttempts = 5;
@@ -494,6 +537,17 @@ export class WebSocketTransport implements IFlowTransport {
 		return () => this.matchHandlers.delete(handler);
 	}
 
+	/**
+	 * Register a handler for trust evaluation requests from the server.
+	 * When the server needs trust evaluation (verifier or issuer), it sends a
+	 * flow_progress message with trust_evaluation_required. The handler should
+	 * call the AuthZEN PDP (via /v1/evaluate) and return the result.
+	 */
+	onTrustEvaluation(handler: TrustEvaluationHandler): () => void {
+		this.trustHandlers.add(handler);
+		return () => this.trustHandlers.delete(handler);
+	}
+
 	// ===== Internal Methods =====
 
 	private handleMessage(message: ServerMessage): void {
@@ -501,8 +555,15 @@ export class WebSocketTransport implements IFlowTransport {
 		const flowId = (message.flow_id as string) || (message.flowId as string);
 		const { type } = message;
 
-		// Handle progress events separately
+		// Handle progress events — check for trust evaluation requests first
 		if (type === 'progress' || type === 'flow_progress') {
+			const payload = message.payload as Record<string, unknown> | undefined;
+			if (payload?.trust_evaluation_required) {
+				void this.handleTrustEvaluationRequest(flowId, payload).catch((error: unknown) => {
+					logger.error('Failed to handle trust evaluation request', { flowId, error });
+				});
+				return;
+			}
 			this.emitProgress({
 				flowId,
 				stage: (message.step as string) || (message.stage as string),
@@ -701,6 +762,124 @@ export class WebSocketTransport implements IFlowTransport {
 			this.ws.send(JSON.stringify(msg));
 		} catch (err) {
 			logger.error('Failed to send match response:', err);
+		}
+	}
+
+	/**
+	 * Handle a trust evaluation request from a flow_progress message.
+	 * The backend sends this when it needs the frontend to evaluate trust
+	 * using the same TrustEvaluator used by the HTTP proxy path.
+	 */
+	private async handleTrustEvaluationRequest(
+		flowId: string,
+		payload: Record<string, unknown>,
+	): Promise<void> {
+		const rawRequest = payload.request as Record<string, unknown> | undefined;
+		if (!rawRequest?.subject_id) {
+			logger.error('Malformed trust evaluation request: missing subject_id');
+			this.sendTrustResult(flowId, { trusted: false, reason: 'Malformed request: missing subject_id' });
+			return;
+		}
+
+		const SUPPORTED_SUBJECT_TYPES = ['credential_verifier', 'credential_issuer'] as const;
+		const rawSubjectType = rawRequest.subject_type;
+		if (
+			!rawSubjectType ||
+			!SUPPORTED_SUBJECT_TYPES.includes(rawSubjectType as (typeof SUPPORTED_SUBJECT_TYPES)[number])
+		) {
+			logger.error('Malformed trust evaluation request: missing or unknown subject_type', {
+				subject_type: rawSubjectType,
+			});
+			this.sendTrustResult(flowId, {
+				trusted: false,
+				reason: `Malformed request: unknown subject_type '${String(rawSubjectType)}'`,
+			});
+			return;
+		}
+
+		const request: TrustEvaluationRequest = {
+			flowId,
+			subjectId: rawRequest.subject_id as string,
+			subjectType: rawRequest.subject_type as string,
+			keyMaterial: rawRequest.key_material as TrustEvaluationRequest['keyMaterial'],
+			requiresResolution: rawRequest.requires_resolution as boolean | undefined,
+			requestJwt: rawRequest.request_jwt as string | undefined,
+			context: rawRequest.context as Record<string, unknown> | undefined,
+		};
+
+		if (this.trustHandlers.size === 0) {
+			logger.error('No trust handlers registered, cannot evaluate trust');
+			this.sendTrustResult(flowId, { trusted: false, reason: 'No trust handler available' });
+			return;
+		}
+
+		let lastError: Error | null = null;
+		for (const handler of this.trustHandlers) {
+			try {
+				const response = await handler(request);
+				this.sendTrustResult(flowId, response);
+				return;
+			} catch (err) {
+				lastError = err instanceof Error ? err : new Error(String(err));
+				logger.warn('Trust handler failed:', lastError.message);
+			}
+		}
+
+		// All handlers failed — fail closed (untrusted)
+		this.sendTrustResult(flowId, {
+			trusted: false,
+			reason: lastError?.message || 'Trust evaluation failed',
+		});
+	}
+
+	/**
+	 * Send a trust evaluation result back to the server as a flow_action.
+	 */
+	private sendTrustResult(flowId: string, response: TrustEvaluationResponse): void {
+		if (!this.isConnected()) {
+			logger.error('Cannot send trust result: WebSocket not connected');
+			return;
+		}
+
+		const payload: {
+			trusted: TrustEvaluationResponse['trusted'];
+			name?: TrustEvaluationResponse['name'];
+			logo?: TrustEvaluationResponse['logo'];
+			framework?: TrustEvaluationResponse['framework'];
+			reason?: TrustEvaluationResponse['reason'];
+			metadata?: TrustEvaluationResponse['metadata'];
+		} = {
+			trusted: response.trusted,
+		};
+
+		if (response.name !== undefined) {
+			payload.name = response.name;
+		}
+		if (response.logo !== undefined) {
+			payload.logo = response.logo;
+		}
+		if (response.framework !== undefined) {
+			payload.framework = response.framework;
+		}
+		if (response.reason !== undefined) {
+			payload.reason = response.reason;
+		}
+		if (response.metadata !== undefined) {
+			payload.metadata = response.metadata;
+		}
+
+		const msg = {
+			type: 'flow_action',
+			flow_id: flowId,
+			action: 'trust_result',
+			payload,
+			timestamp: new Date().toISOString(),
+		};
+
+		try {
+			this.ws!.send(JSON.stringify(msg));
+		} catch (err) {
+			logger.error('Failed to send trust result:', err);
 		}
 	}
 
