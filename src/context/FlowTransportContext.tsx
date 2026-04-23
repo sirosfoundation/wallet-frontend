@@ -26,9 +26,12 @@ import {
 	WEBSOCKET_TRANSPORT_ALLOWED,
 	DIRECT_TRANSPORT_ALLOWED,
 	TRANSPORT_PREFERENCE,
+	BACKEND_URL,
 } from '@/config';
 import type { TransportType } from '@/lib/transport/types/FlowTypes';
 import { logger } from '@/logger';
+import { createIssuerTrustEvaluator, createVerifierTrustEvaluator } from '@/lib/services/TrustEvaluator';
+import { TrustEvaluators } from '@/lib/transport';
 
 // Re-export sign and match types with WS prefix for clarity
 export type {
@@ -96,6 +99,27 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 	const [capabilitiesLoaded, setCapabilitiesLoaded] = useState(false);
 	const [engineCapabilities, setEngineCapabilities] = useState<string[]>([]);
 	const [wsCapabilityAvailable, setWsCapabilityAvailable] = useState(false);
+
+	const trustEvaluators = useMemo((): TrustEvaluators => {
+		const evaluateIssuerTrust = createIssuerTrustEvaluator({
+			httpClient: httpProxy,
+			backendUrl: BACKEND_URL,
+			getAuthToken: () => authToken ?? '',
+			tenantId,
+		});
+
+		const evaluateVerifierTrust = createVerifierTrustEvaluator({
+			httpClient: httpProxy,
+			backendUrl: BACKEND_URL,
+			getAuthToken: () => authToken ?? '',
+			tenantId,
+		});
+
+		return {
+		evaluateIssuerTrust,
+		evaluateVerifierTrust,
+		};
+	}, [tenantId, authToken]);
 
 	// Fetch engine capabilities on mount
 	useEffect(() => {

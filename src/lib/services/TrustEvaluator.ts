@@ -85,7 +85,7 @@ export interface TrustEvaluatorConfig {
  * }
  * ```
  */
-export function createTrustEvaluator(config: TrustEvaluatorConfig): OpenID4VPTrustEvaluator {
+export function createVerifierTrustEvaluator(config: TrustEvaluatorConfig): OpenID4VPTrustEvaluator {
 	const clientConfig: AuthZENClientConfig = {
 		httpClient: config.httpClient,
 		baseUrl: config.backendUrl,

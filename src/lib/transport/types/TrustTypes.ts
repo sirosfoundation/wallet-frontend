@@ -12,6 +12,8 @@
  * - `'unknown'`   — No PDP configured, PDP unreachable, or evaluation error
  */
 
+import { IssuerTrustEvaluationParams, OpenID4VPTrustEvaluator, TrustEvaluationResult } from '@/lib/services/TrustEvaluator';
+
 /**
  * Trust evaluation status from the backend PDP.
  */
@@ -39,4 +41,9 @@ export interface TrustEvaluation {
 	 * on the PDP implementation; treat as opaque display data.
 	 */
 	metadata?: Record<string, unknown>;
+}
+
+export interface TrustEvaluators {
+	evaluateIssuerTrust(params: IssuerTrustEvaluationParams): Promise<TrustEvaluationResult>;
+	evaluateVerifierTrust: OpenID4VPTrustEvaluator;
 }
