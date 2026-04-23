@@ -64,7 +64,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 			title: "OID4VCI Flow Error",
 			description: err instanceof Error ? err.message : String(err),
 		});
-	}, [logger, displayError]);
+	}, [displayError]);
 
 	/**
 	 * Handle OID4VCI flow progress events.
@@ -72,7 +72,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	 */
 	const handleOID4VCIProgress = useCallback((event: FlowProgressEvent) => {
 		logger.debug("OID4VCI flow progress:", event);
-	}, [logger]);
+	}, []);
 
 	/**
 	 * Handle warnings during credential issuance in OID4VCI flows.
@@ -82,7 +82,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	const handleOID4VCIIssuanceWarnings = useCallback(async (warnings: Array<{ code: string }>) => {
 		logger.warn('Credential issuance warnings:', warnings);
 		const codes = warnings.map(w => w.code).join(', ');
-		return confirm(`Credential has warning(s): ${codes}. Proceed anyway?`);
+		return window.confirm(`Credential has warning(s): ${codes}. Proceed anyway?`);
 	}, []);
 
 	const {

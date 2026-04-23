@@ -119,7 +119,7 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 		evaluateIssuerTrust,
 		evaluateVerifierTrust,
 		};
-	}, [tenantId, authToken]);
+	}, [tenantId, authToken, httpProxy]);
 
 	// Fetch engine capabilities on mount
 	useEffect(() => {
@@ -207,7 +207,7 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 			unsubscribeError();
 			ws.disconnect();
 		};
-	}, [authToken, tenantId, capabilitiesLoaded, wsCapabilityAvailable]);
+	}, [authToken, tenantId, capabilitiesLoaded, wsCapabilityAvailable, trustEvaluators]);
 
 	// Update auth token and tenant ID on WebSocket when they change
 	useEffect(() => {

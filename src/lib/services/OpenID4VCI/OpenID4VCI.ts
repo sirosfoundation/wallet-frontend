@@ -13,14 +13,12 @@ import { CurrentSchema } from '@/services/WalletStateSchema';
 import SessionContext from '@/context/SessionContext';
 import { useTenant } from '@/context/TenantContext';
 import { CredentialConfigurationSupported, CredentialOfferSchema, VerifiableCredentialFormat } from 'wallet-common';
-import { useTranslation } from 'react-i18next';
 import CredentialsContext from "@/context/CredentialsContext";
 import { WalletStateUtils } from '@/services/WalletStateUtils';
 import { fromBase64Url } from '@/util';
 import { DataItem, parse } from '@auth0/mdl';
 import { cborDecode, cborEncode } from '@auth0/mdl/lib/cbor';
 import { COSEKeyToJWK } from "cose-kit";
-import { notify } from "@/context/notifier";
 import { IOpenID4VCIClientStateRepository } from '@/lib/interfaces/IOpenID4VCIClientStateRepository';
 import { useNavigate } from 'react-router-dom';
 import { logger } from '@/logger';
@@ -118,7 +116,6 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 	const { api, keystore } = useContext(SessionContext);
 	const { credentialEngine } = useContext<any>(CredentialsContext);
 
-	const { t } = useTranslation();
 	const [receivedCredentialsArray, setReceivedCredentialsArray] = useState<string[] | null>(null);
 
 	const openID4VCIHelper = useOpenID4VCIHelper();

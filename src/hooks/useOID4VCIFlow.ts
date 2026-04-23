@@ -103,8 +103,9 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 	 * Cleanup on unmount.
 	 */
 	useEffect(() => {
+		const controller = abortRef.current;
 		return () => {
-			abortRef.current.abort();
+			controller.abort();
 		}
 	}, []);
 
@@ -268,7 +269,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		} finally {
 			setIsLoading(false);
 		}
-	}, [transportType, transport, openID4VCI, onProgress, onError, validateCredentialOffer]);
+	}, [transportType, transport, openID4VCI, onProgress, onError, validateCredentialOffer, assertNotAborted]);
 
 	/**
 	 * Handle authorization response (after OAuth redirect)
@@ -353,7 +354,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		} finally {
 			setIsLoading(false);
 		}
-	}, [transportType, transport, openID4VCI, onProgress, onError]);
+	}, [transportType, transport, openID4VCI, onProgress, onError, assertNotAborted]);
 
 	/**
 	 * Request credentials with pre-authorized code flow
@@ -440,7 +441,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			offerStateRef.current = null;
 			setIsLoading(false);
 		}
-	}, [transportType, transport, openID4VCI, onProgress, onError]);
+	}, [transportType, transport, openID4VCI, onProgress, onError, assertNotAborted]);
 
 	/**
 	 * Handle received credentials: validate, store in wallet, and notify.
@@ -543,7 +544,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		} finally {
 			setIsLoading(false);
 		}
-	}, [api, keystore,	credentialEngine.credentialParsingEngine, onError, onIssuanceWarnings]);
+	}, [api, keystore,	credentialEngine, onError, onIssuanceWarnings, assertNotAborted]);
 
 	return {
 		handleCredentialOffer,
