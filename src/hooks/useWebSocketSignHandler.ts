@@ -16,6 +16,8 @@ import SessionContext from '@/context/SessionContext';
 import { useApi } from '@/api';
 import StatusContext from '@/context/StatusContext';
 import { logger } from '@/logger';
+import type { ProofObject } from '@/lib/transport/WebSocketTransport';
+import { OPENID4VCI_PROOF_TYPE_PRECEDENCE } from '@/config';
 
 /**
  * Hook that registers a sign handler with the WebSocket transport.
@@ -41,27 +43,68 @@ export function useWebSocketSignHandler(): void {
 
 		switch (request.action) {
 			case 'generate_proof': {
-				// Generate OID4VCI proof JWT
-				const { audience, nonce } = request.params;
-				if (!audience || !nonce) {
-					throw new Error('Missing audience or nonce for proof generation');
+				const { audience, nonce = "", count = 1, proofTypesSupported, issuer } = request.params;
+				if (!audience) {
+					throw new Error('Missing audience for proof generation');
+				}
+				if (!proofTypesSupported) {
+					throw new Error('Missing proofTypesSupported for proof generation');
 				}
 
-				// Use the keystore's generateOpenid4vciProofs method
-				// This generates a proof and optionally creates a new key pair
-				const [{ proof_jwts: [proofJwt] }, newPrivateData, keystoreCommit] =
-					await keystore.generateOpenid4vciProofs([{
+				// Select proof type
+				const proofType = OPENID4VCI_PROOF_TYPE_PRECEDENCE
+					.split(',')
+					.find(type => proofTypesSupported[type]) as 'jwt' | 'attestation' | undefined;
+
+				if (proofType === 'attestation') {
+					const [{ keypairs }, newPrivateData, keystoreCommit] =
+						await keystore.generateKeypairs(count);
+
+					// Persist key changes
+					await api.updatePrivateData(newPrivateData);
+					await keystoreCommit();
+
+					const response = await api.post('/wallet-provider/key-attestation/generate', {
+						jwks: keypairs.map(kp => kp.publicKey),
+						openid4vci: { nonce },
+					});
+
+					const keyAttestation = response.data?.key_attestation;
+					if (!keyAttestation || typeof keyAttestation !== 'string') {
+						throw new Error('Failed to get key attestation from wallet backend');
+					}
+
+					const proofs: ProofObject[] = [{ proof_type: 'attestation', attestation: keyAttestation }];
+
+					logger.debug(`[WS Sign Handler] Generated attestation proof for ${count} key(s)`);
+					return { proofs };
+				}
+
+				if (proofType === 'jwt') {
+					// Generate multiple proofs based on count
+					const requests = Array.from({ length: count }, () => ({
 						nonce,
 						audience,
-						issuer: audience, // The audience is typically the issuer for VCI proofs
-					}]);
+						issuer,
+					}));
 
-				// Persist any key changes
-				await api.updatePrivateData(newPrivateData);
-				await keystoreCommit();
+					const [{ proof_jwts }, newPrivateData, keystoreCommit] =
+						await keystore.generateOpenid4vciProofs(requests);
 
-				logger.debug('[WS Sign Handler] Generated proof JWT');
-				return { proofJwt };
+					// Persist key changes
+					await api.updatePrivateData(newPrivateData);
+					await keystoreCommit();
+
+					const proofs: ProofObject[] = proof_jwts.map(jwt => ({
+						proof_type: proofType,
+						jwt,
+					}));
+
+					logger.debug(`[WS Sign Handler] Generated ${proofs.length} proof(s)`);
+					return { proofs };
+				}
+
+				throw new Error(`Unsupported proof type requested: ${proofType}`);
 			}
 
 			case 'sign_presentation': {

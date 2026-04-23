@@ -48,6 +48,17 @@ interface ServerMessage {
 	[key: string]: unknown;
 }
 
+interface ProofTypeConfig {
+	key_attestations_required?: Record<string, unknown> | null;
+	proof_signing_alg_values_supported: string[];
+}
+
+interface ProofTypesSupported {
+	jwt?: ProofTypeConfig;
+	attestation?: ProofTypeConfig;
+	cwt?: ProofTypeConfig;
+}
+
 /**
  * Sign request from server
  */
@@ -58,7 +69,10 @@ export interface SignRequest {
 	params: {
 		audience?: string;
 		nonce?: string;
+		issuer?: string;
 		proofType?: string;
+		proofTypesSupported?: ProofTypesSupported;
+		count?: number;
 		credentialsToInclude?: Array<{
 			credentialId: string;
 			disclosedClaims?: string[];
@@ -67,10 +81,21 @@ export interface SignRequest {
 }
 
 /**
+ * Individual proof object for OID4VCI
+ */
+export interface ProofObject {
+	proof_type: 'jwt' | 'cwt' | 'attestation';
+	jwt?: string;
+	cwt?: string;
+	attestation?: string;
+}
+
+/**
  * Sign response to send back to server
  */
 export interface SignResponse {
-	proofJwt?: string;
+	proofJwt?: string;       // single proof (legacy)
+	proofs?: ProofObject[];  // batch proofs
 	vpToken?: string;
 }
 
@@ -544,11 +569,21 @@ export class WebSocketTransport implements IFlowTransport {
 	 */
 	private async handleSignRequest(message: ServerMessage): Promise<void> {
 		const flowId = (message.flow_id as string) || (message.flowId as string) || '';
+		const rawParams = (message.params as Record<string, unknown>) || {};
+
 		const request: SignRequest = {
 			flowId,
 			messageId: (message.message_id as string) || (message.messageId as string) || '',
 			action: message.action as 'generate_proof' | 'sign_presentation',
-			params: (message.params as SignRequest['params']) || {},
+			params: {
+				audience: rawParams.audience as string | undefined,
+				issuer: rawParams.issuer as string | undefined,
+				nonce: rawParams.nonce as string | undefined,
+				proofType: rawParams.proof_type as string | undefined,
+				proofTypesSupported: rawParams.proof_types_supported as SignRequest['params']['proofTypesSupported'],
+				count: rawParams.count as number | undefined,
+				credentialsToInclude: rawParams.credentials_to_include as SignRequest['params']['credentialsToInclude'],
+			},
 		};
 
 		if (this.signHandlers.size === 0) {
@@ -604,6 +639,7 @@ export class WebSocketTransport implements IFlowTransport {
 			msg.error = error;
 		} else {
 			if (response.proofJwt) msg.proof_jwt = response.proofJwt;
+			if (response.proofs) msg.proofs = response.proofs;
 			if (response.vpToken) msg.vp_token = response.vpToken;
 		}
 
