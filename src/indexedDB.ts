@@ -47,6 +47,10 @@ function getMappedStoreName(storeName: string): string {
 		return 'externalEntities';
 	}
 
+	if (/^\/issuer\/[^/]+\/metadata/.test(storeName)) {
+		return 'externalEntities';
+	}
+
 	// Check for tenant-prefixed paths (e.g., /t/myTenant/issuer/all)
 	const basePath = getTenantScopedBasePath(storeName);
 	if (basePath) {
