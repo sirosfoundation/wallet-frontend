@@ -181,7 +181,7 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 			return;
 		}
 
-		const ws = new WebSocketTransport(WS_URL, authToken, tenantId);
+		const ws = new WebSocketTransport(WS_URL, authToken, tenantId, trustEvaluators);
 		setWsTransport(ws);
 
 		// Connect to WebSocket

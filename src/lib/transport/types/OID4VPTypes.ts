@@ -14,7 +14,8 @@ export interface OID4VPFlowParams {
 	// ===== Entry point =====
 
 	/** Authorization request URI */
-	authorizationRequestUri?: string;
+	requestUriRef?: string;
+	clientId?: string;
 
 	// ===== Continuation parameters (after credential selection) =====
 

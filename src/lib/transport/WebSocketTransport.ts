@@ -12,6 +12,7 @@
  * - Better error handling with flow state
  */
 
+import { TrustStatus as TrustStatusEnum } from 'wallet-common';
 import type { IFlowTransport } from './types/IFlowTransport';
 import type {
 	FlowRequest,
@@ -143,6 +144,8 @@ export class WebSocketTransport implements IFlowTransport {
 	private authToken: string;
 	private tenantId: string;
 
+	private currentFlowId: string | null = null;
+
 	private pending = new Map<string, PendingRequest>();
 	private progressCallbacks = new Set<(event: FlowProgressEvent) => void>();
 	private errorCallbacks = new Set<(error: Error) => void>();
@@ -156,10 +159,17 @@ export class WebSocketTransport implements IFlowTransport {
 
 	private connectionPromise: Promise<void> | null = null;
 
-	constructor(wsUrl: string, authToken: string, tenantId: string = 'default') {
+	private trustEvaluators: TrustEvaluators;
+
+	constructor(wsUrl: string, authToken: string, tenantId: string = 'default', trustEvaluators: TrustEvaluators) {
 		this.wsUrl = wsUrl;
 		this.authToken = authToken;
 		this.tenantId = tenantId;
+		this.trustEvaluators = trustEvaluators;
+	}
+
+	getCurrentFlowId(): string | null {
+		return this.currentFlowId;
 	}
 
 	// ===== Connection Lifecycle =====
@@ -240,6 +250,7 @@ export class WebSocketTransport implements IFlowTransport {
 			this.ws.close(1000, 'Client disconnect');
 			this.ws = null;
 		}
+		this.currentFlowId = null;
 		this.connectionPromise = null;
 	}
 
@@ -252,6 +263,21 @@ export class WebSocketTransport implements IFlowTransport {
 	async startOID4VCIFlow(params: OID4VCIFlowParams): Promise<OID4VCIFlowResult> {
 		// Determine which phase of the flow we're in based on params
 
+		// Resumption: same-tab redirect returned with auth code
+		// We have both the saved offer AND the authorization code from the redirect URL
+		if (params.authorizationCode && params.credentialOffer) {
+			const response = await this.send({
+				type: 'flow_start',
+				protocol: 'oid4vci',
+				offer: params.credentialOffer,
+				redirect_uri: params.redirectUri,
+				auth_code: params.authorizationCode,
+				code_verifier: params.codeVerifier,
+			});
+
+			return this.mapOID4VCIResponse(response);
+		}
+
 		if (params.credentialOfferUri || params.credentialOffer) {
 			// Phase 1: Start flow with credential offer
 			const response = await this.send({
@@ -259,6 +285,7 @@ export class WebSocketTransport implements IFlowTransport {
 				protocol: 'oid4vci',
 				credential_offer_uri: params.credentialOfferUri,
 				offer: params.credentialOffer,
+				redirect_uri: params.redirectUri,  // Include redirect URI for authorization code flow continuation
 			});
 
 			return this.mapOID4VCIResponse(response);
@@ -285,8 +312,9 @@ export class WebSocketTransport implements IFlowTransport {
 				type: 'flow_action',
 				action: 'authorization_complete',
 				payload: {
-					authorization_code: params.authorizationCode,
+					code: params.authorizationCode,
 					code_verifier: params.codeVerifier,
+					state: params.state,
 				},
 			});
 
@@ -311,7 +339,7 @@ export class WebSocketTransport implements IFlowTransport {
 	}
 
 	private mapOID4VCIResponse(response: ServerMessage): OID4VCIFlowResult {
-		if (response.type === 'error') {
+		if (response.type === 'error' || response.type === 'flow_error') {
 			return {
 				success: false,
 				error: {
@@ -326,49 +354,81 @@ export class WebSocketTransport implements IFlowTransport {
 			success: true,
 		};
 
+		const payload = response.payload as Record<string, unknown> | undefined;
+
 		// Metadata phase
-		if (response.issuerMetadata) {
-			result.issuerMetadata = response.issuerMetadata as OID4VCIFlowResult['issuerMetadata'];
+		if (payload?.issuer_metadata) {
+			result.issuerMetadata = payload.issuer_metadata as OID4VCIFlowResult['issuerMetadata'];
 		}
-		if (response.issuerInfo) {
-			result.issuerInfo = mapIssuerInfo(response.issuerInfo as Record<string, unknown>);
+		if (payload?.issuer_info) {
+			result.issuerInfo = mapIssuerInfo(payload.issuer_info as Record<string, unknown>);
 		}
-		if (response.credentialConfigurations) {
-			result.credentialConfigurations = response.credentialConfigurations as OID4VCIFlowResult['credentialConfigurations'];
+		if (payload?.credential_configurations) {
+			result.credentialConfigurations = payload.credential_configurations as OID4VCIFlowResult['credentialConfigurations'];
 		}
-		if (response.selectedCredentialConfigurationId) {
-			result.selectedCredentialConfigurationId = response.selectedCredentialConfigurationId as string;
+		if (payload?.selected_credential_configuration_id) {
+			result.selectedCredentialConfigurationId = payload.selected_credential_configuration_id as string;
+		} else if (response.selected_credential_configuration_id) {
+			result.selectedCredentialConfigurationId = response.selected_credential_configuration_id as string;
 		}
 
 		// Authorization
-		if (response.authorizationRequired !== undefined) {
-			result.authorizationRequired = response.authorizationRequired as boolean;
+		if (payload?.authorization_required !== undefined) {
+			result.authorizationRequired = payload.authorization_required as boolean;
 		}
-		if (response.authorizationUrl) {
-			result.authorizationUrl = response.authorizationUrl as string;
+		if (payload?.authorization_url) {
+			result.authorizationUrl = payload.authorization_url as string;
 		}
-		if (response.issuerState) {
-			result.issuerState = response.issuerState as string;
+		if (payload?.code_verifier) {
+			result.codeVerifier = payload.code_verifier as string;
+		}
+		if (payload?.state) {
+			result.issuerState = payload.state as string;
+		}
+
+		// Credential offer (for storage and resumption after redirect)
+		if (payload?.credential_offer) {
+			result.credentialOffer = payload.credential_offer as OID4VCIFlowResult['credentialOffer'];
+		}
+
+		// Selected credential configuration ID fallback from credential offer
+		if (!result.selectedCredentialConfigurationId && result.credentialOffer?.credential_configuration_ids?.length) {
+			result.selectedCredentialConfigurationId = result.credentialOffer.credential_configuration_ids[0];
+		}
+
+		// Credential issuer identifier — from payload, issuer_info, credential_offer, or top-level (flow_complete)
+		if (payload?.credential_issuer) {
+			result.credentialIssuerIdentifier = payload.credential_issuer as string;
+		} else if (response.credential_issuer) {
+			result.credentialIssuerIdentifier = response.credential_issuer as string;
+		} else if (result.issuerInfo?.identifier) {
+			result.credentialIssuerIdentifier = result.issuerInfo.identifier;
+		} else if (result.credentialOffer?.credential_issuer) {
+			result.credentialIssuerIdentifier = result.credentialOffer.credential_issuer;
 		}
 
 		// Pre-auth
-		if (response.preAuthorizedCode) {
-			result.preAuthorizedCode = response.preAuthorizedCode as string;
+		if (payload?.pre_authorized_code) {
+			result.preAuthorizedCode = payload.pre_authorized_code as string;
 		}
-		if (response.txCode) {
-			result.txCode = response.txCode as OID4VCIFlowResult['txCode'];
+		if (payload?.tx_code) {
+			result.txCode = payload.tx_code as OID4VCIFlowResult['txCode'];
 		}
 
 		// Credential
-		if (response.credential) {
+		if (response?.credential) {
 			result.credential = response.credential as string;
 		}
-		if (response.format) {
+		if (response?.format) {
 			result.format = response.format as string;
+		}
+		// Handle credentials array from server
+		if (response?.credentials && Array.isArray(response.credentials)) {
+				result.credentials = (response.credentials as Array<{format: string; credential: string; vct?: string}>);
 		}
 
 		// Deferred
-		if (response.transactionId) {
+		if (response?.transactionId) {
 			result.transactionId = response.transactionId as string;
 		}
 
@@ -406,7 +466,7 @@ export class WebSocketTransport implements IFlowTransport {
 	}
 
 	private mapOID4VPResponse(response: ServerMessage): OID4VPFlowResult {
-		if (response.type === 'error') {
+		if (response.type === 'error' || response.type === 'flow_error') {
 			return {
 				success: false,
 				error: {
@@ -462,7 +522,7 @@ export class WebSocketTransport implements IFlowTransport {
 				payload: flowRequest.payload,
 			});
 
-			if (response.type === 'error') {
+			if (response.type === 'error' || response.type === 'flow_error') {
 				return {
 					success: false,
 					error: {
@@ -521,16 +581,40 @@ export class WebSocketTransport implements IFlowTransport {
 
 	// ===== Internal Methods =====
 
-	private handleMessage(message: ServerMessage): void {
+	private async handleMessage(message: ServerMessage): Promise<void> {
 		// Support both snake_case (backend) and camelCase (legacy)
 		const flowId = (message.flow_id as string) || (message.flowId as string);
 		const { type } = message;
 
 		// Handle progress events separately
 		if (type === 'progress' || type === 'flow_progress') {
+				const stage = (message.step as string) || (message.stage as string);
+				const payload = message.payload as Record<string, unknown> | undefined;
+
+				// trust integration
+				if (
+					(stage === 'evaluating_trust' || stage === 'evaluating_verifier_trust') &&
+					payload?.trust_evaluation_required
+				) {
+					await this.handleTrustEvaluationStep(flowId, payload);
+				}
+
+				if (
+					stage === 'authorization_required' &&
+					(payload?.authorization_url || payload?.pre_authorized_code)
+				) {
+					// Only resolve if user action is needed (redirect or tx_code input)
+					const pending = this.pending.get(flowId);
+					if (pending) {
+						clearTimeout(pending.timeout);
+						this.pending.delete(flowId);
+						pending.resolve(message);
+					}
+				}
+
 			this.emitProgress({
 				flowId,
-				stage: (message.step as string) || (message.stage as string),
+				stage,
 				progress: message.progress as number | undefined,
 				message: message.message as string | undefined,
 				payload: message.payload,
@@ -556,12 +640,106 @@ export class WebSocketTransport implements IFlowTransport {
 			clearTimeout(pending.timeout);
 			this.pending.delete(flowId);
 
+			// Clear flow context on terminal messages
+			if (type === 'flow_complete' || type === 'flow_error' || type === 'error') {
+				this.currentFlowId = null;
+			}
+
 			// Resolve all non-progress, non-sign_request messages (including error/flow_error)
 			// so higher-level callers can uniformly map them into success/error results.
 			pending.resolve(message);
 		} else {
 			logger.warn('Received message for unknown flowId:', flowId);
 		}
+	}
+
+	/**
+	 * Handle trust evaluation
+	 */
+	private async handleTrustEvaluationStep(flowId: string, payload: Record<string, unknown>): Promise<void> {
+		const request = payload.request as {
+			subject_id: string;
+			subject_type: string;
+			key_material?: { type: string; x5c?: string[]; jwk?: unknown };
+			context?: Record<string, unknown>;
+		} | undefined;
+
+		if (!request?.subject_id) {
+			logger.error('[WS Transport] Trust evaluation request missing subject_id');
+			this.ws?.send(JSON.stringify({
+				type: 'flow_action',
+				flow_id: flowId,
+				action: 'trust_result',
+				timestamp: new Date().toISOString(),
+				payload: { trusted: false, reason: 'Missing subject_id' },
+			}));
+			return;
+		}
+
+		try {
+			let result: { trusted: boolean; status?: TrustStatusEnum; metadata?: Record<string, unknown> } | null = null;
+
+			switch (request.subject_type) {
+				case 'credential_issuer':
+					result = await this.trustEvaluators.evaluateIssuerTrust({
+						issuerId: request.subject_id,
+						keyMaterial: request.key_material ? {
+							type: request.key_material.type as 'jwk' | 'x5c',
+							key: request.key_material.x5c ?? request.key_material.jwk,
+						} : undefined,
+						context: request.context,
+					});
+					break;
+				case 'credential_verifier':
+					const scheme = (request.context?.client_id_scheme as string) || 'x509_san_dns';
+					const clientId = request.subject_id;
+
+					let identifier = clientId;
+					if (scheme === 'x509_san_dns' && clientId.startsWith('x509_san_dns:')) {
+						identifier = clientId.slice('x509_san_dns:'.length);
+					}
+
+					result = await this.trustEvaluators.evaluateVerifierTrust({
+						clientIdScheme: {
+							scheme: scheme as 'x509_san_dns' | 'did' | 'https' | 'pre-registered',
+							clientId,
+							identifier,
+						},
+						keyMaterial: request.key_material
+							? {
+								type: request.key_material.type as 'jwk' | 'x5c' | 'kid',
+								key: request.key_material.x5c ?? request.key_material.jwk
+							}
+							: {
+								type: 'kid' as const,
+								key: ''
+							},
+						responseUri: request.context?.response_uri as string | undefined,
+					});
+					break;
+				default:
+					throw new Error(`Unknown subject_type for trust evaluation: ${request.subject_type}`);
+			}
+
+			this.sendTrustResult(flowId, {
+				trusted: result?.trusted ?? false,
+				framework: result?.metadata?.framework as string | undefined,
+				reason: result?.metadata?.reason as string | undefined,
+			});
+		} catch (error) {
+			logger.error('[WS Transport] Trust evaluation failed:', error);
+			this.sendTrustResult(flowId, { trusted: false, reason: error instanceof Error ? error.message : 'Unknown error' });
+		}
+	}
+
+	private sendTrustResult(flowId: string, result: { trusted: boolean; framework?: string; reason?: string }): void {
+			this.ws?.send(JSON.stringify({
+			type: 'flow_action',
+			flow_id: flowId,
+			action: 'trust_result',
+			timestamp: new Date().toISOString(),
+			payload: result,
+		}));
 	}
 
 	/**
@@ -751,6 +929,7 @@ export class WebSocketTransport implements IFlowTransport {
 		// Reset connection state
 		this.ws = null;
 		this.connectionPromise = null;
+		this.currentFlowId = null;
 
 		// Don't reconnect if it was a clean close
 		if (event.code === 1000) {
@@ -782,8 +961,14 @@ export class WebSocketTransport implements IFlowTransport {
 				return;
 			}
 
-			const flowId = (message.flow_id as string) || crypto.randomUUID();
+			const flowId = (message.flow_id as string)
+				|| this.currentFlowId
+				|| crypto.randomUUID();
 			const fullMessage = { ...message, flow_id: flowId };
+
+			if (message.type === 'flow_start') {
+				this.currentFlowId = flowId;
+			}
 
 			// Set up timeout
 			const timeout = setTimeout(() => {
