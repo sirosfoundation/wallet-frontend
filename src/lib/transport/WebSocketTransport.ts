@@ -588,29 +588,29 @@ export class WebSocketTransport implements IFlowTransport {
 
 		// Handle progress events separately
 		if (type === 'progress' || type === 'flow_progress') {
-				const stage = (message.step as string) || (message.stage as string);
-				const payload = message.payload as Record<string, unknown> | undefined;
+			const stage = (message.step as string) || (message.stage as string);
+			const payload = message.payload as Record<string, unknown> | undefined;
 
-				// trust integration
-				if (
-					(stage === 'evaluating_trust' || stage === 'evaluating_verifier_trust') &&
-					payload?.trust_evaluation_required
-				) {
-					await this.handleTrustEvaluationStep(flowId, payload);
-				}
+			// trust integration
+			if (
+				(stage === 'evaluating_trust' || stage === 'evaluating_verifier_trust') &&
+				payload?.trust_evaluation_required
+			) {
+				await this.handleTrustEvaluationStep(flowId, payload);
+			}
 
-				if (
-					stage === 'authorization_required' &&
-					(payload?.authorization_url || payload?.pre_authorized_code)
-				) {
-					// Only resolve if user action is needed (redirect or tx_code input)
-					const pending = this.pending.get(flowId);
-					if (pending) {
-						clearTimeout(pending.timeout);
-						this.pending.delete(flowId);
-						pending.resolve(message);
-					}
+			if (
+				stage === 'authorization_required' &&
+				(payload?.authorization_url || payload?.pre_authorized_code)
+			) {
+				// Only resolve if user action is needed (redirect or tx_code input)
+				const pending = this.pending.get(flowId);
+				if (pending) {
+					clearTimeout(pending.timeout);
+					this.pending.delete(flowId);
+					pending.resolve(message);
 				}
+			}
 
 			this.emitProgress({
 				flowId,
