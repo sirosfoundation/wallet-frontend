@@ -465,7 +465,6 @@ export class WebSocketTransport implements IFlowTransport {
 						credential_id: c.walletCredentialRef,
 						credential_query_id: c.credentialQueryId,
 						disclosed_claims: c.disclosedClaims ?? [],
-						credential_raw: c.credentialRaw,  // backend can use if needed
 					})),
 				},
 			});
