@@ -13,6 +13,10 @@ import useErrorDialog from "@/hooks/useErrorDialog";
 import useOID4VCIFlow from "@/hooks/useOID4VCIFlow";
 import { FlowProgressEvent } from "@/lib/transport";
 import Spinner from "@/components/Shared/Spinner";
+import useOID4VPFlow from "@/hooks/useOID4VPFlow";
+import OpenID4VPContext from "@/context/OpenID4VPContext";
+import MessagePopup from "@/components/Popups/MessagePopup";
+import { OIDFlowError } from "@/lib/transport/errors";
 
 
 export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
@@ -34,7 +38,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 
 	// TODO: remove these once basic VCI and VP flows are integrated and working.
 	// const { openID4VCI } = useContext(OpenID4VCIContext);
-	// const { openID4VP } = useContext(OpenID4VPContext);
+	const { showCredentialSelectionPopup, showTransactionDataConsentPopup } = useContext(OpenID4VPContext);
 
 	// TODO: remove these once basic VCI and VP flows are integrated and working.
 	// const { handleCredentialOffer, generateAuthorizationRequest, handleAuthorizationResponse, requestCredentialsWithPreAuthorization } = openID4VCI;
@@ -44,6 +48,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	// const [showPinInputPopup, setShowPinInputPopup] = useState<boolean>(false);
 
 	// TODO: move this to a new HOC, responsible for session initialization and syncing.
+	const [vpSuccessMessage, setVpSuccessMessage] = useState<{ title: string; description: string } | null>(null);
 	const [showSyncPopup, setSyncPopup] = useState<boolean>(false);
 	const [textSyncPopup, setTextSyncPopup] = useState<{ description: string }>({ description: "" });
 
@@ -99,9 +104,94 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	});
 
 	/**
+	 * Handle errors thrown during OID4VP flows.
+	 */
+	const handleOID4VPError = useCallback((err: Error) => {
+		logger.error("Error in OID4VP flow:", err);
+		if (!(err instanceof OIDFlowError)) {
+			displayError({
+				title: t('messagePopup.vpFlowError.title', 'Verification Error'),
+				description: err.message,
+			});
+			return;
+		}
+
+		switch (err.code) {
+			case 'INSUFFICIENT_CREDENTIALS':
+				displayError({
+					title: t('messagePopup.insufficientCredentials.title'),
+					description: t('messagePopup.insufficientCredentials.description'),
+				});
+				return;
+			case 'NONTRUSTED_VERIFIER':
+				displayError({
+					title: t('messagePopup.nonTrustedVerifier.title'),
+					description: t('messagePopup.nonTrustedVerifier.description'),
+				});
+				return;
+			default:
+				displayError({
+					title: t('messagePopup.vpFlowError.title', 'Verification Error'),
+					description: err.message,
+				});
+				return;
+		}
+	}, [displayError, t]);
+
+	/**
+	 * Handle OID4VP flow progress events.
+	 * For now, just debug logging.
+	 */
+	const handleOID4VPProgress = useCallback((event: FlowProgressEvent) => {
+		logger.debug("OID4VP flow progress:", event);
+	}, []);
+
+	/**
+	 * Handle credential selection during OID4VP flows by showing the configured UI and returning the user's selection.
+	 */
+	const handleOID4VPCredentialSelection = useCallback(async (
+		conformantCredentialsMap: Record<string, {
+			credentials: number[];
+			requestedFields: Array<{
+				name?: string;
+			}>;
+		}>,
+		verifierDomainName: string,
+		verifierPurpose: string,
+	) => {
+		logger.debug("Prompting for credential selection...", { conformantCredentialsMap, verifierDomainName, verifierPurpose });
+
+		if (!showCredentialSelectionPopup) {
+			throw new Error('No credential selection popup configured');
+		}
+
+		const selection = await showCredentialSelectionPopup(
+			conformantCredentialsMap,
+			verifierDomainName,
+			verifierPurpose,
+		);
+
+		logger.debug("User selection:", selection);
+
+		return selection;
+	}, [showCredentialSelectionPopup]);
+
+	const {
+		transportType: vpTransportType,
+		isLoading: vpIsLoading,
+		handleAuthorizationRequest,
+		handleCredentialSelection,
+		sendAuthorizationResponse,
+	} = useOID4VPFlow({
+		onError: handleOID4VPError,
+		onProgress: handleOID4VPProgress,
+		onCredentialSelection: handleOID4VPCredentialSelection,
+	});
+
+	/**
 	 * Combined loading state for any OID4VCI or OID4VP flow in progress.
 	 */
-	const isLoading = useMemo(() => vciIsLoading, [vciIsLoading]);
+	const isLoading = useMemo(() => vciIsLoading || vpIsLoading, [vciIsLoading, vpIsLoading]);
 
 	/**
 	 * Returns current url if it contains a credential offer.
@@ -135,6 +225,15 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 		const u = new URL(url);
 		if (u.searchParams.get('client_id') && u.searchParams.get('request_uri')) return u;
 
+		return null;
+	}, [url]);
+
+	/**
+	 * Returns current url if it contains authorization error parameters (error and state) after redirection.
+	 */
+	const urlWithAuthorizationError: URL | null = useMemo(() => {
+		const u = new URL(url);
+		if (u.searchParams.get('state') && u.searchParams.get('error')) return u;
 		return null;
 	}, [url]);
 
@@ -206,6 +305,24 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 			setUrl(window.location.href);
 		}
 	}, [synced, setUrl, location]);
+
+	/**
+	 * Handle urls that contain auth error params.
+	 */
+	useEffect(() => {
+	if (!isLoggedIn || !synced) return;
+
+	if (urlWithAuthorizationError) {
+		const error = urlWithAuthorizationError.searchParams.get('error');
+		const errorDescription = urlWithAuthorizationError.searchParams.get('error_description');
+
+		const cleanUrl = window.location.origin + window.location.pathname;
+		window.history.replaceState({}, '', cleanUrl);
+		setUrl(cleanUrl);
+
+		displayError({ title: error ?? 'Error', description: errorDescription ?? '' });
+	}
+	}, [isLoggedIn, synced, urlWithAuthorizationError, displayError]);
 
 	/**
 	 * OpenID4VCI flow entrypoint.
@@ -317,10 +434,96 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 		requestWithPreAuthorization,
 		requestTxCode,
 		handleReceivedCredentials,
+		displayError,
 		vciTransportType,
 		urlWithCredentialOffer,
 		urlWithAuthorizationCode,
 		isLoading,
+	]);
+
+	/**
+	 * OpenID4VP flow entrypoint.
+	 */
+	useEffect(() => {
+		if (!isLoggedIn || !synced || vpTransportType === 'none' || isLoading) return;
+
+		if (urlWithAuthorizationRequest) {
+			(async () => {
+				try {
+					const result = await handleAuthorizationRequest(urlWithAuthorizationRequest);
+
+					const cleanUrl = window.location.origin + window.location.pathname;
+					window.history.replaceState({}, '', cleanUrl);
+					setUrl(cleanUrl);
+
+					if (!result?.success) {
+						throw new OIDFlowError(result.error);
+					}
+
+					logger.debug("Authorization request result:", result);
+
+					if (result.transactionData?.length) {
+						const consented = await showTransactionDataConsentPopup({
+							title: 'Transaction Data',
+							attestations: result.transactionData.map(td => td.data),
+						});
+
+						if (!consented) return;
+					}
+
+					const credSelectResult = await handleCredentialSelection(
+						result.verifierInfo,
+						result.dcqlQuery,
+						result.conformantCredentials,
+					);
+
+					if (!credSelectResult?.success) {
+						if (credSelectResult?.error?.code === 'USER_CANCELLED') {
+							return; // User dismissed popup
+						}
+
+						throw new OIDFlowError(credSelectResult.error);
+					}
+
+					const sendResult = await sendAuthorizationResponse(
+						credSelectResult.selectedCredentials
+					);
+					logger.debug("Authorization response sent:", sendResult);
+
+					if (sendResult.success) {
+						setVpSuccessMessage({
+							title: t('messagePopup.sendResponseSuccess.title'),
+							description: t('messagePopup.sendResponseSuccess.description'),
+						});
+					}
+
+					if ('redirectUri' in sendResult) {
+						window.location.href = sendResult.redirectUri;
+						return;
+					}
+				} catch (error) {
+					if (error instanceof OIDFlowError) {
+						logger.error(`OIDFlowError [${error.code}]: ${error.message}`);
+					} else {
+						logger.error("Error handling authorization request:", error);
+					}
+					const cleanUrl = window.location.origin + window.location.pathname;
+					window.history.replaceState({}, '', cleanUrl);
+					setUrl(cleanUrl);
+				}
+			})();
+		}
+	}, [
+		t,
+		isLoggedIn,
+		synced,
+		vpTransportType,
+		isLoading,
+		urlWithAuthorizationRequest,
+		handleAuthorizationRequest,
+		handleCredentialSelection,
+		sendAuthorizationResponse,
+		showTransactionDataConsentPopup,
 	]);
 
 	// OLD IMPLEMENTATION - KEEP FOR REFERENCE
@@ -561,6 +764,13 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 					}}
 				/>
 			}
+			{vpSuccessMessage && (
+				<MessagePopup
+					type="success"
+					onClose={() => setVpSuccessMessage(null)}
+					message={vpSuccessMessage}
+				/>
+			)}
 			<TxCodeInputPopup
 				isOpen={txCodeState.isOpen}
 				txCodeConfig={txCodeState.config}

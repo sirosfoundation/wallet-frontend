@@ -18,6 +18,7 @@ import StatusContext from '@/context/StatusContext';
 import { logger } from '@/logger';
 import type { ProofObject } from '@/lib/transport/WebSocketTransport';
 import { OPENID4VCI_PROOF_TYPE_PRECEDENCE } from '@/config';
+import { applySelectiveDisclosure } from '@/lib/sd-jwt/sd-jwt';
 
 /**
  * Hook that registers a sign handler with the WebSocket transport.
@@ -108,30 +109,41 @@ export function useWebSocketSignHandler(): void {
 			}
 
 			case 'sign_presentation': {
-				// Generate VP JWT for OID4VP
 				const { audience, nonce, credentialsToInclude } = request.params;
 				if (!audience || !nonce) {
 					throw new Error('Missing audience or nonce for presentation signing');
 				}
+				if (!credentialsToInclude?.length) {
+					throw new Error('No credentials to include in presentation');
+				}
 
-				// Get the credentials to include
-				// Note: credentialsToInclude contains credential IDs that need to be
-				// mapped to actual credential data. For now, we pass the structure
-				// and let the keystore handle it.
-				const verifiableCredentials = credentialsToInclude?.map(c => ({
-					credentialId: c.credentialId,
-					disclosedClaims: c.disclosedClaims,
-				})) || [];
+				const vpTokens: string[] = [];
+				const vpTokenMap: Record<string, string[]> = {};
+				for (const c of credentialsToInclude) {
+					if (!c.credentialRaw) {
+						throw new Error(`Credential not in cache: ${c.credentialId}`);
+					}
 
-				// Use the keystore's signJwtPresentation method
-				const { vpjwt } = await keystore.signJwtPresentation(
-					nonce,
-					audience,
-					verifiableCredentials
-				);
+					const credential = await applySelectiveDisclosure(c.credentialRaw, c.disclosedClaims ?? []);
 
-				logger.debug('[WS Sign Handler] Signed VP JWT');
-				return { vpToken: vpjwt };
+					const { vpjwt } = await keystore.signJwtPresentation(
+						nonce,
+						audience,
+						[credential],
+					);
+
+					vpTokens.push(vpjwt);
+
+					if (c.credentialQueryId) {
+						vpTokenMap[c.credentialQueryId] = [vpjwt];
+					}
+				}
+
+				logger.debug(`[WS Sign Handler] Signed ${vpTokens.length} VP JWT(s)`);
+
+				return {
+					vpToken: JSON.stringify(vpTokenMap)
+				};
 			}
 
 			default:

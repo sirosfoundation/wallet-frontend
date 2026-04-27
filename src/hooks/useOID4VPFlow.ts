@@ -7,49 +7,82 @@
  * Phase 4 of Transport Abstraction
  */
 
-import { useCallback, useContext, useEffect, useState } from 'react';
+import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
 	useFlowTransportSafe,
-	type WSMatchRequest as MatchRequest,
-	type WSMatchResponse as MatchResponse,
+	// type WSMatchRequest as MatchRequest,
+	// type WSMatchResponse as MatchResponse,
 } from '@/context/FlowTransportContext';
+import SessionContext from '@/context/SessionContext';
 import OpenID4VPContext from '@/context/OpenID4VPContext';
 import CredentialsContext, { ExtendedVcEntity } from '@/context/CredentialsContext';
 import { matchCredentials } from '@/services/CredentialMatchingService';
 import type {
 	OID4VPFlowResult,
 	OID4VPSelectedCredential,
+	OID4VPVerifierInfo,
 } from '@/lib/transport/types/OID4VPTypes';
 import type { FlowProgressEvent, TransportType } from '@/lib/transport/types/FlowTypes';
+import { DcqlQuery } from 'dcql';
+import { getLeastUsedCredentialInstance } from '@/lib/services/CredentialBatchHelper';
+import { applySelectiveDisclosure } from '@/lib/sd-jwt/sd-jwt';
+import { OIDFlowError } from '@/lib/transport/errors';
 
 export interface UseOID4VPFlowOptions {
-	/** Called when flow progress updates */
+	/**
+	 * Called when flow progress updates
+	 */
 	onProgress?: (event: FlowProgressEvent) => void;
-	/** Called when an error occurs */
+	/**
+	 * Called when an error occurs
+	 */
 	onError?: (error: Error) => void;
+	/**
+	 * Callback to show credential selection UI
+	 */
+	onCredentialSelection?: (
+		conformantCredentialsMap: Record<string, { credentials: number[]; requestedFields: Array<{ name?: string; path?: (string | null)[] }> }>,
+		verifierDomainName: string,
+		verifierPurpose: string,
+	) => Promise<Map<string, number>>;
 }
 
 export interface UseOID4VPFlowReturn {
-	/** Start an OID4VP flow with an authorization request URI */
+	/**
+	 * Start an OID4VP flow with an authorization request URI
+	 */
 	handleAuthorizationRequest: (
-		authorizationRequestUri: string
+		authorizationRequestUrl: URL
 	) => Promise<OID4VPFlowResult>;
-
-	/** Send authorization response with selected credentials */
+	/**
+	 * Handle credential selection by showing the configured UI and returning the user's selection
+	 */
+	handleCredentialSelection: (
+		verifierInfo: OID4VPVerifierInfo,
+		dcqlQuery?: DcqlQuery.Input,
+		preMatchedCredentials?: Map<string, { credentials: number[]; requestedFields: Array<{ name?: string; path?: string[] }> }>
+	) => Promise<OID4VPFlowResult>;
+	/**
+	 * Send authorization response with selected credentials
+	 */
 	sendAuthorizationResponse: (
 		selectedCredentials: OID4VPSelectedCredential[]
 	) => Promise<OID4VPFlowResult>;
-
-	/** Current transport type being used */
+	/**
+	 * Current transport type being used
+	 */
 	transportType: TransportType | 'none';
-
-	/** Whether a flow is currently in progress */
+	/**
+	 * Whether a flow is currently in progress
+	 */
 	isLoading: boolean;
-
-	/** Last error if any */
+	/**
+	 * Last error if any
+	 */
 	error: Error | null;
-
-	/** Clear the last error */
+	/**
+	 * Clear the last error
+	 */
 	clearError: () => void;
 }
 
@@ -65,8 +98,9 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 	const { onProgress, onError } = options;
 
 	const transportContext = useFlowTransportSafe();
+	const { keystore, api } = useContext(SessionContext);
+	const { vcEntityList } = useContext(CredentialsContext);
 	const { openID4VP } = useContext(OpenID4VPContext);
-	const { vcEntityList } = useContext(CredentialsContext) as { vcEntityList: ExtendedVcEntity[] };
 
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<Error | null>(null);
@@ -79,40 +113,70 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		transportContext?.clearError?.();
 	}, [transportContext]);
 
+	const vcEntityListRef = useRef(vcEntityList);
+	const credentialsReadyResolvers = useRef<((list: ExtendedVcEntity[]) => void)[]>([]);
+	const verifierAudienceRef = useRef<string>('');
+
 	/**
-	 * Register match handler for client-side credential matching
-	 * This is called when the server requests credential matching for privacy
+	 *
 	 */
 	useEffect(() => {
-		if (transportType !== 'websocket' || !transportContext?.registerMatchHandler) {
-			return;
-		}
-
-		const handleMatchRequest = async (request: MatchRequest): Promise<MatchResponse> => {
-			try {
-				const result = matchCredentials(
-					vcEntityList || [],
-					request.presentationDefinition
-				);
-				return result;
-			} catch (err) {
-				console.error('Credential matching failed', err);
-				return {
-					matches: [],
-					no_match_reason: 'Credential matching failed',
-				};
+		vcEntityListRef.current = vcEntityList;
+		if (vcEntityList != null && credentialsReadyResolvers.current.length > 0) {
+			for (const resolve of credentialsReadyResolvers.current) {
+				resolve(vcEntityList);
 			}
-		};
+			credentialsReadyResolvers.current = [];
+		}
+	}, [vcEntityList]);
 
-		const unsubscribe = transportContext.registerMatchHandler(handleMatchRequest);
-		return unsubscribe;
-	}, [transportType, transportContext, vcEntityList]);
+	/**
+	 * Wait for credentials to be loaded before proceeding with flow steps that require them
+	 */
+	const waitForCredentials = useCallback((): Promise<ExtendedVcEntity[]> => {
+		const current = vcEntityListRef.current;
+		if (current != null) {
+			return Promise.resolve(current);
+		}
+		return new Promise((resolve) => {
+			credentialsReadyResolvers.current.push(resolve);
+		});
+	}, []);
+
+	/**
+	//  * Register match handler for client-side credential matching
+	//  * This is called when the server requests credential matching for privacy
+	//  */
+	// useEffect(() => {
+	// 	if (transportType !== 'websocket' || !transportContext?.registerMatchHandler) {
+	// 		return;
+	// 	}
+
+	// 	const handleMatchRequest = async (request: MatchRequest): Promise<MatchResponse> => {
+	// 		try {
+	// 			const result = matchCredentials(
+	// 				vcEntityList || [],
+	// 				request.dcqlQuery,
+	// 			);
+	// 			return result;
+	// 		} catch (err) {
+	// 			console.error('Credential matching failed', err);
+	// 			return {
+	// 				matches: [],
+	// 				no_match_reason: 'Credential matching failed',
+	// 			};
+	// 		}
+	// 	};
+
+	// 	const unsubscribe = transportContext.registerMatchHandler(handleMatchRequest);
+	// 	return unsubscribe;
+	// }, [transportType, transportContext, vcEntityList]);
 
 	/**
 	 * Handle authorization request using the appropriate transport
 	 */
 	const handleAuthorizationRequest = useCallback(async (
-		authorizationRequestUri: string
+		authorizationRequestUrl: URL
 	): Promise<OID4VPFlowResult> => {
 		setIsLoading(true);
 		setError(null);
@@ -128,9 +192,18 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 					: () => {};
 
 				try {
+					const requestUriRef = authorizationRequestUrl.searchParams.get('request_uri');
+					const clientId = authorizationRequestUrl.searchParams.get('client_id');
+					verifierAudienceRef.current = clientId ?? '';
 					const result = await transport.startOID4VPFlow({
-						authorizationRequestUri,
+						requestUriRef,
+						clientId,
 					});
+
+					if (!result.success) {
+						throw new OIDFlowError(result.error);
+					}
+
 					return result;
 				} finally {
 					unsubscribeProgress();
@@ -141,20 +214,17 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 			// HTTP proxy transport: use existing implementation
 			if (transportType === 'http_proxy' && openID4VP) {
 				try {
+					const credentials = await waitForCredentials();
 					const result = await openID4VP.handleAuthorizationRequest(
-						authorizationRequestUri,
-						vcEntityList || []
+						authorizationRequestUrl.toString(),
+						credentials,
 					);
+
+					verifierAudienceRef.current = authorizationRequestUrl.searchParams.get('client_id') ?? '';
 
 					// Check for error response
 					if ('error' in result) {
-						return {
-							success: false,
-							error: {
-								code: result.error || 'VP_ERROR',
-								message: result.error || 'Unknown error',
-							},
-						};
+						throw new OIDFlowError({ code: result.error, message: 'Authorization request failed' });
 					}
 
 					// Convert to OID4VPFlowResult format
@@ -171,7 +241,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 						},
 						transactionData: result.parsedTransactionData?.map(td => ({
 							type: 'transaction',
-							description: td.parsed?.description || JSON.stringify(td.parsed || td).slice(0, 100),
+							description: ('description' in (td.parsed ?? {}) ? (td.parsed as any).description : null) || JSON.stringify(td.parsed || td).slice(0, 100),
 							data: td,
 						})),
 					};
@@ -181,23 +251,148 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 			}
 
 			// No transport available
-			throw new Error('No transport available for verifiable presentation');
+			throw new OIDFlowError({ code: 'NO_TRANSPORT', message: 'No transport available for verifiable presentation' });
 
 		} catch (err) {
-			const error = err instanceof Error ? err : new Error(String(err));
+			const error = err instanceof OIDFlowError ? err : new OIDFlowError({ code: 'FLOW_ERROR', message: err instanceof Error ? err.message : String(err) });
 			setError(error);
 			onError?.(error);
 			return {
 				success: false,
 				error: {
-					code: 'FLOW_ERROR',
+					code: error.code,
 					message: error.message,
 				},
 			};
 		} finally {
 			setIsLoading(false);
 		}
-	}, [transportType, transport, openID4VP, vcEntityList, onProgress, onError]);
+	}, [transportType, transport, openID4VP, onProgress, onError, waitForCredentials]);
+
+	/**
+	 * Handle credential selection by showing the configured UI and returning the user's selection
+	 */
+	const handleCredentialSelection = useCallback(async (
+		verifierInfo: OID4VPVerifierInfo,
+		dcqlQuery?: DcqlQuery.Input,
+		preMatchedCredentials?: Map<string, { credentials: number[]; requestedFields: Array<{ name?: string; path?: string[] }> }>
+	): Promise<OID4VPFlowResult> => {
+		setIsLoading(true);
+		setError(null);
+
+		try {
+			if (!options.onCredentialSelection) throw new OIDFlowError({
+				code: 'NO_CREDENTIAL_SELECTION_POPUP',
+				message: 'No credential selection popup configured'
+			});
+
+			const credentials = await waitForCredentials();
+
+			// TODO: Remove preMatchedCredentials once http_proxy flow fully migrated to use
+			// matchCredentials in the hook instead of backend matching in wallet-common
+			let conformantCredentialsMap: Record<string, {
+				credentials: number[];
+				requestedFields: Array<{
+					name?: string;
+					path?: string[];
+				}>;
+			}> = {};
+
+			if (preMatchedCredentials) {
+				conformantCredentialsMap = Object.fromEntries(preMatchedCredentials);
+			} else if (dcqlQuery) {
+				const { matches, no_match_reason } = matchCredentials(credentials, dcqlQuery);
+
+				if (matches.length === 0) {
+					throw new OIDFlowError({ code: no_match_reason || 'NO_MATCHING_CREDENTIALS', message: 'No matching credentials' });
+				}
+
+				for (const match of matches) {
+					if (!conformantCredentialsMap[match.input_descriptor_id]) {
+						const credDef = dcqlQuery.credentials.find(c => c.id === match.input_descriptor_id);
+						conformantCredentialsMap[match.input_descriptor_id] = {
+							credentials: [],
+							requestedFields: (credDef?.claims ?? []).map(c => ({
+								name: c.path?.[c.path.length - 1],
+								path: c.path,
+							})),
+						};
+					}
+					conformantCredentialsMap[match.input_descriptor_id].credentials.push(
+						parseInt(match.credential_id)
+					);
+				}
+			} else {
+				throw new OIDFlowError({ code: 'NO_DCQL_QUERY_OR_PREMATCHED_CREDENTIALS', message: 'No dcqlQuery or preMatchedCredentials provided' });
+			}
+
+			if (Object.keys(conformantCredentialsMap).length === 0) {
+				throw new OIDFlowError({ code: 'INSUFFICIENT_CREDENTIALS', message: 'No credentials available for selection' });
+			}
+
+			// Show popup → user picks descriptorId → batchId
+			const selectionMap = await options.onCredentialSelection(
+				conformantCredentialsMap,
+				verifierInfo?.name ?? '',
+				verifierInfo?.purpose ?? '',
+			);
+
+			// Convert to OID4VPSelectedCredential[]
+			const selected: OID4VPSelectedCredential[] = [];
+			for (const [descriptorId, batchId] of selectionMap.entries()) {
+				// Pick least-used instance for unlinkability
+				const walletState = keystore?.getCalculatedWalletState();
+				if (!walletState) throw new OIDFlowError({ code: 'WALLET_STATE_UNAVAILABLE', message: 'Wallet state not available' });
+
+				const instance = await getLeastUsedCredentialInstance(batchId, credentials, walletState);
+				if (!instance) continue;
+
+				selected.push({
+					batchId,
+					credentialQueryId: descriptorId,
+					walletCredentialRef: String(instance.credentialId),
+					credentialRaw: instance.data,
+					holderKeyKid: instance.kid,
+					disclosedClaims: dcqlQuery
+						? dcqlQuery.credentials.find(c => c.id === descriptorId)?.claims?.map(c => c.path?.join('.')) ?? []
+						: preMatchedCredentials?.get(descriptorId)?.requestedFields?.map(f => f.path?.join('.')) ?? [],
+				});
+			}
+
+			return {
+				success: true,
+				selectedCredentials: selected,
+			};
+		} catch (err) {
+			if (err === undefined || err === null) {
+				// User cancelled the popup
+				return {
+					success: false,
+					error: {
+						code: 'USER_CANCELLED',
+						message: 'User cancelled'
+					}
+				};
+			}
+			const error = err instanceof OIDFlowError ? err : new OIDFlowError({ code: 'SELECTION_ERROR', message: err instanceof Error ? err.message : String(err) });
+			setError(error);
+			onError?.(error);
+			return {
+				success: false,
+				error: {
+					code: error.code,
+					message: error.message,
+				},
+			};
+		} finally {
+			setIsLoading(false);
+		}
+	}, [
+		keystore,
+		options,
+		waitForCredentials,
+		onError,
+	]);
 
 	/**
 	 * Send authorization response with selected credentials
@@ -219,6 +414,25 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 					const result = await transport.startOID4VPFlow({
 						selectedCredentials,
 					});
+
+					// Record presentation history for sigCount tracking
+					if (keystore) {
+						const transactionId = crypto.getRandomValues(new Uint32Array(1))[0];
+						const presentations = await Promise.all(selectedCredentials.map(async (cred) => ({
+							transactionId,
+							data: await applySelectiveDisclosure(cred.credentialRaw, cred.disclosedClaims ?? []),
+							usedCredentialIds: [parseInt(cred.walletCredentialRef)],
+							audience: verifierAudienceRef.current,
+						})));
+						const [, newPrivateData, keystoreCommit] = await keystore.addPresentations(presentations);
+						await api.updatePrivateData(newPrivateData);
+						await keystoreCommit();
+					}
+
+					if (!result.success) {
+						throw new OIDFlowError({ code: result.error?.code || 'AUTHORIZATION_RESPONSE_FAILED', message: result.error?.message || 'Authorization response failed' });
+					}
+
 					return result;
 				} finally {
 					unsubscribeProgress();
@@ -231,33 +445,28 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				// The existing implementation uses descriptor ID -> credential index
 				const selectionMap = new Map<string, number>();
 
+				const currentVcEntityList = await waitForCredentials();
+
 				// Note: This assumes the credential indices match vcEntityList
 				// In practice, we'd need more sophisticated matching
 				selectedCredentials.forEach(cred => {
-					// Find the credential index in vcEntityList
-					const index = vcEntityList?.findIndex(
-						entity => entity.data === cred.credentialRaw
-					) ?? -1;
-
-					if (index !== -1) {
-						selectionMap.set(cred.descriptorId, index);
-					}
+					selectionMap.set(cred.credentialQueryId, cred.batchId);
 				});
 
 				const result = await openID4VP.sendAuthorizationResponse(
 					selectionMap,
-					vcEntityList || []
+					currentVcEntityList
 				);
 
 				// Check result type
-				if ('url' in result && result.url) {
+				if (result && 'url' in result && result.url) {
 					return {
 						success: true,
 						redirectUri: result.url,
 					};
 				}
 
-				if ('presentation_during_issuance_session' in result) {
+				if (result && 'presentation_during_issuance_session' in result) {
 					return {
 						success: true,
 						responseData: {
@@ -272,26 +481,27 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				};
 			}
 
-			throw new Error('No transport available');
+			throw new OIDFlowError({ code: 'NO_TRANSPORT_AVAILABLE', message: 'No transport available' });
 
 		} catch (err) {
-			const error = err instanceof Error ? err : new Error(String(err));
+			const error = err instanceof OIDFlowError ? err : new OIDFlowError({ code: 'RESPONSE_ERROR', message: err instanceof Error ? err.message : String(err) });
 			setError(error);
 			onError?.(error);
 			return {
 				success: false,
 				error: {
-					code: 'RESPONSE_ERROR',
+					code: error.code,
 					message: error.message,
 				},
 			};
 		} finally {
 			setIsLoading(false);
 		}
-	}, [transportType, transport, openID4VP, vcEntityList, onProgress, onError]);
+	}, [transportType, transport, openID4VP, onProgress, onError, keystore, api, waitForCredentials]);
 
 	return {
 		handleAuthorizationRequest,
+		handleCredentialSelection,
 		sendAuthorizationResponse,
 		transportType,
 		isLoading,

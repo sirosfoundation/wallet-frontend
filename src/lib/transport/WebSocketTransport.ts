@@ -21,13 +21,10 @@ import type {
 } from './types/FlowTypes';
 import type { OID4VCIFlowParams, OID4VCIFlowResult, OID4VCIIssuerInfo } from './types/OID4VCITypes';
 import type { OID4VPFlowParams, OID4VPFlowResult, OID4VPVerifierInfo } from './types/OID4VPTypes';
-import type { TrustStatus } from './types/TrustTypes';
-import type {
-	PresentationDefinition,
-	CredentialMatch,
-	CredentialsMatchedResult,
-} from '@/services/CredentialMatchingService';
+import type { CredentialsMatchedResult } from '@/services/CredentialMatchingService';
 import { logger } from '@/logger';
+import { TrustEvaluators, TrustStatus } from './types';
+import { DcqlQuery } from 'dcql';
 
 /**
  * Pending request waiting for a response
@@ -76,7 +73,9 @@ export interface SignRequest {
 		count?: number;
 		credentialsToInclude?: Array<{
 			credentialId: string;
+			credentialQueryId?: string;
 			disclosedClaims?: string[];
+			credentialRaw?: string;
 		}>;
 	};
 }
@@ -112,7 +111,7 @@ export type SignRequestHandler = (request: SignRequest) => Promise<SignResponse>
 export interface MatchRequest {
 	flowId: string;
 	messageId: string;
-	presentationDefinition: PresentationDefinition;
+	dcqlQuery: DcqlQuery.Input;
 }
 
 /**
@@ -151,6 +150,7 @@ export class WebSocketTransport implements IFlowTransport {
 	private errorCallbacks = new Set<(error: Error) => void>();
 	private signHandlers = new Set<SignRequestHandler>();
 	private matchHandlers = new Set<MatchRequestHandler>();
+	private vpCredentialCache = new Map<string, string>();
 
 	private reconnectAttempts = 0;
 	private maxReconnectAttempts = 5;
@@ -252,6 +252,7 @@ export class WebSocketTransport implements IFlowTransport {
 		}
 		this.currentFlowId = null;
 		this.connectionPromise = null;
+		this.vpCredentialCache.clear();
 	}
 
 	isConnected(): boolean {
@@ -438,27 +439,36 @@ export class WebSocketTransport implements IFlowTransport {
 	// ===== OID4VP Flow =====
 
 	async startOID4VPFlow(params: OID4VPFlowParams): Promise<OID4VPFlowResult> {
-		if (params.authorizationRequestUri && !params.selectedCredentials) {
+		if (params.requestUriRef && params.clientId && !params.selectedCredentials) {
 			// Phase 1: Start flow with authorization request
 			const response = await this.send({
 				type: 'flow_start',
 				protocol: 'oid4vp',
-				request_uri: params.authorizationRequestUri,
+				request_uri_ref: params.requestUriRef,
+				client_id: params.clientId,
 			});
 
 			return this.mapOID4VPResponse(response);
 		}
 
 		if (params.selectedCredentials) {
-			// Phase 2: User selected credentials, submit response
+			// Cache locally for sign handler
+			for (const c of params.selectedCredentials) {
+				this.vpCredentialCache.set(c.walletCredentialRef, c.credentialRaw);
+			}
+
 			const response = await this.send({
 				type: 'flow_action',
 				action: 'consent',
 				payload: {
-					selected_credentials: params.selectedCredentials,
+					selected_credentials: params.selectedCredentials.map(c => ({
+						credential_id: c.walletCredentialRef,
+						credential_query_id: c.credentialQueryId,
+						disclosed_claims: c.disclosedClaims ?? [],
+						credential_raw: c.credentialRaw,  // backend can use if needed
+					})),
 				},
 			});
-
 			return this.mapOID4VPResponse(response);
 		}
 
@@ -480,32 +490,48 @@ export class WebSocketTransport implements IFlowTransport {
 			success: true,
 		};
 
-		// Presentation definition phase
-		if (response.presentationDefinition) {
-			result.presentationDefinition = response.presentationDefinition as OID4VPFlowResult['presentationDefinition'];
+		const payload = response.payload as Record<string, unknown> | undefined;
+
+		// Credential selection phase (from credential_selection progress)
+		if (payload?.dcql_query) {
+			result.dcqlQuery = payload.dcql_query as DcqlQuery.Input;
 		}
-		if (response.conformantCredentials) {
+		if (payload?.verifier) {
+			result.verifierInfo = mapVerifierInfo(payload.verifier as Record<string, unknown>);
+		}
+
+		// Extract purpose from DCQL credential_sets
+		const credentialSets = (payload?.dcql_query as any)?.credential_sets;
+		if (credentialSets?.[0]?.purpose && result.verifierInfo) {
+			result.verifierInfo.purpose = credentialSets[0].purpose;
+		}
+
+		// Presentation definition phase
+		if (response.presentation_definition) {
+			result.presentationDefinition = response.presentation_definition as OID4VPFlowResult['presentationDefinition'];
+		}
+		if (response.conformant_credentials) {
 			// Convert from object to Map if needed
-			const creds = response.conformantCredentials;
+			const creds = response.conformant_credentials;
 			if (creds instanceof Map) {
 				result.conformantCredentials = creds;
 			} else if (typeof creds === 'object') {
-				result.conformantCredentials = new Map(Object.entries(creds as Record<string, unknown[]>));
+				result.conformantCredentials = new Map(Object.entries(creds));
 			}
 		}
-		if (response.verifierInfo) {
-			result.verifierInfo = mapVerifierInfo(response.verifierInfo as Record<string, unknown>);
+		if (response.verifier_info) {
+			result.verifierInfo = mapVerifierInfo(response.verifier_info as Record<string, unknown>);
 		}
-		if (response.transactionData) {
-			result.transactionData = response.transactionData as OID4VPFlowResult['transactionData'];
+		if (response.transaction_data) {
+			result.transactionData = response.transaction_data as OID4VPFlowResult['transactionData'];
 		}
 
 		// Submission result
-		if (response.redirectUri) {
-			result.redirectUri = response.redirectUri as string;
+		if (response.redirect_uri) {
+			result.redirectUri = response.redirect_uri as string;
 		}
-		if (response.responseData) {
-			result.responseData = response.responseData;
+		if (response.response_data) {
+			result.responseData = response.response_data;
 		}
 
 		return result;
@@ -612,6 +638,16 @@ export class WebSocketTransport implements IFlowTransport {
 				}
 			}
 
+			if (stage === 'credential_selection') {
+				// Resolve pending request to trigger credential selection UI
+				const pending = this.pending.get(flowId);
+				if (pending) {
+					clearTimeout(pending.timeout);
+					this.pending.delete(flowId);
+					pending.resolve(message);
+				}
+			}
+
 			this.emitProgress({
 				flowId,
 				stage,
@@ -643,6 +679,7 @@ export class WebSocketTransport implements IFlowTransport {
 			// Clear flow context on terminal messages
 			if (type === 'flow_complete' || type === 'flow_error' || type === 'error') {
 				this.currentFlowId = null;
+				this.vpCredentialCache.clear();
 			}
 
 			// Resolve all non-progress, non-sign_request messages (including error/flow_error)
@@ -760,7 +797,18 @@ export class WebSocketTransport implements IFlowTransport {
 				proofType: rawParams.proof_type as string | undefined,
 				proofTypesSupported: rawParams.proof_types_supported as SignRequest['params']['proofTypesSupported'],
 				count: rawParams.count as number | undefined,
-				credentialsToInclude: rawParams.credentials_to_include as SignRequest['params']['credentialsToInclude'],
+				credentialsToInclude: (
+					rawParams.credentials_to_include as Array<{
+						credential_id: string;
+						credential_query_id?: string;
+						disclosed_claims?: string[];
+					}> | undefined
+				)?.map(c => ({
+					credentialId: c.credential_id,
+					credentialQueryId: c.credential_query_id,
+					disclosedClaims: c.disclosed_claims,
+					credentialRaw: this.vpCredentialCache.get(c.credential_id),
+				})),
 			},
 		};
 
@@ -837,20 +885,18 @@ export class WebSocketTransport implements IFlowTransport {
 	private async handleMatchRequest(message: ServerMessage): Promise<void> {
 		const flowId = (message.flow_id as string) || (message.flowId as string) || '';
 		const messageId = (message.message_id as string) || (message.messageId as string) || '';
-		const presentationDefinition =
-			(message.presentation_definition as MatchRequest['presentationDefinition'])
-			|| (message.presentationDefinition as MatchRequest['presentationDefinition']);
+		const dcqlQuery = message.dcql_query as DcqlQuery.Input | undefined;
 
-		if (!presentationDefinition || typeof presentationDefinition !== 'object') {
-			logger.error('Malformed match request: missing required presentation_definition');
-			this.sendMatchResponse(flowId, messageId, { matches: [] }, 'Missing required presentation_definition');
+		if (!dcqlQuery || typeof dcqlQuery !== 'object') {
+			logger.error('Malformed match request: missing required dcql_query');
+			this.sendMatchResponse(flowId, messageId, { matches: [] }, 'Missing required dcql_query');
 			return;
 		}
 
 		const request: MatchRequest = {
 			flowId,
 			messageId,
-			presentationDefinition,
+			dcqlQuery,
 		};
 
 		if (this.matchHandlers.size === 0) {
@@ -930,6 +976,7 @@ export class WebSocketTransport implements IFlowTransport {
 		this.ws = null;
 		this.connectionPromise = null;
 		this.currentFlowId = null;
+		this.vpCredentialCache.clear();
 
 		// Don't reconnect if it was a clean close
 		if (event.code === 1000) {

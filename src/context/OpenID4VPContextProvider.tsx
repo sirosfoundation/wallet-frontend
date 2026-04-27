@@ -5,14 +5,10 @@ import { useOpenID4VP } from "../lib/services/OpenID4VP/OpenID4VP";
 import OpenID4VPContext from "./OpenID4VPContext";
 import GenericConsentPopup from "@/components/Popups/GenericConsentPopup";
 import SessionContext from "./SessionContext";
-import { ParsedTransactionData } from "@/lib/services/OpenID4VP/TransactionData/parseTransactionData";
-import useErrorDialog from "@/hooks/useErrorDialog";
-
 
 export const OpenID4VPContextProvider = ({ children }: React.PropsWithChildren) => {
 	const { vcEntityList } = useContext<any>(CredentialsContext);
 	const { isLoggedIn } = useContext<any>(SessionContext);
-	const { displayError } = useErrorDialog();
 
 	const [popupState, setPopupState] = useState({
 		isOpen: false,
@@ -62,22 +58,16 @@ export const OpenID4VPContextProvider = ({ children }: React.PropsWithChildren) 
 		}));
 	}, [setPopupConsentState]);
 
-	const showStatusPopup = useCallback(
-		async (message: { title: string, description: string }, type: 'error' | 'success'): Promise<void> => {
-			if (type === 'error') {
-				displayError(message);
-			}
-			// Success messages are handled by the notification system or ignored
-		}, [displayError]);
-
 	const showCredentialSelectionPopup = useCallback(
 		async (
-			conformantCredentialsMap: Map<string, string[]>,
+			conformantCredentialsMap: Record<string, {
+				credentials: number[];
+				requestedFields: Array<{ name?: string; path?: string[] }>;
+			}>,
 			verifierDomainName: string,
 			verifierPurpose: string,
-			parsedTransactionData?: ParsedTransactionData[],
 		): Promise<Map<string, number>> => {
-			return showPopup({ conformantCredentialsMap, verifierDomainName, verifierPurpose, parsedTransactionData });
+			return showPopup({ conformantCredentialsMap, verifierDomainName, verifierPurpose });
 		},
 		[showPopup]
 	);
@@ -89,10 +79,10 @@ export const OpenID4VPContextProvider = ({ children }: React.PropsWithChildren) 
 		[showPopupConsent]
 	);
 
-	const openID4VP = useOpenID4VP({ showCredentialSelectionPopup, showStatusPopup, showTransactionDataConsentPopup });
+	const openID4VP = useOpenID4VP({ showTransactionDataConsentPopup });
 
 	return (
-		<OpenID4VPContext.Provider value={{ openID4VP }}>
+		<OpenID4VPContext.Provider value={{ openID4VP, showCredentialSelectionPopup, showTransactionDataConsentPopup }}>
 			{children}
 			{isLoggedIn && (
 				<>
