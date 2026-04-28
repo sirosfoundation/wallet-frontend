@@ -280,7 +280,7 @@ export function filterUsersByTenantID(tenantId: string | undefined, users: Cache
 	if (!isMultiTenant()) {
 		return users;
 	}
-	
+
 	return users.filter((user) => {
 		const userTenantId = user.tenant?.id;
 
