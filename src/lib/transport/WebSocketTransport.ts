@@ -161,11 +161,14 @@ export class WebSocketTransport implements IFlowTransport {
 
 	private trustEvaluators: TrustEvaluators;
 
-	constructor(wsUrl: string, authToken: string, tenantId: string = 'default', trustEvaluators: TrustEvaluators) {
+	constructor(wsUrl: string, authToken: string, tenantId: string = 'default', trustEvaluators?: TrustEvaluators) {
 		this.wsUrl = wsUrl;
 		this.authToken = authToken;
 		this.tenantId = tenantId;
-		this.trustEvaluators = trustEvaluators;
+		this.trustEvaluators = trustEvaluators ?? {
+			evaluateIssuerTrust: async () => ({ trusted: false }),
+			evaluateVerifierTrust: async () => ({ trusted: false }),
+		};
 	}
 
 	getCurrentFlowId(): string | null {
