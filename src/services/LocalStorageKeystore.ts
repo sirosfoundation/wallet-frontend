@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate } from 'react-router-dom';
 
 import * as config from "../config";
@@ -141,7 +141,8 @@ export interface LocalStorageKeystore {
 /** A stateful wrapper around the keystore module, storing state in the browser's localStorage and sessionStorage. */
 export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageKeystore {
 	const [cachedUsers, setCachedUsers,] = useLocalStorage<CachedUser[]>("cachedUsers", []);
-	const [privateData, setPrivateData] = useState<EncryptedContainer | null>(null);
+	const [privateData, setPrivateDataState] = useState<EncryptedContainer | null>(null);
+	const privateDataRef = useRef<EncryptedContainer | null>(null);
 
 	const [globalUserHandleB64u, setGlobalUserHandleB64u, clearGlobalUserHandleB64u] = useLocalStorage<string | null>("userHandle", null);
 	const [userHandleB64u, setUserHandleB64u, clearUserHandleB64u] = useSessionStorage<string | null>("userHandle", null);
@@ -150,11 +151,30 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 	const [globalTabId, setGlobalTabId, clearGlobalTabId] = useLocalStorage<string | null>("globalTabId", null);
 	const [tabId, setTabId, clearTabId] = useSessionStorage<string | null>("tabId", null);
 
-	const [mainKey, setMainKey, clearMainKey] = useSessionStorage<BufferSource | null>("mainKey", null);
+	const [mainKey, setMainKeyStorage, clearMainKey] = useSessionStorage<BufferSource | null>("mainKey", null);
+	const mainKeyRef = useRef<BufferSource | null>(null);
 	const [calculatedWalletState, setCalculatedWalletState] = useState<WalletState | null>(null);
 	const clearSessionStorage = useClearStorages(clearUserHandleB64u, clearMainKey, clearTabId);
 
 	const navigate = useNavigate();
+
+	useEffect(() => {
+		privateDataRef.current = privateData;
+	}, [privateData]);
+
+	useEffect(() => {
+		mainKeyRef.current = mainKey;
+	}, [mainKey]);
+
+	const setPrivateData = useCallback((newPrivateData: EncryptedContainer | null) => {
+		privateDataRef.current = newPrivateData;
+		setPrivateDataState(newPrivateData);
+	}, []);
+
+	const setMainKey = useCallback((newMainKey: BufferSource | null) => {
+		mainKeyRef.current = newMainKey;
+		setMainKeyStorage(newMainKey);
+}, [setMainKeyStorage]);
 
 	const idb = useIndexedDb("wallet-frontend", 3, useCallback((db, prevVersion, newVersion) => {
 		if (prevVersion < 1) {
@@ -189,7 +209,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 				}
 			})();
 		}
-	}, [userHandleB64u, readPrivateDataFromIdb]);
+	}, [userHandleB64u, readPrivateDataFromIdb, setPrivateData]);
 
 
 	const writePrivateDataOnIdb = useCallback(async (privateData: EncryptedContainer | null, userHandleB64u: string) => {
@@ -202,7 +222,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 	const clearPrivateData = useCallback(async (userHandleB64u: string) => {
 		setPrivateData(null);
 		await writePrivateDataOnIdb(null, userHandleB64u);
-	}, [writePrivateDataOnIdb]);
+	}, [writePrivateDataOnIdb, setPrivateData]);
 
 	const closeSessionTabLocal = useCallback(
 		async (): Promise<void> => {
@@ -225,12 +245,13 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 	);
 
 	const assertKeystoreOpen = useCallback(async (): Promise<[EncryptedContainer, CryptoKey]> => {
-		if (privateData && mainKey) {
-			return [privateData, await keystore.importMainKey(mainKey)];
-		} else {
-			throw new Error("Key store is closed.", { cause: 'keystore_closed' });
+		const pd = privateDataRef.current ?? privateData;
+		const mk = mainKeyRef.current ?? mainKey;
+		if (pd && mk) {
+			return [pd, await keystore.importMainKey(mk)];
 		}
-	}, [privateData, mainKey]);
+		throw new Error("Key store is closed.", { cause: 'keystore_closed' });
+}, [privateData, mainKey]);
 
 	useOnUserInactivity(close, config.INACTIVE_LOGOUT_MILLIS);
 

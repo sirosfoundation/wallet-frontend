@@ -164,5 +164,3 @@ export const BRANDING = {
 	LOGO_LIGHT: config.branding?.logo_light || '/logo_light.svg',
 	LOGO_DARK: config.branding?.logo_dark || '/logo_dark.svg',
 }
-
-

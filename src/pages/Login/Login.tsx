@@ -292,7 +292,6 @@ const WebauthnSignupLogin = ({
 		}
 	}, [api, keystore, urlTenantId, setError, t]);
 
-
 	const onSignup = async (name: string, webauthnHints: string[]) => {
 		// Pass tenantId to ensure the passkey's userHandle includes the tenant prefix
 		// This enables tenant-scoped authentication

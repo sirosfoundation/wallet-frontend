@@ -13,14 +13,12 @@ import { CurrentSchema } from '@/services/WalletStateSchema';
 import SessionContext from '@/context/SessionContext';
 import { useTenant } from '@/context/TenantContext';
 import { CredentialConfigurationSupported, CredentialOfferSchema, VerifiableCredentialFormat } from 'wallet-common';
-import { useTranslation } from 'react-i18next';
 import CredentialsContext from "@/context/CredentialsContext";
 import { WalletStateUtils } from '@/services/WalletStateUtils';
 import { fromBase64Url } from '@/util';
 import { DataItem, parse } from '@auth0/mdl';
 import { cborDecode, cborEncode } from '@auth0/mdl/lib/cbor';
 import { COSEKeyToJWK } from "cose-kit";
-import { notify } from "@/context/notifier";
 import { IOpenID4VCIClientStateRepository } from '@/lib/interfaces/IOpenID4VCIClientStateRepository';
 import { useNavigate } from 'react-router-dom';
 import { logger } from '@/logger';
@@ -118,7 +116,6 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 	const { api, keystore } = useContext(SessionContext);
 	const { credentialEngine } = useContext<any>(CredentialsContext);
 
-	const { t } = useTranslation();
 	const [receivedCredentialsArray, setReceivedCredentialsArray] = useState<string[] | null>(null);
 
 	const openID4VCIHelper = useOpenID4VCIHelper();
@@ -139,98 +136,98 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 
 	const [commitStateChanges, setCommitStateChanges] = useState<number>(0);
 
-	useEffect(() => {
-		if (!receivedCredentialsArray || !keystore || verificationFlowInProgress || commitStateChanges === 1) {
-			return;
-		}
-		const temp = [...receivedCredentialsArray];
-		setReceivedCredentialsArray(null);
-		const batchId = WalletStateUtils.getRandomUint32();
-		// wait for keystore update before commiting the new credentials
-		(async () => {
-			try {
+	// useEffect(() => {
+	// 	if (!receivedCredentialsArray || !keystore || verificationFlowInProgress || commitStateChanges === 1) {
+	// 		return;
+	// 	}
+	// 	const temp = [...receivedCredentialsArray];
+	// 	setReceivedCredentialsArray(null);
+	// 	const batchId = WalletStateUtils.getRandomUint32();
+	// 	// wait for keystore update before commiting the new credentials
+	// 	(async () => {
+	// 		try {
 
-				const kidMap = await Promise.all(temp.map(async (credential, index) => {
-					if (credentialIssuerMetadataRef.current.metadata.credential_configurations_supported[credentialConfigurationIdRef.current].format === VerifiableCredentialFormat.VC_SDJWT ||
-						credentialIssuerMetadataRef.current.metadata.credential_configurations_supported[credentialConfigurationIdRef.current].format === VerifiableCredentialFormat.DC_SDJWT
-					) {
-						return deriveHolderKidFromCredential(credential, credentialIssuerMetadataRef.current.metadata.credential_configurations_supported[credentialConfigurationIdRef.current].format);
-					}
-					else if (credentialIssuerMetadataRef.current.metadata.credential_configurations_supported[credentialConfigurationIdRef.current].format === VerifiableCredentialFormat.MSO_MDOC) {
-						return deriveHolderKidFromCredential(credential, credentialIssuerMetadataRef.current.metadata.credential_configurations_supported[credentialConfigurationIdRef.current].format);
-					}
-					else {
-						return null;
-					}
-				}));
+	// 			const kidMap = await Promise.all(temp.map(async (credential, index) => {
+	// 				if (credentialIssuerMetadataRef.current.metadata.credential_configurations_supported[credentialConfigurationIdRef.current].format === VerifiableCredentialFormat.VC_SDJWT ||
+	// 					credentialIssuerMetadataRef.current.metadata.credential_configurations_supported[credentialConfigurationIdRef.current].format === VerifiableCredentialFormat.DC_SDJWT
+	// 				) {
+	// 					return deriveHolderKidFromCredential(credential, credentialIssuerMetadataRef.current.metadata.credential_configurations_supported[credentialConfigurationIdRef.current].format);
+	// 				}
+	// 				else if (credentialIssuerMetadataRef.current.metadata.credential_configurations_supported[credentialConfigurationIdRef.current].format === VerifiableCredentialFormat.MSO_MDOC) {
+	// 					return deriveHolderKidFromCredential(credential, credentialIssuerMetadataRef.current.metadata.credential_configurations_supported[credentialConfigurationIdRef.current].format);
+	// 				}
+	// 				else {
+	// 					return null;
+	// 				}
+	// 			}));
 
-				let warnings = [];
+	// 			let warnings = [];
 
-				const result = await credentialEngine.credentialParsingEngine.parse(
-					{
-						rawCredential: temp[0],
-						credentialIssuer: {
-							credentialConfigurationId: credentialConfigurationIdRef.current,
-							credentialIssuerIdentifier: credentialIssuerMetadataRef.current.metadata.credential_issuer,
-						},
-					}
-				)
+	// 			const result = await credentialEngine.credentialParsingEngine.parse(
+	// 				{
+	// 					rawCredential: temp[0],
+	// 					credentialIssuer: {
+	// 						credentialConfigurationId: credentialConfigurationIdRef.current,
+	// 						credentialIssuerIdentifier: credentialIssuerMetadataRef.current.metadata.credential_issuer,
+	// 					},
+	// 				}
+	// 			)
 
-				if (result.success) {
+	// 			if (result.success) {
 
-					if (result.value.warnings && result.value.warnings.length > 0) {
-						logger.warn(`Credential had warnings:`, result.value.warnings);
-						warnings = result.value.warnings;
-					}
-				} else {
-					logger.error(`Credential failed to parse:`, result.error, result.message);
-					showMessagePopup({ title: t('issuance.error'), description: t(`parsing.error${result.error}`) });
-					return;
-				}
+	// 				if (result.value.warnings && result.value.warnings.length > 0) {
+	// 					logger.warn(`Credential had warnings:`, result.value.warnings);
+	// 					warnings = result.value.warnings;
+	// 				}
+	// 			} else {
+	// 				logger.error(`Credential failed to parse:`, result.error, result.message);
+	// 				showMessagePopup({ title: t('issuance.error'), description: t(`parsing.error${result.error}`) });
+	// 				return;
+	// 			}
 
-				let userConsent = true;
-				if (warnings.length > 0 && config.DISPLAY_ISSUANCE_WARNINGS === true) {
-					userConsent = await showPopupConsent({
-						title: t("issuance.title"),
-						warnings: warnings
-					});
-				}
+	// 			let userConsent = true;
+	// 			if (warnings.length > 0 && config.DISPLAY_ISSUANCE_WARNINGS === true) {
+	// 				userConsent = await showPopupConsent({
+	// 					title: t("issuance.title"),
+	// 					warnings: warnings
+	// 				});
+	// 			}
 
-				if (userConsent) {
-					const [, privateData, keystoreCommit] = await keystore.addCredentials(temp.map((credential, index) => {
-						return {
-							data: credential,
-							format: credentialIssuerMetadataRef.current.metadata.credential_configurations_supported[credentialConfigurationIdRef.current].format,
-							kid: kidMap[index] ?? "",
-							credentialConfigurationId: credentialConfigurationIdRef.current,
-							credentialIssuerIdentifier: credentialIssuerMetadataRef.current.metadata.credential_issuer,
-							batchId: batchId,
-							instanceId: index,
-						}
-					}));
+	// 			if (userConsent) {
+	// 				const [, privateData, keystoreCommit] = await keystore.addCredentials(temp.map((credential, index) => {
+	// 					return {
+	// 						data: credential,
+	// 						format: credentialIssuerMetadataRef.current.metadata.credential_configurations_supported[credentialConfigurationIdRef.current].format,
+	// 						kid: kidMap[index] ?? "",
+	// 						credentialConfigurationId: credentialConfigurationIdRef.current,
+	// 						credentialIssuerIdentifier: credentialIssuerMetadataRef.current.metadata.credential_issuer,
+	// 						batchId: batchId,
+	// 						instanceId: index,
+	// 					}
+	// 				}));
 
-					await api.updatePrivateData(privateData);
-					await keystoreCommit();
-					setCommitStateChanges(1);
-					// display notification
-					notify("newCredential");
-				}
-			}
-			catch (err) {
-				throw err;
-			}
-		})();
-	}, [
-		receivedCredentialsArray,
-		keystore,
-		verificationFlowInProgress,
-		commitStateChanges,
-		credentialEngine,
-		showMessagePopup,
-		showPopupConsent,
-		t,
-		api
-	]);
+	// 				await api.updatePrivateData(privateData);
+	// 				await keystoreCommit();
+	// 				setCommitStateChanges(1);
+	// 				// display notification
+	// 				notify("newCredential");
+	// 			}
+	// 		}
+	// 		catch (err) {
+	// 			throw err;
+	// 		}
+	// 	})();
+	// }, [
+	// 	receivedCredentialsArray,
+	// 	keystore,
+	// 	verificationFlowInProgress,
+	// 	commitStateChanges,
+	// 	credentialEngine,
+	// 	showMessagePopup,
+	// 	showPopupConsent,
+	// 	t,
+	// 	api
+	// ]);
 
 	const credentialRequest = useCallback(
 		async (response: any, flowState: WalletStateCredentialIssuanceSession) => {
@@ -303,12 +300,15 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 			await openID4VCIClientStateRepository.updateState(flowState);
 			await openID4VCIClientStateRepository.cleanupExpired();
 
-			const credentialArray: string[] = credentialResponse.data.credentials.map((c) => c.credential);
+			// const credentialArray: string[] = credentialResponse.data.credentials.map((c) => c.credential);
 
-			setReceivedCredentialsArray(credentialArray);
+			// setReceivedCredentialsArray(credentialArray);
 
-			return;
-
+			return {
+				credentials: credentialResponse.data.credentials,
+				credentialIssuerIdentifier: flowState.credentialIssuerIdentifier,
+				credentialConfigurationId: flowState.credentialConfigurationId,
+			};
 		}, [
 		openID4VCIHelper,
 		openID4VCIClientStateRepository,
@@ -498,7 +498,7 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 
 			try {
 				// Credential Request
-				await credentialRequest(flowState.tokenResponse, flowState);
+				return await credentialRequest(flowState.tokenResponse, flowState);
 			}
 			catch (err) {
 				logger.error("Error handling authrozation response ", err);
@@ -538,7 +538,7 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 
 			sessionStorage.setItem('oid4vci_last_used_state', state);
 			logger.debug("Handling authorization response...");
-			await requestCredentials(s.credentialIssuerIdentifier, {
+			return await requestCredentials(s.credentialIssuerIdentifier, {
 				dpopNonceHeader: dpopNonceHeader,
 				authorizationCodeGrant: {
 					authorizationResponseUrl: url,
@@ -616,8 +616,8 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 		};
 
 
-		await credentialRequest(tokenResponse, flowState);
-		return {};
+		const reqRes = await credentialRequest(tokenResponse, flowState);
+		return reqRes ?? {};
 	}, [tokenRequestBuilder, credentialRequest, openID4VCIHelper]);
 
 	/**

@@ -26,9 +26,12 @@ import {
 	WEBSOCKET_TRANSPORT_ALLOWED,
 	DIRECT_TRANSPORT_ALLOWED,
 	TRANSPORT_PREFERENCE,
+	BACKEND_URL,
 } from '@/config';
 import type { TransportType } from '@/lib/transport/types/FlowTypes';
 import { logger } from '@/logger';
+import { createIssuerTrustEvaluator, createVerifierTrustEvaluator } from '@/lib/services/TrustEvaluator';
+import { TrustEvaluators } from '@/lib/transport';
 
 // Re-export sign and match types with WS prefix for clarity
 export type {
@@ -97,6 +100,27 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 	const [engineCapabilities, setEngineCapabilities] = useState<string[]>([]);
 	const [wsCapabilityAvailable, setWsCapabilityAvailable] = useState(false);
 
+	const trustEvaluators = useMemo((): TrustEvaluators => {
+		const evaluateIssuerTrust = createIssuerTrustEvaluator({
+			httpClient: httpProxy,
+			backendUrl: BACKEND_URL,
+			getAuthToken: () => authToken ?? '',
+			tenantId,
+		});
+
+		const evaluateVerifierTrust = createVerifierTrustEvaluator({
+			httpClient: httpProxy,
+			backendUrl: BACKEND_URL,
+			getAuthToken: () => authToken ?? '',
+			tenantId,
+		});
+
+		return {
+		evaluateIssuerTrust,
+		evaluateVerifierTrust,
+		};
+	}, [tenantId, authToken, httpProxy]);
+
 	// Fetch engine capabilities on mount
 	useEffect(() => {
 		let cancelled = false;
@@ -157,7 +181,7 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 			return;
 		}
 
-		const ws = new WebSocketTransport(WS_URL, authToken, tenantId);
+		const ws = new WebSocketTransport(WS_URL, authToken, tenantId, trustEvaluators);
 		setWsTransport(ws);
 
 		// Connect to WebSocket
@@ -183,7 +207,7 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 			unsubscribeError();
 			ws.disconnect();
 		};
-	}, [authToken, tenantId, capabilitiesLoaded, wsCapabilityAvailable]);
+	}, [authToken, tenantId, capabilitiesLoaded, wsCapabilityAvailable, trustEvaluators]);
 
 	// Update auth token and tenant ID on WebSocket when they change
 	useEffect(() => {

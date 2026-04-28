@@ -378,6 +378,17 @@
 		"tourStep6": "Na página 'Histórico', pode ver detalhes das transmissões de credenciais, incluindo quando e para que verifiers elas foram enviadas.",
 		"tourStep7": "Na página 'Definições' pode gerir as suas chaves de acesso e configurações de conta."
 	},
+	"txCodeInput": {
+		"defaultDescription": "Introduza o código de transação apresentado no seu ecrã",
+		"errorEmpty": "Por favor introduza o código de transação",
+		"errorInvalid": "Código de transação inválido. Por favor tente novamente.",
+		"errorLength": "O código de transação deve ter {{length}} caracteres",
+		"inputLabel": "Código de transação",
+		"lengthHint": "Comprimento do código: {{length}} caracteres",
+		"placeholder": "Introduza o código",
+		"placeholderWithLength": "Introduza código de {{length}} caracteres",
+		"title": "Código de transação necessário"
+	},
 	"updateNotification": {
 		"description": "Nova versão disponível!"
 	},
@@ -387,16 +398,5 @@
 		"question": "Está disponível para explorar as funcionalidades da $t(common.walletName) através de uma apresentação guiada?",
 		"startTourButton": "Começar",
 		"title": "Bem vindo(a) à $t(common.walletName)!"
-	},
-	"txCodeInput": {
-		"title": "Código de transação necessário",
-		"defaultDescription": "Introduza o código de transação apresentado no seu ecrã",
-		"lengthHint": "Comprimento do código: {{length}} caracteres",
-		"placeholderWithLength": "Introduza código de {{length}} caracteres",
-		"placeholder": "Introduza o código",
-		"inputLabel": "Código de transação",
-		"errorEmpty": "Por favor introduza o código de transação",
-		"errorLength": "O código de transação deve ter {{length}} caracteres",
-		"errorInvalid": "Código de transação inválido. Por favor tente novamente."
 	}
 }

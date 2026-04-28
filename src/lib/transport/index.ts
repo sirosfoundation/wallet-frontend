@@ -7,7 +7,7 @@
  */
 
 // Main interface
-export { IFlowTransport, NullTransport, nullTransport } from './types/IFlowTransport';
+export { type IFlowTransport, NullTransport, nullTransport } from './types/IFlowTransport';
 
 // Transport implementations
 export { HttpProxyTransport } from './HttpProxyTransport';
@@ -17,7 +17,7 @@ export type { CorsCheckResult } from './DirectTransport';
 
 // Retry and recovery
 export { withRetry } from './decorators/TransportWithRetry';
-export type { TransportWithRetry, RetryEvent, TransportWithRetryOptions, RecoverableFlowResult } from './decorators/TransportWithRetry';
+export { TransportWithRetry, type RetryEvent, type TransportWithRetryOptions, type RecoverableFlowResult } from './decorators/TransportWithRetry';
 export type { RetryConfig } from './types/FlowRecovery';
 export { FlowStateStore, getFlowStateStore, resetFlowStateStore } from './FlowStateStore';
 export type { FlowState, FlowProtocol, FlowCheckpoint, FlowRecoveryOptions } from './FlowStateStore';

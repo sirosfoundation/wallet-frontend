@@ -176,7 +176,7 @@ describe('WebSocketTransport', () => {
 			mockWebSocketInstances[0].simulateMessage({
 				flow_id: sentMessage.flow_id,
 				type: 'flow_complete',
-				issuerMetadata: { issuer: 'https://issuer.example.com' },
+				payload: { issuer_metadata: { issuer: 'https://issuer.example.com' } },
 			});
 
 			const result = await flowPromise;
@@ -237,7 +237,7 @@ describe('WebSocketTransport', () => {
 			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[1]);
 			expect(sentMessage.type).toBe('flow_action');
 			expect(sentMessage.action).toBe('authorization_complete');
-			expect(sentMessage.payload.authorization_code).toBe('auth-code-123');
+			expect(sentMessage.payload.code).toBe('auth-code-123');
 			expect(sentMessage.payload.code_verifier).toBe('verifier-abc');
 
 			// Respond with credential
@@ -326,9 +326,10 @@ describe('WebSocketTransport', () => {
 			const transport = new WebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
-			const authorizationRequestUri = 'openid4vp://?request_uri=...';
+			const requestUriRef = 'openid4vp://?request_uri=...';
+			const clientId = 'https://verifier.example.com';
 
-			const flowPromise = transport.startOID4VPFlow({ authorizationRequestUri });
+			const flowPromise = transport.startOID4VPFlow({ requestUriRef, clientId });
 
 			await vi.waitFor(() => {
 				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(1);
@@ -337,14 +338,15 @@ describe('WebSocketTransport', () => {
 			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[1]);
 			expect(sentMessage.type).toBe('flow_start');
 			expect(sentMessage.protocol).toBe('oid4vp');
-			expect(sentMessage.request_uri).toBe(authorizationRequestUri);
+			expect(sentMessage.request_uri_ref).toBe(requestUriRef);
+			expect(sentMessage.client_id).toBe(clientId);
 
 			// Simulate response with presentation definition
 			mockWebSocketInstances[0].simulateMessage({
 				flow_id: sentMessage.flow_id,
 				type: 'flow_complete',
-				presentationDefinition: { id: 'test-pd', input_descriptors: [] },
-				verifierInfo: { name: 'Test Verifier' },
+				presentation_definition: { id: 'test-pd', input_descriptors: [] },
+				verifier_info: { name: 'Test Verifier' },
 			});
 
 			const result = await flowPromise;
@@ -359,14 +361,16 @@ describe('WebSocketTransport', () => {
 
 			const selectedCredentials = [
 				{
-					descriptorId: 'id-1',
+					batchId: 1,
+					credentialQueryId: 'id-1',
+					walletCredentialRef: 'cred-ref-1',
 					credentialRaw: 'eyJ...credential...',
-					holderKeyKid: 'did:key:z123#key-1'
+					holderKeyKid: 'did:key:z123#key-1',
+					disclosedClaims: ['given_name'],
 				},
 			];
 
 			const flowPromise = transport.startOID4VPFlow({
-				authorizationRequestUri: 'openid4vp://...',
 				selectedCredentials,
 			});
 
@@ -377,13 +381,19 @@ describe('WebSocketTransport', () => {
 			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[1]);
 			expect(sentMessage.type).toBe('flow_action');
 			expect(sentMessage.action).toBe('consent');
-			expect(sentMessage.payload.selected_credentials).toEqual(selectedCredentials);
+			expect(sentMessage.payload.selected_credentials).toEqual([
+				{
+					credential_id: 'cred-ref-1',
+					credential_query_id: 'id-1',
+					disclosed_claims: ['given_name'],
+				},
+			]);
 
 			// Simulate success response
 			mockWebSocketInstances[0].simulateMessage({
 				flow_id: sentMessage.flow_id,
 				type: 'flow_complete',
-				redirectUri: 'https://verifier.example.com/callback',
+				redirect_uri: 'https://verifier.example.com/callback',
 			});
 
 			const result = await flowPromise;
@@ -568,7 +578,7 @@ describe('WebSocketTransport', () => {
 				params: {
 					audience: 'https://issuer.example.com',
 					nonce: 'nonce-456',
-					proofType: 'jwt',
+					proof_type: 'jwt',
 				},
 			});
 
@@ -586,6 +596,10 @@ describe('WebSocketTransport', () => {
 					audience: 'https://issuer.example.com',
 					nonce: 'nonce-456',
 					proofType: 'jwt',
+					issuer: undefined,
+					proofTypesSupported: undefined,
+					count: undefined,
+					credentialsToInclude: undefined,
 				},
 			});
 
@@ -763,9 +777,8 @@ describe('WebSocketTransport', () => {
 				flowId: 'flow-1',
 				message_id: 'msg-1',
 				type: 'match_request',
-				presentation_definition: {
-					id: 'pd-1',
-					input_descriptors: [{ id: 'id-1', constraints: {} }],
+				dcql_query: {
+					credentials: [{ id: 'id-1', format: 'vc+sd-jwt', claims: [] }],
 				},
 			});
 
@@ -776,8 +789,8 @@ describe('WebSocketTransport', () => {
 			expect(matchHandler).toHaveBeenCalledWith(expect.objectContaining({
 				flowId: 'flow-1',
 				messageId: 'msg-1',
-				presentationDefinition: expect.objectContaining({
-					id: 'pd-1',
+				dcqlQuery: expect.objectContaining({
+					credentials: [{ id: 'id-1', format: 'vc+sd-jwt', claims: [] }],
 				}),
 			}));
 		});
@@ -800,9 +813,8 @@ describe('WebSocketTransport', () => {
 				flowId: 'flow-1',
 				message_id: 'msg-1',
 				type: 'match_request',
-				presentation_definition: {
-					id: 'pd-1',
-					input_descriptors: [{ id: 'id-1' }, { id: 'id-2' }],
+				dcql_query: {
+					credentials: [{ id: 'id-1' }, { id: 'id-2' }],
 				},
 			});
 
@@ -841,7 +853,7 @@ describe('WebSocketTransport', () => {
 				flowId: 'flow-1',
 				message_id: 'msg-1',
 				type: 'match_request',
-				presentation_definition: { id: 'pd-1', input_descriptors: [] },
+				dcql_query: { credentials: [] },
 			});
 
 			await vi.waitFor(() => {
@@ -872,7 +884,7 @@ describe('WebSocketTransport', () => {
 				flowId: 'flow-1',
 				message_id: 'msg-1',
 				type: 'match_request',
-				presentation_definition: { id: 'pd-1', input_descriptors: [] },
+				dcql_query: { credentials: [] },
 			});
 
 			await vi.waitFor(() => {
@@ -898,7 +910,7 @@ describe('WebSocketTransport', () => {
 				flowId: 'flow-1',
 				message_id: 'msg-1',
 				type: 'match_request',
-				presentation_definition: { id: 'pd-1', input_descriptors: [] },
+				dcql_query: { credentials: [] },
 			});
 
 			// Give time for potential async handling
@@ -922,7 +934,7 @@ describe('WebSocketTransport', () => {
 				flowId: 'flow-1',
 				message_id: 'msg-1',
 				type: 'match_request',
-				presentation_definition: { id: 'pd-1', input_descriptors: [] },
+				dcql_query: { credentials: [] },
 			});
 
 			// Wait for error match_response
@@ -957,7 +969,7 @@ describe('WebSocketTransport', () => {
 				flowId: 'flow-1',
 				message_id: 'msg-1',
 				type: 'match_credentials',
-				presentation_definition: { id: 'pd-1', input_descriptors: [] },
+				dcql_query: { credentials: [] },
 			});
 
 			await vi.waitFor(() => {
@@ -977,7 +989,7 @@ describe('WebSocketTransport', () => {
 				flowId: 'flow-1',
 				message_id: 'msg-1',
 				type: 'match_request',
-				presentation_definition: { id: 'pd-1', input_descriptors: [] },
+				dcql_query: { credentials: [] },
 			});
 
 			// Wait for error match_response
