@@ -10,11 +10,11 @@
  */
 
 import React, { createContext, useContext, useMemo, useEffect, useState, useCallback } from 'react';
-import type { IFlowTransport } from '@/lib/transport/types/IFlowTransport';
-import { nullTransport } from '@/lib/transport/types/IFlowTransport';
-import { HttpProxyTransport } from '@/lib/transport/HttpProxyTransport';
-import { WebSocketTransport } from '@/lib/transport/WebSocketTransport';
-import type { SignRequestHandler, MatchRequestHandler } from '@/lib/transport/WebSocketTransport';
+import type { IOIDFlowTransport } from '@/lib/openid-flow/types/IOIDFlowTransport';
+import { nullOIDFlowTransport } from '@/lib/openid-flow/types/IOIDFlowTransport';
+import { OIDFlowHttpProxyTransport } from '@/lib/openid-flow/transports/OIDFlowHttpProxyTransport';
+import { OIDFlowWebSocketTransport } from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
+import type { SignRequestHandler, MatchRequestHandler } from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
 import { useHttpProxy } from '@/lib/services/HttpProxy/HttpProxy';
 import {
 	Capabilities,
@@ -28,10 +28,10 @@ import {
 	TRANSPORT_PREFERENCE,
 	BACKEND_URL,
 } from '@/config';
-import type { TransportType } from '@/lib/transport/types/FlowTypes';
+import type { OIDFlowTransportType } from '@/lib/openid-flow/types/OIDFlowTypes';
 import { logger } from '@/logger';
 import { createIssuerTrustEvaluator, createVerifierTrustEvaluator } from '@/lib/services/TrustEvaluator';
-import { TrustEvaluators } from '@/lib/transport';
+import { TrustEvaluators } from '@/lib/openid-flow';
 
 // Re-export sign and match types with WS prefix for clarity
 export type {
@@ -41,22 +41,22 @@ export type {
 	MatchRequest as WSMatchRequest,
 	MatchResponse as WSMatchResponse,
 	MatchRequestHandler as WSMatchRequestHandler,
-} from '@/lib/transport/WebSocketTransport';
+} from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
 
 /**
- * Value provided by the FlowTransportContext
+ * Value provided by the OIDFlowTransportContext
  */
-interface FlowTransportContextValue {
+interface OIDFlowTransportContextValue {
 	/** The active transport instance */
-	transport: IFlowTransport;
+	transport: IOIDFlowTransport;
 	/** The type of the active transport */
-	transportType: TransportType | 'none';
+	transportType: OIDFlowTransportType | 'none';
 	/** Whether the transport is currently connected */
 	isConnected: boolean;
 	/** Attempt to reconnect (for WebSocket) */
 	reconnect: () => Promise<void>;
 	/** List of available transports based on configuration and capabilities */
-	availableTransports: TransportType[];
+	availableTransports: OIDFlowTransportType[];
 	/** Error from the last transport operation */
 	lastError: Error | null;
 	/** Clear the last error */
@@ -75,9 +75,9 @@ interface FlowTransportContextValue {
 
 const TRANSPORT_CONNECT_TIMEOUT = 10 * 1000;
 
-const FlowTransportContext = createContext<FlowTransportContextValue | null>(null);
+const OIDFlowTransportContext = createContext<OIDFlowTransportContextValue | null>(null);
 
-interface FlowTransportProviderProps {
+interface OIDFlowTransportProviderProps {
 	children: React.ReactNode;
 	/** Auth token for WebSocket connection */
 	authToken: string | null;
@@ -88,7 +88,7 @@ interface FlowTransportProviderProps {
 /**
  * Provider component for the transport context
  */
-export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
+export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> = ({
 	children,
 	authToken,
 	tenantId
@@ -96,7 +96,7 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 	const httpProxy = useHttpProxy();
 
 	const [isConnected, setIsConnected] = useState(false);
-	const [wsTransport, setWsTransport] = useState<WebSocketTransport | null>(null);
+	const [wsTransport, setWsTransport] = useState<OIDFlowWebSocketTransport | null>(null);
 	const [lastError, setLastError] = useState<Error | null>(null);
 
 	// Engine capabilities state
@@ -104,7 +104,7 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 	const [engineCapabilities, setEngineCapabilities] = useState<string[]>([]);
 	const [wsCapabilityAvailable, setWsCapabilityAvailable] = useState(false);
 
-	const [pendingTransports, setPendingTransports] = useState<Set<TransportType>>(new Set());
+	const [pendingTransports, setPendingTransports] = useState<Set<OIDFlowTransportType>>(new Set());
 
 	// Ready when capabilities loaded AND no transport is mid-connection
 	const transportReady = capabilitiesLoaded && pendingTransports.size === 0;
@@ -160,7 +160,7 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 
 	// Determine which transports are available based on config AND capabilities
 	const availableTransports = useMemo(() => {
-		const available: TransportType[] = [];
+		const available: OIDFlowTransportType[] = [];
 		if (HTTP_PROXY_TRANSPORT_ALLOWED) available.push('http_proxy');
 		// Only add websocket if config allows AND engine has capability
 		if (WEBSOCKET_TRANSPORT_ALLOWED && WS_URL && wsCapabilityAvailable) {
@@ -173,7 +173,7 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 	// Create HTTP proxy transport only if allowed
 	const httpTransport = useMemo(() => {
 		if (!HTTP_PROXY_TRANSPORT_ALLOWED) return null;
-		return new HttpProxyTransport(httpProxy);
+		return new OIDFlowHttpProxyTransport(httpProxy);
 	}, [httpProxy]);
 
 	// Create and manage WebSocket transport (only if capability is available)
@@ -186,7 +186,7 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 		}
 
 		let cancelled = false;
-		const ws = new WebSocketTransport(WS_URL, authToken, tenantId, trustEvaluators);
+		const ws = new OIDFlowWebSocketTransport(WS_URL, authToken, tenantId, trustEvaluators);
 		setWsTransport(ws);
 
 		// Mark this transport as pending connection
@@ -286,7 +286,7 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 		}
 
 		// No transport available
-		return { transport: nullTransport, transportType: 'none' as const };
+		return { transport: nullOIDFlowTransport, transportType: 'none' as const };
 	}, [availableTransports, wsTransport, isConnected, httpTransport]);
 
 	// Reconnect function for WebSocket
@@ -341,22 +341,22 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 	}), [transport, transportType, isConnected, reconnect, availableTransports, lastError, clearError, capabilitiesLoaded, engineCapabilities, registerSignHandler, registerMatchHandler, transportReady]);
 
 	return (
-		<FlowTransportContext.Provider value={value}>
+		<OIDFlowTransportContext.Provider value={value}>
 			{children}
-		</FlowTransportContext.Provider>
+		</OIDFlowTransportContext.Provider>
 	);
 };
 
 /**
  * Hook to access the flow transport
  *
- * @throws Error if used outside FlowTransportProvider or no transport is configured
+ * @throws Error if used outside OIDFlowTransportProvider or no transport is configured
  */
-export const useFlowTransport = (): FlowTransportContextValue => {
-	const context = useContext(FlowTransportContext);
+export const useOIDFlowTransport = (): OIDFlowTransportContextValue => {
+	const context = useContext(OIDFlowTransportContext);
 
 	if (!context) {
-		throw new Error('useFlowTransport must be used within FlowTransportProvider');
+		throw new Error('useOIDFlowTransport must be used within OIDFlowTransportProvider');
 	}
 
 	return context;
@@ -366,8 +366,8 @@ export const useFlowTransport = (): FlowTransportContextValue => {
  * Hook to access the flow transport with optional error handling
  * Does not throw if no transport is available
  */
-export const useFlowTransportSafe = (): FlowTransportContextValue | null => {
-	return useContext(FlowTransportContext);
+export const useOIDFlowTransportSafe = (): OIDFlowTransportContextValue | null => {
+	return useContext(OIDFlowTransportContext);
 };
 
-export default FlowTransportContext;
+export default OIDFlowTransportContext;

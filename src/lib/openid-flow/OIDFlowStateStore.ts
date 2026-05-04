@@ -6,7 +6,7 @@
  */
 
 import { logger } from '@/logger';
-import type { FlowRecoverableError } from './types/FlowRecovery';
+import type { OIDFlowRecoverableError } from './types/OIDFlowRecovery';
 
 const STORAGE_KEY_PREFIX = 'wallet_flow_state_';
 const MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes - matches backend flow timeout
@@ -14,12 +14,12 @@ const MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes - matches backend flow timeout
 /**
  * Flow protocol type
  */
-export type FlowProtocol = 'oid4vci' | 'oid4vp';
+export type OIDFlowProtocol = 'oid4vci' | 'oid4vp';
 
 /**
  * Flow checkpoint stages
  */
-export type FlowCheckpoint =
+export type OIDFlowCheckpoint =
 	// Common
 	| 'initialized'
 	| 'connecting'
@@ -48,13 +48,13 @@ export type FlowCheckpoint =
 /**
  * Persisted flow state
  */
-export interface FlowState {
+export interface OIDFlowState {
 	/** Unique flow identifier */
 	flowId: string;
 	/** Flow protocol */
-	protocol: FlowProtocol;
+	protocol: OIDFlowProtocol;
 	/** Current checkpoint */
-	checkpoint: FlowCheckpoint;
+	checkpoint: OIDFlowCheckpoint;
 	/** Entry point URI (offer or request) */
 	entryUri: string;
 	/** When flow started */
@@ -64,7 +64,7 @@ export interface FlowState {
 	/** Number of retry attempts */
 	retryCount: number;
 	/** Last error (if any) */
-	lastError?: FlowRecoverableError;
+	lastError?: OIDFlowRecoverableError;
 	/** Protocol-specific state data */
 	data: Record<string, unknown>;
 }
@@ -72,9 +72,9 @@ export interface FlowState {
 /**
  * Options for flow recovery
  */
-export interface FlowRecoveryOptions {
+export interface OIDFlowRecoveryOptions {
 	/** Handler to call when flow can be resumed */
-	onResumable?: (state: FlowState) => void;
+	onResumable?: (state: OIDFlowState) => void;
 	/** Custom max age for flow states */
 	maxAgeMs?: number;
 }
@@ -82,10 +82,10 @@ export interface FlowRecoveryOptions {
 /**
  * Flow State Store - handles persistence and recovery of flow states
  */
-export class FlowStateStore {
-	private options: Required<FlowRecoveryOptions>;
+export class OIDFlowStateStore {
+	private options: Required<OIDFlowRecoveryOptions>;
 
-	constructor(options: FlowRecoveryOptions = {}) {
+	constructor(options: OIDFlowRecoveryOptions = {}) {
 		this.options = {
 			onResumable: options.onResumable ?? (() => {}),
 			maxAgeMs: options.maxAgeMs ?? MAX_AGE_MS,
@@ -97,13 +97,13 @@ export class FlowStateStore {
 	 */
 	create(
 		flowId: string,
-		protocol: FlowProtocol,
+		protocol: OIDFlowProtocol,
 		entryUri: string,
 		initialData: Record<string, unknown> = {}
-	): FlowState {
+	): OIDFlowState {
 		this.cleanupExpired();
 		const now = Date.now();
-		const state: FlowState = {
+		const state: OIDFlowState = {
 			flowId,
 			protocol,
 			checkpoint: 'initialized',
@@ -123,9 +123,9 @@ export class FlowStateStore {
 	 */
 	updateCheckpoint(
 		flowId: string,
-		checkpoint: FlowCheckpoint,
+		checkpoint: OIDFlowCheckpoint,
 		additionalData?: Record<string, unknown>
-	): FlowState | null {
+	): OIDFlowState | null {
 		const state = this.get(flowId);
 		if (!state) {
 			logger.warn('Cannot update checkpoint: flow not found', flowId);
@@ -145,7 +145,7 @@ export class FlowStateStore {
 	/**
 	 * Record an error for a flow
 	 */
-	recordError(flowId: string, error: FlowRecoverableError): FlowState | null {
+	recordError(flowId: string, error: OIDFlowRecoverableError): OIDFlowState | null {
 		const state = this.get(flowId);
 		if (!state) {
 			return null;
@@ -198,7 +198,7 @@ export class FlowStateStore {
 	/**
 	 * Get a flow state by ID
 	 */
-	get(flowId: string): FlowState | null {
+	get(flowId: string): OIDFlowState | null {
 		const key = STORAGE_KEY_PREFIX + flowId;
 		try {
 			const stored = sessionStorage.getItem(key);
@@ -206,7 +206,7 @@ export class FlowStateStore {
 				return null;
 			}
 
-			const state = JSON.parse(stored) as FlowState;
+			const state = JSON.parse(stored) as OIDFlowState;
 
 			// Check if expired
 			if (Date.now() - state.startedAt > this.options.maxAgeMs) {
@@ -224,9 +224,9 @@ export class FlowStateStore {
 	/**
 	 * Find all active (non-terminal) flow states
 	 */
-	getActiveFlows(): FlowState[] {
-		const flows: FlowState[] = [];
-		const terminalStates: FlowCheckpoint[] = ['completed', 'failed', 'cancelled'];
+	getActiveFlows(): OIDFlowState[] {
+		const flows: OIDFlowState[] = [];
+		const terminalStates: OIDFlowCheckpoint[] = ['completed', 'failed', 'cancelled'];
 
 		try {
 			// Collect keys first to avoid mutation during iteration
@@ -256,7 +256,7 @@ export class FlowStateStore {
 	/**
 	 * Find flows that can be resumed (have recoverable errors)
 	 */
-	getResumableFlows(): FlowState[] {
+	getResumableFlows(): OIDFlowState[] {
 		return this.getActiveFlows().filter(
 			state => state.lastError?.recoverable === true
 		);
@@ -280,7 +280,7 @@ export class FlowStateStore {
 	 * Prepare flow for retry (clear error and roll back to safe checkpoint)
 	 * Note: retryCount is incremented by recordError(), not here
 	 */
-	prepareRetry(flowId: string): FlowState | null {
+	prepareRetry(flowId: string): OIDFlowState | null {
 		const state = this.get(flowId);
 		if (!state) {
 			return null;
@@ -354,7 +354,7 @@ export class FlowStateStore {
 	/**
 	 * Update state data
 	 */
-	updateData(flowId: string, data: Record<string, unknown>): FlowState | null {
+	updateData(flowId: string, data: Record<string, unknown>): OIDFlowState | null {
 		const state = this.get(flowId);
 		if (!state) {
 			return null;
@@ -368,7 +368,7 @@ export class FlowStateStore {
 
 	// ===== Private Methods =====
 
-	private save(state: FlowState): void {
+	private save(state: OIDFlowState): void {
 		const key = STORAGE_KEY_PREFIX + state.flowId;
 		try {
 			// Strip originalError before serializing to avoid circular refs and large stacks
@@ -387,12 +387,12 @@ export class FlowStateStore {
 	/**
 	 * Determine the safe checkpoint to retry from
 	 */
-	private getRetryCheckpoint(state: FlowState): FlowCheckpoint {
+	private getRetryCheckpoint(state: OIDFlowState): OIDFlowCheckpoint {
 		// For most checkpoints, we can retry from the current position
 		// But some require rolling back to a safe point
 
 		// If we were waiting for user action, stay there
-		const userActionCheckpoints: FlowCheckpoint[] = [
+		const userActionCheckpoints: OIDFlowCheckpoint[] = [
 			'awaiting_consent',
 			'awaiting_selection',
 		];
@@ -418,11 +418,11 @@ export class FlowStateStore {
 /**
  * Singleton instance for default usage
  */
-let defaultStore: FlowStateStore | null = null;
+let defaultStore: OIDFlowStateStore | null = null;
 
-export function getFlowStateStore(options?: FlowRecoveryOptions): FlowStateStore {
+export function getOIDFlowStateStore(options?: OIDFlowRecoveryOptions): OIDFlowStateStore {
 	if (!defaultStore) {
-		defaultStore = new FlowStateStore(options);
+		defaultStore = new OIDFlowStateStore(options);
 	}
 	return defaultStore;
 }
@@ -430,7 +430,7 @@ export function getFlowStateStore(options?: FlowRecoveryOptions): FlowStateStore
 /**
  * Reset the singleton (for testing)
  */
-export function resetFlowStateStore(): void {
+export function resetOIDFlowStateStore(): void {
 	defaultStore?.clearAll();
 	defaultStore = null;
 }

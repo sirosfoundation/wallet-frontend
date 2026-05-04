@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
-	FlowStateStore,
-	getFlowStateStore,
-	resetFlowStateStore,
-	type FlowState,
-} from '../FlowStateStore';
-import { createFlowError } from '../utils/flowRecovery';
-import { FlowErrorCodes } from '../types/FlowRecovery';
+	OIDFlowStateStore,
+	getOIDFlowStateStore,
+	resetOIDFlowStateStore,
+	type OIDFlowState,
+} from '../OIDFlowStateStore';
+import { createOIDFlowError } from '../utils/oidFlowRecovery';
+import { OIDFlowErrorCodes } from '../types/OIDFlowRecovery';
 
 // Mock sessionStorage
 const mockStorage: Record<string, string> = {};
@@ -19,8 +19,8 @@ const mockSessionStorage = {
 	clear: vi.fn(() => { Object.keys(mockStorage).forEach(k => delete mockStorage[k]); }),
 };
 
-describe('FlowStateStore', () => {
-	let manager: FlowStateStore;
+describe('OIDFlowStateStore', () => {
+	let manager: OIDFlowStateStore;
 
 	beforeEach(() => {
 		// Clear mock storage
@@ -32,7 +32,7 @@ describe('FlowStateStore', () => {
 			writable: true,
 		});
 
-		manager = new FlowStateStore();
+		manager = new OIDFlowStateStore();
 	});
 
 	afterEach(() => {
@@ -86,7 +86,7 @@ describe('FlowStateStore', () => {
 
 		it('should return null and delete expired flows', () => {
 			// Create a flow with old timestamp
-			const oldState: FlowState = {
+			const oldState: OIDFlowState = {
 				flowId: 'old-flow',
 				protocol: 'oid4vci',
 				checkpoint: 'initialized',
@@ -131,7 +131,7 @@ describe('FlowStateStore', () => {
 	describe('recordError', () => {
 		it('should record a recoverable error and increment retry count', () => {
 			manager.create('flow-1', 'oid4vci', 'https://issuer.example/offer');
-			const error = createFlowError(FlowErrorCodes.NETWORK_TIMEOUT, 'Timeout');
+			const error = createOIDFlowError(OIDFlowErrorCodes.NETWORK_TIMEOUT, 'Timeout');
 
 			const state = manager.recordError('flow-1', error);
 
@@ -141,7 +141,7 @@ describe('FlowStateStore', () => {
 
 		it('should set checkpoint to failed for non-recoverable errors', () => {
 			manager.create('flow-1', 'oid4vci', 'https://issuer.example/offer');
-			const error = createFlowError(FlowErrorCodes.INVALID_CREDENTIAL, 'Invalid');
+			const error = createOIDFlowError(OIDFlowErrorCodes.INVALID_CREDENTIAL, 'Invalid');
 
 			const state = manager.recordError('flow-1', error);
 
@@ -152,7 +152,7 @@ describe('FlowStateStore', () => {
 	describe('canRetry', () => {
 		it('should return true when under retry limit with recoverable error', () => {
 			manager.create('flow-1', 'oid4vci', 'https://issuer.example/offer');
-			const error = createFlowError(FlowErrorCodes.NETWORK_TIMEOUT, 'Timeout');
+			const error = createOIDFlowError(OIDFlowErrorCodes.NETWORK_TIMEOUT, 'Timeout');
 			manager.recordError('flow-1', error);
 
 			expect(manager.canRetry('flow-1', 3)).toBe(true);
@@ -160,7 +160,7 @@ describe('FlowStateStore', () => {
 
 		it('should return false when at retry limit', () => {
 			manager.create('flow-1', 'oid4vci', 'https://issuer.example/offer');
-			const error = createFlowError(FlowErrorCodes.NETWORK_TIMEOUT, 'Timeout');
+			const error = createOIDFlowError(OIDFlowErrorCodes.NETWORK_TIMEOUT, 'Timeout');
 
 			// Simulate 3 retries
 			manager.recordError('flow-1', error);
@@ -172,7 +172,7 @@ describe('FlowStateStore', () => {
 
 		it('should return false for non-recoverable errors', () => {
 			manager.create('flow-1', 'oid4vci', 'https://issuer.example/offer');
-			const error = createFlowError(FlowErrorCodes.INVALID_CREDENTIAL, 'Invalid');
+			const error = createOIDFlowError(OIDFlowErrorCodes.INVALID_CREDENTIAL, 'Invalid');
 			manager.recordError('flow-1', error);
 
 			expect(manager.canRetry('flow-1', 3)).toBe(false);
@@ -187,7 +187,7 @@ describe('FlowStateStore', () => {
 		it('should clear error and prepare for retry', () => {
 			manager.create('flow-1', 'oid4vci', 'https://issuer.example/offer');
 			manager.updateCheckpoint('flow-1', 'consent_given');
-			const error = createFlowError(FlowErrorCodes.NETWORK_TIMEOUT, 'Timeout');
+			const error = createOIDFlowError(OIDFlowErrorCodes.NETWORK_TIMEOUT, 'Timeout');
 			manager.recordError('flow-1', error);
 
 			const state = manager.prepareRetry('flow-1');
@@ -199,7 +199,7 @@ describe('FlowStateStore', () => {
 		it('should rollback to safe checkpoint for proof submission errors', () => {
 			manager.create('flow-1', 'oid4vci', 'https://issuer.example/offer');
 			manager.updateCheckpoint('flow-1', 'proof_submitted');
-			const error = createFlowError(FlowErrorCodes.SIGN_TIMEOUT, 'Timeout');
+			const error = createOIDFlowError(OIDFlowErrorCodes.SIGN_TIMEOUT, 'Timeout');
 			manager.recordError('flow-1', error);
 
 			const state = manager.prepareRetry('flow-1');
@@ -248,10 +248,10 @@ describe('FlowStateStore', () => {
 			manager.create('flow-1', 'oid4vci', 'https://issuer.example/offer');
 			manager.create('flow-2', 'oid4vp', 'https://verifier.example/request');
 
-			const recoverableError = createFlowError(FlowErrorCodes.NETWORK_TIMEOUT, 'Timeout');
+			const recoverableError = createOIDFlowError(OIDFlowErrorCodes.NETWORK_TIMEOUT, 'Timeout');
 			manager.recordError('flow-1', recoverableError);
 
-			const fatalError = createFlowError(FlowErrorCodes.INVALID_CREDENTIAL, 'Invalid');
+			const fatalError = createOIDFlowError(OIDFlowErrorCodes.INVALID_CREDENTIAL, 'Invalid');
 			manager.recordError('flow-2', fatalError);
 
 			const resumable = manager.getResumableFlows();
@@ -263,16 +263,16 @@ describe('FlowStateStore', () => {
 
 	describe('singleton', () => {
 		it('should return the same instance', () => {
-			const instance1 = getFlowStateStore();
-			const instance2 = getFlowStateStore();
+			const instance1 = getOIDFlowStateStore();
+			const instance2 = getOIDFlowStateStore();
 
 			expect(instance1).toBe(instance2);
 		});
 
 		it('should reset the singleton', () => {
-			const instance1 = getFlowStateStore();
-			resetFlowStateStore();
-			const instance2 = getFlowStateStore();
+			const instance1 = getOIDFlowStateStore();
+			resetOIDFlowStateStore();
+			const instance2 = getOIDFlowStateStore();
 
 			expect(instance1).not.toBe(instance2);
 		});

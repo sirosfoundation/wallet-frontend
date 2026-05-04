@@ -2,66 +2,66 @@
  * Transport With Retry
  *
  * Decorator that wraps a transport with retry capabilities for transient errors.
- * Integrates with FlowStateStore for state persistence.
+ * Integrates with OIDFlowStateStore for state persistence.
  */
 
-import type { IFlowTransport } from '../types/IFlowTransport';
-import type { FlowRequest, FlowResponse, FlowProgressEvent } from '../types/FlowTypes';
+import type { IOIDFlowTransport } from '../types/IOIDFlowTransport';
+import type { OIDFlowRequest, OIDFlowResponse, OIDFlowProgressEvent } from '../types/OIDFlowTypes';
 import type { OID4VCIFlowParams, OID4VCIFlowResult } from '../types/OID4VCITypes';
 import type { OID4VPFlowParams, OID4VPFlowResult } from '../types/OID4VPTypes';
-import type { FlowRecoverableError, RetryConfig } from '../types/FlowRecovery';
-import { DEFAULT_RETRY_CONFIG } from '../types/FlowRecovery';
+import type { OIDFlowRecoverableError, OIDFlowRetryConfig } from '../types/OIDFlowRecovery';
+import { DEFAULT_OID_FLOW_RETRY_CONFIG } from '../types/OIDFlowRecovery';
 import {
-	createFlowError,
+	createOIDFlowError,
 	inferErrorCode,
 	calculateRetryDelay,
-} from '../utils/flowRecovery';
+} from '../utils/oidFlowRecovery';
 import {
-	FlowStateStore,
-	getFlowStateStore,
-	type FlowProtocol,
-	type FlowCheckpoint,
-	type FlowState,
-} from '../FlowStateStore';
+	OIDFlowStateStore,
+	getOIDFlowStateStore,
+	type OIDFlowProtocol,
+	type OIDFlowCheckpoint,
+	type OIDFlowState,
+} from '../OIDFlowStateStore';
 import { logger } from '@/logger';
 
 /**
  * Retry event for progress tracking
  */
-export interface RetryEvent {
+export interface OIDFlowRetryEvent {
 	flowId: string;
 	attemptNumber: number;
 	maxRetries: number;
-	error: FlowRecoverableError;
+	error: OIDFlowRecoverableError;
 	nextRetryIn: number;
 }
 
 /**
  * Callback types
  */
-export type RetryCallback = (event: RetryEvent) => void;
-export type RecoveryCallback = (state: FlowState) => void;
+export type OIDFlowRetryCallback = (event: OIDFlowRetryEvent) => void;
+export type OIDFlowRecoveryCallback = (state: OIDFlowState) => void;
 
 /**
  * Options for the retry wrapper
  */
-export interface TransportWithRetryOptions {
+export interface OIDFlowTransportWithRetryOptions {
 	/** Custom retry configuration */
-	retryConfig?: Partial<RetryConfig>;
+	retryConfig?: Partial<OIDFlowRetryConfig>;
 	/** Flow state store instance (uses default if not provided) */
-	stateManager?: FlowStateStore;
+	stateManager?: OIDFlowStateStore;
 	/** Callback when a retry is about to happen */
-	onRetry?: RetryCallback;
+	onRetry?: OIDFlowRetryCallback;
 	/** Callback when a flow can be recovered */
-	onRecoverable?: RecoveryCallback;
+	onRecoverable?: OIDFlowRecoveryCallback;
 }
 
 /**
  * Result type that includes recovery information
  */
-export interface RecoverableFlowResult<T> {
+export interface OIDFlowRecoverableResult<T> {
 	result: T;
-	flowState?: FlowState;
+	flowState?: OIDFlowState;
 	retryInfo?: {
 		attemptsTaken: number;
 		canRetry: boolean;
@@ -70,22 +70,22 @@ export interface RecoverableFlowResult<T> {
 }
 
 /**
- * Transport With Retry - adds retry capabilities to any IFlowTransport
+ * Transport With Retry - adds retry capabilities to any IOIDFlowTransport
  */
-export class TransportWithRetry implements IFlowTransport {
-	private transport: IFlowTransport;
-	private config: RetryConfig;
-	private stateManager: FlowStateStore;
-	private onRetry?: RetryCallback;
-	private onRecoverable?: RecoveryCallback;
+export class OIDFlowTransportWithRetry implements IOIDFlowTransport {
+	private transport: IOIDFlowTransport;
+	private config: OIDFlowRetryConfig;
+	private stateManager: OIDFlowStateStore;
+	private onRetry?: OIDFlowRetryCallback;
+	private onRecoverable?: OIDFlowRecoveryCallback;
 
-	constructor(transport: IFlowTransport, options: TransportWithRetryOptions = {}) {
+	constructor(transport: IOIDFlowTransport, options: OIDFlowTransportWithRetryOptions = {}) {
 		this.transport = transport;
 		this.config = {
-			...DEFAULT_RETRY_CONFIG,
+			...DEFAULT_OID_FLOW_RETRY_CONFIG,
 			...options.retryConfig,
 		};
-		this.stateManager = options.stateManager ?? getFlowStateStore();
+		this.stateManager = options.stateManager ?? getOIDFlowStateStore();
 		this.onRetry = options.onRetry;
 		this.onRecoverable = options.onRecoverable;
 	}
@@ -125,7 +125,7 @@ export class TransportWithRetry implements IFlowTransport {
 		);
 	}
 
-	private getOID4VCICheckpoint(params: OID4VCIFlowParams): FlowCheckpoint {
+	private getOID4VCICheckpoint(params: OID4VCIFlowParams): OIDFlowCheckpoint {
 		if (params.authorizationCode) return 'authorization_completed';
 		if (params.holderBinding) return 'consent_given';
 		if (params.preAuthorizedCode) return 'consent_given';
@@ -136,7 +136,7 @@ export class TransportWithRetry implements IFlowTransport {
 	// ===== OID4VP Flow with Retry =====
 
 	async startOID4VPFlow(params: OID4VPFlowParams): Promise<OID4VPFlowResult> {
-		const entryUri = params.authorizationRequestUri ?? '';
+		const entryUri = params.requestUriRef ?? '';
 		return this.executeWithRetry<OID4VPFlowResult>(
 			'oid4vp',
 			entryUri,
@@ -145,19 +145,19 @@ export class TransportWithRetry implements IFlowTransport {
 		);
 	}
 
-	private getOID4VPCheckpoint(params: OID4VPFlowParams): FlowCheckpoint {
+	private getOID4VPCheckpoint(params: OID4VPFlowParams): OIDFlowCheckpoint {
 		if (params.selectedCredentials) return 'selection_made';
-		if (params.authorizationRequestUri) return 'initialized';
+		if (params.requestUriRef) return 'initialized';
 		return 'initialized';
 	}
 
 	// ===== Generic Request with Retry =====
 
-	async request<T>(flowRequest: FlowRequest): Promise<FlowResponse<T>> {
+	async request<T>(flowRequest: OIDFlowRequest): Promise<OIDFlowResponse<T>> {
 		try {
 			// Use type:action as entryUri to avoid exposing sensitive payload data
 			const entryUri = `${flowRequest.type}:${flowRequest.action}`;
-			return await this.executeWithRetry<FlowResponse<T>>(
+			return await this.executeWithRetry<OIDFlowResponse<T>>(
 				'oid4vci', // Generic flows default to oid4vci protocol
 				entryUri,
 				() => this.transport.request<T>(flowRequest),
@@ -176,7 +176,7 @@ export class TransportWithRetry implements IFlowTransport {
 
 	// ===== Event Subscriptions (delegated) =====
 
-	onProgress(callback: (event: FlowProgressEvent) => void): () => void {
+	onProgress(callback: (event: OIDFlowProgressEvent) => void): () => void {
 		return this.transport.onProgress(callback);
 	}
 
@@ -189,14 +189,14 @@ export class TransportWithRetry implements IFlowTransport {
 	/**
 	 * Get all flows that can be resumed
 	 */
-	getResumableFlows(): FlowState[] {
+	getResumableFlows(): OIDFlowState[] {
 		return this.stateManager.getResumableFlows();
 	}
 
 	/**
 	 * Get state for a specific flow
 	 */
-	getFlowState(flowId: string): FlowState | null {
+	getFlowState(flowId: string): OIDFlowState | null {
 		return this.stateManager.get(flowId);
 	}
 
@@ -232,10 +232,10 @@ export class TransportWithRetry implements IFlowTransport {
 	 *   The onRecoverable callback is still invoked so the UI can offer manual retry.
 	 */
 	private async executeWithRetry<T>(
-		protocol: FlowProtocol,
+		protocol: OIDFlowProtocol,
 		entryUri: string,
 		operation: () => Promise<T>,
-		checkpoint: FlowCheckpoint,
+		checkpoint: OIDFlowCheckpoint,
 		allowAutoRetry: boolean = true
 	): Promise<T> {
 		const flowId = crypto.randomUUID();
@@ -245,7 +245,7 @@ export class TransportWithRetry implements IFlowTransport {
 		const effectiveMaxRetries = allowAutoRetry ? this.config.maxRetries : 0;
 
 		let attemptNumber = 0;
-		let lastError: FlowRecoverableError | undefined;
+		let lastError: OIDFlowRecoverableError | undefined;
 
 		while (attemptNumber <= effectiveMaxRetries) {
 			attemptNumber++;
@@ -372,9 +372,9 @@ export class TransportWithRetry implements IFlowTransport {
 	/**
 	 * Classify an error as recoverable or not
 	 */
-	private classifyError(code: string | undefined, message: string): FlowRecoverableError {
+	private classifyError(code: string | undefined, message: string): OIDFlowRecoverableError {
 		const inferredCode = inferErrorCode(message, code);
-		return createFlowError(inferredCode, message);
+		return createOIDFlowError(inferredCode, message);
 	}
 
 	/**
@@ -383,7 +383,7 @@ export class TransportWithRetry implements IFlowTransport {
 	private emitRetry(
 		flowId: string,
 		attemptNumber: number,
-		error: FlowRecoverableError,
+		error: OIDFlowRecoverableError,
 		nextRetryIn: number
 	): void {
 		logger.debug(
@@ -405,7 +405,7 @@ export class TransportWithRetry implements IFlowTransport {
 	/**
 	 * Emit a recoverable event (manual retry possible)
 	 */
-	private emitRecoverable(state: FlowState): void {
+	private emitRecoverable(state: OIDFlowState): void {
 		logger.debug(`Flow ${state.flowId} is recoverable, manual retry available`);
 
 		if (this.onRecoverable) {
@@ -422,8 +422,8 @@ export class TransportWithRetry implements IFlowTransport {
  * Create a retry-wrapped transport
  */
 export function withRetry(
-	transport: IFlowTransport,
-	options?: TransportWithRetryOptions
-): TransportWithRetry {
-	return new TransportWithRetry(transport, options);
+	transport: IOIDFlowTransport,
+	options?: OIDFlowTransportWithRetryOptions
+): OIDFlowTransportWithRetry {
+	return new OIDFlowTransportWithRetry(transport, options);
 }

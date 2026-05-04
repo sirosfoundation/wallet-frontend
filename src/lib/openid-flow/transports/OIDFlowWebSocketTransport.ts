@@ -13,17 +13,17 @@
  */
 
 import { TrustStatus as TrustStatusEnum } from 'wallet-common';
-import type { IFlowTransport } from './types/IFlowTransport';
+import type { IOIDFlowTransport } from '../types/IOIDFlowTransport';
 import type {
-	FlowRequest,
-	FlowResponse,
-	FlowProgressEvent
-} from './types/FlowTypes';
-import type { OID4VCIFlowParams, OID4VCIFlowResult, OID4VCIIssuerInfo } from './types/OID4VCITypes';
-import type { OID4VPFlowParams, OID4VPFlowResult, OID4VPVerifierInfo } from './types/OID4VPTypes';
+	OIDFlowRequest,
+	OIDFlowResponse,
+	OIDFlowProgressEvent
+} from '../types/OIDFlowTypes';
+import type { OID4VCIFlowParams, OID4VCIFlowResult, OID4VCIIssuerInfo } from '../types/OID4VCITypes';
+import type { OID4VPFlowParams, OID4VPFlowResult, OID4VPVerifierInfo } from '../types/OID4VPTypes';
 import type { CredentialsMatchedResult } from '@/services/CredentialMatchingService';
 import { logger } from '@/logger';
-import { TrustEvaluators, TrustStatus } from './types';
+import { TrustEvaluators, TrustStatus } from '../types';
 import { DcqlQuery } from 'dcql';
 
 /**
@@ -137,7 +137,7 @@ export interface FlowAction {
 /**
  * WebSocket Transport implementation
  */
-export class WebSocketTransport implements IFlowTransport {
+export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	private ws: WebSocket | null = null;
 	private wsUrl: string;
 	private authToken: string;
@@ -146,7 +146,7 @@ export class WebSocketTransport implements IFlowTransport {
 	private currentFlowId: string | null = null;
 
 	private pending = new Map<string, PendingRequest>();
-	private progressCallbacks = new Set<(event: FlowProgressEvent) => void>();
+	private progressCallbacks = new Set<(event: OIDFlowProgressEvent) => void>();
 	private errorCallbacks = new Set<(error: Error) => void>();
 	private signHandlers = new Set<SignRequestHandler>();
 	private matchHandlers = new Set<MatchRequestHandler>();
@@ -541,7 +541,7 @@ export class WebSocketTransport implements IFlowTransport {
 
 	// ===== Generic Request =====
 
-	async request<T>(flowRequest: FlowRequest): Promise<FlowResponse<T>> {
+	async request<T>(flowRequest: OIDFlowRequest): Promise<OIDFlowResponse<T>> {
 		try {
 			const response = await this.send({
 				type: 'generic.request',
@@ -577,7 +577,7 @@ export class WebSocketTransport implements IFlowTransport {
 
 	// ===== Event Subscriptions =====
 
-	onProgress(callback: (event: FlowProgressEvent) => void): () => void {
+	onProgress(callback: (event: OIDFlowProgressEvent) => void): () => void {
 		this.progressCallbacks.add(callback);
 		return () => this.progressCallbacks.delete(callback);
 	}
@@ -1041,7 +1041,7 @@ export class WebSocketTransport implements IFlowTransport {
 		});
 	}
 
-	private emitProgress(event: FlowProgressEvent): void {
+	private emitProgress(event: OIDFlowProgressEvent): void {
 		Array.from(this.progressCallbacks).forEach(callback => {
 			try {
 				callback(event);

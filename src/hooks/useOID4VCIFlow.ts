@@ -1,9 +1,9 @@
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { useFlowTransportSafe } from '@/context/FlowTransportContext';
+import { useOIDFlowTransportSafe } from '@/context/OIDFlowTransportContext';
 import OpenID4VCIContext from '@/context/OpenID4VCIContext';
 import { CredentialOfferSchema, VerifiableCredentialFormat } from 'wallet-common';
-import type { OID4VCIFlowResult } from '@/lib/transport/types/OID4VCITypes';
-import type { FlowProgressEvent, TransportType } from '@/lib/transport/types/FlowTypes';
+import type { OID4VCIFlowResult } from '@/lib/openid-flow/types/OID4VCITypes';
+import type { OIDFlowProgressEvent, OIDFlowTransportType } from '@/lib/openid-flow/types/OIDFlowTypes';
 import { DISPLAY_ISSUANCE_WARNINGS, OPENID4VCI_REDIRECT_URI } from '@/config';
 import { deriveHolderKidFromCredential } from '@/lib/services/OpenID4VCI/OpenID4VCI';
 import SessionContext from '@/context/SessionContext';
@@ -15,7 +15,7 @@ export interface UseOID4VCIFlowOptions {
 	/**
 	 * Called when flow progress updates
 	 */
-	onProgress?: (event: FlowProgressEvent) => void;
+	onProgress?: (event: OIDFlowProgressEvent) => void;
 	/**
 	 * Called when an error occurs
 	 */
@@ -53,7 +53,7 @@ export interface UseOID4VCIFlowReturn {
 	/**
 	 * Current transport type being used
 	 */
-	transportType: TransportType | 'none';
+	transportType: OIDFlowTransportType | 'none';
 	/**
 	 * Whether a flow is currently in progress
 	 */
@@ -81,7 +81,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 
 	const { credentialEngine } = useContext(CredentialsContext);
 	const { api, keystore } = useContext(SessionContext);
-	const transportContext = useFlowTransportSafe();
+	const transportContext = useOIDFlowTransportSafe();
 	const { openID4VCI } = useContext(OpenID4VCIContext);
 
 	const abortRef = useRef<AbortController>(new AbortController());
