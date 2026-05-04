@@ -101,7 +101,8 @@ export interface BackendApi {
 	useClearOnClearSession<T>(storageHandle: UseStorageHandle<T>): UseStorageHandle<T>,
 
 	syncPrivateData(
-		cachedUser: CachedUser | undefined
+		cachedUser: CachedUser | undefined,
+		keystore?: LocalStorageKeystore,
 	): Promise<Result<void,
 		| 'syncFailed'
 		| 'loginKeystoreFailed'
@@ -215,8 +216,8 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		options: { appToken?: string },
 	): { [header: string]: string } => {
 		return {
-			...buildGetHeaders(headers, options),
 			...(getPrivateDataEtag() ? { 'X-Private-Data-If-Match': getPrivateDataEtag() } : {}),
+			...buildGetHeaders(headers, options),
 		};
 	}, [buildGetHeaders, getPrivateDataEtag]);
 
@@ -377,7 +378,8 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 	}, [buildMutationHeaders, getTokenRefreshConfig]);
 
 	const syncPrivateData = useCallback(async (
-		cachedUser: CachedUser | undefined
+		cachedUser: CachedUser | undefined,
+		keystore?: LocalStorageKeystore,
 	): Promise<Result<void,
 		| 'syncFailed'
 		| 'loginKeystoreFailed'
@@ -395,24 +397,55 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			if (getPrivateDataResponse.status === 304) {
 				return Ok.EMPTY; // already synced
 			}
+
+			// Try to merge without re-authentication if keystore is available
+			if (keystore) {
+				try {
+					const remotePrivateData = getPrivateDataResponse.data.privateData;
+					const mergeResult = await keystore.syncWithRemoteData(remotePrivateData);
+					if (mergeResult.ok) {
+						const newEtag =
+							getPrivateDataResponse.headers?.['x-private-data-etag'] ??
+							getPrivateDataResponse.headers?.['etag'];
+						const updateResp = updatePrivateDataEtag(
+							await post('/user/session/private-data', serializePrivateData(mergeResult.val), {
+								headers: newEtag ? { 'X-Private-Data-If-Match': newEtag } : {},
+							}),
+						);
+						if (updateResp.status === 204) {
+							console.debug('syncPrivateData: merged remote and local data successfully');
+							return Ok.EMPTY;
+						}
+					}
+				} catch (mergeErr) {
+					console.debug('syncPrivateData: silent merge threw, falling back to re-auth', mergeErr);
+				}
+				console.debug('syncPrivateData: merge failed, falling back to re-authentication flow');
+			}
+
+			// Fallback: navigate to sync-fail state for re-authentication
 			const queryParams = new URLSearchParams(window.location.search);
 			queryParams.delete('user');
 			queryParams.delete('sync');
 
-			queryParams.append('user', cachedUser.userHandleB64u);
+			if (cachedUser && cachedUser.userHandleB64u) {
+				queryParams.append('user', cachedUser.userHandleB64u);
+			}
 			queryParams.append('sync', 'fail');
 
 			navigate(`${window.location.pathname}?${queryParams.toString()}`, { replace: true });
 			return Err('syncFailed');
-			// const privateData = await parsePrivateData(getPrivateDataResponse.data.privateData);
-			// return await loginWebauthn(keystore, promptForPrfRetry, cachedUser);
 		}
 		catch (err) {
-			logger.error(err);
+			if (typeof err === 'object' && err !== null && 'cause' in err && err.cause === 'x-private-data-etag') {
+				logger.debug('syncPrivateData: private data etag conflict', err);
+				return Err('x-private-data-etag');
+			}
+			logger.error('syncPrivateData failed', err);
 			return Err('syncFailed');
 		}
 
-	}, [getPrivateDataEtag, get, navigate, isOnline]);
+	}, [getPrivateDataEtag, get, navigate, isOnline, post, updatePrivateDataEtag]);
 
 	const updateShowWelcome = useCallback((showWelcome: boolean): void => {
 		if (sessionState) {

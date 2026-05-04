@@ -267,7 +267,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	// TODO: move to new HOC responsible for session initialization and syncing
 	useEffect(() => {
 		if (latestIsOnlineStatus === false && isOnline === true && cachedUser) {
-			api.syncPrivateData(cachedUser);
+			api.syncPrivateData(cachedUser, keystore);
 		}
 		if (isLoggedIn) {
 			setLatestIsOnlineStatus(isOnline);
@@ -280,7 +280,8 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 		isOnline,
 		latestIsOnlineStatus,
 		setLatestIsOnlineStatus,
-		cachedUser
+		cachedUser,
+		keystore
 	]);
 
 	// TODO: move to new HOC responsible for session initialization and syncing
@@ -292,7 +293,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 		if (synced === false && getCalculatedWalletState() && params.get('sync') !== 'fail') {
 			logger.debug("Actually syncing...");
 			(async () => {
-				const r = await syncPrivateData(cachedUser);
+				const r = await syncPrivateData(cachedUser, keystore);
 				if (!r.ok) {
 					return;
 				}
@@ -300,7 +301,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 			})();
 		}
 
-	}, [cachedUser, synced, setSynced, getCalculatedWalletState, syncPrivateData, location.search]);
+	}, [cachedUser, synced, setSynced, getCalculatedWalletState, syncPrivateData, location.search, keystore]);
 
 	useEffect(() => {
 		if (synced === true && window.location.search !== '') {
