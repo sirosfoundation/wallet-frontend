@@ -17,6 +17,7 @@ import useOID4VPFlow from "@/hooks/useOID4VPFlow";
 import OpenID4VPContext from "@/context/OpenID4VPContext";
 import MessagePopup from "@/components/Popups/MessagePopup";
 import { OIDFlowError } from "@/lib/transport/errors";
+import { useFlowTransportSafe } from "@/context/FlowTransportContext";
 
 
 export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
@@ -30,6 +31,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	// const [usedPreAuthorizedCodes, setUsedPreAuthorizedCodes] = useState<string[]>([]);
 
 	const { isLoggedIn, api, keystore, logout } = useContext(SessionContext);
+	const { transportReady } = useFlowTransportSafe();
 	const { syncPrivateData } = api;
 	const { getUserHandleB64u, getCachedUsers, getCalculatedWalletState } = keystore;
 
@@ -328,7 +330,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	 * OpenID4VCI flow entrypoint.
 	 */
 	useEffect(() => {
-		if (!isLoggedIn || !synced || vciTransportType === 'none' || isLoading) return;
+		if (!isLoggedIn || !synced || vciTransportType === 'none' || isLoading || !transportReady) return;
 
 		if (urlWithCredentialOffer) {
 			(async () => {
@@ -439,13 +441,14 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 		urlWithCredentialOffer,
 		urlWithAuthorizationCode,
 		isLoading,
+		transportReady,
 	]);
 
 	/**
 	 * OpenID4VP flow entrypoint.
 	 */
 	useEffect(() => {
-		if (!isLoggedIn || !synced || vpTransportType === 'none' || isLoading) return;
+		if (!isLoggedIn || !synced || vpTransportType === 'none' || isLoading || !transportReady) return;
 
 		if (urlWithAuthorizationRequest) {
 			(async () => {
@@ -524,6 +527,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 		handleCredentialSelection,
 		sendAuthorizationResponse,
 		showTransactionDataConsentPopup,
+		transportReady,
 	]);
 
 	// OLD IMPLEMENTATION - KEEP FOR REFERENCE
