@@ -7,6 +7,8 @@
  * Runtime constants and helper functions are in ../protocolStepInfo.ts
  */
 
+import { getStepInfo } from '../protocolStepInfo';
+
 // ============================================================================
 // OID4VCI Protocol Steps
 // ============================================================================
@@ -101,7 +103,7 @@ export {
 	OID4VP_STEP_INFO,
 	getStepInfo,
 	requiresUserInput,
-} from '../oidProtocolStepInfo';
+} from '../protocolStepInfo';
 
 /**
  * Check if current state is terminal (completed or error)
