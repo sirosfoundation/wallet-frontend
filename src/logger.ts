@@ -58,7 +58,7 @@ export class Logger {
 		this.bindMethods();
 	}
 
-	logPrefix(level: string) {
+	logPrefix(level: LogLevel) {
 		let prefix = `%c[${level}]%c`;
 
 		if (!DISPLAY_CONSOLE) {
