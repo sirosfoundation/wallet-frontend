@@ -34,6 +34,7 @@ type SignupWebauthnError = (
 	| 'passkeySignupPrfNotSupported'
 	| 'inviteRequired'
 	| 'inviteInvalid'
+	| 'oidcTokenExpired'
 	| { errorId: 'prfRetryFailed', retryFrom: SignupWebauthnRetryParams }
 );
 type SignupWebauthnRetryParams = { beginData: any, credential: PublicKeyCredential };
@@ -76,6 +77,7 @@ export interface BackendApi {
 			| 'passkeyInvalid'
 			| 'passkeyLoginFailedTryAgain'
 			| 'passkeyLoginFailedServerError'
+			| 'oidcTokenExpired'
 			| 'x-private-data-etag'
 		>
 	>,
@@ -695,6 +697,10 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		} catch (e) {
 			console.error("Login failed", e);
 
+			if (e?.response?.status === 401) {
+				// OIDC gate token expired or invalid - user must re-authenticate via IdP
+				return Err('oidcTokenExpired');
+			}
 			if (e?.response?.status === 403) {
 				// Tenant access denied - passkey belongs to different tenant
 				return Err('passkeyLoginFailedTryAgain');
@@ -812,6 +818,10 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 						return Ok.EMPTY;
 
 					} catch (e) {
+						if (e?.response?.status === 401) {
+							// OIDC gate token expired or invalid - user must re-authenticate via IdP
+							return Err('oidcTokenExpired');
+						}
 						return Err('passkeySignupFailedServerError');
 					}
 
@@ -830,6 +840,10 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			}
 
 		} catch (e) {
+			if (e?.response?.status === 401) {
+				// OIDC gate token expired or invalid - user must re-authenticate via IdP
+				return Err('oidcTokenExpired');
+			}
 			const errorMsg = e?.response?.data?.error;
 			if (errorMsg === 'invite_required') return Err('inviteRequired');
 			if (errorMsg === 'invite_invalid') return Err('inviteInvalid');

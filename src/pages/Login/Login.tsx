@@ -291,6 +291,13 @@ const WebauthnSignupLogin = ({
 					setError(t('loginSignup.passkeyLoginFailedServerError'));
 					break;
 
+				case 'oidcTokenExpired':
+					// OIDC gate token has expired — clear it and re-show the gate so the user
+					// can re-authenticate via the IdP before retrying the passkey login
+					activeGate.reset();
+					setError(t('oidcGate.errorExpired'));
+					break;
+
 				case 'x-private-data-etag':
 					setError(t('loginSignup.privateDataConflict'));
 					break;
@@ -299,7 +306,7 @@ const WebauthnSignupLogin = ({
 					throw result;
 			}
 		}
-	}, [api, keystore, urlTenantId, activeGate.idToken, setError, t]);
+	}, [api, keystore, urlTenantId, activeGate.idToken, activeGate.reset, setError, t]);
 
 	const onSignup = async (name: string, webauthnHints: string[]) => {
 		// Pass tenantId to ensure the passkey's userHandle includes the tenant prefix
@@ -343,6 +350,13 @@ const WebauthnSignupLogin = ({
 
 				case 'inviteInvalid':
 					setError(t('loginSignup.inviteInvalid'));
+					break;
+
+				case 'oidcTokenExpired':
+					// OIDC gate token has expired — clear it and re-show the gate so the user
+					// can re-authenticate via the IdP before retrying the passkey registration
+					activeGate.reset();
+					setError(t('oidcGate.errorExpired'));
 					break;
 
 				case 'passkeySignupPrfNotSupported':
