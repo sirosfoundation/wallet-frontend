@@ -1,4 +1,6 @@
-export {}; // Make sure the file is a module instead of a script, othwerwise `declare global` is not allowed
+export type PublicKeyCredentialCreation = PublicKeyCredential & { response: AuthenticatorAttestationResponse };
+export type PublicKeyCredentialAssertion = PublicKeyCredential & { response: AuthenticatorAssertionResponse };
+
 
 declare global {
 	// The below polyfill seems not needed for
@@ -14,5 +16,14 @@ declare global {
 		rpId?: string;
 		timeout?: number;
 		userVerification?: UserVerificationRequirement;
+	}
+}
+
+
+export function toArrayBuffer(buf: BufferSource): ArrayBuffer {
+	if (buf instanceof ArrayBuffer) {
+		return buf;
+	} else {
+		return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
 	}
 }

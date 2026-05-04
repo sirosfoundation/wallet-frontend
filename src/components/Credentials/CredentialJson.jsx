@@ -6,11 +6,12 @@ import { Copy } from 'lucide-react';
 const CredentialJson = ({ parsedCredential }) => {
 	const { t } = useTranslation();
 
-	if (!parsedCredential?.signedClaims) return null;
+	const claims = parsedCredential?.signedClaims;
+	if (!claims) return null;
 
-	const handleCopy = (e) => {
+	const handleCopy = (e, data) => {
 		navigator.clipboard.writeText(
-			JSON.stringify(parsedCredential.signedClaims, null, 2)
+			JSON.stringify(data, null, 2)
 		);
 
 		const container = e.target.closest('.json-container');
@@ -26,14 +27,14 @@ const CredentialJson = ({ parsedCredential }) => {
 			<div className="json-container h-80 resize-y overflow-auto min-h-32 bg-inherit text-inherit border border-lm-gray-400 dark:border-dm-gray-600 p-2 text-sm rounded-lg transition filter duration-200 relative">
 				<button
 					id="copy-dataset"
-					onClick={handleCopy}
+					onClick={e => handleCopy(e, claims)}
 					title={t("pageCredentials.copyDatasetToClipboard")}
 					aria-label={t("pageCredentials.copyDatasetToClipboard")}
 					className="sticky float-right top-0 z-10 text-lm-gray-800 hover:text-lm-gray-700 dark:text-dm-gray-100 hover:dark:text-dm-gray-300 px-2 py-1"
 				>
 					<Copy size={18} />
 				</button>
-				<JsonViewer value={parsedCredential.signedClaims} />
+				<JsonViewer value={claims} />
 			</div>
 		</div>
 	);

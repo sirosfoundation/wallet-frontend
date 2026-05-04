@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useContext, useEffect, useState } from 'react';
 import ExpiredRibbon from './ExpiredRibbon';
-import UsagesRibbon from "./UsagesRibbon";
 import DefaultCred from "../../assets/images/cred.png";
 import { CredentialCardSkeleton } from '../Skeletons';
+import CredentialStatusIndicatorsRibbon from './CredentialStatusIndicatorsRibbon';
+import SessionContext from '@/context/SessionContext';
 
 const CredentialImage = ({
 	vcEntity,
@@ -15,7 +16,14 @@ const CredentialImage = ({
 	borderColor = undefined,
 	fixedRatio = true
 }) => {
+	const { keystore } = useContext(SessionContext);
 	const [imageSrc, setImageSrc] = useState(undefined);
+	const [walletStateKeypairs, setWalletStateKeyPairs] = useState([]);
+
+	useEffect(() => {
+		const state = keystore?.getCalculatedWalletState?.();
+		setWalletStateKeyPairs(state?.keypairs ?? []);
+	}, [keystore]);
 
 	useEffect(() => {
 		let isMounted = true;
@@ -47,27 +55,27 @@ const CredentialImage = ({
 
 		loadImage();
 
-		return () => { isMounted = false };
+		return () => { isMounted = false; };
 	}, [vcEntity, filter, onLoad]);
 
 	return (
 		<>
 			{vcEntity && imageSrc ? (
 				<>
-					<div className={`relative w-full overflow-visible ${fixedRatio ? 'aspect-[1.6]' : ''}`}>
-						<img
-							src={imageSrc}
-							alt="Credential"
-							className={`w-full h-full w-full h-full object-cover object-top ${className ?? ''}`}
-							onClick={onClick}
-						/>
-						{showRibbon &&
-							<ExpiredRibbon vcEntity={vcEntity} borderColor={borderColor} />
-						}
-						{showRibbon &&
-							<UsagesRibbon vcEntityInstances={vcEntityInstances} borderColor={borderColor} />
-						}
-					</div>
+				<div className={`relative w-full overflow-visible ${fixedRatio ? 'aspect-[1.6]' : ''}`}>
+					<img
+						src={imageSrc}
+						alt="Credential"
+						className={`w-full h-full w-full h-full object-cover object-top ${className ?? ''}`}
+						onClick={onClick}
+					/>
+					{showRibbon &&
+						<ExpiredRibbon vcEntity={vcEntity} borderColor={borderColor} />
+					}
+					{showRibbon &&
+						<CredentialStatusIndicatorsRibbon vcEntity={vcEntity} walletStateKeypairs={walletStateKeypairs} borderColor={borderColor} />
+					}
+				</div>
 				</>
 			) : (
 				<CredentialCardSkeleton />
