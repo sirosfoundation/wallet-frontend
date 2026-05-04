@@ -277,6 +277,10 @@ export function getTenantFromUrlPath(): string | null {
  * - If tenantId is defined: show matching users AND legacy users (no tenant info for backwards compatibility)
  */
 export function filterUsersByTenantID(tenantId: string | undefined, users: CachedUser[]): CachedUser[] {
+	if (!isMultiTenant()) {
+		return users;
+	}
+
 	return users.filter((user) => {
 		const userTenantId = user.tenant?.id;
 

@@ -139,7 +139,7 @@ export function useTenant(): TenantContextValue {
 				console.warn('switchTenant called outside TenantProvider');
 			},
 			clearTenant: clearStoredTenant,
-			buildPath: (subPath?: string) => buildTenantRoutePath(storedTenant, subPath),
+			buildPath: (subPath?: string) => subPath ? `/${subPath}` : '/',
 		};
 	}
 	return context;
