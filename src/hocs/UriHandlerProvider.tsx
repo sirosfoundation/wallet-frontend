@@ -11,13 +11,13 @@ import { useTxCodeInput } from "@/context/TxCodeInputContext";
 import TxCodeInputPopup from "@/components/Popups/TxCodeInputPopup";
 import useErrorDialog from "@/hooks/useErrorDialog";
 import useOID4VCIFlow from "@/hooks/useOID4VCIFlow";
-import { FlowProgressEvent } from "@/lib/transport";
+import { OIDFlowProgressEvent } from "@/lib/openid-flow";
 import Spinner from "@/components/Shared/Spinner";
 import useOID4VPFlow from "@/hooks/useOID4VPFlow";
 import OpenID4VPContext from "@/context/OpenID4VPContext";
 import MessagePopup from "@/components/Popups/MessagePopup";
-import { OIDFlowError } from "@/lib/transport/errors";
-import { useFlowTransport } from "@/context/FlowTransportContext";
+import { OIDFlowError } from "@/lib/openid-flow/errors";
+import { useOIDFlowTransport } from "@/context/OIDFlowTransportContext";
 
 
 export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
@@ -26,7 +26,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	const { displayError } = useErrorDialog();
 
 	const { isLoggedIn, api, keystore, logout } = useContext(SessionContext);
-	const { transportReady } = useFlowTransport();
+	const { transportReady } = useOIDFlowTransport();
 	const { syncPrivateData } = api;
 	const { getUserHandleB64u, getCachedUsers, getCalculatedWalletState } = keystore;
 
@@ -63,7 +63,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	 * Handle OID4VCI flow progress events.
 	 * For now, just debug logging.
 	 */
-	const handleOID4VCIProgress = useCallback((event: FlowProgressEvent) => {
+	const handleOID4VCIProgress = useCallback((event: OIDFlowProgressEvent) => {
 		logger.debug("OID4VCI flow progress:", event);
 	}, []);
 
@@ -130,7 +130,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	 * Handle OID4VP flow progress events.
 	 * For now, just debug logging.
 	 */
-	const handleOID4VPProgress = useCallback((event: FlowProgressEvent) => {
+	const handleOID4VPProgress = useCallback((event: OIDFlowProgressEvent) => {
 		logger.debug("OID4VP flow progress:", event);
 	}, []);
 

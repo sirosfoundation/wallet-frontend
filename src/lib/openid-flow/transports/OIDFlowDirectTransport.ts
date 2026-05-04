@@ -19,10 +19,10 @@
  * - Fall back to proxy transport if CORS not available
  */
 
-import type { IFlowTransport } from './types/IFlowTransport';
-import type { FlowRequest, FlowResponse, FlowProgressEvent } from './types/FlowTypes';
-import type { OID4VCIFlowParams, OID4VCIFlowResult } from './types/OID4VCITypes';
-import type { OID4VPFlowParams, OID4VPFlowResult } from './types/OID4VPTypes';
+import type { IOIDFlowTransport } from '../types/IOIDFlowTransport';
+import type { OIDFlowRequest, OIDFlowResponse, OIDFlowProgressEvent } from '../types/OIDFlowTypes';
+import type { OID4VCIFlowParams, OID4VCIFlowResult } from '../types/OID4VCITypes';
+import type { OID4VPFlowParams, OID4VPFlowResult } from '../types/OID4VPTypes';
 
 /**
  * Result of CORS capability check
@@ -44,8 +44,8 @@ export interface CorsCheckResult {
  * throws "not implemented" errors as this transport mode is not
  * yet ready for production use.
  */
-export class DirectTransport implements IFlowTransport {
-	private progressCallbacks = new Set<(event: FlowProgressEvent) => void>();
+export class OIDFlowDirectTransport implements IOIDFlowTransport {
+	private progressCallbacks = new Set<(event: OIDFlowProgressEvent) => void>();
 	private errorCallbacks = new Set<(error: Error) => void>();
 	private connected = false;
 
@@ -85,7 +85,7 @@ export class DirectTransport implements IFlowTransport {
 
 	// ===== Generic Request (Stub) =====
 
-	async request<T>(_flowRequest: FlowRequest): Promise<FlowResponse<T>> {
+	async request<T>(_flowRequest: OIDFlowRequest): Promise<OIDFlowResponse<T>> {
 		throw new Error(
 			'DirectTransport not implemented: Direct browser requests ' +
 			'require ecosystem-wide CORS support. Use WebSocket or HTTP proxy transport.'
@@ -94,7 +94,7 @@ export class DirectTransport implements IFlowTransport {
 
 	// ===== Event Subscriptions =====
 
-	onProgress(callback: (event: FlowProgressEvent) => void): () => void {
+	onProgress(callback: (event: OIDFlowProgressEvent) => void): () => void {
 		this.progressCallbacks.add(callback);
 		return () => this.progressCallbacks.delete(callback);
 	}

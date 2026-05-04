@@ -13,7 +13,7 @@ import { OpenID4VPContextProvider } from './context/OpenID4VPContextProvider';
 import { OpenID4VCIContextProvider } from './context/OpenID4VCIContextProvider';
 import { AppSettingsProvider } from './context/AppSettingsProvider';
 import { NotificationProvider } from './context/NotificationProvider';
-import { FlowTransportProviderWrapper } from './context/FlowTransportProviderWrapper';
+import { OIDFlowTransportProviderWrapper } from './context/OIDFlowTransportProviderWrapper';
 import { WebSocketSignHandlerProvider } from './context/WebSocketSignHandlerProvider';
 import { ErrorDialogContextProvider } from './context/ErrorDialogContextProvider';
 import { TxCodeInputProvider } from './context/TxCodeInputContext';
@@ -31,7 +31,7 @@ const AppProvider: React.FC<RootProviderProps> = ({ children }) => {
 		<StatusContextProvider>
 			<SessionContextProvider>
 				<CredentialsContextProvider>
-					<FlowTransportProviderWrapper>
+					<OIDFlowTransportProviderWrapper>
 						<WebSocketSignHandlerProvider>
 							<I18nextProvider i18n={i18n}>
 										<ErrorDialogContextProvider>
@@ -53,7 +53,7 @@ const AppProvider: React.FC<RootProviderProps> = ({ children }) => {
 										</ErrorDialogContextProvider>
 									</I18nextProvider>
 						</WebSocketSignHandlerProvider>
-					</FlowTransportProviderWrapper>
+					</OIDFlowTransportProviderWrapper>
 				</CredentialsContextProvider>
 			</SessionContextProvider>
 		</StatusContextProvider>

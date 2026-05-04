@@ -8,18 +8,18 @@
 /**
  * Error categories for flow failures
  */
-export type FlowErrorCategory = 'transient' | 'fatal' | 'user';
+export type OIDFlowErrorCategory = 'transient' | 'fatal' | 'user';
 
 /**
  * Extended error information with recovery hints
  */
-export interface FlowRecoverableError {
+export interface OIDFlowRecoverableError {
 	/** Error code for programmatic handling */
 	code: string;
 	/** Human-readable error message */
 	message: string;
 	/** Error category determining recovery options */
-	category: FlowErrorCategory;
+	category: OIDFlowErrorCategory;
 	/** Whether the error is recoverable (derived from category) */
 	recoverable: boolean;
 	/** Suggested retry delay in ms (for transient errors) */
@@ -38,7 +38,7 @@ export interface FlowRecoverableError {
  * Uses `as const` rather than an enum for better tree-shaking
  * and compatibility with string-based API error codes.
  */
-export const FlowErrorCodes = {
+export const OIDFlowErrorCodes = {
 	// Transient errors - may succeed on retry
 	NETWORK_TIMEOUT: 'NETWORK_TIMEOUT',
 	CONNECTION_LOST: 'CONNECTION_LOST',
@@ -67,12 +67,12 @@ export const FlowErrorCodes = {
 	UNKNOWN_ERROR: 'UNKNOWN_ERROR',
 } as const;
 
-export type FlowErrorCode = typeof FlowErrorCodes[keyof typeof FlowErrorCodes];
+export type OIDFlowErrorCode = typeof OIDFlowErrorCodes[keyof typeof OIDFlowErrorCodes];
 
 /**
  * Retry configuration
  */
-export interface RetryConfig {
+export interface OIDFlowRetryConfig {
 	maxRetries: number;
 	initialDelayMs: number;
 	maxDelayMs: number;
@@ -82,7 +82,7 @@ export interface RetryConfig {
 /**
  * Default retry configuration for transient errors
  */
-export const DEFAULT_RETRY_CONFIG: RetryConfig = {
+export const DEFAULT_OID_FLOW_RETRY_CONFIG: OIDFlowRetryConfig = {
 	maxRetries: 3,
 	initialDelayMs: 1000,
 	maxDelayMs: 10000,

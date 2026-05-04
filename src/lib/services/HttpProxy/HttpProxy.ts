@@ -13,7 +13,7 @@ import { getStoredTenant } from '@/lib/tenant';
 // @ts-ignore
 const walletBackendServerUrl = BACKEND_URL;
 const inFlightRequests = new Map<string, Promise<any>>();
-const TIMEOUT = 3 * 1000;
+const TIMEOUT = 10 * 1000;
 
 const parseCacheControl = (header: string) =>
 	Object.fromEntries(
@@ -204,7 +204,13 @@ export function useHttpProxy(): IHttpProxy {
 					const contentTypeHeader: string | undefined = sourceHeaders?.['content-type'];
 					const cacheControlHeader: string | undefined = sourceHeaders?.['cache-control'];
 
-					let shouldCache = useCache !== undefined;
+					let shouldCache = useCache !== undefined &&
+						res.status >= 200 &&
+						res.status < 300 &&
+						response.status >= 200 &&
+						response.status < 300 &&
+						response.data.status >= 200 &&
+						response.data.status < 300;
 					let maxAge = 60 * 60 * 24 * 30; // default: 30 days
 
 					// Handle Cache-Control logic

@@ -5,12 +5,12 @@
 /**
  * Transport type enumeration
  */
-export type TransportType = 'http_proxy' | 'websocket' | 'direct';
+export type OIDFlowTransportType = 'http_proxy' | 'websocket' | 'direct';
 
 /**
  * Generic flow request that can be sent to any transport
  */
-export interface FlowRequest {
+export interface OIDFlowRequest {
 	/** The type of flow being requested */
 	type: 'oid4vci' | 'oid4vp' | 'vctm' | 'general';
 	/** The action to perform */
@@ -22,19 +22,19 @@ export interface FlowRequest {
 /**
  * Generic flow response from any transport
  */
-export interface FlowResponse<T = unknown> {
+export interface OIDFlowResponse<T = unknown> {
 	/** Whether the request succeeded */
 	success: boolean;
 	/** Response data (if success) */
 	data?: T;
 	/** Error information (if failure) */
-	error?: FlowError;
+	error?: OIDFlowTransportError;
 }
 
 /**
  * Flow error information
  */
-export interface FlowError {
+export interface OIDFlowTransportError {
 	/** Error code for programmatic handling */
 	code: string;
 	/** Human-readable error message */
@@ -46,7 +46,7 @@ export interface FlowError {
 /**
  * Progress event emitted during flow execution
  */
-export interface FlowProgressEvent {
+export interface OIDFlowProgressEvent {
 	/** Unique identifier for the flow */
 	flowId: string;
 	/** Current stage of the flow */
@@ -62,11 +62,11 @@ export interface FlowProgressEvent {
 /**
  * Transport connection state
  */
-export interface TransportConnectionState {
+export interface OIDFlowTransportConnectionState {
 	/** Current transport type in use */
-	transportType: TransportType | 'none';
+	transportType: OIDFlowTransportType | 'none';
 	/** Whether the transport is connected */
 	isConnected: boolean;
 	/** Available transports based on configuration */
-	availableTransports: TransportType[];
+	availableTransports: OIDFlowTransportType[];
 }

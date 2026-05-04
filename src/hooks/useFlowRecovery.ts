@@ -12,15 +12,15 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import {
-	FlowStateStore,
-	getFlowStateStore,
-	type FlowState,
-} from '../lib/transport/FlowStateStore';
+	OIDFlowStateStore,
+	getOIDFlowStateStore,
+	type OIDFlowState,
+} from '../lib/openid-flow/OIDFlowStateStore';
 import {
-	type FlowRecoverableError,
-	type RetryConfig,
-	DEFAULT_RETRY_CONFIG,
-} from '../lib/transport/types/FlowRecovery';
+	type OIDFlowRecoverableError,
+	type OIDFlowRetryConfig,
+	DEFAULT_OID_FLOW_RETRY_CONFIG,
+} from '../lib/openid-flow/types/OIDFlowRecovery';
 import { logger } from '@/logger';
 
 /**
@@ -38,9 +38,9 @@ export interface FlowRecoveryState {
 	/** Whether manual retry is available */
 	canRetry: boolean;
 	/** The current error (if any) */
-	error: FlowRecoverableError | null;
+	error: OIDFlowRecoverableError | null;
 	/** The flow state being recovered */
-	flowState: FlowState | null;
+	flowState: OIDFlowState | null;
 	/** Whether retry is in progress */
 	isRetrying: boolean;
 }
@@ -50,13 +50,13 @@ export interface FlowRecoveryState {
  */
 export interface UseFlowRecoveryOptions {
 	/** Custom retry configuration */
-	retryConfig?: Partial<RetryConfig>;
+	retryConfig?: Partial<OIDFlowRetryConfig>;
 	/** Custom flow state store */
-	stateManager?: FlowStateStore;
+	stateManager?: OIDFlowStateStore;
 	/** Callback when flow recovery succeeds */
 	onRecovered?: (flowId: string) => void;
 	/** Callback when flow permanently fails */
-	onFailed?: (flowId: string, error: FlowRecoverableError) => void;
+	onFailed?: (flowId: string, error: OIDFlowRecoverableError) => void;
 }
 
 /**
@@ -72,11 +72,11 @@ export interface UseFlowRecoveryReturn {
 	/** Clear all recovery state */
 	clear: () => void;
 	/** Set an error for a flow (called by flow hooks) */
-	setError: (flowId: string, error: FlowRecoverableError) => void;
+	setError: (flowId: string, error: OIDFlowRecoverableError) => void;
 	/** Mark recovery complete (called by flow hooks) */
 	markRecovered: (flowId: string) => void;
 	/** Get all resumable flows */
-	getResumableFlows: () => FlowState[];
+	getResumableFlows: () => OIDFlowState[];
 	/** Check if a specific flow can be retried */
 	canRetryFlow: (flowId: string) => boolean;
 }
@@ -84,7 +84,7 @@ export interface UseFlowRecoveryReturn {
 const initialState: FlowRecoveryState = {
 	isRecovering: false,
 	retryAttempt: 0,
-	maxRetries: DEFAULT_RETRY_CONFIG.maxRetries,
+	maxRetries: DEFAULT_OID_FLOW_RETRY_CONFIG.maxRetries,
 	nextRetryIn: null,
 	canRetry: false,
 	error: null,
@@ -101,14 +101,14 @@ export function useFlowRecovery(
 ): UseFlowRecoveryReturn {
 	const [state, setState] = useState<FlowRecoveryState>({
 		...initialState,
-		maxRetries: options.retryConfig?.maxRetries ?? DEFAULT_RETRY_CONFIG.maxRetries,
+		maxRetries: options.retryConfig?.maxRetries ?? DEFAULT_OID_FLOW_RETRY_CONFIG.maxRetries,
 	});
 
-	const stateManagerRef = useRef<FlowStateStore>(
-		options.stateManager ?? getFlowStateStore()
+	const stateManagerRef = useRef<OIDFlowStateStore>(
+		options.stateManager ?? getOIDFlowStateStore()
 	);
-	const retryConfigRef = useRef<RetryConfig>({
-		...DEFAULT_RETRY_CONFIG,
+	const retryConfigRef = useRef<OIDFlowRetryConfig>({
+		...DEFAULT_OID_FLOW_RETRY_CONFIG,
 		...options.retryConfig,
 	});
 	const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -131,7 +131,7 @@ export function useFlowRecovery(
 	/**
 	 * Set error and enter recovery state
 	 */
-	const setError = useCallback((flowId: string, error: FlowRecoverableError) => {
+	const setError = useCallback((flowId: string, error: OIDFlowRecoverableError) => {
 		const stateManager = stateManagerRef.current;
 		const flowState = stateManager.recordError(flowId, error);
 

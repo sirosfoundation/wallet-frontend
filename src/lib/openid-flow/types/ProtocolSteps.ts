@@ -101,7 +101,7 @@ export {
 	OID4VP_STEP_INFO,
 	getStepInfo,
 	requiresUserInput,
-} from '../protocolStepInfo';
+} from '../oidProtocolStepInfo';
 
 /**
  * Check if current state is terminal (completed or error)

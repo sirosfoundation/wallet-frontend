@@ -2,26 +2,26 @@
  * Flow Transport Provider Wrapper
  *
  * This wrapper component provides the authToken and tenantId from session storage
- * to the FlowTransportProvider. It should be placed in the component
+ * to the OIDFlowTransportProvider. It should be placed in the component
  * tree after SessionContextProvider.
  *
  * Phase 5 of Transport Abstraction
  */
 
 import React from 'react';
-import { FlowTransportProvider } from './FlowTransportContext';
+import { OIDFlowTransportProvider } from './OIDFlowTransportContext';
 import { useSessionStorage } from '@/hooks/useStorage';
 import { getTenantFromUrlPath } from '@/lib/tenant';
 
-interface FlowTransportProviderWrapperProps {
+interface OIDFlowTransportProviderWrapperProps {
 	children: React.ReactNode;
 }
 
 /**
  * Wrapper that extracts the auth token from session storage
- * and provides it to FlowTransportProvider
+ * and provides it to OIDFlowTransportProvider
  */
-export const FlowTransportProviderWrapper: React.FC<FlowTransportProviderWrapperProps> = ({
+export const OIDFlowTransportProviderWrapper: React.FC<OIDFlowTransportProviderWrapperProps> = ({
 	children,
 }) => {
 	// Get the appToken from session storage
@@ -33,10 +33,10 @@ export const FlowTransportProviderWrapper: React.FC<FlowTransportProviderWrapper
 	const tenantId = getTenantFromUrlPath() ?? 'default';
 
 	return (
-		<FlowTransportProvider authToken={appToken} tenantId={tenantId}>
+		<OIDFlowTransportProvider authToken={appToken} tenantId={tenantId}>
 			{children}
-		</FlowTransportProvider>
+		</OIDFlowTransportProvider>
 	);
 };
 
-export default FlowTransportProviderWrapper;
+export default OIDFlowTransportProviderWrapper;

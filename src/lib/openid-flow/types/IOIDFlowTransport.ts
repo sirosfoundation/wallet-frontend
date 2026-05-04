@@ -10,7 +10,7 @@
  * - Direct: Browser makes direct CORS requests (future, when ecosystem ready)
  */
 
-import type { FlowRequest, FlowResponse, FlowProgressEvent } from './FlowTypes';
+import type { OIDFlowRequest, OIDFlowResponse, OIDFlowProgressEvent } from './OIDFlowTypes';
 import type { OID4VCIFlowParams, OID4VCIFlowResult } from './OID4VCITypes';
 import type { OID4VPFlowParams, OID4VPFlowResult } from './OID4VPTypes';
 
@@ -20,7 +20,7 @@ import type { OID4VPFlowParams, OID4VPFlowResult } from './OID4VPTypes';
  * Implementations handle the communication between the wallet frontend
  * and credential issuers/verifiers through various mechanisms.
  */
-export interface IFlowTransport {
+export interface IOIDFlowTransport {
 	// ===== Connection Lifecycle =====
 
 	/**
@@ -77,7 +77,7 @@ export interface IFlowTransport {
 	 * @param flowRequest - The request to send
 	 * @returns Generic flow response
 	 */
-	request<T>(flowRequest: FlowRequest): Promise<FlowResponse<T>>;
+	request<T>(flowRequest: OIDFlowRequest): Promise<OIDFlowResponse<T>>;
 
 	// ===== Event Subscriptions =====
 
@@ -85,7 +85,7 @@ export interface IFlowTransport {
 	 * Subscribe to progress events during flow execution
 	 * Returns an unsubscribe function
 	 */
-	onProgress(callback: (event: FlowProgressEvent) => void): () => void;
+	onProgress(callback: (event: OIDFlowProgressEvent) => void): () => void;
 
 	/**
 	 * Subscribe to error events
@@ -97,7 +97,7 @@ export interface IFlowTransport {
 /**
  * Null transport implementation for when no transport is available
  */
-export class NullTransport implements IFlowTransport {
+export class NullOIDFlowTransport implements IOIDFlowTransport {
 	async connect(): Promise<void> {
 		throw new Error('No transport configured');
 	}
@@ -118,7 +118,7 @@ export class NullTransport implements IFlowTransport {
 		throw new Error('No transport configured');
 	}
 
-	async request<T>(): Promise<FlowResponse<T>> {
+	async request<T>(): Promise<OIDFlowResponse<T>> {
 		throw new Error('No transport configured');
 	}
 
@@ -132,4 +132,4 @@ export class NullTransport implements IFlowTransport {
 }
 
 /** Singleton null transport instance */
-export const nullTransport = new NullTransport();
+export const nullOIDFlowTransport = new NullOIDFlowTransport();

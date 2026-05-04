@@ -10,22 +10,22 @@
  */
 
 import { useEffect, useContext, useCallback } from 'react';
-import { useFlowTransportSafe } from '@/context/FlowTransportContext';
-import type { WSSignRequest, WSSignResponse } from '@/context/FlowTransportContext';
+import { useOIDFlowTransportSafe } from '@/context/OIDFlowTransportContext';
+import type { WSSignRequest, WSSignResponse } from '@/context/OIDFlowTransportContext';
 import SessionContext from '@/context/SessionContext';
 import { useApi } from '@/api';
 import StatusContext from '@/context/StatusContext';
 import { logger } from '@/logger';
-import type { ProofObject } from '@/lib/transport/WebSocketTransport';
+import type { ProofObject } from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
 import { OPENID4VCI_PROOF_TYPE_PRECEDENCE } from '@/config';
 import { applySelectiveDisclosure } from '@/lib/sd-jwt/sd-jwt';
 
 /**
  * Hook that registers a sign handler with the WebSocket transport.
- * Should be used within both SessionContext and FlowTransportContext.
+ * Should be used within both SessionContext and OIDFlowTransportContext.
  */
 export function useWebSocketSignHandler(): void {
-	const transportContext = useFlowTransportSafe();
+	const transportContext = useOIDFlowTransportSafe();
 	const sessionContext = useContext(SessionContext);
 	const { isOnline } = useContext(StatusContext);
 	const api = useApi(isOnline);

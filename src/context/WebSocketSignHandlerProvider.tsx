@@ -2,7 +2,7 @@
  * WebSocket Sign Handler Provider
  *
  * This component sets up the sign handler for WebSocket transport.
- * It should be placed inside both SessionContext and FlowTransportContext.
+ * It should be placed inside both SessionContext and OIDFlowTransportContext.
  */
 
 import React from 'react';

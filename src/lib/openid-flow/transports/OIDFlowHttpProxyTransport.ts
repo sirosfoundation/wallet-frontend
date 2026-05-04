@@ -12,15 +12,15 @@
  * HTTP transport preserves the existing behavior.
  */
 
-import type { IFlowTransport } from './types/IFlowTransport';
+import type { IOIDFlowTransport } from '../types/IOIDFlowTransport';
 import type { IHttpProxy } from '../interfaces/IHttpProxy';
 import type {
-	FlowRequest,
-	FlowResponse,
-	FlowProgressEvent
-} from './types/FlowTypes';
-import type { OID4VCIFlowParams, OID4VCIFlowResult } from './types/OID4VCITypes';
-import type { OID4VPFlowParams, OID4VPFlowResult } from './types/OID4VPTypes';
+	OIDFlowRequest,
+	OIDFlowResponse,
+	OIDFlowProgressEvent
+} from '../types/OIDFlowTypes';
+import type { OID4VCIFlowParams, OID4VCIFlowResult } from '../types/OID4VCITypes';
+import type { OID4VPFlowParams, OID4VPFlowResult } from '../types/OID4VPTypes';
 import { logger } from '@/logger';
 
 /**
@@ -30,9 +30,9 @@ import { logger } from '@/logger';
  * For complex flows (OID4VCI/OID4VP), the existing React hooks are used
  * via the hybrid flow hooks, not this transport directly.
  */
-export class HttpProxyTransport implements IFlowTransport {
+export class OIDFlowHttpProxyTransport implements IOIDFlowTransport {
 	private httpProxy: IHttpProxy;
-	private progressCallbacks = new Set<(event: FlowProgressEvent) => void>();
+	private progressCallbacks = new Set<(event: OIDFlowProgressEvent) => void>();
 	private errorCallbacks = new Set<(error: Error) => void>();
 
 	constructor(httpProxy: IHttpProxy) {
@@ -78,7 +78,7 @@ export class HttpProxyTransport implements IFlowTransport {
 
 	// ===== Generic Request =====
 
-	async request<T>(flowRequest: FlowRequest): Promise<FlowResponse<T>> {
+	async request<T>(flowRequest: OIDFlowRequest): Promise<OIDFlowResponse<T>> {
 		if (flowRequest.type !== 'general') {
 			return {
 				success: false,
@@ -130,7 +130,7 @@ export class HttpProxyTransport implements IFlowTransport {
 
 	// ===== Event Subscriptions =====
 
-	onProgress(callback: (event: FlowProgressEvent) => void): () => void {
+	onProgress(callback: (event: OIDFlowProgressEvent) => void): () => void {
 		this.progressCallbacks.add(callback);
 		return () => this.progressCallbacks.delete(callback);
 	}

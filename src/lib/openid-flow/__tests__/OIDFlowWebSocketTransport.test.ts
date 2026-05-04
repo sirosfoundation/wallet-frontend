@@ -1,9 +1,9 @@
 /**
- * WebSocketTransport Tests
+ * OIDFlowWebSocketTransport Tests
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { WebSocketTransport } from '../WebSocketTransport';
+import { OIDFlowWebSocketTransport } from '../transports/OIDFlowWebSocketTransport';
 
 // Mock WebSocket implementation
 class MockWebSocket {
@@ -89,13 +89,13 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-describe('WebSocketTransport', () => {
+describe('OIDFlowWebSocketTransport', () => {
 	const wsUrl = 'wss://test.example.com/api/v2/wallet';
 	const authToken = 'test-auth-token';
 
 	describe('Connection Lifecycle', () => {
 		it('should connect successfully', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 
 			await transport.connect();
 
@@ -112,12 +112,12 @@ describe('WebSocketTransport', () => {
 			// Set the mock to fail connections
 			MockWebSocket.shouldFail = true;
 
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await expect(transport.connect()).rejects.toThrow('WebSocket connection failed');
 		});
 
 		it('should disconnect cleanly', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
 			expect(transport.isConnected()).toBe(true);
@@ -128,7 +128,7 @@ describe('WebSocketTransport', () => {
 		});
 
 		it('should return existing connection promise if already connecting', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 
 			// Start two connections simultaneously
 			const promise1 = transport.connect();
@@ -141,7 +141,7 @@ describe('WebSocketTransport', () => {
 		});
 
 		it('should return immediately if already connected', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
 			// Second connect should not create new WebSocket
@@ -153,7 +153,7 @@ describe('WebSocketTransport', () => {
 
 	describe('OID4VCI Flow', () => {
 		it('should send flow_start message with credential_offer_uri', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
 			const credentialOfferUri = 'openid-credential-offer://?credential_offer=...';
@@ -185,7 +185,7 @@ describe('WebSocketTransport', () => {
 		});
 
 		it('should send flow_action message with holder binding', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
 			const holderBinding = {
@@ -222,7 +222,7 @@ describe('WebSocketTransport', () => {
 		});
 
 		it('should handle authorization code exchange', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
 			const flowPromise = transport.startOID4VCIFlow({
@@ -252,7 +252,7 @@ describe('WebSocketTransport', () => {
 		});
 
 		it('should handle error responses by returning success: false', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
 			const flowPromise = transport.startOID4VCIFlow({
@@ -280,7 +280,7 @@ describe('WebSocketTransport', () => {
 		});
 
 		it('should reject invalid params', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
 			// Empty params should throw
@@ -290,7 +290,7 @@ describe('WebSocketTransport', () => {
 		});
 
 		it('should handle deferred credential issuance with transaction_id', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 			const mockWs = mockWebSocketInstances[0];
 
@@ -323,7 +323,7 @@ describe('WebSocketTransport', () => {
 
 	describe('OID4VP Flow', () => {
 		it('should send flow_start message with request_uri', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
 			const requestUriRef = 'openid4vp://?request_uri=...';
@@ -356,7 +356,7 @@ describe('WebSocketTransport', () => {
 		});
 
 		it('should send flow_action with selected credentials', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
 			const selectedCredentials = [
@@ -402,7 +402,7 @@ describe('WebSocketTransport', () => {
 		});
 
 		it('should reject invalid params', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
 			await expect(transport.startOID4VPFlow({})).rejects.toThrow(
@@ -413,7 +413,7 @@ describe('WebSocketTransport', () => {
 
 	describe('Progress Events', () => {
 		it('should emit progress events to subscribers', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
 			const progressCallback = vi.fn();
@@ -437,7 +437,7 @@ describe('WebSocketTransport', () => {
 		});
 
 		it('should allow unsubscribing from progress events', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
 			const progressCallback = vi.fn();
@@ -459,7 +459,7 @@ describe('WebSocketTransport', () => {
 
 	describe('Error Events', () => {
 		it('should emit error events to subscribers', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
 			const errorCallback = vi.fn();
@@ -476,7 +476,7 @@ describe('WebSocketTransport', () => {
 		});
 
 		it('should allow unsubscribing from error events', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
 			const errorCallback = vi.fn();
@@ -490,7 +490,7 @@ describe('WebSocketTransport', () => {
 
 	describe('Auth Token Management', () => {
 		it('should update auth token', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
 			transport.updateAuthToken('new-token-123');
@@ -503,7 +503,7 @@ describe('WebSocketTransport', () => {
 
 	describe('Connection State', () => {
 		it('should report connection state correctly', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 
 			// Before connection
 			let state = transport.getConnectionState();
@@ -525,7 +525,7 @@ describe('WebSocketTransport', () => {
 
 	describe('Request Timeout', () => {
 		it('should reject requests when not connected', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 
 			// Don't connect - try to start flow
 			await expect(
@@ -534,7 +534,7 @@ describe('WebSocketTransport', () => {
 		});
 
 		it('should reject pending requests on disconnect', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
 			// Start a flow but don't respond
@@ -556,7 +556,7 @@ describe('WebSocketTransport', () => {
 
 	describe('Sign Request/Response', () => {
 		it('should handle sign_request for generate_proof action', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
 			// Verify we have the mock instance
@@ -623,7 +623,7 @@ describe('WebSocketTransport', () => {
 		});
 
 		it('should handle sign_request for sign_presentation action', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 			const mockWs = mockWebSocketInstances[0];
 
@@ -671,7 +671,7 @@ describe('WebSocketTransport', () => {
 		});
 
 		it('should handle multiple sign handlers', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
 			const handler1 = vi.fn().mockResolvedValue({ proofJwt: 'proof1' });
@@ -699,7 +699,7 @@ describe('WebSocketTransport', () => {
 		});
 
 		it('should unregister sign handler', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
 			const signHandler = vi.fn().mockResolvedValue({ proofJwt: 'jwt' });
@@ -725,7 +725,7 @@ describe('WebSocketTransport', () => {
 		});
 
 		it('should send error in sign_response when handler fails', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 			const mockWs = mockWebSocketInstances[0];
 
@@ -762,7 +762,7 @@ describe('WebSocketTransport', () => {
 
 	describe('Match Request/Response', () => {
 		it('should call registered match handler on match_request', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
 			const matchHandler = vi.fn().mockResolvedValue({
@@ -796,7 +796,7 @@ describe('WebSocketTransport', () => {
 		});
 
 		it('should send match_response with matches from handler', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 			const mockWs = mockWebSocketInstances[0];
 
@@ -839,7 +839,7 @@ describe('WebSocketTransport', () => {
 		});
 
 		it('should send match_response with no_match_reason', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 			const mockWs = mockWebSocketInstances[0];
 
@@ -871,7 +871,7 @@ describe('WebSocketTransport', () => {
 		});
 
 		it('should support multiple match handlers', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
 			const handler1 = vi.fn().mockResolvedValue({ matches: [{ input_descriptor_id: 'id-1', credential_id: 'c1', format: 'jwt' }] });
@@ -896,7 +896,7 @@ describe('WebSocketTransport', () => {
 		});
 
 		it('should unregister match handler', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
 			const matchHandler = vi.fn().mockResolvedValue({ matches: [] });
@@ -921,7 +921,7 @@ describe('WebSocketTransport', () => {
 		});
 
 		it('should send error in match_response when handler fails', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 			const mockWs = mockWebSocketInstances[0];
 
@@ -958,7 +958,7 @@ describe('WebSocketTransport', () => {
 		});
 
 		it('should handle match_credentials message type as alias', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
 			const matchHandler = vi.fn().mockResolvedValue({ matches: [] });
@@ -978,7 +978,7 @@ describe('WebSocketTransport', () => {
 		});
 
 		it('should send error when no match handlers registered', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 			const mockWs = mockWebSocketInstances[0];
 
@@ -1011,7 +1011,7 @@ describe('WebSocketTransport', () => {
 
 	describe('Flow Action Sending', () => {
 		it('should send flow_action message with sendFlowAction', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
 			transport.sendFlowAction({
@@ -1037,7 +1037,7 @@ describe('WebSocketTransport', () => {
 		});
 
 		it('should send consent action with selected credentials', async () => {
-			const transport = new WebSocketTransport(wsUrl, authToken);
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
 			transport.sendFlowAction({

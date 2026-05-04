@@ -9,10 +9,10 @@
 
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
-	useFlowTransportSafe,
+	useOIDFlowTransportSafe,
 	// type WSMatchRequest as MatchRequest,
 	// type WSMatchResponse as MatchResponse,
-} from '@/context/FlowTransportContext';
+} from '@/context/OIDFlowTransportContext';
 import SessionContext from '@/context/SessionContext';
 import OpenID4VPContext from '@/context/OpenID4VPContext';
 import CredentialsContext, { ExtendedVcEntity } from '@/context/CredentialsContext';
@@ -21,18 +21,18 @@ import type {
 	OID4VPFlowResult,
 	OID4VPSelectedCredential,
 	OID4VPVerifierInfo,
-} from '@/lib/transport/types/OID4VPTypes';
-import type { FlowProgressEvent, TransportType } from '@/lib/transport/types/FlowTypes';
+} from '@/lib/openid-flow/types/OID4VPTypes';
+import type { OIDFlowProgressEvent, OIDFlowTransportType } from '@/lib/openid-flow/types/OIDFlowTypes';
 import { DcqlQuery } from 'dcql';
 import { getLeastUsedCredentialInstance } from '@/lib/services/CredentialBatchHelper';
 import { applySelectiveDisclosure } from '@/lib/sd-jwt/sd-jwt';
-import { OIDFlowError } from '@/lib/transport/errors';
+import { OIDFlowError } from '@/lib/openid-flow/errors';
 
 export interface UseOID4VPFlowOptions {
 	/**
 	 * Called when flow progress updates
 	 */
-	onProgress?: (event: FlowProgressEvent) => void;
+	onProgress?: (event: OIDFlowProgressEvent) => void;
 	/**
 	 * Called when an error occurs
 	 */
@@ -71,7 +71,7 @@ export interface UseOID4VPFlowReturn {
 	/**
 	 * Current transport type being used
 	 */
-	transportType: TransportType | 'none';
+	transportType: OIDFlowTransportType | 'none';
 	/**
 	 * Whether a flow is currently in progress
 	 */
@@ -97,7 +97,7 @@ export interface UseOID4VPFlowReturn {
 export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlowReturn {
 	const { onProgress, onError } = options;
 
-	const transportContext = useFlowTransportSafe();
+	const transportContext = useOIDFlowTransportSafe();
 	const { keystore, api } = useContext(SessionContext);
 	const { vcEntityList } = useContext(CredentialsContext);
 	const { openID4VP } = useContext(OpenID4VPContext);
