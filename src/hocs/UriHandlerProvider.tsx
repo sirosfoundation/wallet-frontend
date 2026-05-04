@@ -17,7 +17,7 @@ import useOID4VPFlow from "@/hooks/useOID4VPFlow";
 import OpenID4VPContext from "@/context/OpenID4VPContext";
 import MessagePopup from "@/components/Popups/MessagePopup";
 import { OIDFlowError } from "@/lib/transport/errors";
-import { useFlowTransportSafe } from "@/context/FlowTransportContext";
+import { useFlowTransport } from "@/context/FlowTransportContext";
 
 
 export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
@@ -31,7 +31,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	// const [usedPreAuthorizedCodes, setUsedPreAuthorizedCodes] = useState<string[]>([]);
 
 	const { isLoggedIn, api, keystore, logout } = useContext(SessionContext);
-	const { transportReady } = useFlowTransportSafe();
+	const { transportReady } = useFlowTransport();
 	const { syncPrivateData } = api;
 	const { getUserHandleB64u, getCachedUsers, getCalculatedWalletState } = keystore;
 

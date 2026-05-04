@@ -242,6 +242,7 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 
 		return () => {
 			cancelled = true;
+			clearTimeout(connectTimeout);
 			unsubscribeError();
 			ws.disconnect();
 			// Clean up pending state for this transport on unmount/re-run
