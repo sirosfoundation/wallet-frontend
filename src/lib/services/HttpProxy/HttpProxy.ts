@@ -204,13 +204,7 @@ export function useHttpProxy(): IHttpProxy {
 					const contentTypeHeader: string | undefined = sourceHeaders?.['content-type'];
 					const cacheControlHeader: string | undefined = sourceHeaders?.['cache-control'];
 
-					let shouldCache = useCache !== undefined &&
-						res.status >= 200 &&
-						res.status < 300 &&
-						response.status >= 200 &&
-						response.status < 300 &&
-						response.data.status >= 200 &&
-						response.data.status < 300;
+					let shouldCache = useCache !== undefined;
 					let maxAge = 60 * 60 * 24 * 30; // default: 30 days
 
 					// Handle Cache-Control logic
