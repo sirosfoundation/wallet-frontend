@@ -25,11 +25,6 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	const { requestTxCode, state: txCodeState, handleSubmit: handleTxCodeSubmit, handleCancel: handleTxCodeCancel } = useTxCodeInput();
 	const { displayError } = useErrorDialog();
 
-	// TODO: remove these once basic VCI and VP flows are integrated and working.
-	// const [usedAuthorizationCodes, setUsedAuthorizationCodes] = useState<string[]>([]);
-	// const [usedRequestUris, setUsedRequestUris] = useState<string[]>([]);
-	// const [usedPreAuthorizedCodes, setUsedPreAuthorizedCodes] = useState<string[]>([]);
-
 	const { isLoggedIn, api, keystore, logout } = useContext(SessionContext);
 	const { transportReady } = useFlowTransport();
 	const { syncPrivateData } = api;
@@ -38,16 +33,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	const location = useLocation();
 	const [url, setUrl] = useState(window.location.href);
 
-	// TODO: remove these once basic VCI and VP flows are integrated and working.
-	// const { openID4VCI } = useContext(OpenID4VCIContext);
 	const { showCredentialSelectionPopup, showTransactionDataConsentPopup } = useContext(OpenID4VPContext);
-
-	// TODO: remove these once basic VCI and VP flows are integrated and working.
-	// const { handleCredentialOffer, generateAuthorizationRequest, handleAuthorizationResponse, requestCredentialsWithPreAuthorization } = openID4VCI;
-	// const { handleAuthorizationRequest, promptForCredentialSelection, sendAuthorizationResponse } = openID4VP;
-
-	// TODO: remove these once basic VCI and VP flows are integrated and working.
-	// const [showPinInputPopup, setShowPinInputPopup] = useState<boolean>(false);
 
 	// TODO: move this to a new HOC, responsible for session initialization and syncing.
 	const [vpSuccessMessage, setVpSuccessMessage] = useState<{ title: string; description: string } | null>(null);
