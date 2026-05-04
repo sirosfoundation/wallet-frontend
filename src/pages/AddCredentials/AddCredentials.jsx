@@ -1,52 +1,34 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { logger } from '@/logger';
-
+import { useTenant } from '@/context/TenantContext';
 import StatusContext from '@/context/StatusContext';
 import SessionContext from '@/context/SessionContext';
 import RedirectPopup from '../../components/Popups/RedirectPopup';
 import { H1 } from '../../components/Shared/Heading';
 import PageDescription from '../../components/Shared/PageDescription';
 import QueryableList from '../../components/QueryableList/QueryableList';
-import { useOpenID4VCIHelper } from '../../lib/services/OpenID4VCIHelper';
-import OpenID4VCIContext from '@/context/OpenID4VCIContext';
 import CredentialsContext from '@/context/CredentialsContext';
 import useFilterItemByLang from '@/hooks/useFilterItemByLang';
 import { buildCredentialConfiguration } from '@/components/QueryableList/CredentialsDisplayUtils';
 
 const AddCredentials = () => {
 	const { isOnline } = useContext(StatusContext);
-	const { api, keystore } = useContext(SessionContext);
+	const { api } = useContext(SessionContext);
 	const [issuers, setIssuers] = useState([]);
 	const [recent, setRecent] = useState([]);
 	const [credentialConfigurations, setCredentialConfigurations] = useState([]);
 	const [showRedirectPopup, setShowRedirectPopup] = useState(false);
 
 	const [selectedCredentialConfiguration, setSelectedCredentialConfiguration] = useState(null);
-	const [loading, setLoading] = useState(false);
-
-	const openID4VCIHelper = useOpenID4VCIHelper();
-	const { openID4VCI } = useContext(OpenID4VCIContext);
 	const { vcEntityList, getData } = useContext(CredentialsContext);
 
+	const { buildPath } = useTenant();
+	const navigate = useNavigate();
 	const { t } = useTranslation();
 	const filterItemByLang = useFilterItemByLang();
-	const [cachedUser, setCachedUser] = useState(null);
 
-	useEffect(() => {
-		if (!keystore) {
-			return;
-		}
-
-		const userHandle = keystore.getUserHandleB64u();
-		if (!userHandle) {
-			return;
-		}
-		const u = keystore.getCachedUsers().filter((user) => user.userHandleB64u === userHandle)[0];
-		if (u) {
-			setCachedUser(u);
-		}
-	}, [keystore, setCachedUser]);
 
 	useEffect(() => {
 		if (vcEntityList === null) {
@@ -108,9 +90,8 @@ const AddCredentials = () => {
 						if (!issuer.visible) {
 							return;
 						}
-						const metadata = (await openID4VCIHelper.getCredentialIssuerMetadata(issuer.credentialIssuerIdentifier)).metadata;
-						const configs = await openID4VCI.getAvailableCredentialConfigurations(issuer.credentialIssuerIdentifier);
-
+						const metadata = (await api.getExternalEntity(`/issuer/${issuer.id}/metadata`, undefined, true)).data;
+						const configs = metadata.credential_configurations_supported;
 
 						// add issuer
 						setIssuers((currentArray) => {
@@ -147,17 +128,13 @@ const AddCredentials = () => {
 			}
 		};
 
-		if (openID4VCIHelper && openID4VCI && filterItemByLang) {
+		if (filterItemByLang) {
 			logger.debug("Fetching issuers...")
 			fetchIssuers();
 		}
-	}, [api, isOnline, openID4VCIHelper, openID4VCI, filterItemByLang]);
+	}, [api, isOnline, filterItemByLang]);
 
 	const handleCredentialConfigurationClick = async (credentialConfigurationIdWithCredentialIssuerIdentifier) => {
-		const result = await api.syncPrivateData(cachedUser, keystore);
-		if (!result.ok) {
-			return {};
-		}
 		const [credentialConfigurationId, credentialIssuerIdentifier] = JSON.parse(credentialConfigurationIdWithCredentialIssuerIdentifier);
 		const clickedCredentialConfiguration = credentialConfigurations.find((conf) => conf.credentialConfigurationId === credentialConfigurationId && conf.credentialIssuerIdentifier === credentialIssuerIdentifier);
 		if (clickedCredentialConfiguration) {
@@ -172,28 +149,27 @@ const AddCredentials = () => {
 	};
 
 	const handleContinue = () => {
-		setLoading(true);
-
 		if (selectedCredentialConfiguration) {
 			const { credentialConfigurationId, credentialIssuerIdentifier } = selectedCredentialConfiguration;
 
-			const userHandleB64u = keystore.getUserHandleB64u();
-			if (userHandleB64u == null) {
-				logger.error("Could not generate authorization request because user handle is null");
-				return;
-			}
-			openID4VCI.generateAuthorizationRequest(credentialIssuerIdentifier, credentialConfigurationId).then((result) => {
-				if ('url' in result) {
-					const { url } = result;
-					window.location.href = url;
+			/**
+			 * Construct a minimal credential offer for the wallet to handle.
+			 */
+			const credentialOffer = {
+				credential_issuer: credentialIssuerIdentifier,
+				credential_configuration_ids: [credentialConfigurationId],
+				// TODO: we shouldn't need to specify grants here but it's currently needed.
+				// Remove once the stack is equipped to handle missing `grants` in offers.
+				grants: {
+					authorization_code: {},
 				}
-			}).catch((err) => {
-				logger.error(err)
-				logger.error("Couldn't generate authz req")
-			});
+			};
+			const credentialOfferString = JSON.stringify(credentialOffer);
+			const path = buildPath(`cb?credential_offer=${encodeURIComponent(credentialOfferString)}`);
+
+			navigate(path);
 		}
 
-		setLoading(false);
 		setShowRedirectPopup(false);
 	};
 
@@ -218,7 +194,6 @@ const AddCredentials = () => {
 
 			{showRedirectPopup && selectedCredentialConfiguration && (
 				<RedirectPopup
-					loading={loading}
 					onClose={handleCancel}
 					handleContinue={handleContinue}
 					popupTitle={`${t('pageAddCredentials.popup.title')} ${selectedCredentialConfiguration?.credentialConfigurationDisplayName}`}
