@@ -13,7 +13,7 @@
  */
 
 import type { IOIDFlowTransport } from '../types/IOIDFlowTransport';
-import type { IHttpProxy } from '../interfaces/IHttpProxy';
+import type { IHttpProxy } from '../../interfaces/IHttpProxy';
 import type {
 	OIDFlowRequest,
 	OIDFlowResponse,
