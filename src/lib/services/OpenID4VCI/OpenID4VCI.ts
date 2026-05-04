@@ -136,99 +136,6 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 
 	const [commitStateChanges, setCommitStateChanges] = useState<number>(0);
 
-	// useEffect(() => {
-	// 	if (!receivedCredentialsArray || !keystore || verificationFlowInProgress || commitStateChanges === 1) {
-	// 		return;
-	// 	}
-	// 	const temp = [...receivedCredentialsArray];
-	// 	setReceivedCredentialsArray(null);
-	// 	const batchId = WalletStateUtils.getRandomUint32();
-	// 	// wait for keystore update before commiting the new credentials
-	// 	(async () => {
-	// 		try {
-
-	// 			const kidMap = await Promise.all(temp.map(async (credential, index) => {
-	// 				if (credentialIssuerMetadataRef.current.metadata.credential_configurations_supported[credentialConfigurationIdRef.current].format === VerifiableCredentialFormat.VC_SDJWT ||
-	// 					credentialIssuerMetadataRef.current.metadata.credential_configurations_supported[credentialConfigurationIdRef.current].format === VerifiableCredentialFormat.DC_SDJWT
-	// 				) {
-	// 					return deriveHolderKidFromCredential(credential, credentialIssuerMetadataRef.current.metadata.credential_configurations_supported[credentialConfigurationIdRef.current].format);
-	// 				}
-	// 				else if (credentialIssuerMetadataRef.current.metadata.credential_configurations_supported[credentialConfigurationIdRef.current].format === VerifiableCredentialFormat.MSO_MDOC) {
-	// 					return deriveHolderKidFromCredential(credential, credentialIssuerMetadataRef.current.metadata.credential_configurations_supported[credentialConfigurationIdRef.current].format);
-	// 				}
-	// 				else {
-	// 					return null;
-	// 				}
-	// 			}));
-
-	// 			let warnings = [];
-
-	// 			const result = await credentialEngine.credentialParsingEngine.parse(
-	// 				{
-	// 					rawCredential: temp[0],
-	// 					credentialIssuer: {
-	// 						credentialConfigurationId: credentialConfigurationIdRef.current,
-	// 						credentialIssuerIdentifier: credentialIssuerMetadataRef.current.metadata.credential_issuer,
-	// 					},
-	// 				}
-	// 			)
-
-	// 			if (result.success) {
-
-	// 				if (result.value.warnings && result.value.warnings.length > 0) {
-	// 					logger.warn(`Credential had warnings:`, result.value.warnings);
-	// 					warnings = result.value.warnings;
-	// 				}
-	// 			} else {
-	// 				logger.error(`Credential failed to parse:`, result.error, result.message);
-	// 				showMessagePopup({ title: t('issuance.error'), description: t(`parsing.error${result.error}`) });
-	// 				return;
-	// 			}
-
-	// 			let userConsent = true;
-	// 			if (warnings.length > 0 && config.DISPLAY_ISSUANCE_WARNINGS === true) {
-	// 				userConsent = await showPopupConsent({
-	// 					title: t("issuance.title"),
-	// 					warnings: warnings
-	// 				});
-	// 			}
-
-	// 			if (userConsent) {
-	// 				const [, privateData, keystoreCommit] = await keystore.addCredentials(temp.map((credential, index) => {
-	// 					return {
-	// 						data: credential,
-	// 						format: credentialIssuerMetadataRef.current.metadata.credential_configurations_supported[credentialConfigurationIdRef.current].format,
-	// 						kid: kidMap[index] ?? "",
-	// 						credentialConfigurationId: credentialConfigurationIdRef.current,
-	// 						credentialIssuerIdentifier: credentialIssuerMetadataRef.current.metadata.credential_issuer,
-	// 						batchId: batchId,
-	// 						instanceId: index,
-	// 					}
-	// 				}));
-
-	// 				await api.updatePrivateData(privateData);
-	// 				await keystoreCommit();
-	// 				setCommitStateChanges(1);
-	// 				// display notification
-	// 				notify("newCredential");
-	// 			}
-	// 		}
-	// 		catch (err) {
-	// 			throw err;
-	// 		}
-	// 	})();
-	// }, [
-	// 	receivedCredentialsArray,
-	// 	keystore,
-	// 	verificationFlowInProgress,
-	// 	commitStateChanges,
-	// 	credentialEngine,
-	// 	showMessagePopup,
-	// 	showPopupConsent,
-	// 	t,
-	// 	api
-	// ]);
-
 	const credentialRequest = useCallback(
 		async (response: any, flowState: WalletStateCredentialIssuanceSession) => {
 			const {
@@ -299,10 +206,6 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 			}
 			await openID4VCIClientStateRepository.updateState(flowState);
 			await openID4VCIClientStateRepository.cleanupExpired();
-
-			// const credentialArray: string[] = credentialResponse.data.credentials.map((c) => c.credential);
-
-			// setReceivedCredentialsArray(credentialArray);
 
 			return {
 				credentials: credentialResponse.data.credentials,
