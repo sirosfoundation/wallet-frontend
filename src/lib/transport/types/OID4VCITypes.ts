@@ -20,6 +20,9 @@ export interface OID4VCIFlowParams {
 	/** JSON-encoded credential offer (alternative to URI) */
 	credentialOffer?: string;
 
+	/** OAuth redirect URI for authorization code flow */
+	redirectUri?: string;
+
 	// ===== Continuation parameters =====
 
 	/** Holder binding information (sent after user consent) */
@@ -33,15 +36,26 @@ export interface OID4VCIFlowParams {
 	/** Authorization code (after redirect from authorization server) */
 	authorizationCode?: string;
 
+	/** OAuth state parameter (for correlation) */
+	state?: string;
+
 	/** PKCE code verifier */
 	codeVerifier?: string;
 
+	// ===== Resumption context (for same-tab redirect flow) =====
+
+	/** Issuer identifier for resumption */
+	issuerIdentifier?: string;
+
+	/** Credential configuration ID for resumption */
+	configurationId?: string;
+
 	// ===== Pre-authorized code flow =====
 
-	/** Pre-authorized code from credential offer */
+	/** Pre-authorized code (for pre-auth grant type) */
 	preAuthorizedCode?: string;
 
-	/** Transaction code input (PIN) if required */
+	/** Transaction code input (user-provided PIN for pre-auth flow) */
 	txCodeInput?: string;
 }
 
@@ -70,6 +84,9 @@ export interface OID4VCIFlowResult {
 	/** Issuer information including trust evaluation result */
 	issuerInfo?: OID4VCIIssuerInfo;
 
+	/** Credential issuer identifier (URL) — always populated when credentials are returned */
+	credentialIssuerIdentifier?: string;
+
 	/** Available credential configurations */
 	credentialConfigurations?: Record<string, CredentialConfigurationSupported>;
 
@@ -84,6 +101,9 @@ export interface OID4VCIFlowResult {
 	/** URL to redirect user for authorization */
 	authorizationUrl?: string;
 
+	/** PKCE code verifier (needed for token exchange) */
+	codeVerifier?: string;
+
 	/** Issuer state (for authorization flow) */
 	issuerState?: string;
 
@@ -97,16 +117,28 @@ export interface OID4VCIFlowResult {
 
 	// ===== Credential (when flow completes) =====
 
-	/** Issued credential (raw string) */
-	credential?: string;
+	/** Issued credential (raw string) @deprecated */
+	credential?: string; //TODO: remove, should always return credentials array.
 
-	/** Credential format */
-	format?: string;
+	/** Credential format @deprecated */
+	format?: string; //TODO: remove, should always return credentials array.
+
+	/** Multiple issued credentials (batch issuance) */
+	credentials?: Array<{
+		format?: string;
+		credential: string;
+		vct?: string;
+	}>;
 
 	// ===== Deferred issuance =====
 
 	/** Transaction ID for deferred credential polling */
 	transactionId?: string;
+
+	// ===== Flow resumption (same-tab redirect) =====
+
+	/** Parsed credential offer (for storage and resumption after redirect) */
+	credentialOffer?: OID4VCICredentialOffer;
 
 	// ===== Error =====
 
@@ -143,4 +175,17 @@ export interface OID4VCIIssuerInfo extends TrustEvaluation {
 	name?: string;
 	/** Logo URL */
 	logo?: string;
+}
+
+/**
+ * Credential offer structure (OID4VCI spec).
+ * Used for storing and resuming authorization code flows after redirect.
+ */
+export interface OID4VCICredentialOffer {
+	/** Credential issuer URL */
+	credential_issuer: string;
+	/** List of credential configuration IDs being offered */
+	credential_configuration_ids: string[];
+	/** Grant types (authorization_code, pre-authorized_code) */
+	grants?: Record<string, unknown>;
 }

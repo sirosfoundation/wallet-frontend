@@ -16,26 +16,14 @@ import { ExtendedVcEntity } from "@/context/CredentialsContext";
 import { getLeastUsedCredentialInstance } from "../CredentialBatchHelper";
 import { WalletStateUtils } from "@/services/WalletStateUtils";
 import { TransactionDataResponse } from "wallet-common";
-import { createTrustEvaluator, createDIDResolver } from "../TrustEvaluator";
+import { createVerifierTrustEvaluator, createDIDResolver } from "../TrustEvaluator";
 import { BACKEND_URL } from "@/config";
 import { getTenantFromUrlPath } from "@/lib/tenant";
 import { logger, jsonToLog } from '@/logger';
 
 export function useOpenID4VP({
-	showCredentialSelectionPopup,
-	showStatusPopup,
 	showTransactionDataConsentPopup,
 }: {
-	showCredentialSelectionPopup: (
-		conformantCredentialsMap: any,
-		verifierDomainName: string,
-		verifierPurpose: string,
-		parsedTransactionData?: ParsedTransactionData[],
-	) => Promise<Map<string, number>>,
-	showStatusPopup: (
-		message: { title: string, description: string },
-		type: 'error' | 'success',
-	) => Promise<void>,
 	showTransactionDataConsentPopup: (options: Record<string, unknown>) => Promise<boolean>,
 }): IOpenID4VP {
 
@@ -45,17 +33,6 @@ export function useOpenID4VP({
 	const { keystore, api } = useContext(SessionContext);
 	const { t } = useTranslation();
 
-	const promptForCredentialSelection = useCallback(
-		async (
-			conformantCredentialsMap: any,
-			verifierDomainName: string,
-			verifierPurpose: string,
-			parsedTransactionData: ParsedTransactionData[],
-		): Promise<Map<string, number>> => {
-			return showCredentialSelectionPopup(conformantCredentialsMap, verifierDomainName, verifierPurpose, parsedTransactionData);
-		},
-		[showCredentialSelectionPopup]
-	);
 	const openID4VPServer = useMemo(() => {
 		const lastUsedNonceStore = {
 			get: () => sessionStorage.getItem('last_used_nonce'),
@@ -104,7 +81,7 @@ export function useOpenID4VP({
 			getAuthToken: () => api.getAppToken() ?? '',
 			tenantId: getTenantFromUrlPath() ?? 'default',
 		};
-		const evaluateTrust = createTrustEvaluator(trustEvaluatorConfig);
+		const evaluateTrust = createVerifierTrustEvaluator(trustEvaluatorConfig);
 		const resolveDid = createDIDResolver(trustEvaluatorConfig);
 
 		return new OpenID4VPServerAPI<OpenID4VPServerCredential, ParsedTransactionData>({
@@ -154,7 +131,7 @@ export function useOpenID4VP({
 	const sendAuthorizationResponse = useCallback(async (selectionMap, vcEntityList) => {
 		const response = await openID4VPServer.createAuthorizationResponse(selectionMap, vcEntityList);
 		if (!response || !(response as any).formData) {
-			return {};
+			throw new Error('Invalid response from OpenID4VP server');
 		}
 		const { formData, generatedVPs, filteredVCEntities, response_uri, client_id } = response as {
 			formData: URLSearchParams;
@@ -186,30 +163,21 @@ export function useOpenID4VP({
 			});
 			const responseData = res.data as { presentation_during_issuance_session?: string, redirect_uri?: string };
 			logger.debug("Direct post response = ", jsonToLog(res.data));
+			if (res.status >= 400) {
+				throw new Error(`Direct post to verifier failed with status ${res.status}`);
+			}
 			if (responseData.presentation_during_issuance_session) {
 				return { presentation_during_issuance_session: responseData.presentation_during_issuance_session };
 			}
 			if (responseData.redirect_uri) {
 				return { url: responseData.redirect_uri };
 			}
-			if (res.status >= 400) {
-				throw new Error(`Direct post to verifier failed with status ${res.status}`);
-			}
-			showStatusPopup({
-				title: "Verification succeeded",
-				description: "The verification process has been completed",
-			}, 'success');
 		} catch (err) {
 			logger.error(err);
-			showStatusPopup({
-				title: "Error in verification",
-				description: "The verification process was not completed successfully",
-			}, 'error');
-			return {};
+			throw err;
 		}
 	}, [
 		httpProxy,
-		showStatusPopup,
 		api,
 		keystore,
 		openID4VPServer,
@@ -217,12 +185,10 @@ export function useOpenID4VP({
 
 	return useMemo(() => {
 		return {
-			promptForCredentialSelection,
 			handleAuthorizationRequest,
 			sendAuthorizationResponse,
 		}
 	}, [
-		promptForCredentialSelection,
 		handleAuthorizationRequest,
 		sendAuthorizationResponse,
 	]);

@@ -2,6 +2,7 @@
  * OID4VP (Verifiable Presentation) flow types for transport abstraction
  */
 
+import type { DcqlQuery } from 'dcql';
 import type { TrustEvaluation } from './TrustTypes';
 
 // Note: These types are defined locally to avoid coupling to wallet-common exports
@@ -14,7 +15,8 @@ export interface OID4VPFlowParams {
 	// ===== Entry point =====
 
 	/** Authorization request URI */
-	authorizationRequestUri?: string;
+	requestUriRef?: string;
+	clientId?: string;
 
 	// ===== Continuation parameters (after credential selection) =====
 
@@ -26,14 +28,18 @@ export interface OID4VPFlowParams {
  * A credential selected for presentation
  */
 export interface OID4VPSelectedCredential {
-	/** Input descriptor ID from presentation definition */
-	descriptorId: string;
-	/** Raw credential string */
+	/** Batch ID of the credential */
+	batchId: number;
+	/** DCQL credential query ID (e.g. "pid_1_5") */
+	credentialQueryId: string;
+	/** per-instance credentialId as string (opaque to backend) */
+	walletCredentialRef: string;
+	/** raw SD-JWT — cached locally AND sent to backend */
 	credentialRaw: string;
-	/** Key ID for holder binding */
+	/** kid for holder binding */
 	holderKeyKid: string;
-	/** Disclosure selection for SD-JWT (claim paths to disclose) */
-	disclosureSelection?: string[];
+	/** claims to disclose (was: disclosureSelection) */
+	disclosedClaims?: string[];
 }
 
 /**
@@ -43,13 +49,23 @@ export interface OID4VPFlowResult {
 	/** Whether this step succeeded */
 	success: boolean;
 
+	// ===== Credential selection (for consent UI) =====
+
+	/** DCQL query from verifier */
+	dcqlQuery?: DcqlQuery.Input;
+
+	selectedCredentials?: OID4VPSelectedCredential[];
+
 	// ===== Presentation request (for consent UI) =====
 
 	/** Presentation definition from verifier (generic type for transport layer) */
 	presentationDefinition?: unknown;
 
 	/** Map of descriptor ID to matching credentials */
-	conformantCredentials?: Map<string, unknown[]>;
+	conformantCredentials?: Map<string, {
+	credentials: number[];
+	requestedFields: Array<{ name?: string; purpose?: string; path?: (string | null)[] }>
+}>;
 
 	/** Verifier information */
 	verifierInfo?: OID4VPVerifierInfo;

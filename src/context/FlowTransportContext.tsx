@@ -26,9 +26,12 @@ import {
 	WEBSOCKET_TRANSPORT_ALLOWED,
 	DIRECT_TRANSPORT_ALLOWED,
 	TRANSPORT_PREFERENCE,
+	BACKEND_URL,
 } from '@/config';
 import type { TransportType } from '@/lib/transport/types/FlowTypes';
 import { logger } from '@/logger';
+import { createIssuerTrustEvaluator, createVerifierTrustEvaluator } from '@/lib/services/TrustEvaluator';
+import { TrustEvaluators } from '@/lib/transport';
 
 // Re-export sign and match types with WS prefix for clarity
 export type {
@@ -66,7 +69,11 @@ interface FlowTransportContextValue {
 	registerSignHandler: (handler: SignRequestHandler) => () => void;
 	/** Register a match request handler for client-side credential matching (for WebSocket) */
 	registerMatchHandler: (handler: MatchRequestHandler) => () => void;
+	/** Whether transport selection has settled (safe to start flows) */
+	transportReady: boolean;
 }
+
+const TRANSPORT_CONNECT_TIMEOUT = 10 * 1000;
 
 const FlowTransportContext = createContext<FlowTransportContextValue | null>(null);
 
@@ -96,6 +103,32 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 	const [capabilitiesLoaded, setCapabilitiesLoaded] = useState(false);
 	const [engineCapabilities, setEngineCapabilities] = useState<string[]>([]);
 	const [wsCapabilityAvailable, setWsCapabilityAvailable] = useState(false);
+
+	const [pendingTransports, setPendingTransports] = useState<Set<TransportType>>(new Set());
+
+	// Ready when capabilities loaded AND no transport is mid-connection
+	const transportReady = capabilitiesLoaded && pendingTransports.size === 0;
+
+	const trustEvaluators = useMemo((): TrustEvaluators => {
+		const evaluateIssuerTrust = createIssuerTrustEvaluator({
+			httpClient: httpProxy,
+			backendUrl: BACKEND_URL,
+			getAuthToken: () => authToken ?? '',
+			tenantId,
+		});
+
+		const evaluateVerifierTrust = createVerifierTrustEvaluator({
+			httpClient: httpProxy,
+			backendUrl: BACKEND_URL,
+			getAuthToken: () => authToken ?? '',
+			tenantId,
+		});
+
+		return {
+		evaluateIssuerTrust,
+		evaluateVerifierTrust,
+		};
+	}, [tenantId, authToken, httpProxy]);
 
 	// Fetch engine capabilities on mount
 	useEffect(() => {
@@ -145,34 +178,62 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 
 	// Create and manage WebSocket transport (only if capability is available)
 	useEffect(() => {
-		// Wait for capabilities to load before trying WebSocket
-		if (!capabilitiesLoaded) {
-			return;
-		}
-
-		// Check all conditions: config allows, capability available, URL set, auth token present
+		if (!capabilitiesLoaded) return;
 		if (!WEBSOCKET_TRANSPORT_ALLOWED || !wsCapabilityAvailable || !WS_URL || !authToken) {
 			setWsTransport(null);
 			setIsConnected(false);
 			return;
 		}
 
-		const ws = new WebSocketTransport(WS_URL, authToken, tenantId);
+		let cancelled = false;
+		const ws = new WebSocketTransport(WS_URL, authToken, tenantId, trustEvaluators);
 		setWsTransport(ws);
 
-		// Connect to WebSocket
-		ws.connect()
-			.then(() => {
+		// Mark this transport as pending connection
+		setPendingTransports(prev => new Set(prev).add('websocket'));
+
+		const connectTimeout = setTimeout(() => {
+			if (cancelled) return;
+			cancelled = true;
+
+			logger.warn('WebSocket connection timed out');
+			ws.disconnect();
+
+			setIsConnected(false);
+			setLastError(new Error('WebSocket connection timed out'));
+
+			setPendingTransports(prev => {
+				const next = new Set(prev);
+				next.delete('websocket');
+				return next;
+			});
+		}, TRANSPORT_CONNECT_TIMEOUT);
+
+		(async () => {
+			try {
+				await ws.connect();
+
+				if (cancelled) return;
+				clearTimeout(connectTimeout);
 				setIsConnected(true);
 				setLastError(null);
-			})
-			.catch((error) => {
+			} catch (error) {
+				if (cancelled) return;
+				clearTimeout(connectTimeout);
 				logger.error('WebSocket connection failed:', error);
 				setIsConnected(false);
 				setLastError(error);
-			});
+			} finally {
+				if (cancelled) return;
+				clearTimeout(connectTimeout);
+				setPendingTransports(prev => {
+					const next = new Set(prev);
+					next.delete('websocket');
+					return next;
+				});
+			}
+		})();
 
-		// Subscribe to errors
 		const unsubscribeError = ws.onError((error) => {
 			logger.error('WebSocket error:', error);
 			setIsConnected(false);
@@ -180,10 +241,18 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 		});
 
 		return () => {
+			cancelled = true;
+			clearTimeout(connectTimeout);
 			unsubscribeError();
 			ws.disconnect();
+			// Clean up pending state for this transport on unmount/re-run
+			setPendingTransports(prev => {
+				const next = new Set(prev);
+				next.delete('websocket');
+				return next;
+			});
 		};
-	}, [authToken, tenantId, capabilitiesLoaded, wsCapabilityAvailable]);
+	}, [authToken, tenantId, capabilitiesLoaded, wsCapabilityAvailable, trustEvaluators]);
 
 	// Update auth token and tenant ID on WebSocket when they change
 	useEffect(() => {
@@ -268,7 +337,8 @@ export const FlowTransportProvider: React.FC<FlowTransportProviderProps> = ({
 		engineCapabilities,
 		registerSignHandler,
 		registerMatchHandler,
-	}), [transport, transportType, isConnected, reconnect, availableTransports, lastError, clearError, capabilitiesLoaded, engineCapabilities, registerSignHandler, registerMatchHandler]);
+		transportReady,
+	}), [transport, transportType, isConnected, reconnect, availableTransports, lastError, clearError, capabilitiesLoaded, engineCapabilities, registerSignHandler, registerMatchHandler, transportReady]);
 
 	return (
 		<FlowTransportContext.Provider value={value}>
