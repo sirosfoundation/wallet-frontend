@@ -2,18 +2,18 @@
 set -e
 
 # Available options from environment variables:
-# - OUTPUT_FILE (Default: "/etc/nginx/conf.d/security-headers.conf")
+# - NGINX_SEC_HEADER_FILE (Default: "/etc/nginx/conf.d/security-headers.conf")
 # - WS_URL
 # - WALLET_BACKEND_URL
 # - OHTTP_KEY_CONFIG
 # - OHTTP_RELAY
 # - VCT_REGISTRY_URL
-# - ENFORCE_RESOURCE_HTTPS ("true" or "false". Default: "false")
-# - ENABLE_HSTS ("true" or "false". Default: "false")
+# - NGINX_CSP_ENFORCE_RESOURCE_HTTPS ("true" or "false". Default: "false")
+# - NGINX_ENABLE_HSTS ("true" or "false". Default: "false")
 
 # -------------------------------------------------------------------------------------------------
-if [ -z "${OUTPUT_FILE}" ]; then
-	OUTPUT_FILE="/etc/nginx/conf.d/security-headers.conf"
+if [ -z "${NGINX_SEC_HEADER_FILE}" ]; then
+	NGINX_SEC_HEADER_FILE="/etc/nginx/conf.d/security-headers.conf"
 fi
 
 CONNECT_SRC="'self'"
@@ -39,7 +39,7 @@ if [ -n "${VCT_REGISTRY_URL}" ]; then
 	CONNECT_SRC="${CONNECT_SRC} ${VCT_REGISTRY_URL}"
 fi
 
-if [ "${ENFORCE_RESOURCE_HTTPS}" = "true" ]; then
+if [ "${NGINX_CSP_ENFORCE_RESOURCE_HTTPS}" = "true" ]; then
 	RESOURCE_SCHEME_SRC="https:"
 else
 	RESOURCE_SCHEME_SRC="https: http:"
@@ -58,7 +58,7 @@ base-uri 'self'; \
 form-action 'self'"
 
 # -------------------------------------------------------------------------------------------------
-cat > "${OUTPUT_FILE}" <<EOF
+cat > "${NGINX_SEC_HEADER_FILE}" <<EOF
 add_header Content-Security-Policy "${CSP}" always;
 add_header X-Content-Type-Options "nosniff" always;
 add_header X-Frame-Options "DENY" always;
@@ -68,10 +68,9 @@ add_header Permissions-Policy "microphone=(), geolocation=(), payment=()" always
 EOF
 
 # -------------------------------------------------------------------------------------------------
-if [ "${ENABLE_HSTS}" = "true" ]; then
-	RESOURCE_SCHEME_SRC="https:"
-	echo 'add_header Strict-Transport-Security "max-age=63072000" always;' >> "${OUTPUT_FILE}"
+if [ "${NGINX_ENABLE_HSTS}" = "true" ]; then
+	echo 'add_header Strict-Transport-Security "max-age=63072000" always;' >> "${NGINX_SEC_HEADER_FILE}"
 fi
 
 # -------------------------------------------------------------------------------------------------
-echo "Generated security headers: ${OUTPUT_FILE}"
+echo "Generated security headers: ${NGINX_SEC_HEADER_FILE}"
