@@ -106,8 +106,16 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 
 	const [pendingTransports, setPendingTransports] = useState<Set<OIDFlowTransportType>>(new Set());
 
-	// Ready when capabilities loaded AND no transport is mid-connection
-	const transportReady = capabilitiesLoaded && pendingTransports.size === 0;
+	const transportReady = useMemo(() => {
+		// 1. Wait for engine capabilities
+		if (!capabilitiesLoaded) return false;
+		// 2. Wait for any transport mid-connection
+		if (pendingTransports.size > 0) return false;
+		// 3. If WebSocket is expected, wait for it to connect or fail
+		const wsExpected = WEBSOCKET_TRANSPORT_ALLOWED && wsCapabilityAvailable && !!WS_URL && !!authToken;
+		if (wsExpected && !isConnected && !lastError) return false;
+		return true;
+	}, [capabilitiesLoaded, pendingTransports, wsCapabilityAvailable, authToken, isConnected, lastError]);
 
 	const trustEvaluators = useMemo((): TrustEvaluators => {
 		const evaluateIssuerTrust = createIssuerTrustEvaluator({
