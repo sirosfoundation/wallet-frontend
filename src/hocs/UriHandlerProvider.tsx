@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useContext, Suspense } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import StatusContext from "../context/StatusContext";
 import { logger } from "@/logger";
 import SessionContext from "../context/SessionContext";
@@ -7,6 +7,8 @@ import { useTranslation } from "react-i18next";
 import { CachedUser } from "@/services/LocalStorageKeystore";
 import SyncPopup from "@/components/Popups/SyncPopup";
 import { useSessionStorage } from "@/hooks/useStorage";
+import { parseOIDFlowCallbackUrl } from "@/lib/openid-flow/utils/oidFlowCallbackUrl";
+import { useTenant } from "@/context/TenantContext";
 
 export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	const { isOnline } = useContext(StatusContext);
@@ -25,6 +27,8 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	const [textSyncPopup, setTextSyncPopup] = useState<{ description: string }>({ description: "" });
 
 	const { t } = useTranslation();
+	const navigate = useNavigate();
+	const { buildPath } = useTenant();
 
 	// TODO: move this to a new HOC, responsible for session initialization and syncing.
 	const [cachedUser, setCachedUser] = useState<CachedUser | null>(null);
@@ -114,6 +118,22 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 			setSyncPopup(false);
 		}
 	}, [location, t, synced]);
+
+	// Listen for URL changes to handle incoming OpenID flow callbacks
+	useEffect(() => {
+		const u = new URL(url);
+
+		if (u.pathname.endsWith('/cb')) {
+			return;
+		}
+
+		const result = parseOIDFlowCallbackUrl(u);
+		if (['oid4vci', 'oid4vp'].includes(result.protocol)) {
+			const target = buildPath(`cb?${result.url.searchParams.toString()}`);
+			setUrl(new URL(target, window.location.origin).href);
+			navigate(target);
+		}
+	}, [url, navigate, buildPath]);
 
 	// TODO: rather than wrapping the whole app, this should be moved to a page
 	// component, e.g. /cb, that would be responsible for all
