@@ -16,7 +16,7 @@ if [ -z "${NGINX_SEC_HEADER_FILE}" ]; then
 	NGINX_SEC_HEADER_FILE="/etc/nginx/conf.d/security-headers.conf"
 fi
 
-CONNECT_SRC="'self'"
+CONNECT_SRC="'self' data:"
 
 # -------------------------------------------------------------------------------------------------
 if [ -n "${WS_URL}" ]; then
