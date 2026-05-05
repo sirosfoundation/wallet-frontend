@@ -7,6 +7,7 @@
 
 import { BACKEND_URL, ENGINE_URL } from '@/config';
 import { logger } from '@/logger';
+import { getTenantFromUrlPath } from '../tenant';
 
 /**
  * Status response from /status endpoint
@@ -71,6 +72,7 @@ async function fetchStatusCached(baseUrl: string): Promise<StatusResponse | null
 			method: 'GET',
 			headers: {
 				'Accept': 'application/json',
+				'X-Tenant-ID': getTenantFromUrlPath() || 'default',
 			},
 		});
 
