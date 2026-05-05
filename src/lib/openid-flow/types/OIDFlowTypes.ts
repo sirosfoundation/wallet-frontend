@@ -3,6 +3,34 @@
  */
 
 /**
+ * Generic callback URL type for OpenID flows, with specific subtypes for
+ * credential offers, authorization codes, presentation requests, and errors.
+ */
+export type OIDFlowCallbackURLType<P extends string, T extends string> = {
+	protocol: P;
+	type: T;
+	url: URL;
+};
+
+export type OIDFlowCredentialOfferCallback = OIDFlowCallbackURLType<'oid4vci', 'credential_offer'>;
+export type OIDFlowAuthorizationCodeCallback = OIDFlowCallbackURLType<'oid4vci', 'authorization_code'>;
+export type OIDFlowPresentationRequestCallback = OIDFlowCallbackURLType<'oid4vp', 'presentation_request'>;
+export type OIDFlowAuthorizationErrorCallback = OIDFlowCallbackURLType<'unknown', 'authorization_error'>;
+export type OIDFlowUnknownCallback = OIDFlowCallbackURLType<'unknown', 'unknown'>;
+
+/**
+ * Union type for all possible OpenID flow callback URLs, used for parsing and handling
+ * different flow entry points.
+ */
+export type OIDFlowCallbackURL =
+	| OIDFlowCredentialOfferCallback
+	| OIDFlowAuthorizationCodeCallback
+	| OIDFlowPresentationRequestCallback
+	| OIDFlowAuthorizationErrorCallback
+	| OIDFlowUnknownCallback;
+
+
+/**
  * Transport type enumeration
  */
 export type OIDFlowTransportType = 'http_proxy' | 'websocket' | 'direct';

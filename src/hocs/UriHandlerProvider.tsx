@@ -317,6 +317,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	 * OpenID4VCI flow entrypoint.
 	 */
 	useEffect(() => {
+		return;
 		if (!isLoggedIn || !synced || vciTransportType === 'none' || isLoading || !transportReady) return;
 
 		if (urlWithCredentialOffer) {
@@ -435,6 +436,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	 * OpenID4VP flow entrypoint.
 	 */
 	useEffect(() => {
+		return;
 		if (!isLoggedIn || !synced || vpTransportType === 'none' || isLoading || !transportReady) return;
 
 		if (urlWithAuthorizationRequest) {
