@@ -25,6 +25,7 @@ import { UsbStickDotIcon } from '@/components/Shared/CustomIcons';
 import PolicyLinks from '@/components/Shared/PolicyLinks';
 import PasskeyInfoPopup from '@/components/Popups/PasskeyInfoPopup';
 import { usePolicyLinks } from '@/hooks/usePolicyLinks';
+import { logger } from '@/logger';
 
 const FormInputRow = ({
 	IconComponent,
@@ -262,6 +263,7 @@ const WebauthnSignupLogin = ({
 		} else {
 			const err = result.val;
 
+
 			// Using a switch here so the t() argument can be a literal, to ease searching
 			switch (err) {
 				case 'loginKeystoreFailed':
@@ -397,7 +399,7 @@ const WebauthnSignupLogin = ({
 	};
 
 	const onCancel = () => {
-		console.log("onCancel");
+		logger.debug("onCancel");
 		setInProgress(false);
 		setNeedPrfRetry(false);
 		setPrfRetryAccepted(false);

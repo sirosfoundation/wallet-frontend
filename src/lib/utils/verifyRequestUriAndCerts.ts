@@ -1,7 +1,24 @@
+/**
+ * @deprecated This module is deprecated. All trust evaluation is now delegated
+ * to the AuthZEN backend via TrustEvaluator.ts. This file is kept for reference
+ * but is no longer used by the OpenID4VP flow.
+ *
+ * @see src/lib/services/TrustEvaluator.ts for the new trust evaluation approach.
+ */
+
 import axios from "axios";
 import { BACKEND_URL, OPENID4VP_SAN_DNS_CHECK_SSL_CERTS, OPENID4VP_SAN_DNS_CHECK } from "../../config";
 import { extractSAN } from "./pki";
 
+/**
+ * @deprecated Use TrustEvaluator.createTrustEvaluator() instead.
+ * All trust evaluation is now delegated to the AuthZEN backend.
+ *
+ * Legacy V1 local certificate verification. In the V2 WebSocket protocol,
+ * trust evaluation is performed server-side by the wallet backend (which
+ * delegates to an AuthZEN PDP). This function is only used by the V1 HTTP
+ * proxy code path and will be removed when V1 is retired.
+ */
 export async function verifyRequestUriAndCerts(request_uri: string, response_uri: string, parsedHeader: any) {
 	if (new URL(request_uri).hostname !== new URL(response_uri).hostname) {
 		throw new Error("NONTRUSTED_VERIFIER: Hostname mismatch");

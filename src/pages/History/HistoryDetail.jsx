@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { logger } from '@/logger';
 
 // Contexts
 import SessionContext from '@/context/SessionContext';
@@ -24,7 +25,7 @@ const HistoryDetail = () => {
 	const [selectedHistoryItem, setSelectedHistoryItem] = useState([]);
 	const { t } = useTranslation();
 
-	console.log('history', history)
+	logger.debug('history', history)
 
 	useEffect(() => {
 		if (transactionId && history && Object.keys(history).length > 0) {
