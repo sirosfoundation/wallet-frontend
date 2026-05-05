@@ -18,11 +18,8 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	const { getUserHandleB64u, getCachedUsers, getCalculatedWalletState } = keystore;
 
 	const location = useLocation();
-	// TODO: investigate and possibly remove.
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	const [url, setUrl] = useState(window.location.href);
 
-	// TODO: move this to a new HOC, responsible for session initialization and syncing.
 	const [showSyncPopup, setSyncPopup] = useState<boolean>(false);
 	const [textSyncPopup, setTextSyncPopup] = useState<{ description: string }>({ description: "" });
 
@@ -30,13 +27,10 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	const navigate = useNavigate();
 	const { buildPath } = useTenant();
 
-	// TODO: move this to a new HOC, responsible for session initialization and syncing.
 	const [cachedUser, setCachedUser] = useState<CachedUser | null>(null);
 	const [synced, setSynced] = useState(false);
 	const [latestIsOnlineStatus, setLatestIsOnlineStatus,] = api.useClearOnClearSession(useSessionStorage('latestIsOnlineStatus', null));
 
-	// TODO: move this to a new HOC, responsible for session initialization and syncing,
-	// that would wrap around the UriHandlerProvider.
 	useEffect(() => {
 		if (!keystore || cachedUser !== null || !isLoggedIn) {
 			return;
@@ -52,7 +46,6 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 		}
 	}, [keystore, getCachedUsers, getUserHandleB64u, setCachedUser, cachedUser, isLoggedIn]);
 
-	// TODO: move to new HOC responsible for session initialization and syncing
 	useEffect(() => {
 		const params = new URLSearchParams(window.location.search);
 		if (window.location.search !== '' && params.get('sync') !== 'fail') {
@@ -60,7 +53,6 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 		}
 	}, [location]);
 
-	// TODO: move to new HOC responsible for session initialization and syncing
 	useEffect(() => {
 		if (latestIsOnlineStatus === false && isOnline === true && cachedUser) {
 			api.syncPrivateData(cachedUser, keystore);
@@ -80,7 +72,6 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 		keystore
 	]);
 
-	// TODO: move to new HOC responsible for session initialization and syncing
 	useEffect(() => {
 		if (!getCalculatedWalletState || !cachedUser || !syncPrivateData) {
 			return;
@@ -105,7 +96,6 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 		}
 	}, [synced, setUrl, location]);
 
-	// TODO: move to new HOC responsible for session initialization and syncing
 	useEffect(() => {
 		const params = new URLSearchParams(window.location.search);
 		if (synced === true && params.get('sync') === 'fail') {
@@ -135,15 +125,9 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 		}
 	}, [url, navigate, buildPath]);
 
-	// TODO: rather than wrapping the whole app, this should be moved to a page
-	// component, e.g. /cb, that would be responsible for all
-	// OpenID4VCI/VP flows and would be the redirect URI for all OID4VCI/VP interactions.
 	return (
 		<Suspense fallback={null}>
 			{children}
-			{/* {showPinInputPopup &&
-				<PinInputPopup isOpen={showPinInputPopup} setIsOpen={setShowPinInputPopup} />
-			} */}
 			{showSyncPopup &&
 				<SyncPopup message={textSyncPopup}
 					onClose={() => {
