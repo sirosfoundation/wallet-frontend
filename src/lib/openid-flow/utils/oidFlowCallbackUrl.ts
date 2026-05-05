@@ -42,9 +42,10 @@ export function parseOIDFlowCallbackUrl(url: URL): OIDFlowCallbackURL {
 		url,
 	};
 
+	// No recognizable parameters
 	return {
-		protocol: 'unknown',
-		type: 'unknown',
+		protocol: 'none',
+		type: 'none',
 		url,
 	};
 }

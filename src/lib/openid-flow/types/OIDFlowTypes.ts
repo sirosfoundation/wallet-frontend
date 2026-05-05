@@ -17,6 +17,7 @@ export type OIDFlowAuthorizationCodeCallback = OIDFlowCallbackURLType<'oid4vci',
 export type OIDFlowPresentationRequestCallback = OIDFlowCallbackURLType<'oid4vp', 'presentation_request'>;
 export type OIDFlowAuthorizationErrorCallback = OIDFlowCallbackURLType<'unknown', 'authorization_error'>;
 export type OIDFlowUnknownCallback = OIDFlowCallbackURLType<'unknown', 'unknown'>;
+export type OIDFlowNoCallback = OIDFlowCallbackURLType<'none', 'none'>;
 
 /**
  * Union type for all possible OpenID flow callback URLs, used for parsing and handling
@@ -27,7 +28,8 @@ export type OIDFlowCallbackURL =
 	| OIDFlowAuthorizationCodeCallback
 	| OIDFlowPresentationRequestCallback
 	| OIDFlowAuthorizationErrorCallback
-	| OIDFlowUnknownCallback;
+	| OIDFlowUnknownCallback
+	| OIDFlowNoCallback;
 
 
 /**

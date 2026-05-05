@@ -1,4 +1,5 @@
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { logger } from '@/logger';
 import { OIDFlowError } from '@/lib/openid-flow/errors';
@@ -12,7 +13,6 @@ import { TxCodeInputPopup } from '@/components/Popups/TxCodeInputPopup';
 import MessagePopup from '@/components/Popups/MessagePopup';
 import Spinner from '@/components/Shared/Spinner';
 import { useOIDFlowTransport } from '@/context/OIDFlowTransportContext';
-import { useNavigate } from 'react-router-dom';
 import { useTenant } from '@/context/TenantContext';
 import { parseOIDFlowCallbackUrl } from '@/lib/openid-flow/utils/oidFlowCallbackUrl';
 
@@ -64,23 +64,29 @@ const OpenIDFlowCallback: React.FC = () => {
  * handling errors, and navigating home on completion.
  */
 const OpenIDFlowRouter: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
+	const { buildPath } = useTenant();
+
 	const resolved = useMemo(() => {
 		switch (callbackUrl.protocol) {
 			case 'oid4vci':
 				return { handler: OpenID4VCIFlow };
 			case 'oid4vp':
 				return { handler: OpenID4VPFlow };
-			default:
+			case 'unknown':
 				return { handler: OpenIDUnknownFlow };
+			default:
+				return null
 		}
 	}, [callbackUrl]);
 
-	if ('handler' in resolved) {
+	if (resolved && 'handler' in resolved) {
 		const Handler = resolved.handler;
 		return <Handler callbackUrl={callbackUrl} />;
 	}
 
-	return <></>;
+	// If no handler found, we assume the user isn't meant to be here,
+	// and redirect to home.
+	return <Navigate to={buildPath()} />;
 }
 
 /**
