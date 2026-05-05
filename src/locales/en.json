@@ -139,14 +139,6 @@
 	},
 	"messagePopup": {
 		"close": "Close",
-		"insufficientCredentials": {
-			"description": "One or more of the credentials you want to present do not exist for selection.",
-			"title": "Insufficient Credentials"
-		},
-		"nonTrustedVerifier": {
-			"description": "Verifier did not provide valid data for verification",
-			"title": "Verifier is not Trusted"
-		},
 		"onlyOneInputDescriptor": {
 			"description": "Currenly the wallet cannot accept a Presentation Request of more than one credentials at a time.",
 			"title": "Unsupported protocol version"
@@ -154,10 +146,6 @@
 		"sendResponseError": {
 			"description": "An error occured during the presentation of the credentials.",
 			"title": "Send Response Error"
-		},
-		"sendResponseSuccess": {
-			"description": "Credentials were successfully sent.",
-			"title": "Presentation was successful"
 		}
 	},
 	"notFound": {
@@ -173,6 +161,33 @@
 		"success": {
 			"message": "The operation completed successfully.",
 			"title": "Success"
+		}
+	},
+	"openIdCallback": {
+		"authorizationError": {
+			"title": "Authorization Error"
+		},
+		"insufficientCredentials": {
+			"description": "One or more of the credentials you want to present do not exist for selection.",
+			"title": "Insufficient Credentials"
+		},
+		"nonTrustedVerifier": {
+			"description": "Verifier did not provide valid data for verification",
+			"title": "Verifier is not Trusted"
+		},
+		"sendResponseSuccess": {
+			"description": "Credentials were successfully sent.",
+			"title": "Presentation was successful"
+		},
+		"unsupportedCallback": {
+			"description": "The provided callback URL is not supported.",
+			"title": "Unsupported Callback"
+		},
+		"vciFlowError": {
+			"title": "Credential Issuance Error"
+		},
+		"vpFlowError": {
+			"title": "Verification Error"
 		}
 	},
 	"pageAddCredentials": {

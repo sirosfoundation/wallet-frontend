@@ -88,6 +88,7 @@ const OpenIDFlowRouter: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
  */
 const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	const { displayError } = useErrorDialog();
+	const { t } = useTranslation();
 	const {
 		requestTxCode,
 		state: txCodeState,
@@ -101,12 +102,12 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		(err: Error) => {
 			logger.error('Error in OID4VCI flow:', err);
 			displayError({
-				title: 'OID4VCI Flow Error',
+				title: t('openIdCallback.vciFlowError.title'),
 				description: err instanceof Error ? err.message : String(err),
 				onClose: () => navigateHome(),
 			});
 		},
-		[displayError, navigateHome],
+		[displayError, navigateHome, t],
 	);
 
 	const handleProgress = useCallback((event: OIDFlowProgressEvent) => {
@@ -236,7 +237,7 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			} catch (error) {
 				logger.error('Error in OID4VCI flow:', error);
 				displayError({
-					title: 'OID4VCI Flow Error',
+					title: t('openIdCallback.vciFlowError.title'),
 					description: error instanceof Error ? error.message : String(error),
 					onClose: () => navigateHome(),
 				});
@@ -278,7 +279,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		logger.error("Error in OID4VP flow:", err);
 		if (!(err instanceof OIDFlowError)) {
 			displayError({
-				title: t('messagePopup.vpFlowError.title', 'Verification Error'),
+				title: t('openIdCallback.vpFlowError.title'),
 				description: err.message,
 			});
 			return;
@@ -287,19 +288,19 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		switch (err.code.toUpperCase()) {
 			case 'INSUFFICIENT_CREDENTIALS':
 				displayError({
-					title: t('messagePopup.insufficientCredentials.title'),
-					description: t('messagePopup.insufficientCredentials.description'),
+					title: t('openIdCallback.insufficientCredentials.title'),
+					description: t('openIdCallback.insufficientCredentials.description'),
 				});
 				return;
 			case 'NONTRUSTED_VERIFIER':
 				displayError({
-					title: t('messagePopup.nonTrustedVerifier.title'),
-					description: t('messagePopup.nonTrustedVerifier.description'),
+					title: t('openIdCallback.nonTrustedVerifier.title'),
+					description: t('openIdCallback.nonTrustedVerifier.description'),
 				});
 				return;
 			default:
 				displayError({
-					title: t('messagePopup.vpFlowError.title', 'Verification Error'),
+					title: t('openIdCallback.vpFlowError.title'),
 					description: err.message,
 				});
 				return;
@@ -393,8 +394,8 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 
 		if (sendResult.success) {
 			setSuccessMessage({
-				title: t('messagePopup.sendResponseSuccess.title'),
-				description: t('messagePopup.sendResponseSuccess.description'),
+				title: t('openIdCallback.sendResponseSuccess.title'),
+				description: t('openIdCallback.sendResponseSuccess.description'),
 			});
 		}
 
@@ -431,9 +432,9 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 
 				navigateHome();
 			} catch (error) {
-				logger.error('Error in OID4VP flow:', error);
+					logger.error('Error in OID4VP flow:', error);
 				displayError({
-					title: 'OID4VP Flow Error',
+					title: t('openIdCallback.vpFlowError.title'),
 					description: error instanceof Error ? error.message : String(error),
 					onClose: () => navigateHome(),
 				});
@@ -465,6 +466,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
  */
 const OpenIDUnknownFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	const { displayError } = useErrorDialog();
+	const { t } = useTranslation();
 	const navigateHome = useNavigateHome();
 
 	useEffect(
@@ -475,7 +477,9 @@ const OpenIDUnknownFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 
 				logger.error('Authorization error in OpenID flow callback:', error, desc);
 				displayError({
-					title: error ? `Authorization Error: ${error}` : 'Authorization Error',
+					title: error
+						? `${t('openIdCallback.authorizationError.title')}: ${error}`
+						: t('openIdCallback.authorizationError.title'),
 					description: desc ?? '',
 					onClose: () => navigateHome(),
 				});
@@ -484,8 +488,8 @@ const OpenIDUnknownFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 
 			logger.error('Unsupported OpenID flow callback received:', callbackUrl.url.href);
 			displayError({
-				title: 'Unsupported Callback',
-				description: 'The provided callback URL is not supported.',
+				title: t('openIdCallback.unsupportedCallback.title'),
+				description: t('openIdCallback.unsupportedCallback.description'),
 				onClose: () => navigateHome(),
 			});
 		},
