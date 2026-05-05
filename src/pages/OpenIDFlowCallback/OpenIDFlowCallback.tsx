@@ -18,7 +18,23 @@ import { parseOIDFlowCallbackUrl } from '@/lib/openid-flow/utils/oidFlowCallback
 import { DisplayErrorFunction } from '@/context/ErrorDialogContext';
 import { TFunction } from 'i18next';
 
-
+/**
+ * OpenIDFlowCallback - Transient page that processes OID4VCI/OID4VP callback URLs.
+ *
+ * Route: /cb/* (wrapped in <PrivateRoute>
+ *
+ * Renders a spinner while the flow runs, then navigates home on completion or error.
+ * The effect fires once when transportReady becomes true (guarded by flowIsActive ref
+ * to prevent double-invocation in StrictMode).
+ *
+ * Auth & sync:
+ * - Authentication is enforced by PrivateRoute (see App.jsx) — unauthenticated users
+ *   are redirected to login before this component mounts.
+ * - Session sync is handled by UriHandlerProvider (see AppProvider.tsx), which wraps
+ *   this component. The sync completes before transportReady settles in practice,
+ *   but there is no explicit sync gate here. If sync timing becomes an issue,
+ *   extract synced state from UriHandlerProvider into a shared context.
+ */
 const OpenIDFlowCallback: React.FC = () => {
 	const { displayError } = useErrorDialog();
 	const { t } = useTranslation();
