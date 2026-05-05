@@ -132,7 +132,6 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	);
 
 	const {
-		transportType,
 		handleCredentialOffer,
 		requestWithPreAuthorization,
 		handleAuthorizationResponse,
@@ -218,13 +217,6 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 
 		(async () => {
 			try {
-				if (transportType === 'none') {
-					throw new OIDFlowError({
-						code: 'NO_TRANSPORT',
-						message: 'No transport available',
-					});
-				}
-
 				switch (callbackUrl.type) {
 					case 'credential_offer':
 						await processCredentialOffer(callbackUrl.url);
@@ -352,7 +344,6 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	}, [showCredentialSelectionPopup]);
 
 	const {
-		transportType,
 		handleAuthorizationRequest,
 		handleCredentialSelection,
 		sendAuthorizationResponse,
@@ -418,13 +409,6 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 
 		(async () => {
 			try {
-				if (transportType === 'none') {
-					throw new OIDFlowError({
-						code: 'NO_TRANSPORT',
-						message: 'No transport available',
-					});
-				}
-
 				switch (callbackUrl.type) {
 					case 'presentation_request':
 						await processAuthorizationRequest(callbackUrl.url);
