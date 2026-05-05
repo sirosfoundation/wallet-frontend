@@ -99,13 +99,6 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 	const transportType = transportContext?.transportType ?? 'none';
 	const transport = transportContext?.transport;
 
-	const transportTypeRef = useRef(transportType);
-	const transportRef = useRef(transport);
-	useEffect(() => {
-		transportTypeRef.current = transportType;
-		transportRef.current = transport;
-	}, [transportType, transport]);
-
 	/**
 	 * Cleanup on unmount.
 	 */
@@ -161,7 +154,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			validateCredentialOffer(credentialOfferUrl);
 
 			// WebSocket transport: delegate to backend
-			if (transportTypeRef.current === 'websocket' && transportRef.current) {
+			if (transportType === 'websocket' && transport) {
 				const credentialOfferUri = credentialOfferUrl.searchParams.get('credential_offer_uri') || undefined;
 				const credentialOffer = credentialOfferUrl.searchParams.get('credential_offer') || undefined;
 
@@ -175,14 +168,14 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 
 				// Subscribe to progress events for this flow
 				const unsubscribeProgress = onProgress
-					? transportRef.current.onProgress(onProgress)
+					? transport.onProgress(onProgress)
 					: () => {};
 				const unsubscribeError = onError
-					? transportRef.current.onError(onError)
+					? transport.onError(onError)
 					: () => {};
 
 				try {
-					const result = await transportRef.current.startOID4VCIFlow({
+					const result = await transport.startOID4VCIFlow({
 						credentialOfferUri,
 						credentialOffer,
 						redirectUri: OPENID4VCI_REDIRECT_URI,
@@ -215,7 +208,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			}
 
 			// HTTP proxy transport: use existing implementation
-			if (transportTypeRef.current === 'http_proxy' && openID4VCI) {
+			if (transportType === 'http_proxy' && openID4VCI) {
 				const result = await openID4VCI.handleCredentialOffer(credentialOfferUrl.toString());
 
 				assertNotAborted();
@@ -276,7 +269,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		} finally {
 			setIsLoading(false);
 		}
-	}, [openID4VCI, onProgress, onError, validateCredentialOffer, assertNotAborted]);
+	}, [transportType, transport, openID4VCI, onProgress, onError, validateCredentialOffer, assertNotAborted]);
 
 	/**
 	 * Handle authorization response (after OAuth redirect)
@@ -290,9 +283,9 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 
 		try {
 			// WebSocket transport: continue flow on backend
-			if (transportTypeRef.current === 'websocket' && transportRef.current) {
+			if (transportType === 'websocket' && transport) {
 				const unsubscribeProgress = onProgress
-					? transportRef.current.onProgress(onProgress)
+					? transport.onProgress(onProgress)
 					: () => {};
 
 				const storedFlow = loadAndClearPendingFlow();
@@ -301,7 +294,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 
 				try {
 					// Resumption: pass saved offer + auth code to start fresh backend flow
-					const result = await transportRef.current.startOID4VCIFlow({
+					const result = await transport.startOID4VCIFlow({
 						credentialOffer: storedFlow?.credentialOffer,
 						authorizationCode: authCode,
 						codeVerifier: storedFlow?.codeVerifier,
@@ -321,7 +314,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			}
 
 			// HTTP proxy transport: use existing implementation
-			if (transportTypeRef.current === 'http_proxy' && openID4VCI) {
+			if (transportType === 'http_proxy' && openID4VCI) {
 				const url = new URL(window.location.href);
 				url.searchParams.set('code', authCode);
 				url.searchParams.set('state', state || '');
@@ -361,7 +354,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		} finally {
 			setIsLoading(false);
 		}
-	}, [openID4VCI, onProgress, onError, assertNotAborted]);
+	}, [transportType, transport, openID4VCI, onProgress, onError, assertNotAborted]);
 
 	/**
 	 * Request credentials with pre-authorized code flow
@@ -375,13 +368,13 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 
 		try {
 			// WebSocket transport
-			if (transportTypeRef.current === 'websocket' && transportRef.current) {
+			if (transportType === 'websocket' && transport) {
 				const unsubscribeProgress = onProgress
-					? transportRef.current.onProgress(onProgress)
+					? transport.onProgress(onProgress)
 					: () => {};
 
 				try {
-					const result = await transportRef.current.startOID4VCIFlow({
+					const result = await transport.startOID4VCIFlow({
 						preAuthorizedCode,
 						txCodeInput,
 					});
@@ -399,7 +392,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			}
 
 			// HTTP proxy transport: use existing implementation
-			if (transportTypeRef.current === 'http_proxy' && openID4VCI) {
+			if (transportType === 'http_proxy' && openID4VCI) {
 				if (!offerStateRef.current) {
 					throw new Error(
 						'Pre-authorization flow via HTTP transport requires calling ' +
@@ -448,7 +441,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			offerStateRef.current = null;
 			setIsLoading(false);
 		}
-	}, [openID4VCI, onProgress, onError, assertNotAborted]);
+	}, [transportType, transport, openID4VCI, onProgress, onError, assertNotAborted]);
 
 	/**
 	 * Handle received credentials: validate, store in wallet, and notify.
