@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { logger } from '@/logger';
 import { OIDFlowError } from '@/lib/openid-flow/errors';
@@ -8,15 +8,19 @@ import useOID4VCIFlow from '@/hooks/useOID4VCIFlow';
 import OpenID4VPContext from '@/context/OpenID4VPContext';
 import useOID4VPFlow from '@/hooks/useOID4VPFlow';
 import { useTxCodeInput } from '@/context/TxCodeInputContext';
-import { TxCodeConfig, TxCodeInputPopup } from '@/components/Popups/TxCodeInputPopup';
+import { TxCodeInputPopup } from '@/components/Popups/TxCodeInputPopup';
 import MessagePopup from '@/components/Popups/MessagePopup';
 import Spinner from '@/components/Shared/Spinner';
 import { useOIDFlowTransport } from '@/context/OIDFlowTransportContext';
 import { useNavigate } from 'react-router-dom';
 import { useTenant } from '@/context/TenantContext';
 import { parseOIDFlowCallbackUrl } from '@/lib/openid-flow/utils/oidFlowCallbackUrl';
-import { DisplayErrorFunction } from '@/context/ErrorDialogContext';
-import { TFunction } from 'i18next';
+
+type OpenIDFlowCallbackProps = {
+	callbackUrl: OIDFlowCallbackURL;
+}
+
+type OpenIDFlowCallbackHandler = React.FC<OpenIDFlowCallbackProps>;
 
 /**
  * OpenIDFlowCallback - Transient page that processes OID4VCI/OID4VP callback URLs.
@@ -36,17 +40,7 @@ import { TFunction } from 'i18next';
  *   extract synced state from UriHandlerProvider into a shared context.
  */
 const OpenIDFlowCallback: React.FC = () => {
-	const { displayError } = useErrorDialog();
-	const { t } = useTranslation();
-	const { requestTxCode, state: txCodeState, handleSubmit: handleTxCodeSubmit, handleCancel: handleTxCodeCancel } = useTxCodeInput();
-	const { showCredentialSelectionPopup, showTransactionDataConsentPopup } = useContext(OpenID4VPContext);
-	const [vpSuccessMessage, setVpSuccessMessage] = useState<{ title: string; description: string } | null>(null);
 	const { transportReady } = useOIDFlowTransport();
-	const navigate = useNavigate();
-	const { buildPath } = useTenant();
-
-	const flowIsActive = useRef(false);
-
 	/**
 	 * Parse the callback URL on initial load to determine the flow type and relevant parameters.
 	 */
@@ -56,52 +50,226 @@ const OpenIDFlowCallback: React.FC = () => {
 		return parseOIDFlowCallbackUrl(url);
 	}, []);
 
-	const navigateHome = useCallback(() => {
-		navigate(buildPath());
-	}, [navigate, buildPath]);
+	return (
+		<>
+			<Spinner/>
+			{transportReady && <OpenIDFlowRouter callbackUrl={callbackUrl} />}
+		</>
+	);
+};
 
-	/**
-	 * Handle erros thrown during OID4VCI flows.
-	 */
-	const handleOID4VCIError = useCallback((err: Error) => {
-		logger.error('Error in OID4VCI flow:', err);
-		displayError({
-			title: 'OID4VCI Flow Error',
-			description: err instanceof Error ? err.message : String(err),
-		});
-	}, [displayError]);
+/**
+ * Based on the callback url, route to the appropriate flow handler component.
+ * The handler components are responsible for executing the protocol flow,
+ * handling errors, and navigating home on completion.
+ */
+const OpenIDFlowRouter: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
+	const resolved = useMemo(() => {
+		switch (callbackUrl.protocol) {
+			case 'oid4vci':
+				return { handler: OpenID4VCIFlow };
+			case 'oid4vp':
+				return { handler: OpenID4VPFlow };
+			default:
+				return { handler: OpenIDUnknownFlow };
+		}
+	}, [callbackUrl]);
 
-	/**
-	 * Handle OID4VCI flow progress events.
-	 * For now, just debug logging.
-	 */
-	const handleOID4VCIProgress = useCallback((event: OIDFlowProgressEvent) => {
+	if ('handler' in resolved) {
+		const Handler = resolved.handler;
+		return <Handler callbackUrl={callbackUrl} />;
+	}
+
+	return <></>;
+}
+
+/**
+ * OpenID4VCIFlow - Handles OID4VCI credential offer and authorization code callbacks.
+ */
+const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
+	const { displayError } = useErrorDialog();
+	const {
+		requestTxCode,
+		state: txCodeState,
+		handleSubmit: handleTxCodeSubmit,
+		handleCancel: handleTxCodeCancel,
+	} = useTxCodeInput();
+	const navigateHome = useNavigateHome();
+	const flowIsActive = useRef(false);
+
+	const handleError = useCallback(
+		(err: Error) => {
+			logger.error('Error in OID4VCI flow:', err);
+			displayError({
+				title: 'OID4VCI Flow Error',
+				description: err instanceof Error ? err.message : String(err),
+				onClose: () => navigateHome(),
+			});
+		},
+		[displayError, navigateHome],
+	);
+
+	const handleProgress = useCallback((event: OIDFlowProgressEvent) => {
 		logger.debug('OID4VCI flow progress:', event);
 	}, []);
 
-	/**
-	 * Handle warnings during credential issuance in OID4VCI flows.
-	 *
-	 * @todo Use a actual popup component here instead of ugly browser confirm()
-	 */
-	const handleOID4VCIIssuanceWarnings = useCallback(async (warnings: Array<{ code: string }>) => {
-		logger.warn('Credential issuance warnings:', warnings);
-		const codes = warnings.map(w => w.code).join(', ');
-		return window.confirm(`Credential has warning(s): ${codes}. Proceed anyway?`);
-	}, []);
+	const handleIssuanceWarnings = useCallback(
+		async (warnings: Array<{ code: string }>) => {
+			logger.warn('Credential issuance warnings:', warnings);
+			const codes = warnings.map((w) => w.code).join(', ');
+			return window.confirm(
+				`Credential has warning(s): ${codes}. Proceed anyway?`,
+			);
+		},
+		[],
+	);
 
 	const {
-		transportType: vciTransportType,
-		isLoading: vciIsLoading,
+		transportType,
 		handleCredentialOffer,
 		requestWithPreAuthorization,
 		handleAuthorizationResponse,
 		handleReceivedCredentials,
 	} = useOID4VCIFlow({
-		onError: handleOID4VCIError,
-		onProgress: handleOID4VCIProgress,
-		onIssuanceWarnings: handleOID4VCIIssuanceWarnings,
+		onError: handleError,
+		onProgress: handleProgress,
+		onIssuanceWarnings: handleIssuanceWarnings,
 	});
+
+	const processCredentialOffer = async (url: URL) => {
+		const offer = await handleCredentialOffer(url);
+		logger.debug('Received credential offer:', offer);
+
+		cleanupUrl();
+
+		if (offer.success && offer.credentials?.length) {
+			await handleReceivedCredentials(
+				offer.credentials,
+				offer.credentialIssuerIdentifier,
+				offer.selectedCredentialConfigurationId,
+			);
+		}
+
+		if (offer.authorizationUrl) {
+			window.location.href = offer.authorizationUrl;
+			return;
+		}
+
+		if (!offer.preAuthorizedCode) return;
+
+		let txCodeInput: string | undefined;
+		if (offer.txCode) {
+			try {
+				txCodeInput = await requestTxCode({
+					description: offer.txCode.description ?? undefined,
+					length: offer.txCode.length ?? undefined,
+					inputMode:
+						offer.txCode.inputMode === 'numeric' ? 'numeric' : 'text',
+				});
+			} catch {
+				logger.info('User cancelled transaction code input');
+				return;
+			}
+		}
+
+		const preAuthResult = await requestWithPreAuthorization(
+			offer.preAuthorizedCode,
+			txCodeInput,
+		);
+
+		if (preAuthResult.success && preAuthResult.credentials?.length) {
+			await handleReceivedCredentials(
+				preAuthResult.credentials,
+				preAuthResult.credentialIssuerIdentifier,
+				preAuthResult.selectedCredentialConfigurationId,
+			);
+		}
+	};
+
+	const processAuthorizationCode = async (url: URL) => {
+		const code = url.searchParams.get('code');
+		const state = url.searchParams.get('state');
+
+		cleanupUrl();
+
+		const result = await handleAuthorizationResponse(code, state);
+
+		if (result.success && result.credentials?.length) {
+			await handleReceivedCredentials(
+				result.credentials,
+				result.credentialIssuerIdentifier,
+				result.selectedCredentialConfigurationId,
+			);
+		}
+	};
+
+	useEffect(() => {
+		if (flowIsActive.current) return;
+		flowIsActive.current = true;
+
+		if (callbackUrl.protocol !== 'oid4vci') return;
+
+		(async () => {
+			try {
+				if (transportType === 'none') {
+					throw new OIDFlowError({
+						code: 'NO_TRANSPORT',
+						message: 'No transport available',
+					});
+				}
+
+				switch (callbackUrl.type) {
+					case 'credential_offer':
+						await processCredentialOffer(callbackUrl.url);
+						break;
+					case 'authorization_code':
+						await processAuthorizationCode(callbackUrl.url);
+						break;
+					default:
+						throw new OIDFlowError({
+							code: 'UNSUPPORTED_CALLBACK',
+							message: 'Unsupported callback type',
+						});
+				}
+
+				navigateHome();
+			} catch (error) {
+				logger.error('Error in OID4VCI flow:', error);
+				displayError({
+					title: 'OID4VCI Flow Error',
+					description: error instanceof Error ? error.message : String(error),
+					onClose: () => navigateHome(),
+				});
+			}
+		})();
+		// One-shot flow: runs once on mount, guarded by flowIsActive ref.
+		// All deps are stable at mount time. Re-running would restart the protocol flow.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
+	return (
+		<TxCodeInputPopup
+			isOpen={txCodeState.isOpen}
+			txCodeConfig={txCodeState.config}
+			onSubmit={handleTxCodeSubmit}
+			onCancel={() => {
+				handleTxCodeCancel();
+				navigateHome();
+			}}
+		/>
+	);
+};
+
+/**
+ * OpenID4VPFlow - Handles OID4VP presentation request callbacks.
+ */
+const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
+	const { displayError } = useErrorDialog();
+	const { t } = useTranslation();
+	const { showCredentialSelectionPopup, showTransactionDataConsentPopup } = useContext(OpenID4VPContext);
+	const [successMessage, setSuccessMessage] = useState<{ title: string; description: string } | null>(null);
+	const navigateHome = useNavigateHome();
+	const flowIsActive = useRef(false);
 
 	/**
 	 * Handle errors thrown during OID4VP flows.
@@ -116,7 +284,7 @@ const OpenIDFlowCallback: React.FC = () => {
 			return;
 		}
 
-		switch (err.code) {
+		switch (err.code.toUpperCase()) {
 			case 'INSUFFICIENT_CREDENTIALS':
 				displayError({
 					title: t('messagePopup.insufficientCredentials.title'),
@@ -177,8 +345,7 @@ const OpenIDFlowCallback: React.FC = () => {
 	}, [showCredentialSelectionPopup]);
 
 	const {
-		transportType: vpTransportType,
-		isLoading: vpIsLoading,
+		transportType,
 		handleAuthorizationRequest,
 		handleCredentialSelection,
 		sendAuthorizationResponse,
@@ -188,335 +355,156 @@ const OpenIDFlowCallback: React.FC = () => {
 		onCredentialSelection: handleOID4VPCredentialSelection,
 	});
 
-
-	// Kick off the appropriate flow handler based on the callback URL
-	useEffect(() => {
-		if (!transportReady || flowIsActive.current) return;
-		flowIsActive.current = true;
-
-		logger.debug("Processing OpenID callback URL:", callbackUrl);
-
-		const vciHandler = new OID4VCIFlowHandler(
-			{
-				transportType: vciTransportType,
-				handleCredentialOffer,
-				handleReceivedCredentials,
-				requestWithPreAuthorization,
-				handleAuthorizationResponse,
-			},
-			{
-				requestTxCode,
-				displayError,
-				navigateHome,
-			}
-		);
-
-		const vpHandler = new OID4VPFlowHandler(
-			{
-				transportType: vpTransportType,
-				handleAuthorizationRequest,
-				handleCredentialSelection,
-				sendAuthorizationResponse,
-			},
-			{
-				showTransactionDataConsentPopup,
-				displayError,
-				navigateHome,
-				setVpSuccessMessage,
-				t,
-			}
-		);
-
-		switch (callbackUrl.protocol) {
-			case 'oid4vci':
-				vciHandler.run(callbackUrl);
-				break;
-			case 'oid4vp':
-				vpHandler.run(callbackUrl);
-				break;
-			case 'unknown':
-				if (callbackUrl.type === 'authorization_error') {
-					const error = callbackUrl.url.searchParams.get('error');
-					const desc = callbackUrl.url.searchParams.get('error_description');
-					window.history.replaceState({}, '', window.location.origin + window.location.pathname);
-
-					displayError({
-						title: error ?? 'Authorization Error',
-						description: desc ?? '',
-						onClose: () => navigate(buildPath()),
-					});
-
-					return;
-				}
-				// falls through to default intentionally if not authorization_error
-			default:
-				logger.error("Unsupported callback URL protocol:", callbackUrl.protocol);
-				displayError({
-					title: 'Unsupported Callback',
-					description: 'The provided callback URL is not supported.',
-					onClose: () => navigateHome(),
-				});
-
-				return;
-		}
-	}, [
-		callbackUrl,
-		transportReady,
-		displayError,
-		navigate,
-		buildPath,
-		navigateHome,
-	]);
-
-	return (
-		<>
-			<Spinner/>
-			{vpSuccessMessage && (
-				<MessagePopup
-					type="success"
-					onClose={() => { setVpSuccessMessage(null); navigateHome(); }}
-					message={vpSuccessMessage}
-				/>
-			)}
-			<TxCodeInputPopup
-				isOpen={txCodeState.isOpen}
-				txCodeConfig={txCodeState.config}
-				onSubmit={handleTxCodeSubmit}
-				onCancel={() => {
-					handleTxCodeCancel();
-					navigateHome();
-				}}
-			/>
-		</>
-	);
-};
-
-type VCIFlowPrimitives = Pick<
-	ReturnType<typeof useOID4VCIFlow>,
-	'handleCredentialOffer' | 'handleReceivedCredentials' | 'requestWithPreAuthorization' | 'handleAuthorizationResponse' | 'transportType'
->;
-
-type VCIFlowUIDeps = {
-	requestTxCode: (config: TxCodeConfig) => Promise<string>;
-	displayError: DisplayErrorFunction;
-	navigateHome: () => void;
-};
-
-class OID4VCIFlowHandler {
-	readonly #flow: VCIFlowPrimitives;
-	readonly #ui: VCIFlowUIDeps;
-
-	constructor(flow: VCIFlowPrimitives, ui: VCIFlowUIDeps) {
-		this.#flow = flow;
-		this.#ui = ui;
-	}
-
-	async run(callbackUrl: OIDFlowCallbackURL): Promise<void> {
-		if (callbackUrl.protocol !== 'oid4vci') return;
-
-		try {
-			if (this.#flow.transportType === 'none') {
-				throw new OIDFlowError({ code: 'NO_TRANSPORT', message: '...' });
-			}
-
-			switch (callbackUrl.type) {
-				case 'credential_offer':
-					await this.#handleCredentialOffer(callbackUrl.url);
-					break;
-				case 'authorization_code':
-					await this.#handleAuthorizationCode(callbackUrl.url);
-					break;
-				default:
-					throw new OIDFlowError({ code: 'UNSUPPORTED_CALLBACK', message: '...' });
-			}
-
-			this.#ui.navigateHome();
-		} catch (error) {
-			logger.error("Error in OID4VCI flow:", error);
-			this.#ui.displayError({
-				title: "OID4VCI Flow Error",
-				description: error instanceof Error ? error.message : String(error),
-				onClose: () => this.#ui.navigateHome(),
-			});
-		}
-	}
-
-	async #handleCredentialOffer(url: URL) {
-		const offer = await this.#flow.handleCredentialOffer(url);
-		logger.debug("Received credential offer:", offer);
-
-		cleanupUrl();
-
-		if (offer.success && offer.credentials?.length) {
-			logger.debug("Credential offer included credentials, handling them directly...");
-			const handleResult = await this.#flow.handleReceivedCredentials(
-				offer.credentials,
-				offer.credentialIssuerIdentifier,
-				offer.selectedCredentialConfigurationId,
-			);
-			logger.debug("Credentials handled:", handleResult);
-		}
-
-		if (offer.authorizationUrl) {
-			window.location.href = offer.authorizationUrl;
-			return;
-		}
-
-		if (!offer.preAuthorizedCode) return;
-
-		let txCodeInput: string | undefined;
-
-		if (offer.txCode) {
-			try {
-				txCodeInput = await this.#ui.requestTxCode({
-					description: offer.txCode.description ?? undefined,
-					length: offer.txCode.length ?? undefined,
-					inputMode: offer.txCode.inputMode === 'numeric' ? 'numeric' : 'text',
-				});
-			} catch {
-				logger.info("User cancelled transaction code input");
-				return;
-			}
-		}
-
-		const preAuthResult = await this.#flow.requestWithPreAuthorization(
-			offer.preAuthorizedCode,
-			txCodeInput,
-		);
-		logger.debug("Pre-authorization request handled:", preAuthResult);
-
-		if (preAuthResult.success && preAuthResult.credentials?.length) {
-			const handleResult = await this.#flow.handleReceivedCredentials(
-				preAuthResult.credentials,
-				preAuthResult.credentialIssuerIdentifier,
-				preAuthResult.selectedCredentialConfigurationId,
-			);
-			logger.debug("Credentials handled:", handleResult);
-		}
-	}
-
-	async #handleAuthorizationCode(url: URL) {
-		const code = url.searchParams.get('code');
-		const state = url.searchParams.get('state');
-
-		cleanupUrl();
-
-		const authResResult = await this.#flow.handleAuthorizationResponse(code, state);
-		logger.debug("Authorization response handled:", authResResult);
-
-		if (authResResult.success && authResResult.credentials?.length) {
-			const handleResult = await this.#flow.handleReceivedCredentials(
-				authResResult.credentials,
-				authResResult.credentialIssuerIdentifier,
-				authResResult.selectedCredentialConfigurationId,
-			);
-			logger.debug("Credentials handled:", handleResult);
-		}
-	}
-}
-
-type VPFlowPrimitives = Pick<
-	ReturnType<typeof useOID4VPFlow>,
-	'handleAuthorizationRequest' | 'handleCredentialSelection' | 'sendAuthorizationResponse' | 'transportType'
->;
-
-type VPFlowUIDeps = {
-	showTransactionDataConsentPopup: React.ContextType<typeof OpenID4VPContext>['showTransactionDataConsentPopup'];
-	displayError: DisplayErrorFunction;
-	navigateHome: () => void;
-	setVpSuccessMessage: React.Dispatch<React.SetStateAction<{ title: string; description: string } | null>>;
-	t: TFunction;
-};
-
-class OID4VPFlowHandler {
-	readonly #flow: VPFlowPrimitives;
-	readonly #ui: VPFlowUIDeps;
-
-	constructor(flow: VPFlowPrimitives, ui: VPFlowUIDeps) {
-		this.#flow = flow;
-		this.#ui = ui;
-	}
-
-	async run(callbackUrl: OIDFlowCallbackURL): Promise<void> {
-		if (callbackUrl.protocol !== 'oid4vp') return;
-
-		try {
-			if (this.#flow.transportType === 'none') {
-				throw new OIDFlowError({ code: 'NO_TRANSPORT', message: '...' });
-			}
-
-			switch (callbackUrl.type) {
-				case 'presentation_request':
-					await this.#handleAuthorizationRequest(callbackUrl.url);
-					break;
-				default:
-					throw new OIDFlowError({ code: 'UNSUPPORTED_CALLBACK', message: '...' });
-			}
-
-			this.#ui.navigateHome();
-		} catch (error) {
-			logger.error("Error in OID4VP flow:", error);
-			this.#ui.displayError({
-				title: "OID4VP Flow Error",
-				description: error instanceof Error ? error.message : String(error),
-				onClose: () => this.#ui.navigateHome(),
-			});
-		}
-	}
-
-	async #handleAuthorizationRequest(url: URL) {
-		const result = await this.#flow.handleAuthorizationRequest(url);
+	const processAuthorizationRequest = async (url: URL) => {
+		const result = await handleAuthorizationRequest(url);
 
 		cleanupUrl();
 
 		if (!result?.success) {
-			throw new OIDFlowError(result.error);
+			return; // Hook already called onError with the proper error dialog
 		}
 
-		logger.debug("Authorization request result:", result);
+		logger.debug('Authorization request result:', result);
 
 		if (result.transactionData?.length) {
-			const consented = await this.#ui.showTransactionDataConsentPopup({
+			const consented = await showTransactionDataConsentPopup({
 				title: 'Transaction Data',
-				attestations: result.transactionData.map(td => td.data),
+				attestations: result.transactionData.map((td) => td.data),
 			});
 
 			if (!consented) return;
 		}
 
-		const credSelectResult = await this.#flow.handleCredentialSelection(
+		const credSelectResult = await handleCredentialSelection(
 			result.verifierInfo,
 			result.dcqlQuery,
 			result.conformantCredentials,
 		);
 
 		if (!credSelectResult?.success) {
-			if (credSelectResult?.error?.code === 'USER_CANCELLED') {
-				return; // User dismissed popup
-			}
-
+			if (credSelectResult?.error?.code === 'USER_CANCELLED') return;
 			throw new OIDFlowError(credSelectResult.error);
 		}
 
-		const sendResult = await this.#flow.sendAuthorizationResponse(
-			credSelectResult.selectedCredentials
+		const sendResult = await sendAuthorizationResponse(
+			credSelectResult.selectedCredentials,
 		);
-		logger.debug("Authorization response sent:", sendResult);
+		logger.debug('Authorization response sent:', sendResult);
 
 		if (sendResult.success) {
-			this.#ui.setVpSuccessMessage({
-				title: this.#ui.t('messagePopup.sendResponseSuccess.title'),
-				description: this.#ui.t('messagePopup.sendResponseSuccess.description'),
+			setSuccessMessage({
+				title: t('messagePopup.sendResponseSuccess.title'),
+				description: t('messagePopup.sendResponseSuccess.description'),
 			});
 		}
 
 		if ('redirectUri' in sendResult) {
 			window.location.href = sendResult.redirectUri;
-			return;
 		}
+	};
 
-	}
+	useEffect(() => {
+		if (flowIsActive.current) return;
+		flowIsActive.current = true;
+
+		if (callbackUrl.protocol !== 'oid4vp') return;
+
+		(async () => {
+			try {
+				if (transportType === 'none') {
+					throw new OIDFlowError({
+						code: 'NO_TRANSPORT',
+						message: 'No transport available',
+					});
+				}
+
+				switch (callbackUrl.type) {
+					case 'presentation_request':
+						await processAuthorizationRequest(callbackUrl.url);
+						break;
+					default:
+						throw new OIDFlowError({
+							code: 'UNSUPPORTED_CALLBACK',
+							message: 'Unsupported callback type',
+						});
+				}
+
+				navigateHome();
+			} catch (error) {
+				logger.error('Error in OID4VP flow:', error);
+				displayError({
+					title: 'OID4VP Flow Error',
+					description: error instanceof Error ? error.message : String(error),
+					onClose: () => navigateHome(),
+				});
+			}
+		})();
+		// One-shot flow: runs once on mount, guarded by flowIsActive ref.
+		// All deps are stable at mount time. Re-running would restart the protocol flow.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
+	return (
+		<>
+			{successMessage && (
+				<MessagePopup
+					type="success"
+					onClose={() => {
+						setSuccessMessage(null);
+						navigateHome();
+					}}
+					message={successMessage}
+				/>
+			)}
+		</>
+	);
+};
+
+/**
+ * OpenIDUnknownFlow - Handles unsupported or error callbacks by showing an error message.
+ */
+const OpenIDUnknownFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
+	const { displayError } = useErrorDialog();
+	const navigateHome = useNavigateHome();
+
+	useEffect(
+		() => {
+			if (callbackUrl.type === 'authorization_error') {
+				const error = callbackUrl.url.searchParams.get('error');
+				const desc = callbackUrl.url.searchParams.get('error_description');
+
+				logger.error('Authorization error in OpenID flow callback:', error, desc);
+				displayError({
+					title: error ? `Authorization Error: ${error}` : 'Authorization Error',
+					description: desc ?? '',
+					onClose: () => navigateHome(),
+				});
+				return;
+			}
+
+			logger.error('Unsupported OpenID flow callback received:', callbackUrl.url.href);
+			displayError({
+				title: 'Unsupported Callback',
+				description: 'The provided callback URL is not supported.',
+				onClose: () => navigateHome(),
+			});
+		},
+		// Only run once on mount. The callbackUrl is stable for the lifetime of this component, and re-running would cause duplicate error popups.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[]
+	);
+
+	return <></>;
 }
+
+const useNavigateHome = () => {
+	const navigate = useNavigate();
+	const { buildPath } = useTenant();
+
+	return useCallback(() => {
+		navigate(buildPath());
+	}, [navigate, buildPath]);
+};
 
 function cleanupUrl() {
 	window.history.replaceState({}, '', window.location.origin + window.location.pathname);
