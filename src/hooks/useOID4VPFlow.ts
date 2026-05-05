@@ -108,6 +108,13 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 	const transportType = transportContext?.transportType ?? 'none';
 	const transport = transportContext?.transport;
 
+	const transportTypeRef = useRef(transportType);
+	const transportRef = useRef(transport);
+	useEffect(() => {
+		transportTypeRef.current = transportType;
+		transportRef.current = transport;
+	}, [transportType, transport]);
+
 	const clearError = useCallback(() => {
 		setError(null);
 		transportContext?.clearError?.();
@@ -183,19 +190,19 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 
 		try {
 			// WebSocket transport: delegate to backend
-			if (transportType === 'websocket' && transport) {
+			if (transportTypeRef.current === 'websocket' && transportRef.current) {
 				const unsubscribeProgress = onProgress
-					? transport.onProgress(onProgress)
+					? transportRef.current.onProgress(onProgress)
 					: () => {};
 				const unsubscribeError = onError
-					? transport.onError(onError)
+					? transportRef.current.onError(onError)
 					: () => {};
 
 				try {
 					const requestUriRef = authorizationRequestUrl.searchParams.get('request_uri');
 					const clientId = authorizationRequestUrl.searchParams.get('client_id');
 					verifierAudienceRef.current = clientId ?? '';
-					const result = await transport.startOID4VPFlow({
+					const result = await transportRef.current.startOID4VPFlow({
 						requestUriRef,
 						clientId,
 					});
@@ -212,7 +219,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 			}
 
 			// HTTP proxy transport: use existing implementation
-			if (transportType === 'http_proxy' && openID4VP) {
+			if (transportTypeRef.current === 'http_proxy' && openID4VP) {
 				try {
 					const credentials = await waitForCredentials();
 					const result = await openID4VP.handleAuthorizationRequest(
@@ -267,7 +274,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		} finally {
 			setIsLoading(false);
 		}
-	}, [transportType, transport, openID4VP, onProgress, onError, waitForCredentials]);
+	}, [openID4VP, onProgress, onError, waitForCredentials]);
 
 	/**
 	 * Handle credential selection by showing the configured UI and returning the user's selection
@@ -405,13 +412,13 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 
 		try {
 			// WebSocket transport: continue flow on backend
-			if (transportType === 'websocket' && transport) {
+			if (transportTypeRef.current === 'websocket' && transportRef.current) {
 				const unsubscribeProgress = onProgress
-					? transport.onProgress(onProgress)
+					? transportRef.current.onProgress(onProgress)
 					: () => {};
 
 				try {
-					const result = await transport.startOID4VPFlow({
+					const result = await transportRef.current.startOID4VPFlow({
 						selectedCredentials,
 					});
 
@@ -440,7 +447,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 			}
 
 			// HTTP proxy transport: use existing implementation
-			if (transportType === 'http_proxy' && openID4VP) {
+			if (transportTypeRef.current === 'http_proxy' && openID4VP) {
 				// Convert OID4VPSelectedCredential[] to Map<string, number>
 				// The existing implementation uses descriptor ID -> credential index
 				const selectionMap = new Map<string, number>();
@@ -497,7 +504,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		} finally {
 			setIsLoading(false);
 		}
-	}, [transportType, transport, openID4VP, onProgress, onError, keystore, api, waitForCredentials]);
+	}, [openID4VP, onProgress, onError, keystore, api, waitForCredentials]);
 
 	return {
 		handleAuthorizationRequest,
