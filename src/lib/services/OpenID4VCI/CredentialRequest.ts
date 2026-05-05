@@ -6,6 +6,7 @@ import { useContext, useCallback, useMemo, useRef } from "react";
 import SessionContext from "@/context/SessionContext";
 import { OpenidCredentialIssuerMetadata } from "wallet-common";
 import { OPENID4VCI_MAX_ACCEPTED_BATCH_SIZE } from "@/config";
+import { logger, jsonToLog } from '@/logger';
 
 export function useCredentialRequest() {
 	const httpProxy = useHttpProxy();
@@ -37,13 +38,13 @@ export function useCredentialRequest() {
 			});
 			const { key_attestation } = response.data;
 			if (!key_attestation || typeof key_attestation != 'string') {
-				console.log("Cannot parse key_attestation from wallet-backend-server");
+				logger.debug("Cannot parse key_attestation from wallet-backend-server");
 				return null;
 			}
 			return { key_attestation };
 		}
 		catch (err) {
-			console.log(err);
+			logger.debug(err);
 			return null;
 		}
 	}, [post]
@@ -135,14 +136,14 @@ export function useCredentialRequest() {
 			return { credentialResponse };
 		}
 		catch (err) {
-			console.error(err);
+			logger.error(err);
 			throw new Error("Deferred Credential Request failed");
 		}
 
 	}, [httpProxy, httpHeaders]);
 
 	const execute = useCallback(async (credentialConfigurationId: string, proofType: "jwt" | "attestation", cachedProofs?: unknown[]): Promise<{ credentialResponse: any }> => {
-		console.log("Executing credential request...");
+		logger.debug("Executing credential request...");
 		const credentialIssuerIdentifier = credentialIssuerIdentifierRef.current;
 		const c_nonce = cNonceRef.current;
 
@@ -215,7 +216,7 @@ export function useCredentialRequest() {
 			}
 		}
 		catch (err) {
-			console.error(err);
+			logger.error(err);
 			throw new Error("Failed to generate proof");
 		}
 
@@ -223,7 +224,7 @@ export function useCredentialRequest() {
 
 		credentialEndpointBody.credential_configuration_id = credentialConfigurationId;
 
-		console.log("Credential endpoint body = ", credentialEndpointBody);
+		logger.debug("Credential endpoint body prepared, configId:", credentialConfigurationId);
 
 		let encryptionRequested = false;
 		const ephemeralKeypair = await generateKeyPair('ECDH-ES');
@@ -260,21 +261,28 @@ export function useCredentialRequest() {
 		const credentialResponse = await httpProxy.post(credentialEndpointURLRef.current, credentialEndpointBody, httpHeaders);
 		const contentType = credentialResponse.headers['Content-Type'] ?? credentialResponse.headers['content-type'];
 		if (encryptionRequested && typeof contentType === 'string' && contentType.startsWith('application/jwt')) {
-			const result = await compactDecrypt(credentialResponse.data as string, ephemeralKeypair.privateKey).then((r) => ({ data: r, err: null })).catch((err) => ({ data: null, err: err }));
-			if (result.err) {
+			let decryptResult: { data: CompactDecryptResult | null; err: Error | null };
+			try {
+				const decrypted = await compactDecrypt(credentialResponse.data as string, ephemeralKeypair.privateKey);
+				decryptResult = { data: decrypted, err: null };
+			} catch (err) {
+				decryptResult = { data: null, err: err as Error };
+
+			}
+			if (decryptResult.err) {
 				throw new Error("Credential Response decryption failed");
 			}
-			const { plaintext } = result.data as CompactDecryptResult;
+			const { plaintext } = decryptResult.data as CompactDecryptResult;
 			const payload = JSON.parse(new TextDecoder().decode(plaintext));
 			credentialResponse.data = payload;
 		}
 		if (credentialResponse.status >= 400) {
-			console.error("Error: Credential response = ", JSON.stringify(credentialResponse));
+			logger.error("Error: Credential response = ", jsonToLog(credentialResponse));
 			if (credentialResponse.headers?.["www-authenticate"] && (
 				(credentialResponse.headers?.["www-authenticate"] as string).includes("invalid_dpop_proof") ||
 				(credentialResponse.headers?.["www-authenticate"] as string).includes("use_dpop_nonce")
 			) && "dpop-nonce" in credentialResponse.headers) {
-				console.log("Calling credentialRequest with new dpop-nonce....")
+				logger.debug("Calling credentialRequest with new dpop-nonce....")
 
 				setDpopNonce(credentialResponse.headers?.["dpop-nonce"] as string);
 				await setDpopHeader();
@@ -289,7 +297,7 @@ export function useCredentialRequest() {
 
 
 		// receivedCredentialsArrayRef.current = credentialArray;
-		console.log("Credential response: ", credentialResponse);
+		logger.debug("Credential response received, status:", credentialResponse.status);
 		return { credentialResponse };
 	}, [updatePrivateData, httpProxy, keystore, openID4VCIHelper, setDpopHeader, setDpopNonce, httpHeaders, requestKeyAttestation]);
 

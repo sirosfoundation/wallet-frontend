@@ -27,6 +27,7 @@ import axios from 'axios';
 import { getStoredTenant, setStoredTenant, clearStoredTenant, buildTenantRoutePath, TENANT_PATH_PREFIX, isMultiTenant } from '../lib/tenant';
 import { BACKEND_URL } from '../config';
 import type { TenantConfig, OIDCProviderConfig } from '../api/types';
+import { logger } from '../logger';
 
 export interface TenantContextValue {
 	/** Current tenant ID (from URL, prop, or storage) */
@@ -277,10 +278,10 @@ export function useTenant(): TenantContextValue {
 			getRegistrationOIDCProvider: () => null,
 			getLoginOIDCProvider: () => null,
 			switchTenant: () => {
-				console.warn('switchTenant called outside TenantProvider');
+				logger.warn('switchTenant called outside TenantProvider');
 			},
 			clearTenant: clearStoredTenant,
-			buildPath: (subPath?: string) => buildTenantRoutePath(storedTenant, subPath),
+			buildPath: (subPath?: string) => subPath ? `/${subPath}` : '/',
 		};
 	}
 	return context;

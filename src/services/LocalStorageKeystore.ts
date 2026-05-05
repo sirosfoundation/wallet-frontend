@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate } from 'react-router-dom';
+import { Err, Ok, Result } from 'ts-results';
 
 import * as config from "../config";
 import { useClearStorages, useLocalStorage, useSessionStorage } from "../hooks/useStorage";
 import { fromBase64Url, jsonStringifyTaggedBinary, toBase64Url } from "../util";
 import { useIndexedDb } from "../hooks/useIndexedDb";
 import { useOnUserInactivity } from "../hooks/useOnUserInactivity";
+import { logger } from "../logger";
 
 import * as keystore from "./keystore";
 import type { AsymmetricEncryptedContainer, AsymmetricEncryptedContainerKeys, EncryptedContainer, OpenedContainer, PrivateData, UnlockSuccess, WebauthnPrfEncryptionKeyInfo, WebauthnPrfSaltInfo, WrappedKeyInfo } from "./keystore";
@@ -135,12 +137,19 @@ export interface LocalStorageKeystore {
 		AsymmetricEncryptedContainer,
 		CommitCallback,
 	]>,
+	/**
+	 * Sync with remote private data without requiring re-authentication.
+	 * Uses the existing mainKey to decrypt remote data and merges it with local data.
+	 * @param remotePrivateDataRaw - Raw private data bytes from the server
+	 */
+	syncWithRemoteData(remotePrivateDataRaw: Uint8Array): Promise<Result<AsymmetricEncryptedContainer, 'keystoreNotOpen' | 'mergeFailed'>>,
 }
 
 /** A stateful wrapper around the keystore module, storing state in the browser's localStorage and sessionStorage. */
 export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageKeystore {
 	const [cachedUsers, setCachedUsers,] = useLocalStorage<CachedUser[]>("cachedUsers", []);
-	const [privateData, setPrivateData] = useState<EncryptedContainer | null>(null);
+	const [privateData, setPrivateDataState] = useState<EncryptedContainer | null>(null);
+	const privateDataRef = useRef<EncryptedContainer | null>(null);
 
 	const [globalUserHandleB64u, setGlobalUserHandleB64u, clearGlobalUserHandleB64u] = useLocalStorage<string | null>("userHandle", null);
 	const [userHandleB64u, setUserHandleB64u, clearUserHandleB64u] = useSessionStorage<string | null>("userHandle", null);
@@ -149,11 +158,30 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 	const [globalTabId, setGlobalTabId, clearGlobalTabId] = useLocalStorage<string | null>("globalTabId", null);
 	const [tabId, setTabId, clearTabId] = useSessionStorage<string | null>("tabId", null);
 
-	const [mainKey, setMainKey, clearMainKey] = useSessionStorage<BufferSource | null>("mainKey", null);
+	const [mainKey, setMainKeyStorage, clearMainKey] = useSessionStorage<BufferSource | null>("mainKey", null);
+	const mainKeyRef = useRef<BufferSource | null>(null);
 	const [calculatedWalletState, setCalculatedWalletState] = useState<WalletState | null>(null);
 	const clearSessionStorage = useClearStorages(clearUserHandleB64u, clearMainKey, clearTabId);
 
 	const navigate = useNavigate();
+
+	useEffect(() => {
+		privateDataRef.current = privateData;
+	}, [privateData]);
+
+	useEffect(() => {
+		mainKeyRef.current = mainKey;
+	}, [mainKey]);
+
+	const setPrivateData = useCallback((newPrivateData: EncryptedContainer | null) => {
+		privateDataRef.current = newPrivateData;
+		setPrivateDataState(newPrivateData);
+	}, []);
+
+	const setMainKey = useCallback((newMainKey: BufferSource | null) => {
+		mainKeyRef.current = newMainKey;
+		setMainKeyStorage(newMainKey);
+}, [setMainKeyStorage]);
 
 	const idb = useIndexedDb("wallet-frontend", 3, useCallback((db, prevVersion, newVersion) => {
 		if (prevVersion < 1) {
@@ -181,13 +209,14 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 
 	useEffect(() => {
 		if (userHandleB64u) {
-			readPrivateDataFromIdb(userHandleB64u).then((val) => {
+			(async () => {
+				const val = await readPrivateDataFromIdb(userHandleB64u);
 				if (val) {
 					setPrivateData(val);
 				}
-			})
+			})();
 		}
-	}, [userHandleB64u, readPrivateDataFromIdb]);
+	}, [userHandleB64u, readPrivateDataFromIdb, setPrivateData]);
 
 
 	const writePrivateDataOnIdb = useCallback(async (privateData: EncryptedContainer | null, userHandleB64u: string) => {
@@ -200,7 +229,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 	const clearPrivateData = useCallback(async (userHandleB64u: string) => {
 		setPrivateData(null);
 		await writePrivateDataOnIdb(null, userHandleB64u);
-	}, [writePrivateDataOnIdb]);
+	}, [writePrivateDataOnIdb, setPrivateData]);
 
 	const closeSessionTabLocal = useCallback(
 		async (): Promise<void> => {
@@ -212,7 +241,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 
 	const close = useCallback(
 		async (): Promise<void> => {
-			console.log('Keystore Close');
+			logger.debug('Keystore Close');
 			await clearPrivateData(userHandleB64u);
 			await idb.destroy();
 			setCalculatedWalletState(null);
@@ -223,12 +252,13 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 	);
 
 	const assertKeystoreOpen = useCallback(async (): Promise<[EncryptedContainer, CryptoKey]> => {
-		if (privateData && mainKey) {
-			return [privateData, await keystore.importMainKey(mainKey)];
-		} else {
-			throw new Error("Key store is closed.", { cause: 'keystore_closed' });
+		const pd = privateDataRef.current ?? privateData;
+		const mk = mainKeyRef.current ?? mainKey;
+		if (pd && mk) {
+			return [pd, await keystore.importMainKey(mk)];
 		}
-	}, [privateData, mainKey]);
+		throw new Error("Key store is closed.", { cause: 'keystore_closed' });
+}, [privateData, mainKey]);
 
 	useOnUserInactivity(close, config.INACTIVE_LOGOUT_MILLIS);
 
@@ -288,8 +318,8 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 			return await keystore.openPrivateData(mainKey, privateData);
 		}
 		catch (err) {
-			console.error(err);
-			console.log("Navigating to login-state to handle JWE decryption failure");
+			logger.error(err);
+			logger.debug("Navigating to login-state to handle JWE decryption failure");
 			const queryParams = new URLSearchParams(window.location.search);
 			queryParams.delete('user');
 			queryParams.delete('sync');
@@ -440,10 +470,10 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 	useEffect(() => {
 		// initialize calculated wallet state
 		if (mainKey && privateData && calculatedWalletState === null) {
-			openPrivateData().then(([, , newCalculatedWalletState]) => {
-
+			(async () => {
+				const [, , newCalculatedWalletState] = await openPrivateData();
 				setCalculatedWalletState(newCalculatedWalletState);
-			});
+			})();
 		}
 	}, [mainKey, privateData, calculatedWalletState, openPrivateData]);
 
@@ -844,6 +874,37 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		});
 	}, [editPrivateData, openPrivateData]);
 
+	const syncWithRemoteData = useCallback(async (remotePrivateDataRaw: Uint8Array): Promise<Result<keystore.AsymmetricEncryptedContainer, 'keystoreNotOpen' | 'mergeFailed'>> => {
+		if (!privateData || !mainKey) {
+			return Err('keystoreNotOpen');
+		}
+
+		try {
+			const remotePrivateData = await keystore.parsePrivateData(remotePrivateDataRaw);
+			const [localPrivateData, localMainKey] = await assertKeystoreOpen();
+			const [remoteContainer, remoteMainKey,] = await keystore.openPrivateData(localMainKey, remotePrivateData);
+			const [localContainer, ,] = await keystore.openPrivateData(localMainKey, localPrivateData);
+			const mergedContainer = await mergeEventHistories(remoteContainer, localContainer);
+
+			const { newContainer } = await keystore.updateWalletState([
+				keystore.assertAsymmetricEncryptedContainer(remotePrivateData),
+				remoteMainKey,
+			], mergedContainer as CurrentSchema.WalletStateContainer);
+			const [newPrivateDataEncryptedContainer, newMainKey] = newContainer;
+
+			await writePrivateDataOnIdb(newPrivateDataEncryptedContainer, userHandleB64u);
+			setPrivateData(newPrivateDataEncryptedContainer);
+			setMainKey(await keystore.exportMainKey(newMainKey));
+
+			const foldedState = foldState(mergedContainer as CurrentSchema.WalletStateContainer);
+			setCalculatedWalletState(foldedState);
+
+			return Ok(newPrivateDataEncryptedContainer);
+		} catch (error) {
+			console.error("Failed to sync with remote data", error);
+			return Err('mergeFailed');
+		}
+	}, [privateData, mainKey, assertKeystoreOpen, writePrivateDataOnIdb, userHandleB64u, setPrivateData, setMainKey, setCalculatedWalletState]);
 
 	return useMemo(() => ({
 		isOpen,
@@ -876,6 +937,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		saveCredentialIssuanceSessions,
 		getCredentialIssuanceSessionByState,
 		alterSettings,
+		syncWithRemoteData,
 	}), [
 		isOpen,
 		close,
@@ -907,5 +969,6 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		saveCredentialIssuanceSessions,
 		getCredentialIssuanceSessionByState,
 		alterSettings,
+		syncWithRemoteData,
 	]);
 }

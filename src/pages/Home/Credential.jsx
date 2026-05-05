@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation, Trans } from 'react-i18next';
 import QRCode from "react-qr-code";
 import i18n from '@/i18n';
+import { VerifiableCredentialFormat } from 'wallet-common';
 
 // Contexts
 import SessionContext from '@/context/SessionContext';
@@ -82,7 +83,7 @@ const Credential = () => {
 		if (!cachedUser) {
 			return;
 		}
-		const result = await api.syncPrivateData(cachedUser);
+		const result = await api.syncPrivateData(cachedUser, keystore);
 		if (!result.ok) {
 			setLoading(false);
 			return;
@@ -144,7 +145,7 @@ const Credential = () => {
 				setShareWithQr(false);
 				return;
 			}
-			if (vcEntity.format === "mso_mdoc") {
+			if (vcEntity.format === VerifiableCredentialFormat.MSO_MDOC) {
 				setShareWithQr(true);
 			} else {
 				setShareWithQr(false);

@@ -280,6 +280,34 @@
 		"title": "Escolher onde criar a sua chave de acesso",
 		"triggerButton": "Como funcionam as chaves de acesso?"
 	},
+	"protocolSteps": {
+		"common": {
+			"error": "Ocorreu um erro"
+		},
+		"oid4vci": {
+			"awaitingAuthorizationResponse": "Aguardando autorização...",
+			"awaitingTxCode": "Aguardando código de transação...",
+			"completed": "Credencial recebida com sucesso",
+			"exchangingToken": "Trocando token...",
+			"fetchingIssuerMetadata": "Obtendo metadados do emissor...",
+			"idle": "Pronto",
+			"parsingOffer": "Analisando oferta de credencial...",
+			"requestingAuthorization": "Solicitando autorização...",
+			"requestingCredential": "Solicitando credencial...",
+			"storingCredential": "Armazenando credencial..."
+		},
+		"oid4vp": {
+			"awaitingConsent": "Confirme o compartilhamento de credencial...",
+			"awaitingCredentialSelection": "Selecione credenciais para apresentar...",
+			"completed": "Apresentação enviada com sucesso",
+			"creatingPresentation": "Criando apresentação...",
+			"fetchingVerifierMetadata": "Obtendo metadados do verificador...",
+			"idle": "Pronto",
+			"matchingCredentials": "Encontrando credenciais correspondentes...",
+			"parsingRequest": "Analisando solicitação de autorização...",
+			"sendingResponse": "Enviando resposta..."
+		}
+	},
 	"pwaInstallPrompt": {
 		"button": {
 			"closeTitle": "Clique para fechar a opção de instalação PWA",
@@ -349,6 +377,17 @@
 		"tourStep5": "Utilize a página 'Enviar Credenciais' para selecionar um verifier e partilhar as suas credenciais.",
 		"tourStep6": "Na página 'Histórico', pode ver detalhes das transmissões de credenciais, incluindo quando e para que verifiers elas foram enviadas.",
 		"tourStep7": "Na página 'Definições' pode gerir as suas chaves de acesso e configurações de conta."
+	},
+	"txCodeInput": {
+		"defaultDescription": "Introduza o código de transação apresentado no seu ecrã",
+		"errorEmpty": "Por favor introduza o código de transação",
+		"errorInvalid": "Código de transação inválido. Por favor tente novamente.",
+		"errorLength": "O código de transação deve ter {{length}} caracteres",
+		"inputLabel": "Código de transação",
+		"lengthHint": "Comprimento do código: {{length}} caracteres",
+		"placeholder": "Introduza o código",
+		"placeholderWithLength": "Introduza código de {{length}} caracteres",
+		"title": "Código de transação necessário"
 	},
 	"updateNotification": {
 		"description": "Nova versão disponível!"
