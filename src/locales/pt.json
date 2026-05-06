@@ -16,6 +16,7 @@
 		"title": "Introduza o PIN"
 	},
 	"common": {
+		"accept": "Aceitar",
 		"and": "e",
 		"cancel": "Cancelar",
 		"continue": "Continuar",
@@ -48,6 +49,20 @@
 	},
 	"expiredRibbon": {
 		"expired": "Expirada"
+	},
+	"issuanceWarningPopup": {
+		"codes": {
+			"FailFetchIssuerMetadata": "Não foi possível obter os metadados do issuer",
+			"FailSchemaIssuerMetadata": "Os metadados do issuer não correspondem ao formato esperado",
+			"IntegrityFail": "Verificação de integridade dos metadados falhou",
+			"IntegrityMissing": "Hash de integridade em falta nos metadados",
+			"JwtVcIssuerFail": "Verificação do issuer falhou",
+			"JwtVcIssuerMismatch": "O issuer no credencial não corresponde ao issuer esperado",
+			"NotFound": "Documento de metadados do tipo não foi encontrado",
+			"NotFoundExtends": "Metadados do tipo estendido não puderam ser resolvidos"
+		},
+		"description": "O credencial foi recebido, mas apresenta os seguintes problemas. Pode aceitá-lo na mesma, mas poderá não funcionar como esperado.",
+		"title": "Avisos do Credencial"
 	},
 	"language": {
 		"label": "Idioma"
