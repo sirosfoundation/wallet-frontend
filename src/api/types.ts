@@ -71,3 +71,34 @@ export type UserSettings = {
 	openidRefreshTokenMaxAgeInSeconds: number;
 	useOblivious: string;
 }
+
+// OIDC Gate types - must match go-wallet-backend/internal/domain/oidc_gate.go
+export type OIDCGateMode = 'none' | 'registration' | 'login' | 'both';
+
+export interface OIDCProviderConfig {
+	display_name?: string;
+	issuer: string;
+	client_id: string;
+	scopes?: string;
+}
+
+export interface OIDCGateConfig {
+	mode: OIDCGateMode;
+	registration_op?: OIDCProviderConfig;
+	login_op?: OIDCProviderConfig;
+	bind_identity?: boolean;
+}
+
+export interface TenantConfig {
+	id: string;
+	name: string;
+	display_name?: string;
+	oidc_gate?: OIDCGateConfig;
+}
+
+// OIDC gate error response from backend
+export interface OIDCGateErrorResponse {
+	error: 'oidc_gate_required';
+	message: string;
+	oidc_config: OIDCProviderConfig;
+}
