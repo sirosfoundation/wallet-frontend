@@ -39,7 +39,7 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 		async (credentialIssuerIdentifier: string, useCache?: boolean): Promise<{ metadata: OpenidCredentialIssuerMetadata } | null> => {
 			// RFC8414 well-known URI construction: https://host/.well-known/openid-credential-issuer/path
 			const issuerUrl = new URL(credentialIssuerIdentifier);
-			const pathCredentialIssuer = `${issuerUrl.origin}/.well-known/openid-credential-issuer${issuerUrl.pathname}`;
+			const pathCredentialIssuer = `${issuerUrl.origin}/.well-known/openid-credential-issuer${issuerUrl.pathname.replace(/\/$/, '')}`;
 			try {
 				const metadata = await fetchAndParseWithSchema<OpenidCredentialIssuerMetadata>(
 					pathCredentialIssuer,
@@ -82,11 +82,11 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 			let pathAuthorizationServerFromCredentialIssuerMetadata: string | null = null;
 			if (metadata.authorization_servers && metadata.authorization_servers.length > 0) {
 				const authzUrl = new URL(metadata.authorization_servers[0]);
-				pathAuthorizationServerFromCredentialIssuerMetadata = `${authzUrl.origin}/.well-known/oauth-authorization-server${authzUrl.pathname}`;
+				pathAuthorizationServerFromCredentialIssuerMetadata = `${authzUrl.origin}/.well-known/oauth-authorization-server${authzUrl.pathname.replace(/\/$/, '')}`;
 			}
 			const issuerUrl = new URL(credentialIssuerIdentifier);
-			const pathIssuerAuthorizationServer = `${issuerUrl.origin}/.well-known/oauth-authorization-server${issuerUrl.pathname}`;
-			const pathIssuerOpenIdConfiguration = `${issuerUrl.origin}/.well-known/openid-configuration${issuerUrl.pathname}`;
+			const pathIssuerAuthorizationServer = `${issuerUrl.origin}/.well-known/oauth-authorization-server${issuerUrl.pathname.replace(/\/$/, '')}`;
+			const pathIssuerOpenIdConfiguration = `${issuerUrl.origin}/.well-known/openid-configuration${issuerUrl.pathname.replace(/\/$/, '')}`;
 			let authzServerMetadata: OpenidAuthorizationServerMetadata = null;
 
 			if (pathAuthorizationServerFromCredentialIssuerMetadata) {
