@@ -68,7 +68,6 @@ export const LOGIN_WITH_PASSWORD: boolean = config.login_with_password ? JSON.pa
 export const WEBAUTHN_RPID = config.webauthn_rpid ?? "localhost";
 export const OPENID4VP_SAN_DNS_CHECK = config.openid4vp_san_dns_check ? config.openid4vp_san_dns_check === 'true' : false;
 export const OPENID4VP_SAN_DNS_CHECK_SSL_CERTS = config.openid4vp_san_dns_check_ssl_certs ? config.openid4vp_san_dns_check_ssl_certs === 'true' : false;
-export const VALIDATE_CREDENTIALS_WITH_TRUST_ANCHORS = config.validate_credentials_with_trust_anchors ? config.validate_credentials_with_trust_anchors  === 'true' : false;
 
 /**
  * Delegate trust evaluation to the backend's AuthZEN proxy.
