@@ -43,7 +43,6 @@ export async function initializeCredentialEngine(
 
 	await helper.fetchIssuerMetadataAndCertificates(
 		getIssuers,
-		(pemCerts) => trustedCertificates.push(...pemCerts),
 		shouldUseCache,
 		(issuerIdentifier) => {
 			onIssuerMetadataResolved?.(issuerIdentifier);

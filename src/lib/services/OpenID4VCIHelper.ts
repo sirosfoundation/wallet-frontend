@@ -2,7 +2,6 @@ import { IOpenID4VCIHelper } from "../interfaces/IOpenID4VCIHelper";
 import { useHttpProxy } from "./HttpProxy/HttpProxy";
 import { useCallback, useContext, useMemo } from "react";
 import SessionContext from "@/context/SessionContext";
-import { MdocIacasResponse, MdocIacasResponseSchema } from "../schemas/MdocIacasResponseSchema";
 import { AuthZENClient, AuthZENClientConfig, OpenidAuthorizationServerMetadataSchema, OpenidCredentialIssuerMetadataSchema } from 'wallet-common';
 import type { OpenidAuthorizationServerMetadata, OpenidCredentialIssuerMetadata } from 'wallet-common';
 import { BACKEND_URL, OPENID4VCI_REDIRECT_URI } from "@/config";
@@ -144,40 +143,13 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 		[getExternalEntity]
 	);
 
-	const getMdocIacas = useCallback(
-		async (credentialIssuerIdentifier: string, metadata?: OpenidCredentialIssuerMetadata, useCache?: boolean) => {
-			try {
-				if (!metadata) {
-					const response = await getCredentialIssuerMetadata(credentialIssuerIdentifier);
-					metadata = response.metadata;
-				}
-				if (metadata.mdoc_iacas_uri) {
-					const response = await fetchAndParseWithSchema<MdocIacasResponse>(
-						`${metadata.mdoc_iacas_uri}`,
-						MdocIacasResponseSchema,
-						useCache
-					);
-					return response;
-				}
-				return null;
-			}
-			catch (err) {
-				logger.error(err);
-				return null;
-			}
-		},
-		[fetchAndParseWithSchema, getCredentialIssuerMetadata]
-	);
-
 	const fetchIssuerMetadataAndCertificates = useCallback(
 		async (
 			getIssuers: () => Promise<Record<string, unknown>[]>,
-			onCertificates: (pemCertificates: string[]) => void,
 			shouldUseCache: boolean,
 			onIssuerMetadataResolved?: (issuerIdentifier: string, metadata: OpenidCredentialIssuerMetadata) => void
 		) => {
 			const issuerEntities = await getIssuers().catch(() => []);
-			const certificates = [];
 			issuerEntities.forEach(async (entity: any) => {
 				if (!entity.credentialIssuerIdentifier) return;
 
@@ -197,31 +169,12 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 					});
 
 					logoUris.forEach(uri => httpProxy.get(uri, {}, { useCache: shouldUseCache }).catch(logger.error));
-
-					if (metadata.mdoc_iacas_uri) {
-						const response = await getMdocIacas(metadata.credential_issuer, metadata, shouldUseCache);
-						if (response?.iacas?.length) {
-							certificates.push(response.iacas.map(cert =>
-								`-----BEGIN CERTIFICATE-----\n${cert.certificate}\n-----END CERTIFICATE-----\n`
-							))
-						}
-					}
 				} catch (error) {
 					logger.error(`Failed to fetch metadata for ${entity.credentialIssuerIdentifier}:`, error);
 				}
 			});
-			try {
-				const iacaList = await getExternalEntity('/helper/iaca-list', undefined, shouldUseCache);
-				const { iaca_list } = iacaList.data as { iaca_list: { certificate: string }[] };
-				certificates.push(...iaca_list.map((c) => c.certificate));
-			}
-			catch {
-				logger.error(`Failed to get iaca list from wallet-backend-server`);
-			}
-			onCertificates(certificates);
-
 		},
-		[getCredentialIssuerMetadata, getMdocIacas, httpProxy, getExternalEntity, getAuthorizationServerMetadata]
+		[getCredentialIssuerMetadata, httpProxy, getAuthorizationServerMetadata]
 	);
 
 	return useMemo(
@@ -229,14 +182,12 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 			getClientId,
 			getAuthorizationServerMetadata,
 			getCredentialIssuerMetadata,
-			getMdocIacas,
 			fetchIssuerMetadataAndCertificates,
 		}),
 		[
 			getClientId,
 			getAuthorizationServerMetadata,
 			getCredentialIssuerMetadata,
-			getMdocIacas,
 			fetchIssuerMetadataAndCertificates,
 		]
 	);
