@@ -13,10 +13,12 @@ type WarningSeverity = 'critical' | 'warning' | 'info';
 const CRITICAL_CODES = new Set([
 	'JwtVcIssuerMismatch',
 	'JwtVcIssuerFail',
-	'IntegrityFail',
 ]);
 
-const WARNING_CODES = new Set(['IntegrityMissing']);
+const WARNING_CODES = new Set([
+	'IntegrityMissing',
+	'IntegrityFail',
+]);
 
 function getSeverity(code: string): WarningSeverity {
 	if (CRITICAL_CODES.has(code)) return 'critical';
