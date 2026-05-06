@@ -13,6 +13,7 @@ import { withAuthenticatorAttachmentFromHints } from '@/util-webauthn';
 import { formatDate } from 'wallet-common';
 import type { WebauthnPrfEncryptionKeyInfo } from '../../services/keystore';
 import { isPrfKeyV2, serializePrivateData } from '../../services/keystore';
+import { DEFAULT_DELETE_HISTORY_ON_CREDENTIAL_DELETION } from '../../services/LocalStorageKeystore';
 
 import DeletePopup from '../../components/Popups/DeletePopup';
 import Button from '../../components/Buttons/Button';
@@ -734,6 +735,7 @@ const Settings = () => {
 	const upgradePrfPasskeyLabel = useWebauthnCredentialNickname(upgradePrfState?.webauthnCredential);
 	const [successMessage, setSuccessMessage] = useState('');
 	const [obliviousSettingsMessage, setObliviousSettingsMessage] = useState('');
+	const [deleteHistorySettingsMessage, setDeleteHistorySettingsMessage] = useState('');
 
 	const { getCalculatedWalletState } = keystore;
 
@@ -923,6 +925,29 @@ const Settings = () => {
 		}
 	}
 
+	const handleDeleteHistoryChange = async (value: string) => {
+		try {
+			if (!['true', 'false'].includes(value)) {
+				throw new Error("Update deleteHistoryOnCredentialDeletion: invalid value");
+			}
+			const [, newPrivateData, keystoreCommit] = await keystore.alterSettings({
+				...getCalculatedWalletState().settings,
+				deleteHistoryOnCredentialDeletion: value,
+			});
+			await api.updatePrivateData(newPrivateData);
+			await keystoreCommit();
+
+			logger.debug('Settings updated successfully');
+			setDeleteHistorySettingsMessage(t('pageSettings.deleteHistoryOnCredentialDeletion.successMessage'));
+			setTimeout(() => {
+				setDeleteHistorySettingsMessage('');
+			}, 3000);
+			refreshData();
+		} catch (error) {
+			logger.error('Failed to update settings', error);
+		}
+	}
+
 	return (
 		<>
 			<div className="px-6 sm:px-12 w-full">
@@ -1045,6 +1070,34 @@ const Settings = () => {
 								{obliviousSettingsMessage && (
 									<div className="text-md text-lm-green dark:text-lm-green">
 										{obliviousSettingsMessage}
+									</div>
+								)}
+							</div>
+						</div>
+						<div className="my-2 py-2">
+							<H2 heading={t('pageSettings.deleteHistoryOnCredentialDeletion.title')} />
+							<p className='mb-2 dark:text-white'>
+								{t('pageSettings.deleteHistoryOnCredentialDeletion.description')}
+							</p>
+							<div className='flex gap-2 items-center'>
+								<div className="relative inline-block min-w-36">
+									<div className="relative">
+										<select
+											className={`h-10 pl-3 pr-10 bg-lm-gray-200 dark:bg-dm-gray-800 border border-lm-gray-600 dark:border-dm-gray-400 text-lm-gray-900 dark:text-white rounded-lg dark:inputDarkModeOverride appearance-none`}
+											defaultValue={userData.settings.deleteHistoryOnCredentialDeletion ?? DEFAULT_DELETE_HISTORY_ON_CREDENTIAL_DELETION}
+											onChange={(e) => handleDeleteHistoryChange(e.target.value)}
+										>
+											<option value="true">{t('pageSettings.deleteHistoryOnCredentialDeletion.enabled')}</option>
+											<option value="false">{t('pageSettings.deleteHistoryOnCredentialDeletion.disabled')}</option>
+										</select>
+										<span className="absolute top-1/2 right-2 transform -translate-y-[43%] pointer-events-none">
+											<ChevronDown size={18} className='dark:text-white' />
+										</span>
+									</div>
+								</div>
+								{deleteHistorySettingsMessage && (
+									<div className="text-md text-lm-green dark:text-lm-green">
+										{deleteHistorySettingsMessage}
 									</div>
 								)}
 							</div>

@@ -13,7 +13,7 @@ import * as keystore from "./keystore";
 import type { AsymmetricEncryptedContainer, AsymmetricEncryptedContainerKeys, EncryptedContainer, OpenedContainer, PrivateData, UnlockSuccess, WebauthnPrfEncryptionKeyInfo, WebauthnPrfSaltInfo, WrappedKeyInfo } from "./keystore";
 import { MDoc } from "@auth0/mdl";
 import { WalletStateUtils } from "./WalletStateUtils";
-import { addAlterSettingsEvent, addDeleteCredentialEvent, addDeleteCredentialIssuanceSessionEvent, addDeleteKeypairEvent, addNewCredentialEvent, addNewPresentationEvent, addSaveCredentialIssuanceSessionEvent, CurrentSchema, foldOldEventsIntoBaseState, foldState, mergeEventHistories } from "./WalletStateSchema";
+import { addAlterSettingsEvent, addDeleteCredentialEvent, addDeleteCredentialIssuanceSessionEvent, addDeleteKeypairEvent, addDeletePresentationEvent, addNewCredentialEvent, addNewPresentationEvent, addSaveCredentialIssuanceSessionEvent, CurrentSchema, foldOldEventsIntoBaseState, foldState, mergeEventHistories } from "./WalletStateSchema";
 import { UserId } from "@/api/types";
 import { getItem } from "@/indexedDB";
 import { WalletStateContainerGeneric } from "./WalletStateSchemaCommon";
@@ -23,6 +23,8 @@ type WalletStateCredential = CurrentSchema.WalletStateCredential;
 type WalletStateCredentialIssuanceSession = CurrentSchema.WalletStateCredentialIssuanceSession;
 type WalletStatePresentation = CurrentSchema.WalletStatePresentation;
 type WalletStateSettings = CurrentSchema.WalletStateSettings;
+
+export const DEFAULT_DELETE_HISTORY_ON_CREDENTIAL_DELETION = 'true';
 
 type UserData = {
 	displayName: string;
@@ -778,12 +780,25 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		walletStateContainer = await foldOldEventsIntoBaseState(walletStateContainer);
 
 		const credentialsToBeDeleted = calculatedWalletState.credentials.filter((cred) => cred.batchId === batchId);
+		const deletedCredentialIds = new Set(credentialsToBeDeleted.map((cred) => cred.credentialId));
 		for (const cred of credentialsToBeDeleted) {
 			walletStateContainer = await addDeleteCredentialEvent(walletStateContainer, cred.credentialId);
 			// delete keypair
 			const kid = calculatedWalletState.credentials.filter((c) => c.credentialId === cred.credentialId).map((c) => c.kid)[0];
 			if (kid) {
 				walletStateContainer = await addDeleteKeypairEvent(walletStateContainer, kid);
+			}
+		}
+
+		// delete presentations that reference any of the deleted credentials
+		// (unless the user has opted out of this behaviour via settings)
+		const deletionEnabled = (calculatedWalletState.settings.deleteHistoryOnCredentialDeletion ?? DEFAULT_DELETE_HISTORY_ON_CREDENTIAL_DELETION) === 'true';
+		if (deletionEnabled) {
+			const presentationsToDelete = calculatedWalletState.presentations.filter((p) =>
+				p.usedCredentialIds.some((id) => deletedCredentialIds.has(id))
+			);
+			for (const presentation of presentationsToDelete) {
+				walletStateContainer = await addDeletePresentationEvent(walletStateContainer, presentation.presentationId);
 			}
 		}
 

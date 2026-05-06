@@ -280,6 +280,13 @@
 			"description": "Por favor, autentique-se com a chave de acesso \"{{passkeyLabel}}\"...",
 			"error": "<p>Algo correu mal. Por favor, tente novamente.</p><p>Por favor, lembre-se que precisa de se autenticar com a chave de acesso \"{{passkeyLabel}}\".</p>",
 			"title": "A atualizar a chave de encriptação da chave de acesso"
+		},
+		"deleteHistoryOnCredentialDeletion": {
+			"title": "Eliminar Histórico de Apresentações ao Eliminar Credencial",
+			"description": "Quando uma credencial é eliminada, remove também todos os registos de histórico de apresentações que a utilizaram.",
+			"enabled": "Eliminar histórico",
+			"disabled": "Manter histórico",
+			"successMessage": "Guardado"
 		}
 	},
 	"passkeyInfoPopup": {
