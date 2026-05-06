@@ -3,7 +3,7 @@ import { useOIDFlowTransportSafe } from '@/context/OIDFlowTransportContext';
 import OpenID4VCIContext from '@/context/OpenID4VCIContext';
 import { CredentialOfferSchema, VerifiableCredentialFormat } from 'wallet-common';
 import type { OID4VCIFlowResult } from '@/lib/openid-flow/types/OID4VCITypes';
-import type { OIDFlowProgressEvent, OIDFlowTransportType } from '@/lib/openid-flow/types/OIDFlowTypes';
+import type { OIDFlowActiveTransportType, OIDFlowProgressEvent } from '@/lib/openid-flow/types/OIDFlowTypes';
 import { DISPLAY_ISSUANCE_WARNINGS, OPENID4VCI_REDIRECT_URI } from '@/config';
 import { deriveHolderKidFromCredential } from '@/lib/services/OpenID4VCI/OpenID4VCI';
 import SessionContext from '@/context/SessionContext';
@@ -53,7 +53,7 @@ export interface UseOID4VCIFlowReturn {
 	/**
 	 * Current transport type being used
 	 */
-	transportType: OIDFlowTransportType | 'none';
+	transportType: OIDFlowActiveTransportType;
 	/**
 	 * Whether a flow is currently in progress
 	 */

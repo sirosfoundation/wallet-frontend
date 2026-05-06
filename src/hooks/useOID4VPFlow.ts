@@ -10,8 +10,6 @@
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
 	useOIDFlowTransportSafe,
-	// type WSMatchRequest as MatchRequest,
-	// type WSMatchResponse as MatchResponse,
 } from '@/context/OIDFlowTransportContext';
 import SessionContext from '@/context/SessionContext';
 import OpenID4VPContext from '@/context/OpenID4VPContext';
@@ -22,7 +20,7 @@ import type {
 	OID4VPSelectedCredential,
 	OID4VPVerifierInfo,
 } from '@/lib/openid-flow/types/OID4VPTypes';
-import type { OIDFlowProgressEvent, OIDFlowTransportType } from '@/lib/openid-flow/types/OIDFlowTypes';
+import type { OIDFlowActiveTransportType, OIDFlowProgressEvent } from '@/lib/openid-flow/types/OIDFlowTypes';
 import { DcqlQuery } from 'dcql';
 import { getLeastUsedCredentialInstance } from '@/lib/services/CredentialBatchHelper';
 import { applySelectiveDisclosure } from '@/lib/sd-jwt/sd-jwt';
@@ -71,7 +69,7 @@ export interface UseOID4VPFlowReturn {
 	/**
 	 * Current transport type being used
 	 */
-	transportType: OIDFlowTransportType | 'none';
+	transportType: OIDFlowActiveTransportType;
 	/**
 	 * Whether a flow is currently in progress
 	 */

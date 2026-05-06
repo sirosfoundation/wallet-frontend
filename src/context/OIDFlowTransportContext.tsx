@@ -28,7 +28,7 @@ import {
 	TRANSPORT_PREFERENCE,
 	BACKEND_URL,
 } from '@/config';
-import type { OIDFlowTransportType } from '@/lib/openid-flow/types/OIDFlowTypes';
+import type { OIDFlowActiveTransportType, OIDFlowTransportType } from '@/lib/openid-flow/types/OIDFlowTypes';
 import { logger } from '@/logger';
 import { createIssuerTrustEvaluator, createVerifierTrustEvaluator } from '@/lib/services/TrustEvaluator';
 import { TrustEvaluators } from '@/lib/openid-flow';
@@ -50,7 +50,7 @@ interface OIDFlowTransportContextValue {
 	/** The active transport instance */
 	transport: IOIDFlowTransport;
 	/** The type of the active transport */
-	transportType: OIDFlowTransportType | 'none';
+	transportType: OIDFlowActiveTransportType;
 	/** Whether the transport is currently connected */
 	isConnected: boolean;
 	/** Attempt to reconnect (for WebSocket) */

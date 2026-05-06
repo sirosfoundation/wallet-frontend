@@ -36,6 +36,7 @@ export type OIDFlowCallbackURL =
  * Transport type enumeration
  */
 export type OIDFlowTransportType = 'http_proxy' | 'websocket' | 'direct';
+export type OIDFlowActiveTransportType = OIDFlowTransportType | 'none';
 
 /**
  * Generic flow request that can be sent to any transport
@@ -94,7 +95,7 @@ export interface OIDFlowProgressEvent {
  */
 export interface OIDFlowTransportConnectionState {
 	/** Current transport type in use */
-	transportType: OIDFlowTransportType | 'none';
+	transportType: OIDFlowActiveTransportType;
 	/** Whether the transport is connected */
 	isConnected: boolean;
 	/** Available transports based on configuration */
