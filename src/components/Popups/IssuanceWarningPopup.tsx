@@ -2,7 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import PopupLayout from './PopupLayout';
 import Button from '../Buttons/Button';
-import { CircleAlert, ShieldAlert, Info } from 'lucide-react';
+import { CircleAlertIcon, ShieldAlertIcon, InfoIcon } from 'lucide-react';
 
 export interface IssuanceWarning {
 	code: string;
@@ -28,17 +28,17 @@ function getSeverity(code: string): WarningSeverity {
 
 const severityConfig = {
 	critical: {
-		icon: ShieldAlert,
+		icon: ShieldAlertIcon,
 		iconClass: 'text-lm-red dark:text-dm-red',
 		bgClass: 'bg-red-50 dark:bg-red-950/30',
 	},
 	warning: {
-		icon: CircleAlert,
+		icon: CircleAlertIcon,
 		iconClass: 'text-lm-orange dark:text-dm-orange',
 		bgClass: 'bg-lm-gray-200 dark:bg-dm-gray-800',
 	},
 	info: {
-		icon: Info,
+		icon: InfoIcon,
 		iconClass: 'text-lm-blue dark:text-dm-blue',
 		bgClass: 'bg-lm-gray-200 dark:bg-dm-gray-800',
 	},
@@ -73,7 +73,7 @@ const IssuanceWarningPopup: React.FC<IssuanceWarningPopupProps> = ({
 			<div className="flex items-start justify-between mb-2">
 				<h2 className="flex items-center text-lg font-bold text-lm-gray-900 dark:text-dm-gray-50">
 					<div className="inline p-1 rounded-full mr-1 bg-lm-orange dark:bg-dm-orange text-white">
-						<CircleAlert size={20} />
+						<CircleAlertIcon size={20} />
 					</div>
 					{t('issuanceWarningPopup.title')}
 				</h2>
