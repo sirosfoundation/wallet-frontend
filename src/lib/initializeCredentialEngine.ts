@@ -22,9 +22,11 @@ export async function initializeCredentialEngine(
 				url.searchParams.set('vct', vct);
 				// Use the backend-aware HTTP client so Authorization and X-Tenant-ID
 				// are preserved for backend/registry endpoints in protected or
-				// multi-tenant deployments.
-				const data = await httpProxy.get(url.toString());
-				return ok(data as any);
+				// multi-tenant deployments. The useCache option enables IndexedDB-backed
+				// caching for offline verification fallback.
+				const res = await httpProxy.get(url.toString(), {}, { useCache: true });
+				if (!res?.data || res.status !== 200) return err(VctResolutionErrors.NotFound);
+				return ok(res.data as any);
 			} catch (e) {
 				logger.error('Error in VCT SDJWT Metadata retrieval:', e);
 				return err(VctResolutionErrors.NotFound);
