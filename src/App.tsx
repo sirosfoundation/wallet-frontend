@@ -40,23 +40,26 @@ const LoginState = lazyWithDelay(() => import('./pages/Login/LoginState'), 400);
 const NotFound = lazyWithDelay(() => import('./pages/NotFound/NotFound'), 400);
 const OIDCCallback = lazyWithDelay(() => import('./pages/OIDCCallback/OIDCCallback'), 400);
 
-const ProtectedLayout = () => {
+const ProtectedRouteWrapper = ({ layout = true }) => {
 	const location = useLocation();
+
+	const content = (
+		<Suspense fallback={<Spinner size='small' />}>
+			<FadeInContentTransition appear reanimateKey={location.pathname}>
+				<NotificationOfflineWarning />
+				<Outlet />
+			</FadeInContentTransition>
+		</Suspense>
+	);
+
 	return (
 		<PrivateRoute>
-			<Layout>
-				<Suspense fallback={<Spinner size='small' />}>
-					<FadeInContentTransition appear reanimateKey={location.pathname}>
-						<NotificationOfflineWarning />
-						<Outlet />
-					</FadeInContentTransition>
-				</Suspense>
-			</Layout>
+			{layout ? <Layout>{content}</Layout> : content}
 		</PrivateRoute>
 	);
 };
 
-const PublicLayout = () => {
+const PublicRouteWrapper = () => {
 	const location = useLocation();
 	return (
 		<FadeInContentTransition reanimateKey={location.pathname}>
@@ -64,36 +67,6 @@ const PublicLayout = () => {
 		</FadeInContentTransition>
 	);
 }
-
-/**
- * Authenticated route definitions.
- * Returns an array of Route elements for use in both tenant-scoped and global contexts.
- * Uses relative paths which React Router resolves against the parent route.
- * @param prefix - Optional path prefix ("/" for global routes, "" for nested routes)
- */
-const authenticatedRoutes = [
-	<Route key="home" index element={<Home />} />,
-	<Route key="settings" path="settings" element={<Settings />} />,
-	<Route key="credential" path="credential/:batchId" element={<Credential />} />,
-	<Route key="credential-history" path="credential/:batchId/history" element={<CredentialHistory />} />,
-	<Route key="credential-details" path="credential/:batchId/details" element={<CredentialDetails />} />,
-	<Route key="history" path="history" element={<History />} />,
-	<Route key="pending" path="pending" element={<Pending />} />,
-	<Route key="history-detail" path="history/:transactionId" element={<HistoryDetail />} />,
-	<Route key="add" path="add" element={<AddCredentials />} />,
-	<Route key="send" path="send" element={<SendCredentials />} />,
-	<Route key="verification" path="verification/result" element={<VerificationResult />} />,
-];
-
-/**
- * Public route definitions.
- */
-const publicRoutes = [
-	<Route key="login" path="login" element={<Login />} />,
-	<Route key="login-state" path="login-state" element={<LoginState />} />,
-	<Route key="oidc-cb" path="oidc/cb" element={<OIDCCallback />} />,
-	<Route key="not-found" path="*" element={<NotFound />} />,
-];
 
 function App() {
 	const multiTenant = useMemo(() => isMultiTenant(), []);
@@ -116,12 +89,36 @@ function App() {
 				<UpdateNotification />
 				<Routes>
 					<Route path={basePath} element={routeWrapper}>
-						<Route key="cb" path="cb/*" element={<PrivateRoute><OpenIDFlowCallback /></PrivateRoute>} />,
-						<Route element={<ProtectedLayout />}>
-							{authenticatedRoutes}
+						{/**
+						 * Protected routes without layout, used for flows that require a blank page (e.g. OIDC callback)
+						 */}
+						<Route element={<ProtectedRouteWrapper layout={false} />}>
+							<Route path="cb/*" element={<OpenIDFlowCallback />} />
 						</Route>
-						<Route element={<PublicLayout/>}>
-							{publicRoutes}
+						{/**
+						 * Protected routes with layout, used for the main app pages.
+						 */}
+						<Route element={<ProtectedRouteWrapper />}>
+							<Route index element={<Home />} />
+							<Route path="settings" element={<Settings />} />
+							<Route path="credential/:batchId" element={<Credential />} />
+							<Route path="credential/:batchId/history" element={<CredentialHistory />} />
+							<Route path="credential/:batchId/details" element={<CredentialDetails />} />
+							<Route path="history" element={<History />} />
+							<Route path="pending" element={<Pending />} />
+							<Route path="history/:transactionId" element={<HistoryDetail />} />
+							<Route path="add" element={<AddCredentials />} />
+							<Route path="send" element={<SendCredentials />} />
+							<Route path="verification/result" element={<VerificationResult />} />
+						</Route>
+						{/**
+						 * Public routes, used for login and OIDC gate callback.
+						 */}
+						<Route element={<PublicRouteWrapper/>}>
+							<Route path="login" element={<Login />} />
+							<Route path="login-state" element={<LoginState />} />
+							<Route path="oidc/cb" element={<OIDCCallback />} />
+							<Route path="*" element={<NotFound />} />
 						</Route>
 					</Route>
 				</Routes>
