@@ -13,7 +13,7 @@ import * as keystore from "./keystore";
 import type { AsymmetricEncryptedContainer, AsymmetricEncryptedContainerKeys, EncryptedContainer, OpenedContainer, PrivateData, UnlockSuccess, WebauthnPrfEncryptionKeyInfo, WebauthnPrfSaltInfo, WrappedKeyInfo } from "./keystore";
 import { MDoc } from "@auth0/mdl";
 import { WalletStateUtils } from "./WalletStateUtils";
-import { addAlterSettingsEvent, addDeleteCredentialEvent, addDeleteCredentialIssuanceSessionEvent, addDeleteKeypairEvent, addNewCredentialEvent, addNewPresentationEvent, addSaveCredentialIssuanceSessionEvent, CurrentSchema, foldOldEventsIntoBaseState, foldState, mergeEventHistories } from "./WalletStateSchema";
+import { addAlterSettingsEvent, addDeleteCredentialEvent, addDeleteCredentialIssuanceSessionEvent, addDeleteKeypairEvent, addDeletePresentationEvent, addNewCredentialEvent, addNewPresentationEvent, addSaveCredentialIssuanceSessionEvent, CurrentSchema, foldOldEventsIntoBaseState, foldState, mergeEventHistories } from "./WalletStateSchema";
 import { UserId } from "@/api/types";
 import { getItem } from "@/indexedDB";
 import { WalletStateContainerGeneric } from "./WalletStateSchemaCommon";
@@ -778,6 +778,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		walletStateContainer = await foldOldEventsIntoBaseState(walletStateContainer);
 
 		const credentialsToBeDeleted = calculatedWalletState.credentials.filter((cred) => cred.batchId === batchId);
+		const deletedCredentialIds = new Set(credentialsToBeDeleted.map((cred) => cred.credentialId));
 		for (const cred of credentialsToBeDeleted) {
 			walletStateContainer = await addDeleteCredentialEvent(walletStateContainer, cred.credentialId);
 			// delete keypair
@@ -785,6 +786,14 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 			if (kid) {
 				walletStateContainer = await addDeleteKeypairEvent(walletStateContainer, kid);
 			}
+		}
+
+		// delete presentations that reference any of the deleted credentials
+		const presentationsToDelete = calculatedWalletState.presentations.filter((p) =>
+			p.usedCredentialIds.some((id) => deletedCredentialIds.has(id))
+		);
+		for (const presentation of presentationsToDelete) {
+			walletStateContainer = await addDeletePresentationEvent(walletStateContainer, presentation.presentationId);
 		}
 
 		return editPrivateData(async (originalContainer) => {
