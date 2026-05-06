@@ -789,11 +789,15 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		}
 
 		// delete presentations that reference any of the deleted credentials
-		const presentationsToDelete = calculatedWalletState.presentations.filter((p) =>
-			p.usedCredentialIds.some((id) => deletedCredentialIds.has(id))
-		);
-		for (const presentation of presentationsToDelete) {
-			walletStateContainer = await addDeletePresentationEvent(walletStateContainer, presentation.presentationId);
+		// (unless the user has opted out of this behaviour via settings)
+		const deletionEnabled = calculatedWalletState.settings.deleteHistoryOnCredentialDeletion !== 'false';
+		if (deletionEnabled) {
+			const presentationsToDelete = calculatedWalletState.presentations.filter((p) =>
+				p.usedCredentialIds.some((id) => deletedCredentialIds.has(id))
+			);
+			for (const presentation of presentationsToDelete) {
+				walletStateContainer = await addDeletePresentationEvent(walletStateContainer, presentation.presentationId);
+			}
 		}
 
 		return editPrivateData(async (originalContainer) => {
