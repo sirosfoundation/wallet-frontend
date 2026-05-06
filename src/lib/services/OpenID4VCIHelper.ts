@@ -24,7 +24,7 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 				const result = schema.safeParse(response.data);
 
 				if (!result.success) {
-					logger.warn(`Schema validation failed for ${path}:`, result.error.issues);
+					logger.warn(`Schema validation failed for ${path}:`, JSON.stringify(result.error.issues));
 					throw new Error("Invalid response schema");
 				}
 
@@ -37,7 +37,9 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 
 	const getCredentialIssuerMetadata = useCallback(
 		async (credentialIssuerIdentifier: string, useCache?: boolean): Promise<{ metadata: OpenidCredentialIssuerMetadata } | null> => {
-			const pathCredentialIssuer = `${credentialIssuerIdentifier}/.well-known/openid-credential-issuer`;
+			// RFC8414 well-known URI construction: https://host/.well-known/openid-credential-issuer/path
+			const issuerUrl = new URL(credentialIssuerIdentifier);
+			const pathCredentialIssuer = `${issuerUrl.origin}/.well-known/openid-credential-issuer${issuerUrl.pathname}`;
 			try {
 				const metadata = await fetchAndParseWithSchema<OpenidCredentialIssuerMetadata>(
 					pathCredentialIssuer,
@@ -75,13 +77,16 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 	// If not available from metadata, then the issuer is imlplied to also act as the authorization server.
 	const getAuthorizationServerMetadata = useCallback(
 		async (credentialIssuerIdentifier: string, useCache?: boolean): Promise<{ authzServerMetadata: OpenidAuthorizationServerMetadata } | null> => {
-			const authorizationServerWellKnownLocation = ".well-known/oauth-authorization-server";
 			const { metadata } = await getCredentialIssuerMetadata(credentialIssuerIdentifier);
-			const pathAuthorizationServerFromCredentialIssuerMetadata = metadata.authorization_servers && metadata.authorization_servers.length > 0 ?
-				`${metadata.authorization_servers[0]}/${authorizationServerWellKnownLocation}` :
-				null;
-			const pathIssuerAuthorizationServer = `${credentialIssuerIdentifier}/${authorizationServerWellKnownLocation}`;
-			const pathIssuerOpenIdConfiguration = `${credentialIssuerIdentifier}/.well-known/openid-configuration`;
+			// RFC8414 well-known URI construction for authorization server metadata
+			let pathAuthorizationServerFromCredentialIssuerMetadata: string | null = null;
+			if (metadata.authorization_servers && metadata.authorization_servers.length > 0) {
+				const authzUrl = new URL(metadata.authorization_servers[0]);
+				pathAuthorizationServerFromCredentialIssuerMetadata = `${authzUrl.origin}/.well-known/oauth-authorization-server${authzUrl.pathname}`;
+			}
+			const issuerUrl = new URL(credentialIssuerIdentifier);
+			const pathIssuerAuthorizationServer = `${issuerUrl.origin}/.well-known/oauth-authorization-server${issuerUrl.pathname}`;
+			const pathIssuerOpenIdConfiguration = `${issuerUrl.origin}/.well-known/openid-configuration${issuerUrl.pathname}`;
 			let authzServerMetadata: OpenidAuthorizationServerMetadata = null;
 
 			if (pathAuthorizationServerFromCredentialIssuerMetadata) {
@@ -126,10 +131,10 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 				const trustedCredentialIssuers = issuerResponse.data;
 				const issuer = trustedCredentialIssuers.filter((issuer: any) => issuer.credentialIssuerIdentifier === credentialIssuerIdentifier)[0];
 				if (issuer) {
-					return { client_id: issuer.clientId };
+					return { client_id: issuer.clientId, client_jwk: issuer.clientJwk || null };
 				}
 
-				return { client_id: OPENID4VCI_REDIRECT_URI };
+				return { client_id: OPENID4VCI_REDIRECT_URI, client_jwk: null };
 			}
 			catch (err) {
 				logger.debug("Could not get client_id for issuer " + credentialIssuerIdentifier + " Details:");

@@ -47,6 +47,7 @@ export function useTokenRequest() {
 	const codeVerifier = useRef<string | null>(null);
 	const redirectUri = useRef<string | null>(null);
 	const clientId = useRef<string | null>(OPENID4VCI_REDIRECT_URI);
+	const clientJwk = useRef<string | null>(null);
 	const retries = useRef<number>(0);
 	const dpopParams = useRef<{ dpopPrivateKey: KeyLike, dpopPublicKeyJwk: JWK } | null>(null);
 	const dpopHandle = useRef<oauth4webapi.DPoPHandle | null>(null);
@@ -109,6 +110,10 @@ export function useTokenRequest() {
 
 	const setClientId = useCallback((clientIdValue: string) => {
 		clientId.current = clientIdValue;
+	}, []);
+
+	const setClientJwk = useCallback((jwk: string | null) => {
+		clientJwk.current = jwk;
 	}, []);
 
 	const setIssuer = useCallback((issuerValue: string) => {
@@ -214,7 +219,9 @@ export function useTokenRequest() {
 				as,
 				{ preAuthorizedCode: preAuthorizedCode.current, txCode: txCode.current },
 				{ dpopPrivateKey: dpopParams.current.dpopPrivateKey, dpopPublicKeyJwk: dpopParams.current.dpopPublicKeyJwk },
-				options
+				options,
+				clientId.current ?? undefined,
+				clientJwk.current ?? undefined
 			);
 		}
 
@@ -344,6 +351,7 @@ export function useTokenRequest() {
 
 	return useMemo(() => ({
 		setClientId,
+		setClientJwk,
 		setIssuer,
 		setGrantType,
 		setAuthorizationCode,
@@ -359,6 +367,7 @@ export function useTokenRequest() {
 		execute,
 	}), [
 		setClientId,
+		setClientJwk,
 		setIssuer,
 		setGrantType,
 		setAuthorizationCode,
