@@ -68,16 +68,16 @@
 	},
 	"issuanceWarningPopup": {
 		"codes": {
-			"FailFetchIssuerMetadata": "Could not fetch issuer metadata",
-			"FailSchemaIssuerMetadata": "Issuer metadata does not match the expected format",
-			"IntegrityFail": "Integrity verification of metadata failed",
-			"IntegrityMissing": "Integrity hash is missing from metadata",
-			"JwtVcIssuerFail": "Issuer verification failed",
-			"JwtVcIssuerMismatch": "Issuer in the credential does not match the expected issuer",
-			"NotFound": "Type metadata document could not be found",
-			"NotFoundExtends": "Extended type metadata could not be resolved"
+			"FailFetchIssuerMetadata": "Issuer metadata could not be retrieved: the credential may display with limited information",
+			"FailSchemaIssuerMetadata": "Issuer metadata is malformed: some issuer details may not display correctly",
+			"IntegrityFail": "Metadata integrity check failed: display information may have been tampered with",
+			"IntegrityMissing": "Metadata integrity could not be verified: display information may have been modified",
+			"JwtVcIssuerFail": "Issuer verification failed: the credential's authenticity could not be confirmed",
+			"JwtVcIssuerMismatch": "The credential issuer does not match the expected issuer: the credential's origin could not be confirmed",
+			"NotFound": "Type metadata could not be found: the credential may display with limited information",
+			"NotFoundExtends": "Extended type metadata could not be resolved: some display details may be missing"
 		},
-		"description": "The credential was received but has the following issues. You can still accept it, but it may not work as expected.",
+		"description": "The credential was received but some verification checks did not pass. Review the details below before deciding whether to accept it.",
 		"title": "Credential Warnings"
 	},
 	"language": {

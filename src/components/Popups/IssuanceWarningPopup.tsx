@@ -2,11 +2,45 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import PopupLayout from './PopupLayout';
 import Button from '../Buttons/Button';
-import { CircleAlert } from 'lucide-react';
+import { CircleAlert, ShieldAlert, Info } from 'lucide-react';
 
 export interface IssuanceWarning {
 	code: string;
 }
+
+type WarningSeverity = 'critical' | 'warning' | 'info';
+
+const CRITICAL_CODES = new Set([
+	'JwtVcIssuerMismatch',
+	'JwtVcIssuerFail',
+	'IntegrityFail',
+]);
+
+const WARNING_CODES = new Set(['IntegrityMissing']);
+
+function getSeverity(code: string): WarningSeverity {
+	if (CRITICAL_CODES.has(code)) return 'critical';
+	if (WARNING_CODES.has(code)) return 'warning';
+	return 'info';
+}
+
+const severityConfig = {
+	critical: {
+		icon: ShieldAlert,
+		iconClass: 'text-lm-red dark:text-dm-red',
+		bgClass: 'bg-red-50 dark:bg-red-950/30',
+	},
+	warning: {
+		icon: CircleAlert,
+		iconClass: 'text-lm-orange dark:text-dm-orange',
+		bgClass: 'bg-lm-gray-200 dark:bg-dm-gray-800',
+	},
+	info: {
+		icon: Info,
+		iconClass: 'text-lm-blue dark:text-dm-blue',
+		bgClass: 'bg-lm-gray-200 dark:bg-dm-gray-800',
+	},
+} as const;
 
 interface IssuanceWarningPopupProps {
 	isOpen: boolean;
@@ -23,6 +57,15 @@ const IssuanceWarningPopup: React.FC<IssuanceWarningPopupProps> = ({
 }) => {
 	const { t } = useTranslation();
 
+	const sortedWarnings = [...warnings].sort((a, b) => {
+		const order: Record<WarningSeverity, number> = {
+			critical: 0,
+			warning: 1,
+			info: 2,
+		};
+		return order[getSeverity(a.code)] - order[getSeverity(b.code)];
+	});
+
 	return (
 		<PopupLayout isOpen={isOpen} onClose={onCancel}>
 			<div className="flex items-start justify-between mb-2">
@@ -34,28 +77,31 @@ const IssuanceWarningPopup: React.FC<IssuanceWarningPopupProps> = ({
 				</h2>
 			</div>
 			<hr className="mb-2 border-t border-lm-gray-500 dark:border-dm-gray-500" />
-
-			<p className="mt-4 text-sm text-lm-gray-800 dark:text-dm-gray-200">
+			<p className="mt-4 text-sm text-lm-gray-900 dark:text-dm-gray-50">
 				{t('issuanceWarningPopup.description')}
 			</p>
+			<ul className="mt-4 mb-2 space-y-2">
+				{sortedWarnings.map((warning, index) => {
+					const severity = getSeverity(warning.code);
+					const config = severityConfig[severity];
+					const Icon = config.icon;
 
-			<ul className="mt-3 mb-2 space-y-2">
-				{warnings.map((warning, index) => (
-					<li
-						key={index}
-						className="flex items-start gap-2 p-2 rounded-md bg-lm-gray-200 dark:bg-dm-gray-800"
-					>
-						<CircleAlert
-							size={16}
-							className="mt-0.5 shrink-0 text-lm-orange dark:text-dm-orange"
-						/>
-						<span className="text-sm font-medium text-lm-gray-900 dark:text-dm-gray-100">
-							{t(`issuanceWarningPopup.codes.${warning.code}`, warning.code)}
-						</span>
-					</li>
-				))}
+					return (
+						<li
+							key={index}
+							className={`flex items-start gap-2 p-2 rounded-md ${config.bgClass}`}
+						>
+							<Icon
+								size={16}
+								className={`mt-0.5 shrink-0 ${config.iconClass}`}
+							/>
+							<span className="text-sm font-medium text-lm-gray-900 dark:text-dm-gray-100">
+								{t(`issuanceWarningPopup.codes.${warning.code}`, warning.code)}
+							</span>
+						</li>
+					);
+				})}
 			</ul>
-
 			<div className="flex justify-end space-x-2 pt-4">
 				<Button id="cancel-issuance-warning" onClick={onCancel}>
 					{t('common.cancel')}
