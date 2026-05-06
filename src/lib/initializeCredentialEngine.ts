@@ -20,9 +20,12 @@ export async function initializeCredentialEngine(
 				if (!VCT_REGISTRY_URL) return err(VctResolutionErrors.NotFound);
 				const url = new URL(VCT_REGISTRY_URL);
 				url.searchParams.set('vct', vct);
-				const res = await httpProxy.get(url.toString(), {}, { useCache: true });
-				if (!res?.data || res.status!==200) return err(VctResolutionErrors.NotFound);
-				return ok(res.data as any);
+				// VCTM registry is part of the backend and always serves CORS headers;
+				// fetch directly to avoid routing through /proxy.
+				const response = await fetch(url.toString());
+				if (!response.ok) return err(VctResolutionErrors.NotFound);
+				const data = await response.json();
+				return ok(data as any);
 			} catch (e) {
 				logger.error('Error in VCT SDJWT Metadata retrieval:', e);
 				return err(VctResolutionErrors.NotFound);
