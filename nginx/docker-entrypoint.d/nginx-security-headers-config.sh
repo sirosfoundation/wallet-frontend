@@ -4,6 +4,7 @@ set -e
 # Available options from environment variables:
 # - NGINX_SEC_HEADER_FILE (Default: "/etc/nginx/conf.d/security-headers.conf")
 # - WS_URL
+# - WALLET_ENGINE_URL
 # - WALLET_BACKEND_URL
 # - OHTTP_KEY_CONFIG
 # - OHTTP_RELAY
@@ -21,6 +22,12 @@ CONNECT_SRC="'self' data:"
 # -------------------------------------------------------------------------------------------------
 if [ -n "${WS_URL}" ]; then
 	CONNECT_SRC="${CONNECT_SRC} ${WS_URL}"
+	CONNECT_SRC="${CONNECT_SRC} $(echo "${WS_URL}" | sed 's|^wss://|https://|;s|^ws://|http://|')"
+fi
+
+if [ -n "${WALLET_ENGINE_URL}" ]; then
+	CONNECT_SRC="${CONNECT_SRC} ${WALLET_ENGINE_URL}"
+	CONNECT_SRC="${CONNECT_SRC} $(echo "${WALLET_ENGINE_URL}" | sed 's|^https://|wss://|;s|^http://|ws://|')"
 fi
 
 if [ -n "${WALLET_BACKEND_URL}" ]; then
