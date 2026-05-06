@@ -13,6 +13,7 @@ import { withAuthenticatorAttachmentFromHints } from '@/util-webauthn';
 import { formatDate } from 'wallet-common';
 import type { WebauthnPrfEncryptionKeyInfo } from '../../services/keystore';
 import { isPrfKeyV2, serializePrivateData } from '../../services/keystore';
+import { DEFAULT_DELETE_HISTORY_ON_CREDENTIAL_DELETION } from '../../services/LocalStorageKeystore';
 
 import DeletePopup from '../../components/Popups/DeletePopup';
 import Button from '../../components/Buttons/Button';
@@ -1083,7 +1084,7 @@ const Settings = () => {
 									<div className="relative">
 										<select
 											className={`h-10 pl-3 pr-10 bg-lm-gray-200 dark:bg-dm-gray-800 border border-lm-gray-600 dark:border-dm-gray-400 text-lm-gray-900 dark:text-white rounded-lg dark:inputDarkModeOverride appearance-none`}
-											defaultValue={userData.settings.deleteHistoryOnCredentialDeletion ?? 'true'}
+											defaultValue={userData.settings.deleteHistoryOnCredentialDeletion ?? DEFAULT_DELETE_HISTORY_ON_CREDENTIAL_DELETION}
 											onChange={(e) => handleDeleteHistoryChange(e.target.value)}
 										>
 											<option value="true">{t('pageSettings.deleteHistoryOnCredentialDeletion.enabled')}</option>

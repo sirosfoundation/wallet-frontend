@@ -24,6 +24,8 @@ type WalletStateCredentialIssuanceSession = CurrentSchema.WalletStateCredentialI
 type WalletStatePresentation = CurrentSchema.WalletStatePresentation;
 type WalletStateSettings = CurrentSchema.WalletStateSettings;
 
+export const DEFAULT_DELETE_HISTORY_ON_CREDENTIAL_DELETION = 'true';
+
 type UserData = {
 	displayName: string;
 	userHandle: Uint8Array;
@@ -790,7 +792,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 
 		// delete presentations that reference any of the deleted credentials
 		// (unless the user has opted out of this behaviour via settings)
-		const deletionEnabled = calculatedWalletState.settings.deleteHistoryOnCredentialDeletion !== 'false';
+		const deletionEnabled = (calculatedWalletState.settings.deleteHistoryOnCredentialDeletion ?? DEFAULT_DELETE_HISTORY_ON_CREDENTIAL_DELETION) === 'true';
 		if (deletionEnabled) {
 			const presentationsToDelete = calculatedWalletState.presentations.filter((p) =>
 				p.usedCredentialIds.some((id) => deletedCredentialIds.has(id))
