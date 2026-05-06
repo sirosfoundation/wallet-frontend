@@ -131,10 +131,10 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 				const trustedCredentialIssuers = issuerResponse.data;
 				const issuer = trustedCredentialIssuers.filter((issuer: any) => issuer.credentialIssuerIdentifier === credentialIssuerIdentifier)[0];
 				if (issuer) {
-					return { client_id: issuer.clientId, client_jwk: issuer.clientJwk || null };
+					return { client_id: issuer.clientId };
 				}
 
-				return { client_id: OPENID4VCI_REDIRECT_URI, client_jwk: null };
+					return { client_id: OPENID4VCI_REDIRECT_URI };
 			}
 			catch (err) {
 				logger.debug("Could not get client_id for issuer " + credentialIssuerIdentifier + " Details:");

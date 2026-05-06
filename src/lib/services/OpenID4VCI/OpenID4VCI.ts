@@ -497,9 +497,6 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 		if (clientIdResult?.client_id) {
 			tokenRequestBuilder.setClientId(clientIdResult.client_id);
 		}
-		if (clientIdResult?.client_jwk) {
-			tokenRequestBuilder.setClientJwk(clientIdResult.client_jwk);
-		}
 		if (txCode) {
 			tokenRequestBuilder.setTxCode(txCode);
 		}
