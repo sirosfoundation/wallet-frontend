@@ -32,6 +32,7 @@ const Home = React.lazy(() => import('./pages/Home/Home'));
 const SendCredentials = React.lazy(() => import('./pages/SendCredentials/SendCredentials'));
 const Settings = React.lazy(() => import('./pages/Settings/Settings'));
 const VerificationResult = React.lazy(() => import('./pages/VerificationResult/VerificationResult'));
+const OpenIDFlowCallback = React.lazy(() => import('./pages/OpenIDFlowCallback/OpenIDFlowCallback'));
 
 const Layout = lazyWithDelay(() => import('./components/Layout/Layout'), 400);
 const Login = lazyWithDelay(() => import('./pages/Login/Login'), 400);
@@ -81,7 +82,6 @@ const authenticatedRoutes = [
 	<Route key="add" path="add" element={<AddCredentials />} />,
 	<Route key="send" path="send" element={<SendCredentials />} />,
 	<Route key="verification" path="verification/result" element={<VerificationResult />} />,
-	<Route key="cb" path="cb/*" element={<Home />} />,
 ];
 
 /**
@@ -114,6 +114,7 @@ function App() {
 				<UpdateNotification />
 				<Routes>
 					<Route path={basePath} element={routeWrapper}>
+						<Route key="cb" path="cb/*" element={<PrivateRoute><OpenIDFlowCallback /></PrivateRoute>} />,
 						<Route element={<ProtectedLayout />}>
 							{authenticatedRoutes}
 						</Route>

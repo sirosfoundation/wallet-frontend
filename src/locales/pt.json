@@ -122,6 +122,24 @@
 	},
 	"messagePopup": {
 		"close": "Fechar",
+		"onlyOneInputDescriptor": {
+			"description": "Neste momento, a carteira não pode aceitar um Pedido de Apresentação para mais do que uma credencial em simultâneo.",
+			"title": "Versão de protocolo não suportada"
+		},
+		"sendResponseError": {
+			"description": "Ocorreu um erro durante a apresentação das credenciais.",
+			"title": "Erro de envio de resposta"
+		}
+	},
+	"notFound": {
+		"homeButton": "Voltar à página inicial",
+		"message": "Lamentamos, mas a página que procura não pode ser acedida",
+		"title": "Oops, página não encontrada!"
+	},
+	"openIdCallback": {
+		"authorizationError": {
+			"title": "Erro de Autorização"
+		},
 		"insufficientCredentials": {
 			"description": "Uma ou mais das credenciais que deseja apresentar não estão disponíveis para seleção.",
 			"title": "Credenciais insuficientes"
@@ -130,23 +148,20 @@
 			"description": "O verifier não forneceu informação válida para verificação.",
 			"title": "Verifier não confiável"
 		},
-		"onlyOneInputDescriptor": {
-			"description": "Neste momento, a carteira não pode aceitar um Pedido de Apresentação para mais do que uma credencial em simultâneo.",
-			"title": "Versão de protocolo não suportada"
-		},
-		"sendResponseError": {
-			"description": "Ocorreu um erro durante a apresentação das credenciais.",
-			"title": "Erro de envio de resposta"
-		},
 		"sendResponseSuccess": {
 			"description": "As credenciais foram enviadas com sucesso.",
 			"title": "Apresentação bem-sucedida"
+		},
+		"unsupportedCallback": {
+			"description": "O URL de callback fornecido não é suportado.",
+			"title": "Callback Não Suportado"
+		},
+		"vciFlowError": {
+			"title": "Erro de Emissão de Credencial"
+		},
+		"vpFlowError": {
+			"title": "Erro de Verificação"
 		}
-	},
-	"notFound": {
-		"homeButton": "Voltar à página inicial",
-		"message": "Lamentamos, mas a página que procura não pode ser acedida",
-		"title": "Oops, página não encontrada!"
 	},
 	"pageAddCredentials": {
 		"description": "Pesquise e selecione um credencial que deseja emitir",
