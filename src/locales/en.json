@@ -220,7 +220,7 @@
 	"pageCredentials": {
 		"addCard": {
 			"text": "Add New Credential",
-			"title": "Verifable Credential"
+			"title": "Verifiable Credential"
 		},
 		"copyDatasetToClipboard": "Copy Dataset (JSON) to clipboard",
 		"credentialDetailsTitle": "Click to view details for {{friendlyName}}",
