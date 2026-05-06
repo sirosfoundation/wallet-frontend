@@ -214,7 +214,8 @@ export function useTokenRequest() {
 				as,
 				{ preAuthorizedCode: preAuthorizedCode.current, txCode: txCode.current },
 				{ dpopPrivateKey: dpopParams.current.dpopPrivateKey, dpopPublicKeyJwk: dpopParams.current.dpopPublicKeyJwk },
-				options
+				options,
+				clientId.current ?? undefined,
 			);
 		}
 
