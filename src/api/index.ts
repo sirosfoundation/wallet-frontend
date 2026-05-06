@@ -14,11 +14,8 @@ import { addItem, getItem, EXCLUDED_INDEXEDDB_PATHS } from '../indexedDB';
 import { loginWebAuthnBeginOffline } from './LocalAuthentication';
 import { withAuthenticatorAttachmentFromHints, withHintsFromAllowCredentials } from '@/util-webauthn';
 import { getTenantFromUrlPath, setStoredTenant, clearStoredTenant } from '../lib/tenant';
-<<<<<<< HEAD
 import { clearOIDCState } from '../lib/oidc';
-=======
 import { refreshAccessToken, isUnauthorizedError, TokenRefreshConfig } from './tokenRefresh';
->>>>>>> origin/release/sirosid
 
 const walletBackendUrl = config.BACKEND_URL;
 
