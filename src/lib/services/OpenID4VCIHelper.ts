@@ -1,19 +1,28 @@
 import { IOpenID4VCIHelper } from "../interfaces/IOpenID4VCIHelper";
-import { base64url, importX509, jwtVerify } from "jose";
-import { getPublicKeyFromB64Cert } from "../utils/pki";
 import { useHttpProxy } from "./HttpProxy/HttpProxy";
 import { useCallback, useContext, useMemo } from "react";
 import SessionContext from "@/context/SessionContext";
 import { MdocIacasResponse, MdocIacasResponseSchema } from "../schemas/MdocIacasResponseSchema";
-import { OpenidAuthorizationServerMetadataSchema, OpenidCredentialIssuerMetadataSchema } from 'wallet-common';
-import type { OpenidAuthorizationServerMetadata, OpenidCredentialIssuerMetadata } from 'wallet-common'
-import { OPENID4VCI_REDIRECT_URI } from "@/config";
+import { AuthZENClient, AuthZENClientConfig, OpenidAuthorizationServerMetadataSchema, OpenidCredentialIssuerMetadataSchema } from 'wallet-common';
+import type { OpenidAuthorizationServerMetadata, OpenidCredentialIssuerMetadata } from 'wallet-common';
+import { BACKEND_URL, OPENID4VCI_REDIRECT_URI } from "@/config";
+import { getTenantFromUrlPath } from "@/lib/tenant";
 import { logger } from '@/logger';
 
 export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 	const httpProxy = useHttpProxy();
 	const { api } = useContext(SessionContext);
 	const { getExternalEntity } = api;
+
+	const authzenClient = useMemo(() => {
+		const clientConfig: AuthZENClientConfig = {
+			httpClient: httpProxy,
+			baseUrl: BACKEND_URL,
+			getAuthToken: () => api.getAppToken() ?? '',
+			tenantId: getTenantFromUrlPath() ?? 'default',
+		};
+		return AuthZENClient(clientConfig);
+	}, [httpProxy, api]);
 
 	const fetchAndParseWithSchema = useCallback(
 		async function fetchAndParseWithSchema<T>(path: string, schema: any, useCache: boolean = true, cacheOnError: boolean = false): Promise<T> {
@@ -37,39 +46,29 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 
 	const getCredentialIssuerMetadata = useCallback(
 		async (credentialIssuerIdentifier: string, useCache?: boolean): Promise<{ metadata: OpenidCredentialIssuerMetadata } | null> => {
-			// RFC8414 well-known URI construction: https://host/.well-known/openid-credential-issuer/path
-			const issuerUrl = new URL(credentialIssuerIdentifier);
-			const pathCredentialIssuer = `${issuerUrl.origin}/.well-known/openid-credential-issuer${issuerUrl.pathname.replace(/\/$/, '')}`;
 			try {
-				const metadata = await fetchAndParseWithSchema<OpenidCredentialIssuerMetadata>(
-					pathCredentialIssuer,
-					OpenidCredentialIssuerMetadataSchema,
-					useCache,
-					useCache === false,
-				);
-				if (metadata.signed_metadata) {
-					try {
-						const parsedHeader = JSON.parse(new TextDecoder().decode(base64url.decode(metadata.signed_metadata.split('.')[0])));
-						if (parsedHeader.x5c) {
-							const publicKey = await importX509(getPublicKeyFromB64Cert(parsedHeader.x5c[0]), parsedHeader.alg);
-							const { payload } = await jwtVerify(metadata.signed_metadata, publicKey);
-							return { metadata: payload as OpenidCredentialIssuerMetadata };
-						}
-						return null;
-					}
-					catch (err) {
-						logger.error(err);
-						return null;
-					}
+				const result = await authzenClient.resolve(credentialIssuerIdentifier);
+				if (!result.ok) {
+					logger.error(`Failed to resolve issuer metadata for ${credentialIssuerIdentifier}:`, result.error);
+					return null;
 				}
-				return { metadata };
-			}
-			catch (err) {
+				const trustMetadata = result.value.context?.trust_metadata;
+				if (!trustMetadata) {
+					logger.error(`No trust_metadata in resolve response for ${credentialIssuerIdentifier}`);
+					return null;
+				}
+				const parsed = OpenidCredentialIssuerMetadataSchema.safeParse(trustMetadata);
+				if (!parsed.success) {
+					logger.warn(`Schema validation failed for ${credentialIssuerIdentifier}:`, JSON.stringify(parsed.error.issues));
+					return null;
+				}
+				return { metadata: parsed.data };
+			} catch (err) {
 				logger.error(err);
 				return null;
 			}
 		},
-		[fetchAndParseWithSchema]
+		[authzenClient]
 	);
 
 	// Fetches authorization server metadata with fallback
