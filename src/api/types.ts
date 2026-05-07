@@ -70,7 +70,6 @@ export type WebauthnCredential = {
 export type UserSettings = {
 	openidRefreshTokenMaxAgeInSeconds: number;
 	useOblivious: string;
-	deleteHistoryOnCredentialDeletion?: string;
 }
 
 // OIDC Gate types - must match go-wallet-backend/internal/domain/oidc_gate.go

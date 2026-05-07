@@ -191,7 +191,6 @@ export type WalletStateCredentialIssuanceSession = WalletState['credentialIssuan
 
 export interface WalletStateSettings {
 	openidRefreshTokenMaxAgeInSeconds: string,
-	deleteHistoryOnCredentialDeletion?: string,
 	[other: string]: unknown,
 }
 
