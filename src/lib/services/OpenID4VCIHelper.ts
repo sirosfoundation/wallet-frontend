@@ -46,11 +46,15 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 
 	const getCredentialIssuerMetadata = useCallback(
 		async (credentialIssuerIdentifier: string, useCache?: boolean): Promise<{ metadata: OpenidCredentialIssuerMetadata } | null> => {
+			void useCache; // cache control is handled server-side by the resolver
 			try {
 				const result = await authzenClient.resolve(credentialIssuerIdentifier);
 				if (!result.ok) {
 					logger.error(`Failed to resolve issuer metadata for ${credentialIssuerIdentifier}:`, result.error);
 					return null;
+				}
+				if (!result.value.decision) {
+					logger.warn(`Issuer ${credentialIssuerIdentifier} is not trusted by the policy decision point`);
 				}
 				const trustMetadata = result.value.context?.trust_metadata;
 				if (!trustMetadata) {
