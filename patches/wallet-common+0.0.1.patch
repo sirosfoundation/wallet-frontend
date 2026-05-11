@@ -1,0 +1,58 @@
+diff --git a/node_modules/wallet-common/dist/protocols/openid4vp/OpenID4VPServerAPI.d.ts b/node_modules/wallet-common/dist/protocols/openid4vp/OpenID4VPServerAPI.d.ts
+index f0cb4e5..4c9171f 100644
+--- a/node_modules/wallet-common/dist/protocols/openid4vp/OpenID4VPServerAPI.d.ts
++++ b/node_modules/wallet-common/dist/protocols/openid4vp/OpenID4VPServerAPI.d.ts
+@@ -114,6 +114,7 @@ export declare class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCrede
+         response_uri: string;
+         client_id: string;
+         state: string;
++        response_mode: import("./types").OpenID4VPResponseMode;
+     }>;
+ }
+ export {};
+diff --git a/node_modules/wallet-common/dist/protocols/openid4vp/OpenID4VPServerAPI.js b/node_modules/wallet-common/dist/protocols/openid4vp/OpenID4VPServerAPI.js
+index 5004a47..c30ab2b 100644
+--- a/node_modules/wallet-common/dist/protocols/openid4vp/OpenID4VPServerAPI.js
++++ b/node_modules/wallet-common/dist/protocols/openid4vp/OpenID4VPServerAPI.js
+@@ -144,9 +144,7 @@ class OpenID4VPServerAPI {
+             client_metadata: searchParams.get("client_metadata")
+                 ? JSON.parse(searchParams.get("client_metadata"))
+                 : null,
+-            response_mode: searchParams.get("response_mode")
+-                ? JSON.parse(searchParams.get("response_mode"))
+-                : null,
++            response_mode: searchParams.get("response_mode") ?? null,
+             transaction_data: searchParams.get("transaction_data")
+                 ? JSON.parse(searchParams.get("transaction_data"))
+                 : null,
+@@ -793,6 +791,7 @@ class OpenID4VPServerAPI {
+             response_uri: S.response_uri,
+             client_id: S.client_id,
+             state: S.state,
++            response_mode: S.response_mode,
+         };
+     }
+ }
+diff --git a/node_modules/wallet-common/src/protocols/openid4vp/OpenID4VPServerAPI.ts b/node_modules/wallet-common/src/protocols/openid4vp/OpenID4VPServerAPI.ts
+index 32ab29d..cbddee8 100644
+--- a/node_modules/wallet-common/src/protocols/openid4vp/OpenID4VPServerAPI.ts
++++ b/node_modules/wallet-common/src/protocols/openid4vp/OpenID4VPServerAPI.ts
+@@ -227,9 +227,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
+ 			client_metadata: searchParams.get("client_metadata")
+ 				? JSON.parse(searchParams.get("client_metadata") as string)
+ 				: null,
+-			response_mode: searchParams.get("response_mode")
+-				? JSON.parse(searchParams.get("response_mode") as string)
+-				: null,
++			response_mode: searchParams.get("response_mode") ?? null,
+ 			transaction_data: searchParams.get("transaction_data")
+ 				? JSON.parse(searchParams.get("transaction_data") as string)
+ 				: null,
+@@ -1007,6 +1005,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
+ 			response_uri: S.response_uri,
+ 			client_id: S.client_id,
+ 			state: S.state,
++			response_mode: S.response_mode,
+ 		};
+ 	}
+ }
