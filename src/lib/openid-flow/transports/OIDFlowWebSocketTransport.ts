@@ -192,9 +192,22 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			try {
 				// Connect using the base WebSocket URL; send auth token in a message after connection
 				const url = this.wsUrl;
+				logger.info('WebSocket connect attempt', {
+					hasAuthToken: !!this.authToken,
+					tenantId: this.tenantId,
+					reconnectAttemptsUsed: this.reconnectAttempts,
+					maxReconnectAttempts: this.maxReconnectAttempts,
+					visibilityState: typeof document !== 'undefined' ? document.visibilityState : 'unknown',
+					online: typeof navigator !== 'undefined' ? navigator.onLine : undefined,
+				});
 				this.ws = new WebSocket(url);
 
 				this.ws.onopen = () => {
+					logger.info('WebSocket connected, sending handshake', {
+						hasAuthToken: !!this.authToken,
+						tenantId: this.tenantId,
+						pendingRequests: this.pending.size,
+					});
 					// Send auth token and tenant ID as first message for security (avoids logging in URL)
 					try {
 						if (this.ws && this.ws.readyState === WebSocket.OPEN) {
@@ -215,7 +228,13 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				};
 
 				this.ws.onerror = (event) => {
-					logger.error('WebSocket error:', event);
+					logger.error('WebSocket error:', {
+						event,
+						readyState: this.ws?.readyState,
+						visibilityState: typeof document !== 'undefined' ? document.visibilityState : 'unknown',
+						online: typeof navigator !== 'undefined' ? navigator.onLine : undefined,
+						reconnectAttemptsUsed: this.reconnectAttempts,
+					});
 					this.connectionPromise = null;
 					reject(new Error('WebSocket connection failed'));
 				};
@@ -977,6 +996,16 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	}
 
 	private handleDisconnect(event: CloseEvent): void {
+		logger.warn('WebSocket closed', {
+			code: event.code,
+			reason: event.reason,
+			wasClean: event.wasClean,
+			visibilityState: typeof document !== 'undefined' ? document.visibilityState : 'unknown',
+			online: typeof navigator !== 'undefined' ? navigator.onLine : undefined,
+			reconnectAttemptsUsed: this.reconnectAttempts,
+			maxReconnectAttempts: this.maxReconnectAttempts,
+		});
+
 		// Reject all pending requests
 		Array.from(this.pending.entries()).forEach(([id, pending]) => {
 			clearTimeout(pending.timeout);
@@ -1008,7 +1037,13 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts);
 			this.reconnectAttempts++;
 
-			logger.debug(`WebSocket reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
+			logger.info('WebSocket reconnect scheduled', {
+				delayMs: delay,
+				attempt: this.reconnectAttempts,
+				maxReconnectAttempts: this.maxReconnectAttempts,
+				online: typeof navigator !== 'undefined' ? navigator.onLine : undefined,
+				visibilityState: typeof document !== 'undefined' ? document.visibilityState : 'unknown',
+			});
 
 			setTimeout(() => {
 				this.connect().catch((error) => {
@@ -1017,6 +1052,12 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				});
 			}, delay);
 		} else {
+			logger.error('WebSocket reconnect budget exhausted', {
+				reconnectAttemptsUsed: this.reconnectAttempts,
+				maxReconnectAttempts: this.maxReconnectAttempts,
+				online: typeof navigator !== 'undefined' ? navigator.onLine : undefined,
+				visibilityState: typeof document !== 'undefined' ? document.visibilityState : 'unknown',
+			});
 			this.emitError(new Error('WebSocket connection lost after max reconnect attempts'));
 		}
 	}

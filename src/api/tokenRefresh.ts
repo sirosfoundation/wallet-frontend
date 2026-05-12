@@ -38,8 +38,10 @@ export async function refreshAccessToken(config: TokenRefreshConfig): Promise<Re
 	const refreshToken = config.getRefreshToken();
 
 	if (!refreshToken) {
+		logger.info('Token refresh skipped: no refresh token present');
 		return { success: false };
 	}
+	logger.debug('Token refresh starting', { hasRefreshToken: true });
 
 	// If already refreshing, wait for the existing request
 	if (isRefreshing && refreshPromise) {
@@ -137,12 +139,16 @@ export async function withTokenRefresh<T>(
 	} catch (error) {
 		// Only attempt refresh on 401 errors and if we haven't already retried
 		if (!retried && isUnauthorizedError(error)) {
+			const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+			logger.info('withTokenRefresh intercepted 401, attempting refresh', { status });
 			const refreshResult = await refreshAccessToken(refreshConfig);
 
 			if (refreshResult.success) {
+				logger.info('withTokenRefresh retrying request after successful token refresh');
 				// Retry the original request with the new token
 				return withTokenRefresh(requestFn, refreshConfig, true);
 			}
+			logger.warn('withTokenRefresh could not refresh token; request will fail');
 		}
 
 		// Re-throw if refresh failed or error is not 401

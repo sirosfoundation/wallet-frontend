@@ -128,6 +128,40 @@ function shouldUseWebViewTokenBackup(): boolean {
 	return getOIDCFlowMode() === 'native-bridge';
 }
 
+function getClientRuntimeDiagnostics(): Record<string, unknown> {
+	const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+	const isAndroid = /Android/i.test(ua);
+	const hasNativeBridge = typeof window !== 'undefined' && !!window.NativeOIDCBridge?.isAvailable?.();
+	const visibilityState = typeof document !== 'undefined' ? document.visibilityState : 'unknown';
+	const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : undefined;
+
+	let sessionStorageWritable = false;
+	let localStorageWritable = false;
+	try {
+		sessionStorage.setItem('__storage_probe__', '1');
+		sessionStorage.removeItem('__storage_probe__');
+		sessionStorageWritable = true;
+	} catch {
+		sessionStorageWritable = false;
+	}
+	try {
+		localStorage.setItem('__storage_probe__', '1');
+		localStorage.removeItem('__storage_probe__');
+		localStorageWritable = true;
+	} catch {
+		localStorageWritable = false;
+	}
+
+	return {
+		isAndroid,
+		hasNativeBridge,
+		visibilityState,
+		isOnline,
+		sessionStorageWritable,
+		localStorageWritable,
+	};
+}
+
 // Synchronously restore session tokens from localStorage backup at module load time.
 // This must run before any React component reads sessionStorage so that
 // useSessionStorage() finds the correct value on its very first render, avoiding
@@ -154,6 +188,7 @@ try {
 			hadRefreshTokenBackup: !!refreshTokenBackup,
 			restoredAppToken: !hasSessionAppToken && !!appTokenBackup,
 			restoredRefreshToken: !hasSessionRefreshToken && !!refreshTokenBackup,
+			...getClientRuntimeDiagnostics(),
 		});
 	} else {
 		// Never keep token backups for normal browser clients.
@@ -178,6 +213,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			hasRefreshTokenInSession: refreshToken !== null,
 			hasAppTokenBackup: nativeBridgeMode ? !!localStorage.getItem(APPTOKEN_LS_BACKUP) : false,
 			hasRefreshTokenBackup: nativeBridgeMode ? !!localStorage.getItem(REFRESHTOKEN_LS_BACKUP) : false,
+			...getClientRuntimeDiagnostics(),
 		});
 		// Intentionally run once to capture startup state.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -500,10 +536,25 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 
 		try {
 			if (!isOnline) {
+				logger.debug('syncPrivateData skipped: offline mode', {
+					hasAppToken: !!appToken,
+					hasRefreshToken: !!refreshToken,
+					privateDataEtagPresent: !!getPrivateDataEtag(),
+					...getClientRuntimeDiagnostics(),
+				});
 				return Ok.EMPTY;
 			}
+			logger.debug('syncPrivateData start', {
+				hasAppToken: !!appToken,
+				hasRefreshToken: !!refreshToken,
+				hasCachedUser: !!cachedUser,
+				hasKeystore: !!keystore,
+				privateDataEtagPresent: !!getPrivateDataEtag(),
+				...getClientRuntimeDiagnostics(),
+			});
 			const getPrivateDataResponse = await get('/user/session/private-data', { headers: { 'If-None-Match': getPrivateDataEtag() } });
 			if (getPrivateDataResponse.status === 304) {
+				logger.debug('syncPrivateData no-op: remote data unchanged (304)');
 				return Ok.EMPTY; // already synced
 			}
 
@@ -550,11 +601,21 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 				logger.debug('syncPrivateData: private data etag conflict', err);
 				return Err('x-private-data-etag');
 			}
-			logger.error('syncPrivateData failed', err);
+			const status = axios.isAxiosError(err) ? err.response?.status : undefined;
+			const code = axios.isAxiosError(err) ? err.code : undefined;
+			logger.error('syncPrivateData failed', {
+				status,
+				code,
+				hasAppToken: !!appToken,
+				hasRefreshToken: !!refreshToken,
+				hasCachedUser: !!cachedUser,
+				hasKeystore: !!keystore,
+				...getClientRuntimeDiagnostics(),
+			});
 			return Err('syncFailed');
 		}
 
-	}, [getPrivateDataEtag, get, navigate, isOnline, post, updatePrivateDataEtag]);
+	}, [getPrivateDataEtag, get, navigate, isOnline, post, updatePrivateDataEtag, appToken, refreshToken]);
 
 	const updateShowWelcome = useCallback((showWelcome: boolean): void => {
 		if (sessionState) {
