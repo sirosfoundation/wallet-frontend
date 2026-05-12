@@ -14,7 +14,7 @@ import { addItem, getItem, EXCLUDED_INDEXEDDB_PATHS } from '../indexedDB';
 import { loginWebAuthnBeginOffline } from './LocalAuthentication';
 import { withAuthenticatorAttachmentFromHints, withHintsFromAllowCredentials } from '@/util-webauthn';
 import { getTenantFromUrlPath, setStoredTenant, clearStoredTenant } from '../lib/tenant';
-import { clearOIDCState } from '../lib/oidc';
+import { clearOIDCState, getOIDCFlowMode } from '../lib/oidc';
 import { refreshAccessToken, isUnauthorizedError, TokenRefreshConfig } from './tokenRefresh';
 
 const walletBackendUrl = config.BACKEND_URL;
@@ -124,19 +124,41 @@ export interface BackendApi {
 const APPTOKEN_LS_BACKUP = 'appToken_webview_backup';
 const REFRESHTOKEN_LS_BACKUP = 'refreshToken_webview_backup';
 
+function shouldUseWebViewTokenBackup(): boolean {
+	return getOIDCFlowMode() === 'native-bridge';
+}
+
 // Synchronously restore session tokens from localStorage backup at module load time.
 // This must run before any React component reads sessionStorage so that
 // useSessionStorage() finds the correct value on its very first render, avoiding
 // the 401/WS-auth-failure window that would otherwise exist until the useEffect
 // restore fires after the first render.
 try {
-	if (!sessionStorage.getItem('appToken')) {
-		const backup = localStorage.getItem(APPTOKEN_LS_BACKUP);
-		if (backup) sessionStorage.setItem('appToken', backup);
-	}
-	if (!sessionStorage.getItem('refreshToken')) {
-		const backup = localStorage.getItem(REFRESHTOKEN_LS_BACKUP);
-		if (backup) sessionStorage.setItem('refreshToken', backup);
+	if (shouldUseWebViewTokenBackup()) {
+		const hasSessionAppToken = !!sessionStorage.getItem('appToken');
+		const hasSessionRefreshToken = !!sessionStorage.getItem('refreshToken');
+		const appTokenBackup = localStorage.getItem(APPTOKEN_LS_BACKUP);
+		const refreshTokenBackup = localStorage.getItem(REFRESHTOKEN_LS_BACKUP);
+
+		if (!hasSessionAppToken && appTokenBackup) {
+			sessionStorage.setItem('appToken', appTokenBackup);
+		}
+		if (!hasSessionRefreshToken && refreshTokenBackup) {
+			sessionStorage.setItem('refreshToken', refreshTokenBackup);
+		}
+
+		logger.info('Session recovery bootstrap (native bridge)', {
+			hadSessionAppToken: hasSessionAppToken,
+			hadSessionRefreshToken: hasSessionRefreshToken,
+			hadAppTokenBackup: !!appTokenBackup,
+			hadRefreshTokenBackup: !!refreshTokenBackup,
+			restoredAppToken: !hasSessionAppToken && !!appTokenBackup,
+			restoredRefreshToken: !hasSessionRefreshToken && !!refreshTokenBackup,
+		});
+	} else {
+		// Never keep token backups for normal browser clients.
+		localStorage.removeItem(APPTOKEN_LS_BACKUP);
+		localStorage.removeItem(REFRESHTOKEN_LS_BACKUP);
 	}
 } catch { /* SSR / private-browsing guard */ }
 
@@ -147,36 +169,61 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 	const [userHandle,] = useSessionStorage<string | null>("userHandle", null);
 	const [cachedUsers] = useLocalStorage<CachedUser[] | null>("cachedUsers", null);
 	const [sessionState, setSessionState, clearSessionState] = useSessionStorage<SessionState | null>("sessionState", null);
+	const nativeBridgeMode = shouldUseWebViewTokenBackup();
+
+	useEffect(() => {
+		logger.info('useApi token state at init', {
+			nativeBridgeMode,
+			hasAppTokenInSession: appToken !== null,
+			hasRefreshTokenInSession: refreshToken !== null,
+			hasAppTokenBackup: nativeBridgeMode ? !!localStorage.getItem(APPTOKEN_LS_BACKUP) : false,
+			hasRefreshTokenBackup: nativeBridgeMode ? !!localStorage.getItem(REFRESHTOKEN_LS_BACKUP) : false,
+		});
+		// Intentionally run once to capture startup state.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	// Mirror tokens to localStorage so they survive external-redirect WebView navigation.
 	useEffect(() => {
-		if (appToken !== null) {
+		if (nativeBridgeMode && appToken !== null) {
 			localStorage.setItem(APPTOKEN_LS_BACKUP, JSON.stringify(appToken));
+			logger.debug('Updated appToken WebView backup');
 		}
-	}, [appToken]);
+	}, [appToken, nativeBridgeMode]);
 
 	useEffect(() => {
-		if (refreshToken !== null) {
+		if (nativeBridgeMode && refreshToken !== null) {
 			localStorage.setItem(REFRESHTOKEN_LS_BACKUP, JSON.stringify(refreshToken));
+			logger.debug('Updated refreshToken WebView backup');
 		}
-	}, [refreshToken]);
+	}, [refreshToken, nativeBridgeMode]);
 
 	// On mount: restore session from localStorage backup if sessionStorage was wiped by
 	// a WebView external redirect (appToken is null but backup exists).
 	useEffect(() => {
+		if (!nativeBridgeMode) {
+			return;
+		}
+
 		if (appToken === null) {
 			try {
 				const backup = localStorage.getItem(APPTOKEN_LS_BACKUP);
-				if (backup) setAppToken(JSON.parse(backup));
+				if (backup) {
+					setAppToken(JSON.parse(backup));
+					logger.info('Restored appToken from WebView backup (effect fallback)');
+				}
 			} catch { /* ignore malformed backup */ }
 		}
 		if (refreshToken === null) {
 			try {
 				const backup = localStorage.getItem(REFRESHTOKEN_LS_BACKUP);
-				if (backup) setRefreshToken(JSON.parse(backup));
+				if (backup) {
+					setRefreshToken(JSON.parse(backup));
+					logger.info('Restored refreshToken from WebView backup (effect fallback)');
+				}
 			} catch { /* ignore malformed backup */ }
 		}
-	}, []); // eslint-disable-line react-hooks/exhaustive-deps
+	}, [appToken, refreshToken, nativeBridgeMode, setAppToken, setRefreshToken]);
 
 	/**
 	 * Synchronization tag for the encrypted private data. To prevent data loss,

@@ -12,6 +12,8 @@ import React from 'react';
 import { OIDFlowTransportProvider } from './OIDFlowTransportContext';
 import { useSessionStorage } from '@/hooks/useStorage';
 import { getTenantFromUrlPath } from '@/lib/tenant';
+import { getOIDCFlowMode } from '@/lib/oidc';
+import { logger } from '@/logger';
 
 interface OIDFlowTransportProviderWrapperProps {
 	children: React.ReactNode;
@@ -27,15 +29,23 @@ export const OIDFlowTransportProviderWrapper: React.FC<OIDFlowTransportProviderW
 	// Get the appToken from session storage
 	// This is the same token used by the rest of the app
 	const [appToken] = useSessionStorage<string | null>('appToken', null);
+	const nativeBridgeMode = getOIDCFlowMode() === 'native-bridge';
 
 	// Synchronous localStorage fallback: if sessionStorage was wiped by a mobile
 	// WebView external OAuth redirect, we need the backup token immediately on this
 	// render — before the restore effect in useApi fires — so the WebSocket
 	// handshake doesn't start with a null auth token.
 	const effectiveAppToken = appToken ?? (() => {
+		if (!nativeBridgeMode) {
+			return null;
+		}
 		try {
 			const backup = localStorage.getItem('appToken_webview_backup');
-			return backup ? JSON.parse(backup) as string : null;
+			if (backup) {
+				logger.info('OIDFlowTransportProviderWrapper restored appToken from WebView backup');
+				return JSON.parse(backup) as string;
+			}
+			return null;
 		} catch {
 			return null;
 		}
