@@ -251,14 +251,24 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		[idb, clearGlobalUserHandleB64u, clearGlobalTabId, clearPrivateData, setCalculatedWalletState, userHandleB64u],
 	);
 
-	const assertKeystoreOpen = useCallback(async (): Promise<[EncryptedContainer, CryptoKey]> => {
-		const pd = privateDataRef.current ?? privateData;
-		const mk = mainKeyRef.current ?? mainKey;
+	const isKeystoreOpen = useCallback((): false | [EncryptedContainer, BufferSource] => {
+		const pd = privateDataRef.current === undefined ? privateData : privateDataRef.current;
+		const mk = mainKeyRef.current === undefined ? mainKey : mainKeyRef.current;
 		if (pd && mk) {
+			return [pd, mk];
+		}
+
+		return false;
+	}, [privateData, mainKey]);
+
+	const assertKeystoreOpen = useCallback(async (): Promise<[EncryptedContainer, CryptoKey]> => {
+		const openedKeystore = isKeystoreOpen();
+		if (openedKeystore) {
+			const [pd, mk] = openedKeystore;
 			return [pd, await keystore.importMainKey(mk)];
 		}
 		throw new Error("Key store is closed.", { cause: 'keystore_closed' });
-}, [privateData, mainKey]);
+	}, [isKeystoreOpen]);
 
 	useOnUserInactivity(close, config.INACTIVE_LOGOUT_MILLIS);
 
@@ -368,7 +378,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 			);
 			let newEncryptedContainer: keystore.EncryptedContainer;
 
-			if (privateData) { // keystore is already opened
+			if (isKeystoreOpen()) { // keystore is already opened
 				const [localPrivateData, localMainKey] = await assertKeystoreOpen();
 				const [remoteContainer, remoteMainKey,] = await keystore.openPrivateData(unlockSuccess.mainKey, unlockSuccess.privateData);
 				const [localContainer, ,] = await keystore.openPrivateData(localMainKey, localPrivateData);
@@ -463,7 +473,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		tabId,
 		writePrivateDataOnIdb,
 		assertKeystoreOpen,
-		privateData,
+		isKeystoreOpen,
 	]);
 
 
