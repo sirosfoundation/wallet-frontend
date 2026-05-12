@@ -560,6 +560,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 
 // Storage key for pending OID4VCI flow state
 const OID4VCI_PENDING_FLOW_KEY = 'oid4vci_pending_flow';
+const OID4VCI_PENDING_FLOW_KEY_FALLBACK = 'oid4vci_pending_flow_fallback';
 
 export interface PendingOID4VCIFlow {
 	flowId?: string;
@@ -574,16 +575,20 @@ export interface PendingOID4VCIFlow {
  */
 function savePendingFlow(flow: PendingOID4VCIFlow): void {
 	sessionStorage.setItem(OID4VCI_PENDING_FLOW_KEY, JSON.stringify(flow));
+	localStorage.setItem(OID4VCI_PENDING_FLOW_KEY_FALLBACK, JSON.stringify(flow));
 }
 
 /**
  * Load and clear pending flow state
  */
 function loadAndClearPendingFlow(): PendingOID4VCIFlow | null {
-	const stored = sessionStorage.getItem(OID4VCI_PENDING_FLOW_KEY);
+	const stored =
+		sessionStorage.getItem(OID4VCI_PENDING_FLOW_KEY) ??
+		localStorage.getItem(OID4VCI_PENDING_FLOW_KEY_FALLBACK);
 	if (!stored) return null;
 
 	sessionStorage.removeItem(OID4VCI_PENDING_FLOW_KEY);
+	localStorage.removeItem(OID4VCI_PENDING_FLOW_KEY_FALLBACK);
 
 	try {
 		const flow = JSON.parse(stored) as PendingOID4VCIFlow;
