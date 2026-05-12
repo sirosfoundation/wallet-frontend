@@ -190,8 +190,9 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 		this.connectionPromise = new Promise((resolve, reject) => {
 			try {
-				// Connect using the base WebSocket URL; send auth token in a message after connection
-				const url = this.wsUrl;
+				// Tenant routing happens during the initial upgrade request, before any handshake payload.
+				const url = new URL(this.wsUrl);
+				url.searchParams.set('tenant_id', this.tenantId);
 				logger.info('WebSocket connect attempt', {
 					hasAuthToken: !!this.authToken,
 					tenantId: this.tenantId,
