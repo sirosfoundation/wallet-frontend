@@ -28,12 +28,25 @@ export const OIDFlowTransportProviderWrapper: React.FC<OIDFlowTransportProviderW
 	// This is the same token used by the rest of the app
 	const [appToken] = useSessionStorage<string | null>('appToken', null);
 
+	// Synchronous localStorage fallback: if sessionStorage was wiped by a mobile
+	// WebView external OAuth redirect, we need the backup token immediately on this
+	// render — before the restore effect in useApi fires — so the WebSocket
+	// handshake doesn't start with a null auth token.
+	const effectiveAppToken = appToken ?? (() => {
+		try {
+			const backup = localStorage.getItem('appToken_webview_backup');
+			return backup ? JSON.parse(backup) as string : null;
+		} catch {
+			return null;
+		}
+	})();
+
 	// Get the tenant ID from URL path (more robust than sessionStorage)
 	// URL structure: /id/{tenantId}/* -> returns tenantId, or 'default' for root paths
 	const tenantId = getTenantFromUrlPath() ?? 'default';
 
 	return (
-		<OIDFlowTransportProvider authToken={appToken} tenantId={tenantId}>
+		<OIDFlowTransportProvider authToken={effectiveAppToken} tenantId={tenantId}>
 			{children}
 		</OIDFlowTransportProvider>
 	);

@@ -118,6 +118,12 @@ export interface BackendApi {
 	>>;
 }
 
+// localStorage keys used to mirror session tokens for WebView session recovery.
+// When an external OAuth redirect causes sessionStorage to be cleared (iOS/Android
+// WebView navigates away and returns), these backups let us restore the session.
+const APPTOKEN_LS_BACKUP = 'appToken_webview_backup';
+const REFRESHTOKEN_LS_BACKUP = 'refreshToken_webview_backup';
+
 export function useApi(isOnlineProp: boolean = true): BackendApi {
 	const isOnline = useMemo(() => isOnlineProp === null ? true : isOnlineProp, [isOnlineProp]);
 	const [appToken, setAppToken, clearAppToken] = useSessionStorage<string | null>("appToken", null);
@@ -125,6 +131,36 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 	const [userHandle,] = useSessionStorage<string | null>("userHandle", null);
 	const [cachedUsers] = useLocalStorage<CachedUser[] | null>("cachedUsers", null);
 	const [sessionState, setSessionState, clearSessionState] = useSessionStorage<SessionState | null>("sessionState", null);
+
+	// Mirror tokens to localStorage so they survive external-redirect WebView navigation.
+	useEffect(() => {
+		if (appToken !== null) {
+			localStorage.setItem(APPTOKEN_LS_BACKUP, JSON.stringify(appToken));
+		}
+	}, [appToken]);
+
+	useEffect(() => {
+		if (refreshToken !== null) {
+			localStorage.setItem(REFRESHTOKEN_LS_BACKUP, JSON.stringify(refreshToken));
+		}
+	}, [refreshToken]);
+
+	// On mount: restore session from localStorage backup if sessionStorage was wiped by
+	// a WebView external redirect (appToken is null but backup exists).
+	useEffect(() => {
+		if (appToken === null) {
+			try {
+				const backup = localStorage.getItem(APPTOKEN_LS_BACKUP);
+				if (backup) setAppToken(JSON.parse(backup));
+			} catch { /* ignore malformed backup */ }
+		}
+		if (refreshToken === null) {
+			try {
+				const backup = localStorage.getItem(REFRESHTOKEN_LS_BACKUP);
+				if (backup) setRefreshToken(JSON.parse(backup));
+			} catch { /* ignore malformed backup */ }
+		}
+	}, []); // eslint-disable-line react-hooks/exhaustive-deps
 
 	/**
 	 * Synchronization tag for the encrypted private data. To prevent data loss,
@@ -158,6 +194,9 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		clearStoredTenant(); // Clear tenant on logout
 		clearOIDCState('registration'); // Clear OIDC gate tokens on logout
 		clearOIDCState('login');
+		// Remove WebView backup so a logout is permanent even after a redirect.
+		localStorage.removeItem(APPTOKEN_LS_BACKUP);
+		localStorage.removeItem(REFRESHTOKEN_LS_BACKUP);
 		events.dispatchEvent(new CustomEvent<ClearSessionEvent>(CLEAR_SESSION_EVENT));
 	}, [clearSessionStorage, removePrivateDataEtag]);
 
