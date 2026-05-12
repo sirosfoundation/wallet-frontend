@@ -31,6 +31,7 @@ import CredentialTabsPanel from '@/components/Credentials/CredentialTabsPanel';
 
 import { useMdocAppCommunication } from '@/lib/services/MdocAppCommunication';
 import { BookCheck, QrCode } from 'lucide-react';
+import { PRESERVE_PRESENTATION_HISTORY } from '@/config';
 
 const Credential = () => {
 	const { batchId } = useParams();
@@ -267,7 +268,9 @@ const Credential = () => {
 						onClose={() => setShowDeletePopup(false)}
 						message={
 							<Trans
-								i18nKey="pageCredentials.deletePopupMessage"
+								i18nKey={PRESERVE_PRESENTATION_HISTORY
+									? "pageCredentials.deletePopupMessagePreserveHistory"
+									: "pageCredentials.deletePopupMessage"}
 								values={{ credentialName }}
 								components={{ strong: <strong />, br: <br /> }}
 							/>

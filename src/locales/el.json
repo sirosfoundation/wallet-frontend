@@ -200,7 +200,8 @@
 		"slideButtonTitleDisable": "Δεν υπάρχει διαθέσιμο {{direction}} πιστοποιητικό",
 		"slideButtonTitleEnable": "Κάντε κλικ για να μεταβείτε στο {{direction}} πιστοποιητικό",
 		"slideNext": "επόμενο",
-		"slidePrevious": "προηγούμενο"
+		"slidePrevious": "προηγούμενο",
+		"deletePopupMessagePreserveHistory": "Είστε σίγουροι ότι θέλετε να διαγράψετε το πιστοποιητικό <strong>{{credentialName}}</strong>;"
 	},
 	"pageHistory": {
 		"description": "Δείτε στο ιστορικό αποστολών πιστοποιητικών πότε και σε ποιους verifiers τα στείλατε.",

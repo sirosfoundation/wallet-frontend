@@ -241,7 +241,8 @@
 		"slideButtonTitleDisable": "No {{direction}} credential available",
 		"slideButtonTitleEnable": "Click to move to the {{direction}} credential",
 		"slideNext": "next",
-		"slidePrevious": "previous"
+		"slidePrevious": "previous",
+		"deletePopupMessagePreserveHistory": "Are you sure you want to delete the <strong>{{credentialName}}</strong> credential?"
 	},
 	"pageHistory": {
 		"description": "View history of credential transmissions, detailing when and to which verifiers you sent",

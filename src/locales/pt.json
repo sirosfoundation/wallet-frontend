@@ -194,7 +194,8 @@
 		"slideButtonTitleDisable": "Sem credencial {{direction}} disponível",
 		"slideButtonTitleEnable": "Clique para ir para a credencial {{direction}}",
 		"slideNext": "Seguinte",
-		"slidePrevious": "Anterior"
+		"slidePrevious": "Anterior",
+		"deletePopupMessagePreserveHistory": "Tem a certeza que deseja eliminar a credencial <strong>{{credentialName}}</strong>?"
 	},
 	"pageHistory": {
 		"description": "Consulte o histórico de transmissões de credenciais, com informação sobre quando e para que verifiers elas foram enviadas.",
