@@ -17,7 +17,7 @@ import AppProvider from './AppProvider';
 Modal.setAppElement('#root');
 
 ConsoleBehavior();
-
+console.log('Initial window.location on app start': window.location);
 // Initialize IndexedDB BEFORE React renders
 (async () => {
 	try {
