@@ -124,6 +124,22 @@ export interface BackendApi {
 const APPTOKEN_LS_BACKUP = 'appToken_webview_backup';
 const REFRESHTOKEN_LS_BACKUP = 'refreshToken_webview_backup';
 
+// Synchronously restore session tokens from localStorage backup at module load time.
+// This must run before any React component reads sessionStorage so that
+// useSessionStorage() finds the correct value on its very first render, avoiding
+// the 401/WS-auth-failure window that would otherwise exist until the useEffect
+// restore fires after the first render.
+try {
+	if (!sessionStorage.getItem('appToken')) {
+		const backup = localStorage.getItem(APPTOKEN_LS_BACKUP);
+		if (backup) sessionStorage.setItem('appToken', backup);
+	}
+	if (!sessionStorage.getItem('refreshToken')) {
+		const backup = localStorage.getItem(REFRESHTOKEN_LS_BACKUP);
+		if (backup) sessionStorage.setItem('refreshToken', backup);
+	}
+} catch { /* SSR / private-browsing guard */ }
+
 export function useApi(isOnlineProp: boolean = true): BackendApi {
 	const isOnline = useMemo(() => isOnlineProp === null ? true : isOnlineProp, [isOnlineProp]);
 	const [appToken, setAppToken, clearAppToken] = useSessionStorage<string | null>("appToken", null);
