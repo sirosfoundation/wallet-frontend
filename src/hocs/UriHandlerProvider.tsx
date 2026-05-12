@@ -111,6 +111,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 
 	// Listen for URL changes to handle incoming OpenID flow callbacks
 	useEffect(() => {
+		logger.debug('URL change:', url);
 		const u = new URL(url);
 
 		if (u.pathname.endsWith('/cb')) {
