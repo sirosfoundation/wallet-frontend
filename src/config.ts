@@ -62,6 +62,14 @@ export const WS_URL = config.ws_url || (ENGINE_URL
 	: undefined);
 
 export const MULTI_LANGUAGE_DISPLAY: boolean = config.multi_language_display ? JSON.parse(config.multi_language_display) : false;
+
+/**
+ * WMP (JSON-RPC over HTTP+SSE) endpoint URLs derived from ENGINE_URL.
+ * Can be overridden with wmp_rpc_url / wmp_events_url.
+ */
+export const WMP_RPC_URL = config.wmp_rpc_url || (ENGINE_URL ? `${ENGINE_URL}/wmp/rpc` : undefined);
+export const WMP_EVENTS_URL = config.wmp_events_url || (ENGINE_URL ? `${ENGINE_URL}/wmp/events` : undefined);
+
 export const I18N_WALLET_NAME_OVERRIDE: string | undefined = config.i18n_wallet_name_override;
 export const INACTIVE_LOGOUT_MILLIS = (config.inactive_logout_seconds ? parseInt(config.inactive_logout_seconds, 10) : 60 * 15) * 1000
 export const LOGIN_WITH_PASSWORD: boolean = config.login_with_password ? JSON.parse(config.login_with_password) === true : false;
@@ -143,21 +151,22 @@ export const ALLOWED_TRANSPORTS: OIDFlowTransportType[] =
 	(config.allowed_transports || 'http_proxy,websocket')
 		.split(',')
 		.map((t: string) => t.trim())
-		.filter((t: string) => ['http_proxy', 'websocket', 'direct'].includes(t)) as OIDFlowTransportType[];
+		.filter((t: string) => ['http_proxy', 'websocket', 'wmp', 'direct'].includes(t)) as OIDFlowTransportType[];
 
 /**
  * Transport preference order (first available wins)
- * Default prefers WebSocket over HTTP proxy over Direct
+ * Default prefers WMP over WebSocket over HTTP proxy over Direct
  */
 export const TRANSPORT_PREFERENCE: OIDFlowTransportType[] =
-	(config.transport_preference || 'websocket,http_proxy,direct')
+	(config.transport_preference || 'wmp,websocket,http_proxy,direct')
 		.split(',')
 		.map((t: string) => t.trim())
-		.filter((t: string) => ['http_proxy', 'websocket', 'direct'].includes(t)) as OIDFlowTransportType[];
+		.filter((t: string) => ['http_proxy', 'websocket', 'wmp', 'direct'].includes(t)) as OIDFlowTransportType[];
 
 /** Derived convenience checks */
 export const HTTP_PROXY_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('http_proxy');
 export const WEBSOCKET_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('websocket');
+export const WMP_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('wmp');
 export const DIRECT_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('direct');
 export const BRANDING = {
 	LOGO_LIGHT: config.branding?.logo_light || '/logo_light.svg',

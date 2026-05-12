@@ -14,7 +14,9 @@ import type { IOIDFlowTransport } from '@/lib/openid-flow/types/IOIDFlowTranspor
 import { nullOIDFlowTransport } from '@/lib/openid-flow/types/IOIDFlowTransport';
 import { OIDFlowHttpProxyTransport } from '@/lib/openid-flow/transports/OIDFlowHttpProxyTransport';
 import { OIDFlowWebSocketTransport } from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
+import { OIDFlowWmpTransport } from '@/lib/openid-flow/transports/OIDFlowWmpTransport';
 import type { SignRequestHandler, MatchRequestHandler } from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
+import type { SignRequestHandler as WmpSignRequestHandler, MatchRequestHandler as WmpMatchRequestHandler } from '@/lib/openid-flow/transports/OIDFlowWmpTransport';
 import { useHttpProxy } from '@/lib/services/HttpProxy/HttpProxy';
 import {
 	Capabilities,
@@ -22,8 +24,11 @@ import {
 } from '@/lib/services/CapabilitiesService';
 import {
 	WS_URL,
+	WMP_RPC_URL,
+	WMP_EVENTS_URL,
 	HTTP_PROXY_TRANSPORT_ALLOWED,
 	WEBSOCKET_TRANSPORT_ALLOWED,
+	WMP_TRANSPORT_ALLOWED,
 	DIRECT_TRANSPORT_ALLOWED,
 	TRANSPORT_PREFERENCE,
 	BACKEND_URL,
@@ -97,12 +102,15 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 
 	const [isConnected, setIsConnected] = useState(false);
 	const [wsTransport, setWsTransport] = useState<OIDFlowWebSocketTransport | null>(null);
+	const [wmpTransport, setWmpTransport] = useState<OIDFlowWmpTransport | null>(null);
+	const [wmpConnected, setWmpConnected] = useState(false);
 	const [lastError, setLastError] = useState<Error | null>(null);
 
 	// Engine capabilities state
 	const [capabilitiesLoaded, setCapabilitiesLoaded] = useState(false);
 	const [engineCapabilities, setEngineCapabilities] = useState<string[]>([]);
 	const [wsCapabilityAvailable, setWsCapabilityAvailable] = useState(false);
+	const [wmpCapabilityAvailable, setWmpCapabilityAvailable] = useState(false);
 
 	const [pendingTransports, setPendingTransports] = useState<Set<OIDFlowTransportType>>(new Set());
 
@@ -111,11 +119,14 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		if (!capabilitiesLoaded) return false;
 		// 2. Wait for any transport mid-connection
 		if (pendingTransports.size > 0) return false;
-		// 3. If WebSocket is expected, wait for it to connect or fail
+		// 3. If WMP is expected, wait for it to connect or fail
+		const wmpExpected = WMP_TRANSPORT_ALLOWED && wmpCapabilityAvailable && !!WMP_RPC_URL && !!authToken;
+		if (wmpExpected && !wmpConnected && !lastError) return false;
+		// 4. If WebSocket is expected, wait for it to connect or fail
 		const wsExpected = WEBSOCKET_TRANSPORT_ALLOWED && wsCapabilityAvailable && !!WS_URL && !!authToken;
 		if (wsExpected && !isConnected && !lastError) return false;
 		return true;
-	}, [capabilitiesLoaded, pendingTransports, wsCapabilityAvailable, authToken, isConnected, lastError]);
+	}, [capabilitiesLoaded, pendingTransports, wmpCapabilityAvailable, wsCapabilityAvailable, authToken, wmpConnected, isConnected, lastError]);
 
 	const trustEvaluators = useMemo((): TrustEvaluators => {
 		const evaluateIssuerTrust = createIssuerTrustEvaluator({
@@ -149,6 +160,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 
 				setEngineCapabilities(caps);
 				setWsCapabilityAvailable(caps.includes(Capabilities.WEBSOCKET));
+				setWmpCapabilityAvailable(caps.includes(Capabilities.WMP));
 				setCapabilitiesLoaded(true);
 			} catch (error) {
 				logger.warn('Failed to fetch engine capabilities:', error);
@@ -174,9 +186,13 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		if (WEBSOCKET_TRANSPORT_ALLOWED && WS_URL && wsCapabilityAvailable) {
 			available.push('websocket');
 		}
+		// Only add wmp if config allows AND engine has capability
+		if (WMP_TRANSPORT_ALLOWED && WMP_RPC_URL && wmpCapabilityAvailable) {
+			available.push('wmp');
+		}
 		if (DIRECT_TRANSPORT_ALLOWED) available.push('direct');
 		return available;
-	}, [wsCapabilityAvailable]);
+	}, [wsCapabilityAvailable, wmpCapabilityAvailable]);
 
 	// Create HTTP proxy transport only if allowed
 	const httpTransport = useMemo(() => {
@@ -262,12 +278,90 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		};
 	}, [authToken, tenantId, capabilitiesLoaded, wsCapabilityAvailable, trustEvaluators]);
 
-	// Update auth token and tenant ID on WebSocket when they change
+	// Create and manage WMP transport (only if capability is available)
+	useEffect(() => {
+		if (!capabilitiesLoaded) return;
+		if (!WMP_TRANSPORT_ALLOWED || !wmpCapabilityAvailable || !WMP_RPC_URL || !WMP_EVENTS_URL || !authToken) {
+			setWmpTransport(null);
+			setWmpConnected(false);
+			return;
+		}
+
+		let cancelled = false;
+		const wmp = new OIDFlowWmpTransport(WMP_RPC_URL, WMP_EVENTS_URL, authToken, tenantId, trustEvaluators);
+		setWmpTransport(wmp);
+
+		setPendingTransports(prev => new Set(prev).add('wmp'));
+
+		const connectTimeout = setTimeout(() => {
+			if (cancelled) return;
+			cancelled = true;
+			logger.warn('WMP connection timed out');
+			wmp.disconnect();
+			setWmpConnected(false);
+			setLastError(new Error('WMP connection timed out'));
+			setPendingTransports(prev => {
+				const next = new Set(prev);
+				next.delete('wmp');
+				return next;
+			});
+		}, TRANSPORT_CONNECT_TIMEOUT);
+
+		(async () => {
+			try {
+				await wmp.connect();
+				if (cancelled) return;
+				clearTimeout(connectTimeout);
+				setWmpConnected(true);
+				setLastError(null);
+			} catch (error) {
+				if (cancelled) return;
+				clearTimeout(connectTimeout);
+				logger.error('WMP connection failed:', error);
+				setWmpConnected(false);
+				setLastError(error instanceof Error ? error : new Error(String(error)));
+			} finally {
+				if (cancelled) return;
+				clearTimeout(connectTimeout);
+				setPendingTransports(prev => {
+					const next = new Set(prev);
+					next.delete('wmp');
+					return next;
+				});
+			}
+		})();
+
+		const unsubscribeError = wmp.onError((error: Error) => {
+			logger.error('WMP error:', error);
+			setWmpConnected(false);
+			setLastError(error);
+		});
+
+		return () => {
+			cancelled = true;
+			clearTimeout(connectTimeout);
+			unsubscribeError();
+			wmp.disconnect();
+			setPendingTransports(prev => {
+				const next = new Set(prev);
+				next.delete('wmp');
+				return next;
+			});
+		};
+	}, [authToken, tenantId, capabilitiesLoaded, wmpCapabilityAvailable, trustEvaluators]);
+
+	// Update auth token and tenant ID on transports when they change
 	useEffect(() => {
 		if (wsTransport && authToken) {
 			wsTransport.updateAuthToken(authToken, tenantId);
 		}
 	}, [wsTransport, authToken, tenantId]);
+
+	useEffect(() => {
+		if (wmpTransport && authToken) {
+			wmpTransport.updateAuthToken(authToken, tenantId);
+		}
+	}, [wmpTransport, authToken, tenantId]);
 
 	// Select active transport based on preference order and availability
 	const { transport, transportType } = useMemo(() => {
@@ -276,6 +370,11 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 			if (!availableTransports.includes(pref)) continue;
 
 			switch (pref) {
+				case 'wmp':
+					if (wmpTransport && wmpConnected) {
+						return { transport: wmpTransport, transportType: 'wmp' as const };
+					}
+					break;
 				case 'websocket':
 					if (wsTransport && isConnected) {
 						return { transport: wsTransport, transportType: 'websocket' as const };
@@ -295,10 +394,21 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 
 		// No transport available
 		return { transport: nullOIDFlowTransport, transportType: 'none' as const };
-	}, [availableTransports, wsTransport, isConnected, httpTransport]);
+	}, [availableTransports, wmpTransport, wmpConnected, wsTransport, isConnected, httpTransport]);
 
 	// Reconnect function for WebSocket
 	const reconnect = useCallback(async () => {
+		if (wmpTransport && WMP_TRANSPORT_ALLOWED) {
+			try {
+				await wmpTransport.connect();
+				setWmpConnected(true);
+				setLastError(null);
+				return;
+			} catch (error) {
+				setLastError(error instanceof Error ? error : new Error('WMP reconnection failed'));
+				throw error;
+			}
+		}
 		if (wsTransport && WEBSOCKET_TRANSPORT_ALLOWED) {
 			try {
 				await wsTransport.connect();
@@ -309,34 +419,40 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 				throw error;
 			}
 		}
-	}, [wsTransport]);
+	}, [wmpTransport, wsTransport]);
 
 	const clearError = useCallback(() => {
 		setLastError(null);
 	}, []);
 
-	// Register sign handler on WebSocket transport
+	// Register sign handler on active persistent transport (WMP or WebSocket)
 	const registerSignHandler = useCallback((handler: SignRequestHandler): (() => void) => {
-		if (wsTransport) {
-			return wsTransport.onSignRequest(handler);
+		const unsubs: (() => void)[] = [];
+		if (wmpTransport) {
+			unsubs.push(wmpTransport.onSignRequest(handler as WmpSignRequestHandler));
 		}
-		// Return no-op unsubscribe if no WebSocket transport
-		return () => {};
-	}, [wsTransport]);
+		if (wsTransport) {
+			unsubs.push(wsTransport.onSignRequest(handler));
+		}
+		return () => unsubs.forEach(u => u());
+	}, [wmpTransport, wsTransport]);
 
-	// Register match handler on WebSocket transport for client-side credential matching
+	// Register match handler on active persistent transport (WMP or WebSocket)
 	const registerMatchHandler = useCallback((handler: MatchRequestHandler): (() => void) => {
-		if (wsTransport) {
-			return wsTransport.onMatchRequest(handler);
+		const unsubs: (() => void)[] = [];
+		if (wmpTransport) {
+			unsubs.push(wmpTransport.onMatchRequest(handler as WmpMatchRequestHandler));
 		}
-		// Return no-op unsubscribe if no WebSocket transport
-		return () => {};
-	}, [wsTransport]);
+		if (wsTransport) {
+			unsubs.push(wsTransport.onMatchRequest(handler));
+		}
+		return () => unsubs.forEach(u => u());
+	}, [wmpTransport, wsTransport]);
 
 	const value = useMemo(() => ({
 		transport,
 		transportType,
-		isConnected: transportType === 'websocket' ? isConnected : transportType === 'http_proxy',
+		isConnected: transportType === 'wmp' ? wmpConnected : transportType === 'websocket' ? isConnected : transportType === 'http_proxy',
 		reconnect,
 		availableTransports,
 		lastError,

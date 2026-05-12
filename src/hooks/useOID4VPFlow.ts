@@ -180,8 +180,8 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		setError(null);
 
 		try {
-			// WebSocket transport: delegate to backend
-			if (transportType === 'websocket' && transport) {
+			// WMP / WebSocket transport: delegate to backend
+			if ((transportType === 'websocket' || transportType === 'wmp') && transport) {
 				const unsubscribeProgress = onProgress
 					? transport.onProgress(onProgress)
 					: () => {};
@@ -402,8 +402,8 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		setError(null);
 
 		try {
-			// WebSocket transport: continue flow on backend
-			if (transportType === 'websocket' && transport) {
+			// WMP / WebSocket transport: continue flow on backend
+			if ((transportType === 'websocket' || transportType === 'wmp') && transport) {
 				const unsubscribeProgress = onProgress
 					? transport.onProgress(onProgress)
 					: () => {};

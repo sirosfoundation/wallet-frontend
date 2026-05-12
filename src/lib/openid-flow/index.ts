@@ -12,6 +12,7 @@ export { type IOIDFlowTransport, NullOIDFlowTransport, nullOIDFlowTransport } fr
 // Transport implementations
 export { OIDFlowHttpProxyTransport } from './transports/OIDFlowHttpProxyTransport';
 export { OIDFlowWebSocketTransport } from './transports/OIDFlowWebSocketTransport';
+export { OIDFlowWmpTransport } from './transports/OIDFlowWmpTransport';
 export { OIDFlowDirectTransport } from './transports/OIDFlowDirectTransport';
 export type { CorsCheckResult } from './transports/OIDFlowDirectTransport';
 

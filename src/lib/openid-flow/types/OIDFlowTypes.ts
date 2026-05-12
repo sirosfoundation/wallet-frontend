@@ -35,7 +35,7 @@ export type OIDFlowCallbackURL =
 /**
  * Transport type enumeration
  */
-export type OIDFlowTransportType = 'http_proxy' | 'websocket' | 'direct';
+export type OIDFlowTransportType = 'http_proxy' | 'websocket' | 'wmp' | 'direct';
 export type OIDFlowActiveTransportType = OIDFlowTransportType | 'none';
 
 /**

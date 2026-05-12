@@ -31,6 +31,7 @@ export const Capabilities = {
 	PROXY: 'proxy',
 	VCTM_REGISTRY: 'vctm-registry',
 	WEBSOCKET: 'websocket',
+	WMP: 'wmp',
 	REFRESH_TOKENS: 'refresh-tokens',
 } as const;
 

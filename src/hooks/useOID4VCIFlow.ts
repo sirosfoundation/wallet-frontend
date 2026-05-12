@@ -153,13 +153,13 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			// Validate inline offers before dispatching to any transport
 			validateCredentialOffer(credentialOfferUrl);
 
-			// WebSocket transport: delegate to backend
-			if (transportType === 'websocket' && transport) {
+			// WMP / WebSocket transport: delegate to backend
+			if ((transportType === 'websocket' || transportType === 'wmp') && transport) {
 				const credentialOfferUri = credentialOfferUrl.searchParams.get('credential_offer_uri') || undefined;
 				const credentialOffer = credentialOfferUrl.searchParams.get('credential_offer') || undefined;
 
 				if (!credentialOfferUri && !credentialOffer) {
-					throw new Error('WebSocket transport requires credential_offer_uri or credential_offer parameter');
+					throw new Error('Transport requires credential_offer_uri or credential_offer parameter');
 				}
 
 				if (credentialOfferUri && credentialOffer) {
@@ -282,8 +282,8 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		setError(null);
 
 		try {
-			// WebSocket transport: continue flow on backend
-			if (transportType === 'websocket' && transport) {
+			// WMP / WebSocket transport: continue flow on backend
+			if ((transportType === 'websocket' || transportType === 'wmp') && transport) {
 				const unsubscribeProgress = onProgress
 					? transport.onProgress(onProgress)
 					: () => {};
@@ -367,8 +367,8 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		setError(null);
 
 		try {
-			// WebSocket transport
-			if (transportType === 'websocket' && transport) {
+			// WMP / WebSocket transport
+			if ((transportType === 'websocket' || transportType === 'wmp') && transport) {
 				const unsubscribeProgress = onProgress
 					? transport.onProgress(onProgress)
 					: () => {};
