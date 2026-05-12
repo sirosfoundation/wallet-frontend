@@ -183,7 +183,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 
 					assertNotAborted();
 
-					if (result.authorizationUrl && result.codeVerifier) {
+					if (result.authorizationUrl) {
 						// Save pending flow state for resumption after redirect
 						savePendingFlow({
 							flowId: result.transactionId,
