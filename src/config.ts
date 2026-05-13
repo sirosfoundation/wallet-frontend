@@ -67,8 +67,8 @@ export const MULTI_LANGUAGE_DISPLAY: boolean = config.multi_language_display ? J
  * WMP (JSON-RPC over HTTP+SSE) endpoint URLs derived from ENGINE_URL.
  * Can be overridden with wmp_rpc_url / wmp_events_url.
  */
-export const WMP_RPC_URL = config.wmp_rpc_url || (ENGINE_URL ? `${ENGINE_URL}/wmp/rpc` : undefined);
-export const WMP_EVENTS_URL = config.wmp_events_url || (ENGINE_URL ? `${ENGINE_URL}/wmp/events` : undefined);
+export const WMP_RPC_URL = config.wmp_rpc_url || (ENGINE_URL ? `${ENGINE_URL}/api/v2/wallet/rpc` : undefined);
+export const WMP_EVENTS_URL = config.wmp_events_url || (ENGINE_URL ? `${ENGINE_URL}/api/v2/wallet/events` : undefined);
 
 export const I18N_WALLET_NAME_OVERRIDE: string | undefined = config.i18n_wallet_name_override;
 export const INACTIVE_LOGOUT_MILLIS = (config.inactive_logout_seconds ? parseInt(config.inactive_logout_seconds, 10) : 60 * 15) * 1000
