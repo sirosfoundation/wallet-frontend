@@ -77,6 +77,10 @@ export interface SignRequest {
 			disclosedClaims?: string[];
 			credentialRaw?: string;
 		}>;
+		/** Verifier response endpoint, needed for mdoc OID4VP session transcript. */
+		responseUri?: string;
+		/** Base64url JWK SHA-256 thumbprint of the verifier's encryption key (direct_post.jwt). */
+		verifierJwkThumbprint?: string;
 	};
 }
 
@@ -811,6 +815,8 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 					disclosedClaims: c.disclosed_claims,
 					credentialRaw: this.vpCredentialCache.get(c.credential_id),
 				})),
+				responseUri: rawParams.response_uri as string | undefined,
+				verifierJwkThumbprint: rawParams.verifier_jwk_thumbprint as string | undefined,
 			},
 		};
 
