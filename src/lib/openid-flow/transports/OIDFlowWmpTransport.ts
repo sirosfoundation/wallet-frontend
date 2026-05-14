@@ -16,7 +16,10 @@ import {
 	Peer,
 	HttpSseTransport as WmpHttpSseTransport,
 	OID4Action,
+	Method,
 	type Handler as WmpHandler,
+	type FlowStartParams,
+	type FlowStartResult,
 	type FlowProgressParams,
 	type FlowCompleteParams,
 	type FlowErrorParams,
@@ -657,6 +660,28 @@ export class OIDFlowWmpTransport implements IOIDFlowTransport {
 	 */
 	private createWmpHandler(): WmpHandler {
 		return {
+			// Handle nested sign/match sub-flows (server → client flow.start)
+			onFlowStart: async (params: FlowStartParams): Promise<FlowStartResult> => {
+				const childFlowId = params.flow_id;
+				const flowType = params.flow_type;
+				const subParams = (params.params ?? {}) as Record<string, unknown>;
+				const parentFlowId = (subParams.parent_flow_id as string) || this.currentFlowId || '';
+
+				if (flowType === 'sign') {
+					// Handle sign sub-flow: do the signing, then complete the child flow
+					await this.handleSignRequestSubFlow(childFlowId, parentFlowId, subParams);
+				} else if (flowType === 'match') {
+					// Handle match sub-flow
+					await this.handleMatchRequestSubFlow(childFlowId, parentFlowId, subParams);
+				}
+
+				return {
+					wmp: { version: '0.1', session_id: this.sessionId ?? '' },
+					flow_id: childFlowId,
+					flow_type: flowType,
+				};
+			},
+
 			onFlowProgress: (params: FlowProgressParams) => {
 				const flowId = params.flow_id;
 				const step = params.step;
@@ -976,6 +1001,102 @@ export class OIDFlowWmpTransport implements IOIDFlowTransport {
 
 		this.peer.flowAction(flowId, 'match_response', params)
 			.catch(err => logger.error('Failed to send match response:', err));
+	}
+
+	// ===== Nested Sub-Flow Handlers =====
+
+	/**
+	 * Handles a nested sign sub-flow (server sends wmp.flow.start with flow_type="sign").
+	 * Delegates to sign handlers, then sends wmp.flow.complete on the child flow.
+	 */
+	private async handleSignRequestSubFlow(
+		childFlowId: string,
+		parentFlowId: string,
+		subParams: Record<string, unknown>,
+	): Promise<void> {
+		const request: SignRequest = {
+			flowId: parentFlowId,
+			messageId: '',
+			action: (subParams.action as 'generate_proof' | 'sign_presentation') || 'generate_proof',
+			params: {
+				audience: subParams.audience as string | undefined,
+				nonce: subParams.nonce as string | undefined,
+				proofType: subParams.proof_type as string | undefined,
+			},
+		};
+
+		if (this.signHandlers.size === 0) {
+			logger.error('No sign handlers registered for sub-flow');
+			this.peer?.flowComplete(childFlowId, { error: 'No sign handler available' })
+				.catch(err => logger.error('Failed to complete sign sub-flow:', err));
+			return;
+		}
+
+		let lastError: Error | null = null;
+		for (const handler of this.signHandlers) {
+			try {
+				const response = await handler(request);
+				const result: Record<string, unknown> = {};
+				if (response.proofJwt) result.proof_jwt = response.proofJwt;
+				if (response.proofs) result.proofs = response.proofs;
+				if (response.vpToken) result.vp_token = response.vpToken;
+				this.peer?.flowComplete(childFlowId, result)
+					.catch(err => logger.error('Failed to complete sign sub-flow:', err));
+				return;
+			} catch (err) {
+				lastError = err instanceof Error ? err : new Error(String(err));
+				logger.warn('Sign handler failed in sub-flow:', lastError.message);
+			}
+		}
+
+		this.peer?.flowComplete(childFlowId, { error: lastError?.message || 'Sign operation failed' })
+			.catch(err => logger.error('Failed to complete sign sub-flow:', err));
+	}
+
+	/**
+	 * Handles a nested match sub-flow (server sends wmp.flow.start with flow_type="match").
+	 * Delegates to match handlers, then sends wmp.flow.complete on the child flow.
+	 */
+	private async handleMatchRequestSubFlow(
+		childFlowId: string,
+		parentFlowId: string,
+		subParams: Record<string, unknown>,
+	): Promise<void> {
+		const dcqlQuery = subParams.dcql_query as DcqlQuery.Input | undefined;
+
+		if (!dcqlQuery || typeof dcqlQuery !== 'object') {
+			logger.error('Malformed match sub-flow: missing dcql_query');
+			this.peer?.flowComplete(childFlowId, { matches: [], error: 'Missing required dcql_query' })
+				.catch(err => logger.error('Failed to complete match sub-flow:', err));
+			return;
+		}
+
+		const request: MatchRequest = { flowId: parentFlowId, messageId: '', dcqlQuery };
+
+		if (this.matchHandlers.size === 0) {
+			logger.error('No match handlers registered for sub-flow');
+			this.peer?.flowComplete(childFlowId, { matches: [], error: 'No match handler available' })
+				.catch(err => logger.error('Failed to complete match sub-flow:', err));
+			return;
+		}
+
+		let lastError: Error | null = null;
+		for (const handler of this.matchHandlers) {
+			try {
+				const response = await handler(request);
+				const result: Record<string, unknown> = { matches: response.matches };
+				if (response.no_match_reason) result.no_match_reason = response.no_match_reason;
+				this.peer?.flowComplete(childFlowId, result)
+					.catch(err => logger.error('Failed to complete match sub-flow:', err));
+				return;
+			} catch (err) {
+				lastError = err instanceof Error ? err : new Error(String(err));
+				logger.warn('Match handler failed in sub-flow:', lastError.message);
+			}
+		}
+
+		this.peer?.flowComplete(childFlowId, { matches: [], error: lastError?.message || 'Credential matching failed' })
+			.catch(err => logger.error('Failed to complete match sub-flow:', err));
 	}
 
 	// ===== Helpers =====
