@@ -15,6 +15,7 @@
 import {
 	Peer,
 	HttpSseTransport as WmpHttpSseTransport,
+	OID4Action,
 	type Handler as WmpHandler,
 	type FlowProgressParams,
 	type FlowCompleteParams,
@@ -222,6 +223,10 @@ export class OIDFlowWmpTransport implements IOIDFlowTransport {
 		// Create a WMP session (authenticates with the backend)
 		const result = await this.peer.createSession({
 			auth: { type: 'bearer', token: this.authToken },
+			capabilities: {
+				flows: { max_concurrent: 5 },
+				sign: { proof_types: ['jwt'] },
+			},
 		});
 
 		this.sessionId = result.wmp?.session_id ?? null;
@@ -286,7 +291,7 @@ export class OIDFlowWmpTransport implements IOIDFlowTransport {
 		}
 
 		if (params.holderBinding && params.credentialConfigurationId) {
-			return this.sendActionAndWait('consent', {
+			return this.sendActionAndWait(OID4Action.AcceptOffer, {
 				holder_public_key: params.holderBinding.publicKeyJwk,
 				holder_binding_method: params.holderBinding.method,
 				credential_configuration_id: params.credentialConfigurationId,
@@ -294,7 +299,7 @@ export class OIDFlowWmpTransport implements IOIDFlowTransport {
 		}
 
 		if (params.authorizationCode) {
-			return this.sendActionAndWait('authorization_complete', {
+			return this.sendActionAndWait(OID4Action.Authorize, {
 				code: params.authorizationCode,
 				code_verifier: params.codeVerifier,
 				state: params.state,
@@ -302,7 +307,7 @@ export class OIDFlowWmpTransport implements IOIDFlowTransport {
 		}
 
 		if (params.preAuthorizedCode) {
-			return this.sendActionAndWait('provide_pin', {
+			return this.sendActionAndWait(OID4Action.ProvideTxCode, {
 				pre_authorized_code: params.preAuthorizedCode,
 				tx_code: params.txCodeInput,
 			}, (msg) => this.mapOID4VCIResponse(msg));
@@ -420,7 +425,7 @@ export class OIDFlowWmpTransport implements IOIDFlowTransport {
 			for (const c of params.selectedCredentials) {
 				this.vpCredentialCache.set(c.walletCredentialRef, c.credentialRaw);
 			}
-			return this.sendActionAndWait('consent', {
+			return this.sendActionAndWait(OID4Action.SelectCredentials, {
 				selected_credentials: params.selectedCredentials.map(c => ({
 					credential_id: c.walletCredentialRef,
 					credential_query_id: c.credentialQueryId,
