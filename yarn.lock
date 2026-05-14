@@ -2192,8 +2192,10 @@
   resolved "https://registry.npmjs.org/@sinclair/typebox/-/typebox-0.27.8.tgz"
   integrity sha512-+Fj43pSMwJs4KRrH/938Uf+uAELIgVBmQzg/q1YG10djyfA3TnrU8N8XzqCh/okZdszqBQTZf96idMfE5lnwTA==
 
-"@sirosfoundation/wmp-js@file:../wmp-js":
-  version "0.1.0"
+"@sirosfoundation/wmp-js@^0.2.0":
+  version "0.2.0"
+  resolved "https://registry.yarnpkg.com/@sirosfoundation/wmp-js/-/wmp-js-0.2.0.tgz#90a812daeb607d31749b9b467c0e9b003af5e037"
+  integrity sha512-JYPyMH2LcjgNeUHeo26v/Diq+cEkiIT1zKQI+iePoNpGVxg/LIJtcsdnfHtSUYCGpBi/0vj0qUHp970l9UpdBA==
   dependencies:
     ajv "^8.20.0"
     ajv-formats "^3.0.1"

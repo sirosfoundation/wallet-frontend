@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@sirosfoundation/wmp-js": "file:../wmp-js",
+    "@sirosfoundation/wmp-js": "^0.2.0",
     "@auth0/mdl": "^2.2.0",
     "@cef-ebsi/key-did-resolver": "^1.1.0",
     "@fontsource/inter": "^5.2.8",
