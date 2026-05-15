@@ -75,23 +75,25 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 		[authzenClient]
 	);
 
-	// Fetches authorization server metadata via the backend resolver.
-	// The backend resolves oauth-authorization-server / openid-configuration
-	// well-known endpoints and returns the result in authorization_server_metadata.
+	// Fetches authorization server metadata via a separate backend resolver call.
+	// Uses resource_type=oauth-authorization-server so the backend fetches only
+	// the RFC 8414 well-known endpoint, not the credential issuer metadata.
 	const getAuthorizationServerMetadata = useCallback(
 		async (credentialIssuerIdentifier: string, useCache?: boolean, preloadedMetadata?: OpenidCredentialIssuerMetadata): Promise<{ authzServerMetadata: OpenidAuthorizationServerMetadata } | null> => {
 			void useCache;
 			void preloadedMetadata;
 			try {
-				const result = await authzenClient.resolve(credentialIssuerIdentifier);
+				const result = await authzenClient.resolve(credentialIssuerIdentifier, {
+					resourceType: 'oauth-authorization-server',
+				});
 				if (!result.ok) {
-					logger.error(`Failed to resolve metadata for ${credentialIssuerIdentifier}:`, result.error);
+					logger.error(`Failed to resolve auth server metadata for ${credentialIssuerIdentifier}:`, result.error);
 					return null;
 				}
 
-				const authzMeta = result.value.authorization_server_metadata;
+				const authzMeta = result.value.context?.trust_metadata;
 				if (!authzMeta) {
-					logger.debug(`No authorization_server_metadata in resolve response for ${credentialIssuerIdentifier}`);
+					logger.debug(`No trust_metadata in auth server resolve response for ${credentialIssuerIdentifier}`);
 					return null;
 				}
 
