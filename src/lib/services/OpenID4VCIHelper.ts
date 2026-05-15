@@ -85,11 +85,11 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 			let pathAuthorizationServerFromCredentialIssuerMetadata: string | null = null;
 			if (metadata.authorization_servers && metadata.authorization_servers.length > 0) {
 				const authzUrl = new URL(metadata.authorization_servers[0]);
-				pathAuthorizationServerFromCredentialIssuerMetadata = `${authzUrl.origin}/.well-known/oauth-authorization-server${authzUrl.pathname.replace(/\/$/, '')}`;
+				pathAuthorizationServerFromCredentialIssuerMetadata = `${authzUrl.origin}/.well-known/oauth-authorization-server${authzUrl.pathname}`;
 			}
 			const issuerUrl = new URL(credentialIssuerIdentifier);
-			const pathIssuerAuthorizationServer = `${issuerUrl.origin}/.well-known/oauth-authorization-server${issuerUrl.pathname.replace(/\/$/, '')}`;
-			const pathIssuerOpenIdConfiguration = `${issuerUrl.origin}/.well-known/openid-configuration${issuerUrl.pathname.replace(/\/$/, '')}`;
+			const pathIssuerAuthorizationServer = `${issuerUrl.origin}/.well-known/oauth-authorization-server${issuerUrl.pathname}`;
+			const pathIssuerOpenIdConfiguration = `${issuerUrl.origin}/.well-known/openid-configuration${issuerUrl.pathname}`;
 			let authzServerMetadata: OpenidAuthorizationServerMetadata = null;
 
 			if (pathAuthorizationServerFromCredentialIssuerMetadata) {
