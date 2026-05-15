@@ -176,7 +176,10 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 					const metadata = metadataResult?.metadata;
 					if (!metadata) return;
 
-					await getAuthorizationServerMetadata(entity.credentialIssuerIdentifier, shouldUseCache, metadata);
+					// Note: authorization server metadata is NOT fetched during preload.
+					// It is fetched on-demand when the OID4VCI flow actually needs it
+					// (e.g. for token exchange). Fetching it here would cause unexpected
+					// requests to issuers before any flow has started.
 
 					// Call a callback to update state when metadata resolves.
 					onIssuerMetadataResolved?.(entity.credentialIssuerIdentifier, metadata);
@@ -211,7 +214,7 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 			onCertificates(certificates);
 
 		},
-		[getCredentialIssuerMetadata, getMdocIacas, httpProxy, getExternalEntity, getAuthorizationServerMetadata]
+		[getCredentialIssuerMetadata, getMdocIacas, httpProxy, getExternalEntity]
 	);
 
 	return useMemo(
