@@ -79,8 +79,8 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 	// According to OpenID4VCI 1.0, section 12.2.4, paragraph 2.2, the authorization server is to be fetched from the credential issuer metadata.
 	// If not available from metadata, then the issuer is imlplied to also act as the authorization server.
 	const getAuthorizationServerMetadata = useCallback(
-		async (credentialIssuerIdentifier: string, useCache?: boolean): Promise<{ authzServerMetadata: OpenidAuthorizationServerMetadata } | null> => {
-			const { metadata } = await getCredentialIssuerMetadata(credentialIssuerIdentifier);
+		async (credentialIssuerIdentifier: string, useCache?: boolean, preloadedMetadata?: OpenidCredentialIssuerMetadata): Promise<{ authzServerMetadata: OpenidAuthorizationServerMetadata } | null> => {
+			const metadata = preloadedMetadata ?? (await getCredentialIssuerMetadata(credentialIssuerIdentifier))?.metadata;
 			// RFC8414 well-known URI construction for authorization server metadata
 			let pathAuthorizationServerFromCredentialIssuerMetadata: string | null = null;
 			if (metadata.authorization_servers && metadata.authorization_servers.length > 0) {
@@ -190,7 +190,7 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 					const metadata = metadataResult?.metadata;
 					if (!metadata) return;
 
-					await getAuthorizationServerMetadata(entity.credentialIssuerIdentifier, shouldUseCache);
+					await getAuthorizationServerMetadata(entity.credentialIssuerIdentifier, shouldUseCache, metadata);
 
 					// Call a callback to update state when metadata resolves.
 					onIssuerMetadataResolved?.(entity.credentialIssuerIdentifier, metadata);
