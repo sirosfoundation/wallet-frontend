@@ -75,55 +75,39 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 		[authzenClient]
 	);
 
-	// Fetches authorization server metadata with fallback
-	// According to OpenID4VCI 1.0, section 12.2.4, paragraph 2.2, the authorization server is to be fetched from the credential issuer metadata.
-	// If not available from metadata, then the issuer is imlplied to also act as the authorization server.
+	// Fetches authorization server metadata via the backend resolver.
+	// The backend resolves oauth-authorization-server / openid-configuration
+	// well-known endpoints and returns the result in authorization_server_metadata.
 	const getAuthorizationServerMetadata = useCallback(
 		async (credentialIssuerIdentifier: string, useCache?: boolean, preloadedMetadata?: OpenidCredentialIssuerMetadata): Promise<{ authzServerMetadata: OpenidAuthorizationServerMetadata } | null> => {
-			const metadata = preloadedMetadata ?? (await getCredentialIssuerMetadata(credentialIssuerIdentifier))?.metadata;
-			// RFC8414 well-known URI construction for authorization server metadata
-			let pathAuthorizationServerFromCredentialIssuerMetadata: string | null = null;
-			if (metadata.authorization_servers && metadata.authorization_servers.length > 0) {
-				const authzUrl = new URL(metadata.authorization_servers[0]);
-				pathAuthorizationServerFromCredentialIssuerMetadata = `${authzUrl.origin}/.well-known/oauth-authorization-server${authzUrl.pathname}`;
-			}
-			const issuerUrl = new URL(credentialIssuerIdentifier);
-			const pathIssuerAuthorizationServer = `${issuerUrl.origin}/.well-known/oauth-authorization-server${issuerUrl.pathname}`;
-			const pathIssuerOpenIdConfiguration = `${issuerUrl.origin}/.well-known/openid-configuration${issuerUrl.pathname}`;
-			let authzServerMetadata: OpenidAuthorizationServerMetadata = null;
+			void useCache;
+			void preloadedMetadata;
+			try {
+				const result = await authzenClient.resolve(credentialIssuerIdentifier);
+				if (!result.ok) {
+					logger.error(`Failed to resolve metadata for ${credentialIssuerIdentifier}:`, result.error);
+					return null;
+				}
 
-			if (pathAuthorizationServerFromCredentialIssuerMetadata) {
-				// 1st attempt: authorization server from credential issuer metadata
-				authzServerMetadata = await fetchAndParseWithSchema<OpenidAuthorizationServerMetadata>(
-					pathAuthorizationServerFromCredentialIssuerMetadata,
-					OpenidAuthorizationServerMetadataSchema,
-					useCache,
-				).catch(() => null);
-			}
+				const authzMeta = result.value.authorization_server_metadata;
+				if (!authzMeta) {
+					logger.debug(`No authorization_server_metadata in resolve response for ${credentialIssuerIdentifier}`);
+					return null;
+				}
 
-			if (!authzServerMetadata) {
-				// 2nd attempt: if authorization-server not provided in metadata, the issuer iteslf is acting as an authorization-server
-				authzServerMetadata = await fetchAndParseWithSchema<OpenidAuthorizationServerMetadata>(
-					pathIssuerAuthorizationServer,
-					OpenidAuthorizationServerMetadataSchema,
-					useCache,
-					useCache === false
-				).catch(() => null);
-			}
+				const parsed = OpenidAuthorizationServerMetadataSchema.safeParse(authzMeta);
+				if (!parsed.success) {
+					logger.warn(`Auth server metadata validation failed for ${credentialIssuerIdentifier}:`, JSON.stringify(parsed.error.issues));
+					return null;
+				}
 
-			if (!authzServerMetadata) {
-				// 3rd attempt: Fallback to openid-configuration if oauth-authorization-server fetch fails
-				authzServerMetadata = await fetchAndParseWithSchema<OpenidAuthorizationServerMetadata>(
-					pathIssuerOpenIdConfiguration,
-					OpenidAuthorizationServerMetadataSchema,
-					useCache,
-					useCache === false
-				).catch(() => null);
+				return { authzServerMetadata: parsed.data };
+			} catch (err) {
+				logger.error(`Error fetching auth server metadata for ${credentialIssuerIdentifier}:`, err);
+				return null;
 			}
-
-			return authzServerMetadata ? { authzServerMetadata } : null;
 		},
-		[fetchAndParseWithSchema, getCredentialIssuerMetadata]
+		[authzenClient]
 	);
 
 	const getClientId = useCallback(
