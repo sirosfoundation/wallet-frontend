@@ -206,6 +206,11 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 				this.ws = new WebSocket(url);
 
+				// Tracks whether the server has confirmed the handshake. Used to
+				// distinguish a pre-handshake close/error (reject the connect promise)
+				// from a post-handshake close (handled by handleDisconnect as usual).
+				let handshakeComplete = false;
+
 				this.ws.onopen = () => {
 					logger.debug('WebSocket connected, sending handshake', {
 						hasAuthToken: !!this.authToken,
@@ -225,10 +230,11 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 						}
 					} catch (e) {
 						logger.error('Failed to send auth message over WebSocket:', e);
+						this.connectionPromise = null;
+						reject(e);
+						return;
 					}
 					this.reconnectAttempts = 0;
-					this.connectionPromise = null;
-					resolve();
 				};
 
 				this.ws.onerror = (event) => {
@@ -239,13 +245,33 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 						online: typeof navigator !== 'undefined' ? navigator.onLine : undefined,
 						reconnectAttemptsUsed: this.reconnectAttempts,
 					});
-					this.connectionPromise = null;
-					reject(new Error('WebSocket connection failed'));
+					if (!handshakeComplete) {
+						this.connectionPromise = null;
+						reject(new Error('WebSocket connection failed'));
+					}
 				};
 
 				this.ws.onmessage = (event) => {
 					try {
 						const message = JSON.parse(event.data) as ServerMessage;
+						if (!handshakeComplete) {
+							if (message.type === 'handshake_complete') {
+								handshakeComplete = true;
+								this.connectionPromise = null;
+								resolve();
+								return;
+							}
+							if (message.type === 'error') {
+								const errorMsg = (message.message as string) || 'WebSocket handshake rejected by server';
+								logger.error('WebSocket handshake rejected:', { message });
+								this.connectionPromise = null;
+								reject(new Error(errorMsg));
+								return;
+							}
+							// Unexpected message before handshake_complete — log and ignore
+							logger.warn('Received message before handshake_complete', { type: message.type });
+							return;
+						}
 						this.handleMessage(message);
 					} catch (e) {
 						logger.error('Failed to parse WebSocket message:', e);
@@ -253,6 +279,10 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				};
 
 				this.ws.onclose = (event) => {
+					if (!handshakeComplete) {
+						this.connectionPromise = null;
+						reject(new Error('WebSocket disconnected before handshake'));
+					}
 					this.handleDisconnect(event);
 				};
 			} catch (error) {
