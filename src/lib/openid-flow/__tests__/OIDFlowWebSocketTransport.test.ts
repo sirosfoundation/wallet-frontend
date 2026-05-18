@@ -25,14 +25,15 @@ class MockWebSocket {
 
 	constructor(url: string | URL) {
 		this.url = typeof url === 'string' ? url : url.toString();
-		// Simulate async connection based on shouldFail flag
 		setTimeout(() => {
 			if (MockWebSocket.shouldFail) {
 				this.readyState = MockWebSocket.CLOSED;
 				this.onerror?.(new Event('error'));
+				this.onclose?.({ code: 1006, reason: '', wasClean: false } as CloseEvent);
 			} else {
 				this.readyState = MockWebSocket.OPEN;
 				this.onopen?.(new Event('open'));
+				this.onmessage?.({ data: JSON.stringify({ type: 'handshake_complete' }) } as MessageEvent);
 			}
 		}, 0);
 	}
@@ -96,22 +97,18 @@ describe('OIDFlowWebSocketTransport', () => {
 	describe('Connection Lifecycle', () => {
 		it('should connect successfully', async () => {
 			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
-
 			await transport.connect();
 
 			expect(transport.isConnected()).toBe(true);
 			expect(mockWebSocketInstances).toHaveLength(1);
 			expect(mockWebSocketInstances[0].url).toContain(wsUrl);
-			// Auth token is now sent as the first message, not in URL
 			const authMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[0]);
 			expect(authMessage.type).toBe('handshake');
 			expect(authMessage.app_token).toBe(authToken);
 		});
 
 		it('should handle connection errors', async () => {
-			// Set the mock to fail connections
 			MockWebSocket.shouldFail = true;
-
 			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await expect(transport.connect()).rejects.toThrow('WebSocket connection failed');
 		});
