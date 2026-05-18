@@ -161,6 +161,8 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 	private connectionPromise: Promise<void> | null = null;
 
+	private handshakeComplete = false;
+
 	private trustEvaluators: TrustEvaluators;
 
 	constructor(wsUrl: string, authToken: string, tenantId: string = 'default', trustEvaluators?: TrustEvaluators) {
@@ -209,7 +211,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				// Tracks whether the server has confirmed the handshake. Used to
 				// distinguish a pre-handshake close/error (reject the connect promise)
 				// from a post-handshake close (handled by handleDisconnect as usual).
-				let handshakeComplete = false;
+				this.handshakeComplete = false;
 
 				this.ws.onopen = () => {
 					logger.debug('WebSocket connected, sending handshake', {
@@ -245,7 +247,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 						online: typeof navigator !== 'undefined' ? navigator.onLine : undefined,
 						reconnectAttemptsUsed: this.reconnectAttempts,
 					});
-					if (!handshakeComplete) {
+					if (!this.handshakeComplete) {
 						this.connectionPromise = null;
 						reject(new Error('WebSocket connection failed'));
 					}
@@ -254,9 +256,9 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				this.ws.onmessage = (event) => {
 					try {
 						const message = JSON.parse(event.data) as ServerMessage;
-						if (!handshakeComplete) {
+						if (!this.handshakeComplete) {
 							if (message.type === 'handshake_complete') {
-								handshakeComplete = true;
+								this.handshakeComplete = true;
 								this.connectionPromise = null;
 								resolve();
 								return;
@@ -279,7 +281,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				};
 
 				this.ws.onclose = (event) => {
-					if (!handshakeComplete) {
+					if (!this.handshakeComplete) {
 						this.connectionPromise = null;
 						reject(new Error('WebSocket disconnected before handshake'));
 					}
@@ -323,7 +325,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	}
 
 	isConnected(): boolean {
-		return this.ws?.readyState === WebSocket.OPEN;
+		return this.ws?.readyState === WebSocket.OPEN && this.handshakeComplete;
 	}
 
 	// ===== OID4VCI Flow =====
@@ -1052,6 +1054,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 		// Reset connection state
 		this.ws = null;
+		this.handshakeComplete = false;
 		this.connectionPromise = null;
 		this.currentFlowId = null;
 		this.vpCredentialCache.clear();
