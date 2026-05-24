@@ -8,6 +8,9 @@ on:
     tags:
       - 'v*.*.**'
       - 'v*.*.**-sirosid.*'
+  pull_request:
+    branches:
+      - release/sirosid
 
 env:
   REGISTRY: "ghcr.io"
@@ -45,6 +48,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ steps.lowercaser.outputs.name }}
           tags: |
+            type=ref,event=pr
             type=semver,pattern={{version}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
             type=raw,value=latest,enable=${{ contains(github.ref, '-sirosid.') }}
             type=raw,value=unstable,enable=${{ github.ref == 'refs/heads/release/sirosid' }}
@@ -58,4 +62,4 @@ jobs:
           context: "."
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
