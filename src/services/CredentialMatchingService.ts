@@ -99,7 +99,7 @@ export function matchCredentials(
  * Shape an ExtendedVcEntity into a DcqlCredential for the dcql library.
  * Returns null if shaping fails (e.g., unparseable mDOC).
  */
-function shapeCredential(credential: ExtendedVcEntity): (DcqlCredential & { _batchId?: number }) | null {
+export function shapeCredential(credential: ExtendedVcEntity): (DcqlCredential & { _batchId?: number }) | null {
 	const format = credential.format || 'vc+sd-jwt';
 
 	if (format === 'mso_mdoc') {
@@ -143,7 +143,7 @@ function shapeCredential(credential: ExtendedVcEntity): (DcqlCredential & { _bat
 /**
  * Extract available claims from a credential for disclosure selection.
  */
-function extractAvailableClaims(credential: ExtendedVcEntity): string[] {
+export function extractAvailableClaims(credential: ExtendedVcEntity): string[] {
 	const claims: string[] = [];
 	const vcClaims = credential.parsedCredential?.signedClaims || {};
 	extractClaimPaths(vcClaims, '', claims);
