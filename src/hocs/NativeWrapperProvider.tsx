@@ -5,7 +5,6 @@ import keystoreEvents from "../services/keystoreEvents";
 import CredentialsContext, {
 	ExtendedVcEntity,
 } from "@/context/CredentialsContext";
-import { parseIssuerSignedToMDoc } from "@/lib/mdoc/mdoc";
 import { logger } from "@/logger";
 import {
 	extractAvailableClaims,
@@ -78,10 +77,10 @@ type CredentialRegistryEntry = SdJwtRegistryEntry | MdocRegistryEntry;
 declare global {
 	interface Window {
 		nativeWrapper?: NativeWrapper;
-		updateAllCredentials(credentials: string): void;
 	}
 
 	interface NativeWrapper {
+		updateAllCredentials(credentials: string): void;
 		isKeystoreOpen(): Promise<boolean>;
 		startScanPhysicalId?(): void;
 	}
@@ -104,7 +103,7 @@ export const NativeWrapperProvider = ({
 			const registryEntries =
 				await prepareCredentialsForNativeWrapper(vcEntityList);
 			logger.debug("Updated native wrapper with credentials:", registryEntries);
-			window.updateAllCredentials(JSON.stringify(registryEntries));
+			window.nativeWrapper.updateAllCredentials(JSON.stringify(registryEntries));
 		})();
 	}, [vcEntityList]);
 
