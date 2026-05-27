@@ -22,6 +22,32 @@ interface CredentialDisplayProperties {
 }
 
 /**
+ * Display properties for a single claim/field
+ */
+interface ClaimDisplayInfo {
+	locale: string;
+	label: string;
+	description?: string;
+}
+
+/**
+ * Claim with display properties for SD-JWT
+ */
+interface ClaimWithDisplay {
+	path: string;
+	display?: ClaimDisplayInfo[];
+}
+
+/**
+ * Field with display properties for mDOC
+ */
+interface FieldWithDisplay {
+	namespace: string;
+	element: string;
+	display?: ClaimDisplayInfo[];
+}
+
+/**
  * SD-JWT credential entry for OpenId4VpRegistry
  * Maps to androidx.credentials.registry.digitalcredentials.sdjwt.SdJwtEntry
  */
@@ -38,7 +64,7 @@ interface SdJwtRegistryEntry {
 	/**
 	 * List of available claim names
 	 */
-	claims: string[];
+	claims: ClaimWithDisplay[];
 	/**
 	 * Display properties for the credential selector UI
 	 */
@@ -62,7 +88,7 @@ interface MdocRegistryEntry {
 	/**
 	 * Available fields as namespace.element pairs
 	 */
-	fields: { namespace: string; element: string }[];
+	fields: FieldWithDisplay[];
 	/**
 	 * Display properties for the credential selector UI
 	 */
@@ -146,11 +172,30 @@ async function prepareCredentialsForNativeWrapper(
 			subtitle: issuerName ? `Issued by ${issuerName}` : undefined,
 		};
 
+		const claimMetadata =
+			credential.parsedCredential?.metadata?.credential?.TypeMetadata?.claims ?? [];
+
+		const claimDisplayMap = new Map<string, ClaimDisplayInfo[]>();
+		for (const claim of claimMetadata) {
+			if (Array.isArray(claim.path) && Array.isArray(claim.display)) {
+				const pathKey = claim.path.join(".");
+				claimDisplayMap.set(pathKey, claim.display);
+			}
+		}
+
 		if (shaped.credential_format === "mso_mdoc") {
-			const fields: { namespace: string; element: string }[] = [];
+			const fields: FieldWithDisplay[] = [];
 			for (const [ns, elements] of Object.entries(shaped.namespaces)) {
 				for (const element of Object.keys(elements as object)) {
-					fields.push({ namespace: ns, element });
+					// For mDOC, the path in metadata is typically [element] or [namespace, element]
+					const displayInfo =
+						claimDisplayMap.get(element) ??
+						claimDisplayMap.get(`${ns}.${element}`);
+					fields.push({
+						namespace: ns,
+						element,
+						display: displayInfo,
+					});
 				}
 			}
 			entries.push({
@@ -162,14 +207,21 @@ async function prepareCredentialsForNativeWrapper(
 			});
 		} else {
 			// SD-JWT
+			const claims: ClaimWithDisplay[] = extractAvailableClaims(credential)
+				.filter((claim) => {
+					const rootKey = claim.split(".")[0];
+					return !REGISTRY_RESERVED_CLAIMS.has(rootKey);
+				})
+				.map((claimPath) => ({
+					path: claimPath,
+					display: claimDisplayMap.get(claimPath),
+				}));
+
 			entries.push({
 				format: "sd-jwt",
 				id: String(credential.batchId),
 				verifiableCredentialType: shaped.vct,
-				claims: extractAvailableClaims(credential).filter((claim) => {
-					const rootKey = claim.split(".")[0];
-					return !REGISTRY_RESERVED_CLAIMS.has(rootKey);
-				}),
+				claims,
 				display,
 			});
 		}
