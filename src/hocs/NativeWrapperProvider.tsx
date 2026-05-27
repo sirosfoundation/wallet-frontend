@@ -11,6 +11,7 @@ import {
 	shapeCredential,
 } from "@/services/CredentialMatchingService";
 import { getCredentialType } from "@/components/QueryableList/CredentialsDisplayUtils";
+import { getElementPropValue } from "@/util";
 
 /**
  * Display properties for credential UI in Android's credential selector
@@ -18,34 +19,16 @@ import { getCredentialType } from "@/components/QueryableList/CredentialsDisplay
 interface CredentialDisplayProperties {
 	title: string;
 	subtitle?: string;
-	icon?: string; // Base64 encoded image or URL
+	icon?: string;
 }
 
 /**
- * Display properties for a single claim/field
+ * Claim info with value and localized labels
  */
-interface ClaimDisplayInfo {
-	locale: string;
-	label: string;
-	description?: string;
-}
-
-/**
- * Claim with display properties for SD-JWT
- */
-interface ClaimWithDisplay {
-	path: string;
-	display?: ClaimDisplayInfo[];
-}
-
-/**
- * Field with display properties for mDOC
- */
-interface FieldWithDisplay {
-	namespace: string;
-	element: string;
-	display?: ClaimDisplayInfo[];
-}
+type ClaimDisplayMap = Record<string, {
+	value: unknown;
+	display: Record<string, string>;
+}>;
 
 /**
  * SD-JWT credential entry for OpenId4VpRegistry
@@ -71,9 +54,6 @@ interface MdocRegistryEntry {
 	display: CredentialDisplayProperties;
 }
 
-/**
- * Union type for all credential registry entries
- */
 type CredentialRegistryEntry = SdJwtRegistryEntry | MdocRegistryEntry;
 
 declare global {
@@ -126,11 +106,6 @@ const REGISTRY_RESERVED_CLAIMS = new Set([
 	"trust_anchor",
 ]);
 
-/**
- * Localized labels for claims: { claimPath: { locale: label } }
- */
-type ClaimDisplayMap = Record<string, Record<string, string>>;
-
 async function prepareCredentialsForNativeWrapper(
 	credentials: ExtendedVcEntity[],
 	preferredLangs: string[] = ["en-US"],
@@ -157,27 +132,36 @@ async function prepareCredentialsForNativeWrapper(
 		const claimMetadata =
 			credential.parsedCredential?.metadata?.credential?.TypeMetadata?.claims ?? [];
 
-		// Build claim display map: { claimPath: { locale: label } }
-		const claimDisplay: ClaimDisplayMap = {};
+		// Build metadata lookup: pathKey -> display array
+		const metadataByPath = new Map<string, { locale: string; label: string }[]>();
 		for (const claim of claimMetadata) {
 			if (Array.isArray(claim.path) && Array.isArray(claim.display)) {
-				const pathKey = claim.path.join(".");
-				claimDisplay[pathKey] = {};
-				for (const d of claim.display) {
-					if (d.locale && d.label) {
-						claimDisplay[pathKey][d.locale] = d.label;
-					}
-				}
+				metadataByPath.set(claim.path.join("."), claim.display);
 			}
 		}
 
 		if (shaped.credential_format === "mso_mdoc") {
 			const fields: { namespace: string; element: string }[] = [];
+			const claimDisplay: ClaimDisplayMap = {};
+
 			for (const [ns, elements] of Object.entries(shaped.namespaces)) {
-				for (const element of Object.keys(elements as object)) {
+				for (const [element, value] of Object.entries(elements as object)) {
 					fields.push({ namespace: ns, element });
+
+					const pathKey = `${ns}.${element}`;
+					const displayLabels: Record<string, string> = {};
+					const meta = metadataByPath.get(element) ?? metadataByPath.get(pathKey);
+					if (meta) {
+						for (const d of meta) {
+							if (d.locale && d.label) {
+								displayLabels[d.locale] = d.label;
+							}
+						}
+					}
+					claimDisplay[pathKey] = { value, display: displayLabels };
 				}
 			}
+
 			entries.push({
 				format: "mdoc",
 				id: String(credential.batchId),
@@ -188,14 +172,33 @@ async function prepareCredentialsForNativeWrapper(
 			});
 		} else {
 			// SD-JWT
+			const signedClaims = credential.parsedCredential?.signedClaims ?? {};
+			const claimDisplay: ClaimDisplayMap = {};
+
+			const availableClaims = extractAvailableClaims(credential).filter((claim) => {
+				const rootKey = claim.split(".")[0];
+				return !REGISTRY_RESERVED_CLAIMS.has(rootKey);
+			});
+
+			for (const claimPath of availableClaims) {
+				const value = getElementPropValue(signedClaims, claimPath);
+				const displayLabels: Record<string, string> = {};
+				const meta = metadataByPath.get(claimPath);
+				if (meta) {
+					for (const d of meta) {
+						if (d.locale && d.label) {
+							displayLabels[d.locale] = d.label;
+						}
+					}
+				}
+				claimDisplay[claimPath] = { value, display: displayLabels };
+			}
+
 			entries.push({
 				format: "sd-jwt",
 				id: String(credential.batchId),
 				verifiableCredentialType: shaped.vct,
-				claims: extractAvailableClaims(credential).filter((claim) => {
-					const rootKey = claim.split(".")[0];
-					return !REGISTRY_RESERVED_CLAIMS.has(rootKey);
-				}),
+				claims: availableClaims,
 				claimDisplay,
 				display,
 			});
