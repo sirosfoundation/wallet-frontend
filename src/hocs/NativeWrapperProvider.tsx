@@ -25,10 +25,12 @@ interface CredentialDisplayProperties {
 /**
  * Claim info with value and localized labels
  */
-type ClaimDisplayMap = Record<string, {
+type ClaimEntry = {
+	path: string;
 	value: unknown;
 	display: Record<string, string>;
-}>;
+};
+
 
 /**
  * SD-JWT credential entry for OpenId4VpRegistry
@@ -37,8 +39,7 @@ interface SdJwtRegistryEntry {
 	format: "sd-jwt";
 	id: string;
 	verifiableCredentialType: string;
-	claims: string[];
-	claimDisplay: ClaimDisplayMap;
+	claims: ClaimEntry[];
 	display: CredentialDisplayProperties;
 }
 
@@ -49,8 +50,7 @@ interface MdocRegistryEntry {
 	format: "mdoc";
 	id: string;
 	docType: string;
-	fields: { namespace: string; element: string }[];
-	claimDisplay: ClaimDisplayMap;
+	claims: ClaimEntry[];
 	display: CredentialDisplayProperties;
 }
 
@@ -140,13 +140,10 @@ async function prepareCredentialsForNativeWrapper(
 		}
 
 		if (shaped.credential_format === "mso_mdoc") {
-			const fields: { namespace: string; element: string }[] = [];
-			const claimDisplay: ClaimDisplayMap = {};
+			const claims: ClaimEntry[] = [];
 
 			for (const [ns, elements] of Object.entries(shaped.namespaces)) {
 				for (const [element, value] of Object.entries(elements as object)) {
-					fields.push({ namespace: ns, element });
-
 					const pathKey = `${ns}.${element}`;
 					const displayLabels: Record<string, string> = {};
 					const meta = metadataByPath.get(element) ?? metadataByPath.get(pathKey);
@@ -157,7 +154,7 @@ async function prepareCredentialsForNativeWrapper(
 							}
 						}
 					}
-					claimDisplay[pathKey] = { value, display: displayLabels };
+					claims.push({ path: pathKey, value, display: displayLabels });
 				}
 			}
 
@@ -165,19 +162,19 @@ async function prepareCredentialsForNativeWrapper(
 				format: "mdoc",
 				id: String(credential.batchId),
 				docType: shaped.doctype,
-				fields,
-				claimDisplay,
+				claims,
 				display,
 			});
 		} else {
 			// SD-JWT
 			const signedClaims = credential.parsedCredential?.signedClaims ?? {};
-			const claimDisplay: ClaimDisplayMap = {};
 
 			const availableClaims = extractAvailableClaims(credential).filter((claim) => {
 				const rootKey = claim.split(".")[0];
 				return !REGISTRY_RESERVED_CLAIMS.has(rootKey);
 			});
+
+			const claims: ClaimEntry[] = [];
 
 			for (const claimPath of availableClaims) {
 				const value = getElementPropValue(signedClaims, claimPath);
@@ -190,15 +187,14 @@ async function prepareCredentialsForNativeWrapper(
 						}
 					}
 				}
-				claimDisplay[claimPath] = { value, display: displayLabels };
+				claims.push({ path: claimPath, value, display: displayLabels });
 			}
 
 			entries.push({
 				format: "sd-jwt",
 				id: String(credential.batchId),
 				verifiableCredentialType: shaped.vct,
-				claims: availableClaims,
-				claimDisplay,
+				claims,
 				display,
 			});
 		}
