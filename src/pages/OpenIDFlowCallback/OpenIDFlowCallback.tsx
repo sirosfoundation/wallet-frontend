@@ -16,6 +16,7 @@ import { useOIDFlowTransport } from '@/context/OIDFlowTransportContext';
 import { useTenant } from '@/context/TenantContext';
 import { parseOIDFlowCallbackUrl } from '@/lib/openid-flow/utils/oidFlowCallbackUrl';
 import IssuanceWarningPopup from '@/components/Popups/IssuanceWarningPopup';
+import { DCAPISession } from '@/lib/openid-flow/platforms/dc-api';
 
 type OpenIDFlowCallbackProps = {
 	callbackUrl: OIDFlowCallbackURL;
@@ -374,6 +375,8 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		handleAuthorizationRequest,
 		handleCredentialSelection,
 		sendAuthorizationResponse,
+		handleDCAPIRequest,
+		sendDCAPIResponse,
 	} = useOID4VPFlow({
 		onError: handleOID4VPError,
 		onProgress: handleOID4VPProgress,
@@ -428,6 +431,46 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		}
 	};
 
+	const processDcApiRequest = async (url: URL) => {
+		const session = new DCAPISession(url);
+		cleanupUrl();
+
+		const result = await handleDCAPIRequest(session.request);
+		if (!result?.success) {
+			// session.sendError(result?.error?.code ?? 'request_failed');
+			return;
+		}
+
+		const credSelectResult = await handleCredentialSelection(
+			result.verifierInfo,
+			result.dcqlQuery,
+			result.conformantCredentials,
+		);
+
+		if (!credSelectResult?.success) {
+			if (credSelectResult?.error?.code === 'USER_CANCELLED') {
+				// session.sendError('user_cancelled');
+				return;
+			}
+			throw new OIDFlowError(credSelectResult.error);
+		}
+
+		const sendResult = await sendDCAPIResponse(
+			session,
+			credSelectResult.selectedCredentials
+		);
+		logger.debug('DC API response sent:', sendResult);
+
+		if (sendResult.success) {
+			setSuccessMessage({
+				title: t('openIdCallback.sendResponseSuccess.title'),
+				description: t('openIdCallback.sendResponseSuccess.description'),
+			});
+		}
+
+		session.close();
+	};
+
 	useEffect(() => {
 		if (flowIsActive.current) return;
 		flowIsActive.current = true;
@@ -439,6 +482,9 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				switch (callbackUrl.type) {
 					case 'presentation_request':
 						await processAuthorizationRequest(callbackUrl.url);
+						break;
+					case 'dc_api_request':
+						await processDcApiRequest(callbackUrl.url);
 						break;
 					default:
 						throw new OIDFlowError({

@@ -22,6 +22,17 @@ export function parseOIDFlowCallbackUrl(url: URL): OIDFlowCallbackURL {
 		url,
 	};
 
+	// wallet companion DC API authorization request
+	if (
+		url.searchParams.get('client_id') &&
+		url.searchParams.get('request_id') &&
+		url.searchParams.get('response_mode') === 'dc_api'
+	) return {
+		protocol: 'oid4vp',
+		type: 'dc_api_request',
+		url,
+	};
+
 	// authorization request
 	if (
 		url.searchParams.get('client_id') &&
