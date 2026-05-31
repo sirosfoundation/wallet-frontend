@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { Camera } from 'lucide-react';
 import { logger } from '@/logger';
 import { useTenant } from '@/context/TenantContext';
 import StatusContext from '@/context/StatusContext';
 import SessionContext from '@/context/SessionContext';
 import RedirectPopup from '../../components/Popups/RedirectPopup';
-import { H1 } from '../../components/Shared/Heading';
+import { H1, H3 } from '../../components/Shared/Heading';
 import PageDescription from '../../components/Shared/PageDescription';
 import QueryableList from '../../components/QueryableList/QueryableList';
 import CredentialsContext from '@/context/CredentialsContext';
@@ -190,6 +191,21 @@ const AddCredentials = () => {
 						translationPrefix='pageAddCredentials'
 						identifierField='identifierField'
 						onClick={handleCredentialConfigurationClick}
+						extraSection={
+							<div className="mb-4 hidden" data-widget="scan-physical-id">
+								<H3 heading={t('pageAddCredentials.scanPhysicalId.sectionTitle')} hr />
+								<button
+									className="w-full flex items-center justify-between gap-4 border border-lm-gray-400 dark:border-dm-gray-600 rounded-xl p-4 bg-lm-gray-50 dark:bg-dm-gray-800 hover:brightness-[0.97] dark:hover:brightness-[1.05] transition-all text-left cursor-pointer"
+									onClick={() => navigate(buildPath('add/digital-id'))}
+								>
+									<div>
+										<p className="font-semibold text-lm-gray-900 dark:text-white">{t('pageAddCredentials.scanPhysicalId.digitalId.title')}</p>
+										<p className="text-sm text-lm-gray-700 dark:text-dm-gray-300 mt-0.5">{t('pageAddCredentials.scanPhysicalId.digitalId.description')}</p>
+									</div>
+									<Camera size={32} className="text-lm-gray-600 dark:text-dm-gray-300 shrink-0" />
+								</button>
+							</div>
+						}
 					/>
 				)}
 			</div>

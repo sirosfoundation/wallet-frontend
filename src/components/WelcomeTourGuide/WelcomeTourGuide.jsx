@@ -14,7 +14,7 @@ const TourGuide = ({ toggleMenu, isOpen }) => {
 	const [isModalOpen, setIsModalOpen] = useState(true);
 	const [steps, setSteps] = useState([]);
 	const { api } = useContext(SessionContext);
-	const { authenticationType, showWelcome } = api.getSession();
+	const { authenticationType, showWelcome } = api.getSession() ?? {};
 	const { t } = useTranslation();
 	const screenType = useScreenType();
 

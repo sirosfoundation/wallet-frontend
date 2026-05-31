@@ -237,7 +237,14 @@
 			"message": "Será redirecionado para <strong>{{issuerName}}</strong> <i>{{issuerDescription}}</i> para emitir uma <strong>{{credentialName}}</strong> <i>{{credentialDescription}}</i>.",
 			"title": "Selecionado:"
 		},
-		"searchPlaceholder": "Procurar credencial..."
+		"searchPlaceholder": "Procurar credencial...",
+		"scanPhysicalId": {
+			"sectionTitle": "Digitalizar ID Físico",
+			"digitalId": {
+				"title": "ID Digital (passaporte digitalizado)",
+				"description": "Use o seu passaporte para criar um ID digital."
+			}
+		}
 	},
 	"pageCredentials": {
 		"addCard": {
@@ -379,6 +386,35 @@
 		},
 		"unlockSensitive": "Desbloquear ações sensíveis",
 		"unlockSensitiveTitle": "Clique para desbloquear ações sensíveis"
+	},
+	"pageScanPhysicalId": {
+		"title": "Digitalizar ID Físico",
+		"goBackAriaLabel": "Voltar",
+		"steps": {
+			"step1": {
+				"title": "Passo 1",
+				"description": "Digitalize o seu rosto para mostrar que é um humano real e vivo"
+			},
+			"step2": {
+				"title": "Passo 2",
+				"description": "Digitalize o seu documento"
+			},
+			"step3": {
+				"title": "Passo 3",
+				"description": "Coloque o seu telemóvel sobre o documento para ler o chip NFC"
+			}
+		},
+		"beforeYouBegin": {
+			"title": "Antes de começar",
+			"passportReady": "Tenha o passaporte pronto",
+			"goodLighting": "Boa iluminação",
+			"goodInternet": "Boa ligação à internet"
+		},
+		"whyFaceScan": {
+			"title": "Porquê digitalização facial?",
+			"description": "Utilizamos uma verificação facial 3D rápida para prevenir o uso fraudulento do seu documento. Os seus dados biométricos são encriptados e eliminados após a conclusão da verificação."
+		},
+		"startScan": "Iniciar Digitalização"
 	},
 	"passkeyInfoPopup": {
 		"closeAriaLabel": "Fechar popup de informações da chave de acesso",
