@@ -13,6 +13,7 @@ import { OpenID4VPContextProvider } from './context/OpenID4VPContextProvider';
 import { OpenID4VCIContextProvider } from './context/OpenID4VCIContextProvider';
 import { AppSettingsProvider } from './context/AppSettingsProvider';
 import { NotificationProvider } from './context/NotificationProvider';
+import { WebauthnInteractionDialogContextProvider } from './context/WebauthnInteractionDialogContext';
 import { OIDFlowTransportProviderWrapper } from './context/OIDFlowTransportProviderWrapper';
 import { WebSocketSignHandlerProvider } from './context/WebSocketSignHandlerProvider';
 import { ErrorDialogContextProvider } from './context/ErrorDialogContextProvider';
@@ -25,29 +26,31 @@ type RootProviderProps = {
 const AppProvider: React.FC<RootProviderProps> = ({ children }) => {
 	return (
 		<StatusContextProvider>
-			<SessionContextProvider>
-				<CredentialsContextProvider>
-					<OIDFlowTransportProviderWrapper>
-						<WebSocketSignHandlerProvider>
-							<I18nextProvider i18n={i18n}>
-								<ErrorDialogContextProvider>
-									<OpenID4VPContextProvider>
-										<OpenID4VCIContextProvider>
-											<TxCodeInputProvider>
-												<NotificationProvider>
-													<AppSettingsProvider>
-														{children}
-													</AppSettingsProvider>
-												</NotificationProvider>
-											</TxCodeInputProvider>
-										</OpenID4VCIContextProvider>
-									</OpenID4VPContextProvider>
-								</ErrorDialogContextProvider>
-							</I18nextProvider>
-						</WebSocketSignHandlerProvider>
-					</OIDFlowTransportProviderWrapper>
-				</CredentialsContextProvider>
-			</SessionContextProvider>
+			<WebauthnInteractionDialogContextProvider>
+				<SessionContextProvider>
+					<CredentialsContextProvider>
+						<OIDFlowTransportProviderWrapper>
+							<WebSocketSignHandlerProvider>
+								<I18nextProvider i18n={i18n}>
+									<ErrorDialogContextProvider>
+										<OpenID4VPContextProvider>
+											<OpenID4VCIContextProvider>
+												<TxCodeInputProvider>
+													<NotificationProvider>
+														<AppSettingsProvider>
+															{children}
+														</AppSettingsProvider>
+													</NotificationProvider>
+												</TxCodeInputProvider>
+											</OpenID4VCIContextProvider>
+										</OpenID4VPContextProvider>
+									</ErrorDialogContextProvider>
+								</I18nextProvider>
+							</WebSocketSignHandlerProvider>
+						</OIDFlowTransportProviderWrapper>
+					</CredentialsContextProvider>
+				</SessionContextProvider>
+			</WebauthnInteractionDialogContextProvider>
 		</StatusContextProvider>
 	);
 };

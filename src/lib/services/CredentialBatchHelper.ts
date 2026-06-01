@@ -1,6 +1,9 @@
-import { WalletState, WalletStateCredential } from "@/services/WalletStateSchemaVersion3";
 import { compareBy } from "../../util";
 import { ExtendedVcEntity } from "@/context/CredentialsContext";
+import { CurrentSchema } from "@/services/WalletStateSchema";
+
+type WalletState = CurrentSchema.WalletState;
+type WalletStateCredential = CurrentSchema.WalletStateCredential;
 
 
 export async function getLeastUsedCredentialInstance(batchId: number, cList: ExtendedVcEntity[], walletState: WalletState): Promise<WalletStateCredential | null> {

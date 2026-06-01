@@ -19,6 +19,7 @@ export default defineConfig({
 		],
 		environmentMatchGlobs: [
 			['**/services/*.test.ts', 'node'],
+			['**/arkg/*.test.ts', 'node'],
 			['**', 'happy-dom']
 		],
 		typecheck: {
