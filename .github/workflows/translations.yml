@@ -5,6 +5,9 @@ on:
     branches-ignore:
       - 'tmp**'
 
+permissions:
+  contents: write
+
 jobs:
   check-translations:
     name: Check translation coverage
@@ -14,6 +17,9 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v3
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
@@ -29,17 +35,14 @@ jobs:
 
       - name: Commit changes if any
         run: |
-          # Configure git user for CI
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
-
           # Stage changes from translation coverage
           git add translation_coverage/*.json
 
-          # If there are changes, commit and push them
+          # Check if there are changes
           if ! git diff --cached --exit-code; then
-            git commit -m "Update translation coverage badges [skip ci]"
-            git push
+            echo "::warning::Translation coverage badges need updating. These will be auto-committed when merged."
+            # Show the changes for reference
+            git diff --cached --stat
           else
             echo "No translation coverage changes detected."
           fi

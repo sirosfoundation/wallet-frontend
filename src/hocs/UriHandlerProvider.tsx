@@ -1,25 +1,17 @@
-import React, { useEffect, useState, useContext, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import React, { useEffect, useState, useContext, Suspense } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import StatusContext from "../context/StatusContext";
+import { logger } from "@/logger";
 import SessionContext from "../context/SessionContext";
 import { useTranslation } from "react-i18next";
-import { HandleAuthorizationRequestErrors as HandleAuthorizationRequestError } from "wallet-common";
-import OpenID4VCIContext from "../context/OpenID4VCIContext";
-import OpenID4VPContext from "../context/OpenID4VPContext";
-import CredentialsContext from "@/context/CredentialsContext";
 import { CachedUser } from "@/services/LocalStorageKeystore";
 import SyncPopup from "@/components/Popups/SyncPopup";
 import { useSessionStorage } from "@/hooks/useStorage";
-
-const MessagePopup = React.lazy(() => import('../components/Popups/MessagePopup'));
-const PinInputPopup = React.lazy(() => import('../components/Popups/PinInput'));
+import { parseOIDFlowCallbackUrl } from "@/lib/openid-flow/utils/oidFlowCallbackUrl";
+import { useTenant } from "@/context/TenantContext";
 
 export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	const { isOnline } = useContext(StatusContext);
-
-	const [usedAuthorizationCodes, setUsedAuthorizationCodes] = useState<string[]>([]);
-	const [usedRequestUris, setUsedRequestUris] = useState<string[]>([]);
-	const usedPreAuthorizedCodes = useRef<string[]>([]);
 
 	const { isLoggedIn, api, keystore, logout } = useContext(SessionContext);
 	const { syncPrivateData } = api;
@@ -28,24 +20,12 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	const location = useLocation();
 	const [url, setUrl] = useState(window.location.href);
 
-	const { openID4VCI } = useContext(OpenID4VCIContext);
-	const { openID4VP } = useContext(OpenID4VPContext);
-
-	const { handleCredentialOffer, generateAuthorizationRequest, handleAuthorizationResponse, requestCredentialsWithPreAuthorization } = openID4VCI;
-	const { handleAuthorizationRequest, promptForCredentialSelection, sendAuthorizationResponse } = openID4VP;
-
-	const [showPinInputPopup, setShowPinInputPopup] = useState<boolean>(false);
-
 	const [showSyncPopup, setSyncPopup] = useState<boolean>(false);
 	const [textSyncPopup, setTextSyncPopup] = useState<{ description: string }>({ description: "" });
 
-	const [showMessagePopup, setMessagePopup] = useState<boolean>(false);
-	const [textMessagePopup, setTextMessagePopup] = useState<{ title: string, description: string }>({ title: "", description: "" });
-	const [typeMessagePopup, setTypeMessagePopup] = useState<string>("");
 	const { t } = useTranslation();
-
-	const [redirectUri, setRedirectUri] = useState(null);
-	const { vcEntityList } = useContext(CredentialsContext);
+	const navigate = useNavigate();
+	const { buildPath } = useTenant();
 
 	const [cachedUser, setCachedUser] = useState<CachedUser | null>(null);
 	const [synced, setSynced] = useState(false);
@@ -75,7 +55,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 
 	useEffect(() => {
 		if (latestIsOnlineStatus === false && isOnline === true && cachedUser) {
-			api.syncPrivateData(cachedUser);
+			api.syncPrivateData(cachedUser, keystore);
 		}
 		if (isLoggedIn) {
 			setLatestIsOnlineStatus(isOnline);
@@ -88,7 +68,8 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 		isOnline,
 		latestIsOnlineStatus,
 		setLatestIsOnlineStatus,
-		cachedUser
+		cachedUser,
+		keystore
 	]);
 
 	useEffect(() => {
@@ -97,166 +78,23 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 		}
 		const params = new URLSearchParams(location.search);
 		if (synced === false && getCalculatedWalletState() && params.get('sync') !== 'fail') {
-			console.log("Actually syncing...");
-			syncPrivateData(cachedUser).then((r) => {
+			logger.debug("Actually syncing...");
+			(async () => {
+				const r = await syncPrivateData(cachedUser, keystore);
 				if (!r.ok) {
 					return;
 				}
 				setSynced(true);
-				// checkForUpdates();
-				// updateOnlineStatus(false);
-			});
+			})();
 		}
 
-	}, [cachedUser, synced, setSynced, getCalculatedWalletState, syncPrivateData, location.search]);
+	}, [cachedUser, synced, setSynced, getCalculatedWalletState, syncPrivateData, location.search, keystore]);
 
 	useEffect(() => {
 		if (synced === true && window.location.search !== '') {
 			setUrl(window.location.href);
 		}
 	}, [synced, setUrl, location]);
-
-	useEffect(() => {
-		if (redirectUri) {
-			window.location.href = redirectUri;
-		}
-	}, [redirectUri]);
-
-	useEffect(() => {
-		if (
-			!isLoggedIn || !url || !t || !vcEntityList || !synced ||
-			!handleCredentialOffer || !generateAuthorizationRequest || !handleAuthorizationResponse ||
-			!handleAuthorizationRequest || !promptForCredentialSelection || !sendAuthorizationResponse
-		) return;
-
-		async function handle(urlToCheck: string) {
-			const u = new URL(urlToCheck);
-			if (u.searchParams.size === 0) return;
-			// setUrl(window.location.origin);
-			console.log('[Uri Handler]: check', url);
-
-			if (u.protocol === 'openid-credential-offer' || u.searchParams.get('credential_offer') || u.searchParams.get('credential_offer_uri')) {
-				handleCredentialOffer(u.toString()).then(({ credentialIssuer, selectedCredentialConfigurationId, issuer_state, preAuthorizedCode, txCode }) => {
-					console.log("Generating authorization request...");
-					if (!preAuthorizedCode) {
-						return generateAuthorizationRequest(credentialIssuer, selectedCredentialConfigurationId, issuer_state);
-					} else if (usedPreAuthorizedCodes.current.includes(preAuthorizedCode)) {
-						throw new Error("Already used pre-authorized code");
-					}
-
-					let userInput: string | undefined = undefined;
-					if (txCode) {
-						while (1) {
-							userInput = prompt(txCode.description ?? "Input Transaction Code displayed on your screen")
-							if (txCode.length && txCode.length === userInput.length) {
-								break;
-							}
-							else if (txCode.length) {
-								alert(`Length of transaction code must be ${txCode.length}`);
-							}
-						}
-					}
-					usedPreAuthorizedCodes.current.push(preAuthorizedCode);
-					return requestCredentialsWithPreAuthorization(credentialIssuer, selectedCredentialConfigurationId, preAuthorizedCode, userInput);
-				}).then((res) => {
-					if ('url' in res && typeof res.url === 'string' && res.url) {
-						window.location.href = res.url;
-					}
-				})
-					.catch(err => {
-						setUrl(`${window.location.origin}${window.location.pathname}`);
-						window.history.replaceState({}, '', `${window.location.pathname}`);
-						console.error(err);
-					})
-				return;
-			}
-			else if (u.searchParams.get('code') && !usedAuthorizationCodes.includes(u.searchParams.get('code'))) {
-				setUsedAuthorizationCodes((codes) => [...codes, u.searchParams.get('code')]);
-
-				console.log("Handling authorization response...");
-				handleAuthorizationResponse(u.toString()).then(() => {
-				}).catch(err => {
-					setUrl(`${window.location.origin}${window.location.pathname}`);
-					console.log("Error during the handling of authorization response")
-					window.history.replaceState({}, '', `${window.location.pathname}`);
-					console.error(err)
-				})
-			}
-			else if (u.searchParams.get('client_id') && u.searchParams.get('request_uri') && !usedRequestUris.includes(u.searchParams.get('request_uri'))) {
-				setUsedRequestUris((uriArray) => [...uriArray, u.searchParams.get('request_uri')]);
-				await handleAuthorizationRequest(u.toString(), vcEntityList).then((result) => {
-					console.log("Result = ", result);
-					if ('error' in result) {
-						if (result.error === HandleAuthorizationRequestError.INSUFFICIENT_CREDENTIALS) {
-							setTextMessagePopup({ title: `${t('messagePopup.insufficientCredentials.title')}`, description: `${t('messagePopup.insufficientCredentials.description')}` });
-							setTypeMessagePopup('error');
-							setMessagePopup(true);
-						}
-						else if (result.error === HandleAuthorizationRequestError.NONTRUSTED_VERIFIER) {
-							setTextMessagePopup({ title: `${t('messagePopup.nonTrustedVerifier.title')}`, description: `${t('messagePopup.nonTrustedVerifier.description')}` });
-							setTypeMessagePopup('error');
-							setMessagePopup(true);
-						}
-						return;
-					}
-					const { conformantCredentialsMap, verifierDomainName, verifierPurpose, parsedTransactionData } = result;
-					const jsonedMap = Object.fromEntries(conformantCredentialsMap);
-					console.log("Prompting for selection..")
-					return promptForCredentialSelection(jsonedMap, verifierDomainName, verifierPurpose, parsedTransactionData);
-				}).then((selection) => {
-					if (!(selection instanceof Map)) {
-						return;
-					}
-					console.log("Selection = ", selection);
-					return sendAuthorizationResponse(selection, vcEntityList);
-
-				}).then((res) => {
-					if (res && 'url' in res && res.url) {
-						setRedirectUri(res.url);
-					}
-				}).catch(err => {
-					setUrl(`${window.location.origin}${window.location.pathname}`);
-					console.log("Failed to handle authorization req");
-					window.history.replaceState({}, '', `${window.location.pathname}`);
-					console.error(err);
-				})
-				return;
-			}
-
-			const urlParams = new URLSearchParams(window.location.search);
-			const state = urlParams.get('state');
-			const error = urlParams.get('error');
-			if (url && isLoggedIn && state && error) {
-				setUrl(`${window.location.origin}${window.location.pathname}`);
-				window.history.replaceState({}, '', `${window.location.pathname}`);
-				const errorDescription = urlParams.get('error_description');
-				setTextMessagePopup({ title: error, description: errorDescription });
-				setTypeMessagePopup('error');
-				setMessagePopup(true);
-			}
-		}
-		if (getCalculatedWalletState()) {
-			handle(url);
-		}
-	}, [
-		url,
-		t,
-		isLoggedIn,
-		setRedirectUri,
-		vcEntityList,
-		synced,
-		getCalculatedWalletState,
-		usedAuthorizationCodes,
-		usedRequestUris,
-		// depend on methods, not whole context objects
-		handleCredentialOffer,
-		generateAuthorizationRequest,
-		handleAuthorizationResponse,
-		handleAuthorizationRequest,
-		promptForCredentialSelection,
-		sendAuthorizationResponse,
-		requestCredentialsWithPreAuthorization,
-	]);
 
 	useEffect(() => {
 		const params = new URLSearchParams(window.location.search);
@@ -271,15 +109,25 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 		}
 	}, [location, t, synced]);
 
+	// Listen for URL changes to handle incoming OpenID flow callbacks
+	useEffect(() => {
+		const u = new URL(url);
+
+		if (u.pathname.endsWith('/cb')) {
+			return;
+		}
+
+		const result = parseOIDFlowCallbackUrl(u);
+		if (['oid4vci', 'oid4vp'].includes(result.protocol)) {
+			const target = buildPath(`cb?${result.url.searchParams.toString()}`);
+			setUrl(new URL(target, window.location.origin).href);
+			navigate(target);
+		}
+	}, [url, navigate, buildPath]);
+
 	return (
-		<>
+		<Suspense fallback={null}>
 			{children}
-			{showPinInputPopup &&
-				<PinInputPopup isOpen={showPinInputPopup} setIsOpen={setShowPinInputPopup} />
-			}
-			{showMessagePopup &&
-				<MessagePopup type={typeMessagePopup} message={textMessagePopup} onClose={() => setMessagePopup(false)} />
-			}
 			{showSyncPopup &&
 				<SyncPopup message={textSyncPopup}
 					onClose={() => {
@@ -288,6 +136,6 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 					}}
 				/>
 			}
-		</>
+		</Suspense>
 	);
 }

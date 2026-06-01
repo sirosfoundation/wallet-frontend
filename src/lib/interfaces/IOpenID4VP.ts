@@ -15,11 +15,5 @@ export interface IOpenID4VP {
 		}
 		| { error: HandleAuthorizationRequestError }
 	>;
-	promptForCredentialSelection(
-		conformantCredentialsMap: { [x: string]: number[] },
-		verifierDomainName: string,
-		verifierPurpose: string,
-		parsedTransactionData?: ParsedTransactionData[],
-	): Promise<Map<string, number>>;
 	sendAuthorizationResponse(selectionMap: Map<string, number>, vcEntitylist: ExtendedVcEntity[]): Promise<{ url?: string } | { presentation_during_issuance_session: string }>;
 }

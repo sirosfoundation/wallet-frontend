@@ -14,11 +14,14 @@ export function useCredentialName(
 
 	useEffect(() => {
 		let isMounted = true;
-		fetchName().then((resolvedName) => {
-			if (isMounted) setName(resolvedName ?? null);
-		}).catch(() => {
-			if (isMounted) setName(null);
-		});
+		(async () => {
+			try {
+				const resolvedName = await fetchName();
+				if (isMounted) setName(resolvedName ?? null);
+			} catch {
+				if (isMounted) setName(null);
+			}
+		})();
 
 		return () => {
 			isMounted = false;

@@ -1,11 +1,11 @@
 import React, { useCallback, useContext, useState } from 'react';
 import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { Trans, useTranslation } from 'react-i18next';
+import { logger } from '@/logger';
 
 import StatusContext from '@/context/StatusContext';
 import SessionContext from '@/context/SessionContext';
 import { useTenant } from '@/context/TenantContext';
-import { buildTenantRoutePath } from '@/lib/tenant';
 
 import LanguageSelector from '../../components/LanguageSelector/LanguageSelector';
 import Button from '../../components/Buttons/Button';
@@ -38,6 +38,7 @@ const WebauthnLogin = ({
 
 			} else {
 				const err = result.val;
+
 
 				// Using a switch here so the t() argument can be a literal, to ease searching
 				switch (err) {
@@ -124,12 +125,12 @@ const LoginState = () => {
 		}
 		if (state) {
 			try {
-				console.log('state', state);
+				logger.debug('state', state);
 				const decodedState = atob(state);
 				const stateObj = JSON.parse(decodedState);
 				return [cachedUsers.find(user => user.userHandleB64u === stateObj.userHandleB64u), false, authenticated === 'true'];
 			} catch (error) {
-				console.error('Error decoding state:', error);
+				logger.error('Error decoding state:', error);
 			}
 		}
 

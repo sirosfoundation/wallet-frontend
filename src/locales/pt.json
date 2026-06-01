@@ -16,6 +16,7 @@
 		"title": "Introduza o PIN"
 	},
 	"common": {
+		"accept": "Aceitar",
 		"and": "e",
 		"cancel": "Cancelar",
 		"action-close": "Fechar",
@@ -40,6 +41,7 @@
 		"previous": "Anterior",
 		"privateDataConflict": "A sua sessão não está sincronizada com o servidor. Por favor, volte a iniciar sessão e tente novamente.",
 		"refresh": "Atualizar",
+		"reject": "Rejeitar",
 		"save": "Guardar",
 		"showLess": "Mostrar menos",
 		"showMore": "Mostrar mais",
@@ -49,6 +51,20 @@
 	},
 	"expiredRibbon": {
 		"expired": "Expirada"
+	},
+	"issuanceWarningPopup": {
+		"codes": {
+			"FailFetchIssuerMetadata": "Não foi possível obter os metadados do emissor: o credencial poderá ser apresentado com informação limitada",
+			"FailSchemaIssuerMetadata": "Os metadados do emissor são inválidos: alguns detalhes do emissor poderão não ser apresentados corretamente",
+			"IntegrityFail": "Verificação de integridade dos metadados falhou: a informação de apresentação pode ter sido adulterada",
+			"IntegrityMissing": "Não foi possível verificar a integridade dos metadados: a informação de apresentação pode ter sido modificada",
+			"JwtVcIssuerFail": "Verificação do emissor falhou: não foi possível confirmar a autenticidade do credencial",
+			"JwtVcIssuerMismatch": "O emissor do credencial não corresponde ao emissor esperado: não foi possível confirmar a origem do credencial",
+			"NotFound": "Metadados do tipo não encontrados: o credencial poderá ser apresentado com informação limitada",
+			"NotFoundExtends": "Metadados estendidos do tipo não puderam ser resolvidos: alguns detalhes de apresentação poderão estar em falta"
+		},
+		"description": "O credencial foi recebido, mas algumas verificações não foram bem-sucedidas. Reveja os detalhes abaixo antes de decidir se pretende aceitá-lo.",
+		"title": "Avisos do Credencial"
 	},
 	"language": {
 		"label": "Idioma"
@@ -123,6 +139,24 @@
 	},
 	"messagePopup": {
 		"close": "Fechar",
+		"onlyOneInputDescriptor": {
+			"description": "Neste momento, a carteira não pode aceitar um Pedido de Apresentação para mais do que uma credencial em simultâneo.",
+			"title": "Versão de protocolo não suportada"
+		},
+		"sendResponseError": {
+			"description": "Ocorreu um erro durante a apresentação das credenciais.",
+			"title": "Erro de envio de resposta"
+		}
+	},
+	"notFound": {
+		"homeButton": "Voltar à página inicial",
+		"message": "Lamentamos, mas a página que procura não pode ser acedida",
+		"title": "Oops, página não encontrada!"
+	},
+	"openIdCallback": {
+		"authorizationError": {
+			"title": "Erro de Autorização"
+		},
 		"insufficientCredentials": {
 			"description": "Uma ou mais das credenciais que deseja apresentar não estão disponíveis para seleção.",
 			"title": "Credenciais insuficientes"
@@ -131,23 +165,20 @@
 			"description": "O verifier não forneceu informação válida para verificação.",
 			"title": "Verifier não confiável"
 		},
-		"onlyOneInputDescriptor": {
-			"description": "Neste momento, a carteira não pode aceitar um Pedido de Apresentação para mais do que uma credencial em simultâneo.",
-			"title": "Versão de protocolo não suportada"
-		},
-		"sendResponseError": {
-			"description": "Ocorreu um erro durante a apresentação das credenciais.",
-			"title": "Erro de envio de resposta"
-		},
 		"sendResponseSuccess": {
 			"description": "As credenciais foram enviadas com sucesso.",
 			"title": "Apresentação bem-sucedida"
+		},
+		"unsupportedCallback": {
+			"description": "O URL de callback fornecido não é suportado.",
+			"title": "Callback Não Suportado"
+		},
+		"vciFlowError": {
+			"title": "Erro de Emissão de Credencial"
+		},
+		"vpFlowError": {
+			"title": "Erro de Verificação"
 		}
-	},
-	"notFound": {
-		"homeButton": "Voltar à página inicial",
-		"message": "Lamentamos, mas a página que procura não pode ser acedida",
-		"title": "Oops, página não encontrada!"
 	},
 	"pageAddCredentials": {
 		"description": "Pesquise e selecione um credencial que deseja emitir",
@@ -281,6 +312,34 @@
 		"title": "Escolher onde criar a sua chave de acesso",
 		"triggerButton": "Como funcionam as chaves de acesso?"
 	},
+	"protocolSteps": {
+		"common": {
+			"error": "Ocorreu um erro"
+		},
+		"oid4vci": {
+			"awaitingAuthorizationResponse": "Aguardando autorização...",
+			"awaitingTxCode": "Aguardando código de transação...",
+			"completed": "Credencial recebida com sucesso",
+			"exchangingToken": "Trocando token...",
+			"fetchingIssuerMetadata": "Obtendo metadados do emissor...",
+			"idle": "Pronto",
+			"parsingOffer": "Analisando oferta de credencial...",
+			"requestingAuthorization": "Solicitando autorização...",
+			"requestingCredential": "Solicitando credencial...",
+			"storingCredential": "Armazenando credencial..."
+		},
+		"oid4vp": {
+			"awaitingConsent": "Confirme o compartilhamento de credencial...",
+			"awaitingCredentialSelection": "Selecione credenciais para apresentar...",
+			"completed": "Apresentação enviada com sucesso",
+			"creatingPresentation": "Criando apresentação...",
+			"fetchingVerifierMetadata": "Obtendo metadados do verificador...",
+			"idle": "Pronto",
+			"matchingCredentials": "Encontrando credenciais correspondentes...",
+			"parsingRequest": "Analisando solicitação de autorização...",
+			"sendingResponse": "Enviando resposta..."
+		}
+	},
 	"pwaInstallPrompt": {
 		"button": {
 			"closeTitle": "Clique para fechar a opção de instalação PWA",
@@ -291,7 +350,9 @@
 	"qrCodeScanner": {
 		"cameraPermissionAllow": "Por favor, ative a permissão da câmara para usar o digitalizador de código QR.",
 		"description": "Vise o código QR e será redirecionado para continuar com o processo",
-		"title": "Ler o código QR"
+		"title": "Ler o código QR",
+		"unsupportedTitle": "Código QR não suportado",
+		"unsupportedDescription": "Este código QR não é suportado pela carteira. Por favor, digitalize uma oferta de credencial ou solicitação de apresentação."
 	},
 	"queryableList": {
 		"all": "Todos",
@@ -349,6 +410,17 @@
 		"tourStep5": "Utilize a página 'Enviar Credenciais' para selecionar um verifier e partilhar as suas credenciais.",
 		"tourStep6": "Na página 'Histórico', pode ver detalhes das transmissões de credenciais, incluindo quando e para que verifiers elas foram enviadas.",
 		"tourStep7": "Na página 'Definições' pode gerir as suas chaves de acesso e configurações de conta."
+	},
+	"txCodeInput": {
+		"defaultDescription": "Introduza o código de transação apresentado no seu ecrã",
+		"errorEmpty": "Por favor introduza o código de transação",
+		"errorInvalid": "Código de transação inválido. Por favor tente novamente.",
+		"errorLength": "O código de transação deve ter {{length}} caracteres",
+		"inputLabel": "Código de transação",
+		"lengthHint": "Comprimento do código: {{length}} caracteres",
+		"placeholder": "Introduza o código",
+		"placeholderWithLength": "Introduza código de {{length}} caracteres",
+		"title": "Código de transação necessário"
 	},
 	"updateNotification": {
 		"description": "Nova versão disponível!"

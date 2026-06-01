@@ -2,17 +2,20 @@ import axios, { AxiosResponse } from 'axios';
 import { Err, Ok, Result } from 'ts-results';
 
 import * as config from '../config';
+import { logger } from '../logger';
 import { fromBase64Url, jsonParseTaggedBinary, jsonStringifyTaggedBinary, toBase64Url } from '../util';
 import { EncryptedContainer, makeAssertionPrfExtensionInputs, parsePrivateData, serializePrivateData } from '../services/keystore';
 import { CachedUser, LocalStorageKeystore } from '../services/LocalStorageKeystore';
 import { UserData, UserId, Verifier } from './types';
-import { useEffect, useCallback, useMemo } from 'react';
+import { useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UseStorageHandle, useClearStorages, useLocalStorage, useSessionStorage } from '../hooks/useStorage';
 import { addItem, getItem, EXCLUDED_INDEXEDDB_PATHS } from '../indexedDB';
 import { loginWebAuthnBeginOffline } from './LocalAuthentication';
 import { withAuthenticatorAttachmentFromHints, withHintsFromAllowCredentials } from '@/util-webauthn';
-import { getStoredTenant, setStoredTenant, clearStoredTenant } from '../lib/tenant';
+import { getTenantFromUrlPath, setStoredTenant, clearStoredTenant } from '../lib/tenant';
+import { clearOIDCState } from '../lib/oidc';
+import { refreshAccessToken, isUnauthorizedError, TokenRefreshConfig } from './tokenRefresh';
 
 const walletBackendUrl = config.BACKEND_URL;
 
@@ -28,6 +31,7 @@ type SessionState = {
 type LoginWebauthnError = (
 	'canceled'
 	| 'loginKeystoreFailed'
+	| 'oidcTokenExpired'
 	| 'passkeyInvalid'
 	| 'passkeyLoginFailedServerError'
 	| 'passkeyLoginFailedTryAgain'
@@ -42,6 +46,7 @@ type SignupWebauthnError = (
 	| 'passkeySignupPrfNotSupported'
 	| 'inviteRequired'
 	| 'inviteInvalid'
+	| 'oidcTokenExpired'
 	| { errorId: 'prfRetryFailed', retryFrom: SignupWebauthnRetryParams }
 );
 type SignupWebauthnRetryParams = { beginData: any, credential: PublicKeyCredential };
@@ -64,6 +69,8 @@ export interface BackendApi {
 	// getAppToken(): string | undefined,
 	clearSession(): void,
 	getAppToken(): string | null,
+	/** Refresh the access token using the stored refresh token. Returns true on success. */
+	refreshAccessToken(): Promise<boolean>,
 
 	login(username: string, password: string, keystore: LocalStorageKeystore): Promise<Result<void, any>>,
 	signup(username: string, password: string, keystore: LocalStorageKeystore): Promise<Result<void, any>>,
@@ -77,6 +84,7 @@ export interface BackendApi {
 		webauthnHints: string[],
 		cachedUser: CachedUser | undefined,
 		urlTenantId?: string,
+		oidcIdToken?: string,
 	): Promise<Result<void, LoginWebauthnError>>,
 	signupWebauthn(
 		name: string,
@@ -86,6 +94,7 @@ export interface BackendApi {
 		retryFrom?: SignupWebauthnRetryParams,
 		tenantId?: string,
 		inviteCode?: string,
+		oidcIdToken?: string,
 	): Promise<Result<void, SignupWebauthnError>>,
 	updatePrivateData(newPrivateData: EncryptedContainer): Promise<void>,
 	updatePrivateDataEtag(resp: AxiosResponse): AxiosResponse,
@@ -98,7 +107,8 @@ export interface BackendApi {
 	useClearOnClearSession<T>(storageHandle: UseStorageHandle<T>): UseStorageHandle<T>,
 
 	syncPrivateData(
-		cachedUser: CachedUser | undefined
+		cachedUser: CachedUser | undefined,
+		keystore?: LocalStorageKeystore,
 	): Promise<Result<void,
 		| 'syncFailed'
 		| 'loginKeystoreFailed'
@@ -112,9 +122,9 @@ export interface BackendApi {
 export function useApi(isOnlineProp: boolean = true): BackendApi {
 	const isOnline = useMemo(() => isOnlineProp === null ? true : isOnlineProp, [isOnlineProp]);
 	const [appToken, setAppToken, clearAppToken] = useSessionStorage<string | null>("appToken", null);
+	const [refreshToken, setRefreshToken, clearRefreshToken] = useSessionStorage<string | null>("refreshToken", null);
 	const [userHandle,] = useSessionStorage<string | null>("userHandle", null);
 	const [cachedUsers] = useLocalStorage<CachedUser[] | null>("cachedUsers", null);
-
 	const [sessionState, setSessionState, clearSessionState] = useSessionStorage<SessionState | null>("sessionState", null);
 
 	/**
@@ -135,11 +145,50 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 	}, []);
 
 	const navigate = useNavigate();
-	const clearSessionStorage = useClearStorages(clearAppToken, clearSessionState);
+	const clearSessionStorage = useClearStorages(clearAppToken, clearRefreshToken, clearSessionState);
+
+	// Ref to store current refresh token for the refresh config
+	// This allows the refresh mechanism to access the latest value without stale closures
+	const refreshTokenRef = useRef(refreshToken);
+	refreshTokenRef.current = refreshToken;
+
+	// Define clearSession early so it can be used by token refresh config
+	const clearSession = useCallback((): void => {
+		clearSessionStorage();
+		removePrivateDataEtag();
+		clearStoredTenant(); // Clear tenant on logout
+		clearOIDCState('registration'); // Clear OIDC gate tokens on logout
+		clearOIDCState('login');
+		events.dispatchEvent(new CustomEvent<ClearSessionEvent>(CLEAR_SESSION_EVENT));
+	}, [clearSessionStorage, removePrivateDataEtag]);
+
+	// Stable ref for clearSession to avoid stale closures in token refresh
+	const clearSessionRef = useRef<() => void>(clearSession);
+
+	useEffect(() => {
+		clearSessionRef.current = clearSession;
+	}, [clearSession]);
+
+	/**
+	 * Get the token refresh configuration.
+	 * This creates a config object that can be used by the token refresh utilities.
+	 */
+	const getTokenRefreshConfig = useCallback((): TokenRefreshConfig => ({
+		backendUrl: walletBackendUrl,
+		getRefreshToken: () => refreshTokenRef.current,
+		setAppToken,
+		setRefreshToken,
+		clearSession: () => clearSessionRef.current(),
+	}), [setAppToken, setRefreshToken]);
 
 	const getAppToken = useCallback((): string | null => {
 		return appToken;
 	}, [appToken]);
+
+	const doRefreshAccessToken = useCallback(async (): Promise<boolean> => {
+		const result = await refreshAccessToken(getTokenRefreshConfig());
+		return result.success;
+	}, [getTokenRefreshConfig]);
 
 	function transformResponse(data: any): any {
 		if (data) {
@@ -162,8 +211,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		options: { appToken?: string },
 	): { [header: string]: string } => {
 		const authz = options?.appToken || appToken;
-		// Get tenant ID from storage, defaulting to 'default' for single-tenant and backwards compatibility
-		const tenantId = getStoredTenant() || 'default';
+		const tenantId = getTenantFromUrlPath() || 'default';
 		return {
 			...headers,
 			'X-Tenant-ID': headers['X-Tenant-ID'] || tenantId,
@@ -176,8 +224,8 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		options: { appToken?: string },
 	): { [header: string]: string } => {
 		return {
-			...buildGetHeaders(headers, options),
 			...(getPrivateDataEtag() ? { 'X-Private-Data-If-Match': getPrivateDataEtag() } : {}),
+			...buildGetHeaders(headers, options),
 		};
 	}, [buildGetHeaders, getPrivateDataEtag]);
 
@@ -185,9 +233,10 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		path: string,
 		dbKey: string,
 		options?: { appToken?: string, headers?: { [header: string]: string } },
-		forceIndexDB: boolean = false
+		forceIndexDB: boolean = false,
+		_retried: boolean = false
 	): Promise<AxiosResponse> => {
-		console.log(`Get: ${path} ${isOnline ? 'online' : 'offline'} mode ${isOnline}`);
+		logger.debug(`Get: ${path} ${isOnline ? 'online' : 'offline'} mode ${isOnline}`);
 
 		// Offline case
 		if (!isOnline && !EXCLUDED_INDEXEDDB_PATHS.has(path)) {
@@ -203,19 +252,35 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			}
 		}
 		// Online case
-		const respBackend = await axios.get(
-			`${walletBackendUrl}${path}`,
-			{
-				headers: buildGetHeaders(options?.headers ?? {}, { appToken: options?.appToken }),
-				validateStatus: status => (status >= 200 && status < 300) || status === 304,
-				transformResponse,
-			},
-		);
-		if (!EXCLUDED_INDEXEDDB_PATHS.has(path)) {
-			await addItem(path, dbKey, respBackend.data);
+		try {
+			const respBackend = await axios.get(
+				`${walletBackendUrl}${path}`,
+				{
+					headers: buildGetHeaders(options?.headers ?? {}, { appToken: options?.appToken }),
+					validateStatus: status => (status >= 200 && status < 300) || status === 304,
+					transformResponse,
+				},
+			);
+			if (!EXCLUDED_INDEXEDDB_PATHS.has(path)) {
+				await addItem(path, dbKey, respBackend.data);
+			}
+			return respBackend;
+		} catch (error) {
+			// Attempt token refresh on 401 if not already retried
+			if (!_retried && isUnauthorizedError(error)) {
+				const refreshResult = await refreshAccessToken(getTokenRefreshConfig());
+				if (refreshResult.success) {
+					// Retry with new token. Drop any stale appToken so headers use the refreshed access token.
+					const retryOptions = options ? { ...options } : undefined;
+					if (retryOptions && 'appToken' in retryOptions) {
+						delete retryOptions.appToken;
+					}
+					return getWithLocalDbKey(path, dbKey, retryOptions, forceIndexDB, true);
+				}
+			}
+			throw error;
 		}
-		return respBackend;
-	}, [buildGetHeaders, isOnline]);
+	}, [buildGetHeaders, isOnline, getTokenRefreshConfig]);
 
 	const get = useCallback(async (
 		path: string,
@@ -233,8 +298,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		options?: { appToken?: string, headers?: { [header: string]: string } },
 		force: boolean = false
 	): Promise<AxiosResponse> => {
-		// Get current tenant for cache key (X-Tenant-ID header is added by buildGetHeaders)
-		const tenantId = getStoredTenant() || 'default';
+		const tenantId = getTenantFromUrlPath() || 'default';
 		// Include tenant in cache key so different tenants have separate caches
 		const cacheKey = `${tenantId}:${path}`;
 		return getWithLocalDbKey(path, cacheKey, options, force);
@@ -252,7 +316,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			// getExternalEntity('/issuer/all') on credentialContext
 			// getCredentialIssuerMetadata() on credentialContext
 		} catch (error) {
-			console.error('Failed to perform get requests', error);
+			logger.error('Failed to perform get requests', error);
 		}
 	}, [get, getExternalEntity]);
 
@@ -260,6 +324,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		path: string,
 		body: object,
 		options?: { appToken?: string, headers?: { [header: string]: string } },
+		_retried: boolean = false
 	): Promise<AxiosResponse> => {
 		try {
 			return await axios.post(
@@ -278,16 +343,26 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			if (e?.response?.status === 412 && (e?.response?.headers ?? {})['x-private-data-etag']) {
 				return Promise.reject({ cause: 'x-private-data-etag' });
 			}
+			// Attempt token refresh on 401 if not already retried
+			if (!_retried && isUnauthorizedError(e)) {
+				const refreshResult = await refreshAccessToken(getTokenRefreshConfig());
+				if (refreshResult.success) {
+					// Retry with new token: do not reuse an explicit (possibly expired) appToken
+					const retryOptions = options ? { ...options, appToken: undefined } : undefined;
+					return post(path, body, retryOptions, true);
+				}
+			}
 			throw e;
 		}
-	}, [buildMutationHeaders]);
+	}, [buildMutationHeaders, getTokenRefreshConfig]);
 
-	const del = useCallback((
+	const del = useCallback(async (
 		path: string,
 		options?: { appToken?: string, headers?: { [header: string]: string } },
+		_retried: boolean = false
 	): Promise<AxiosResponse> => {
 		try {
-			return axios.delete(
+			return await axios.delete(
 				`${walletBackendUrl}${path}`,
 				{
 					headers: buildMutationHeaders(options?.headers ?? {}, { appToken: options?.appToken }),
@@ -297,12 +372,22 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			if (e?.response?.status === 412 && (e?.response?.headers ?? {})['x-private-data-etag']) {
 				return Promise.reject({ cause: 'x-private-data-etag' });
 			}
+			// Attempt token refresh on 401 if not already retried
+			if (!_retried && isUnauthorizedError(e)) {
+				const refreshResult = await refreshAccessToken(getTokenRefreshConfig());
+				if (refreshResult.success) {
+					// Retry with new token: do not reuse an explicit (possibly expired) appToken
+					const retryOptions = options ? { ...options, appToken: undefined } : undefined;
+					return del(path, retryOptions, true);
+				}
+			}
 			throw e;
 		}
-	}, [buildMutationHeaders]);
+	}, [buildMutationHeaders, getTokenRefreshConfig]);
 
 	const syncPrivateData = useCallback(async (
-		cachedUser: CachedUser | undefined
+		cachedUser: CachedUser | undefined,
+		keystore?: LocalStorageKeystore,
 	): Promise<Result<void,
 		| 'syncFailed'
 		| 'loginKeystoreFailed'
@@ -320,24 +405,55 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			if (getPrivateDataResponse.status === 304) {
 				return Ok.EMPTY; // already synced
 			}
+
+			// Try to merge without re-authentication if keystore is available
+			if (keystore) {
+				try {
+					const remotePrivateData = getPrivateDataResponse.data.privateData;
+					const mergeResult = await keystore.syncWithRemoteData(remotePrivateData);
+					if (mergeResult.ok) {
+						const newEtag =
+							getPrivateDataResponse.headers?.['x-private-data-etag'] ??
+							getPrivateDataResponse.headers?.['etag'];
+						const updateResp = updatePrivateDataEtag(
+							await post('/user/session/private-data', serializePrivateData(mergeResult.val), {
+								headers: newEtag ? { 'X-Private-Data-If-Match': newEtag } : {},
+							}),
+						);
+						if (updateResp.status === 204) {
+							console.debug('syncPrivateData: merged remote and local data successfully');
+							return Ok.EMPTY;
+						}
+					}
+				} catch (mergeErr) {
+					console.debug('syncPrivateData: silent merge threw, falling back to re-auth', mergeErr);
+				}
+				console.debug('syncPrivateData: merge failed, falling back to re-authentication flow');
+			}
+
+			// Fallback: navigate to sync-fail state for re-authentication
 			const queryParams = new URLSearchParams(window.location.search);
 			queryParams.delete('user');
 			queryParams.delete('sync');
 
-			queryParams.append('user', cachedUser.userHandleB64u);
+			if (cachedUser && cachedUser.userHandleB64u) {
+				queryParams.append('user', cachedUser.userHandleB64u);
+			}
 			queryParams.append('sync', 'fail');
 
 			navigate(`${window.location.pathname}?${queryParams.toString()}`, { replace: true });
 			return Err('syncFailed');
-			// const privateData = await parsePrivateData(getPrivateDataResponse.data.privateData);
-			// return await loginWebauthn(keystore, promptForPrfRetry, cachedUser);
 		}
 		catch (err) {
-			console.error(err);
+			if (typeof err === 'object' && err !== null && 'cause' in err && err.cause === 'x-private-data-etag') {
+				logger.debug('syncPrivateData: private data etag conflict', err);
+				return Err('x-private-data-etag');
+			}
+			logger.error('syncPrivateData failed', err);
 			return Err('syncFailed');
 		}
 
-	}, [getPrivateDataEtag, get, navigate, isOnline]);
+	}, [getPrivateDataEtag, get, navigate, isOnline, post, updatePrivateDataEtag]);
 
 	const updateShowWelcome = useCallback((showWelcome: boolean): void => {
 		if (sessionState) {
@@ -356,19 +472,16 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		return getSession() !== null;
 	}, [getSession]);
 
-	const clearSession = useCallback((): void => {
-		clearSessionStorage();
-		removePrivateDataEtag();
-		clearStoredTenant(); // Clear tenant on logout
-		events.dispatchEvent(new CustomEvent<ClearSessionEvent>(CLEAR_SESSION_EVENT));
-	}, [clearSessionStorage, removePrivateDataEtag]);
-
 	const setSession = useCallback(async (
 		response: AxiosResponse,
 		credential: PublicKeyCredential | null,
 		authenticationType: 'signup' | 'login'
 	): Promise<void> => {
 		setAppToken(response.data.appToken);
+		// Store refresh token if provided by backend (when refresh-tokens capability enabled)
+		if (response.data.refreshToken) {
+			setRefreshToken(response.data.refreshToken);
+		}
 		setSessionState({
 			uuid: response.data.uuid,
 			displayName: response.data.displayName,
@@ -380,9 +493,9 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 
 		await addItem('users', response.data.uuid, response.data);
 		if (isOnline) {
-			await fetchInitialData(response.data.appToken, response.data.uuid).catch((error) => console.error('Error in performGetRequests', error));
+			await fetchInitialData(response.data.appToken, response.data.uuid).catch((error) => logger.error('Error in performGetRequests', error));
 		}
-	}, [setAppToken, setSessionState, fetchInitialData, isOnline]);
+	}, [setAppToken, setRefreshToken, setSessionState, fetchInitialData, isOnline]);
 
 	const updatePrivateData = useCallback(async (
 		newPrivateData: EncryptedContainer,
@@ -404,7 +517,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 
 			if (!isOnline) {
 				await writeOnIndexedDB();
-				console.log("Cannot write to remote keystore while offline");
+				logger.debug("Cannot write to remote keystore while offline");
 				return;
 			}
 			const updateResp = updatePrivateDataEtag(
@@ -414,13 +527,13 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 				await writeOnIndexedDB();
 				return;
 			} else {
-				console.error("Failed to update private data", updateResp.status, updateResp);
+				logger.error("Failed to update private data", updateResp.status, updateResp);
 				return Promise.reject(updateResp);
 			}
 		} catch (e) {
-			console.error("Failed to update private data", e, e?.response?.status);
+			logger.error("Failed to update private data", e, e?.response?.status);
 			if ((e?.response?.status === 412 && (e?.headers ?? {})['x-private-data-etag']) || (e.cause === 'x-private-data-etag')) {
-				console.error("Private data version conflict", { cause: 'x-private-data-etag' });
+				logger.error("Private data version conflict", { cause: 'x-private-data-etag' });
 				const cachedUser = cachedUsers.filter((u) => u.userHandleB64u === userHandle)[0];
 				await syncPrivateData(cachedUser);
 				return;
@@ -446,7 +559,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 						await updatePrivateData(newPrivateData, { appToken: response.data.appToken });
 						await keystoreCommit();
 					} catch (e) {
-						console.error("Failed to upgrade password key", e, e.status);
+						logger.error("Failed to upgrade password key", e, e.status);
 						if (e?.cause === 'x-private-data-etag') {
 							return Err('x-private-data-etag');
 						}
@@ -456,12 +569,12 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 				await setSession(response, null, 'login');
 				return Ok.EMPTY;
 			} catch (e) {
-				console.error("Failed to unlock local keystore", e);
+				logger.error("Failed to unlock local keystore", e);
 				return Err(e);
 			}
 
 		} catch (error) {
-			console.error('Failed to log in', error);
+			logger.error('Failed to log in', error);
 			return Err(error);
 		}
 	}, [post, setSession, updatePrivateDataEtag, updatePrivateData]);
@@ -487,12 +600,12 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 				return Ok.EMPTY;
 
 			} catch (e) {
-				console.error("Signup failed", e);
+				logger.error("Signup failed", e);
 				return Err(e);
 			}
 
 		} catch (e) {
-			console.error("Failed to initialize local keystore", e);
+			logger.error("Failed to initialize local keystore", e);
 			return Err(e);
 		}
 	}, [post, setSession, updatePrivateDataEtag]);
@@ -501,11 +614,11 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		try {
 			const result = await getExternalEntity('/verifier/all', undefined, true);
 			const verifiers = result.data;
-			console.log("verifiers = ", verifiers)
+			logger.debug("verifiers = ", verifiers)
 			return verifiers;
 		}
 		catch (error) {
-			console.error("Failed to fetch all verifiers", error);
+			logger.error("Failed to fetch all verifiers", error);
 			throw error;
 		}
 	}, [getExternalEntity]);
@@ -516,7 +629,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			return result.data; // Return the Axios response.
 		}
 		catch (error) {
-			console.error("Failed to fetch all presentations", error);
+			logger.error("Failed to fetch all presentations", error);
 			throw error;
 		}
 	}, [get]);
@@ -531,7 +644,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			return { redirect_to };
 		}
 		catch (error) {
-			console.error("Failed to fetch all verifiers", error);
+			logger.error("Failed to fetch all verifiers", error);
 			throw error;
 		}
 	}, [post]);
@@ -541,15 +654,22 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		promptForPrfRetry: () => Promise<boolean | AbortSignal>,
 		webauthnHints: string[],
 		cachedUser: CachedUser | undefined,
-		urlTenantId?: string
+		urlTenantId?: string,
+		oidcIdToken?: string
 	): Promise<Result<void, LoginWebauthnError>> => {
 		try {
 			// Login always uses global endpoints - the backend discovers the tenant
 			// from the userHandle which contains a hashed tenant ID.
 			// The urlTenantId is kept for redirect handling after tenant discovery.
-			console.log("Login: using global endpoint, urlTenant for redirect:", urlTenantId);
+			logger.debug("Login: using global endpoint, urlTenant for redirect:", urlTenantId);
 
 			const loginTenantId = urlTenantId || 'default';
+
+			// Build headers - include OIDC token if provided for gate enforcement
+			const loginHeaders: Record<string, string> = { 'X-Tenant-ID': loginTenantId };
+			if (oidcIdToken) {
+				loginHeaders['Authorization'] = `Bearer ${oidcIdToken}`;
+			}
 
 			const beginData = await (async (): Promise<{
 				challengeId?: string,
@@ -557,9 +677,9 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			}> => {
 				if (isOnline) {
 					const beginResp = await post('/user/login-webauthn-begin', {}, {
-						headers: { 'X-Tenant-ID': loginTenantId },
+						headers: loginHeaders,
 					});
-					console.log("begin", beginResp);
+					logger.debug("begin", beginResp);
 					return beginResp.data;
 				}
 				else {
@@ -616,7 +736,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 							clientExtensionResults: credential.getClientExtensionResults(),
 						},
 					}, {
-						headers: { 'X-Tenant-ID': loginTenantId },
+						headers: loginHeaders,
 					}));
 				}
 				else {
@@ -653,7 +773,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 					await updatePrivateData(newPrivateData, { appToken: finishResp.data.appToken });
 					await keystoreCommit();
 				} catch (e) {
-					console.error("Failed to upgrade PRF key", e, e.status);
+					logger.error("Failed to upgrade PRF key", e, e.status);
 					if (e?.cause === 'x-private-data-etag') {
 						return Err('x-private-data-etag');
 					}
@@ -679,10 +799,15 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			return Ok.EMPTY;
 
 		} catch (e) {
-			console.error("Login failed", e);
+			logger.error("Login failed", e);
 
 			if (e?.cause?.errorId === 'canceled') {
 				return Err('canceled');
+			}
+
+			if (e?.response?.status === 401) {
+				// OIDC gate token expired or invalid - user must re-authenticate via IdP
+				return Err('oidcTokenExpired');
 			}
 			if (e?.response?.status === 403) {
 				// Tenant access denied - passkey belongs to different tenant
@@ -704,10 +829,17 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		retryFrom?: SignupWebauthnRetryParams,
 		tenantId?: string,
 		inviteCode?: string,
+		oidcIdToken?: string,
 	): Promise<Result<void, SignupWebauthnError>> => {
 		// Registration uses the global endpoint with tenantId in request body
 		// This ensures the passkey's userHandle encodes the tenant for proper isolation
-		const storedTenant = tenantId || getStoredTenant();
+		const storedTenant = tenantId || getTenantFromUrlPath();
+
+		// Build headers - include OIDC token if provided for gate enforcement
+		const signupHeaders: Record<string, string> = { 'X-Tenant-ID': storedTenant };
+		if (oidcIdToken) {
+			signupHeaders['Authorization'] = `Bearer ${oidcIdToken}`;
+		}
 
 		try {
 			const res = await post(
@@ -717,15 +849,12 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 					inviteCode,
 				},
 				{
-					headers: {
-						// We set tenant ID header to make sure the URL tenant ID is used.
-						'X-Tenant-ID': storedTenant,
-					},
+					headers: signupHeaders,
 				},
 			);
 
 			const beginData = retryFrom?.beginData || res.data;
-			console.log("begin", beginData);
+			logger.debug("begin", beginData);
 
 			try {
 				try {
@@ -766,7 +895,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 								clientExtensionResults: credential.getClientExtensionResults(),
 							},
 						}, {
-							headers: { 'X-Tenant-ID': storedTenant },
+							headers: signupHeaders,
 						}));
 
 						// Store the tenant from the response, falling back to 'default' if not provided
@@ -785,6 +914,10 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 						return Ok.EMPTY;
 
 					} catch (e) {
+						if (e?.response?.status === 401) {
+							// OIDC gate token expired or invalid - user must re-authenticate via IdP
+							return Err('oidcTokenExpired');
+						}
 						return Err('passkeySignupFailedServerError');
 					}
 
@@ -810,6 +943,10 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			}
 
 		} catch (e) {
+			if (e?.response?.status === 401) {
+				// OIDC gate token expired or invalid - user must re-authenticate via IdP
+				return Err('oidcTokenExpired');
+			}
 			const errorMsg = e?.response?.data?.error;
 			if (errorMsg === 'invite_required') return Err('inviteRequired');
 			if (errorMsg === 'invite_invalid') return Err('inviteInvalid');
@@ -860,6 +997,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		getAllPresentations,
 		getAppToken,
 		initiatePresentationExchange,
+		refreshAccessToken: doRefreshAccessToken,
 
 		loginWebauthn,
 		signupWebauthn,
@@ -888,6 +1026,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		getAllPresentations,
 		getAppToken,
 		initiatePresentationExchange,
+		doRefreshAccessToken,
 
 		loginWebauthn,
 		signupWebauthn,

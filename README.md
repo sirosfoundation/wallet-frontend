@@ -84,7 +84,6 @@ Our Web Wallet provides a range of features tailored to enhance the credential m
   - `OPENID4VCI_PROOF_TYPE_PRECEDENCE`: Proof type precedence for OID4VCI (e.g., `"attestation,jwt"`).
   - `OPENID4VP_SAN_DNS_CHECK`: Verify at the OID4VP incoming authorization request that the SAN contained in the certificate is the same with the response_uri (`true` or `false`).
   - `OPENID4VP_SAN_DNS_CHECK_SSL_CERTS`: Flag to switch (`true` or `false`) the Subject Alternative Name validation of the certificates during the OpenID4VP.
-  - `VALIDATE_CREDENTIALS_WITH_TRUST_ANCHORS`: Flag to switch (`true` or `false`) the validation of issued credentials with the registered trust anchors that were defined in the wallet-backend-server.
   - `MULTI_LANGUAGE_DISPLAY`: Enable or disable multi-language support (`true` or `false`). If left empty, it will be handled as `false`.
   - `STATIC_PUBLIC_URL`: The installation's public url.
   - `STATIC_NAME`: The installation's public name.

@@ -8,6 +8,7 @@ import { MdocIacasResponse, MdocIacasResponseSchema } from "../schemas/MdocIacas
 import { OpenidAuthorizationServerMetadataSchema, OpenidCredentialIssuerMetadataSchema } from 'wallet-common';
 import type { OpenidAuthorizationServerMetadata, OpenidCredentialIssuerMetadata } from 'wallet-common'
 import { OPENID4VCI_REDIRECT_URI } from "@/config";
+import { logger } from '@/logger';
 
 export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 	const httpProxy = useHttpProxy();
@@ -23,20 +24,22 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 				const result = schema.safeParse(response.data);
 
 				if (!result.success) {
-					console.warn(`Schema validation failed for ${path}:`, result.error.issues);
+					logger.warn(`Schema validation failed for ${path}:`, JSON.stringify(result.error.issues));
 					throw new Error("Invalid response schema");
 				}
 
 				return result.data;
 			} catch (err) {
-				console.error(`Error fetching from ${path}:`, err);
+				logger.error(`Error fetching from ${path}:`, err);
 				throw new Error(`Couldn't get data from ${path}`);
 			}
 		}, [httpProxy])
 
 	const getCredentialIssuerMetadata = useCallback(
 		async (credentialIssuerIdentifier: string, useCache?: boolean): Promise<{ metadata: OpenidCredentialIssuerMetadata } | null> => {
-			const pathCredentialIssuer = `${credentialIssuerIdentifier}/.well-known/openid-credential-issuer`;
+			// RFC8414 well-known URI construction: https://host/.well-known/openid-credential-issuer/path
+			const issuerUrl = new URL(credentialIssuerIdentifier);
+			const pathCredentialIssuer = `${issuerUrl.origin}/.well-known/openid-credential-issuer${issuerUrl.pathname}`;
 			try {
 				const metadata = await fetchAndParseWithSchema<OpenidCredentialIssuerMetadata>(
 					pathCredentialIssuer,
@@ -55,14 +58,14 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 						return null;
 					}
 					catch (err) {
-						console.error(err);
+						logger.error(err);
 						return null;
 					}
 				}
 				return { metadata };
 			}
 			catch (err) {
-				console.error(err);
+				logger.error(err);
 				return null;
 			}
 		},
@@ -74,13 +77,16 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 	// If not available from metadata, then the issuer is imlplied to also act as the authorization server.
 	const getAuthorizationServerMetadata = useCallback(
 		async (credentialIssuerIdentifier: string, useCache?: boolean): Promise<{ authzServerMetadata: OpenidAuthorizationServerMetadata } | null> => {
-			const authorizationServerWellKnownLocation = ".well-known/oauth-authorization-server";
 			const { metadata } = await getCredentialIssuerMetadata(credentialIssuerIdentifier);
-			const pathAuthorizationServerFromCredentialIssuerMetadata = metadata.authorization_servers && metadata.authorization_servers.length > 0 ?
-				`${metadata.authorization_servers[0]}/${authorizationServerWellKnownLocation}` :
-				null;
-			const pathIssuerAuthorizationServer = `${credentialIssuerIdentifier}/${authorizationServerWellKnownLocation}`;
-			const pathIssuerOpenIdConfiguration = `${credentialIssuerIdentifier}/.well-known/openid-configuration`;
+			// RFC8414 well-known URI construction for authorization server metadata
+			let pathAuthorizationServerFromCredentialIssuerMetadata: string | null = null;
+			if (metadata.authorization_servers && metadata.authorization_servers.length > 0) {
+				const authzUrl = new URL(metadata.authorization_servers[0]);
+				pathAuthorizationServerFromCredentialIssuerMetadata = `${authzUrl.origin}/.well-known/oauth-authorization-server${authzUrl.pathname.replace(/\/$/, '')}`;
+			}
+			const issuerUrl = new URL(credentialIssuerIdentifier);
+			const pathIssuerAuthorizationServer = `${issuerUrl.origin}/.well-known/oauth-authorization-server${issuerUrl.pathname.replace(/\/$/, '')}`;
+			const pathIssuerOpenIdConfiguration = `${issuerUrl.origin}/.well-known/openid-configuration${issuerUrl.pathname.replace(/\/$/, '')}`;
 			let authzServerMetadata: OpenidAuthorizationServerMetadata = null;
 
 			if (pathAuthorizationServerFromCredentialIssuerMetadata) {
@@ -128,11 +134,11 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 					return { client_id: issuer.clientId };
 				}
 
-				return { client_id: OPENID4VCI_REDIRECT_URI };
+					return { client_id: OPENID4VCI_REDIRECT_URI };
 			}
 			catch (err) {
-				console.log("Could not get client_id for issuer " + credentialIssuerIdentifier + " Details:");
-				console.error(err);
+				logger.debug("Could not get client_id for issuer " + credentialIssuerIdentifier + " Details:");
+				logger.error(err);
 				return null;
 			}
 		},
@@ -157,7 +163,7 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 				return null;
 			}
 			catch (err) {
-				console.error(err);
+				logger.error(err);
 				return null;
 			}
 		},
@@ -191,7 +197,7 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 						config.display?.forEach(d => d.logo?.uri && logoUris.push(d.logo.uri));
 					});
 
-					logoUris.forEach(uri => httpProxy.get(uri, {}, { useCache: shouldUseCache }).catch(console.error));
+					logoUris.forEach(uri => httpProxy.get(uri, {}, { useCache: shouldUseCache }).catch(logger.error));
 
 					if (metadata.mdoc_iacas_uri) {
 						const response = await getMdocIacas(metadata.credential_issuer, metadata, shouldUseCache);
@@ -202,7 +208,7 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 						}
 					}
 				} catch (error) {
-					console.error(`Failed to fetch metadata for ${entity.credentialIssuerIdentifier}:`, error);
+					logger.error(`Failed to fetch metadata for ${entity.credentialIssuerIdentifier}:`, error);
 				}
 			});
 			try {
@@ -211,7 +217,7 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 				certificates.push(...iaca_list.map((c) => c.certificate));
 			}
 			catch {
-				console.error(`Failed to get iaca list from wallet-backend-server`);
+				logger.error(`Failed to get iaca list from wallet-backend-server`);
 			}
 			onCertificates(certificates);
 

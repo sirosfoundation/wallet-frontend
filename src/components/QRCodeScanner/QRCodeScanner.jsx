@@ -2,11 +2,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import Webcam from 'react-webcam';
 import { useTranslation } from 'react-i18next';
 import QrScanner from '../../utils/qr/qr-scanner';
+import { logger } from '@/logger';
 import PopupLayout from '../Popups/PopupLayout';
 import useScreenType from '../../hooks/useScreenType';
 import { H1 } from '../Shared/Heading';
 import Button from '../Buttons/Button';
 import { ArrowLeft, CheckCircle, QrCode, RotateCw, ZoomIn, ZoomOut } from 'lucide-react';
+import { useTenant } from '@/context/TenantContext';
+import { parseOIDFlowCallbackUrl } from '@/lib/openid-flow/utils/oidFlowCallbackUrl';
+import useErrorDialog from '@/hooks/useErrorDialog';
 
 const QRScanner = ({ onClose }) => {
 	const [devices, setDevices] = useState([]);
@@ -18,6 +22,8 @@ const QRScanner = ({ onClose }) => {
 	const [zoomLevel, setZoomLevel] = useState(1);
 	const [hasCameraPermission, setHasCameraPermission] = useState(null);
 	const { t } = useTranslation();
+	const { buildPath } = useTenant();
+	const { displayError } = useErrorDialog();
 	const screenType = useScreenType();
 
 	const handleZoomChange = (event) => {
@@ -44,7 +50,7 @@ const QRScanner = ({ onClose }) => {
 				stream.getTracks().forEach(track => track.stop());
 			})
 			.catch(error => {
-				console.error("Camera access denied:", error);
+				logger.error("Camera access denied:", error);
 				setHasCameraPermission(false);
 			});
 	}, []);
@@ -63,7 +69,7 @@ const QRScanner = ({ onClose }) => {
 						const track = stream.getVideoTracks()[0];
 						const capabilities = track.getCapabilities();
 						// const isBackCamera = device.label.toLowerCase().includes('back');
-						const isBackCamera = capabilities.facingMode.includes('environment');
+						const isBackCamera = capabilities.facingMode?.includes('environment');
 
 						const resolution = {
 							width: capabilities.width?.max || 0,
@@ -101,7 +107,7 @@ const QRScanner = ({ onClose }) => {
 					setCameraReady(true);
 				})
 				.catch(error => {
-					console.error("Error enumerating devices:", error);
+					logger.error("Error enumerating devices:", error);
 				});
 		}
 	}, [hasCameraPermission]);
@@ -128,7 +134,7 @@ const QRScanner = ({ onClose }) => {
 
 			const videoElement = webcamRef.current.video;
 			const qrScanner = new QrScanner(videoElement, (result) => {
-				console.log('decoded qr code:', result);
+				logger.debug('decoded qr code:', result);
 				setQrDetected(true);
 				// Redirect to the URL found in the QR code
 				const scannedUrl = result.data;
@@ -136,15 +142,36 @@ const QRScanner = ({ onClose }) => {
 					setLoading(true);
 				}, 3000);
 				setTimeout(() => {
-					const baseUrl = window.location.origin;
-					const params = scannedUrl.split('?');
-					const cvUrl = `${baseUrl}/cb?${params[1]}&wwwallet_camera_was_used=true`;
-					window.location.href = cvUrl;
+					// Parse url
+					const result = parseOIDFlowCallbackUrl(new URL(scannedUrl));
+
+					const url = new URL(buildPath('cb'), window.location.origin);
+
+					switch (result.type) {
+						case 'credential_offer':
+						case 'presentation_request':
+							url.search = result.url.search;
+							url.searchParams.set('wwwallet_camera_was_used', 'true');
+							window.location.href = url.toString();
+							break;
+						default:
+							logger.error('Unsupported QR code type:', result);
+							displayError({
+								title: t('qrCodeScanner.unsupportedTitle'),
+								description: t('qrCodeScanner.unsupportedDescription'),
+								onClose: () => {
+									setQrDetected(false);
+									setLoading(false);
+									onClose();
+								}
+							});
+							return;
+					}
 				}, 1000);
 			}, { highlightScanRegion: true, highlightCodeOutline: false });
 
 			qrScanner.start().catch(err => {
-				console.error('Error starting QR Scanner: ', err);
+				logger.error('Error starting QR Scanner: ', err);
 				// Optionally update UI or state to reflect the error
 			});
 

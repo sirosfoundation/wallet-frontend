@@ -14,10 +14,10 @@ import { OpenID4VCIContextProvider } from './context/OpenID4VCIContextProvider';
 import { AppSettingsProvider } from './context/AppSettingsProvider';
 import { NotificationProvider } from './context/NotificationProvider';
 import { WebauthnInteractionDialogContextProvider } from './context/WebauthnInteractionDialogContext';
-
-// Hocs
-import { UriHandlerProvider } from './hocs/UriHandlerProvider';
-import { NativeWrapperProvider } from './hocs/NativeWrapperProvider';
+import { OIDFlowTransportProviderWrapper } from './context/OIDFlowTransportProviderWrapper';
+import { WebSocketSignHandlerProvider } from './context/WebSocketSignHandlerProvider';
+import { ErrorDialogContextProvider } from './context/ErrorDialogContextProvider';
+import { TxCodeInputProvider } from './context/TxCodeInputContext';
 
 type RootProviderProps = {
 	children: ReactNode;
@@ -29,21 +29,25 @@ const AppProvider: React.FC<RootProviderProps> = ({ children }) => {
 			<WebauthnInteractionDialogContextProvider>
 				<SessionContextProvider>
 					<CredentialsContextProvider>
-						<I18nextProvider i18n={i18n}>
-							<OpenID4VPContextProvider>
-								<OpenID4VCIContextProvider>
-									<UriHandlerProvider>
-										<AppSettingsProvider>
-											<NotificationProvider>
-												<NativeWrapperProvider>
-													{children}
-												</NativeWrapperProvider>
-											</NotificationProvider>
-										</AppSettingsProvider>
-									</UriHandlerProvider>
-								</OpenID4VCIContextProvider>
-							</OpenID4VPContextProvider>
-						</I18nextProvider>
+						<OIDFlowTransportProviderWrapper>
+							<WebSocketSignHandlerProvider>
+								<I18nextProvider i18n={i18n}>
+									<ErrorDialogContextProvider>
+										<OpenID4VPContextProvider>
+											<OpenID4VCIContextProvider>
+												<TxCodeInputProvider>
+													<NotificationProvider>
+														<AppSettingsProvider>
+															{children}
+														</AppSettingsProvider>
+													</NotificationProvider>
+												</TxCodeInputProvider>
+											</OpenID4VCIContextProvider>
+										</OpenID4VPContextProvider>
+									</ErrorDialogContextProvider>
+								</I18nextProvider>
+							</WebSocketSignHandlerProvider>
+						</OIDFlowTransportProviderWrapper>
 					</CredentialsContextProvider>
 				</SessionContextProvider>
 			</WebauthnInteractionDialogContextProvider>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { logger } from '../logger';
 
 export const useVcEntity = (fetchVcData, vcEntityList, batchId) => {
 	const [vcEntity, setVcEntity] = useState(null);
@@ -20,7 +21,7 @@ export const useVcEntity = (fetchVcData, vcEntityList, batchId) => {
 
 			}
 		} catch (err) {
-			console.error('Error fetching VC entity:', err);
+			logger.error('Error fetching VC entity:', err);
 			setVcEntity(undefined); // Clear the state on error
 		}
 	}, [fetchVcData, vcEntityList, batchId]);

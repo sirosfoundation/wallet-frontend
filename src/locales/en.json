@@ -17,6 +17,7 @@
 		"title": "Enter the Pin"
 	},
 	"common": {
+		"accept": "Accept",
 		"and": "and",
 		"cancel": "Cancel",
 		"action-close": "Close",
@@ -24,6 +25,7 @@
 		"delete": "Delete",
 		"externalPasskey": "Passkey on a security key",
 		"hybridPasskey": "Passkey on nearby device",
+		"loading": "Loading...",
 		"navItemAddCredentials": "Add Credentials",
 		"navItemAddCredentialsSimple": "Add",
 		"navItemCredentials": "Credentials",
@@ -44,6 +46,7 @@
 		"previous": "Previous",
 		"privateDataConflict": "Your session is out of sync with the server. Please log out, then log in and try again.",
 		"refresh": "Refresh",
+		"reject": "Reject",
 		"save": "Save",
 		"showLess": "Show less",
 		"showMore": "Show more",
@@ -82,6 +85,20 @@
 		"error": "Issuance Error",
 		"proceed": "Do you want to receive this credential?",
 		"title": "Credential Issuance"
+	},
+	"issuanceWarningPopup": {
+		"codes": {
+			"FailFetchIssuerMetadata": "Issuer metadata could not be retrieved: the credential may display with limited information",
+			"FailSchemaIssuerMetadata": "Issuer metadata is malformed: some issuer details may not display correctly",
+			"IntegrityFail": "Metadata integrity check failed: display information may have been tampered with",
+			"IntegrityMissing": "Metadata integrity could not be verified: display information may have been modified",
+			"JwtVcIssuerFail": "Issuer verification failed: the credential's authenticity could not be confirmed",
+			"JwtVcIssuerMismatch": "The credential issuer does not match the expected issuer: the credential's origin could not be confirmed",
+			"NotFound": "Type metadata could not be found: the credential may display with limited information",
+			"NotFoundExtends": "Extended type metadata could not be resolved: some display details may be missing"
+		},
+		"description": "The credential was received but some verification checks did not pass. Review the details below before deciding whether to accept it.",
+		"title": "Credential Warnings"
 	},
 	"language": {
 		"label": "Language"
@@ -158,14 +175,6 @@
 	},
 	"messagePopup": {
 		"close": "Close",
-		"insufficientCredentials": {
-			"description": "One or more of the credentials you want to present do not exist for selection.",
-			"title": "Insufficient Credentials"
-		},
-		"nonTrustedVerifier": {
-			"description": "Verifier did not provide valid data for verification",
-			"title": "Verifier is not Trusted"
-		},
 		"onlyOneInputDescriptor": {
 			"description": "Currenly the wallet cannot accept a Presentation Request of more than one credentials at a time.",
 			"title": "Unsupported protocol version"
@@ -173,10 +182,6 @@
 		"sendResponseError": {
 			"description": "An error occured during the presentation of the credentials.",
 			"title": "Send Response Error"
-		},
-		"sendResponseSuccess": {
-			"description": "Credentials were successfully sent.",
-			"title": "Presentation was successful"
 		}
 	},
 	"notFound": {
@@ -194,6 +199,50 @@
 			"title": "Success"
 		}
 	},
+	"oidcGate": {
+		"awaitingAuth": "Waiting for authentication...",
+		"awaitingAuthHint": "Complete the sign-in process in the popup or new tab.",
+		"callbackError": "Authentication error",
+		"callbackProcessing": "Processing authentication...",
+		"callbackSuccess": "Authentication successful! Redirecting...",
+		"errorCancelled": "Authentication was cancelled.",
+		"errorExpired": "Your session has expired. Please try again.",
+		"errorGeneric": "Authentication failed. Please try again.",
+		"errorIdentityMismatch": "This wallet is registered to a different identity.",
+		"loginExplanation": "Your organization ({{tenant}}) requires you to verify your identity before accessing your wallet.",
+		"registrationExplanation": "Your organization ({{tenant}}) requires you to verify your identity before creating a wallet.",
+		"signInWith": "Sign in with {{provider}}",
+		"signUpWith": "Sign up with {{provider}}",
+		"verified": "Verified: {{name}}",
+		"verifiedUser": "Identity verified"
+	},
+	"openIdCallback": {
+		"authorizationError": {
+			"title": "Authorization Error"
+		},
+		"insufficientCredentials": {
+			"description": "One or more of the credentials you want to present do not exist for selection.",
+			"title": "Insufficient Credentials"
+		},
+		"nonTrustedVerifier": {
+			"description": "Verifier did not provide valid data for verification",
+			"title": "Verifier is not Trusted"
+		},
+		"sendResponseSuccess": {
+			"description": "Credentials were successfully sent.",
+			"title": "Presentation was successful"
+		},
+		"unsupportedCallback": {
+			"description": "The provided callback URL is not supported.",
+			"title": "Unsupported Callback"
+		},
+		"vciFlowError": {
+			"title": "Credential Issuance Error"
+		},
+		"vpFlowError": {
+			"title": "Verification Error"
+		}
+	},
 	"pageAddCredentials": {
 		"description": "Search and choose the credential you want to issue",
 		"noFound": "No matching issuers found.",
@@ -206,7 +255,7 @@
 	"pageCredentials": {
 		"addCard": {
 			"text": "Add New Credential",
-			"title": "Verifable Credential"
+			"title": "Verifiable Credential"
 		},
 		"copyDatasetToClipboard": "Copy Dataset (JSON) to clipboard",
 		"credentialDetailsTitle": "Click to view details for {{friendlyName}}",
@@ -378,6 +427,34 @@
 		"title": "{{count}} pending credential(s)",
 		"view": "View details"
 	},
+	"protocolSteps": {
+		"common": {
+			"error": "An error occurred"
+		},
+		"oid4vci": {
+			"awaitingAuthorizationResponse": "Waiting for authorization...",
+			"awaitingTxCode": "Waiting for transaction code...",
+			"completed": "Credential received successfully",
+			"exchangingToken": "Exchanging token...",
+			"fetchingIssuerMetadata": "Fetching issuer metadata...",
+			"idle": "Ready",
+			"parsingOffer": "Parsing credential offer...",
+			"requestingAuthorization": "Requesting authorization...",
+			"requestingCredential": "Requesting credential...",
+			"storingCredential": "Storing credential..."
+		},
+		"oid4vp": {
+			"awaitingConsent": "Confirm credential sharing...",
+			"awaitingCredentialSelection": "Select credentials to present...",
+			"completed": "Presentation sent successfully",
+			"creatingPresentation": "Creating presentation...",
+			"fetchingVerifierMetadata": "Fetching verifier metadata...",
+			"idle": "Ready",
+			"matchingCredentials": "Finding matching credentials...",
+			"parsingRequest": "Parsing authorization request...",
+			"sendingResponse": "Sending response..."
+		}
+	},
 	"pwaInstallPrompt": {
 		"button": {
 			"closeTitle": "Click to close the PWA Installation Prompt",
@@ -388,7 +465,9 @@
 	"qrCodeScanner": {
 		"cameraPermissionAllow": "Please allow camera permission to use the QR scanner.",
 		"description": "Target the QR Code, and you will redirect to proceed with the process",
-		"title": "Scan the QR Code"
+		"title": "Scan the QR Code",
+		"unsupportedTitle": "Unsupported QR code",
+		"unsupportedDescription": "This QR code is not supported by the wallet. Please scan a credential offer or presentation request."
 	},
 	"qrShareMdoc": {
 		"communicating": "Communicating with verifier...",
@@ -487,6 +566,17 @@
 		"tourStep5": "Use the 'Send Credentials' page to select a verifier for sharing your credentials.",
 		"tourStep6": "On the 'History' page, you can view details of credential transmissions, including when and to which verifiers they were sent.",
 		"tourStep7": "In the 'Settings' page you can manage your passkeys and account settings."
+	},
+	"txCodeInput": {
+		"defaultDescription": "Enter the transaction code displayed on your screen",
+		"errorEmpty": "Please enter the transaction code",
+		"errorInvalid": "Invalid transaction code. Please try again.",
+		"errorLength": "Transaction code must be {{length}} characters",
+		"inputLabel": "Transaction code",
+		"lengthHint": "Code length: {{length}} characters",
+		"placeholder": "Enter code",
+		"placeholderWithLength": "Enter {{length}}-character code",
+		"title": "Transaction Code Required"
 	},
 	"updateNotification": {
 		"description": "New Version is available!"

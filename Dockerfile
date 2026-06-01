@@ -6,6 +6,7 @@ WORKDIR /home/node/app
 
 # Install dependencies first so rebuild of these layers is only needed when dependencies change
 COPY package.json yarn.lock ./
+COPY patches ./patches
 RUN --mount=type=cache,target=/usr/local/share/.cache yarn cache clean -f && yarn install --frozen-lockfile || yarn install --frozen-lockfile --network-concurrency 1
 
 FROM builder-base AS test
@@ -23,7 +24,7 @@ COPY . .
 RUN --mount=type=secret,id=wallet_frontend_envfile,dst=/home/node/app/.env,required=false NODE_OPTIONS=--max-old-space-size=2048 yarn build
 
 
-FROM nginx:alpine AS deploy
+FROM nginx:1.31.0-alpine3.23 AS deploy
 
 # Alpine mirrors don't keep old versions of packages around for so long.
 # If pinned dependencies fail to install, check if they still exist.
@@ -39,7 +40,7 @@ ENV NODE_PATH=/usr/local/lib/node_modules
 WORKDIR /usr/share/nginx/
 
 COPY ./nginx/nginx.conf /etc/nginx/conf.d/default.conf
-COPY ./nginx/docker-entrypoint.d/wallet-config.sh /docker-entrypoint.d/wallet-config.sh
+COPY ./nginx/docker-entrypoint.d/ /docker-entrypoint.d/
 COPY ./utils/create_custom_branding_resources.sh /home/node/app/
 
 COPY --from=builder --chown=nginx:nginx /home/node/app/dist/ ./html/

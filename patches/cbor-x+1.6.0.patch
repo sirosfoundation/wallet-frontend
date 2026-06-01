@@ -1,0 +1,13 @@
+diff --git a/node_modules/cbor-x/decode.js b/node_modules/cbor-x/decode.js
+index 362ff36..0558dcd 100644
+--- a/node_modules/cbor-x/decode.js
++++ b/node_modules/cbor-x/decode.js
+@@ -44,7 +44,7 @@ let inlineObjectReadThreshold = 2;
+ var BlockedFunction // we use search and replace to change the next call to BlockedFunction to avoid CSP issues for
+ // no-eval build
+ try {
+-	new Function('')
++	new BlockedFunction('')
+ } catch(error) {
+ 	// if eval variants are not supported, do not create inline object readers ever
+ 	inlineObjectReadThreshold = Infinity
