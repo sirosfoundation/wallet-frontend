@@ -369,10 +369,10 @@ export default class HttpClient {
 	}
 
 	async #getFromCache(cacheKey: string): Promise<CachedEntry | null> {
-		return getItem('remoteCache', cacheKey, 'remoteCache');
+		return getItem('requestCache', cacheKey, 'requestCache');
 	}
 
 	async #addToCache(cacheKey: string, cached: CachedEntry): Promise<void> {
-		await addItem('remoteCache', cacheKey, cached, 'remoteCache');
+		await addItem('requestCache', cacheKey, cached, 'requestCache');
 	}
 }
