@@ -26,6 +26,9 @@ const parseCacheControl = (header: string) =>
 			})
 	);
 
+/**
+ * @deprecated in favour of {@link useHttpClient}.
+ */
 export function useHttpProxy(): IHttpProxy {
 	const { isOnline } = useContext(StatusContext);
 	const { obliviousKeyConfig } = useContext(SessionContext);
