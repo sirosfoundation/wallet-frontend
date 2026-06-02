@@ -511,6 +511,7 @@ function SelectCredentialsPopup({ popupState, setPopupState, showPopup, hidePopu
 									<CredentialInfo
 										parsedCredential={selectedVcEntities[currentSummarySlide].parsedCredential}
 										mainClassName="text-xs w-full"
+										showSensitiveBadge
 										requested={{
 											fields: requestedFieldsPerCredential[
 												Object.keys(currentSelectionMap).find(
