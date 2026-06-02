@@ -2,7 +2,6 @@ import { IOpenID4VCI } from '../../interfaces/IOpenID4VCI';
 import * as jose from 'jose';
 import { generateRandomIdentifier } from '../../utils/generateRandomIdentifier';
 import * as config from '../../../config';
-import { useHttpProxy } from '../HttpProxy/HttpProxy';
 import { useCallback, useMemo, useEffect, useRef, useState, useContext } from 'react';
 import { useLocation } from "react-router-dom";
 import { usePushedAuthorizationRequest } from './OAuth/PushedAuthorizationRequest';
@@ -23,6 +22,7 @@ import { IOpenID4VCIClientStateRepository } from '@/lib/interfaces/IOpenID4VCICl
 import { useNavigate } from 'react-router-dom';
 import { logger } from '@/logger';
 import { parseIssuerSignedToMDoc } from '@/lib/mdoc/mdoc';
+import { useHttpClient } from '@/hooks/useHttpClient';
 
 /**
  * Raw tx_code spec from OID4VCI §4.1.1 (snake_case, matching protocol wire format).
@@ -101,7 +101,7 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 		[params]
 	);
 
-	const httpProxy = useHttpProxy();
+	const httpClient = useHttpClient();
 	const { api, keystore } = useContext(SessionContext);
 	const { credentialEngine } = useContext<any>(CredentialsContext);
 
@@ -139,7 +139,7 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 			credentialIssuerMetadataRef.current = credentialIssuerMetadata
 			credentialConfigurationIdRef.current = flowState.credentialConfigurationId;
 			if (credentialIssuerMetadata.metadata.nonce_endpoint) {
-				const nonceEndpointResp = await httpProxy.post(credentialIssuerMetadata.metadata.nonce_endpoint, {});
+				const nonceEndpointResp = await httpClient.post(credentialIssuerMetadata.metadata.nonce_endpoint, {});
 				const { c_nonce } = nonceEndpointResp.data as { c_nonce: string };
 				credentialRequestBuilder.setCNonce(c_nonce);
 			}
@@ -205,7 +205,7 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 		openID4VCIHelper,
 		openID4VCIClientStateRepository,
 		credentialRequestBuilder,
-		httpProxy,
+		httpClient,
 		navigate,
 		buildPath
 	]);
@@ -537,7 +537,7 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 					throw new Error("Credential offer URL must contain either 'credential_offer' or 'credential_offer_uri' parameter");
 				}
 				try {
-					let response = await httpProxy.get(credentialOfferUri, {})
+					let response = await httpClient.get(credentialOfferUri, {})
 					offer = CredentialOfferSchema.parse(response.data);
 				}
 				catch (err) {
@@ -571,7 +571,7 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 
 			return { credentialIssuer: offer.credential_issuer, selectedCredentialConfigurationId: selectedConfigurationId, issuer_state };
 		},
-		[httpProxy, openID4VCIHelper]
+		[httpClient, openID4VCIHelper]
 	);
 
 	const getAvailableCredentialConfigurations = useCallback(

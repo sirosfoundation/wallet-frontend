@@ -1,5 +1,4 @@
 import { IOpenID4VCIHelper } from "../interfaces/IOpenID4VCIHelper";
-import { useHttpProxy } from "./HttpProxy/HttpProxy";
 import { useCallback, useContext, useMemo } from "react";
 import SessionContext from "@/context/SessionContext";
 import { AuthZENClient, OpenidAuthorizationServerMetadataSchema, OpenidCredentialIssuerMetadataSchema } from 'wallet-common';
@@ -7,26 +6,27 @@ import type { AuthZENClientConfig, OpenidAuthorizationServerMetadata, OpenidCred
 import { BACKEND_URL, OPENID4VCI_REDIRECT_URI } from "@/config";
 import { logger } from '@/logger';
 import { getTenantFromUrlPath } from "../tenant";
+import { useHttpClient } from "@/hooks/useHttpClient";
 
 export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
-	const httpProxy = useHttpProxy();
+	const httpClient = useHttpClient();
 	const { api } = useContext(SessionContext);
 	const { getExternalEntity } = api;
 
 	const authzenClient = useMemo(() => {
 		const clientConfig: AuthZENClientConfig = {
-			httpClient: httpProxy,
+			httpClient: httpClient,
 			baseUrl: BACKEND_URL,
 			getAuthToken: () => api.getAppToken() ?? '',
 			tenantId: getTenantFromUrlPath() ?? 'default',
 		};
 		return AuthZENClient(clientConfig);
-	}, [httpProxy, api]);
+	}, [httpClient, api]);
 
 	const fetchAndParseWithSchema = useCallback(
 		async function fetchAndParseWithSchema<T>(path: string, schema: any, useCache: boolean = true, cacheOnError: boolean = false): Promise<T> {
 			try {
-				const response = await httpProxy.get(path, {}, { useCache: useCache !== undefined ? useCache : true, cacheOnError });
+				const response = await httpClient.get(path, {}, { useCache: useCache !== undefined ? useCache : true, cacheOnError });
 				if (!response) throw new Error("Couldn't get response");
 
 				const result = schema.safeParse(response.data);
@@ -41,7 +41,7 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 				logger.error(`Error fetching from ${path}:`, err);
 				throw new Error(`Couldn't get data from ${path}`);
 			}
-		}, [httpProxy])
+		}, [httpClient])
 
 	const getCredentialIssuerMetadata = useCallback(
 		async (credentialIssuerIdentifier: string, useCache?: boolean): Promise<{ metadata: OpenidCredentialIssuerMetadata } | null> => {
@@ -162,13 +162,13 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 						config.display?.forEach(d => d.logo?.uri && logoUris.push(d.logo.uri));
 					});
 
-					logoUris.forEach(uri => httpProxy.get(uri, {}, { useCache: shouldUseCache }).catch(logger.error));
+					logoUris.forEach(uri => httpClient.get(uri, {}, { useCache: shouldUseCache }).catch(logger.error));
 				} catch (error) {
 					logger.error(`Failed to fetch metadata for ${entity.credentialIssuerIdentifier}:`, error);
 				}
 			});
 		},
-		[getCredentialIssuerMetadata, httpProxy, getExternalEntity]
+		[getCredentialIssuerMetadata, httpClient, getExternalEntity]
 	);
 
 	return useMemo(

@@ -6,7 +6,6 @@ import type { OpenID4VPServerCredential } from "wallet-common";
 import { OpenID4VPServerAPI, OpenID4VPResponseMode } from "wallet-common";
 import { OpenID4VPRelyingPartyState } from "../../types/OpenID4VPRelyingPartyState";
 import { useOpenID4VPRelyingPartyStateRepository } from "../OpenID4VPRelyingPartyStateRepository";
-import { useHttpProxy } from "../HttpProxy/HttpProxy";
 import { useCallback, useContext, useMemo } from "react";
 import SessionContext from "@/context/SessionContext";
 import CredentialsContext from "@/context/CredentialsContext";
@@ -20,6 +19,7 @@ import { createVerifierTrustEvaluator, createDIDResolver } from "../TrustEvaluat
 import { BACKEND_URL } from "@/config";
 import { getTenantFromUrlPath } from "@/lib/tenant";
 import { logger, jsonToLog } from '@/logger';
+import { useHttpClient } from "@/hooks/useHttpClient";
 
 export function useOpenID4VP({
 	showTransactionDataConsentPopup,
@@ -28,7 +28,7 @@ export function useOpenID4VP({
 }): IOpenID4VP {
 
 	const openID4VPRelyingPartyStateRepository = useOpenID4VPRelyingPartyStateRepository();
-	const httpProxy = useHttpProxy();
+	const httpClient = useHttpClient();
 	const { parseCredential } = useContext(CredentialsContext);
 	const { keystore, api } = useContext(SessionContext);
 	const { t } = useTranslation();
@@ -76,7 +76,7 @@ export function useOpenID4VP({
 		// Create trust evaluator and DID resolver for verifier authentication
 		// Use URL tenant (more robust than sessionStorage) per smncd's recommendation
 		const trustEvaluatorConfig = {
-			httpClient: httpProxy,
+			httpClient: httpClient,
 			backendUrl: BACKEND_URL,
 			getAuthToken: () => api.getAppToken() ?? '',
 			tenantId: getTenantFromUrlPath() ?? 'default',
@@ -85,7 +85,7 @@ export function useOpenID4VP({
 		const resolveDid = createDIDResolver(trustEvaluatorConfig);
 
 		return new OpenID4VPServerAPI<OpenID4VPServerCredential, ParsedTransactionData>({
-			httpClient: { get: httpProxy.get },
+			httpClient: { get: httpClient.get },
 			rpStateStore,
 			parseCredential,
 			selectCredentialForBatch,
@@ -101,7 +101,7 @@ export function useOpenID4VP({
 			resolveDid,
 		});
 	}, [
-		httpProxy,
+		httpClient,
 		openID4VPRelyingPartyStateRepository,
 		parseCredential,
 		keystore,
@@ -158,7 +158,7 @@ export function useOpenID4VP({
 		const bodyString = formData.toString();
 		logger.debug('bodyString: ', bodyString)
 		try {
-			const res = await httpProxy.post(response_uri, formData.toString(), {
+			const res = await httpClient.post(response_uri, formData.toString(), {
 				'Content-Type': 'application/x-www-form-urlencoded'
 			});
 			const responseData = res.data as { presentation_during_issuance_session?: string, redirect_uri?: string };
@@ -177,7 +177,7 @@ export function useOpenID4VP({
 			throw err;
 		}
 	}, [
-		httpProxy,
+		httpClient,
 		api,
 		keystore,
 		openID4VPServer,
