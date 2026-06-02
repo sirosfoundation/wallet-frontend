@@ -1,6 +1,6 @@
 import React from 'react';
 import { highlightBestSequence } from '@/components/QueryableList/highlightBestSequence';
-import { useProxiedImage } from '@/hooks/useProxiedImage'
+import { useRemoteImage } from '@/hooks/useRemoteImage';
 type EntityListItemProps = {
 	primaryData: any;
 	secondaryData?: any;
@@ -9,8 +9,8 @@ type EntityListItemProps = {
 
 const DisplayNode = ({ primaryData, secondaryData, searchQuery }: EntityListItemProps) => {
 
-	const primaryLogoSrc = useProxiedImage(primaryData?.logo?.uri);
-	const secondaryImageSrc = useProxiedImage(secondaryData?.logo?.uri);
+	const primaryLogoSrc = useRemoteImage(primaryData?.logo?.uri);
+	const secondaryImageSrc = useRemoteImage(secondaryData?.logo?.uri);
 
 	const hasTextColor = !!primaryData.text_color;
 	const hasBackgroundColor = !!primaryData.background_color;

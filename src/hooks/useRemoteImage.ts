@@ -3,7 +3,7 @@ import { useHttpClient } from "./useHttpClient";
 import { sanitizeSvgDataUri, sanitizeSvgContent, isSvgDataUri } from "@/lib/utils/sanitizeSvg";
 import { logger } from '@/logger';
 
-export const useProxiedImage = (uri?: string | null) => {
+export const useRemoteImage = (uri?: string | null) => {
 	const httpClient = useHttpClient();
 	const [src, setSrc] = useState<string | null>(null);
 
@@ -25,7 +25,7 @@ export const useProxiedImage = (uri?: string | null) => {
 			return;
 		}
 
-		// Handle HTTPS or HTTP fetch via proxy
+		// Handle HTTPS or HTTP fetch
 		if (uri.startsWith("http")) {
 			(async () => {
 				try {
