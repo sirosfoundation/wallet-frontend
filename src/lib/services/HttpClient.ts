@@ -156,7 +156,9 @@ export default class HttpClient {
 			const targetIsBackend = new URL(url).origin === new URL(BACKEND_URL).origin;
 
 			const requestMethod =
-				this.#obliviousKeyConfig !== null ? this.#doOhttpRequest : this.#doAxiosRequest;
+				this.#obliviousKeyConfig !== null
+					? this.#doOhttpRequest.bind(this)
+					: this.#doAxiosRequest.bind(this);
 			const requestParams: DoRequestParams = {
 				method,
 				url,
