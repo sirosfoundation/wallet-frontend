@@ -144,7 +144,9 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 						config.display?.forEach(d => d.logo?.uri && logoUris.push(d.logo.uri));
 					});
 
-					logoUris.forEach(uri => httpClient.get(uri, {}, { useCache: shouldUseCache }).catch(logger.error));
+					logoUris
+						.filter(uri => uri.startsWith('http'))
+						.forEach(uri => httpClient.get(uri, {}, { useCache: shouldUseCache }).catch(logger.error));
 				} catch (error) {
 					logger.error(`Failed to fetch metadata for ${entity.credentialIssuerIdentifier}:`, error);
 				}
