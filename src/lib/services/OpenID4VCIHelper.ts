@@ -1,19 +1,28 @@
 import { IOpenID4VCIHelper } from "../interfaces/IOpenID4VCIHelper";
-import { base64url, importX509, jwtVerify } from "jose";
-import { getPublicKeyFromB64Cert } from "../utils/pki";
 import { useHttpProxy } from "./HttpProxy/HttpProxy";
 import { useCallback, useContext, useMemo } from "react";
 import SessionContext from "@/context/SessionContext";
 import { MdocIacasResponse, MdocIacasResponseSchema } from "../schemas/MdocIacasResponseSchema";
-import { OpenidAuthorizationServerMetadataSchema, OpenidCredentialIssuerMetadataSchema } from 'wallet-common';
-import type { OpenidAuthorizationServerMetadata, OpenidCredentialIssuerMetadata } from 'wallet-common'
-import { OPENID4VCI_REDIRECT_URI } from "@/config";
+import { AuthZENClient, AuthZENClientConfig, OpenidAuthorizationServerMetadataSchema, OpenidCredentialIssuerMetadataSchema } from 'wallet-common';
+import type { OpenidAuthorizationServerMetadata, OpenidCredentialIssuerMetadata } from 'wallet-common';
+import { BACKEND_URL, OPENID4VCI_REDIRECT_URI } from "@/config";
+import { getTenantFromUrlPath } from "@/lib/tenant";
 import { logger } from '@/logger';
 
 export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 	const httpProxy = useHttpProxy();
 	const { api } = useContext(SessionContext);
 	const { getExternalEntity } = api;
+
+	const authzenClient = useMemo(() => {
+		const clientConfig: AuthZENClientConfig = {
+			httpClient: httpProxy,
+			baseUrl: BACKEND_URL,
+			getAuthToken: () => api.getAppToken() ?? '',
+			tenantId: getTenantFromUrlPath() ?? 'default',
+		};
+		return AuthZENClient(clientConfig);
+	}, [httpProxy, api]);
 
 	const fetchAndParseWithSchema = useCallback(
 		async function fetchAndParseWithSchema<T>(path: string, schema: any, useCache: boolean = true, cacheOnError: boolean = false): Promise<T> {
@@ -37,90 +46,70 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 
 	const getCredentialIssuerMetadata = useCallback(
 		async (credentialIssuerIdentifier: string, useCache?: boolean): Promise<{ metadata: OpenidCredentialIssuerMetadata } | null> => {
-			// RFC8414 well-known URI construction: https://host/.well-known/openid-credential-issuer/path
-			const issuerUrl = new URL(credentialIssuerIdentifier);
-			const pathCredentialIssuer = `${issuerUrl.origin}/.well-known/openid-credential-issuer${issuerUrl.pathname}`;
+			void useCache; // cache control is handled server-side by the resolver
 			try {
-				const metadata = await fetchAndParseWithSchema<OpenidCredentialIssuerMetadata>(
-					pathCredentialIssuer,
-					OpenidCredentialIssuerMetadataSchema,
-					useCache,
-					useCache === false,
-				);
-				if (metadata.signed_metadata) {
-					try {
-						const parsedHeader = JSON.parse(new TextDecoder().decode(base64url.decode(metadata.signed_metadata.split('.')[0])));
-						if (parsedHeader.x5c) {
-							const publicKey = await importX509(getPublicKeyFromB64Cert(parsedHeader.x5c[0]), parsedHeader.alg);
-							const { payload } = await jwtVerify(metadata.signed_metadata, publicKey);
-							return { metadata: payload as OpenidCredentialIssuerMetadata };
-						}
-						return null;
-					}
-					catch (err) {
-						logger.error(err);
-						return null;
-					}
+				const result = await authzenClient.resolve(credentialIssuerIdentifier);
+				if (!result.ok) {
+					logger.error(`Failed to resolve issuer metadata for ${credentialIssuerIdentifier}:`, result.error);
+					return null;
 				}
-				return { metadata };
-			}
-			catch (err) {
+				if (!result.value.decision) {
+					logger.warn(`Issuer ${credentialIssuerIdentifier} is not trusted by the policy decision point`);
+				}
+				const trustMetadata = result.value.context?.trust_metadata;
+				if (!trustMetadata) {
+					logger.error(`No trust_metadata in resolve response for ${credentialIssuerIdentifier}`);
+					return null;
+				}
+				const parsed = OpenidCredentialIssuerMetadataSchema.safeParse(trustMetadata);
+				if (!parsed.success) {
+					logger.warn(`Schema validation failed for ${credentialIssuerIdentifier}:`, JSON.stringify(parsed.error.issues));
+					return null;
+				}
+				return { metadata: parsed.data };
+			} catch (err) {
 				logger.error(err);
 				return null;
 			}
 		},
-		[fetchAndParseWithSchema]
+		[authzenClient]
 	);
 
-	// Fetches authorization server metadata with fallback
-	// According to OpenID4VCI 1.0, section 12.2.4, paragraph 2.2, the authorization server is to be fetched from the credential issuer metadata.
-	// If not available from metadata, then the issuer is imlplied to also act as the authorization server.
+	// Fetches authorization server metadata via a separate backend resolver call.
+	// Uses resource_type=oauth-authorization-server so the backend fetches only
+	// the RFC 8414 well-known endpoint, not the credential issuer metadata.
 	const getAuthorizationServerMetadata = useCallback(
-		async (credentialIssuerIdentifier: string, useCache?: boolean): Promise<{ authzServerMetadata: OpenidAuthorizationServerMetadata } | null> => {
-			const { metadata } = await getCredentialIssuerMetadata(credentialIssuerIdentifier);
-			// RFC8414 well-known URI construction for authorization server metadata
-			let pathAuthorizationServerFromCredentialIssuerMetadata: string | null = null;
-			if (metadata.authorization_servers && metadata.authorization_servers.length > 0) {
-				const authzUrl = new URL(metadata.authorization_servers[0]);
-				pathAuthorizationServerFromCredentialIssuerMetadata = `${authzUrl.origin}/.well-known/oauth-authorization-server${authzUrl.pathname.replace(/\/$/, '')}`;
-			}
-			const issuerUrl = new URL(credentialIssuerIdentifier);
-			const pathIssuerAuthorizationServer = `${issuerUrl.origin}/.well-known/oauth-authorization-server${issuerUrl.pathname.replace(/\/$/, '')}`;
-			const pathIssuerOpenIdConfiguration = `${issuerUrl.origin}/.well-known/openid-configuration${issuerUrl.pathname.replace(/\/$/, '')}`;
-			let authzServerMetadata: OpenidAuthorizationServerMetadata = null;
+		async (credentialIssuerIdentifier: string, useCache?: boolean, preloadedMetadata?: OpenidCredentialIssuerMetadata): Promise<{ authzServerMetadata: OpenidAuthorizationServerMetadata } | null> => {
+			void useCache;
+			void preloadedMetadata;
+			try {
+				const result = await authzenClient.resolve(credentialIssuerIdentifier, {
+					resourceType: 'oauth-authorization-server',
+				});
+				if (!result.ok) {
+					logger.error(`Failed to resolve auth server metadata for ${credentialIssuerIdentifier}:`, result.error);
+					return null;
+				}
 
-			if (pathAuthorizationServerFromCredentialIssuerMetadata) {
-				// 1st attempt: authorization server from credential issuer metadata
-				authzServerMetadata = await fetchAndParseWithSchema<OpenidAuthorizationServerMetadata>(
-					pathAuthorizationServerFromCredentialIssuerMetadata,
-					OpenidAuthorizationServerMetadataSchema,
-					useCache,
-				).catch(() => null);
-			}
+				const authzMeta = result.value.context?.trust_metadata;
+				if (!authzMeta) {
+					logger.debug(`No trust_metadata in auth server resolve response for ${credentialIssuerIdentifier}`);
+					return null;
+				}
 
-			if (!authzServerMetadata) {
-				// 2nd attempt: if authorization-server not provided in metadata, the issuer iteslf is acting as an authorization-server
-				authzServerMetadata = await fetchAndParseWithSchema<OpenidAuthorizationServerMetadata>(
-					pathIssuerAuthorizationServer,
-					OpenidAuthorizationServerMetadataSchema,
-					useCache,
-					useCache === false
-				).catch(() => null);
-			}
+				const parsed = OpenidAuthorizationServerMetadataSchema.safeParse(authzMeta);
+				if (!parsed.success) {
+					logger.warn(`Auth server metadata validation failed for ${credentialIssuerIdentifier}:`, JSON.stringify(parsed.error.issues));
+					return null;
+				}
 
-			if (!authzServerMetadata) {
-				// 3rd attempt: Fallback to openid-configuration if oauth-authorization-server fetch fails
-				authzServerMetadata = await fetchAndParseWithSchema<OpenidAuthorizationServerMetadata>(
-					pathIssuerOpenIdConfiguration,
-					OpenidAuthorizationServerMetadataSchema,
-					useCache,
-					useCache === false
-				).catch(() => null);
+				return { authzServerMetadata: parsed.data };
+			} catch (err) {
+				logger.error(`Error fetching auth server metadata for ${credentialIssuerIdentifier}:`, err);
+				return null;
 			}
-
-			return authzServerMetadata ? { authzServerMetadata } : null;
 		},
-		[fetchAndParseWithSchema, getCredentialIssuerMetadata]
+		[authzenClient]
 	);
 
 	const getClientId = useCallback(
@@ -187,7 +176,10 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 					const metadata = metadataResult?.metadata;
 					if (!metadata) return;
 
-					await getAuthorizationServerMetadata(entity.credentialIssuerIdentifier, shouldUseCache);
+					// Note: authorization server metadata is NOT fetched during preload.
+					// It is fetched on-demand when the OID4VCI flow actually needs it
+					// (e.g. for token exchange). Fetching it here would cause unexpected
+					// requests to issuers before any flow has started.
 
 					// Call a callback to update state when metadata resolves.
 					onIssuerMetadataResolved?.(entity.credentialIssuerIdentifier, metadata);
@@ -222,7 +214,7 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 			onCertificates(certificates);
 
 		},
-		[getCredentialIssuerMetadata, getMdocIacas, httpProxy, getExternalEntity, getAuthorizationServerMetadata]
+		[getCredentialIssuerMetadata, getMdocIacas, httpProxy, getExternalEntity]
 	);
 
 	return useMemo(

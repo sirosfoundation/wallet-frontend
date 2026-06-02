@@ -443,10 +443,11 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 	);
 
 	const requestCredentialsWithPreAuthorization = useCallback(async (credentialIssuer: string, selectedCredentialConfigurationId: string, preAuthorizedCode: string, txCode?: string): Promise<{}> => {
-		const [authzServerMetadata, clientIdResult] = await Promise.all([
-			openID4VCIHelper.getAuthorizationServerMetadata(credentialIssuer, false),
+		const [credentialIssuerMetadata, clientIdResult] = await Promise.all([
+			openID4VCIHelper.getCredentialIssuerMetadata(credentialIssuer),
 			openID4VCIHelper.getClientId(credentialIssuer),
 		]);
+		const authzServerMetadata = await openID4VCIHelper.getAuthorizationServerMetadata(credentialIssuer, false, credentialIssuerMetadata?.metadata);
 
 		const flowState: WalletStateCredentialIssuanceSession = {
 			sessionId: WalletStateUtils.getRandomUint32(),
@@ -600,11 +601,11 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 			}
 			catch (err) { logger.error(err) }
 
-			const [authzServerMetadata, credentialIssuerMetadata, clientId] = await Promise.all([
-				openID4VCIHelper.getAuthorizationServerMetadata(credentialIssuerIdentifier),
+			const [credentialIssuerMetadata, clientId] = await Promise.all([
 				openID4VCIHelper.getCredentialIssuerMetadata(credentialIssuerIdentifier),
 				openID4VCIHelper.getClientId(credentialIssuerIdentifier)
 			]);
+			const authzServerMetadata = await openID4VCIHelper.getAuthorizationServerMetadata(credentialIssuerIdentifier, undefined, credentialIssuerMetadata?.metadata);
 
 			if (!clientId) {
 				logger.error("clientId not found");

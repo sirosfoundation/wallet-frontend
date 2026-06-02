@@ -1,12 +1,14 @@
-import React, { useState, useCallback, useContext, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useContext, useRef, useEffect, useMemo } from 'react';
 import SessionContext from './SessionContext';
 import { initializeCredentialEngine } from "../lib/initializeCredentialEngine";
-import { CredentialVerificationError, ParsedCredential } from "wallet-common";
+import { AuthZENClient, AuthZENClientConfig, CredentialVerificationError, ParsedCredential } from "wallet-common";
 import { useHttpProxy } from "@/lib/services/HttpProxy/HttpProxy";
 import CredentialsContext, { ExtendedVcEntity, Instance } from "./CredentialsContext";
 import { useOpenID4VCIHelper } from "@/lib/services/OpenID4VCIHelper";
 import { CurrentSchema } from '@/services/WalletStateSchema';
 import { logger } from '../logger';
+import { BACKEND_URL } from '@/config';
+import { getStoredTenant } from '@/lib/tenant';
 
 type WalletStateCredential = CurrentSchema.WalletStateCredential;
 
@@ -26,6 +28,16 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 
 	const { getExternalEntity } = api;
 	const [pendingTransactions, setPendingTransactions] = useState(null);
+
+	const authzenClient = useMemo(() => {
+		const clientConfig: AuthZENClientConfig = {
+			httpClient: httpProxy,
+			baseUrl: BACKEND_URL,
+			getAuthToken: () => JSON.parse(sessionStorage.getItem('appToken')!),
+			tenantId: getStoredTenant() || 'default',
+		};
+		return AuthZENClient(clientConfig);
+	}, [httpProxy]);
 
 	useEffect(() => {
 		if (!getCalculatedWalletState) return;
@@ -50,10 +62,11 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 			useCache,
 			(issuerIdentifier: string) => {
 				logger.debug(`[CredentialsContext] Issuer metadata resolved for: ${issuerIdentifier}`);
-			}
+			},
+			authzenClient,
 		);
 		setCredentialEngine(engine);
-	}, [httpProxy, helper, getExternalEntity]);
+	}, [httpProxy, helper, getExternalEntity, authzenClient]);
 
 	useEffect(() => {
 		if (httpProxy && helper) {
