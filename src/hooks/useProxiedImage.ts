@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { useHttpProxy } from "@/lib/services/HttpProxy/HttpProxy";
+import { useHttpClient } from "./useHttpClient";
 import { sanitizeSvgDataUri, sanitizeSvgContent, isSvgDataUri } from "@/lib/utils/sanitizeSvg";
 import { logger } from '@/logger';
 
 export const useProxiedImage = (uri?: string | null) => {
-	const proxy = useHttpProxy();
+	const httpClient = useHttpClient();
 	const [src, setSrc] = useState<string | null>(null);
 
 	useEffect(() => {
@@ -29,9 +29,9 @@ export const useProxiedImage = (uri?: string | null) => {
 		if (uri.startsWith("http")) {
 			(async () => {
 				try {
-					const res = await proxy.get(uri, {}, { useCache: true });
+					const res = await httpClient.get(uri, {}, { useCache: true });
 					if (res.status === 200 && typeof res.data === "string") {
-						const contentType = String(res.headers?.["content-type"] || "");
+						const contentType = String(res.headers?.["content-type"] || res.headers?.["Content-Type"] || "");
 
 						if (contentType.includes("svg")) {
 							// Sanitize SVG content before encoding
@@ -54,7 +54,7 @@ export const useProxiedImage = (uri?: string | null) => {
 			logger.warn("Unsupported logo URI scheme:", uri);
 			setSrc(null);
 		}
-	}, [uri, proxy]);
+	}, [uri, httpClient]);
 
 	return src;
 };
