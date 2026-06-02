@@ -1,18 +1,27 @@
 import { IOpenID4VCIHelper } from "../interfaces/IOpenID4VCIHelper";
-import { base64url, importX509, jwtVerify } from "jose";
-import { getPublicKeyFromB64Cert } from "../utils/pki";
 import { useHttpProxy } from "./HttpProxy/HttpProxy";
 import { useCallback, useContext, useMemo } from "react";
 import SessionContext from "@/context/SessionContext";
-import { OpenidAuthorizationServerMetadataSchema, OpenidCredentialIssuerMetadataSchema } from 'wallet-common';
-import type { OpenidAuthorizationServerMetadata, OpenidCredentialIssuerMetadata } from 'wallet-common';
-import { OPENID4VCI_REDIRECT_URI } from "@/config";
+import { AuthZENClient, OpenidAuthorizationServerMetadataSchema, OpenidCredentialIssuerMetadataSchema } from 'wallet-common';
+import type { AuthZENClientConfig, OpenidAuthorizationServerMetadata, OpenidCredentialIssuerMetadata } from 'wallet-common';
+import { BACKEND_URL, OPENID4VCI_REDIRECT_URI } from "@/config";
 import { logger } from '@/logger';
+import { getTenantFromUrlPath } from "../tenant";
 
 export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 	const httpProxy = useHttpProxy();
 	const { api } = useContext(SessionContext);
 	const { getExternalEntity } = api;
+
+	const authzenClient = useMemo(() => {
+		const clientConfig: AuthZENClientConfig = {
+			httpClient: httpProxy,
+			baseUrl: BACKEND_URL,
+			getAuthToken: () => api.getAppToken() ?? '',
+			tenantId: getTenantFromUrlPath() ?? 'default',
+		};
+		return AuthZENClient(clientConfig);
+	}, [httpProxy, api]);
 
 	const fetchAndParseWithSchema = useCallback(
 		async function fetchAndParseWithSchema<T>(path: string, schema: any, useCache: boolean = true, cacheOnError: boolean = false): Promise<T> {
@@ -56,7 +65,7 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 					logger.warn(`Schema validation failed for ${credentialIssuerIdentifier}:`, JSON.stringify(parsed.error.issues));
 					return null;
 				}
-				return { metadata };
+				return { metadata: parsed.data };
 			}
 			catch (err) {
 				logger.error(err);
@@ -159,7 +168,7 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 				}
 			});
 		},
-		[getCredentialIssuerMetadata, getMdocIacas, httpProxy, getExternalEntity]
+		[getCredentialIssuerMetadata, httpProxy, getExternalEntity]
 	);
 
 	return useMemo(
