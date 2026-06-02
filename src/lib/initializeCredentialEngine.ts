@@ -1,6 +1,6 @@
 import { CLOCK_TOLERANCE, VCT_REGISTRY_URL, DELEGATE_TRUST_TO_BACKEND } from "../config";
 import { IHttpProxy } from "./interfaces/IHttpProxy";
-import { ParsingEngine, SDJWTVCParser, PublicKeyResolverEngine, SDJWTVCVerifier, MsoMdocParser, MsoMdocVerifier, JWTVCJSONParser, JWTVCJSONVerifier, VerifyingEngine } from "wallet-common";
+import { ParsingEngine, SDJWTVCParser, PublicKeyResolverEngine, SDJWTVCVerifier, MsoMdocParser, MsoMdocVerifier, JWTVCJSONParser, JWTVCJSONVerifier, VerifyingEngine, IAuthZENClient } from "wallet-common";
 import { IOpenID4VCIHelper } from "./interfaces/IOpenID4VCIHelper";
 import { createVctDocumentResolutionEngine, VctDocumentProvider, VctResolutionErrors, ok, err } from 'wallet-common';
 import { logger } from '@/logger';
@@ -11,7 +11,8 @@ export async function initializeCredentialEngine(
 	getIssuers: () => Promise<Record<string, unknown>[]>,
 	trustedCertificates: string[] = [],
 	shouldUseCache: boolean = true,
-	onIssuerMetadataResolved?: (issuerIdentifier: string) => void
+	onIssuerMetadataResolved?: (issuerIdentifier: string) => void,
+	authzenClient?: IAuthZENClient,
 ): Promise<any> {
 
 	const provider: VctDocumentProvider = {
@@ -52,9 +53,9 @@ export async function initializeCredentialEngine(
 	});
 
 	const credentialParsingEngine = ParsingEngine();
-	credentialParsingEngine.register(SDJWTVCParser({ context: ctx, httpClient: httpProxy }));
-	credentialParsingEngine.register(MsoMdocParser({ context: ctx, httpClient: httpProxy }));
-	credentialParsingEngine.register(JWTVCJSONParser({ context: ctx, httpClient: httpProxy }));
+	credentialParsingEngine.register(SDJWTVCParser({ context: ctx, httpClient: httpProxy, authzenClient }));
+	credentialParsingEngine.register(MsoMdocParser({ context: ctx, httpClient: httpProxy, authzenClient }));
+	credentialParsingEngine.register(JWTVCJSONParser({ context: ctx, httpClient: httpProxy, authzenClient }));
 
 	const pkResolverEngine = PublicKeyResolverEngine();
 	const credentialVerifyingEngine = VerifyingEngine();
