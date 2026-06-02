@@ -23,31 +23,13 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 		return AuthZENClient(clientConfig);
 	}, [httpClient, api]);
 
-	const fetchAndParseWithSchema = useCallback(
-		async function fetchAndParseWithSchema<T>(path: string, schema: any, useCache: boolean = true, cacheOnError: boolean = false): Promise<T> {
-			try {
-				const response = await httpClient.get(path, {}, { useCache: useCache !== undefined ? useCache : true, cacheOnError });
-				if (!response) throw new Error("Couldn't get response");
-
-				const result = schema.safeParse(response.data);
-
-				if (!result.success) {
-					logger.warn(`Schema validation failed for ${path}:`, JSON.stringify(result.error.issues));
-					throw new Error("Invalid response schema");
-				}
-
-				return result.data;
-			} catch (err) {
-				logger.error(`Error fetching from ${path}:`, err);
-				throw new Error(`Couldn't get data from ${path}`);
-			}
-		}, [httpClient])
-
 	const getCredentialIssuerMetadata = useCallback(
 		async (credentialIssuerIdentifier: string, useCache?: boolean): Promise<{ metadata: OpenidCredentialIssuerMetadata } | null> => {
-			void useCache; // cache control is handled server-side by the resolver
 			try {
-				const result = await authzenClient.resolve(credentialIssuerIdentifier);
+				const result = await authzenClient.resolve(credentialIssuerIdentifier, {
+					resourceType: 'credential_issuer',
+					useCache: useCache === true
+				});
 				if (!result.ok) {
 					logger.error(`Failed to resolve issuer metadata for ${credentialIssuerIdentifier}:`, result.error);
 					return null;
@@ -72,7 +54,7 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 				return null;
 			}
 		},
-		[fetchAndParseWithSchema]
+		[authzenClient]
 	);
 
 	// Fetches authorization server metadata via a separate backend resolver call.
@@ -80,11 +62,11 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 	// the RFC 8414 well-known endpoint, not the credential issuer metadata.
 	const getAuthorizationServerMetadata = useCallback(
 		async (credentialIssuerIdentifier: string, useCache?: boolean, preloadedMetadata?: OpenidCredentialIssuerMetadata): Promise<{ authzServerMetadata: OpenidAuthorizationServerMetadata } | null> => {
-			void useCache;
 			void preloadedMetadata;
 			try {
 				const result = await authzenClient.resolve(credentialIssuerIdentifier, {
 					resourceType: 'oauth-authorization-server',
+					useCache: useCache === true
 				});
 				if (!result.ok) {
 					logger.error(`Failed to resolve auth server metadata for ${credentialIssuerIdentifier}:`, result.error);
@@ -168,7 +150,7 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 				}
 			});
 		},
-		[getCredentialIssuerMetadata, httpClient, getExternalEntity]
+		[getCredentialIssuerMetadata, httpClient]
 	);
 
 	return useMemo(
