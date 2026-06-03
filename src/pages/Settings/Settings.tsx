@@ -532,11 +532,18 @@ const WebauthnCredentialItem = ({
 	const [isDeactivateConfirmationOpen, setIsDeactivateConfirmationOpen] = useState(false);
 	const [loading, setLoading] = useState(false);
 	const [deactivateLoading, setDeactivateLoading] = useState(false);
+	const [confirmLastDeactivate, setConfirmLastDeactivate] = useState(false);
 
 	const openDeleteConfirmation = () => setIsDeleteConfirmationOpen(true);
 	const closeDeleteConfirmation = () => setIsDeleteConfirmationOpen(false);
-	const openDeactivateConfirmation = () => setIsDeactivateConfirmationOpen(true);
-	const closeDeactivateConfirmation = () => setIsDeactivateConfirmationOpen(false);
+	const openDeactivateConfirmation = () => {
+		setConfirmLastDeactivate(false);
+		setIsDeactivateConfirmationOpen(true);
+	};
+	const closeDeactivateConfirmation = () => {
+		setIsDeactivateConfirmationOpen(false);
+		setConfirmLastDeactivate(false);
+	};
 	const isDeactivated = credential.status === 'deactivated';
 
 	const handleDelete = async () => {
@@ -802,11 +809,22 @@ const WebauthnCredentialItem = ({
 							id="confirm-deactivate-passkey-settings"
 							onClick={handleDeactivate}
 							variant='delete'
-							disabled={deactivateLoading}
+							disabled={deactivateLoading || (isLastActiveCredential && !confirmLastDeactivate)}
 						>
 							{t('pageSettings.passkeyItem.deactivate')}
 						</Button>
 					</div>
+					{isLastActiveCredential && (
+						<label className="mt-4 text-sm relative block pl-6 text-left dark:text-white">
+							<input
+								className="absolute top-1 left-0 w-4 h-4 accent-primary cursor-pointer"
+								type="checkbox"
+								checked={confirmLastDeactivate}
+								onChange={(event) => setConfirmLastDeactivate(event.target.checked)}
+							/>
+							{t('pageSettings.passkeyItem.deactivateLastCredentialConfirm')}
+						</label>
+					)}
 				</Dialog>
 			</div>
 		</form>
@@ -827,13 +845,20 @@ const Settings = () => {
 	const [loading, setLoading] = useState(false);
 	const [isDeactivateAllConfirmationOpen, setIsDeactivateAllConfirmationOpen] = useState(false);
 	const [deactivateAllLoading, setDeactivateAllLoading] = useState(false);
+	const [confirmDeactivateAll, setConfirmDeactivateAll] = useState(false);
 	const [credentialActionMessage, setCredentialActionMessage] = useState('');
 	const screenType = useScreenType();
 
 	const openDeleteConfirmation = () => setIsDeleteConfirmationOpen(true);
 	const closeDeleteConfirmation = () => setIsDeleteConfirmationOpen(false);
-	const openDeactivateAllConfirmation = () => setIsDeactivateAllConfirmationOpen(true);
-	const closeDeactivateAllConfirmation = () => setIsDeactivateAllConfirmationOpen(false);
+	const openDeactivateAllConfirmation = () => {
+		setConfirmDeactivateAll(false);
+		setIsDeactivateAllConfirmationOpen(true);
+	};
+	const closeDeactivateAllConfirmation = () => {
+		setIsDeactivateAllConfirmationOpen(false);
+		setConfirmDeactivateAll(false);
+	};
 	const [upgradePrfState, setUpgradePrfState] = useState<UpgradePrfState | null>(null);
 	const upgradePrfPasskeyLabel = useWebauthnCredentialNickname(upgradePrfState?.webauthnCredential);
 	const [successMessage, setSuccessMessage] = useState('');
@@ -1320,6 +1345,15 @@ const Settings = () => {
 					<h3 className="text-2xl mt-4 mb-2 font-bold text-custom-blue">{t('pageSettings.deactivateAll.dialogTitle')}</h3>
 					<p className='mb-2 dark:text-white'>{t('pageSettings.deactivateAll.dialogWarning')}</p>
 					<p className='mb-2 dark:text-white'>{t('pageSettings.deactivateAll.dialogReenroll')}</p>
+					<label className="mb-2 text-sm relative block pl-6 text-left dark:text-white">
+						<input
+							className="absolute top-1 left-0 w-4 h-4 accent-primary cursor-pointer"
+							type="checkbox"
+							checked={confirmDeactivateAll}
+							onChange={(event) => setConfirmDeactivateAll(event.target.checked)}
+						/>
+						{t('pageSettings.deactivateAll.dialogConfirm')}
+					</label>
 					<div className='flex gap-2 justify-center align-center'>
 						<Button
 							id="cancel-deactivate-all-settings"
@@ -1332,7 +1366,7 @@ const Settings = () => {
 							id="confirm-deactivate-all-settings"
 							onClick={deactivateAllWalletInstances}
 							variant='delete'
-							disabled={deactivateAllLoading}
+							disabled={deactivateAllLoading || !confirmDeactivateAll}
 						>
 							{t('pageSettings.deactivateAll.buttonText')}
 						</Button>
