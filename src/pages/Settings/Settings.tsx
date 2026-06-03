@@ -542,7 +542,6 @@ const WebauthnCredentialItem = ({
 	};
 	const closeDeactivateConfirmation = () => {
 		setIsDeactivateConfirmationOpen(false);
-		setConfirmLastDeactivate(false);
 	};
 	const isDeactivated = credential.status === 'deactivated';
 
@@ -793,7 +792,10 @@ const WebauthnCredentialItem = ({
 						{t('pageSettings.passkeyItem.deactivateDialogDescription', { passkeyLabel: currentLabel })}
 					</p>
 					{isLastActiveCredential && (
-						<p className='mb-2 font-semibold text-lm-red dark:text-dm-red'>
+						<p
+							id={`last-passkey-warning-${credential.id}`}
+							className='mb-2 font-semibold text-lm-red dark:text-dm-red'
+						>
 							{t('pageSettings.passkeyItem.deactivateLastCredentialWarning')}
 						</p>
 					)}
@@ -815,12 +817,17 @@ const WebauthnCredentialItem = ({
 						</Button>
 					</div>
 					{isLastActiveCredential && (
-						<label className="mt-4 text-sm relative block pl-6 text-left dark:text-white">
+						<label
+							htmlFor={`confirm-last-passkey-deactivate-${credential.id}`}
+							className="mt-4 text-sm relative block pl-6 text-left dark:text-white"
+						>
 							<input
+								id={`confirm-last-passkey-deactivate-${credential.id}`}
 								className="absolute top-1 left-0 w-4 h-4 accent-primary cursor-pointer"
 								type="checkbox"
 								checked={confirmLastDeactivate}
 								onChange={(event) => setConfirmLastDeactivate(event.target.checked)}
+								aria-describedby={`last-passkey-warning-${credential.id}`}
 							/>
 							{t('pageSettings.passkeyItem.deactivateLastCredentialConfirm')}
 						</label>
@@ -857,7 +864,6 @@ const Settings = () => {
 	};
 	const closeDeactivateAllConfirmation = () => {
 		setIsDeactivateAllConfirmationOpen(false);
-		setConfirmDeactivateAll(false);
 	};
 	const [upgradePrfState, setUpgradePrfState] = useState<UpgradePrfState | null>(null);
 	const upgradePrfPasskeyLabel = useWebauthnCredentialNickname(upgradePrfState?.webauthnCredential);
@@ -1343,14 +1349,19 @@ const Settings = () => {
 					onCancel={closeDeactivateAllConfirmation}
 				>
 					<h3 className="text-2xl mt-4 mb-2 font-bold text-custom-blue">{t('pageSettings.deactivateAll.dialogTitle')}</h3>
-					<p className='mb-2 dark:text-white'>{t('pageSettings.deactivateAll.dialogWarning')}</p>
-					<p className='mb-2 dark:text-white'>{t('pageSettings.deactivateAll.dialogReenroll')}</p>
-					<label className="mb-2 text-sm relative block pl-6 text-left dark:text-white">
+					<p id="deactivate-all-warning" className='mb-2 dark:text-white'>{t('pageSettings.deactivateAll.dialogWarning')}</p>
+					<p id="deactivate-all-reenroll" className='mb-2 dark:text-white'>{t('pageSettings.deactivateAll.dialogReenroll')}</p>
+					<label
+						htmlFor="confirm-deactivate-all-wallet-instances"
+						className="mb-2 text-sm relative block pl-6 text-left dark:text-white"
+					>
 						<input
+							id="confirm-deactivate-all-wallet-instances"
 							className="absolute top-1 left-0 w-4 h-4 accent-primary cursor-pointer"
 							type="checkbox"
 							checked={confirmDeactivateAll}
 							onChange={(event) => setConfirmDeactivateAll(event.target.checked)}
+							aria-describedby="deactivate-all-warning deactivate-all-reenroll"
 						/>
 						{t('pageSettings.deactivateAll.dialogConfirm')}
 					</label>
