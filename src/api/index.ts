@@ -78,6 +78,7 @@ export interface BackendApi {
 	): Promise<
 		Result<void,
 			| 'loginKeystoreFailed'
+			| 'credentialDeactivated'
 			| 'passkeyInvalid'
 			| 'passkeyLoginFailedTryAgain'
 			| 'passkeyLoginFailedServerError'
@@ -85,6 +86,8 @@ export interface BackendApi {
 			| 'x-private-data-etag'
 		>
 	>,
+	deactivateCredential(id: string): Promise<void>,
+	deactivateAllCredentials(): Promise<void>,
 	signupWebauthn(
 		name: string,
 		keystore: LocalStorageKeystore,
@@ -648,6 +651,20 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		}
 	}, [post]);
 
+	const deactivateCredential = useCallback(async (id: string): Promise<void> => {
+		const resp = await post(`/user/session/webauthn/credential/${id}/deactivate`, {});
+		if (resp.status !== 204) {
+			throw new Error(`Failed to deactivate WebAuthn credential ${id}: ${resp.status}`);
+		}
+	}, [post]);
+
+	const deactivateAllCredentials = useCallback(async (): Promise<void> => {
+		const resp = await post('/user/session/webauthn/deactivate-all', {});
+		if (resp.status !== 204) {
+			throw new Error(`Failed to deactivate all WebAuthn credentials: ${resp.status}`);
+		}
+	}, [post]);
+
 	const loginWebauthn = useCallback(async (
 		keystore: LocalStorageKeystore,
 		promptForPrfRetry: () => Promise<boolean | AbortSignal>,
@@ -657,9 +674,11 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		oidcIdToken?: string
 	): Promise<Result<void,
 		| 'loginKeystoreFailed'
+		| 'credentialDeactivated'
 		| 'passkeyInvalid'
 		| 'passkeyLoginFailedTryAgain'
 		| 'passkeyLoginFailedServerError'
+		| 'oidcTokenExpired'
 		| 'x-private-data-etag'
 	>> => {
 		try {
@@ -812,6 +831,9 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 				return Err('oidcTokenExpired');
 			}
 			if (e?.response?.status === 403) {
+				if (e?.response?.data?.code === 'credential_deactivated') {
+					return Err('credentialDeactivated');
+				}
 				// Tenant access denied - passkey belongs to different tenant
 				return Err('passkeyLoginFailedTryAgain');
 			}
@@ -1004,6 +1026,8 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		getAllPresentations,
 		getAppToken,
 		initiatePresentationExchange,
+		deactivateCredential,
+		deactivateAllCredentials,
 		refreshAccessToken: doRefreshAccessToken,
 
 		loginWebauthn,
@@ -1033,6 +1057,8 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		getAllPresentations,
 		getAppToken,
 		initiatePresentationExchange,
+		deactivateCredential,
+		deactivateAllCredentials,
 		doRefreshAccessToken,
 
 		loginWebauthn,

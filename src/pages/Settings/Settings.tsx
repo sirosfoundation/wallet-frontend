@@ -19,7 +19,7 @@ import Button from '../../components/Buttons/Button';
 import { H1, H2, H3 } from '../../components/Shared/Heading';
 import PageDescription from '../../components/Shared/PageDescription';
 import LanguageSelector from '../../components/LanguageSelector/LanguageSelector';
-import { Bell, ChevronDown, Edit, FingerprintIcon, Laptop, Lock, LockOpen, Moon, RefreshCcw, Smartphone, SmartphoneNfcIcon, Sun, Trash2 } from 'lucide-react';
+import { AlertTriangle, Bell, ChevronDown, Edit, FingerprintIcon, Laptop, Lock, LockOpen, Moon, RefreshCcw, Smartphone, SmartphoneNfcIcon, Sun, Trash2 } from 'lucide-react';
 import { UsbStickDotIcon } from '@/components/Shared/CustomIcons';
 import { APP_VERSION } from '@/config';
 import { logger } from '@/logger';
@@ -509,12 +509,16 @@ const WebauthnCredentialItem = ({
 	credential,
 	prfKeyInfo,
 	onDelete,
+	onDeactivate,
+	isLastActiveCredential,
 	onRename,
 	onUpgradePrfKey,
 }: {
 	credential: WebauthnCredential,
 	prfKeyInfo: WebauthnPrfEncryptionKeyInfo,
 	onDelete?: false | (() => Promise<void>),
+	onDeactivate?: () => Promise<void>,
+	isLastActiveCredential?: boolean,
 	onRename: (credential: WebauthnCredential, nickname: string | null) => Promise<boolean>,
 	onUpgradePrfKey: (prfKeyInfo: WebauthnPrfEncryptionKeyInfo) => void,
 }) => {
@@ -525,10 +529,15 @@ const WebauthnCredentialItem = ({
 	const currentLabel = useWebauthnCredentialNickname(credential);
 	const [submitting, setSubmitting] = useState(false);
 	const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
+	const [isDeactivateConfirmationOpen, setIsDeactivateConfirmationOpen] = useState(false);
 	const [loading, setLoading] = useState(false);
+	const [deactivateLoading, setDeactivateLoading] = useState(false);
 
 	const openDeleteConfirmation = () => setIsDeleteConfirmationOpen(true);
 	const closeDeleteConfirmation = () => setIsDeleteConfirmationOpen(false);
+	const openDeactivateConfirmation = () => setIsDeactivateConfirmationOpen(true);
+	const closeDeactivateConfirmation = () => setIsDeactivateConfirmationOpen(false);
+	const isDeactivated = credential.status === 'deactivated';
 
 	const handleDelete = async () => {
 		if (onDelete) {
@@ -571,9 +580,21 @@ const WebauthnCredentialItem = ({
 
 	const needsPrfUpgrade = prfKeyInfo && !isPrfKeyV2(prfKeyInfo);
 
+	const handleDeactivate = async () => {
+		if (onDeactivate) {
+			setDeactivateLoading(true);
+			try {
+				await onDeactivate();
+			} finally {
+				setDeactivateLoading(false);
+				closeDeactivateConfirmation();
+			}
+		}
+	};
+
 	return (
 		<form
-			className="mb-2 pl-4 px-4 py-2 border border-lm-gray-400 dark:border-dm-gray-600 rounded-lg flex flex-row flex-wrap gap-y-2 overflow-x-auto"
+			className={`mb-2 pl-4 px-4 py-2 border border-lm-gray-400 dark:border-dm-gray-600 rounded-lg flex flex-row flex-wrap gap-y-2 overflow-x-auto ${isDeactivated ? 'opacity-60' : ''}`}
 			onSubmit={onSubmit}
 		>
 			<div className="grow">
@@ -611,6 +632,11 @@ const WebauthnCredentialItem = ({
 						</div>
 					)
 				}
+				<div className="mt-2 mb-2">
+					<span className={`py-1 px-2 rounded text-sm font-bold ${isDeactivated ? 'bg-lm-gray-400 dark:bg-dm-gray-700 text-lm-gray-900 dark:text-dm-gray-100' : 'bg-lm-green dark:bg-dm-green text-lm-gray-900'}`}>
+						{isDeactivated ? t('pageSettings.passkeyItem.statusDeactivated') : t('pageSettings.passkeyItem.statusActive')}
+					</span>
+				</div>
 				<p className='dark:text-white'>
 					<span className="font-semibold">
 						{t('pageSettings.passkeyItem.created')}:&nbsp;
@@ -631,10 +657,36 @@ const WebauthnCredentialItem = ({
 						&& <span className="py-1 px-2 rounded bg-lm-orange dark:bg-dm-orange text-lm-gray-900 font-bold">{t('pageSettings.passkeyItem.needsPrfUpgrade')}</span>
 					}
 				</p>
+				{isDeactivated && credential.deactivatedAt && (
+					<p className='dark:text-white'>
+						<span className="font-semibold">
+							{t('pageSettings.passkeyItem.deactivatedOn')}:&nbsp;
+						</span>
+						{formatDate(credential.deactivatedAt)}
+					</p>
+				)}
+				{isDeactivated && credential.deactivatedBy && (
+					<p className='dark:text-white'>
+						<span className="font-semibold">
+							{t('pageSettings.passkeyItem.deactivatedBy')}:&nbsp;
+						</span>
+						{credential.deactivatedBy === 'provider'
+							? t('pageSettings.passkeyItem.deactivatedByProvider')
+							: t('pageSettings.passkeyItem.deactivatedByUser')}
+					</p>
+				)}
+				{isDeactivated && credential.deactivatedBy === 'provider' && credential.deactivationReason && (
+					<p className='dark:text-white'>
+						<span className="font-semibold">
+							{t('pageSettings.passkeyItem.deactivationReason')}:&nbsp;
+						</span>
+						{credential.deactivationReason}
+					</p>
+				)}
 			</div>
 
 			<div className="items-start	flex gap-2">
-				{needsPrfUpgrade
+				{!isDeactivated && needsPrfUpgrade
 					&&
 					<Button
 						id="upgrade-prf-settings"
@@ -647,7 +699,7 @@ const WebauthnCredentialItem = ({
 					</Button>
 				}
 
-				{editing
+				{!isDeactivated && (editing
 					? (
 
 						<div className='flex gap-2'>
@@ -682,9 +734,24 @@ const WebauthnCredentialItem = ({
 							{t('pageSettings.passkeyItem.rename')}
 						</Button>
 					)
-				}
+				)}
 
-				{onDelete && (
+				{!isDeactivated && onDeactivate && (
+					<Button
+						id="deactivate-passkey"
+						onClick={openDeactivateConfirmation}
+						variant="delete"
+						disabled={!isOnline}
+						aria-label={t('pageSettings.passkeyItem.deactivateAriaLabel', { passkeyLabel: currentLabel })}
+						title={!isOnline ? t("common.offlineTitle") : t("pageSettings.passkeyItem.deactivateButtonTitleUnlocked", { passkeyLabel: currentLabel })}
+						additionalClassName='ml-2 py-3'
+					>
+						<AlertTriangle size={18} />
+						{t('pageSettings.passkeyItem.deactivate')}
+					</Button>
+				)}
+
+				{!isDeactivated && onDelete && (
 					<Button
 						id="delete-passkey"
 						onClick={openDeleteConfirmation}
@@ -710,6 +777,37 @@ const WebauthnCredentialItem = ({
 					}
 					loading={loading}
 				/>
+				<Dialog
+					open={isDeactivateConfirmationOpen}
+					onCancel={closeDeactivateConfirmation}
+				>
+					<h3 className="text-2xl mt-4 mb-2 font-bold text-custom-blue">{t('pageSettings.passkeyItem.deactivateDialogTitle')}</h3>
+					<p className='mb-2 dark:text-white'>
+						{t('pageSettings.passkeyItem.deactivateDialogDescription', { passkeyLabel: currentLabel })}
+					</p>
+					{isLastActiveCredential && (
+						<p className='mb-2 font-semibold text-lm-red dark:text-dm-red'>
+							{t('pageSettings.passkeyItem.deactivateLastCredentialWarning')}
+						</p>
+					)}
+					<div className='flex gap-2 justify-center align-center'>
+						<Button
+							id="cancel-deactivate-passkey-settings"
+							onClick={closeDeactivateConfirmation}
+							disabled={deactivateLoading}
+						>
+							{t('common.cancel')}
+						</Button>
+						<Button
+							id="confirm-deactivate-passkey-settings"
+							onClick={handleDeactivate}
+							variant='delete'
+							disabled={deactivateLoading}
+						>
+							{t('pageSettings.passkeyItem.deactivate')}
+						</Button>
+					</div>
+				</Dialog>
 			</div>
 		</form>
 	);
@@ -723,13 +821,19 @@ const Settings = () => {
 	const { webauthnCredentialCredentialId: loggedInPasskeyCredentialId } = api.getSession();
 	const [unlocked, setUnlocked] = useState(false);
 	const showDelete = userData?.webauthnCredentials?.length > 1;
+	const activeCredentialCount = userData?.webauthnCredentials?.filter(cred => cred.status !== 'deactivated').length || 0;
 	const { t } = useTranslation();
 	const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
 	const [loading, setLoading] = useState(false);
+	const [isDeactivateAllConfirmationOpen, setIsDeactivateAllConfirmationOpen] = useState(false);
+	const [deactivateAllLoading, setDeactivateAllLoading] = useState(false);
+	const [credentialActionMessage, setCredentialActionMessage] = useState('');
 	const screenType = useScreenType();
 
 	const openDeleteConfirmation = () => setIsDeleteConfirmationOpen(true);
 	const closeDeleteConfirmation = () => setIsDeleteConfirmationOpen(false);
+	const openDeactivateAllConfirmation = () => setIsDeactivateAllConfirmationOpen(true);
+	const closeDeactivateAllConfirmation = () => setIsDeactivateAllConfirmationOpen(false);
 	const [upgradePrfState, setUpgradePrfState] = useState<UpgradePrfState | null>(null);
 	const upgradePrfPasskeyLabel = useWebauthnCredentialNickname(upgradePrfState?.webauthnCredential);
 	const [successMessage, setSuccessMessage] = useState('');
@@ -737,15 +841,19 @@ const Settings = () => {
 
 	const { getCalculatedWalletState } = keystore;
 
+	const forgetCurrentCachedUser = () => {
+		const userHandleB64u = keystore.getUserHandleB64u();
+		const cachedUser = keystore.getCachedUsers()
+			.find((user) => user.userHandleB64u === userHandleB64u);
+		if (cachedUser) {
+			keystore.forgetCachedUser(cachedUser);
+		}
+	};
+
 	const deleteAccount = async () => {
 		try {
 			await api.del('/user/session');
-			const userHandleB64u = keystore.getUserHandleB64u();
-			const cachedUser = keystore.getCachedUsers()
-				.find((cachedUser) => cachedUser.userHandleB64u === userHandleB64u);
-			if (cachedUser) {
-				keystore.forgetCachedUser(cachedUser);
-			}
+			forgetCurrentCachedUser();
 			await logout();
 		}
 		catch (err) {
@@ -815,6 +923,34 @@ const Settings = () => {
 				throw new Error("Private data version conflict", { cause: e });
 			}
 			throw e;
+		}
+	};
+
+	const deactivateWebauthnCredential = async (credential: WebauthnCredential) => {
+		try {
+			await api.deactivateCredential(credential.id);
+			await refreshData();
+			setCredentialActionMessage(t('pageSettings.passkeyItem.deactivateSuccess'));
+			setTimeout(() => setCredentialActionMessage(''), 3000);
+		} catch (e) {
+			logger.error("Failed to deactivate WebAuthn credential", e);
+		}
+	};
+
+	const deactivateAllWalletInstances = async () => {
+		if (!unlocked) {
+			return;
+		}
+		setDeactivateAllLoading(true);
+		try {
+			await api.deactivateAllCredentials();
+			forgetCurrentCachedUser();
+			await logout();
+		} catch (e) {
+			logger.error("Failed to deactivate all wallet instances", e);
+		} finally {
+			setDeactivateAllLoading(false);
+			closeDeactivateAllConfirmation();
 		}
 	};
 
@@ -1057,6 +1193,11 @@ const Settings = () => {
 									<H3 heading={t('pageSettings.title.manageOtherPasskeys')}>
 									</H3>
 									<WebauthnRegistation onSuccess={() => refreshData()} />
+									{credentialActionMessage && (
+										<p className='mt-2 text-lm-green dark:text-dm-green'>
+											{credentialActionMessage}
+										</p>
+									)}
 									<ul className="mt-4">
 
 										{userData.webauthnCredentials
@@ -1067,7 +1208,9 @@ const Settings = () => {
 													key={cred.id}
 													credential={cred}
 													prfKeyInfo={keystore.getPrfKeyInfo(cred.credentialId)}
-													onDelete={showDelete && (() => deleteWebauthnCredential(cred))}
+													onDelete={showDelete && cred.status !== 'deactivated' && (() => deleteWebauthnCredential(cred))}
+													onDeactivate={cred.status !== 'deactivated' ? (() => deactivateWebauthnCredential(cred)) : undefined}
+													isLastActiveCredential={cred.status !== 'deactivated' && activeCredentialCount === 1}
 													onRename={onRenameWebauthnCredential}
 													onUpgradePrfKey={onUpgradePrfKey}
 												/>
@@ -1077,6 +1220,24 @@ const Settings = () => {
 												<p className='dark:text-white'>{t('pageSettings.noOtherPasskeys')}</p>
 											)}
 									</ul>
+								</div>
+
+								<div className="pt-4">
+									<H3 heading={t('pageSettings.deactivateAll.title')}>
+									</H3>
+									<p className='mb-2 dark:text-white'>
+										{t('pageSettings.deactivateAll.description')}
+									</p>
+									<Button
+										id="deactivate-all-wallet-instances"
+										onClick={openDeactivateAllConfirmation}
+										variant="delete"
+										disabled={!unlocked || !isOnline}
+										title={unlocked && !isOnline ? t("common.offlineTitle") : !unlocked ? t("pageSettings.deactivateAll.buttonTitleLocked") : ""}
+									>
+										<AlertTriangle size={18} />
+										{t('pageSettings.deactivateAll.buttonText')}
+									</Button>
 								</div>
 
 								<div className="pt-4">
@@ -1152,6 +1313,31 @@ const Settings = () => {
 					}
 					loading={loading}
 				/>
+				<Dialog
+					open={isDeactivateAllConfirmationOpen}
+					onCancel={closeDeactivateAllConfirmation}
+				>
+					<h3 className="text-2xl mt-4 mb-2 font-bold text-custom-blue">{t('pageSettings.deactivateAll.dialogTitle')}</h3>
+					<p className='mb-2 dark:text-white'>{t('pageSettings.deactivateAll.dialogWarning')}</p>
+					<p className='mb-2 dark:text-white'>{t('pageSettings.deactivateAll.dialogReenroll')}</p>
+					<div className='flex gap-2 justify-center align-center'>
+						<Button
+							id="cancel-deactivate-all-settings"
+							onClick={closeDeactivateAllConfirmation}
+							disabled={deactivateAllLoading}
+						>
+							{t('common.cancel')}
+						</Button>
+						<Button
+							id="confirm-deactivate-all-settings"
+							onClick={deactivateAllWalletInstances}
+							variant='delete'
+							disabled={deactivateAllLoading}
+						>
+							{t('pageSettings.deactivateAll.buttonText')}
+						</Button>
+					</div>
+				</Dialog>
 
 				<Dialog
 					open={upgradePrfState !== null}
