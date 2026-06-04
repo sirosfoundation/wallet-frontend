@@ -1,6 +1,7 @@
 # compiled output
 .cache/
 /dist
+.wallet-common-dist/
 /config/yarn.lock
 node_modules/
 package_lock.json

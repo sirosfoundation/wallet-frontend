@@ -105,7 +105,7 @@ export function useHttpProxy(): IHttpProxy {
 			}
 
 			// Fallback to backend `/proxy`
-			if (inFlightRequests.has(cacheKey)) {
+			if (useCache !== false && inFlightRequests.has(cacheKey)) {
 				return inFlightRequests.get(cacheKey);
 			}
 

@@ -16,12 +16,13 @@ import { CredentialConfigurationSupported, CredentialOfferSchema, VerifiableCred
 import CredentialsContext from "@/context/CredentialsContext";
 import { WalletStateUtils } from '@/services/WalletStateUtils';
 import { fromBase64Url } from '@/util';
-import { DataItem, parse } from '@auth0/mdl';
-import { cborDecode, cborEncode } from '@auth0/mdl/lib/cbor';
+import { DataItem } from '@auth0/mdl';
+import { cborDecode } from '@auth0/mdl/lib/cbor';
 import { COSEKeyToJWK } from "cose-kit";
 import { IOpenID4VCIClientStateRepository } from '@/lib/interfaces/IOpenID4VCIClientStateRepository';
 import { useNavigate } from 'react-router-dom';
 import { logger } from '@/logger';
+import { parseIssuerSignedToMDoc } from '@/lib/mdoc/mdoc';
 
 /**
  * Raw tx_code spec from OID4VCI §4.1.1 (snake_case, matching protocol wire format).
@@ -73,19 +74,7 @@ export const deriveHolderKidFromCredential = async (credential: string, format: 
 			return undefined;
 		}
 		case VerifiableCredentialFormat.MSO_MDOC: {
-			const credentialBytes = fromBase64Url(credential);
-			const issuerSigned = cborDecode(credentialBytes);
-			const dataItem = cborDecode(issuerSigned.get('issuerAuth')[2]);
-			const m = {
-				version: '1.0',
-				documents: [new Map([
-					['docType', dataItem.data.get('docType')],
-					['issuerSigned', issuerSigned]
-				])],
-				status: 0
-			};
-			const encoded = cborEncode(m);
-			const mdocCredential = parse(encoded);
+			const mdocCredential = parseIssuerSignedToMDoc(credential);
 			const p: DataItem = cborDecode(mdocCredential.documents[0].issuerSigned.issuerAuth.payload);
 			const deviceKeyInfo = p.data.get('deviceKeyInfo');
 			const deviceKey = deviceKeyInfo.get('deviceKey');
@@ -454,8 +443,9 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 	);
 
 	const requestCredentialsWithPreAuthorization = useCallback(async (credentialIssuer: string, selectedCredentialConfigurationId: string, preAuthorizedCode: string, txCode?: string): Promise<{}> => {
-		const [authzServerMetadata] = await Promise.all([
-			openID4VCIHelper.getAuthorizationServerMetadata(credentialIssuer),
+		const [authzServerMetadata, clientIdResult] = await Promise.all([
+			openID4VCIHelper.getAuthorizationServerMetadata(credentialIssuer, false),
+			openID4VCIHelper.getClientId(credentialIssuer),
 		]);
 
 		const flowState: WalletStateCredentialIssuanceSession = {
@@ -493,6 +483,9 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 		tokenRequestBuilder.setIssuer(authzServerMetadata.authzServerMetadata.issuer);
 		tokenRequestBuilder.setGrantType(GrantType.PRE_AUTHORIZED_CODE);
 		tokenRequestBuilder.setPreAuthorizedCode(preAuthorizedCode);
+		if (clientIdResult?.client_id) {
+			tokenRequestBuilder.setClientId(clientIdResult.client_id);
+		}
 		if (txCode) {
 			tokenRequestBuilder.setTxCode(txCode);
 		}
@@ -554,7 +547,7 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 
 
 			const [credentialIssuerMetadata] = await Promise.all([
-				openID4VCIHelper.getCredentialIssuerMetadata(offer.credential_issuer)
+				openID4VCIHelper.getCredentialIssuerMetadata(offer.credential_issuer, false)
 			]);
 
 			const selectedConfigurationId = offer.credential_configuration_ids[0];

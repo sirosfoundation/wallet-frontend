@@ -8,7 +8,8 @@ export namespace PreAuthorizedGrant {
 		as: oauth4webapi.AuthorizationServer,
 		credentialOfferParams: { preAuthorizedCode: string, txCode?: string },
 		dpop: { dpopPrivateKey: KeyLike, dpopPublicKeyJwk: JWK },
-		options?: oauth4webapi.TokenEndpointRequestOptions
+		options?: oauth4webapi.TokenEndpointRequestOptions,
+		clientId?: string,
 	): Promise<Response> => {
 
 		const customFetchFn = options[oauth4webapi.customFetch];
@@ -17,6 +18,10 @@ export namespace PreAuthorizedGrant {
 		tokenRequestParams.set("grant_type", GrantType.PRE_AUTHORIZED_CODE);
 		if (credentialOfferParams.txCode) {
 			tokenRequestParams.set("tx_code", credentialOfferParams.txCode);
+		}
+
+		if (clientId) {
+			tokenRequestParams.set("client_id", clientId);
 		}
 
 		const requestOpts: oauth4webapi.CustomFetchOptions<"POST", URLSearchParams> = {
@@ -33,7 +38,35 @@ export namespace PreAuthorizedGrant {
 			},
 			redirect: "manual",
 		};
-		return customFetchFn(as.token_endpoint, requestOpts);
+		const response = await customFetchFn(as.token_endpoint, requestOpts);
+
+		// Handle DPoP nonce requirement (RFC 9449 Section 8)
+		if (response.status === 400) {
+			const body = await response.clone().json().catch(() => null);
+			if (body?.error === 'use_dpop_nonce') {
+				const dpopNonce = response.headers.get('dpop-nonce');
+				if (dpopNonce) {
+					const retryOpts: oauth4webapi.CustomFetchOptions<"POST", URLSearchParams> = {
+						body: tokenRequestParams,
+						method: "POST",
+						headers: {
+							"Content-Type": "application/x-www-form-urlencoded",
+							"DPoP": await generateDPoP(
+								dpop.dpopPrivateKey,
+								dpop.dpopPublicKeyJwk,
+								"POST",
+								as.token_endpoint,
+								dpopNonce,
+							),
+						},
+						redirect: "manual",
+					};
+					return customFetchFn(as.token_endpoint, retryOpts);
+				}
+			}
+		}
+
+		return response;
 	}
 
 	export const processPreAuthorizedCodeTokenResponse = async (
