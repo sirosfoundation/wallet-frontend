@@ -43,7 +43,8 @@ COPY ./nginx/nginx.conf /etc/nginx/conf.d/default.conf
 COPY ./nginx/docker-entrypoint.d/ /docker-entrypoint.d/
 COPY ./utils/create_custom_branding_resources.sh /home/node/app/
 
-RUN chown -R nginx:nginx /usr/share/nginx /var/cache/nginx /var/run /etc/nginx/conf.d /home/node/app
+RUN touch /var/run/nginx.pid && chown nginx:nginx /var/run/nginx.pid && \
+	chown -R nginx:nginx /usr/share/nginx /var/cache/nginx /etc/nginx/conf.d /home/node/app
 
 COPY --from=builder --chown=nginx:nginx /home/node/app/dist/ ./html/
 COPY --from=builder --chown=nginx:nginx /home/node/app/dist/ ./dist/
