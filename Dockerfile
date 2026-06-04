@@ -43,9 +43,13 @@ COPY ./nginx/nginx.conf /etc/nginx/conf.d/default.conf
 COPY ./nginx/docker-entrypoint.d/ /docker-entrypoint.d/
 COPY ./utils/create_custom_branding_resources.sh /home/node/app/
 
+RUN chown -R nginx:nginx /usr/share/nginx /var/cache/nginx /var/run /etc/nginx/conf.d /home/node/app
+
 COPY --from=builder --chown=nginx:nginx /home/node/app/dist/ ./html/
 COPY --from=builder --chown=nginx:nginx /home/node/app/dist/ ./dist/
 COPY --from=builder --chown=nginx:nginx /home/node/app/config/ ./config/
 COPY --from=builder --chown=nginx:nginx /home/node/app/branding/ ./branding/
 
-EXPOSE 80
+USER nginx
+
+EXPOSE 8080
