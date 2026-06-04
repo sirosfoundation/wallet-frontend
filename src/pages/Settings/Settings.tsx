@@ -854,6 +854,7 @@ const Settings = () => {
 	const [deactivateAllLoading, setDeactivateAllLoading] = useState(false);
 	const [confirmDeactivateAll, setConfirmDeactivateAll] = useState(false);
 	const [credentialActionMessage, setCredentialActionMessage] = useState('');
+	const credentialActionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const screenType = useScreenType();
 
 	const openDeleteConfirmation = () => setIsDeleteConfirmationOpen(true);
@@ -871,6 +872,14 @@ const Settings = () => {
 	const [obliviousSettingsMessage, setObliviousSettingsMessage] = useState('');
 
 	const { getCalculatedWalletState } = keystore;
+
+	useEffect(() => {
+		return () => {
+			if (credentialActionTimerRef.current) {
+				clearTimeout(credentialActionTimerRef.current);
+			}
+		};
+	}, []);
 
 	const forgetCurrentCachedUser = () => {
 		const userHandleB64u = keystore.getUserHandleB64u();
@@ -962,7 +971,10 @@ const Settings = () => {
 			await api.deactivateCredential(credential.id);
 			await refreshData();
 			setCredentialActionMessage(t('pageSettings.passkeyItem.deactivateSuccess'));
-			setTimeout(() => setCredentialActionMessage(''), 3000);
+			if (credentialActionTimerRef.current) {
+				clearTimeout(credentialActionTimerRef.current);
+			}
+			credentialActionTimerRef.current = setTimeout(() => setCredentialActionMessage(''), 3000);
 		} catch (e) {
 			logger.error("Failed to deactivate WebAuthn credential", e);
 		}
@@ -1377,7 +1389,7 @@ const Settings = () => {
 							id="confirm-deactivate-all-settings"
 							onClick={deactivateAllWalletInstances}
 							variant='delete'
-							disabled={deactivateAllLoading || !confirmDeactivateAll}
+							disabled={deactivateAllLoading || !confirmDeactivateAll || !unlocked || !isOnline}
 						>
 							{t('pageSettings.deactivateAll.buttonText')}
 						</Button>
