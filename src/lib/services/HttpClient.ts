@@ -126,7 +126,11 @@ export default class HttpClient {
 		if (isOffline) {
 			const fallback = await this.#readCache(cacheKey, now, true);
 			if (fallback) return fallback;
-			throw new Error(`Offline and no cache for ${cacheKey}`);
+			return {
+				status: 504,
+				headers: {},
+				data: 'No cached response available and offline'
+			};
 		}
 
 		if (useCache) {
