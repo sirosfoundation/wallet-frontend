@@ -85,7 +85,7 @@ export function useOpenID4VP({
 		const resolveDid = createDIDResolver(trustEvaluatorConfig);
 
 		return new OpenID4VPServerAPI<OpenID4VPServerCredential, ParsedTransactionData>({
-			httpClient: { get: httpClient.get },
+			httpClient,
 			rpStateStore,
 			parseCredential,
 			selectCredentialForBatch,
