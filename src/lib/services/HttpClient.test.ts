@@ -1,4 +1,3 @@
-// src/lib/services/HttpClient.test.ts
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import HttpClient from './HttpClient';
 
@@ -57,342 +56,336 @@ describe('HttpClient', () => {
 		});
 	});
 
-		afterEach(() => {
-				vi.unstubAllGlobals();
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	describe('cache behavior', () => {
+		it('returns fresh cached response without network request', async () => {
+			const cachedData = {
+				data: { status: 200, headers: {}, data: { foo: 'bar' } },
+				expiry: now() + 1000, // fresh
+			};
+			mockGetItem.mockResolvedValue(cachedData);
+
+			const client = new HttpClient(true, null);
+			const response = await client.get('http://backend.localhost/api/test');
+
+			expect(response.status).toBe(200);
+			expect(response.data).toEqual({ foo: 'bar' });
+			expect(mockAxiosRequest).not.toHaveBeenCalled();
 		});
 
-		describe('cache behavior', () => {
-				it('returns fresh cached response without network request', async () => {
-						const cachedData = {
-								data: { status: 200, headers: {}, data: { foo: 'bar' } },
-								expiry: now() + 1000, // fresh
-						};
-						mockGetItem.mockResolvedValue(cachedData);
+		it('fetches from network when cache is stale', async () => {
+			const cachedData = {
+				data: { status: 200, headers: {}, data: { old: 'data' } },
+				expiry: now() - 1000, // expired
+			};
+			mockGetItem.mockResolvedValue(cachedData);
+			mockAxiosRequest.mockResolvedValue({
+				status: 200,
+				headers: { 'content-type': 'application/json' },
+				data: { new: 'data' },
+			});
 
-						const client = new HttpClient(true, null);
-						const response = await client.get('http://backend.localhost/api/test');
+			const client = new HttpClient(true, null);
+			const response = await client.get('http://backend.localhost/api/test');
 
-						expect(response.status).toBe(200);
-						expect(response.data).toEqual({ foo: 'bar' });
-						expect(mockAxiosRequest).not.toHaveBeenCalled();
-				});
-
-				it('fetches from network when cache is stale', async () => {
-						const cachedData = {
-								data: { status: 200, headers: {}, data: { old: 'data' } },
-								expiry: now() - 1000, // expired
-						};
-						mockGetItem.mockResolvedValue(cachedData);
-						mockAxiosRequest.mockResolvedValue({
-								status: 200,
-								headers: { 'content-type': 'application/json' },
-								data: { new: 'data' },
-						});
-
-						const client = new HttpClient(true, null);
-						const response = await client.get('http://backend.localhost/api/test');
-
-						expect(response.data).toEqual({ new: 'data' });
-						expect(mockAxiosRequest).toHaveBeenCalled();
-				});
-
-				it('fetches from network when no cache exists', async () => {
-						mockGetItem.mockResolvedValue(null);
-						mockAxiosRequest.mockResolvedValue({
-								status: 200,
-								headers: {},
-								data: { fresh: 'data' },
-						});
-
-						const client = new HttpClient(true, null);
-						const response = await client.get('http://backend.localhost/api/test');
-
-						expect(response.data).toEqual({ fresh: 'data' });
-						expect(mockAxiosRequest).toHaveBeenCalled();
-				});
-
-				it('caches response after successful network request', async () => {
-						mockGetItem.mockResolvedValue(null);
-						mockAxiosRequest.mockResolvedValue({
-								status: 200,
-								headers: {},
-								data: { cached: 'data' },
-						});
-
-						const client = new HttpClient(true, null);
-						await client.get('http://backend.localhost/api/test');
-
-						expect(mockAddItem).toHaveBeenCalledWith(
-								'requestCache',
-								expect.any(String),
-								expect.objectContaining({
-										data: expect.objectContaining({ data: { cached: 'data' } }),
-										expiry: expect.any(Number),
-								}),
-								'requestCache'
-						);
-				});
-
-				it('does not cache when useCache is false', async () => {
-						mockGetItem.mockResolvedValue(null);
-						mockAxiosRequest.mockResolvedValue({
-								status: 200,
-								headers: {},
-								data: { nocache: 'data' },
-						});
-
-						const client = new HttpClient(true, null);
-						await client.get('http://backend.localhost/api/test', {}, { useCache: false });
-
-						expect(mockAddItem).not.toHaveBeenCalled();
-				});
-
-				it('does not cache when Cache-Control: no-store', async () => {
-						mockGetItem.mockResolvedValue(null);
-						mockAxiosRequest.mockResolvedValue({
-								status: 200,
-								headers: { 'cache-control': 'no-store' },
-								data: { nostore: 'data' },
-						});
-
-						const client = new HttpClient(true, null);
-						await client.get('http://backend.localhost/api/test');
-
-						expect(mockAddItem).not.toHaveBeenCalled();
-				});
-
-				it('respects Cache-Control max-age', async () => {
-						mockGetItem.mockResolvedValue(null);
-						mockAxiosRequest.mockResolvedValue({
-								status: 200,
-								headers: { 'cache-control': 'max-age=3600' },
-								data: { data: 'test' },
-						});
-
-						const client = new HttpClient(true, null);
-						const currentTime = now();
-						await client.get('http://backend.localhost/api/test');
-
-						expect(mockAddItem).toHaveBeenCalledWith(
-								'requestCache',
-								expect.any(String),
-								expect.objectContaining({
-										expiry: expect.any(Number),
-								}),
-								'requestCache'
-						);
-
-						const savedExpiry = mockAddItem.mock.calls[0][2].expiry;
-						expect(savedExpiry).toBeGreaterThanOrEqual(currentTime + 3600 - 1);
-						expect(savedExpiry).toBeLessThanOrEqual(currentTime + 3600 + 1);
-				});
+			expect(response.data).toEqual({ new: 'data' });
+			expect(mockAxiosRequest).toHaveBeenCalled();
 		});
 
-		describe('offline behavior', () => {
-				it('returns stale cache when offline', async () => {
-						const cachedData = {
-								data: { status: 200, headers: {}, data: { stale: 'data' } },
-								expiry: now() - 1000, // expired
-						};
-						mockGetItem.mockResolvedValue(cachedData);
+		it('fetches from network when no cache exists', async () => {
+			mockGetItem.mockResolvedValue(null);
+			mockAxiosRequest.mockResolvedValue({
+				status: 200,
+				headers: {},
+				data: { fresh: 'data' },
+			});
 
-						const client = new HttpClient(false, null); // offline
-						const response = await client.get('http://backend.localhost/api/test');
+			const client = new HttpClient(true, null);
+			const response = await client.get('http://backend.localhost/api/test');
 
-						expect(response.data).toEqual({ stale: 'data' });
-						expect(mockAxiosRequest).not.toHaveBeenCalled();
-				});
-
-				it('throws when offline and no cache exists', async () => {
-						mockGetItem.mockResolvedValue(null);
-
-						const client = new HttpClient(false, null);
-
-						await expect(client.get('http://backend.localhost/api/test'))
-								.rejects.toThrow('Offline and no cache');
-				});
+			expect(response.data).toEqual({ fresh: 'data' });
+			expect(mockAxiosRequest).toHaveBeenCalled();
 		});
 
-		describe('error fallback', () => {
-				it('returns stale cache on network error', async () => {
-						const cachedData = {
-								data: { status: 200, headers: {}, data: { fallback: 'data' } },
-								expiry: now() - 1000, // expired
-						};
-						// First call returns null (for fresh check), second returns stale cache
-						mockGetItem
-								.mockResolvedValueOnce(null)
-								.mockResolvedValueOnce(cachedData);
-						mockAxiosRequest.mockRejectedValue(new Error('Network error'));
+		it('caches response after successful network request', async () => {
+			mockGetItem.mockResolvedValue(null);
+			mockAxiosRequest.mockResolvedValue({
+				status: 200,
+				headers: {},
+				data: { cached: 'data' },
+			});
 
-						const client = new HttpClient(true, null);
-						const response = await client.get('http://backend.localhost/api/test');
+			const client = new HttpClient(true, null);
+			await client.get('http://backend.localhost/api/test');
 
-						expect(response.data).toEqual({ fallback: 'data' });
-				});
-
-				it('throws when network error and no cache', async () => {
-						mockGetItem.mockResolvedValue(null);
-						mockAxiosRequest.mockRejectedValue(new Error('Network error'));
-
-						const client = new HttpClient(true, null);
-
-						await expect(client.get('http://backend.localhost/api/test'))
-								.rejects.toThrow('Network error');
-				});
+			expect(mockAddItem).toHaveBeenCalledWith(
+				'requestCache',
+				expect.any(String),
+				expect.objectContaining({
+					data: expect.objectContaining({ data: { cached: 'data' } }),
+					expiry: expect.any(Number),
+				}),
+				'requestCache',
+			);
 		});
 
-		describe('POST requests', () => {
-				it('creates unique cache keys for different POST bodies', async () => {
-						mockGetItem.mockResolvedValue(null);
-						mockAxiosRequest.mockResolvedValue({
-								status: 200,
-								headers: {},
-								data: { result: 'ok' },
-						});
+		it('does not cache when useCache is false', async () => {
+			mockGetItem.mockResolvedValue(null);
+			mockAxiosRequest.mockResolvedValue({
+				status: 200,
+				headers: {},
+				data: { nocache: 'data' },
+			});
 
-						const client = new HttpClient(true, null);
+			const client = new HttpClient(true, null);
+			await client.get('http://backend.localhost/api/test', {}, { useCache: false });
 
-						await client.post('http://backend.localhost/api/test', { a: 1 });
-						await client.post('http://backend.localhost/api/test', { b: 2 });
-
-						expect(mockAddItem).toHaveBeenCalledTimes(2);
-						const cacheKey1 = mockAddItem.mock.calls[0][1];
-						const cacheKey2 = mockAddItem.mock.calls[1][1];
-						expect(cacheKey1).not.toBe(cacheKey2);
-				});
-
-				it('returns cached POST response for same body', async () => {
-						const body = { subject_id: 'test', subject_type: 'url' };
-						const cachedData = {
-								data: { status: 200, headers: {}, data: { cached: 'post' } },
-								expiry: now() + 1000,
-						};
-						mockGetItem.mockResolvedValue(cachedData);
-
-						const client = new HttpClient(true, null);
-						const response = await client.post('http://backend.localhost/api/resolve', body);
-
-						expect(response.data).toEqual({ cached: 'post' });
-						expect(mockAxiosRequest).not.toHaveBeenCalled();
-				});
+			expect(mockAddItem).not.toHaveBeenCalled();
 		});
 
-		describe('request deduplication', () => {
-				it('deduplicates concurrent identical requests', async () => {
-						mockGetItem.mockResolvedValue(null);
+		it('does not cache when Cache-Control: no-store', async () => {
+			mockGetItem.mockResolvedValue(null);
+			mockAxiosRequest.mockResolvedValue({
+				status: 200,
+				headers: { 'cache-control': 'no-store' },
+				data: { nostore: 'data' },
+			});
 
-						let resolveRequest: (value: unknown) => void;
-						const requestPromise = new Promise((resolve) => {
-								resolveRequest = resolve;
-						});
+			const client = new HttpClient(true, null);
+			await client.get('http://backend.localhost/api/test');
 
-						mockAxiosRequest.mockReturnValue(requestPromise);
-
-						const client = new HttpClient(true, null);
-
-						// Start two concurrent requests
-						const promise1 = client.get('http://backend.localhost/api/test');
-						const promise2 = client.get('http://backend.localhost/api/test');
-
-						// Resolve the network request
-						resolveRequest!({
-								status: 200,
-								headers: {},
-								data: { dedupe: 'test' },
-						});
-
-						const [response1, response2] = await Promise.all([promise1, promise2]);
-
-						expect(response1.data).toEqual({ dedupe: 'test' });
-						expect(response2.data).toEqual({ dedupe: 'test' });
-						expect(mockAxiosRequest).toHaveBeenCalledTimes(1);
-				});
+			expect(mockAddItem).not.toHaveBeenCalled();
 		});
 
-		describe('headers', () => {
-				it('adds tenant header for backend requests', async () => {
-						mockGetItem.mockResolvedValue(null);
-						mockAxiosRequest.mockResolvedValue({
-								status: 200,
-								headers: {},
-								data: {},
-						});
+		it('respects Cache-Control max-age', async () => {
+			mockGetItem.mockResolvedValue(null);
+			mockAxiosRequest.mockResolvedValue({
+				status: 200,
+				headers: { 'cache-control': 'max-age=3600' },
+				data: { data: 'test' },
+			});
 
-						const client = new HttpClient(true, null);
-						await client.get('http://backend.localhost/api/test');
+			const client = new HttpClient(true, null);
+			const currentTime = now();
+			await client.get('http://backend.localhost/api/test');
 
-						expect(mockAxiosRequest).toHaveBeenCalledWith(
-								expect.objectContaining({
-										headers: expect.objectContaining({
-												'X-Tenant-ID': 'default',
-										}),
-								})
-						);
-				});
+			expect(mockAddItem).toHaveBeenCalledWith(
+				'requestCache',
+				expect.any(String),
+				expect.objectContaining({
+					expiry: expect.any(Number),
+				}),
+				'requestCache',
+			);
 
-				it('adds authorization header for backend requests', async () => {
-						mockGetItem.mockResolvedValue(null);
-						mockAxiosRequest.mockResolvedValue({
-								status: 200,
-								headers: {},
-								data: {},
-						});
+			const savedExpiry = mockAddItem.mock.calls[0][2].expiry;
+			expect(savedExpiry).toBeGreaterThanOrEqual(currentTime + 3600 - 1);
+			expect(savedExpiry).toBeLessThanOrEqual(currentTime + 3600 + 1);
+		});
+	});
 
-						const client = new HttpClient(true, null);
-						await client.get('http://backend.localhost/api/test');
+	describe('offline behavior', () => {
+		it('returns stale cache when offline', async () => {
+			const cachedData = {
+				data: { status: 200, headers: {}, data: { stale: 'data' } },
+				expiry: now() - 1000, // expired
+			};
+			mockGetItem.mockResolvedValue(cachedData);
 
-						expect(mockAxiosRequest).toHaveBeenCalledWith(
-								expect.objectContaining({
-										headers: expect.objectContaining({
-												Authorization: 'Bearer test-token',
-										}),
-								})
-						);
-				});
+			const client = new HttpClient(false, null); // offline
+			const response = await client.get('http://backend.localhost/api/test');
+
+			expect(response.data).toEqual({ stale: 'data' });
+			expect(mockAxiosRequest).not.toHaveBeenCalled();
 		});
 
-		describe('binary requests', () => {
-				it('detects binary requests by URL extension', async () => {
-						mockGetItem.mockResolvedValue(null);
-						mockAxiosRequest.mockResolvedValue({
-								status: 200,
-								headers: { 'content-type': 'image/png' },
-								data: new ArrayBuffer(8),
-						});
-
-						const client = new HttpClient(true, null);
-						const response = await client.get('http://example.com/image.png');
-
-						expect(mockAxiosRequest).toHaveBeenCalledWith(
-								expect.objectContaining({
-										responseType: 'arraybuffer',
-								})
-						);
-						// Response data should be a blob URL
-						expect(typeof response.data).toBe('string');
-						expect((response.data as string).startsWith('blob:')).toBe(true);
-				});
-
-				it('caches binary data and reconstructs blob URL on read', async () => {
-						const binaryData = new ArrayBuffer(8);
-						mockGetItem.mockResolvedValue({
-								data: {
-										status: 200,
-										headers: {},
-										rawBytes: binaryData,
-										contentType: 'image/png',
-								},
-								expiry: now() + 1000,
-						});
-
-						const client = new HttpClient(true, null);
-						const response = await client.get('http://example.com/image.png');
-
-						expect(typeof response.data).toBe('string');
-						expect((response.data as string).startsWith('blob:')).toBe(true);
-				});
+		it('returns 504 when offline and no cache exists', async () => {
+			mockGetItem.mockResolvedValue(null);
+			const client = new HttpClient(false, null);
+			const response = await client.get('http://backend.localhost/api/test');
+			expect(response.status).toBe(504);
 		});
+	});
+
+	describe('error fallback', () => {
+		it('returns stale cache on network error', async () => {
+			const cachedData = {
+				data: { status: 200, headers: {}, data: { fallback: 'data' } },
+				expiry: now() - 1000, // expired
+			};
+			// First call returns null (for fresh check), second returns stale cache
+			mockGetItem.mockResolvedValueOnce(null).mockResolvedValueOnce(cachedData);
+			mockAxiosRequest.mockRejectedValue(new Error('Network error'));
+
+			const client = new HttpClient(true, null);
+			const response = await client.get('http://backend.localhost/api/test');
+
+			expect(response.data).toEqual({ fallback: 'data' });
+		});
+
+		it('returns 500 when network error and no cache', async () => {
+			mockGetItem.mockResolvedValue(null);
+			mockAxiosRequest.mockRejectedValue(new Error('Network error'));
+			const client = new HttpClient(true, null);
+			const response = await client.get('http://backend.localhost/api/test');
+			expect(response.status).toBe(500);
+		});
+	});
+
+	describe('POST requests', () => {
+		it('creates unique cache keys for different POST bodies', async () => {
+			mockGetItem.mockResolvedValue(null);
+			mockAxiosRequest.mockResolvedValue({
+				status: 200,
+				headers: {},
+				data: { result: 'ok' },
+			});
+
+			const client = new HttpClient(true, null);
+
+			await client.post('http://backend.localhost/api/test', { a: 1 });
+			await client.post('http://backend.localhost/api/test', { b: 2 });
+
+			expect(mockAddItem).toHaveBeenCalledTimes(2);
+			const cacheKey1 = mockAddItem.mock.calls[0][1];
+			const cacheKey2 = mockAddItem.mock.calls[1][1];
+			expect(cacheKey1).not.toBe(cacheKey2);
+		});
+
+		it('returns cached POST response for same body', async () => {
+			const body = { subject_id: 'test', subject_type: 'url' };
+			const cachedData = {
+				data: { status: 200, headers: {}, data: { cached: 'post' } },
+				expiry: now() + 1000,
+			};
+			mockGetItem.mockResolvedValue(cachedData);
+
+			const client = new HttpClient(true, null);
+			const response = await client.post('http://backend.localhost/api/resolve', body);
+
+			expect(response.data).toEqual({ cached: 'post' });
+			expect(mockAxiosRequest).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('request deduplication', () => {
+		it('deduplicates concurrent identical requests', async () => {
+			mockGetItem.mockResolvedValue(null);
+
+			let resolveRequest: (value: unknown) => void;
+			const requestPromise = new Promise((resolve) => {
+				resolveRequest = resolve;
+			});
+
+			mockAxiosRequest.mockReturnValue(requestPromise);
+
+			const client = new HttpClient(true, null);
+
+			// Start two concurrent requests
+			const promise1 = client.get('http://backend.localhost/api/test');
+			const promise2 = client.get('http://backend.localhost/api/test');
+
+			// Resolve the network request
+			resolveRequest!({
+				status: 200,
+				headers: {},
+				data: { dedupe: 'test' },
+			});
+
+			const [response1, response2] = await Promise.all([promise1, promise2]);
+
+			expect(response1.data).toEqual({ dedupe: 'test' });
+			expect(response2.data).toEqual({ dedupe: 'test' });
+			expect(mockAxiosRequest).toHaveBeenCalledTimes(1);
+		});
+	});
+
+	describe('headers', () => {
+		it('adds tenant header for backend requests', async () => {
+			mockGetItem.mockResolvedValue(null);
+			mockAxiosRequest.mockResolvedValue({
+				status: 200,
+				headers: {},
+				data: {},
+			});
+
+			const client = new HttpClient(true, null);
+			await client.get('http://backend.localhost/api/test');
+
+			expect(mockAxiosRequest).toHaveBeenCalledWith(
+				expect.objectContaining({
+					headers: expect.objectContaining({
+						'X-Tenant-ID': 'default',
+					}),
+				}),
+			);
+		});
+
+		it('adds authorization header for backend requests', async () => {
+			mockGetItem.mockResolvedValue(null);
+			mockAxiosRequest.mockResolvedValue({
+				status: 200,
+				headers: {},
+				data: {},
+			});
+
+			const client = new HttpClient(true, null);
+			await client.get('http://backend.localhost/api/test');
+
+			expect(mockAxiosRequest).toHaveBeenCalledWith(
+				expect.objectContaining({
+					headers: expect.objectContaining({
+						Authorization: 'Bearer test-token',
+					}),
+				}),
+			);
+		});
+	});
+
+	describe('binary requests', () => {
+		it('detects binary requests by URL extension', async () => {
+			mockGetItem.mockResolvedValue(null);
+			mockAxiosRequest.mockResolvedValue({
+				status: 200,
+				headers: { 'content-type': 'image/png' },
+				data: new ArrayBuffer(8),
+			});
+
+			const client = new HttpClient(true, null);
+			const response = await client.get('http://example.com/image.png');
+
+			expect(mockAxiosRequest).toHaveBeenCalledWith(
+				expect.objectContaining({
+					responseType: 'arraybuffer',
+				}),
+			);
+			// Response data should be a blob URL
+			expect(typeof response.data).toBe('string');
+			expect((response.data as string).startsWith('blob:')).toBe(true);
+		});
+
+		it('caches binary data and reconstructs blob URL on read', async () => {
+			const binaryData = new ArrayBuffer(8);
+			mockGetItem.mockResolvedValue({
+				data: {
+					status: 200,
+					headers: {},
+					rawBytes: binaryData,
+					contentType: 'image/png',
+				},
+				expiry: now() + 1000,
+			});
+
+			const client = new HttpClient(true, null);
+			const response = await client.get('http://example.com/image.png');
+
+			expect(typeof response.data).toBe('string');
+			expect((response.data as string).startsWith('blob:')).toBe(true);
+		});
+	});
 
 	describe('isOnline = null (unknown)', () => {
 		it('returns any cached data when online status is unknown', async () => {
