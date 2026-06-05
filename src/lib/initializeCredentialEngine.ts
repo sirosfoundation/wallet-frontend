@@ -1,12 +1,12 @@
 import { CLOCK_TOLERANCE, VCT_REGISTRY_URL, DELEGATE_TRUST_TO_BACKEND } from "../config";
-import { IHttpProxy } from "./interfaces/IHttpProxy";
+import { IHttpClient } from "./interfaces/IHttpClient";
 import { ParsingEngine, SDJWTVCParser, PublicKeyResolverEngine, SDJWTVCVerifier, MsoMdocParser, MsoMdocVerifier, JWTVCJSONParser, JWTVCJSONVerifier, VerifyingEngine, IAuthZENClient } from "wallet-common";
 import { IOpenID4VCIHelper } from "./interfaces/IOpenID4VCIHelper";
 import { createVctDocumentResolutionEngine, VctDocumentProvider, VctResolutionErrors, ok, err } from 'wallet-common';
 import { logger } from '@/logger';
 
 export async function initializeCredentialEngine(
-	httpProxy: IHttpProxy,
+	httpProxy: IHttpClient,
 	helper: IOpenID4VCIHelper,
 	getIssuers: () => Promise<Record<string, unknown>[]>,
 	trustedCertificates: string[] = [],

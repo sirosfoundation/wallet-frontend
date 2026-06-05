@@ -1,4 +1,4 @@
-import { RequestHeaders } from "../interfaces/IHttpProxy";
+import { RequestHeaders } from "../interfaces/IHttpClient";
 import { concat } from "./ohttpHelpers";
 
 // --- RFC 9292 / QUIC-style varint encoder (1/2/4/8 bytes) ---
