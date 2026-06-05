@@ -7,7 +7,7 @@ import { useOpenID4VCIHelper } from "@/lib/services/OpenID4VCIHelper";
 import { CurrentSchema } from '@/services/WalletStateSchema';
 import { logger } from '../logger';
 import { BACKEND_URL } from '@/config';
-import { getStoredTenant, getTenantFromUrlPath } from '@/lib/tenant';
+import { getTenantFromUrlPath } from '@/lib/tenant';
 import { useHttpClient } from '@/hooks/useHttpClient';
 
 type WalletStateCredential = CurrentSchema.WalletStateCredential;
@@ -37,7 +37,7 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 			tenantId: getTenantFromUrlPath() ?? 'default',
 		};
 		return AuthZENClient(clientConfig);
-	}, [httpClient]);
+	}, [api, httpClient]);
 
 	useEffect(() => {
 		if (!getCalculatedWalletState) return;
