@@ -123,13 +123,13 @@ describe('HttpClient', () => {
 						await client.get('http://backend.localhost/api/test');
 
 						expect(mockAddItem).toHaveBeenCalledWith(
-								'remoteCache',
+								'requestCache',
 								expect.any(String),
 								expect.objectContaining({
 										data: expect.objectContaining({ data: { cached: 'data' } }),
 										expiry: expect.any(Number),
 								}),
-								'remoteCache'
+								'requestCache'
 						);
 				});
 
@@ -174,12 +174,12 @@ describe('HttpClient', () => {
 						await client.get('http://backend.localhost/api/test');
 
 						expect(mockAddItem).toHaveBeenCalledWith(
-								'remoteCache',
+								'requestCache',
 								expect.any(String),
 								expect.objectContaining({
 										expiry: expect.any(Number),
 								}),
-								'remoteCache'
+								'requestCache'
 						);
 
 						const savedExpiry = mockAddItem.mock.calls[0][2].expiry;

@@ -22,10 +22,6 @@ const stores = {
 		name: 'AppDataSource',
 		storeName: 'accountInfo',
 	}),
-	proxyCache: localforage.createInstance({
-		name: 'AppDataSource',
-		storeName: 'proxyCache',
-	}),
 	requestCache: localforage.createInstance({
 		name: 'AppDataSource',
 		storeName: 'requestCache',
@@ -72,7 +68,6 @@ export async function initializeDataSource(): Promise<void> {
 	try {
 		await stores.users.ready();
 		await stores.externalEntities.ready();
-		await stores.proxyCache.ready();
 		await stores.requestCache.ready();
 
 		await migrateDataSource();
