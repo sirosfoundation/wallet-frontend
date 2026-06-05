@@ -56,6 +56,14 @@ export default class HttpClient {
 		this.#obliviousKeyConfig = obliviousKeyConfig;
 	}
 
+	public setIsOnline(isOnline: boolean) {
+		this.#isOnline = isOnline;
+	}
+
+	public setObliviousKeyConfig(obliviousKeyConfig: HpkeConfig) {
+		this.#obliviousKeyConfig = obliviousKeyConfig;
+	}
+
 	/**
 	 * Performs a GET request with caching, offline support, and optional oblivious HTTP.
 	 *
