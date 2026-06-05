@@ -123,34 +123,30 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 			onIssuerMetadataResolved?: (issuerIdentifier: string, metadata: OpenidCredentialIssuerMetadata) => void
 		) => {
 			const issuerEntities = await getIssuers().catch(() => []);
-			issuerEntities.forEach(async (entity: any) => {
-				if (!entity.credentialIssuerIdentifier) return;
 
-				try {
-					const metadataResult = await getCredentialIssuerMetadata(entity.credentialIssuerIdentifier, shouldUseCache);
-					const metadata = metadataResult?.metadata;
-					if (!metadata) return;
+			await Promise.allSettled(
+				issuerEntities
+					.filter((entity: any) => entity.credentialIssuerIdentifier)
+					.map(async (entity: any) => {
+						const metadataResult = await getCredentialIssuerMetadata(
+							entity.credentialIssuerIdentifier, shouldUseCache
+						);
+						const metadata = metadataResult?.metadata;
+						if (!metadata) return;
 
-					// Note: authorization server metadata is NOT fetched during preload.
-					// It is fetched on-demand when the OID4VCI flow actually needs it
-					// (e.g. for token exchange). Fetching it here would cause unexpected
-					// requests to issuers before any flow has started.
+						onIssuerMetadataResolved?.(entity.credentialIssuerIdentifier, metadata);
 
-					// Call a callback to update state when metadata resolves.
-					onIssuerMetadataResolved?.(entity.credentialIssuerIdentifier, metadata);
+						const logoUris: string[] = [];
+						metadata.display?.forEach(d => d.logo?.uri && logoUris.push(d.logo.uri));
+						Object.values(metadata.credential_configurations_supported || {}).forEach(
+							(config: any) => config.display?.forEach(d => d.logo?.uri && logoUris.push(d.logo.uri))
+						);
 
-					const logoUris = metadata.display?.map(d => d.logo?.uri).filter(Boolean) || [];
-					Object.values(metadata.credential_configurations_supported || {}).forEach((config: any) => {
-						config.display?.forEach(d => d.logo?.uri && logoUris.push(d.logo.uri));
-					});
-
-					logoUris
-						.filter(uri => uri.startsWith('http'))
-						.forEach(uri => httpClient.get(uri, {}, { useCache: shouldUseCache }).catch(logger.error));
-				} catch (error) {
-					logger.error(`Failed to fetch metadata for ${entity.credentialIssuerIdentifier}:`, error);
-				}
-			});
+						logoUris
+							.filter(uri => uri.startsWith('http'))
+							.forEach(uri => httpClient.get(uri, {}, { useCache: shouldUseCache }).catch(logger.error));
+					})
+			);
 		},
 		[getCredentialIssuerMetadata, httpClient]
 	);
