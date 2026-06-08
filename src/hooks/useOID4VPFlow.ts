@@ -540,7 +540,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				dcqlQuery: request.dcqlQuery,
 				verifierInfo: {
 					name: trustResult?.name ?? request.clientId,
-					purpose: '',
+					purpose: String(request.dcqlQuery.credential_sets?.[0]?.purpose ?? ''),
 					domain: clientIdScheme.identifier,
 					trustStatus: trustResult?.status,
 					trusted: trustResult?.trusted ?? false,
