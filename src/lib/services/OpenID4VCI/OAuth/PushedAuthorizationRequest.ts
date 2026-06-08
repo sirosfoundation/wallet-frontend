@@ -1,8 +1,8 @@
 import * as oauth4webapi from 'oauth4webapi';
-import { useHttpProxy } from "../../HttpProxy/HttpProxy";
 import { useCallback, useMemo } from "react";
 import { OpenidAuthorizationServerMetadata } from "wallet-common";
 import { MODE } from '@/config';
+import { useHttpClient } from '@/hooks/useHttpClient';
 
 const { customFetch, allowInsecureRequests } = oauth4webapi;
 const isDev = MODE === 'development';
@@ -18,7 +18,7 @@ function normalizeHeaders(h: any): Record<string, string> {
 }
 
 export function usePushedAuthorizationRequest() {
-	const httpProxy = useHttpProxy();
+	const httpClient = useHttpClient();
 
 	const myCustomFetch = useMemo(() => {
 		return async (url: string, options?: RequestInit) => {
@@ -37,7 +37,7 @@ export function usePushedAuthorizationRequest() {
 
 			let wrapped;
 			if (method === 'post') {
-				wrapped = await httpProxy.post(url, data, headers);
+				wrapped = await httpClient.post(url, data, headers);
 			} else {
 				throw new Error(`Unsupported method in customFetch: ${method}`);
 			}
@@ -57,7 +57,7 @@ export function usePushedAuthorizationRequest() {
 				headers: resHeaders,
 			});
 		};
-	}, [httpProxy]);
+	}, [httpClient]);
 
 	const sendPushedAuthorizationRequest = useCallback(
 		async (asMeta: OpenidAuthorizationServerMetadata, params: Record<string,string>) => {

@@ -13,7 +13,7 @@
  */
 
 import type { IOIDFlowTransport } from '../types/IOIDFlowTransport';
-import type { IHttpProxy } from '../../interfaces/IHttpProxy';
+import type { IHttpClient } from '../../interfaces/IHttpClient';
 import type {
 	OIDFlowRequest,
 	OIDFlowResponse,
@@ -31,11 +31,11 @@ import { logger } from '@/logger';
  * via the hybrid flow hooks, not this transport directly.
  */
 export class OIDFlowHttpProxyTransport implements IOIDFlowTransport {
-	private httpProxy: IHttpProxy;
+	private httpProxy: IHttpClient;
 	private progressCallbacks = new Set<(event: OIDFlowProgressEvent) => void>();
 	private errorCallbacks = new Set<(error: Error) => void>();
 
-	constructor(httpProxy: IHttpProxy) {
+	constructor(httpProxy: IHttpClient) {
 		this.httpProxy = httpProxy;
 	}
 
@@ -156,7 +156,7 @@ export class OIDFlowHttpProxyTransport implements IOIDFlowTransport {
 	 * Get the underlying HTTP proxy instance
 	 * Useful for code that needs direct access to the proxy
 	 */
-	getHttpProxy(): IHttpProxy {
+	getHttpProxy(): IHttpClient {
 		return this.httpProxy;
 	}
 }

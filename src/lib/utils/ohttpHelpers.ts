@@ -2,7 +2,7 @@ import { CipherSuite, HkdfSha256, Aes128Gcm } from '@hpke/core'
 import { DhkemX25519HkdfSha256 } from '@hpke/dhkem-x25519'
 import axios from 'axios'
 import { decodeKnownLengthResponse, encodeKnownLengthRequest, headersFromObject } from './bhttp';
-import { RequestHeaders } from '../interfaces/IHttpProxy';
+import { RequestHeaders } from '../interfaces/IHttpClient';
 import { logger } from '@/logger';
 
 export type HpkeConfig = {
