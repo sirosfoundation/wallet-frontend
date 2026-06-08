@@ -116,7 +116,7 @@ export function createVerifierTrustEvaluator(config: TrustEvaluatorConfig): Open
 
 		// Call the AuthZEN evaluator
 		const result = await authzenClient.evaluateVerifier({
-			clientId: clientIdScheme.clientId,
+			clientId: clientIdScheme.identifier,
 			keyMaterial: authzenKeyMaterial,
 			context,
 		});
