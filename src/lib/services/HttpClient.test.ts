@@ -69,7 +69,7 @@ describe('HttpClient', () => {
 			mockGetItem.mockResolvedValue(cachedData);
 
 			const client = new HttpClient(true, null);
-			const response = await client.get('http://backend.localhost/api/test');
+			const response = await client.get('http://backend.localhost/api/test', {}, { useCache: true });
 
 			expect(response.status).toBe(200);
 			expect(response.data).toEqual({ foo: 'bar' });
@@ -89,7 +89,7 @@ describe('HttpClient', () => {
 			});
 
 			const client = new HttpClient(true, null);
-			const response = await client.get('http://backend.localhost/api/test');
+			const response = await client.get('http://backend.localhost/api/test', {}, { useCache: true });
 
 			expect(response.data).toEqual({ new: 'data' });
 			expect(mockAxiosRequest).toHaveBeenCalled();
@@ -104,7 +104,7 @@ describe('HttpClient', () => {
 			});
 
 			const client = new HttpClient(true, null);
-			const response = await client.get('http://backend.localhost/api/test');
+			const response = await client.get('http://backend.localhost/api/test', {}, { useCache: true });
 
 			expect(response.data).toEqual({ fresh: 'data' });
 			expect(mockAxiosRequest).toHaveBeenCalled();
@@ -119,7 +119,7 @@ describe('HttpClient', () => {
 			});
 
 			const client = new HttpClient(true, null);
-			await client.get('http://backend.localhost/api/test');
+			await client.get('http://backend.localhost/api/test', {}, { useCache: true });
 
 			expect(mockAddItem).toHaveBeenCalledWith(
 				'requestCache',
@@ -170,7 +170,7 @@ describe('HttpClient', () => {
 
 			const client = new HttpClient(true, null);
 			const currentTime = now();
-			await client.get('http://backend.localhost/api/test');
+			await client.get('http://backend.localhost/api/test', {}, { useCache: true });
 
 			expect(mockAddItem).toHaveBeenCalledWith(
 				'requestCache',
@@ -217,11 +217,11 @@ describe('HttpClient', () => {
 				expiry: now() - 1000, // expired
 			};
 			// First call returns null (for fresh check), second returns stale cache
-			mockGetItem.mockResolvedValueOnce(null).mockResolvedValueOnce(cachedData);
+			mockGetItem.mockResolvedValue(cachedData);
 			mockAxiosRequest.mockRejectedValue(new Error('Network error'));
 
 			const client = new HttpClient(true, null);
-			const response = await client.get('http://backend.localhost/api/test');
+			const response = await client.get('http://backend.localhost/api/test', {}, { useCache: true });
 
 			expect(response.data).toEqual({ fallback: 'data' });
 		});
@@ -230,7 +230,7 @@ describe('HttpClient', () => {
 			mockGetItem.mockResolvedValue(null);
 			mockAxiosRequest.mockRejectedValue(new Error('Network error'));
 			const client = new HttpClient(true, null);
-			const response = await client.get('http://backend.localhost/api/test');
+			const response = await client.get('http://backend.localhost/api/test', {}, { useCache: true });
 			expect(response.status).toBe(500);
 		});
 	});
@@ -246,8 +246,8 @@ describe('HttpClient', () => {
 
 			const client = new HttpClient(true, null);
 
-			await client.post('http://backend.localhost/api/test', { a: 1 });
-			await client.post('http://backend.localhost/api/test', { b: 2 });
+			await client.post('http://backend.localhost/api/test', { a: 1 }, {}, { useCache: true });
+			await client.post('http://backend.localhost/api/test', { b: 2 }, {}, { useCache: true });
 
 			expect(mockAddItem).toHaveBeenCalledTimes(2);
 			const cacheKey1 = mockAddItem.mock.calls[0][1];
@@ -264,7 +264,7 @@ describe('HttpClient', () => {
 			mockGetItem.mockResolvedValue(cachedData);
 
 			const client = new HttpClient(true, null);
-			const response = await client.post('http://backend.localhost/api/resolve', body);
+			const response = await client.post('http://backend.localhost/api/resolve', body, {}, { useCache: true });
 
 			expect(response.data).toEqual({ cached: 'post' });
 			expect(mockAxiosRequest).not.toHaveBeenCalled();
@@ -396,7 +396,7 @@ describe('HttpClient', () => {
 			mockGetItem.mockResolvedValue(cachedData);
 
 			const client = new HttpClient(null, null); // unknown online status
-			const response = await client.get('http://backend.localhost/api/test');
+			const response = await client.get('http://backend.localhost/api/test', {}, { useCache: true });
 
 			// When isOnline is null, should return cache even if expired
 			expect(response.data).toEqual({ unknown: 'state' });
