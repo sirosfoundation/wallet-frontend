@@ -437,7 +437,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 
 		const result = await handleDCAPIRequest(session.request);
 		if (!result?.success) {
-			// session.sendError(result?.error?.code ?? 'request_failed');
+			session.sendError(result?.error?.code ?? 'request_failed');
 			return;
 		}
 
@@ -449,9 +449,10 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 
 		if (!credSelectResult?.success) {
 			if (credSelectResult?.error?.code === 'USER_CANCELLED') {
-				// session.sendError('user_cancelled');
+				session.sendError('user_cancelled');
 				return;
 			}
+			session.sendError(credSelectResult?.error?.code ?? 'selection_failed');
 			throw new OIDFlowError(credSelectResult.error);
 		}
 
