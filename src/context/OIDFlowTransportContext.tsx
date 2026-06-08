@@ -71,6 +71,8 @@ interface OIDFlowTransportContextValue {
 	registerMatchHandler: (handler: MatchRequestHandler) => () => void;
 	/** Whether transport selection has settled (safe to start flows) */
 	transportReady: boolean;
+	/** Trust evaluators for verifier/issuer trust checks */
+	trustEvaluators: TrustEvaluators;
 }
 
 const TRANSPORT_CONNECT_TIMEOUT = 10 * 1000;
@@ -407,7 +409,8 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		registerSignHandler,
 		registerMatchHandler,
 		transportReady,
-	}), [transport, transportType, isConnected, reconnect, availableTransports, lastError, clearError, capabilitiesLoaded, engineCapabilities, registerSignHandler, registerMatchHandler, transportReady]);
+		trustEvaluators,
+	}), [transport, transportType, isConnected, reconnect, availableTransports, lastError, clearError, capabilitiesLoaded, engineCapabilities, registerSignHandler, registerMatchHandler, transportReady, trustEvaluators]);
 
 	return (
 		<OIDFlowTransportContext.Provider value={value}>

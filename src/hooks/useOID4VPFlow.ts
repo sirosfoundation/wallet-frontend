@@ -8,9 +8,7 @@
  */
 
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
-import {
-	useOIDFlowTransportSafe,
-} from '@/context/OIDFlowTransportContext';
+import { useOIDFlowTransportSafe } from '@/context/OIDFlowTransportContext';
 import SessionContext from '@/context/SessionContext';
 import OpenID4VPContext from '@/context/OpenID4VPContext';
 import CredentialsContext, { ExtendedVcEntity } from '@/context/CredentialsContext';
@@ -29,6 +27,7 @@ import { useOIDFlowSignHandler } from './useOIDFlowSignHandler';
 import { DCAPIRequest, DCAPISession } from '@/lib/openid-flow/platforms/dc-api';
 import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
 import { BackendApi } from '@/api';
+import { parseClientIdScheme, OpenID4VPKeyMaterial, TrustEvaluationResult } from 'wallet-common';
 
 export interface UseOID4VPFlowOptions {
 	/**
@@ -492,6 +491,26 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 	const handleDCAPIRequest = useCallback(async (request: DCAPIRequest): Promise<OID4VPFlowResult> => {
 		setIsLoading(true);
 		try {
+			const clientIdScheme = parseClientIdScheme(request.clientId);
+
+			let trustResult: TrustEvaluationResult | undefined;
+
+			// Only evaluate trust if we have actual key material to verify
+			// For unsigned requests (no JWT), skip trust evaluation
+			// The verifier cannot be cryptographically verified
+			if (request.keyMaterial && request.keyMaterial.value) {
+				const keyMaterial: OpenID4VPKeyMaterial = {
+					type: request.keyMaterial.type,
+					key: request.keyMaterial.value,
+				};
+
+				trustResult = await transportContext?.trustEvaluators.evaluateVerifierTrust({
+					clientIdScheme,
+					keyMaterial,
+					responseUri: request.responseUri,
+				});
+			}
+
 			const credentials = await waitForCredentials();
 			const { matches, no_match_reason } = matchCredentials(credentials, request.dcqlQuery);
 
@@ -513,9 +532,12 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				conformantCredentials,
 				dcqlQuery: request.dcqlQuery,
 				verifierInfo: {
-					name: request.clientId,
+					name: trustResult?.name ?? request.clientId,
 					purpose: '',
-					domain: request.clientId,
+					domain: clientIdScheme.identifier,
+					trustStatus: trustResult?.status,
+					trusted: trustResult?.trusted ?? false,
+					logo: trustResult?.logo,
 				},
 			};
 		} catch (err) {
@@ -531,7 +553,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		} finally {
 			setIsLoading(false);
 		}
-	}, [waitForCredentials, onError]);
+	}, [waitForCredentials, onError, transportContext?.trustEvaluators]);
 
 	/**
 	 * Send DC API response - sign, record history, send via session
