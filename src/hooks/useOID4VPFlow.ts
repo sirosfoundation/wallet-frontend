@@ -509,6 +509,13 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 					keyMaterial,
 					responseUri: request.responseUri,
 				});
+
+				if (!trustResult?.trusted) {
+					throw new OIDFlowError({
+						code: 'UNTRUSTED_VERIFIER',
+						message: trustResult?.status ?? 'Verifier is not trusted',
+					});
+				}
 			}
 
 			const credentials = await waitForCredentials();
