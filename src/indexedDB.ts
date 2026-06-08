@@ -130,6 +130,10 @@ async function migrateDataSource() {
 	if (await storeExists("AppDataSource", "vp")) {
 		await deleteStore("AppDataSource", "vp");
 	}
+
+	if (await storeExists("AppDataSource", "proxyCache")) {
+		await deleteStore("AppDataSource", "proxyCache");
+	}
 }
 
 // async function migrateDataSource(): Promise<void> {
