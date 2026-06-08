@@ -87,9 +87,12 @@ export interface UseOID4VPFlowReturn {
 	 */
 	clearError: () => void;
 	/**
-	 * DC API specific
+	 * Handle DC API request - parse URL, match credentials, store session
 	 */
 	handleDCAPIRequest: (request: DCAPIRequest) => Promise<OID4VPFlowResult>;
+	/**
+	 * Send DC API response - sign, record history, send via session
+	 */
 	sendDCAPIResponse: (session: DCAPISession, credentials: OID4VPSelectedCredential[]) => Promise<OID4VPFlowResult>;
 }
 

@@ -7,6 +7,11 @@ export type DCAPIRequest = {
 	responseUri: string;
 	nonce?: string;
 	dcqlQuery: DcqlQuery.Input;
+	keyMaterial?: {
+		type: 'x5c' | 'jwk' | 'kid';
+		value: unknown;
+	};
+	rawJwt?: string; // For signature verification
 };
 
 export class DCAPISession {
@@ -16,21 +21,20 @@ export class DCAPISession {
 
 	constructor(url: URL) {
 		this.requestId = url.searchParams.get('request_id') ?? '';
-		this.request = {
-			clientId: url.searchParams.get('client_id') ?? '',
-			responseUri: url.searchParams.get('response_uri') ?? '',
-			nonce: url.searchParams.get('nonce') ?? undefined,
-			dcqlQuery: JSON.parse(url.searchParams.get('dcql_query') ?? '{}') as DcqlQuery.Input,
-
-		};
 		this.mode = this.#detectMode();
 
 		if (!this.requestId) throw new Error('Missing request_id');
 
-		const rawQuery = url.searchParams.get('dcql_query');
-		if (!rawQuery) throw new Error('Missing dcql_query');
+		const requestJwt = url.searchParams.get('request');
+		if (requestJwt) {
+			this.request = this.#parseJwtRequest(requestJwt, url);
+		} else {
+			this.request = this.#parsePlainParams(url);
+		}
 
-		if (!this.request.dcqlQuery.credentials?.length) throw new Error('No credentials in DCQL query');
+		if (!this.request.dcqlQuery.credentials?.length) {
+			throw new Error('No credentials in DCQL query');
+		}
 	}
 
 	#detectMode(): DCAPIMode {
@@ -73,7 +77,6 @@ export class DCAPISession {
 		}
 	}
 
-
 	#sendWalletCompanionMessage(payload: { vp_token?: Record<string, string[]>; error?: string }): void {
 		if (!window.opener) throw new Error('No opener window');
 		window.opener.postMessage({
@@ -81,5 +84,54 @@ export class DCAPISession {
 			requestId: this.requestId,
 			...(payload.error ? { error: payload.error } : { response: payload }),
 		}, new URL(this.request.responseUri).origin);
+	}
+
+	#parsePlainParams(url: URL): DCAPIRequest {
+		const rawQuery = url.searchParams.get('dcql_query');
+		if (!rawQuery) throw new Error('Missing dcql_query');
+
+		return {
+			clientId: url.searchParams.get('client_id') ?? '',
+			responseUri: url.searchParams.get('response_uri') ?? '',
+			nonce: url.searchParams.get('nonce') ?? undefined,
+			dcqlQuery: JSON.parse(rawQuery) as DcqlQuery.Input,
+		};
+	}
+
+	/**
+	 * @todo we currently don't verify the JWT signature, which we should do.
+	 */
+	#parseJwtRequest(jwt: string, url: URL): DCAPIRequest {
+		const [headerB64, payloadB64] = jwt.split('.');
+		const header = JSON.parse(atob(headerB64.replace(/-/g, '+').replace(/_/g, '/')));
+		const payload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
+
+		// Verify client_id matches URL param per RFC 9101
+		const urlClientId = url.searchParams.get('client_id');
+		if (urlClientId && payload.client_id && urlClientId !== payload.client_id) {
+			throw new Error('client_id mismatch between URL and JWT');
+		}
+
+		return {
+			clientId: payload.client_id ?? urlClientId ?? '',
+			responseUri: payload.response_uri ?? payload.redirect_uri ?? '',
+			nonce: payload.nonce ?? undefined,
+			dcqlQuery: payload.dcql_query as DcqlQuery.Input,
+			keyMaterial: this.#extractKeyMaterial(header),
+			rawJwt: jwt,
+		};
+	}
+
+	#extractKeyMaterial(header: Record<string, unknown>) {
+		if (header.x5c && Array.isArray(header.x5c)) {
+			return { type: 'x5c' as const, value: header.x5c };
+		}
+		if (header.jwk) {
+			return { type: 'jwk' as const, value: header.jwk };
+		}
+		if (header.kid && typeof header.kid === 'string') {
+			return { type: 'kid' as const, value: header.kid };
+		}
+		return undefined;
 	}
 }
