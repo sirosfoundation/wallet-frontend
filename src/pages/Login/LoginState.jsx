@@ -46,6 +46,10 @@ const WebauthnLogin = ({
 						setError(t('loginSignup.loginKeystoreFailed'));
 						break;
 
+					case 'credentialDeactivated':
+						setError(t('loginSignup.credentialDeactivated'));
+						break;
+
 					case 'passkeyInvalid':
 						setError(t('loginSignup.passkeyInvalid'));
 						break;

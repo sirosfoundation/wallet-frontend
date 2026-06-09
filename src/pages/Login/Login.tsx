@@ -212,6 +212,7 @@ const WebauthnSignupLogin = ({
 	isLoginCache,
 	error,
 	setError,
+	onSwitchToRegister,
 }: {
 	isLogin: boolean,
 	isSubmitting: boolean,
@@ -219,6 +220,7 @@ const WebauthnSignupLogin = ({
 	isLoginCache: boolean,
 	error: React.ReactNode,
 	setError: (error: React.ReactNode) => void,
+	onSwitchToRegister: () => void,
 }) => {
 	const { isOnline, updateOnlineStatus } = useContext(StatusContext);
 	const { api, keystore } = useContext(SessionContext);
@@ -281,6 +283,21 @@ const WebauthnSignupLogin = ({
 						setError(t('loginSignup.loginKeystoreFailed'));
 						break;
 
+					case 'credentialDeactivated':
+						setError(
+							<>
+								<p>{t('loginSignup.credentialDeactivated')}</p>
+								<Button
+									id="register-new-passkey-loginsignup"
+									variant="link"
+									onClick={onSwitchToRegister}
+								>
+									{t('loginSignup.registerNewPasskey')}
+								</Button>
+							</>
+						);
+						break;
+
 					case 'passkeyInvalid':
 						setError(t('loginSignup.passkeyInvalid'));
 						break;
@@ -311,7 +328,7 @@ const WebauthnSignupLogin = ({
 		},
 		// we only want to reset this callback if the gate's ID token changes, not on every gate state change
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-		[api, keystore, urlTenantId, activeGate.idToken, activeGate.reset, setError, t],
+		[api, keystore, onSwitchToRegister, urlTenantId, activeGate.idToken, activeGate.reset, setError, t],
 	);
 
 	const onSignup = async (name: string, webauthnHints: string[]) => {
@@ -828,6 +845,18 @@ const Auth = () => {
 		updateOnlineStatus();
 	}
 
+	const switchToRegisterFlow = useCallback(
+		() => {
+			const params = new URLSearchParams(location.search);
+			params.set('mode', 'signup');
+			setIsLogin(false);
+			setError('');
+			setWebauthnError('');
+			navigate(`${location.pathname}?${params.toString()}`, { replace: true });
+		},
+		[location.pathname, location.search, navigate],
+	);
+
 	return (
 		<LoginLayout heading={
 			<Trans
@@ -876,6 +905,7 @@ const Auth = () => {
 					isLoginCache={isLoginCache}
 					error={webauthnError}
 					setError={setWebauthnError}
+					onSwitchToRegister={switchToRegisterFlow}
 				/>
 				<div className='space-y-2'>
 					{!isLoginCache ? (

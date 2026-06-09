@@ -81,6 +81,7 @@
 		"choosePasskeyPlatform": "Selecione o tipo de chave de acesso preferido",
 		"choosePasskeyUsername": "Apelido da Carteira",
 		"confirmPasswordLabel": "Confirmar palavra-passe",
+		"credentialDeactivated": "Esta chave de acesso foi desativada. Registe uma nova chave de acesso para continuar a usar a sua carteira.",
 		"enterPasskeyName": "Carteira de Jane Doe",
 		"enterPassword": "Introduza a sua palavra-passe",
 		"enterUsername": "Introduza o seu nome de utilizador",
@@ -117,6 +118,7 @@
 		"passwordsNotMatchError": "Palavras-passe não correspondem",
 		"privateDataConflict": "Outra sessão associada a esta conta interrompeu a tentativa de início de sessão. Por favor, tente novamente.",
 		"reachedLengthLimit": "Tamanho máximo excedido",
+		"registerNewPasskey": "Registar nova chave de acesso",
 		"signUp": "Registar",
 		"signUpSubmit": "Registar",
 		"signUpWithPasskey": "Criar conta com uma chave de acesso",
@@ -236,6 +238,16 @@
 			"descriptionLatestVersion": "Está, neste momento, a usar a versão mais recente ({{react_app_version}}) da $t(common.walletName).",
 			"descriptionOldVersion": "Está, neste momento, a usar a versão {{react_app_version}} da wwWallet.<br/> <strong>Está disponível uma nova versão.</strong> Por favor, <reloadButton>recarregue</reloadButton> para atualizar!"
 		},
+		"deactivateAll": {
+			"buttonText": "Desativar todas as instâncias da carteira",
+			"buttonTitleLocked": "Não é possível desativar instâncias da carteira enquanto estiver bloqueada",
+			"description": "Desative permanentemente todas as instâncias da carteira ligadas a esta conta.",
+			"dialogConfirm": "Compreendo que isto irá desativar todas as chaves de acesso, bloquear a minha conta e exigir novo registo de chave de acesso para voltar a aceder aos meus dados.",
+			"dialogReenroll": "Terá de registar uma nova chave de acesso para recuperar o acesso.",
+			"dialogTitle": "Desativar todas as instâncias da carteira?",
+			"dialogWarning": "Isto irá apagar todas as credenciais, chaves e sessões ativas desta carteira.",
+			"title": "Desativar todas as instâncias da carteira"
+		},
 		"deleteAccount": {
 			"buttonText": "Elimine a sua conta",
 			"deleteButtonTitleLocked": "Não é possível apagar a conta com gestão bloqueada",
@@ -251,6 +263,19 @@
 			"canEncryptYes": "Sim",
 			"cancelChangesAriaLabel": "Cancelar alterações à chave de acesso {{passkeyLabel}}",
 			"created": "Criada",
+			"deactivate": "Desativar",
+			"deactivateAriaLabel": "Desativar chave de acesso {{passkeyLabel}}",
+			"deactivateButtonTitleUnlocked": "Clique para desativar a chave de acesso {{passkeyLabel}}",
+			"deactivateDialogDescription": "Tem a certeza de que quer desativar a chave de acesso \"{{passkeyLabel}}\"? Esta ação é permanente.",
+			"deactivateDialogTitle": "Desativar chave de acesso?",
+			"deactivateLastCredentialConfirm": "Compreendo que esta é a minha última chave de acesso ativa e que removê-la irá bloquear a minha conta até eu registar uma nova chave de acesso.",
+			"deactivateLastCredentialWarning": "Esta é a sua última chave de acesso ativa. Desativá-la irá bloquear a sua conta e pode deixar os dados da conta inacessíveis até novo registo ou eliminação da conta.",
+			"deactivateSuccess": "Chave de acesso desativada com sucesso.",
+			"deactivatedBy": "Desativada por",
+			"deactivatedByProvider": "fornecedor",
+			"deactivatedByUser": "utilizador",
+			"deactivatedOn": "Desativada em",
+			"deactivationReason": "Motivo",
 			"deleteAriaLabel": "Eliminar a chave de acesso {{passkeyLabel}}",
 			"deleteButtonTitleUnlocked": "Clique para eliminar a chave de acesso {{passkeyLabel}}",
 			"lastUsed": "Última utilização",
@@ -264,6 +289,8 @@
 			"rename": "Renomear",
 			"renameAriaLabel": "Renomear chave de acesso {{passkeyLabel}}",
 			"saveChangesAriaLabel": "Guardar alterações para chave de acesso {{passkeyLabel}}",
+			"statusActive": "Ativa",
+			"statusDeactivated": "Desativada",
 			"unnamed": "Chave de acesso sem nome"
 		},
 		"rememberIssuer": {
@@ -350,8 +377,8 @@
 		"cameraPermissionAllow": "Por favor, ative a permissão da câmara para usar o digitalizador de código QR.",
 		"description": "Vise o código QR e será redirecionado para continuar com o processo",
 		"title": "Ler o código QR",
-		"unsupportedTitle": "Código QR não suportado",
-		"unsupportedDescription": "Este código QR não é suportado pela carteira. Por favor, digitalize uma oferta de credencial ou solicitação de apresentação."
+		"unsupportedDescription": "Este código QR não é suportado pela carteira. Por favor, digitalize uma oferta de credencial ou solicitação de apresentação.",
+		"unsupportedTitle": "Código QR não suportado"
 	},
 	"queryableList": {
 		"all": "Todos",

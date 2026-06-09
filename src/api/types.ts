@@ -65,6 +65,10 @@ export type WebauthnCredential = {
 	lastUseTime: string,
 	nickname?: string,
 	prfCapable: boolean,
+	status: 'active' | 'deactivated',
+	deactivatedAt?: string,
+	deactivatedBy?: 'user' | 'provider',
+	deactivationReason?: string,
 }
 
 export type UserSettings = {

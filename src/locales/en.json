@@ -97,6 +97,7 @@
 		"choosePasskeyPlatform": "Select your preferred passkey type",
 		"choosePasskeyUsername": "Wallet Nickname",
 		"confirmPasswordLabel": "Confirm Password",
+		"credentialDeactivated": "This passkey has been deactivated. Register a new passkey to continue using your wallet.",
 		"enterPasskeyName": "Jane Doe's Wallet",
 		"enterPassword": "Enter your password",
 		"enterUsername": "Enter your username",
@@ -135,6 +136,7 @@
 		"passwordsNotMatchError": "Passwords do not match",
 		"privateDataConflict": "Another session for this account disrupted the login attempt. Please try again.",
 		"reachedLengthLimit": "Length limit exceeded",
+		"registerNewPasskey": "Register new passkey",
 		"signUp": "Sign Up",
 		"signUpSubmit": "Sign Up",
 		"signUpWithPasskey": "Create account with a Passkey",
@@ -298,6 +300,16 @@
 			},
 			"title": "Appearance"
 		},
+		"deactivateAll": {
+			"buttonText": "Deactivate All Wallet Instances",
+			"buttonTitleLocked": "You cannot deactivate wallet instances while locked",
+			"description": "Permanently deactivate every wallet instance linked to this account.",
+			"dialogConfirm": "I understand this will deactivate all passkeys, lock my account, and require passkey re-enrollment to access my data again.",
+			"dialogReenroll": "You will need to register a new passkey to regain access.",
+			"dialogTitle": "Deactivate all wallet instances?",
+			"dialogWarning": "This will erase all credentials, keys, and active sessions for this wallet.",
+			"title": "Deactivate all wallet instances"
+		},
 		"deleteAccount": {
 			"buttonText": "Delete your account",
 			"deleteButtonTitleLocked": "You cannot delete your account while locked",
@@ -322,6 +334,19 @@
 			"canEncryptYes": "Yes",
 			"cancelChangesAriaLabel": "Cancel changes to passkey {{passkeyLabel}}",
 			"created": "Created",
+			"deactivate": "Deactivate",
+			"deactivateAriaLabel": "Deactivate passkey {{passkeyLabel}}",
+			"deactivateButtonTitleUnlocked": "Click to deactivate passkey {{passkeyLabel}}",
+			"deactivateDialogDescription": "Are you sure you want to deactivate passkey \"{{passkeyLabel}}\"? This action is permanent.",
+			"deactivateDialogTitle": "Deactivate passkey?",
+			"deactivateLastCredentialConfirm": "I understand this is my final active passkey and removing it will lock me out until I register a new passkey.",
+			"deactivateLastCredentialWarning": "This is your last active passkey. Deactivating it will lock your account and may leave your account data inaccessible until you re-enroll or delete the account.",
+			"deactivateSuccess": "Passkey deactivated successfully.",
+			"deactivatedBy": "Deactivated by",
+			"deactivatedByProvider": "provider",
+			"deactivatedByUser": "user",
+			"deactivatedOn": "Deactivated on",
+			"deactivationReason": "Reason",
 			"deleteAriaLabel": "Delete passkey {{passkeyLabel}}",
 			"deleteButtonTitleUnlocked": "Click to delete passkey {{passkeyLabel}}",
 			"lastUsed": "Last Used",
@@ -335,6 +360,8 @@
 			"rename": "Rename",
 			"renameAriaLabel": "Rename passkey {{passkeyLabel}}",
 			"saveChangesAriaLabel": "Save changes to passkey {{passkeyLabel}}",
+			"statusActive": "Active",
+			"statusDeactivated": "Deactivated",
 			"unnamed": "Unnamed passkey"
 		},
 		"rememberIssuer": {
@@ -434,8 +461,8 @@
 		"cameraPermissionAllow": "Please allow camera permission to use the QR scanner.",
 		"description": "Target the QR Code, and you will redirect to proceed with the process",
 		"title": "Scan the QR Code",
-		"unsupportedTitle": "Unsupported QR code",
-		"unsupportedDescription": "This QR code is not supported by the wallet. Please scan a credential offer or presentation request."
+		"unsupportedDescription": "This QR code is not supported by the wallet. Please scan a credential offer or presentation request.",
+		"unsupportedTitle": "Unsupported QR code"
 	},
 	"qrShareMdoc": {
 		"communicating": "Communicating with verifier...",

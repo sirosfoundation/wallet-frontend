@@ -87,6 +87,7 @@
 		"choosePasskeyPlatform": "Επιλέξτε το είδος κλειδιού πρόσβασης που προτιμάτε",
 		"choosePasskeyUsername": "Ψευδώνυμο Πορτοφολιού",
 		"confirmPasswordLabel": "Επιβεβαίωση Κωδικού",
+		"credentialDeactivated": "Αυτό το κλειδί πρόσβασης έχει απενεργοποιηθεί. Καταχωρήστε νέο κλειδί πρόσβασης για να συνεχίσετε να χρησιμοποιείτε το πορτοφόλι σας.",
 		"enterPasskeyName": "Πορτοφόλι της Jane Doe",
 		"enterPassword": "Εισάγετε τον κωδικό σας",
 		"enterUsername": "Εισάγετε το όνομα χρήστη σας",
@@ -123,6 +124,7 @@
 		"passwordsNotMatchError": "Οι κωδικοί δεν ταιριάζουν",
 		"privateDataConflict": "Μια άλλη συνεδρία για αυτόν τον λογαριασμό διέκοψε την προσπάθεια σύνδεσης, δοκιμάστε ξανά.",
 		"reachedLengthLimit": "Υπερβαίνει το όριο μήκους",
+		"registerNewPasskey": "Καταχώρηση νέου κλειδιού πρόσβασης",
 		"signUp": "Εγγραφή",
 		"signUpSubmit": "Εγγραφή",
 		"signUpWithPasskey": "Δημιουργία λογαριασμού με κλειδί πρόσβασης",
@@ -242,6 +244,16 @@
 			"descriptionLatestVersion": "Χρησιμοποιείτε την τελευταία έκδοση του $t(common.walletName) {{react_app_version}}",
 			"descriptionOldVersion": "Χρησιμοποιείτε την έκδοση του wwWallet {{react_app_version}}.<br/> <strong>Μια νέα έκδοση είναι διαθέσιμη.</strong> <reloadButton>Ανανεώστε</reloadButton> για ενημέρωση!"
 		},
+		"deactivateAll": {
+			"buttonText": "Απενεργοποίηση όλων των wallet instances",
+			"buttonTitleLocked": "Δεν μπορείτε να απενεργοποιήσετε wallet instances όσο είναι κλειδωμένο",
+			"description": "Απενεργοποιήστε μόνιμα όλα τα wallet instances που συνδέονται με αυτόν τον λογαριασμό.",
+			"dialogConfirm": "Κατανοώ ότι αυτό θα απενεργοποιήσει όλα τα κλειδιά πρόσβασης, θα κλειδώσει τον λογαριασμό μου και θα απαιτήσει νέα εγγραφή κλειδιού πρόσβασης για πρόσβαση στα δεδομένα μου.",
+			"dialogReenroll": "Θα χρειαστεί να καταχωρήσετε νέο κλειδί πρόσβασης για να ανακτήσετε πρόσβαση.",
+			"dialogTitle": "Απενεργοποίηση όλων των wallet instances;",
+			"dialogWarning": "Αυτό θα διαγράψει όλα τα credentials, κλειδιά και ενεργές συνεδρίες για αυτό το πορτοφόλι.",
+			"title": "Απενεργοποίηση όλων των wallet instances"
+		},
 		"deleteAccount": {
 			"buttonText": "Διαγραφή του λογαριασμού σας",
 			"deleteButtonTitleLocked": "Δεν μπορείτε να διαγράψετε τον λογαριασμό σας ενώ είναι κλειδωμένος",
@@ -257,6 +269,19 @@
 			"canEncryptYes": "Ναι",
 			"cancelChangesAriaLabel": "Ακύρωση αλλαγών στο κλειδί πρόσβασης {{passkeyLabel}}",
 			"created": "Δημιουργήθηκε",
+			"deactivate": "Απενεργοποίηση",
+			"deactivateAriaLabel": "Απενεργοποίηση κλειδιού πρόσβασης {{passkeyLabel}}",
+			"deactivateButtonTitleUnlocked": "Κάντε κλικ για να απενεργοποιήσετε το κλειδί πρόσβασης {{passkeyLabel}}",
+			"deactivateDialogDescription": "Είστε σίγουροι ότι θέλετε να απενεργοποιήσετε το κλειδί πρόσβασης \"{{passkeyLabel}}\"; Αυτή η ενέργεια είναι μόνιμη.",
+			"deactivateDialogTitle": "Απενεργοποίηση κλειδιού πρόσβασης;",
+			"deactivateLastCredentialConfirm": "Κατανοώ ότι αυτό είναι το τελευταίο ενεργό κλειδί πρόσβασης και η αφαίρεσή του θα κλειδώσει τον λογαριασμό μου μέχρι να καταχωρήσω νέο κλειδί πρόσβασης.",
+			"deactivateLastCredentialWarning": "Αυτό είναι το τελευταίο ενεργό κλειδί πρόσβασης. Η απενεργοποίησή του θα κλειδώσει τον λογαριασμό σας και μπορεί να αφήσει τα δεδομένα του λογαριασμού μη προσβάσιμα μέχρι νέα εγγραφή ή διαγραφή λογαριασμού.",
+			"deactivateSuccess": "Το κλειδί πρόσβασης απενεργοποιήθηκε επιτυχώς.",
+			"deactivatedBy": "Απενεργοποιήθηκε από",
+			"deactivatedByProvider": "πάροχο",
+			"deactivatedByUser": "χρήστη",
+			"deactivatedOn": "Απενεργοποιήθηκε στις",
+			"deactivationReason": "Αιτία",
 			"deleteAriaLabel": "Διαγραφή κλειδιού πρόσβασης {{passkeyLabel}}",
 			"deleteButtonTitleUnlocked": "Κάντε κλικ για να διαγράψετε το κλειδί πρόσβασης {{passkeyLabel}}",
 			"lastUsed": "Τελευταία Χρήση",
@@ -270,6 +295,8 @@
 			"rename": "Μετονομασία",
 			"renameAriaLabel": "Μετονομασία κλειδιού πρόσβασης {{passkeyLabel}}",
 			"saveChangesAriaLabel": "Αποθήκευση αλλαγών στο κλειδί πρόσβασης {{passkeyLabel}}",
+			"statusActive": "Ενεργό",
+			"statusDeactivated": "Απενεργοποιημένο",
 			"unnamed": "Χωρίς Όνομα κλειδί πρόσβασης"
 		},
 		"rememberIssuer": {
@@ -362,8 +389,8 @@
 		"cameraPermissionAllow": "Επιτρέψτε την άδεια κάμερας για να χρησιμοποιήσετε τον σαρωτή QR.",
 		"description": "Στοχεύστε στον QR Κωδικό και θα ανακατευθυνθείτε για να προχωρήσετε στη διαδικασία",
 		"title": "Σαρώστε τον QR Κωδικό",
-		"unsupportedTitle": "Μη υποστηριζόμενος κωδικός QR",
-		"unsupportedDescription": "Αυτός ο κωδικός QR δεν υποστηρίζεται από το πορτοφόλι. Σαρώστε μια προσφορά διαπιστευτηρίου ή αίτημα παρουσίασης."
+		"unsupportedDescription": "Αυτός ο κωδικός QR δεν υποστηρίζεται από το πορτοφόλι. Σαρώστε μια προσφορά διαπιστευτηρίου ή αίτημα παρουσίασης.",
+		"unsupportedTitle": "Μη υποστηριζόμενος κωδικός QR"
 	},
 	"qrShareMdoc": {
 		"communicating": "Επικοινωνία με τον verifier...",
