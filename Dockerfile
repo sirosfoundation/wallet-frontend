@@ -23,7 +23,7 @@ COPY . .
 RUN --mount=type=secret,id=wallet_frontend_envfile,dst=/home/node/app/.env,required=false NODE_OPTIONS=--max-old-space-size=2048 yarn build
 
 
-FROM nginx:alpine AS deploy
+FROM nginx:1.27-alpine AS deploy
 
 # Alpine mirrors don't keep old versions of packages around for so long.
 # If pinned dependencies fail to install, check if they still exist.
