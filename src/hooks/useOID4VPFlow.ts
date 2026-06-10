@@ -469,7 +469,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 			// Only evaluate trust if we have actual key material to verify
 			// For unsigned requests (no JWT), skip trust evaluation
 			// The verifier cannot be cryptographically verified
-			if (request.keyMaterial && request.keyMaterial.value) {
+			if (request.keyMaterial?.value) {
 				const keyMaterial: OpenID4VPKeyMaterial = {
 					type: request.keyMaterial.type,
 					key: request.keyMaterial.value,
