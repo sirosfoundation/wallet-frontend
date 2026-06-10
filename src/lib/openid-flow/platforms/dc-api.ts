@@ -2,29 +2,48 @@ import type { DcqlQuery } from 'dcql';
 import { getPublicKeyFromB64Cert } from '@/lib/utils/pki';
 import { importJWK, importX509, JWK, jwtVerify, KeyLike } from 'jose';
 import { logger } from '@/logger';
+import { z } from 'zod';
 
 type DCAPIMode = 'wallet_companion' | 'android' | 'ios';
 
-export type SignedDCAPIRequest = {
-	clientId: string;
-	nonce: string;
+const DCApiResponseModeSchema = z
+	.enum(['dc_api', 'dc_api.jwt'], {
+		errorMap: () => ({ message: "response_mode must be 'dc_api' or 'dc_api.jwt'" }),
+	})
+	.default('dc_api');
+
+const KeyMaterialSchema = z.discriminatedUnion('type', [
+	z.object({ type: z.literal('x5c'), value: z.array(z.string()) }),
+	z.object({ type: z.literal('jwk'), value: z.object({}).passthrough() }),
+	z.object({ type: z.literal('kid'), value: z.string() }),
+]);
+
+const BaseDCApiRequestSchema = z.object({
+	nonce: z.string({ required_error: 'Missing required nonce parameter' }).min(1, 'nonce cannot be empty'),
+	dcqlQuery: z.object({}, { required_error: 'Missing dcql_query' }).passthrough(),
+	responseMode: DCApiResponseModeSchema,
+}).strict();
+
+const SignedDCApiRequestSchema = BaseDCApiRequestSchema.extend({
+	clientId: z.string({ required_error: 'Missing client_id in JWT payload' }).min(1, 'client_id cannot be empty'),
+	keyMaterial: KeyMaterialSchema,
+	rawJwt: z.string().min(1),
+	expectedOrigins: z.array(z.string(), { required_error: 'Missing expected_origins in signed request' }),
+}).strict();
+
+const UnsignedDCApiRequestSchema = BaseDCApiRequestSchema;
+
+type KeyMaterial = z.infer<typeof KeyMaterialSchema>;
+
+export type SignedDCAPIRequest = Omit<z.infer<typeof SignedDCApiRequestSchema>, 'dcqlQuery'> & {
 	dcqlQuery: DcqlQuery.Input;
-	keyMaterial?: {
-		type: 'x5c' | 'jwk' | 'kid';
-		value: unknown;
-	};
-	rawJwt: string;
-	expectedOrigins: string[];
 };
 
-export type UnsignedDCAPIRequest = {
-	nonce: string;
+export type UnsignedDCAPIRequest = Omit<z.infer<typeof UnsignedDCApiRequestSchema>, 'dcqlQuery'> & {
 	dcqlQuery: DcqlQuery.Input;
 };
 
-export type DCAPIRequest =
-	| SignedDCAPIRequest
-	| UnsignedDCAPIRequest;
+export type DCAPIRequest = SignedDCAPIRequest | UnsignedDCAPIRequest;
 
 export class DCAPISession {
 	readonly request: DCAPIRequest;
@@ -149,14 +168,21 @@ export class DCAPISession {
 	}
 
 	#parsePlainParams(url: URL): UnsignedDCAPIRequest {
-		const rawQuery = url.searchParams.get('dcql_query');
-		if (!rawQuery) throw new Error('Missing dcql_query');
+		const responseMode = url.searchParams.get('response_mode') ?? 'dc_api';
+		if (responseMode !== 'dc_api' && responseMode !== 'dc_api.jwt') {
+			throw new Error('Invalid or missing response_mode parameter');
+		}
 
 		const nonce = url.searchParams.get('nonce');
 		if (!nonce || typeof nonce !== 'string') throw new Error('Invalid or missing nonce');
 
+		const rawQuery = url.searchParams.get('dcql_query');
+		if (!rawQuery) throw new Error('Missing dcql_query');
+
+
 		return {
 			nonce,
+			responseMode,
 			dcqlQuery: JSON.parse(rawQuery),
 		};
 	}
@@ -172,6 +198,11 @@ export class DCAPISession {
 		}
 		if (clientId !== url.searchParams.get('client_id')) {
 			throw new Error('client_id mismatch between JWT payload and URL parameter');
+		}
+
+		const responseMode = payload.response_mode ?? 'dc_api';
+		if (responseMode !== 'dc_api' && responseMode !== 'dc_api.jwt') {
+			throw new Error('Invalid or missing response_mode parameter');
 		}
 
 		const nonce = payload.nonce;
@@ -201,6 +232,7 @@ export class DCAPISession {
 
 		return {
 			clientId,
+			responseMode,
 			nonce,
 			dcqlQuery,
 			expectedOrigins,
@@ -209,16 +241,22 @@ export class DCAPISession {
 		};
 	}
 
-	#extractKeyMaterial(header: Record<string, unknown>) {
+	#extractKeyMaterial(header: Record<string, unknown>): KeyMaterial | undefined {
 		if (header.x5c && Array.isArray(header.x5c)) {
-			return { type: 'x5c' as const, value: header.x5c };
+			const result = KeyMaterialSchema.safeParse({ type: 'x5c', value: header.x5c });
+			if (result.success) return result.data;
 		}
-		if (header.jwk) {
-			return { type: 'jwk' as const, value: header.jwk };
+
+		if (header.jwk && typeof header.jwk === 'object' && header.jwk !== null) {
+			const result = KeyMaterialSchema.safeParse({ type: 'jwk', value: header.jwk });
+			if (result.success) return result.data;
 		}
+
 		if (header.kid && typeof header.kid === 'string') {
-			return { type: 'kid' as const, value: header.kid };
+			const result = KeyMaterialSchema.safeParse({ type: 'kid', value: header.kid });
+			if (result.success) return result.data;
 		}
+
 		return undefined;
 	}
 
