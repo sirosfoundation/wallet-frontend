@@ -151,35 +151,6 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 	}, []);
 
 	/**
-	//  * Register match handler for client-side credential matching
-	//  * This is called when the server requests credential matching for privacy
-	//  */
-	// useEffect(() => {
-	// 	if (transportType !== 'websocket' || !transportContext?.registerMatchHandler) {
-	// 		return;
-	// 	}
-
-	// 	const handleMatchRequest = async (request: MatchRequest): Promise<MatchResponse> => {
-	// 		try {
-	// 			const result = matchCredentials(
-	// 				vcEntityList || [],
-	// 				request.dcqlQuery,
-	// 			);
-	// 			return result;
-	// 		} catch (err) {
-	// 			console.error('Credential matching failed', err);
-	// 			return {
-	// 				matches: [],
-	// 				no_match_reason: 'Credential matching failed',
-	// 			};
-	// 		}
-	// 	};
-
-	// 	const unsubscribe = transportContext.registerMatchHandler(handleMatchRequest);
-	// 	return unsubscribe;
-	// }, [transportType, transportContext, vcEntityList]);
-
-	/**
 	 * Handle authorization request using the appropriate transport
 	 */
 	const handleAuthorizationRequest = useCallback(async (
