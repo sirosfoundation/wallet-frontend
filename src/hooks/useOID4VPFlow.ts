@@ -88,7 +88,7 @@ export interface UseOID4VPFlowReturn {
 	/**
 	 * Handle DC API request - parse URL, match credentials, store session
 	 */
-	handleDCAPIRequest: (request: DCAPIRequest) => Promise<OID4VPFlowResult>;
+	handleDCAPIRequest: (request: DCAPIRequest, verifiedOrigin: string) => Promise<OID4VPFlowResult>;
 	/**
 	 * Send DC API response - sign, record history, send via session
 	 */
@@ -459,17 +459,17 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 	/**
 	 * Handle DC API request - parse URL, match credentials, store session
 	 */
-	const handleDCAPIRequest = useCallback(async (request: DCAPIRequest): Promise<OID4VPFlowResult> => {
+	const handleDCAPIRequest = useCallback(async (request: DCAPIRequest, verifiedOrigin: string): Promise<OID4VPFlowResult> => {
 		setIsLoading(true);
 		try {
-			const clientIdScheme = parseClientIdScheme(request.clientId);
+			const clientIdForTrust = 'clientId' in request ? request.clientId : verifiedOrigin;
+			const clientIdScheme = parseClientIdScheme(clientIdForTrust);
 
 			let trustResult: TrustEvaluationResult | undefined;
 
-			// Only evaluate trust if we have actual key material to verify
-			// For unsigned requests (no JWT), skip trust evaluation
-			// The verifier cannot be cryptographically verified
-			if (request.keyMaterial?.value) {
+			// Only evaluate trust for signed requests with key material
+			// TODO: we should consider implementing support for evaluating unsigned requests
+			if ('keyMaterial' in request) {
 				const keyMaterial: OpenID4VPKeyMaterial = {
 					type: request.keyMaterial.type,
 					key: request.keyMaterial.value,
@@ -478,7 +478,6 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				trustResult = await transportContext?.trustEvaluators.evaluateVerifierTrust({
 					clientIdScheme,
 					keyMaterial,
-					responseUri: request.responseUri,
 				});
 
 				if (!trustResult?.trusted) {
@@ -495,7 +494,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 			if (matches.length === 0) {
 				throw new OIDFlowError({
 					code: no_match_reason || 'NO_MATCHING_CREDENTIALS',
-					message: 'No matching credentials'
+					message: 'No matching credentials',
 				});
 			}
 
@@ -510,7 +509,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				conformantCredentials,
 				dcqlQuery: request.dcqlQuery,
 				verifierInfo: {
-					name: trustResult?.name ?? request.clientId,
+					name: trustResult?.name ?? verifiedOrigin,
 					purpose: String(request.dcqlQuery.credential_sets?.[0]?.purpose ?? ''),
 					domain: clientIdScheme.identifier,
 					trustStatus: trustResult?.status,
@@ -544,10 +543,14 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		setError(null);
 
 		try {
+			// DC API audience format per OpenID4VP spec
+			const audience = session.verifiedOrigin
+				? `origin:${session.verifiedOrigin}`
+				: '';
+
 			const signResponse = await signPresentation({
-				audience: session.request.clientId,
+				audience,
 				nonce: session.request.nonce,
-				responseUri: session.request.responseUri,
 				credentialsToInclude: selectedCredentials.map(c => ({
 					credentialId: c.walletCredentialRef,
 					credentialQueryId: c.credentialQueryId,
@@ -557,7 +560,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 			});
 
 			if (keystore) {
-				await recordPresentationHistory(keystore, api, selectedCredentials, session.request.clientId);
+				await recordPresentationHistory(keystore, api, selectedCredentials, audience);
 			}
 
 			if (!signResponse.vpToken) {
