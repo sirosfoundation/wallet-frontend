@@ -8,6 +8,7 @@ import { applySelectiveDisclosure } from '@/lib/sd-jwt/sd-jwt';
 import { base64url } from 'jose';
 import { buildMdocPresentationDefinition, parseIssuerSignedToMDoc } from '@/lib/mdoc/mdoc';
 import { detectCredentialFormat, VerifiableCredentialFormat } from 'wallet-common';
+import { MDoc } from '@auth0/mdl';
 
 interface ProofTypeConfig {
 	key_attestations_required?: Record<string, unknown> | null;
@@ -27,13 +28,14 @@ export type OIDFlowSignOptions = {
 	proofType?: string;
 	proofTypesSupported?: ProofTypesSupported;
 	count?: number;
+	origin?: string;
+	responseUri?: string;
 	credentialsToInclude?: Array<{
 		credentialId: string;
 		credentialQueryId?: string;
 		disclosedClaims?: string[];
 		credentialRaw?: string;
 	}>;
-	responseUri?: string;
 	verifierJwkThumbprint?: string;
 }
 
@@ -69,7 +71,7 @@ export function useOIDFlowSignHandler() {
 	const keystore = sessionContext?.keystore;
 
 	const signPresentation = useCallback(async (options: OIDFlowSignOptions): Promise<OIDFlowSignResponse> => {
-		const { audience, nonce, credentialsToInclude, responseUri, verifierJwkThumbprint } = options;
+		const { audience, nonce, credentialsToInclude, responseUri, origin, verifierJwkThumbprint } = options;
 		if (!audience || !nonce) {
 			throw new Error('Missing audience or nonce for presentation signing');
 		}
@@ -95,8 +97,12 @@ export function useOIDFlowSignHandler() {
 					break;
 				}
 				case VerifiableCredentialFormat.MSO_MDOC: {
-					if (!responseUri) {
-						throw new Error('Missing responseUri for mdoc presentation');
+					if (!responseUri && !origin) {
+						throw new Error('Missing responseUri or origin for mdoc presentation');
+					}
+
+					if (responseUri && origin) {
+						throw new Error('Both responseUri and origin provided for mdoc presentation, only one should be provided');
 					}
 
 					if (!c.disclosedClaims?.length) {
@@ -110,10 +116,22 @@ export function useOIDFlowSignHandler() {
 						c.disclosedClaims ?? [],
 					);
 
-					const { deviceResponseMDoc } = await keystore.generateDeviceResponse(
-						mdoc, presentationDefinition, nonce, audience, responseUri,
-						verifierJwkThumbprint ?? null,
-					);
+					let deviceResponseMDoc: MDoc;
+					if (responseUri) {
+						const { deviceResponseMDoc: drm } = await keystore.generateDeviceResponse(
+							mdoc, presentationDefinition, nonce, audience, responseUri,
+							verifierJwkThumbprint ?? null,
+						);
+						deviceResponseMDoc = drm;
+					} else if (origin) {
+						const { deviceResponseMDoc: drm } = await keystore.generateDeviceResponseForDCAPI(
+							mdoc, presentationDefinition, nonce, origin,
+							verifierJwkThumbprint ?? null,
+						);
+						deviceResponseMDoc = drm;
+					} else {
+						throw new Error('Unexpected error: neither responseUri nor origin provided for mdoc presentation');
+					}
 
 					vpToken = base64url.encode(new Uint8Array(deviceResponseMDoc.encode()));
 					break;

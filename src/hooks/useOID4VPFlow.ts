@@ -551,6 +551,8 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 			const signResponse = await signPresentation({
 				audience,
 				nonce: session.request.nonce,
+				origin: session.verifiedOrigin,
+				verifierJwkThumbprint: await session.verifierJwkThumbprint(),
 				credentialsToInclude: selectedCredentials.map(c => ({
 					credentialId: c.walletCredentialRef,
 					credentialQueryId: c.credentialQueryId,
@@ -567,7 +569,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				throw new OIDFlowError({ code: 'SIGNING_FAILED', message: 'Failed to generate VP token' });
 			}
 
-			session.sendResponse(JSON.parse(signResponse.vpToken));
+			await session.sendResponse(JSON.parse(signResponse.vpToken));
 			return { success: true };
 		} catch (err) {
 			const error = err instanceof OIDFlowError

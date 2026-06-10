@@ -1,6 +1,5 @@
-import type { DcqlQuery } from 'dcql';
 import { getPublicKeyFromB64Cert } from '@/lib/utils/pki';
-import { importJWK, importX509, JWK, jwtVerify, KeyLike } from 'jose';
+import { calculateJwkThumbprint, EncryptJWT, importJWK, importX509, JWK, jwtVerify, KeyLike } from 'jose';
 import { logger } from '@/logger';
 import { z } from 'zod';
 
@@ -18,9 +17,26 @@ const KeyMaterialSchema = z.discriminatedUnion('type', [
 	z.object({ type: z.literal('kid'), value: z.string() }),
 ]);
 
+type KeyMaterial = z.infer<typeof KeyMaterialSchema>;
+
+const ClientMetadataSchema = z.object({
+	jwks: z.object({
+		keys: z.array(z.object({}).passthrough()),
+	}).optional(),
+	authorization_encrypted_response_alg: z.string().optional(),
+	authorization_encrypted_response_enc: z.string().optional(),
+}).passthrough();
+
 const BaseDCApiRequestSchema = z.object({
 	nonce: z.string({ required_error: 'Missing required nonce parameter' }).min(1, 'nonce cannot be empty'),
-	dcqlQuery: z.object({}, { required_error: 'Missing dcql_query' }).passthrough(),
+	dcqlQuery: z.object({
+		credentials: z.array(
+			z.object({}).passthrough(), { required_error: 'Missing credentials array in dcql_query' }
+		).min(1, 'credentials array cannot be empty'),
+		credential_sets: z.array(
+			z.object({}).passthrough()
+		).optional(),
+	}, { required_error: 'Invalid or missing dcql_query parameter' }).passthrough(),
 	responseMode: DCApiResponseModeSchema,
 }).strict();
 
@@ -29,20 +45,13 @@ const SignedDCApiRequestSchema = BaseDCApiRequestSchema.extend({
 	keyMaterial: KeyMaterialSchema,
 	rawJwt: z.string().min(1),
 	expectedOrigins: z.array(z.string(), { required_error: 'Missing expected_origins in signed request' }),
+	clientMetadata: ClientMetadataSchema.optional(),
 }).strict();
 
 const UnsignedDCApiRequestSchema = BaseDCApiRequestSchema;
 
-type KeyMaterial = z.infer<typeof KeyMaterialSchema>;
-
-export type SignedDCAPIRequest = Omit<z.infer<typeof SignedDCApiRequestSchema>, 'dcqlQuery'> & {
-	dcqlQuery: DcqlQuery.Input;
-};
-
-export type UnsignedDCAPIRequest = Omit<z.infer<typeof UnsignedDCApiRequestSchema>, 'dcqlQuery'> & {
-	dcqlQuery: DcqlQuery.Input;
-};
-
+export type SignedDCAPIRequest = z.infer<typeof SignedDCApiRequestSchema>;
+export type UnsignedDCAPIRequest = z.infer<typeof UnsignedDCApiRequestSchema>;
 export type DCAPIRequest = SignedDCAPIRequest | UnsignedDCAPIRequest;
 
 export class DCAPISession {
@@ -97,10 +106,26 @@ export class DCAPISession {
 		return this.#verifiedOrigin;
 	}
 
-	public sendResponse(vpToken: Record<string, string[]>): void {
+	public async verifierJwkThumbprint(): Promise<string | null> {
+		if (this.request.responseMode !== 'dc_api.jwt') return null;
+		if (!('clientMetadata' in this.request)) return null;
+
+		const encKey = this.request.clientMetadata?.jwks?.keys?.find(
+			(k: Record<string, unknown>) => k.use === 'enc'
+		);
+		if (!encKey) return null;
+
+		return await calculateJwkThumbprint(encKey as JWK, 'sha256');
+	}
+
+	public async sendResponse(vpToken: Record<string, string[]>): Promise<void> {
+		const payload = this.request.responseMode === 'dc_api.jwt'
+			? { response: await this.#encryptResponse(vpToken) }
+			: { vp_token: vpToken };
+
 		switch (this.mode) {
 			case 'wallet_companion':
-				this.#sendWalletCompanionMessage({ vp_token: vpToken });
+				this.#sendWalletCompanionMessage(payload);
 				this.close();
 				break;
 			default:
@@ -156,35 +181,39 @@ export class DCAPISession {
 		});
 	}
 
-	#sendWalletCompanionMessage(payload: { vp_token?: Record<string, string[]>; error?: string }): void {
+	#sendWalletCompanionMessage(payload: { vp_token?: Record<string, string[]>; response?: string; error?: string }): void {
 		if (!window.opener) throw new Error('No opener window');
 		if (!this.#verifiedOrigin) throw new Error('Origin not verified');
 
-		window.opener.postMessage({
+		const message: Record<string, unknown> = {
 			type: 'WC_WALLET_RESPONSE',
 			requestId: this.requestId,
-			...(payload.error ? { error: payload.error } : { response: payload }),
-		}, this.#verifiedOrigin);
+		};
+
+		if (payload.error) {
+			message.error = payload.error;
+		} else if (payload.response) {
+			message.response = payload.response;
+		} else if (payload.vp_token) {
+			message.response = { vp_token: payload.vp_token };
+		}
+
+		window.opener.postMessage(message, this.#verifiedOrigin);
 	}
 
 	#parsePlainParams(url: URL): UnsignedDCAPIRequest {
-		const responseMode = url.searchParams.get('response_mode') ?? 'dc_api';
-		if (responseMode !== 'dc_api' && responseMode !== 'dc_api.jwt') {
-			throw new Error('Invalid or missing response_mode parameter');
+		const { success, data, error } = UnsignedDCApiRequestSchema.safeParse({
+			nonce: url.searchParams.get('nonce'),
+			dcqlQuery: url.searchParams.get('dc_query'),
+			responseMode: url.searchParams.get('response_mode'),
+		});
+
+		if (!success) {
+			logger.error('Invalid DC API request parameters:', error);
+			throw new Error('Invalid DC API request parameters: ' + error.errors.map(e => e.message).join(', '));
 		}
 
-		const nonce = url.searchParams.get('nonce');
-		if (!nonce || typeof nonce !== 'string') throw new Error('Invalid or missing nonce');
-
-		const rawQuery = url.searchParams.get('dcql_query');
-		if (!rawQuery) throw new Error('Missing dcql_query');
-
-
-		return {
-			nonce,
-			responseMode,
-			dcqlQuery: JSON.parse(rawQuery),
-		};
+		return data;
 	}
 
 	#parseJwtRequest(jwt: string, url: URL): SignedDCAPIRequest {
@@ -192,53 +221,22 @@ export class DCAPISession {
 		const header = JSON.parse(atob(headerB64.replace(/-/g, '+').replace(/_/g, '/')));
 		const payload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
 
-		const clientId = payload.client_id;
-		if (!clientId || typeof clientId !== 'string') {
-			throw new Error('Invalid or missing client_id in JWT payload');
-		}
-		if (clientId !== url.searchParams.get('client_id')) {
-			throw new Error('client_id mismatch between JWT payload and URL parameter');
-		}
-
-		const responseMode = payload.response_mode ?? 'dc_api';
-		if (responseMode !== 'dc_api' && responseMode !== 'dc_api.jwt') {
-			throw new Error('Invalid or missing response_mode parameter');
-		}
-
-		const nonce = payload.nonce;
-		if (!nonce || typeof nonce !== 'string') {
-			throw new Error('Invalid or missing nonce in JWT payload');
-		}
-
-		let dcqlQuery = payload.dcql_query;
-		if (!dcqlQuery) {
-			throw new Error('Missing dcql_query in JWT payload');
-		}
-		if (typeof dcqlQuery === 'string') {
-			try {
-				dcqlQuery = JSON.parse(dcqlQuery);
-			} catch (err) {
-				throw new Error('Invalid dcql_query format in JWT payload');
-			}
-		}
-		if (typeof dcqlQuery !== 'object') {
-			throw new Error('Invalid dcql_query type in JWT payload');
-		}
-
-		const expectedOrigins = payload.expected_origins;
-		if (expectedOrigins && !Array.isArray(expectedOrigins)) {
-			throw new Error('expected_origins must be an array');
-		}
-
-		return {
-			clientId,
-			responseMode,
-			nonce,
-			dcqlQuery,
-			expectedOrigins,
+		const { success, data, error } = SignedDCApiRequestSchema.safeParse({
+			nonce: payload.nonce,
+			dcqlQuery: payload.dcql_query,
+			responseMode: payload.response_mode,
+			clientId: payload.client_id,
 			keyMaterial: this.#extractKeyMaterial(header),
 			rawJwt: jwt,
-		};
+			expectedOrigins: payload.expected_origins,
+			clientMetadata: payload.client_metadata,
+		});
+		if (!success) {
+			logger.error('Invalid DC API JWT request:', error);
+			throw new Error('Invalid DC API JWT request: ' + error.errors.map(e => e.message).join(', '));
+		}
+
+		return data;
 	}
 
 	#extractKeyMaterial(header: Record<string, unknown>): KeyMaterial | undefined {
@@ -315,5 +313,36 @@ export class DCAPISession {
 		const [headerB64] = this.request.rawJwt.split('.');
 		const header = JSON.parse(atob(headerB64.replace(/-/g, '+').replace(/_/g, '/')));
 		return header.alg ?? 'ES256';
+	}
+
+	async #encryptResponse(vpToken: Record<string, string[]>): Promise<string> {
+		if (!('clientMetadata' in this.request) || !this.request.clientMetadata?.jwks?.keys?.length) {
+			throw new Error('dc_api.jwt response_mode requires client_metadata.jwks');
+		}
+
+		// Find encryption key (use='enc')
+		const encKey = this.request.clientMetadata.jwks.keys.find(
+			(k: Record<string, unknown>) => k.use === 'enc'
+		);
+		if (!encKey) {
+			throw new Error('No encryption key found in client_metadata.jwks');
+		}
+
+		const alg = (encKey.alg as string)
+			|| this.request.clientMetadata.authorization_encrypted_response_alg
+			|| 'ECDH-ES';
+		const enc = this.request.clientMetadata.authorization_encrypted_response_enc || 'A128GCM';
+
+		const publicKey = await importJWK(encKey as JWK, alg);
+
+		const jwe = await new EncryptJWT({ vp_token: vpToken })
+			.setProtectedHeader({
+				alg,
+				enc,
+				kid: encKey.kid as string | undefined,
+			})
+			.encrypt(publicKey);
+
+		return jwe;
 	}
 }
