@@ -177,6 +177,10 @@ export class DCAPISession {
 			};
 
 			window.addEventListener('message', handler);
+
+			// We don't know the opener's origin yet - that's what we're discovering.
+			// The probe contains only a request ID; the opener's origin is captured from
+			// the ACK response and validated against expectedOrigins before any credentials are sent.
 			window.opener.postMessage({ type: 'WC_ORIGIN_CHECK', requestId: this.requestId }, '*');
 		});
 	}
