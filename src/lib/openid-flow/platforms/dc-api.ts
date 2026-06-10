@@ -37,15 +37,7 @@ export class DCAPISession {
 		}
 	}
 
-	#detectMode(): DCAPIMode {
-		if (window.opener) {
-			return 'wallet_companion';
-		}
-
-		throw new Error('Unable to detect DC API mode, no supported environment detected');
-	}
-
-	sendResponse(vpToken: Record<string, string[]>): void {
+	public sendResponse(vpToken: Record<string, string[]>): void {
 		switch (this.mode) {
 			case 'wallet_companion':
 				this.#sendWalletCompanionMessage({ vp_token: vpToken });
@@ -56,7 +48,7 @@ export class DCAPISession {
 		}
 	}
 
-	sendError(error: string): void {
+	public sendError(error: string): void {
 		switch (this.mode) {
 			case 'wallet_companion':
 				this.#sendWalletCompanionMessage({ error });
@@ -67,7 +59,7 @@ export class DCAPISession {
 		}
 	}
 
-	close(): void {
+	public close(): void {
 		switch (this.mode) {
 			case 'wallet_companion':
 				window.close();
@@ -75,6 +67,14 @@ export class DCAPISession {
 			default:
 				throw new Error(`${this.mode} not yet implemented`);
 		}
+	}
+
+	#detectMode(): DCAPIMode {
+		if (window.opener) {
+			return 'wallet_companion';
+		}
+
+		throw new Error('Unable to detect DC API mode, no supported environment detected');
 	}
 
 	#sendWalletCompanionMessage(payload: { vp_token?: Record<string, string[]>; error?: string }): void {
