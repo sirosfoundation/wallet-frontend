@@ -33,7 +33,7 @@ export class DCAPISession {
 	#verifiedOrigin?: string;
 
 	constructor(url: URL) {
-		this.requestId = url.searchParams.get('request_id') ?? '';
+		this.requestId = url.searchParams.get('request_id');
 		this.mode = this.#detectMode();
 
 		if (!this.requestId) throw new Error('Missing request_id');
@@ -43,7 +43,6 @@ export class DCAPISession {
 			? this.#parseJwtRequest(requestJwt, url)
 			: this.#parsePlainParams(url);
 
-		// No validation here - just parse
 	}
 
 	async initialize(): Promise<void> {
