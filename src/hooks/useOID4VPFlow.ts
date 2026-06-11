@@ -547,9 +547,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 
 		try {
 			// DC API audience format per OpenID4VP spec
-			const audience = session.verifiedOrigin
-				? `origin:${session.verifiedOrigin}`
-				: '';
+			const audience = `origin:${session.verifiedOrigin}`;
 
 			const signResponse = await signPresentation({
 				audience,
