@@ -233,9 +233,19 @@ export class DCAPISession {
 	}
 
 	#parseJwtRequest(jwt: string, url: URL): SignedDCAPIRequest {
-		const [headerB64, payloadB64] = jwt.split('.');
-		const header = JSON.parse(atob(headerB64.replace(/-/g, '+').replace(/_/g, '/')));
-		const payload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
+		const jwtHeaderAndPayload = jwt.split('.').slice(0, 2);
+		if (jwtHeaderAndPayload.length !== 2) {
+			throw new Error('Invalid JWT format: must have header and payload');
+		}
+
+		const [header, payload] = jwtHeaderAndPayload.map(part => {
+			try {
+				return JSON.parse(atob(part.replaceAll('-', '+').replaceAll('_', '/')));
+			} catch (err) {
+				logger.error('Failed to decode JWT part:', err);
+				throw new Error('Invalid JWT encoding');
+			}
+		});
 
 		if (payload.typ !== 'oauth-authz-req+jwt') {
 			throw new Error('Invalid JWT payload type, must be "oauth-authz-req+jwt"');
@@ -340,7 +350,7 @@ export class DCAPISession {
 		}
 
 		const [headerB64] = this.request.rawJwt.split('.');
-		const header = JSON.parse(atob(headerB64.replace(/-/g, '+').replace(/_/g, '/')));
+		const header = JSON.parse(atob(headerB64.replaceAll('-', '+').replaceAll('_', '/')));
 		return header.alg ?? 'ES256';
 	}
 

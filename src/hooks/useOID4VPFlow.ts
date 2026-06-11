@@ -624,7 +624,7 @@ function buildConformantCredentialsMap(
 				})),
 			});
 		}
-		result.get(match.input_descriptor_id)!.credentials.push(parseInt(match.credential_id));
+		result.get(match.input_descriptor_id)!.credentials.push(Number.parseInt(match.credential_id));
 	}
 
 	return result;
@@ -643,7 +643,7 @@ async function recordPresentationHistory(
 	const presentations = await Promise.all(selectedCredentials.map(async (cred) => ({
 		transactionId,
 		data: await applySelectiveDisclosure(cred.credentialRaw, cred.disclosedClaims ?? []),
-		usedCredentialIds: [parseInt(cred.walletCredentialRef)],
+		usedCredentialIds: [Number.parseInt(cred.walletCredentialRef)],
 		audience,
 	})));
 	const [, newPrivateData, keystoreCommit] = await keystore.addPresentations(presentations);
