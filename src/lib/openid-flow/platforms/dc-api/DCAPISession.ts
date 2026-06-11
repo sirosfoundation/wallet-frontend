@@ -95,7 +95,7 @@ export class DCAPISession {
 	}
 
 	async #encryptResponse(vpToken: Record<string, string[]>): Promise<string> {
-		if (!this.request.clientMetadata || !this.request.clientMetadata.jwks?.keys?.length) {
+		if (!this.request.clientMetadata?.jwks?.keys?.length) {
 			throw new Error('dc_api.jwt response_mode requires client_metadata.jwks');
 		}
 
