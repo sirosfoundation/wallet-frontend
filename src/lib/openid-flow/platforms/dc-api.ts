@@ -140,7 +140,7 @@ export class DCAPISession {
 		}
 	}
 
-	public sendErrorAndClose(error: string): void {
+	public sendErrorAndClose(error: 'user_cancelled' | 'access_denied'): void {
 		switch (this.mode) {
 			case 'wallet_companion':
 				this.#sendWalletCompanionMessage({ error });
