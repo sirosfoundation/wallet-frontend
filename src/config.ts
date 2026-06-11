@@ -129,6 +129,7 @@ export const OHTTP_RELAY = config.ohttp_relay;
 export const VCT_REGISTRY_URL: string | undefined = config.vct_registry_url;
 export const POLICY_LINKS = config.policy_links;
 export const SHOW_PWA_INSTALL_PROMPT = config.show_pwa_install_prompt === 'true';
+export const WALLET_COMPANION_INTEGRATION = config.wallet_companion_integration === 'true';
 export const POWERED_BY = config.powered_by;
 
 // ===== Transport Configuration =====

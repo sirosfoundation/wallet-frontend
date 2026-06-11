@@ -1,4 +1,8 @@
-import { I18N_WALLET_NAME_OVERRIDE, STATIC_PUBLIC_URL } from '@/config';
+import {
+	WALLET_COMPANION_INTEGRATION,
+	I18N_WALLET_NAME_OVERRIDE,
+	STATIC_PUBLIC_URL
+} from '@/config';
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 type WalletRegistrationInput = {
@@ -64,7 +68,9 @@ export const WalletCompanionProvider = ({ children }: { children: ReactNode }) =
 		if (result.success) setIsRegistered(true);
 	};
 
-	const value = api ? { api, isRegistered, isLoading, register } : null;
+	const value = api && WALLET_COMPANION_INTEGRATION
+		? { api, isRegistered, isLoading, register }
+		: null;
 
 	return (
 		<WalletCompanionContext.Provider value={value}>
