@@ -304,8 +304,8 @@
 			"title": "Αναβάθμιση κλειδιού κρυπτογράφησης"
 		},
 		"walletCompanion": {
-			"connected": "Συνδεδεμένο με Wallet Companion v{{version}}",
-			"description": "Καταχωρίστε αυτό το πορτοφόλι στην επέκταση προγράμματος περιήγησης Wallet Companion για να ενεργοποιήσετε παρουσιάσεις διαπιστευτηρίων μέσω του Digital Credentials API.",
+			"description": "Η καταχώρηση αυτού του πορτοφολιού στο Wallet Companion ενεργοποιεί παρουσιάσεις διαπιστευτηρίων μέσω του Digital Credentials API.",
+			"detected": "Ανιχνεύθηκε Wallet Companion v{{version}}",
 			"register": "Καταχώρηση στο Wallet Companion",
 			"registered": "Καταχωρημένο στο Wallet Companion",
 			"title": "Wallet Companion (beta)"

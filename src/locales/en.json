@@ -371,8 +371,8 @@
 			"title": "Upgrading passkey encryption key"
 		},
 		"walletCompanion": {
-			"connected": "Connected to Wallet Companion v{{version}}",
-			"description": "Register this wallet with the Wallet Companion browser extension to enable credential presentations via the Digital Credentials API.",
+			"description": "Registering this wallet with Wallet Companion enables credential presentations via the Digital Credentials API.",
+			"detected": "Wallet Companion v{{version}} detected",
 			"register": "Register with Wallet Companion",
 			"registered": "Registered with Wallet Companion",
 			"title": "Wallet Companion (beta)"

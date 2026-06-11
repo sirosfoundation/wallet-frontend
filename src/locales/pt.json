@@ -298,8 +298,8 @@
 			"title": "A atualizar a chave de encriptação da chave de acesso"
 		},
 		"walletCompanion": {
-			"connected": "Ligado ao Wallet Companion v{{version}}",
-			"description": "Registe esta carteira na extensão de navegador Wallet Companion para ativar apresentações de credenciais através da Digital Credentials API.",
+			"description": "Registar esta carteira no Wallet Companion permite apresentações de credenciais através da Digital Credentials API.",
+			"detected": "Wallet Companion v{{version}} detetado",
 			"register": "Registar no Wallet Companion",
 			"registered": "Registado no Wallet Companion",
 			"title": "Wallet Companion (beta)"

@@ -1070,7 +1070,7 @@ const Settings = () => {
 										</Button>
 									)}
 									<p className='text-sm dark:text-white'>
-										{t('pageSettings.walletCompanion.connected', { version: walletCompanion.api.version })}
+										{t('pageSettings.walletCompanion.detected', { version: walletCompanion.api.version })}
 									</p>
 								</div>
 							</div>
