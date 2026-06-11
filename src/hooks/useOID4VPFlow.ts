@@ -463,14 +463,14 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 	const handleDCAPIRequest = useCallback(async (request: DCAPIRequest, verifiedOrigin: string): Promise<OID4VPFlowResult> => {
 		setIsLoading(true);
 		try {
-			const clientIdForTrust = 'clientId' in request ? request.clientId : verifiedOrigin;
+			const clientIdForTrust = request.clientId ?? verifiedOrigin;
 			const clientIdScheme = parseClientIdScheme(clientIdForTrust);
 
 			let trustResult: TrustEvaluationResult | undefined;
 
 			// Only evaluate trust for signed requests with key material
 			// TODO: we should consider implementing support for evaluating unsigned requests
-			if ('keyMaterial' in request) {
+			if (request.isSigned && request.keyMaterial) {
 				const keyMaterial: OpenID4VPKeyMaterial = {
 					type: request.keyMaterial.type,
 					key: request.keyMaterial.value,
