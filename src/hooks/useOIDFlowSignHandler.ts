@@ -296,7 +296,7 @@ async function createVpTokenFromMdoc(
 		throw new Error('Both responseUri and origin provided for mdoc presentation, only one should be provided');
 	}
 
-	if (disclosedClaims?.length) {
+	if (!disclosedClaims?.length) {
 		throw new Error('disclosedClaims required for mdoc presentation');
 	}
 

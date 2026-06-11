@@ -28,6 +28,7 @@ import { DCAPIRequest, DCAPISession } from '@/lib/openid-flow/platforms/dc-api';
 import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
 import { BackendApi } from '@/api';
 import { parseClientIdScheme, OpenID4VPKeyMaterial, TrustEvaluationResult } from 'wallet-common';
+import { logger } from '@/logger';
 
 export interface UseOID4VPFlowOptions {
 	/**
@@ -486,6 +487,8 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 						message: trustResult?.status ?? 'Verifier is not trusted',
 					});
 				}
+			} else {
+				logger.debug('DC API request has no key material, skipping trust evaluation');
 			}
 
 			const credentials = await waitForCredentials();

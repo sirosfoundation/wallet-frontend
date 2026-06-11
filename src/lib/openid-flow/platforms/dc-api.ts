@@ -1,5 +1,5 @@
 import { getPublicKeyFromB64Cert } from '@/lib/utils/pki';
-import { calculateJwkThumbprint, EncryptJWT, importJWK, importX509, JWK, jwtVerify, KeyLike } from 'jose';
+import { calculateJwkThumbprint, decodeJwt, decodeProtectedHeader, EncryptJWT, importJWK, importX509, JWK, jwtVerify, KeyLike } from 'jose';
 import { logger } from '@/logger';
 import { z } from 'zod';
 import { DcqlQuery } from 'dcql';
@@ -233,21 +233,10 @@ export class DCAPISession {
 	}
 
 	#parseJwtRequest(jwt: string, url: URL): SignedDCAPIRequest {
-		const jwtHeaderAndPayload = jwt.split('.').slice(0, 2);
-		if (jwtHeaderAndPayload.length !== 2) {
-			throw new Error('Invalid JWT format: must have header and payload');
-		}
+		const header = decodeProtectedHeader(jwt);
+		const payload = decodeJwt(jwt);
 
-		const [header, payload] = jwtHeaderAndPayload.map(part => {
-			try {
-				return JSON.parse(atob(part.replaceAll('-', '+').replaceAll('_', '/')));
-			} catch (err) {
-				logger.error('Failed to decode JWT part:', err);
-				throw new Error('Invalid JWT encoding');
-			}
-		});
-
-		if (payload.typ !== 'oauth-authz-req+jwt') {
+		if (header.typ !== 'oauth-authz-req+jwt') {
 			throw new Error('Invalid JWT payload type, must be "oauth-authz-req+jwt"');
 		}
 

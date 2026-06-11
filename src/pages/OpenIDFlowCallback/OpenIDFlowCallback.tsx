@@ -472,8 +472,9 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 
 			session.close();
 		} catch (err) {
-			const description =
-				(err instanceof Error ? err.message : String(err)) ?? t('openIdCallback.vpFlowError.requestFailed');
+			const description = err instanceof Error
+				? err.message
+				: String(err) || t('openIdCallback.vpFlowError.requestFailed');
 
 			logger.error('Error processing DC API request:', err);
 
