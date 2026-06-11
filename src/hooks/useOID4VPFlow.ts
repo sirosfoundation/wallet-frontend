@@ -624,7 +624,7 @@ function buildConformantCredentialsMap(
 				})),
 			});
 		}
-		result.get(match.input_descriptor_id)!.credentials.push(Number.parseInt(match.credential_id));
+		result.get(match.input_descriptor_id).credentials.push(Number.parseInt(match.credential_id));
 	}
 
 	return result;
