@@ -2,6 +2,7 @@ import { getPublicKeyFromB64Cert } from '@/lib/utils/pki';
 import { calculateJwkThumbprint, EncryptJWT, importJWK, importX509, JWK, jwtVerify, KeyLike } from 'jose';
 import { logger } from '@/logger';
 import { z } from 'zod';
+import { DcqlQuery } from 'dcql';
 
 type DCAPIMode = 'wallet_companion' | 'android' | 'ios';
 
@@ -29,14 +30,18 @@ const ClientMetadataSchema = z.object({
 
 const BaseDCApiRequestSchema = z.object({
 	nonce: z.string({ required_error: 'Missing required nonce parameter' }).min(1, 'nonce cannot be empty'),
-	dcqlQuery: z.object({
-		credentials: z.array(
-			z.object({}).passthrough(), { required_error: 'Missing credentials array in dcql_query' }
-		).min(1, 'credentials array cannot be empty'),
-		credential_sets: z.array(
-			z.object({}).passthrough()
-		).optional(),
-	}, { required_error: 'Invalid or missing dcql_query parameter' }).passthrough(),
+	dcqlQuery: z.custom<DcqlQuery.Input>(
+		(val) => {
+			if (!val || typeof val !== 'object') return false;
+			try {
+				DcqlQuery.parse(val);
+				return true;
+			} catch {
+				return false;
+			}
+		},
+		{ message: 'Invalid dcql_query' }
+	),
 	responseMode: DCApiResponseModeSchema,
 }).strict();
 
