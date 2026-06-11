@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 export interface DCAPIMode {
 	readonly verifiedOrigin: string;
-	originHandshake(requestId: string, expectedOrigins: string[]): Promise<string>;
+	originHandshake(requestId: string, expectedOrigins?: string[]): Promise<string>;
 	send(response: DCAPIResponse): void;
 	close(): void;
 }
