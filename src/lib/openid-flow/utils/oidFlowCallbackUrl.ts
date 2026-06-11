@@ -27,6 +27,7 @@ export function parseOIDFlowCallbackUrl(url: URL): OIDFlowCallbackURL {
 		url.searchParams.get('request_id') &&
 		(
 			url.searchParams.get('response_mode') === 'dc_api' ||
+			url.searchParams.get('response_mode') === 'dc_api.jwt' ||
 			url.searchParams.get('request')
 		)
 	) return {
