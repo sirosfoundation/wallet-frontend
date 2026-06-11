@@ -1,9 +1,9 @@
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import {
 	WALLET_COMPANION_INTEGRATION,
 	I18N_WALLET_NAME_OVERRIDE,
 	STATIC_PUBLIC_URL
 } from '@/config';
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 type WalletRegistrationInput = {
 	name: string;
@@ -54,7 +54,7 @@ export const WalletCompanionProvider = ({ children }: { children: ReactNode }) =
 			.finally(() => setIsLoading(false));
 	}, [api, walletUrl]);
 
-	const register = async () => {
+	const register = useCallback(async () => {
 		if (!api) return;
 		const result = await api.registerWallet({
 			name: I18N_WALLET_NAME_OVERRIDE,
@@ -66,11 +66,14 @@ export const WalletCompanionProvider = ({ children }: { children: ReactNode }) =
 			],
 		});
 		if (result.success) setIsRegistered(true);
-	};
+	}, [api, walletUrl]);
 
-	const value = api && WALLET_COMPANION_INTEGRATION
-		? { api, isRegistered, isLoading, register }
-		: null;
+	const value = useMemo(() =>
+		api && WALLET_COMPANION_INTEGRATION
+			? { api, isRegistered, isLoading, register }
+			: null,
+		[api, isRegistered, isLoading, register]
+	);
 
 	return (
 		<WalletCompanionContext.Provider value={value}>
