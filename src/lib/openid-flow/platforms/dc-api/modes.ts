@@ -1,9 +1,10 @@
 import { DCAPIMode, DCAPIResponse } from "./resources";
 
 export class DCAPIWalletCompanionMode implements DCAPIMode {
-	#verifiedOrigin: string;
+	#verifiedOrigin?: string;
 
 	get verifiedOrigin(): string {
+		if (!this.#verifiedOrigin) throw new Error('Origin not verified');
 		return this.#verifiedOrigin;
 	}
 

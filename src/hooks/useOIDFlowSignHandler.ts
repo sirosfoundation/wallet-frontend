@@ -237,7 +237,7 @@ async function createVpToken(
 					keystore,
 					{
 						credentialRaw,
-						disclosedClaims,
+						disclosedClaims: disclosedClaims ?? [],
 					},
 					{
 						nonce,

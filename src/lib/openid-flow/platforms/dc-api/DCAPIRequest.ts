@@ -18,7 +18,7 @@ import {
 import { logger } from '@/logger';
 import { getPublicKeyFromB64Cert } from '@/lib/utils/pki';
 
-export class DCAPIRequest implements SignedDCAPIRequest, UnsignedDCAPIRequest {
+export class DCAPIRequest {
 	readonly data: SignedDCAPIRequest | UnsignedDCAPIRequest;
 	readonly isSigned: boolean;
 
@@ -127,9 +127,17 @@ export class DCAPIRequest implements SignedDCAPIRequest, UnsignedDCAPIRequest {
 			logger.warn('transaction_data parameter in query string is not yet supported and will be ignored');
 		}
 
+		const dcqlQueryParam = (() => {
+			try {
+				return JSON.parse(url.searchParams.get('dcql_query') || '{}');
+			} catch {
+				throw new Error('Invalid JSON in dcql_query parameter');
+			}
+		})();
+
 		const { success, data, error } = UnsignedDCApiRequestSchema.safeParse({
 			nonce: url.searchParams.get('nonce'),
-			dcqlQuery: JSON.parse(url.searchParams.get('dcql_query') || '{}'),
+			dcqlQuery: dcqlQueryParam,
 			responseMode: url.searchParams.get('response_mode'),
 		});
 

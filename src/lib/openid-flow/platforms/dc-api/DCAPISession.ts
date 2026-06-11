@@ -15,10 +15,9 @@ export class DCAPISession {
 
 	constructor(url: URL) {
 		this.requestId = url.searchParams.get('request_id');
-		this.mode = this.#detectMode();
-
 		if (!this.requestId) throw new Error('Missing request_id');
 
+		this.mode = this.#detectMode();
 		this.request = new DCAPIRequest(url);
 	}
 
@@ -34,25 +33,17 @@ export class DCAPISession {
 			await this.request.verifySignature();
 		}
 
+		if (this.request.isSigned && !this.request.expectedOrigins?.length) {
+			throw new Error('Signed request missing required expected_origins');
+		}
+
 		await this.mode.originHandshake(
 			this.requestId,
 			this.request.expectedOrigins,
 		);
-
-		if (this.request.isSigned && !this.request.expectedOrigins?.length) {
-			throw new Error('Signed request missing required expected_origins');
-		}
-		if (this.request.expectedOrigins?.length) {
-			if (!this.mode.verifiedOrigin) {
-				throw new Error('Cannot validate expected_origins: origin not verified');
-			}
-			if (!this.request.expectedOrigins.includes(this.mode.verifiedOrigin)) {
-				throw new Error(`Origin ${this.mode.verifiedOrigin} not in expected_origins`);
-			}
-		}
 	}
 
-	get verifiedOrigin(): string | undefined {
+	get verifiedOrigin(): string {
 		return this.mode.verifiedOrigin;
 	}
 
