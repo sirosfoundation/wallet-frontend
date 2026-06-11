@@ -213,6 +213,11 @@ export class DCAPISession {
 	}
 
 	#parsePlainParams(url: URL): UnsignedDCAPIRequest {
+		if ('transaction_data' in url.searchParams) {
+			// TODO: implement transaction_data support.
+			logger.warn('transaction_data parameter in query string is not yet supported and will be ignored');
+		}
+
 		const { success, data, error } = UnsignedDCApiRequestSchema.safeParse({
 			nonce: url.searchParams.get('nonce'),
 			dcqlQuery: JSON.parse(url.searchParams.get('dcql_query') || '{}'),
@@ -231,6 +236,11 @@ export class DCAPISession {
 		const [headerB64, payloadB64] = jwt.split('.');
 		const header = JSON.parse(atob(headerB64.replace(/-/g, '+').replace(/_/g, '/')));
 		const payload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
+
+		if ('transaction_data' in payload) {
+			// TODO: implement transaction_data support.
+			logger.warn('transaction_data parameter in JWT payload is not yet supported and will be ignored');
+		}
 
 		const { success, data, error } = SignedDCApiRequestSchema.safeParse({
 			nonce: payload.nonce,
