@@ -237,6 +237,14 @@ export class DCAPISession {
 		const header = JSON.parse(atob(headerB64.replace(/-/g, '+').replace(/_/g, '/')));
 		const payload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
 
+		if (payload.typ !== 'oauth-authz-req+jwt') {
+			throw new Error('Invalid JWT payload type, must be "oauth-authz-req+jwt"');
+		}
+
+		if (payload.iss) {
+			logger.warn('JWT "iss" claim is not supported and will be ignored');
+		}
+
 		if ('transaction_data' in payload) {
 			// TODO: implement transaction_data support.
 			logger.warn('transaction_data parameter in JWT payload is not yet supported and will be ignored');
