@@ -215,7 +215,7 @@ export class DCAPISession {
 	#parsePlainParams(url: URL): UnsignedDCAPIRequest {
 		const { success, data, error } = UnsignedDCApiRequestSchema.safeParse({
 			nonce: url.searchParams.get('nonce'),
-			dcqlQuery: url.searchParams.get('dc_query'),
+			dcqlQuery: JSON.parse(url.searchParams.get('dcql_query') || '{}'),
 			responseMode: url.searchParams.get('response_mode'),
 		});
 
