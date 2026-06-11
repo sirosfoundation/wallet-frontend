@@ -233,6 +233,11 @@ export class DCAPISession {
 	}
 
 	#parseJwtRequest(jwt: string, url: URL): SignedDCAPIRequest {
+		const urlClientId = url.searchParams.get('client_id');
+		if (!urlClientId) {
+			throw new Error('client_id required in URL for signed requests');
+		}
+
 		const header = decodeProtectedHeader(jwt);
 		const payload = decodeJwt(jwt);
 
@@ -262,6 +267,10 @@ export class DCAPISession {
 		if (!success) {
 			logger.error('Invalid DC API JWT request:', error);
 			throw new Error('Invalid DC API JWT request: ' + error.errors.map(e => e.message).join(', '));
+		}
+
+		if (urlClientId !== data.clientId) {
+			throw new Error('client_id mismatch between URL and JWT');
 		}
 
 		return data;
