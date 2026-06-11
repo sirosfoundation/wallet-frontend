@@ -369,6 +369,13 @@
 			"description": "Please authenticate with the passkey \"{{passkeyLabel}}\"...",
 			"error": "<p>Something went wrong, please try again.</p><p>Please note that you need to authenticate with the passkey \"{{passkeyLabel}}\".</p>",
 			"title": "Upgrading passkey encryption key"
+		},
+		"walletCompanion": {
+			"connected": "Connected to Wallet Companion v{{version}}",
+			"description": "Register this wallet with the Wallet Companion browser extension to enable credential presentations via the Digital Credentials API.",
+			"register": "Register with Wallet Companion",
+			"registered": "Registered with Wallet Companion",
+			"title": "Wallet Companion (beta)"
 		}
 	},
 	"parsing": {
@@ -434,8 +441,8 @@
 		"cameraPermissionAllow": "Please allow camera permission to use the QR scanner.",
 		"description": "Target the QR Code, and you will redirect to proceed with the process",
 		"title": "Scan the QR Code",
-		"unsupportedTitle": "Unsupported QR code",
-		"unsupportedDescription": "This QR code is not supported by the wallet. Please scan a credential offer or presentation request."
+		"unsupportedDescription": "This QR code is not supported by the wallet. Please scan a credential offer or presentation request.",
+		"unsupportedTitle": "Unsupported QR code"
 	},
 	"qrShareMdoc": {
 		"communicating": "Communicating with verifier...",

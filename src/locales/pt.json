@@ -296,6 +296,13 @@
 			"description": "Por favor, autentique-se com a chave de acesso \"{{passkeyLabel}}\"...",
 			"error": "<p>Algo correu mal. Por favor, tente novamente.</p><p>Por favor, lembre-se que precisa de se autenticar com a chave de acesso \"{{passkeyLabel}}\".</p>",
 			"title": "A atualizar a chave de encriptação da chave de acesso"
+		},
+		"walletCompanion": {
+			"connected": "Ligado ao Wallet Companion v{{version}}",
+			"description": "Registe esta carteira na extensão de navegador Wallet Companion para ativar apresentações de credenciais através da Digital Credentials API.",
+			"register": "Registar no Wallet Companion",
+			"registered": "Registado no Wallet Companion",
+			"title": "Wallet Companion (beta)"
 		}
 	},
 	"passkeyInfoPopup": {
@@ -350,8 +357,8 @@
 		"cameraPermissionAllow": "Por favor, ative a permissão da câmara para usar o digitalizador de código QR.",
 		"description": "Vise o código QR e será redirecionado para continuar com o processo",
 		"title": "Ler o código QR",
-		"unsupportedTitle": "Código QR não suportado",
-		"unsupportedDescription": "Este código QR não é suportado pela carteira. Por favor, digitalize uma oferta de credencial ou solicitação de apresentação."
+		"unsupportedDescription": "Este código QR não é suportado pela carteira. Por favor, digitalize uma oferta de credencial ou solicitação de apresentação.",
+		"unsupportedTitle": "Código QR não suportado"
 	},
 	"queryableList": {
 		"all": "Todos",
