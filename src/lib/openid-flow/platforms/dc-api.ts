@@ -28,20 +28,22 @@ const ClientMetadataSchema = z.object({
 	authorization_encrypted_response_enc: z.string().optional(),
 }).passthrough();
 
+const dcqlQuerySchema = z.custom<DcqlQuery.Input>(
+	(val) => {
+		if (!val || typeof val !== 'object') return false;
+		try {
+			DcqlQuery.parse(val);
+			return true;
+		} catch {
+			return false;
+		}
+	},
+	{ message: 'Invalid dcql_query' }
+);
+
 const BaseDCApiRequestSchema = z.object({
 	nonce: z.string({ required_error: 'Missing required nonce parameter' }).min(1, 'nonce cannot be empty'),
-	dcqlQuery: z.custom<DcqlQuery.Input>(
-		(val) => {
-			if (!val || typeof val !== 'object') return false;
-			try {
-				DcqlQuery.parse(val);
-				return true;
-			} catch {
-				return false;
-			}
-		},
-		{ message: 'Invalid dcql_query' }
-	),
+	dcqlQuery: dcqlQuerySchema,
 	responseMode: DCApiResponseModeSchema,
 }).strict();
 
