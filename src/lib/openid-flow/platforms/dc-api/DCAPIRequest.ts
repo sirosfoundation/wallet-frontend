@@ -138,7 +138,7 @@ export class DCAPIRequest {
 		const { success, data, error } = UnsignedDCApiRequestSchema.safeParse({
 			nonce: url.searchParams.get('nonce'),
 			dcqlQuery: dcqlQueryParam,
-			responseMode: url.searchParams.get('response_mode'),
+			responseMode: url.searchParams.get('response_mode') ?? undefined,
 		});
 
 		if (!success) {
