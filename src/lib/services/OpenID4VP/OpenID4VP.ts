@@ -164,11 +164,12 @@ export function useOpenID4VP({
 				// return { presentation_during_issuance_session: responseData.presentation_during_issuance_session };
 				return { state: "skipped" as const };
 			}
+			// Intentionally ignore redirect_uri from the direct_post response.
+			// The browser's /authorize page handles the redirect to the RP via
+			// polling. If the wallet also follows redirect_uri, both race to
+			// consume the authorization code and the second arrival fails.
 			if (responseData.redirect_uri) {
-				return {
-					state: "success" as const,
-					redirect_uri: responseData.redirect_uri,
-				};
+				console.debug('Ignoring redirect_uri from direct_post response (browser handles redirect via polling)');
 			}
 			if (res.status >= 400) {
 				throw new Error(`Direct post to verifier failed with status ${res.status}`);

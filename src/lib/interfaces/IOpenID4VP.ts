@@ -4,7 +4,6 @@ import { ParsedTransactionData } from "../services/OpenID4VP/TransactionData/par
 export type SendAuthorizationResponseResult =
 	{
 		state: "skipped" | "success";
-		redirect_uri?: string;
 	};
 
 export interface IOpenID4VP {

@@ -306,10 +306,10 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 
 				}).then((res) => {
 					// if (res.state === 'skipped') do nothing
-					if (res?.redirect_uri) {
-						setRedirectUri(res.redirect_uri);
-					}
-					else if (res?.state === 'success') {
+					// Intentionally ignore redirect_uri — the browser handles the
+					// redirect to the RP via polling. Following it here causes a
+					// double-redirect race that consumes the authorization code.
+					if (res?.state === 'success') {
 						showMessagePopup('sendCredentialProcessSuccess', undefined, 'success');
 					}
 				}).catch(err => {
