@@ -234,7 +234,7 @@ describe('DCAPIRequest', () => {
 			url.searchParams.set('request', jwt);
 			url.searchParams.set('client_id', 'https://verifier.example.com');
 
-			new DCAPIRequest(url);
+			void new DCAPIRequest(url);
 
 			expect(logger.warn).toHaveBeenCalledWith(
 				"JWT 'iss' claim is not supported and will be ignored",

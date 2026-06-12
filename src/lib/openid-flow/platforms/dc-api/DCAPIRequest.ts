@@ -18,7 +18,7 @@ import {
 import { logger } from '@/logger';
 import { getPublicKeyFromB64Cert } from '@/lib/utils/pki';
 
-const SUPPORTED_ALGS = [
+const SUPPORTED_ALGS = new Set([
 	'ES256',
 	'ES384',
 	'ES512',
@@ -28,7 +28,7 @@ const SUPPORTED_ALGS = [
 	'PS256',
 	'PS384',
 	'PS512'
-];
+]);
 
 export class DCAPIRequest {
 	readonly data: SignedDCAPIRequest | UnsignedDCAPIRequest;
@@ -241,7 +241,7 @@ export class DCAPIRequest {
 		const header = decodeProtectedHeader(this.data.rawJwt);
 		const alg = header.alg ?? 'ES256';
 
-		if (!SUPPORTED_ALGS.includes(alg)) {
+		if (!SUPPORTED_ALGS.has(alg)) {
 			throw new Error(`Unsupported JWT algorithm: ${alg}`);
 		}
 

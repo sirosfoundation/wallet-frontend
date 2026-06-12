@@ -89,7 +89,7 @@ describe('DCAPIWalletCompanionMode', () => {
 		});
 
 		it('accepts any origin when expected_origins is undefined', async () => {
-			const handshakePromise = mode.originHandshake('test-request-123', undefined);
+			const handshakePromise = mode.originHandshake('test-request-123');
 
 			setTimeout(() => {
 				window.dispatchEvent(new MessageEvent('message', {
