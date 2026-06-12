@@ -13,17 +13,25 @@ export class DCAPIWalletCompanionMode implements DCAPIMode {
 			const timeout = setTimeout(() => reject(new Error('Origin handshake timeout')), 5000);
 
 			const handler = (event: MessageEvent) => {
-				if (event.data?.type === 'WC_ORIGIN_ACK' && event.data.requestId === requestId) {
-					clearTimeout(timeout);
-					window.removeEventListener('message', handler);
+				if (
+					event.source !== window.opener ||
+					event.data?.type !== 'WC_ORIGIN_ACK' ||
+					!event.data?.requestId
+				) return;
 
-					if (expectedOrigins && !expectedOrigins.includes(event.origin)) {
-						return reject(new Error(`Origin ${event.origin} not in expected_origins`));
-					}
-
-					this.#verifiedOrigin = event.origin;
-					resolve(event.origin);
+				if (event.data.requestId !== requestId) {
+					return reject(new Error('Mismatched requestId in origin handshake response.'));
 				}
+
+				clearTimeout(timeout);
+				window.removeEventListener('message', handler);
+
+				if (expectedOrigins && !expectedOrigins.includes(event.origin)) {
+					return reject(new Error(`Origin ${event.origin} not in expected_origins`));
+				}
+
+				this.#verifiedOrigin = event.origin;
+				resolve(event.origin);
 			};
 
 			window.addEventListener('message', handler);
