@@ -55,7 +55,7 @@ export const SignedDCApiRequestSchema = BaseDCApiRequestSchema.extend({
 	clientId: z.string({ required_error: 'Missing client_id in JWT payload' }).min(1, 'client_id cannot be empty'),
 	keyMaterial: KeyMaterialSchema,
 	rawJwt: z.string().min(1),
-	expectedOrigins: z.array(z.string(), { required_error: 'Missing expected_origins in signed request' }),
+	expectedOrigins: z.array(z.string(), { required_error: 'Missing expected_origins in signed request' }).min(1, 'expected_origins cannot be empty'),
 	clientMetadata: ClientMetadataSchema.optional(),
 }).strict();
 
