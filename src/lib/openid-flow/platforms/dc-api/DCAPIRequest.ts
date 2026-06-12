@@ -18,6 +18,18 @@ import {
 import { logger } from '@/logger';
 import { getPublicKeyFromB64Cert } from '@/lib/utils/pki';
 
+const SUPPORTED_ALGS = [
+	'ES256',
+	'ES384',
+	'ES512',
+	'RS256',
+	'RS384',
+	'RS512',
+	'PS256',
+	'PS384',
+	'PS512'
+];
+
 export class DCAPIRequest {
 	readonly data: SignedDCAPIRequest | UnsignedDCAPIRequest;
 	readonly isSigned: boolean;
@@ -99,12 +111,17 @@ export class DCAPIRequest {
 			logger.warn('transaction_data parameter in JWT payload is not yet supported and will be ignored');
 		}
 
+		const keyMaterial = this.#extractKeyMaterial(header);
+		if (!keyMaterial) {
+			throw new Error('JWT header must contain jwk, x5c, or kid for signature verification');
+		}
+
 		const { success, data, error } = SignedDCApiRequestSchema.safeParse({
 			nonce: payload.nonce,
 			dcqlQuery: payload.dcql_query,
 			responseMode: payload.response_mode,
 			clientId: payload.client_id,
-			keyMaterial: this.#extractKeyMaterial(header),
+			keyMaterial: keyMaterial,
 			rawJwt: jwt,
 			expectedOrigins: payload.expected_origins,
 			clientMetadata: payload.client_metadata,
@@ -222,6 +239,12 @@ export class DCAPIRequest {
 		}
 
 		const header = decodeProtectedHeader(this.data.rawJwt);
-		return header.alg ?? 'ES256';
+		const alg = header.alg ?? 'ES256';
+
+		if (!SUPPORTED_ALGS.includes(alg)) {
+			throw new Error(`Unsupported JWT algorithm: ${alg}`);
+		}
+
+		return alg;
 	}
 }
