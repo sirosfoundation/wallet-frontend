@@ -169,8 +169,12 @@ export function useOpenID4VP({
 			if (responseData.presentation_during_issuance_session) {
 				return { presentation_during_issuance_session: responseData.presentation_during_issuance_session };
 			}
+			// Intentionally ignore redirect_uri from the direct_post response.
+			// The browser's /authorize page handles the redirect to the RP via
+			// polling. If the wallet also follows redirect_uri, both race to
+			// consume the authorization code and the second arrival fails.
 			if (responseData.redirect_uri) {
-				return { url: responseData.redirect_uri };
+				logger.debug('Ignoring redirect_uri from direct_post response (browser handles redirect via polling)');
 			}
 		} catch (err) {
 			logger.error(err);
