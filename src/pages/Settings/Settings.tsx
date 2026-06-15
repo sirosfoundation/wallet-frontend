@@ -19,10 +19,11 @@ import Button from '../../components/Buttons/Button';
 import { H1, H2, H3 } from '../../components/Shared/Heading';
 import PageDescription from '../../components/Shared/PageDescription';
 import LanguageSelector from '../../components/LanguageSelector/LanguageSelector';
-import { Bell, ChevronDown, Edit, FingerprintIcon, Laptop, Lock, LockOpen, Moon, RefreshCcw, Smartphone, SmartphoneNfcIcon, Sun, Trash2 } from 'lucide-react';
+import { Bell,  ChevronDown, CircleCheckIcon, Edit, FingerprintIcon, Laptop, Lock, LockOpen, Moon, RefreshCcw, Smartphone, SmartphoneNfcIcon, Sun, Trash2 } from 'lucide-react';
 import { UsbStickDotIcon } from '@/components/Shared/CustomIcons';
 import { APP_VERSION } from '@/config';
 import { logger } from '@/logger';
+import { useWalletCompanion } from '@/context/WalletCompanionContext';
 
 function useWebauthnCredentialNickname(credential: WebauthnCredential): string {
 	const { t } = useTranslation();
@@ -727,6 +728,7 @@ const Settings = () => {
 	const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
 	const [loading, setLoading] = useState(false);
 	const screenType = useScreenType();
+	const walletCompanion = useWalletCompanion();
 
 	const openDeleteConfirmation = () => setIsDeleteConfirmationOpen(true);
 	const closeDeleteConfirmation = () => setIsDeleteConfirmationOpen(false);
@@ -1049,6 +1051,30 @@ const Settings = () => {
 								)}
 							</div>
 						</div>
+						{walletCompanion && (
+							<div className="my-2 py-2">
+								<H2 heading={t('pageSettings.walletCompanion.title')} />
+								<div className='space-y-2'>
+									<p className=' dark:text-white'>
+										{t('pageSettings.walletCompanion.description')}
+									</p>
+
+									{walletCompanion.isRegistered ? (
+										<p className='text-lm-green dark:text-dm-green'>
+											<CircleCheckIcon size={18} className="inline mr-1" />
+											{t('pageSettings.walletCompanion.registered')}
+										</p>
+									) : (
+										<Button onClick={walletCompanion.register} variant="primary">
+											{t('pageSettings.walletCompanion.register')}
+										</Button>
+									)}
+									<p className='text-sm dark:text-white'>
+										{t('pageSettings.walletCompanion.detected', { version: walletCompanion.api.version })}
+									</p>
+								</div>
+							</div>
+						)}
 						<div className="mt-2 mb-2 py-2">
 							<H2 heading={t('pageSettings.title.manageAcount')}>
 							</H2>

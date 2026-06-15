@@ -297,6 +297,13 @@
 			"description": "Por favor, autentique-se com a chave de acesso \"{{passkeyLabel}}\"...",
 			"error": "<p>Algo correu mal. Por favor, tente novamente.</p><p>Por favor, lembre-se que precisa de se autenticar com a chave de acesso \"{{passkeyLabel}}\".</p>",
 			"title": "A atualizar a chave de encriptação da chave de acesso"
+		},
+		"walletCompanion": {
+			"description": "Registar esta carteira no Wallet Companion permite apresentações de credenciais através da Digital Credentials API.",
+			"detected": "Wallet Companion v{{version}} detetado",
+			"register": "Registar no Wallet Companion",
+			"registered": "Registado no Wallet Companion",
+			"title": "Wallet Companion (beta)"
 		}
 	},
 	"passkeyInfoPopup": {

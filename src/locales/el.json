@@ -303,6 +303,13 @@
 			"description": "Παρακαλώ αυθεντικοποιηθείτε με το κλειδί πρόσβασης \"{{passkeyLabel}}\"...",
 			"error": "<p>Κάτι πήγε στραβά, δοκιμάστε ξανά.</p><p>Σημειώστε ότι πρέπει να αυθεντικοποιηθείτε με το κλειδί πρόσβασης \"{{passkeyLabel}}\".</p>",
 			"title": "Αναβάθμιση κλειδιού κρυπτογράφησης"
+		},
+		"walletCompanion": {
+			"description": "Η καταχώρηση αυτού του πορτοφολιού στο Wallet Companion ενεργοποιεί παρουσιάσεις διαπιστευτηρίων μέσω του Digital Credentials API.",
+			"detected": "Ανιχνεύθηκε Wallet Companion v{{version}}",
+			"register": "Καταχώρηση στο Wallet Companion",
+			"registered": "Καταχωρημένο στο Wallet Companion",
+			"title": "Wallet Companion (beta)"
 		}
 	},
 	"parsing": {

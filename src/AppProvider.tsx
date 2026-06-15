@@ -17,6 +17,7 @@ import { OIDFlowTransportProviderWrapper } from './context/OIDFlowTransportProvi
 import { WebSocketSignHandlerProvider } from './context/WebSocketSignHandlerProvider';
 import { ErrorDialogContextProvider } from './context/ErrorDialogContextProvider';
 import { TxCodeInputProvider } from './context/TxCodeInputContext';
+import { WalletCompanionProvider } from './context/WalletCompanionContext';
 
 type RootProviderProps = {
 	children: ReactNode;
@@ -35,9 +36,11 @@ const AppProvider: React.FC<RootProviderProps> = ({ children }) => {
 										<OpenID4VCIContextProvider>
 											<TxCodeInputProvider>
 												<NotificationProvider>
-													<AppSettingsProvider>
-														{children}
-													</AppSettingsProvider>
+													<WalletCompanionProvider>
+														<AppSettingsProvider>
+															{children}
+														</AppSettingsProvider>
+													</WalletCompanionProvider>
 												</NotificationProvider>
 											</TxCodeInputProvider>
 										</OpenID4VCIContextProvider>

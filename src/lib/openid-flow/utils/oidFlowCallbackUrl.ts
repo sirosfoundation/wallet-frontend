@@ -22,6 +22,20 @@ export function parseOIDFlowCallbackUrl(url: URL): OIDFlowCallbackURL {
 		url,
 	};
 
+	// DC API authorization request
+	if (
+		url.searchParams.get('request_id') &&
+		(
+			url.searchParams.get('response_mode') === 'dc_api' ||
+			url.searchParams.get('response_mode') === 'dc_api.jwt' ||
+			url.searchParams.get('request')
+		)
+	) return {
+		protocol: 'oid4vp',
+		type: 'dc_api_request',
+		url,
+	};
+
 	// authorization request
 	if (
 		url.searchParams.get('client_id') &&

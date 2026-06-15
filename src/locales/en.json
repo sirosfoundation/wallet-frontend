@@ -370,6 +370,13 @@
 			"description": "Please authenticate with the passkey \"{{passkeyLabel}}\"...",
 			"error": "<p>Something went wrong, please try again.</p><p>Please note that you need to authenticate with the passkey \"{{passkeyLabel}}\".</p>",
 			"title": "Upgrading passkey encryption key"
+		},
+		"walletCompanion": {
+			"description": "Registering this wallet with Wallet Companion enables credential presentations via the Digital Credentials API.",
+			"detected": "Wallet Companion v{{version}} detected",
+			"register": "Register with Wallet Companion",
+			"registered": "Registered with Wallet Companion",
+			"title": "Wallet Companion (beta)"
 		}
 	},
 	"parsing": {

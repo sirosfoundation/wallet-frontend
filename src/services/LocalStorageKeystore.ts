@@ -110,6 +110,10 @@ export interface LocalStorageKeystore {
 		nonce: string, clientId: string, responseUri: string,
 		verifierJwkThumbprint: string | null,
 	): Promise<{ deviceResponseMDoc: MDoc }>,
+	generateDeviceResponseForDCAPI(
+		mdocCredential: MDoc, presentationDefinition: any,
+		nonce: string, origin: string, jwkThumbprint: string | null
+	): Promise<{ deviceResponseMDoc: MDoc }>,
 	generateDeviceResponseWithProximity(mdocCredential: MDoc, presentationDefinition: any, sessionTranscriptBytes: any): Promise<{ deviceResponseMDoc: MDoc }>,
 
 	getCalculatedWalletState(): WalletState | null,
@@ -708,6 +712,13 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		[openPrivateData]
 	);
 
+	const generateDeviceResponseForDCAPI = useCallback(
+		async (mdocCredential: MDoc, presentationDefinition: any, nonce: string, origin: string, verifierJwkThumbprint: string | null): Promise<{ deviceResponseMDoc: MDoc }> => (
+			await keystore.generateDeviceResponseForDCAPI(await openPrivateData(), mdocCredential, presentationDefinition, nonce, origin, verifierJwkThumbprint)
+		),
+		[openPrivateData]
+	);
+
 	const generateDeviceResponseWithProximity = useCallback(
 		async (mdocCredential: MDoc, presentationDefinition: any, sessionTranscriptBytes: any): Promise<{ deviceResponseMDoc: MDoc }> => (
 			await keystore.generateDeviceResponseWithProximity(await openPrivateData(), mdocCredential, presentationDefinition, sessionTranscriptBytes)
@@ -953,6 +964,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		generateOpenid4vciProofs,
 		generateKeypairs,
 		generateDeviceResponse,
+		generateDeviceResponseForDCAPI,
 		generateDeviceResponseWithProximity,
 		getCalculatedWalletState,
 		getAllCredentials,
@@ -985,6 +997,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		generateOpenid4vciProofs,
 		generateKeypairs,
 		generateDeviceResponse,
+		generateDeviceResponseForDCAPI,
 		generateDeviceResponseWithProximity,
 		getCalculatedWalletState,
 		getAllCredentials,

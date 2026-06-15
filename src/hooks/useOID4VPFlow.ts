@@ -8,9 +8,7 @@
  */
 
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
-import {
-	useOIDFlowTransportSafe,
-} from '@/context/OIDFlowTransportContext';
+import { useOIDFlowTransportSafe } from '@/context/OIDFlowTransportContext';
 import SessionContext from '@/context/SessionContext';
 import OpenID4VPContext from '@/context/OpenID4VPContext';
 import CredentialsContext, { ExtendedVcEntity } from '@/context/CredentialsContext';
@@ -25,6 +23,12 @@ import { DcqlQuery } from 'dcql';
 import { getLeastUsedCredentialInstance } from '@/lib/services/CredentialBatchHelper';
 import { applySelectiveDisclosure } from '@/lib/sd-jwt/sd-jwt';
 import { OIDFlowError } from '@/lib/openid-flow/errors';
+import { useOIDFlowSignHandler } from './useOIDFlowSignHandler';
+import { DCAPIRequest, DCAPISession } from '@/lib/openid-flow/platforms/dc-api';
+import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
+import { BackendApi } from '@/api';
+import { parseClientIdScheme, KeyMaterial } from 'wallet-common';
+import { logger } from '@/logger';
 
 export interface UseOID4VPFlowOptions {
 	/**
@@ -82,6 +86,14 @@ export interface UseOID4VPFlowReturn {
 	 * Clear the last error
 	 */
 	clearError: () => void;
+	/**
+	 * Handle DC API request - parse URL, match credentials, store session
+	 */
+	handleDCAPIRequest: (request: DCAPIRequest, verifiedOrigin: string) => Promise<OID4VPFlowResult>;
+	/**
+	 * Send DC API response - sign, record history, send via session
+	 */
+	sendDCAPIResponse: (session: DCAPISession, credentials: OID4VPSelectedCredential[]) => Promise<OID4VPFlowResult>;
 }
 
 /**
@@ -99,6 +111,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 	const { keystore, api } = useContext(SessionContext);
 	const { vcEntityList } = useContext(CredentialsContext);
 	const { openID4VP } = useContext(OpenID4VPContext);
+	const { signPresentation } = useOIDFlowSignHandler();
 
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<Error | null>(null);
@@ -115,9 +128,6 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 	const credentialsReadyResolvers = useRef<((list: ExtendedVcEntity[]) => void)[]>([]);
 	const verifierAudienceRef = useRef<string>('');
 
-	/**
-	 *
-	 */
 	useEffect(() => {
 		vcEntityListRef.current = vcEntityList;
 		if (vcEntityList != null && credentialsReadyResolvers.current.length > 0) {
@@ -140,35 +150,6 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 			credentialsReadyResolvers.current.push(resolve);
 		});
 	}, []);
-
-	/**
-	//  * Register match handler for client-side credential matching
-	//  * This is called when the server requests credential matching for privacy
-	//  */
-	// useEffect(() => {
-	// 	if (transportType !== 'websocket' || !transportContext?.registerMatchHandler) {
-	// 		return;
-	// 	}
-
-	// 	const handleMatchRequest = async (request: MatchRequest): Promise<MatchResponse> => {
-	// 		try {
-	// 			const result = matchCredentials(
-	// 				vcEntityList || [],
-	// 				request.dcqlQuery,
-	// 			);
-	// 			return result;
-	// 		} catch (err) {
-	// 			console.error('Credential matching failed', err);
-	// 			return {
-	// 				matches: [],
-	// 				no_match_reason: 'Credential matching failed',
-	// 			};
-	// 		}
-	// 	};
-
-	// 	const unsubscribe = transportContext.registerMatchHandler(handleMatchRequest);
-	// 	return unsubscribe;
-	// }, [transportType, transportContext, vcEntityList]);
 
 	/**
 	 * Handle authorization request using the appropriate transport
@@ -305,21 +286,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 					throw new OIDFlowError({ code: no_match_reason || 'NO_MATCHING_CREDENTIALS', message: 'No matching credentials' });
 				}
 
-				for (const match of matches) {
-					if (!conformantCredentialsMap[match.input_descriptor_id]) {
-						const credDef = dcqlQuery.credentials.find(c => c.id === match.input_descriptor_id);
-						conformantCredentialsMap[match.input_descriptor_id] = {
-							credentials: [],
-							requestedFields: (credDef?.claims ?? []).map(c => ({
-								name: c.path?.[c.path.length - 1],
-								path: c.path,
-							})),
-						};
-					}
-					conformantCredentialsMap[match.input_descriptor_id].credentials.push(
-						parseInt(match.credential_id)
-					);
-				}
+				conformantCredentialsMap = Object.fromEntries(buildConformantCredentialsMap(matches, dcqlQuery));
 			} else {
 				throw new OIDFlowError({ code: 'NO_DCQL_QUERY_OR_PREMATCHED_CREDENTIALS', message: 'No dcqlQuery or preMatchedCredentials provided' });
 			}
@@ -415,16 +382,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 
 					// Record presentation history for sigCount tracking
 					if (keystore) {
-						const transactionId = crypto.getRandomValues(new Uint32Array(1))[0];
-						const presentations = await Promise.all(selectedCredentials.map(async (cred) => ({
-							transactionId,
-							data: await applySelectiveDisclosure(cred.credentialRaw, cred.disclosedClaims ?? []),
-							usedCredentialIds: [parseInt(cred.walletCredentialRef)],
-							audience: verifierAudienceRef.current,
-						})));
-						const [, newPrivateData, keystoreCommit] = await keystore.addPresentations(presentations);
-						await api.updatePrivateData(newPrivateData);
-						await keystoreCommit();
+						await recordPresentationHistory(keystore, api, selectedCredentials, verifierAudienceRef.current);
 					}
 
 					if (!result.success) {
@@ -482,7 +440,9 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 			throw new OIDFlowError({ code: 'NO_TRANSPORT_AVAILABLE', message: 'No transport available' });
 
 		} catch (err) {
-			const error = err instanceof OIDFlowError ? err : new OIDFlowError({ code: 'RESPONSE_ERROR', message: err instanceof Error ? err.message : String(err) });
+			const error = err instanceof OIDFlowError
+				? err
+				: new OIDFlowError({ code: 'RESPONSE_ERROR', message: err instanceof Error ? err.message : String(err) });
 			setError(error);
 			onError?.(error);
 			return {
@@ -497,6 +457,131 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		}
 	}, [transportType, transport, openID4VP, onProgress, onError, keystore, api, waitForCredentials]);
 
+	/**
+	 * Handle DC API request - parse URL, match credentials, store session
+	 */
+	const handleDCAPIRequest = useCallback(async (request: DCAPIRequest, verifiedOrigin: string): Promise<OID4VPFlowResult> => {
+		setIsLoading(true);
+		try {
+			const clientIdForTrust = request.clientId ?? verifiedOrigin;
+			const clientIdScheme = parseClientIdScheme(clientIdForTrust);
+
+			const keyMaterial: KeyMaterial = request.isSigned
+				? { type: request.keyMaterial.type, key: request.keyMaterial.value }
+				: { type: 'resolution', key: [] }
+
+			if (!request.isSigned) {
+				logger.debug('Unsigned request, proceeding with resolution-based trust evaluation');
+			}
+
+			const trustResult = await transportContext?.trustEvaluators.evaluateVerifierTrust({
+				clientIdScheme,
+				keyMaterial,
+			});
+
+			if (!trustResult?.trusted) {
+				throw new OIDFlowError({
+					code: 'UNTRUSTED_VERIFIER',
+					message: trustResult?.status ?? 'Verifier is not trusted',
+				});
+			}
+
+			const credentials = await waitForCredentials();
+			const { matches, no_match_reason } = matchCredentials(credentials, request.dcqlQuery);
+
+			if (matches.length === 0) {
+				throw new OIDFlowError({
+					code: no_match_reason || 'NO_MATCHING_CREDENTIALS',
+					message: 'No matching credentials',
+				});
+			}
+
+			// Build conformant credentials map
+			const conformantCredentials = buildConformantCredentialsMap(
+				matches,
+				request.dcqlQuery
+			);
+
+			return {
+				success: true,
+				conformantCredentials,
+				dcqlQuery: request.dcqlQuery,
+				verifierInfo: {
+					name: trustResult?.name ?? verifiedOrigin,
+					purpose: String(request.dcqlQuery.credential_sets?.[0]?.purpose ?? ''),
+					domain: clientIdScheme.identifier,
+					trustStatus: trustResult?.status,
+					trusted: trustResult?.trusted ?? false,
+					logo: trustResult?.logo,
+				},
+			};
+		} catch (err) {
+			const error = err instanceof OIDFlowError
+				? err
+				: new OIDFlowError({ code: 'FLOW_ERROR', message: err instanceof Error ? err.message : String(err) });
+			setError(error);
+			onError?.(error);
+			return {
+				success: false,
+				error: { code: error.code, message: error.message },
+			};
+		} finally {
+			setIsLoading(false);
+		}
+	}, [waitForCredentials, onError, transportContext?.trustEvaluators]);
+
+	/**
+	 * Send DC API response - sign, record history, send via session
+	 */
+	const sendDCAPIResponse = useCallback(async (
+		session: DCAPISession,
+		selectedCredentials: OID4VPSelectedCredential[]
+	): Promise<OID4VPFlowResult> => {
+		setIsLoading(true);
+		setError(null);
+
+		try {
+			// DC API audience format per OpenID4VP spec
+			const audience = `origin:${session.verifiedOrigin}`;
+
+			const signResponse = await signPresentation({
+				audience,
+				nonce: session.request.nonce,
+				origin: session.verifiedOrigin,
+				verifierJwkThumbprint: await session.verifierJwkThumbprint(),
+				credentialsToInclude: selectedCredentials.map(c => ({
+					credentialId: c.walletCredentialRef,
+					credentialQueryId: c.credentialQueryId,
+					disclosedClaims: c.disclosedClaims,
+					credentialRaw: c.credentialRaw,
+				})),
+			});
+
+			if (keystore) {
+				await recordPresentationHistory(keystore, api, selectedCredentials, audience);
+			}
+
+			if (!signResponse.vpToken) {
+				throw new OIDFlowError({ code: 'SIGNING_FAILED', message: 'Failed to generate VP token' });
+			}
+
+			await session.sendResponse(JSON.parse(signResponse.vpToken));
+			return { success: true };
+		} catch (err) {
+			const error = err instanceof OIDFlowError
+				? err
+				: new OIDFlowError({ code: 'RESPONSE_ERROR', message: err instanceof Error ? err.message : String(err) });
+			setError(error);
+			onError?.(error);
+			return {
+				success: false,
+				error: { code: error.code, message: error.message },
+			};
+		} finally {
+			setIsLoading(false);
+		}
+	}, [signPresentation, keystore, api, onError]);
+
 	return {
 		handleAuthorizationRequest,
 		handleCredentialSelection,
@@ -505,7 +590,59 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		isLoading,
 		error,
 		clearError,
+		handleDCAPIRequest,
+		sendDCAPIResponse,
 	};
 }
 
 export default useOID4VPFlow;
+
+/**
+ * Build conformant credentials map from DCQL matches
+ */
+function buildConformantCredentialsMap(
+	matches: Array<{ input_descriptor_id: string; credential_id: string }>,
+	dcqlQuery: DcqlQuery.Input
+): Map<string, { credentials: number[]; requestedFields: Array<{ name?: string; path?: string[] }> }> {
+	const result = new Map<string, {
+		credentials: number[];
+		requestedFields: Array<{ name?: string; path?: string[] }>
+	}>();
+
+	for (const match of matches) {
+		if (!result.has(match.input_descriptor_id)) {
+			const credDef = dcqlQuery.credentials.find(c => c.id === match.input_descriptor_id);
+			result.set(match.input_descriptor_id, {
+				credentials: [],
+				requestedFields: (credDef?.claims ?? []).map(c => ({
+					name: c.path?.[c.path.length - 1],
+					path: c.path,
+				})),
+			});
+		}
+		result.get(match.input_descriptor_id).credentials.push(Number.parseInt(match.credential_id));
+	}
+
+	return result;
+}
+
+/**
+ * Record presentation history for sigCount tracking
+ */
+async function recordPresentationHistory(
+	keystore: LocalStorageKeystore,
+	api: BackendApi,
+	selectedCredentials: OID4VPSelectedCredential[],
+	audience: string
+): Promise<void> {
+	const transactionId = crypto.getRandomValues(new Uint32Array(1))[0];
+	const presentations = await Promise.all(selectedCredentials.map(async (cred) => ({
+		transactionId,
+		data: await applySelectiveDisclosure(cred.credentialRaw, cred.disclosedClaims ?? []),
+		usedCredentialIds: [Number.parseInt(cred.walletCredentialRef)],
+		audience,
+	})));
+	const [, newPrivateData, keystoreCommit] = await keystore.addPresentations(presentations);
+	await api.updatePrivateData(newPrivateData);
+	await keystoreCommit();
+}
