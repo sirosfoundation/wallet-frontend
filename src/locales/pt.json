@@ -198,6 +198,7 @@
 		"datasetTitle": "Dataset",
 		"delete": "Eliminar credencial",
 		"deletePopupMessage": "Tem a certeza que deseja eliminar a credencial <strong>{{credentialName}}</strong>? Se continuar, <strong>todas as apresentações que incluem esta VC serão removidas do seu histórico.</strong>",
+		"deletePopupMessagePreserveHistory": "Tem a certeza que deseja eliminar a credencial <strong>{{credentialName}}</strong>?",
 		"description": "Consulte as suas credenciais",
 		"details": {
 			"availableUsages": "Utilizações disponíveis",
@@ -210,8 +211,7 @@
 		"slideButtonTitleDisable": "Sem credencial {{direction}} disponível",
 		"slideButtonTitleEnable": "Clique para ir para a credencial {{direction}}",
 		"slideNext": "Seguinte",
-		"slidePrevious": "Anterior",
-		"deletePopupMessagePreserveHistory": "Tem a certeza que deseja eliminar a credencial <strong>{{credentialName}}</strong>?"
+		"slidePrevious": "Anterior"
 	},
 	"pageHistory": {
 		"description": "Consulte o histórico de transmissões de credenciais, com informação sobre quando e para que verifiers elas foram enviadas.",
@@ -351,8 +351,8 @@
 		"cameraPermissionAllow": "Por favor, ative a permissão da câmara para usar o digitalizador de código QR.",
 		"description": "Vise o código QR e será redirecionado para continuar com o processo",
 		"title": "Ler o código QR",
-		"unsupportedTitle": "Código QR não suportado",
-		"unsupportedDescription": "Este código QR não é suportado pela carteira. Por favor, digitalize uma oferta de credencial ou solicitação de apresentação."
+		"unsupportedDescription": "Este código QR não é suportado pela carteira. Por favor, digitalize uma oferta de credencial ou solicitação de apresentação.",
+		"unsupportedTitle": "Código QR não suportado"
 	},
 	"queryableList": {
 		"all": "Todos",
