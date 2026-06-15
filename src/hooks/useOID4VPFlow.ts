@@ -470,7 +470,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				? { type: request.keyMaterial.type, key: request.keyMaterial.value }
 				: { type: 'resolution', key: [] }
 
-			if (request.isSigned) {
+			if (!request.isSigned) {
 				logger.debug('Unsigned request, procceeding with resolution-based trust evaluation');
 			}
 
