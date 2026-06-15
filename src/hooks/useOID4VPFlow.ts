@@ -471,7 +471,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				: { type: 'resolution', key: [] }
 
 			if (!request.isSigned) {
-				logger.debug('Unsigned request, procceeding with resolution-based trust evaluation');
+				logger.debug('Unsigned request, proceeding with resolution-based trust evaluation');
 			}
 
 			const trustResult = await transportContext?.trustEvaluators.evaluateVerifierTrust({
