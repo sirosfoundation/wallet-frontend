@@ -1178,6 +1178,8 @@ export async function signJwtPresentation([privateData, mainKey, calculatedState
 	);
 	const sdJwt = verifiableCredentials[0];
 	const sd_hash = toBase64Url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sdJwt)));
+	// Build a public-key-only JWK for the KB-JWT header (strip any private key material)
+	const { d: _, ...publicJwk } = cnf.jwk as JWK & { d?: string };
 	const kbJWT = await new SignJWT({
 		nonce,
 		aud: audience,
@@ -1186,7 +1188,8 @@ export async function signJwtPresentation([privateData, mainKey, calculatedState
 	}).setIssuedAt()
 		.setProtectedHeader({
 			typ: "kb+jwt",
-			alg: alg
+			alg: alg,
+			jwk: publicJwk,
 		})
 		.sign(importedPrivateKey);
 

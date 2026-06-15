@@ -204,6 +204,7 @@
 		"datasetTitle": "Σύνολο Δεδομένων",
 		"delete": "Διαγραφή Πιστοποιητικού",
 		"deletePopupMessage": "Είστε σίγουροι ότι θέλετε να διαγράψετε το πιστοποιητικό <strong>{{credentialName}}</strong>;<br/> Αν το διαγράψετε, <strong>όλες οι κοινοποιήσεις που περιλαμβάνουν αυτό το VC θα αφαιρεθούν από το ιστορικό σας.</strong>",
+		"deletePopupMessagePreserveHistory": "Είστε σίγουροι ότι θέλετε να διαγράψετε το πιστοποιητικό <strong>{{credentialName}}</strong>;",
 		"description": "Δείτε όλα τα πιστοποιητικά σας",
 		"details": {
 			"availableUsages": "Διαθέσιμες Χρήσεις",

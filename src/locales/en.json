@@ -245,6 +245,7 @@
 		"datasetTitle": "Dataset",
 		"delete": "Delete Credential",
 		"deletePopupMessage": "Are you sure you want to delete the <strong>{{credentialName}}</strong> credential?<br/> If you delete it, <strong>all the presentations that include this VC will be removed from your history.</strong>",
+		"deletePopupMessagePreserveHistory": "Are you sure you want to delete the <strong>{{credentialName}}</strong> credential?",
 		"description": "View all of your credentials",
 		"details": {
 			"availableUsages": "Available Usages",

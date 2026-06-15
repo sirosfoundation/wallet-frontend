@@ -198,6 +198,7 @@
 		"datasetTitle": "Dataset",
 		"delete": "Eliminar credencial",
 		"deletePopupMessage": "Tem a certeza que deseja eliminar a credencial <strong>{{credentialName}}</strong>? Se continuar, <strong>todas as apresentações que incluem esta VC serão removidas do seu histórico.</strong>",
+		"deletePopupMessagePreserveHistory": "Tem a certeza que deseja eliminar a credencial <strong>{{credentialName}}</strong>?",
 		"description": "Consulte as suas credenciais",
 		"details": {
 			"availableUsages": "Utilizações disponíveis",
