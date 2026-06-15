@@ -22,9 +22,9 @@ const stores = {
 		name: 'AppDataSource',
 		storeName: 'accountInfo',
 	}),
-	proxyCache: localforage.createInstance({
+	requestCache: localforage.createInstance({
 		name: 'AppDataSource',
-		storeName: 'proxyCache',
+		storeName: 'requestCache',
 	}),
 };
 
@@ -68,7 +68,7 @@ export async function initializeDataSource(): Promise<void> {
 	try {
 		await stores.users.ready();
 		await stores.externalEntities.ready();
-		await stores.proxyCache.ready();
+		await stores.requestCache.ready();
 
 		await migrateDataSource();
 
@@ -129,6 +129,10 @@ async function migrateDataSource() {
 
 	if (await storeExists("AppDataSource", "vp")) {
 		await deleteStore("AppDataSource", "vp");
+	}
+
+	if (await storeExists("AppDataSource", "proxyCache")) {
+		await deleteStore("AppDataSource", "proxyCache");
 	}
 }
 

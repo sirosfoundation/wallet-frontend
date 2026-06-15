@@ -1,12 +1,14 @@
-import React, { useState, useCallback, useContext, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useContext, useRef, useEffect, useMemo } from 'react';
 import SessionContext from './SessionContext';
 import { initializeCredentialEngine } from "../lib/initializeCredentialEngine";
-import { CredentialVerificationError, ParsedCredential } from "wallet-common";
-import { useHttpProxy } from "@/lib/services/HttpProxy/HttpProxy";
+import { AuthZENClient, AuthZENClientConfig, CredentialVerificationError, ParsedCredential } from "wallet-common";
 import CredentialsContext, { ExtendedVcEntity, Instance } from "./CredentialsContext";
 import { useOpenID4VCIHelper } from "@/lib/services/OpenID4VCIHelper";
 import { CurrentSchema } from '@/services/WalletStateSchema';
 import { logger } from '../logger';
+import { BACKEND_URL } from '@/config';
+import { getTenantFromUrlPath } from '@/lib/tenant';
+import { useHttpClient } from '@/hooks/useHttpClient';
 
 type WalletStateCredential = CurrentSchema.WalletStateCredential;
 
@@ -16,7 +18,7 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 	const [vcEntityList, setVcEntityList] = useState<ExtendedVcEntity[] | null>(null);
 	const [latestCredentials, setLatestCredentials] = useState<Set<number>>(new Set());
 	const [currentSlide, setCurrentSlide] = useState<number>(1);
-	const httpProxy = useHttpProxy();
+	const httpClient = useHttpClient();
 	const helper = useOpenID4VCIHelper();
 	const credentialNumber = useRef<number | null>(null)
 	const { getCalculatedWalletState } = keystore;
@@ -26,6 +28,16 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 
 	const { getExternalEntity } = api;
 	const [pendingTransactions, setPendingTransactions] = useState(null);
+
+	const authzenClient = useMemo(() => {
+		const clientConfig: AuthZENClientConfig = {
+			httpClient: httpClient,
+			baseUrl: BACKEND_URL,
+			getAuthToken: () => api.getAppToken() ?? '',
+			tenantId: getTenantFromUrlPath() ?? 'default',
+		};
+		return AuthZENClient(clientConfig);
+	}, [api, httpClient]);
 
 	useEffect(() => {
 		if (!getCalculatedWalletState) return;
@@ -43,20 +55,21 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 		const trustedCertificates: string[] = [];
 
 		const engine = await initializeCredentialEngine(
-			httpProxy,
+			httpClient,
 			helper,
 			() => getExternalEntity("/issuer/all", undefined, useCache).then(res => res.data),
 			trustedCertificates,
 			useCache,
 			(issuerIdentifier: string) => {
 				logger.debug(`[CredentialsContext] Issuer metadata resolved for: ${issuerIdentifier}`);
-			}
+			},
+			authzenClient,
 		);
 		setCredentialEngine(engine);
-	}, [httpProxy, helper, getExternalEntity]);
+	}, [httpClient, helper, getExternalEntity, authzenClient]);
 
 	useEffect(() => {
-		if (httpProxy && helper) {
+		if (httpClient && helper) {
 			if (prevIsLoggedIn.current === false && isLoggedIn === true) {
 				logger.debug("[CredentialsContext] Detected login transition, initializing without cache");
 				initializeEngine(false);
@@ -66,7 +79,7 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 			}
 		}
 		prevIsLoggedIn.current = isLoggedIn;
-	}, [isLoggedIn, httpProxy, helper, initializeEngine]);
+	}, [isLoggedIn, httpClient, helper, initializeEngine]);
 
 
 	const parseCredential = useCallback(async (vcEntity: WalletStateCredential): Promise<ParsedCredential | null> => {
