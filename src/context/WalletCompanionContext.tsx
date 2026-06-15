@@ -38,7 +38,9 @@ type WalletCompanionContextValue = {
 const WalletCompanionContext = createContext<WalletCompanionContextValue | null>(null);
 
 export const WalletCompanionProvider = ({ children }: { children: ReactNode }) => {
-	const api = (window as any).WalletCompanion as WalletCompanionAPI | null;
+	const [api] = useState<WalletCompanionAPI | null>(
+		() => (window as any).WalletCompanion ?? null
+	);
 
 	const [isRegistered, setIsRegistered] = useState(false);
 	const [isLoading, setIsLoading] = useState(true);
@@ -49,9 +51,12 @@ export const WalletCompanionProvider = ({ children }: { children: ReactNode }) =
 			setIsLoading(false);
 			return;
 		}
-		api.isWalletRegistered(walletUrl)
-			.then(setIsRegistered)
-			.finally(() => setIsLoading(false));
+
+		(async () => {
+			const registered = await api.isWalletRegistered(walletUrl);
+			setIsRegistered(registered);
+			setIsLoading(false);
+		})();
 	}, [api, walletUrl]);
 
 	const register = useCallback(async () => {
