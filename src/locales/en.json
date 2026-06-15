@@ -245,6 +245,7 @@
 		"datasetTitle": "Dataset",
 		"delete": "Delete Credential",
 		"deletePopupMessage": "Are you sure you want to delete the <strong>{{credentialName}}</strong> credential?<br/> If you delete it, <strong>all the presentations that include this VC will be removed from your history.</strong>",
+		"deletePopupMessagePreserveHistory": "Are you sure you want to delete the <strong>{{credentialName}}</strong> credential?",
 		"description": "View all of your credentials",
 		"details": {
 			"availableUsages": "Available Usages",
@@ -434,8 +435,8 @@
 		"cameraPermissionAllow": "Please allow camera permission to use the QR scanner.",
 		"description": "Target the QR Code, and you will redirect to proceed with the process",
 		"title": "Scan the QR Code",
-		"unsupportedTitle": "Unsupported QR code",
-		"unsupportedDescription": "This QR code is not supported by the wallet. Please scan a credential offer or presentation request."
+		"unsupportedDescription": "This QR code is not supported by the wallet. Please scan a credential offer or presentation request.",
+		"unsupportedTitle": "Unsupported QR code"
 	},
 	"qrShareMdoc": {
 		"communicating": "Communicating with verifier...",
