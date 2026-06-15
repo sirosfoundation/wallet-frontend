@@ -27,7 +27,7 @@ import { useOIDFlowSignHandler } from './useOIDFlowSignHandler';
 import { DCAPIRequest, DCAPISession } from '@/lib/openid-flow/platforms/dc-api';
 import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
 import { BackendApi } from '@/api';
-import { parseClientIdScheme, OpenID4VPKeyMaterial, TrustEvaluationResult } from 'wallet-common';
+import { parseClientIdScheme, KeyMaterial } from 'wallet-common';
 import { logger } from '@/logger';
 
 export interface UseOID4VPFlowOptions {
@@ -466,29 +466,24 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 			const clientIdForTrust = request.clientId ?? verifiedOrigin;
 			const clientIdScheme = parseClientIdScheme(clientIdForTrust);
 
-			let trustResult: TrustEvaluationResult | undefined;
+			const keyMaterial: KeyMaterial = request.isSigned
+				? { type: request.keyMaterial.type, key: request.keyMaterial.value }
+				: { type: 'resolution', key: [] }
 
-			// Only evaluate trust for signed requests with key material
-			// TODO: we should consider implementing support for evaluating unsigned requests
-			if (request.isSigned && request.keyMaterial) {
-				const keyMaterial: OpenID4VPKeyMaterial = {
-					type: request.keyMaterial.type,
-					key: request.keyMaterial.value,
-				};
+			if (request.isSigned) {
+				logger.debug('Unsigned request, procceeding with resolution-based trust evaluation');
+			}
 
-				trustResult = await transportContext?.trustEvaluators.evaluateVerifierTrust({
-					clientIdScheme,
-					keyMaterial,
+			const trustResult = await transportContext?.trustEvaluators.evaluateVerifierTrust({
+				clientIdScheme,
+				keyMaterial,
+			});
+
+			if (!trustResult?.trusted) {
+				throw new OIDFlowError({
+					code: 'UNTRUSTED_VERIFIER',
+					message: trustResult?.status ?? 'Verifier is not trusted',
 				});
-
-				if (!trustResult?.trusted) {
-					throw new OIDFlowError({
-						code: 'UNTRUSTED_VERIFIER',
-						message: trustResult?.status ?? 'Verifier is not trusted',
-					});
-				}
-			} else {
-				logger.debug('DC API request has no key material, skipping trust evaluation');
 			}
 
 			const credentials = await waitForCredentials();
