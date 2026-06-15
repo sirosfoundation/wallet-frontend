@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { jsonToLog, logger } from '@/logger';
@@ -6,7 +6,6 @@ import { OIDFlowError } from '@/lib/openid-flow/errors';
 import { OIDFlowCallbackURL, OIDFlowProgressEvent } from '@/lib/openid-flow/types/OIDFlowTypes';
 import useErrorDialog from '@/hooks/useErrorDialog';
 import useOID4VCIFlow from '@/hooks/useOID4VCIFlow';
-import OpenID4VPContext from '@/context/OpenID4VPContext';
 import useOID4VPFlow from '@/hooks/useOID4VPFlow';
 import { useTxCodeInput } from '@/context/TxCodeInputContext';
 import { TxCodeInputPopup } from '@/components/Popups/TxCodeInputPopup';
@@ -17,6 +16,8 @@ import { useTenant } from '@/context/TenantContext';
 import { parseOIDFlowCallbackUrl } from '@/lib/openid-flow/utils/oidFlowCallbackUrl';
 import IssuanceWarningPopup from '@/components/Popups/IssuanceWarningPopup';
 import { DCAPISession } from '@/lib/openid-flow/platforms/dc-api';
+import { useSelectCredentialPopupState } from '@/hooks/useSelectCredentialPopupState';
+import SelectCredentialsPopup from '@/components/Popups/SelectCredentialsPopup';
 
 type OpenIDFlowCallbackProps = {
 	callbackUrl: OIDFlowCallbackURL;
@@ -293,10 +294,10 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	const { displayError } = useErrorDialog();
 	const { t } = useTranslation();
-	const { showCredentialSelectionPopup, showTransactionDataConsentPopup } = useContext(OpenID4VPContext);
 	const [successMessage, setSuccessMessage] = useState<{ title: string; description: string } | null>(null);
 	const navigateHome = useNavigateHome();
 	const flowIsActive = useRef(false);
+	const selectCredPopupState = useSelectCredentialPopupState();
 
 	/**
 	 * Handle errors thrown during OID4VP flows.
@@ -341,6 +342,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		logger.debug("OID4VP flow progress:", event);
 	}, []);
 
+
 	/**
 	 * Handle credential selection during OID4VP flows by showing the configured UI and returning the user's selection.
 	 */
@@ -356,20 +358,20 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	) => {
 		logger.debug("Prompting for credential selection...", { conformantCredentialsMap, verifierDomainName, verifierPurpose });
 
-		if (!showCredentialSelectionPopup) {
+		if (!selectCredPopupState) {
 			throw new Error('No credential selection popup configured');
 		}
 
-		const selection = await showCredentialSelectionPopup(
+		const selection = await selectCredPopupState.showPopup({
 			conformantCredentialsMap,
 			verifierDomainName,
 			verifierPurpose,
-		);
+		});
 
 		logger.debug("User selection:", selection);
 
 		return selection;
-	}, [showCredentialSelectionPopup]);
+	}, [selectCredPopupState]);
 
 	const {
 		handleAuthorizationRequest,
@@ -394,14 +396,15 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 
 		logger.debug('Authorization request result:', result);
 
-		if (result.transactionData?.length) {
-			const consented = await showTransactionDataConsentPopup({
-				title: 'Transaction Data',
-				attestations: result.transactionData.map((td) => td.data),
-			});
+		// TODO: implement full support for transaction data separately.
+		// if (result.transactionData?.length) {
+		// 	const consented = await showTransactionDataConsentPopup({
+		// 		title: 'Transaction Data',
+		// 		attestations: result.transactionData.map((td) => td.data),
+		// 	});
 
-			if (!consented) return;
-		}
+		// 	if (!consented) return;
+		// }
 
 		const credSelectResult = await handleCredentialSelection(
 			result.verifierInfo,
@@ -527,6 +530,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 
 	return (
 		<>
+			<SelectCredentialsPopup {...selectCredPopupState} />
 			{successMessage && (
 				<MessagePopup
 					type="success"

@@ -9,8 +9,6 @@ import i18n from './i18n';
 import { StatusContextProvider } from './context/StatusContextProvider';
 import { SessionContextProvider } from './context/SessionContextProvider';
 import { CredentialsContextProvider } from './context/CredentialsContextProvider';
-import { OpenID4VPContextProvider } from './context/OpenID4VPContextProvider';
-import { OpenID4VCIContextProvider } from './context/OpenID4VCIContextProvider';
 import { AppSettingsProvider } from './context/AppSettingsProvider';
 import { NotificationProvider } from './context/NotificationProvider';
 import { OIDFlowTransportProviderWrapper } from './context/OIDFlowTransportProviderWrapper';
@@ -32,19 +30,15 @@ const AppProvider: React.FC<RootProviderProps> = ({ children }) => {
 						<WebSocketSignHandlerProvider>
 							<I18nextProvider i18n={i18n}>
 								<ErrorDialogContextProvider>
-									<OpenID4VPContextProvider>
-										<OpenID4VCIContextProvider>
-											<TxCodeInputProvider>
-												<NotificationProvider>
-													<WalletCompanionProvider>
-														<AppSettingsProvider>
-															{children}
-														</AppSettingsProvider>
-													</WalletCompanionProvider>
-												</NotificationProvider>
-											</TxCodeInputProvider>
-										</OpenID4VCIContextProvider>
-									</OpenID4VPContextProvider>
+									<TxCodeInputProvider>
+										<NotificationProvider>
+											<WalletCompanionProvider>
+												<AppSettingsProvider>
+													{children}
+												</AppSettingsProvider>
+											</WalletCompanionProvider>
+										</NotificationProvider>
+									</TxCodeInputProvider>
 								</ErrorDialogContextProvider>
 							</I18nextProvider>
 						</WebSocketSignHandlerProvider>
