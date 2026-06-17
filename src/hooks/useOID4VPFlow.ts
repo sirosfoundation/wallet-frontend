@@ -414,14 +414,6 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 					currentVcEntityList
 				);
 
-				// Check result type
-				if (result && 'url' in result && result.url) {
-					return {
-						success: true,
-						redirectUri: result.url,
-					};
-				}
-
 				if (result && 'presentation_during_issuance_session' in result) {
 					return {
 						success: true,
