@@ -71,6 +71,12 @@ export function useWebSocketSignHandler(): void {
 					const response = await api.post('/wallet-provider/key-attestation/generate', {
 						jwks: keypairs.map(kp => kp.publicKey),
 						openid4vci: { nonce },
+						security_properties: {
+							key_storage: "software",
+							user_authentication: [],
+							certification: "none",
+							amr: ["swk"],
+						},
 					});
 
 					const keyAttestation = response.data?.key_attestation;
