@@ -180,6 +180,7 @@ export function useOpenID4VP({
 			logger.error(err);
 			throw err;
 		}
+		return {} as { url?: string };
 	}, [
 		httpClient,
 		api,

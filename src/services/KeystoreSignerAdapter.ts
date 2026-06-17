@@ -11,8 +11,8 @@
 import * as jose from "jose";
 import type { JWK } from "jose";
 import type { SecurityProperties, WalletSigner } from "./walletSigner";
-import type { CredentialKeyPair, PrivateData } from "./keystore";
-import { foldState, type CurrentSchema } from "./WalletStateSchema";
+import type { CredentialKeyPair } from "./keystore";
+import type { CurrentSchema } from "./WalletStateSchema";
 
 type WalletState = CurrentSchema.WalletState;
 
@@ -59,6 +59,15 @@ export class KeystoreSignerAdapter implements WalletSigner {
 
 	async sign(kid: string, data: Uint8Array): Promise<Uint8Array> {
 		const keypair = this.findKeypair(kid);
+		if (keypair.keypair.signerRef) {
+			throw new Error(
+				`Key ${kid} uses a non-extractable signer (ref: ${keypair.keypair.signerRef}). ` +
+				`Use the appropriate WalletSigner backend instead of KeystoreSignerAdapter.`
+			);
+		}
+		if (!keypair.keypair.privateKey?.d) {
+			throw new Error(`Key ${kid} has no private key material (missing 'd' component)`);
+		}
 		const cryptoKey = await crypto.subtle.importKey(
 			"jwk",
 			keypair.keypair.privateKey,
@@ -82,8 +91,10 @@ export class KeystoreSignerAdapter implements WalletSigner {
 		return publicJwk;
 	}
 
-	async deleteKey(kid: string): Promise<void> {
-		// Key deletion is handled through wallet state events, not here
+	async deleteKey(_kid: string): Promise<void> {
+		// Key deletion is handled through wallet state events via keystore.ts.
+		// This adapter doesn't own the lifecycle — callers should use the
+		// keystore's updateWalletState flow directly for key removal.
 		throw new Error("Use keystore.ts updateWalletState for key deletion");
 	}
 

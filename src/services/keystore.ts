@@ -275,8 +275,13 @@ export type CredentialKeyPair = {
 	did: string,
 	alg: string,
 	publicKey: JWK,
+	/**
+	 * Private key JWK. When `signerRef` is set (non-extractable keys), this
+	 * should be an empty object `{}` — the actual signing is delegated to the
+	 * signer backend identified by `signerRef`.
+	 */
 	privateKey: JWK,
-	/** Opaque signer reference for non-extractable keys (WSCD/R2PS). When set, `privateKey` may be empty. */
+	/** Opaque signer reference for non-extractable keys (WSCD/R2PS). When set, `privateKey` should be `{}`. */
 	signerRef?: string,
 }
 

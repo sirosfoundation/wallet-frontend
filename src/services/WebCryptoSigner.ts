@@ -50,6 +50,9 @@ export class WebCryptoSigner implements WalletSigner {
 		if (!privateKeyJwk) {
 			throw new Error(`Key not found: ${kid}`);
 		}
+		if (!privateKeyJwk.d) {
+			throw new Error(`Key ${kid} has no private key material (missing 'd' component). Non-extractable keys require a different signer.`);
+		}
 
 		const cryptoKey = await crypto.subtle.importKey(
 			"jwk",
