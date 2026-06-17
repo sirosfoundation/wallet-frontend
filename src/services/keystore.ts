@@ -276,6 +276,8 @@ export type CredentialKeyPair = {
 	alg: string,
 	publicKey: JWK,
 	privateKey: JWK,
+	/** Opaque signer reference for non-extractable keys (WSCD/R2PS). When set, `privateKey` may be empty. */
+	signerRef?: string,
 }
 
 export type CredentialKeyPairV1 = {
