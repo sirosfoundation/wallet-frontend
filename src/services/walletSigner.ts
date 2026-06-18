@@ -11,13 +11,22 @@
  */
 import type { JWK } from "jose";
 
+/**
+ * WSCD certification information.
+ * Either the string "none" for uncertified keys, or a structured object
+ * identifying the certification scheme and assurance level (CS-04 §7.1.3).
+ */
+export type CertificationInfo =
+	| "none"
+	| { scheme: string; assurance_level: string };
+
 export interface SecurityProperties {
-	/** How the key material is stored */
-	key_storage: "software" | "hardware" | "remote_hsm" | "trusted_execution";
+	/** Key storage security level — ISO 18045 AVA_VAN scale values */
+	key_storage: string[];
 	/** ISO 18045 user authentication methods protecting key use */
 	user_authentication: string[];
-	/** Certification level of the WSCD */
-	certification: "none" | "baseline" | "substantial" | "high";
+	/** Certification status of the WSCD (CS-04 §7.1.3, Annex C §C.3.1) */
+	certification: CertificationInfo;
 	/** RFC 8176 AMR values from the last signing operation */
 	amr: string[];
 }

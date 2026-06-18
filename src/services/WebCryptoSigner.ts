@@ -87,7 +87,7 @@ export class WebCryptoSigner implements WalletSigner {
 
 	async securityProperties(_kid: string): Promise<SecurityProperties> {
 		return {
-			key_storage: "software",
+			key_storage: ["software"],
 			user_authentication: [],
 			certification: "none",
 			amr: ["swk"],

@@ -101,7 +101,7 @@ export class KeystoreSignerAdapter implements WalletSigner {
 	async securityProperties(_kid: string): Promise<SecurityProperties> {
 		// WebCrypto software keys — static properties
 		return {
-			key_storage: "software",
+			key_storage: ["software"],
 			user_authentication: [],
 			certification: "none",
 			amr: ["swk"],

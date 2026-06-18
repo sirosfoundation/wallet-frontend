@@ -72,7 +72,7 @@ export function useWebSocketSignHandler(): void {
 						jwks: keypairs.map(kp => kp.publicKey),
 						openid4vci: { nonce },
 						security_properties: {
-							key_storage: "software",
+							key_storage: ["software"],
 							user_authentication: [],
 							certification: "none",
 							amr: ["swk"],
