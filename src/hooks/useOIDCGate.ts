@@ -159,7 +159,7 @@ export function useOIDCGate({ purpose, redirectUri }: UseOIDCGateOptions): UseOI
 				message: t('oidcGate.errorGeneric'),
 			});
 		}
-	}, [providerConfig, purpose, redirectUri]);
+	}, [providerConfig, purpose, redirectUri, t]);
 
 	// Reset state (for retry)
 	const reset = useCallback(() => {

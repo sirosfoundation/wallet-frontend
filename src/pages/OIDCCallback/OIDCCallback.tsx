@@ -86,7 +86,7 @@ export default function OIDCCallback() {
 		};
 
 		processCallback();
-	}, [isLoadingConfig, getRegistrationOIDCProvider, getLoginOIDCProvider, buildPath, navigate]);
+	}, [isLoadingConfig, getRegistrationOIDCProvider, getLoginOIDCProvider, buildPath, navigate, t]);
 
 	const handleRetry = () => {
 		// Go back to login page to start over

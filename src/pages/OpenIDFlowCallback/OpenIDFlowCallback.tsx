@@ -475,7 +475,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				title: t('openIdCallback.vpFlowError.title'),
 				description: t('openIdCallback.vpFlowError.description'),
 				onClose: () => {
-					session.close();
+					session.sendErrorAndClose('access_denied');
 				},
 			});
 		}
