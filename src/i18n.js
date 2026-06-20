@@ -5,14 +5,18 @@ import * as config from './config';
 
 import enTranslation from './locales/en.json';
 import elTranslation from './locales/el.json';
+import fiTranslation from './locales/fi.json';
 import ptTranslation from './locales/pt.json';
+import svTranslation from './locales/sv.json';
 
 const fallbackLng = 'en';
 
 const resources = {
 	en: { translation: enTranslation },
 	el: { translation: elTranslation },
+	fi: { translation: fiTranslation },
 	pt: { translation: ptTranslation },
+	sv: { translation: svTranslation },
 };
 
 if (config.I18N_WALLET_NAME_OVERRIDE) {

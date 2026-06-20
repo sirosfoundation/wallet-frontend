@@ -1,0 +1,605 @@
+{
+	"ConnectionStatusIcon": {
+		"qualityLabels": {
+			"connecting": "Ansluter...",
+			"excellent": "Utmärkt",
+			"fair": "Godtagbar",
+			"good": "Bra",
+			"poor": "Dålig",
+			"veryPoor": "Mycket dålig"
+		},
+		"status": "Anslutningsstatus:"
+	},
+	"PinInputPopup": {
+		"description": "Ange den PIN-kod som visades av utfärdaren",
+		"errMessage": "Du har angett en felaktig PIN-kod",
+		"inputPlaceholder": "PIN",
+		"title": "Ange PIN-koden"
+	},
+	"common": {
+		"accept": "Acceptera",
+		"and": "och",
+		"cancel": "Avbryt",
+		"continue": "Fortsätt",
+		"delete": "Ta bort",
+		"externalPasskey": "Passkey på en säkerhetsnyckel",
+		"hybridPasskey": "Passkey på en enhet i närheten",
+		"loading": "Laddar...",
+		"navItemAddCredentials": "Lägg till intyg",
+		"navItemAddCredentialsSimple": "Lägg till",
+		"navItemCredentials": "Intyg",
+		"navItemHistory": "Historik",
+		"navItemProfile": "Profil",
+		"navItemSendCredentials": "Skicka intyg",
+		"navItemSendCredentialsSimple": "Skicka",
+		"navItemSettings": "Inställningar",
+		"next": "Nästa",
+		"offline": "Offline",
+		"offlineTitle": "Du är offline. Du har inte åtkomst här just nu.",
+		"online": "Online",
+		"passwordHideAriaLabel": "Dölj lösenord",
+		"passwordHideTitle": "Klicka för att dölja lösenord",
+		"passwordShowAriaLabel": "Visa lösenord",
+		"passwordShowTitle": "Klicka för att visa lösenord",
+		"platformPasskey": "Passkey på den här enheten",
+		"previous": "Föregående",
+		"privateDataConflict": "Din session är inte synkroniserad med servern. Logga ut och logga sedan in igen.",
+		"refresh": "Uppdatera",
+		"reject": "Avvisa",
+		"save": "Spara",
+		"showLess": "Visa mindre",
+		"showMore": "Visa mer",
+		"submit": "Skicka",
+		"tryAgain": "Försök igen",
+		"walletName": "wwWallet"
+	},
+	"credentialInfo": {
+		"legendAriaLabel": "Attributförklaring",
+		"legendRequested": "Begärt av verifierare",
+		"legendRequired": "Obligatoriskt"
+	},
+	"expiredRibbon": {
+		"expired": "Utgånget"
+	},
+	"issuance": {
+		"credentialsHaveErrors": "Fel har hittats vid verifiering av intyget du försöker ta emot.",
+		"error": "Utfärdningsfel",
+		"proceed": "Vill du ta emot detta intyg?",
+		"title": "Utfärdning av intyg"
+	},
+	"issuanceWarningPopup": {
+		"codes": {
+			"FailFetchIssuerMetadata": "Utfärdarens metadata kunde inte hämtas: intyget kan visas med begränsad information",
+			"FailSchemaIssuerMetadata": "Utfärdarens metadata är felaktig: vissa uppgifter om utfärdaren kan inte visas korrekt",
+			"IntegrityFail": "Metadatas integritetskontroll misslyckades: visningsinformation kan ha manipulerats",
+			"IntegrityMissing": "Metadatas integritet kunde inte verifieras: visningsinformation kan ha ändrats",
+			"JwtVcIssuerFail": "Utfärdarverifiering misslyckades: intygets äkthet kunde inte bekräftas",
+			"JwtVcIssuerMismatch": "Intygets utfärdare matchar inte den förväntade utfärdaren: intygets ursprung kunde inte bekräftas",
+			"NotFound": "Typmetadata kunde inte hittas: intyget kan visas med begränsad information",
+			"NotFoundExtends": "Utökad typmetadata kunde inte lösas: vissa visningsdetaljer kan saknas"
+		},
+		"description": "Intyget mottogs men vissa verifieringskontroller godkändes inte. Granska detaljerna nedan innan du bestämmer dig.",
+		"title": "Intygsvarningar"
+	},
+	"language": {
+		"label": "Språk"
+	},
+	"layout": {
+		"messageAllowPermission": "För att ta emot realtidsuppdateringar av <strong>intyg, tillåt aviseringar och ladda om den här sidan</strong>.",
+		"messageOffline": "Du är för närvarande <strong>offline. Vissa funktioner kanske inte är tillgängliga.</strong>",
+		"messageResetPermission": "Något <strong>fungerar inte korrekt med aviseringarna</strong>, vänligen <reloadButton>ladda om den här sidan</reloadButton>."
+	},
+	"loginSignup": {
+		"acceptPolicies": "Jag accepterar <policyLinks/>.",
+		"alreadyHaveAccountQuestion": "Har du redan ett plånbokskonto? ",
+		"authOnceMoreLogin": "Autentisera med din passkey en gång till för att slutföra upplåsningen av plånboken.",
+		"capitalLetter": "Minst en stor bokstav",
+		"choosePasskeyPlatform": "Välj din föredragna passkey-typ",
+		"choosePasskeyUsername": "Plånboksnamn",
+		"confirmPasswordLabel": "Bekräfta lösenord",
+		"enterPasskeyName": "Janes plånbok",
+		"enterPassword": "Ange ditt lösenord",
+		"enterUsername": "Ange ditt användarnamn",
+		"enterconfirmPasswordLabel": "Ange lösenordsbekräftelse",
+		"fillInFieldsError": "Vänligen fyll i alla obligatoriska fält",
+		"forgetCachedUser": "Klicka för att glömma sparad användare {{name}}",
+		"incorrectCredentialsError": "Felaktigt användarnamn eller lösenord",
+		"inviteInvalid": "Inbjudningskoden är ogiltig eller har gått ut.",
+		"inviteRequired": "En inbjudningskod krävs för att registrera sig hos denna leverantör.",
+		"login": "Logga in",
+		"loginAsUser": "Logga in som {{name}}",
+		"loginCache": "Välj ditt plånbokskonto",
+		"loginKeystoreFailed": "Åtkomst till plånbokens nyckelarkiv misslyckades, försök igen.",
+		"loginLocalKeystoreFailed": "Initiering av plånbokens nyckelarkiv misslyckades, försök igen.",
+		"loginMessage": "Logga in på <highlight>$t(common.walletName)</highlight>",
+		"loginSubmit": "Logga in",
+		"loginTitle": "Logga in",
+		"loginWithPasskey": "Logga in med en Passkey",
+		"loginWithSecurityKey": "Logga in med en Säkerhetsnyckel",
+		"messageOffline": "Du är offline. Vissa funktioner kanske inte är tillgängliga.",
+		"newHereQuestion": "Har du inget plånbokskonto? ",
+		"number": "Minst en siffra",
+		"or": "ELLER",
+		"passkeyInvalid": "Okänd passkey, möjligen borttagen av användaren.",
+		"passkeyLoginFailedServerError": "Misslyckades att initiera passkey-inloggning, försök igen senare.",
+		"passkeyLoginFailedTryAgain": "Passkey-inloggningen misslyckades, försök igen.",
+		"passkeySignupFailedServerError": "Misslyckades att initiera skapande av passkey, försök igen senare.",
+		"passkeySignupFailedTryAgain": "Skapande av passkey misslyckades, försök igen.",
+		"passkeySignupFinishFailedServerError": "Misslyckades att slutföra skapande av passkey, försök igen senare.",
+		"passkeySignupKeystoreFailed": "Initiering av plånbokens nyckelarkiv misslyckades, försök igen.",
+		"passkeySignupPrfNotSupported": "Denna webbläsare eller säkerhetsnyckel stöds inte. Se till att din webbläsare stöder WebAuthn PRF-tillägget och att din säkerhetsnyckel, om tillämpligt, stöder tillägget \"hmac-secret\". <docLink>Läs mer här</docLink>.",
+		"passkeySignupPrfNotSupportedAriaLabel": "Läs mer om webbläsare och säkerhetsnycklar som stöds",
+		"passwordLabel": "Lösenord",
+		"passwordLength": "Minsta längd: 8 tecken",
+		"passwordUnlockFailed": "Upplåsning av plånboken med lösenord misslyckades",
+		"passwordsNotMatchError": "Lösenorden matchar inte",
+		"privateDataConflict": "En annan session för detta konto störde inloggningsförsöket. Försök igen.",
+		"reachedLengthLimit": "Längdgränsen överskriden",
+		"signUp": "Registrera",
+		"signUpSubmit": "Registrera",
+		"signUpWithPasskey": "Skapa konto med en Passkey",
+		"signUpWithSecurityKey": "Använd en Säkerhetsnyckel",
+		"specialCharacter": "Minst ett specialtecken",
+		"strength": "Styrka",
+		"submitting": "Skickar...",
+		"useOtherAccount": "Använd annat konto",
+		"usernameExistsError": "Misslyckades att skapa användarkonto, användarnamnet finns redan",
+		"usernameLabel": "Användarnamn",
+		"weakPasswordError": "Svagt lösenord",
+		"welcomeMessage": "Välkommen till <highlight>$t(common.walletName)</highlight>"
+	},
+	"loginState": {
+		"confirm": "Bekräfta",
+		"message": "Använd din <strong>passkey</strong> för att fortsätta och hämta ditt intyg till din plånbok.",
+		"title": "Hej,",
+		"welcomeBackMessage": "Välkommen tillbaka till <highlight>$t(common.walletName)</highlight>"
+	},
+	"messagePopup": {
+		"close": "Stäng",
+		"onlyOneInputDescriptor": {
+			"description": "Plånboken kan för närvarande inte acceptera en presentationsförfrågan med mer än ett intyg åt gången.",
+			"title": "Protokollversion stöds inte"
+		},
+		"sendResponseError": {
+			"description": "Ett fel inträffade vid presentationen av intygen.",
+			"title": "Fel vid sändning av svar"
+		}
+	},
+	"notFound": {
+		"homeButton": "Tillbaka till startsidan",
+		"message": "Sidan du letar efter kan tyvärr inte nås",
+		"title": "Hoppsan, sidan hittades inte!"
+	},
+	"notifications": {
+		"newCredential": {
+			"message": "Ett nytt intyg har anlänt.",
+			"title": "Nytt intyg"
+		},
+		"success": {
+			"message": "Operationen slutfördes.",
+			"title": "Lyckades"
+		}
+	},
+	"oidcGate": {
+		"awaitingAuth": "Väntar på autentisering...",
+		"awaitingAuthHint": "Slutför inloggningsprocessen i popup-fönstret eller den nya fliken.",
+		"callbackError": "Autentiseringsfel",
+		"callbackProcessing": "Bearbetar autentisering...",
+		"callbackSuccess": "Autentisering lyckades! Omdirigerar...",
+		"errorCancelled": "Autentiseringen avbröts.",
+		"errorExpired": "Din session har gått ut. Försök igen.",
+		"errorGeneric": "Autentiseringen misslyckades. Försök igen.",
+		"errorIdentityMismatch": "Denna plånbok är registrerad med en annan identitet.",
+		"loginExplanation": "Din organisation ({{tenant}}) kräver att du verifierar din identitet innan du kommer åt din plånbok.",
+		"registrationExplanation": "Din organisation ({{tenant}}) kräver att du verifierar din identitet innan du skapar en plånbok.",
+		"signInWith": "Logga in med {{provider}}",
+		"signUpWith": "Registrera med {{provider}}",
+		"verified": "Verifierad: {{name}}",
+		"verifiedUser": "Identitet verifierad"
+	},
+	"openIdCallback": {
+		"authorizationError": {
+			"title": "Auktoriseringsfel"
+		},
+		"errorCodes": {
+			"AUTHORIZATION_RESPONSE_FAILED": {
+				"description": "Auktoriseringssvaret kunde inte slutföras.",
+				"title": "Auktoriseringssvar misslyckades"
+			},
+			"FLOW_ERROR": {
+				"description": "Ett fel inträffade under intygsflödet. Försök igen.",
+				"title": "Flödesfel"
+			},
+			"INSUFFICIENT_CREDENTIALS": {
+				"description": "Ett eller flera av de intyg du vill presentera finns inte tillgängliga för val.",
+				"title": "Otillräckliga intyg"
+			},
+			"NONTRUSTED_VERIFIER": {
+				"description": "Verifieraren tillhandahöll inte giltiga data för verifiering.",
+				"title": "Verifieraren är inte betrodd"
+			},
+			"NO_DCQL_QUERY_OR_PREMATCHED_CREDENTIALS": {
+				"description": "Presentationsförfrågan är felaktig — ingen fråga eller förmatchade intyg angavs.",
+				"title": "Ogiltig presentationsförfrågan"
+			},
+			"NO_MATCHING_CREDENTIALS": {
+				"description": "Du har inga intyg som matchar denna förfrågan.",
+				"title": "Inga matchande intyg"
+			},
+			"NO_TRANSPORT": {
+				"description": "Ingen transport är tillgänglig för verifierbar presentation.",
+				"title": "Transport ej tillgänglig"
+			},
+			"RESPONSE_ERROR": {
+				"description": "Ett fel inträffade vid sändning av presentationssvaret.",
+				"title": "Svarsfel"
+			},
+			"SELECTION_ERROR": {
+				"description": "Ett fel inträffade vid val av intyg.",
+				"title": "Valfel"
+			},
+			"WALLET_STATE_UNAVAILABLE": {
+				"description": "Plånbokens tillstånd är inte tillgängligt. Logga in igen.",
+				"title": "Plånbok ej tillgänglig"
+			}
+		},
+		"insufficientCredentials": {
+			"description": "Ett eller flera av de intyg du vill presentera finns inte tillgängliga för val.",
+			"title": "Otillräckliga intyg"
+		},
+		"nonTrustedVerifier": {
+			"description": "Verifieraren tillhandahöll inte giltiga data för verifiering",
+			"title": "Verifieraren är inte betrodd"
+		},
+		"sendResponseSuccess": {
+			"description": "Intygen skickades framgångsrikt.",
+			"title": "Presentationen lyckades"
+		},
+		"unsupportedCallback": {
+			"description": "Den angivna callback-URL:en stöds inte.",
+			"title": "Callback stöds inte"
+		},
+		"vciFlowError": {
+			"description": "Ett fel inträffade under intygsutfärdningen. Försök igen.",
+			"title": "Fel vid utfärdning av intyg"
+		},
+		"vpFlowError": {
+			"description": "Ett fel inträffade under intygsverifieringen. Försök igen.",
+			"title": "Verifieringsfel"
+		}
+	},
+	"pageAddCredentials": {
+		"description": "Sök och välj det intyg du vill utfärda",
+		"noFound": "Inga matchande utfärdare hittades.",
+		"popup": {
+			"message": "Du kommer att omdirigeras till <strong>{{issuerName}}</strong> <i>{{issuerDescription}}</i> för att utfärda ett <strong>{{credentialName}}</strong> <i>{{credentialDescription}}</i>.",
+			"title": "Valt:"
+		},
+		"searchPlaceholder": "Sök intyg..."
+	},
+	"pageCredentials": {
+		"addCard": {
+			"text": "Lägg till nytt intyg",
+			"title": "Verifierbart intyg"
+		},
+		"copyDatasetToClipboard": "Kopiera data (JSON) till urklipp",
+		"credentialDetailsTitle": "Klicka för att visa detaljer för {{friendlyName}}",
+		"credentialFullScreenTitle": "Klicka för att visa {{friendlyName}} i helskärm",
+		"credentialTitle": "Intyg",
+		"datasetTitle": "Dataset",
+		"delete": "Ta bort intyg",
+		"deletePopupMessage": "Är du säker på att du vill ta bort intyget <strong>{{credentialName}}</strong>?<br/> Om du tar bort det, <strong>kommer alla presentationer som inkluderar detta VC att tas bort från din historik.</strong>",
+		"deletePopupMessagePreserveHistory": "Är du säker på att du vill ta bort intyget <strong>{{credentialName}}</strong>?",
+		"description": "Visa alla dina intyg",
+		"details": {
+			"availableUsages": "Tillgängliga användningar",
+			"description": "Visa all information om det valda intyget",
+			"expired": "Detta intyg har gått ut"
+		},
+		"presentationsTitle": "Presentationer",
+		"slideButtonAriaLabelDisable": "Inget {{direction}} intyg",
+		"slideButtonAriaLabelEnable": "Gå till {{direction}} intyg",
+		"slideButtonTitleDisable": "Inget {{direction}} intyg tillgängligt",
+		"slideButtonTitleEnable": "Klicka för att gå till {{direction}} intyg",
+		"slideNext": "nästa",
+		"slidePrevious": "föregående"
+	},
+	"pageHistory": {
+		"description": "Visa historik över intygssändningar, inklusive när och till vilka verifierare du skickade",
+		"noFound": "Inga presentationer hittades",
+		"popupTitle": "Presenterade intyg",
+		"presentationDetails": {
+			"title": "Presentationsdetaljer"
+		}
+	},
+	"pagePending": {
+		"description": "Visa väntande utfärdningsförfrågningar",
+		"noFound": "Inga väntande utfärdningsförfrågningar hittades",
+		"title": "Väntande utfärdningsförfrågningar"
+	},
+	"pageSendCredentials": {
+		"description": "Sök och välj en verifierare att dela intyg med",
+		"noFound": "Inga matchande verifierare hittades.",
+		"popup": {
+			"message": "Du kommer att omdirigeras till <strong>{{verifierName}}</strong>.",
+			"title": "Valt:"
+		},
+		"searchPlaceholder": "Sök verifierare..."
+	},
+	"pageSettings": {
+		"addPasskey": "Lägg till passkey:",
+		"addPasskeyTitle": "Klicka för att lägga till passkey",
+		"appVersion": {
+			"descriptionLatestVersion": "Du använder den senaste $t(common.walletName)-versionen {{react_app_version}}",
+			"descriptionOldVersion": "Du använder wwWallet-version {{react_app_version}}.<br/> <strong>En ny version finns tillgänglig.</strong> Vänligen <reloadButton>uppdatera</reloadButton>!"
+		},
+		"appearance": {
+			"colorScheme": {
+				"dark": "Mörkt",
+				"description": "Välj om utseendet ska vara ljust eller mörkt, eller följ dina enhetsinställningar.",
+				"light": "Ljust",
+				"system": "System",
+				"title": "Färgschema"
+			},
+			"title": "Utseende"
+		},
+		"deleteAccount": {
+			"buttonText": "Ta bort ditt konto",
+			"deleteButtonTitleLocked": "Du kan inte ta bort ditt konto medan det är låst",
+			"description": "När du tar bort ditt konto går det inte att ångra. Var säker.",
+			"message": "Är du säker på att du vill ta bort <strong>ditt konto</strong>?",
+			"title": "Ta bort konto"
+		},
+		"description": "Visa kontoinformation och hantera passkeys",
+		"lockSensitive": "Lås känsliga åtgärder",
+		"lockSensitiveTitle": "Klicka för att låsa känsliga åtgärder",
+		"noOtherPasskeys": "Det finns inga andra passkeys i detta konto.",
+		"oblivious": {
+			"description": "Välj en privat gateway för att använda Oblivious HTTP",
+			"disabled": "Använd inte Oblivious HTTP",
+			"gunet": "GUnet Gateway",
+			"successMessage": "Sparat",
+			"title": "Oblivious HTTP"
+		},
+		"passkeyItem": {
+			"canEncrypt": "Kan kryptera",
+			"canEncryptNo": "Nej",
+			"canEncryptYes": "Ja",
+			"cancelChangesAriaLabel": "Avbryt ändringar av passkey {{passkeyLabel}}",
+			"created": "Skapad",
+			"deleteAriaLabel": "Ta bort passkey {{passkeyLabel}}",
+			"deleteButtonTitleUnlocked": "Klicka för att ta bort passkey {{passkeyLabel}}",
+			"lastUsed": "Senast använd",
+			"messageDeletePasskey": "Är du säker på att du vill ta bort passkey <strong>{{nickname}}</strong>?",
+			"needsPrfUpgrade": "Behöver uppgradering",
+			"nickname": "Smeknamn",
+			"nicknameInput": "Nytt smeknamn",
+			"nicknameInputAriaLabel": "Ange nytt smeknamn för passkey {{passkeyLabel}}",
+			"prfUpgrade": "Uppgradera",
+			"prfUpgradeAriaLabel": "Uppgradera passkey {{passkeyLabel}}",
+			"rename": "Byt namn",
+			"renameAriaLabel": "Byt namn på passkey {{passkeyLabel}}",
+			"saveChangesAriaLabel": "Spara ändringar för passkey {{passkeyLabel}}",
+			"unnamed": "Namnlös passkey"
+		},
+		"rememberIssuer": {
+			"description": "Ange hur länge du vill komma åt utfärdare utan att autentisera igen (beroende på utfärdarens policy)",
+			"options": {
+				"day": "1 dag",
+				"hour": "1 timme",
+				"month": "1 månad",
+				"none": "Autentisera alltid",
+				"week": "1 vecka"
+			},
+			"successMessage": "Sparat"
+		},
+		"title": {
+			"appVersion": "Appversion",
+			"confirmDeletePopup": "Är du säker?",
+			"language": "Språk",
+			"loggedInPasskey": "Inloggad passkey",
+			"manageAcount": "Hantera konto",
+			"manageOtherPasskeys": "Hantera andra passkeys",
+			"rememberIssuer": "Kom ihåg utfärdare"
+		},
+		"unlockPassword": {
+			"description": "Ange ditt lösenord för att låsa upp plånboken.",
+			"passwordInputAriaLabel": "Lösenord",
+			"passwordInputPlaceholder": "Lösenord",
+			"title": "Ange lösenord"
+		},
+		"unlockSensitive": "Lås upp känsliga åtgärder",
+		"unlockSensitiveTitle": "Klicka för att låsa upp känsliga åtgärder",
+		"upgradePrfKey": {
+			"description": "Autentisera med passkey \"{{passkeyLabel}}\"...",
+			"error": "<p>Något gick fel, försök igen.</p><p>Observera att du måste autentisera med passkey \"{{passkeyLabel}}\".</p>",
+			"title": "Uppgraderar passkey-krypteringsnyckel"
+		},
+		"walletCompanion": {
+			"description": "Att registrera denna plånbok med Wallet Companion möjliggör intygspresentationer via Digital Credentials API.",
+			"detected": "Wallet Companion v{{version}} upptäckt",
+			"register": "Registrera med Wallet Companion",
+			"registered": "Registrerad med Wallet Companion",
+			"title": "Wallet Companion (beta)"
+		}
+	},
+	"parsing": {
+		"errorCouldNotParse": "Intyget kunde inte tolkas.",
+		"errorInvalidDatatype": "Intyget kunde inte tolkas.",
+		"errorMissingIssuerIdentifier": "Utfärdaridentifierare saknas.",
+		"errorNotSupportedCredentialType": "Denna typ av intyg stöds inte."
+	},
+	"passkeyInfoPopup": {
+		"closeAriaLabel": "Stäng informationspopup om passkey",
+		"description1": "Din digitala ID-plånbok ger dig full kontroll över din digitala information och kan användas i en webbläsare eller mobilapp.",
+		"description2": "En plånboks-passkey kan förvaras på en av följande platser:",
+		"onDeviceDescription": "Din passkey kan vara specifik för den här enheten, som ett fingeravtryck eller ansiktsigenkänning. Den kan också skapas i en lösenordshanterare i din webbläsare eller på den här enheten.",
+		"onDeviceLabel": "Passkey på den här enheten",
+		"otherDeviceDescription": "Använd kameran på en annan enhet för att skanna en QR-kod och skapa en passkey på den enheten.",
+		"otherDeviceLabel": "Passkey på en annan enhet",
+		"securityKeyDescription": "Att förvara en passkey på en fysisk säkerhetsnyckel (som en USB- eller NFC-Yubikey) ger maximal säkerhet och portabilitet.",
+		"securityKeyLabel": "Passkey på en säkerhetsnyckel",
+		"title": "Välja var du skapar din passkey",
+		"triggerButton": "Hur fungerar passkeys?"
+	},
+	"pendingTransactions": {
+		"subtitle": "Väntar på att utfärdningen ska slutföras",
+		"title": "{{count}} väntande intyg",
+		"view": "Visa detaljer"
+	},
+	"protocolSteps": {
+		"common": {
+			"error": "Ett fel inträffade"
+		},
+		"oid4vci": {
+			"awaitingAuthorizationResponse": "Väntar på auktorisering...",
+			"awaitingTxCode": "Väntar på transaktionskod...",
+			"completed": "Intyg mottaget",
+			"exchangingToken": "Växlar token...",
+			"fetchingIssuerMetadata": "Hämtar utfärdarmetadata...",
+			"idle": "Redo",
+			"parsingOffer": "Tolkar intygserbjudande...",
+			"requestingAuthorization": "Begär auktorisering...",
+			"requestingCredential": "Begär intyg...",
+			"storingCredential": "Sparar intyg..."
+		},
+		"oid4vp": {
+			"awaitingConsent": "Bekräfta delning av intyg...",
+			"awaitingCredentialSelection": "Välj intyg att presentera...",
+			"completed": "Presentation skickad",
+			"creatingPresentation": "Skapar presentation...",
+			"fetchingVerifierMetadata": "Hämtar verifierarmetadata...",
+			"idle": "Redo",
+			"matchingCredentials": "Hittar matchande intyg...",
+			"parsingRequest": "Tolkar auktoriseringsförfrågan...",
+			"sendingResponse": "Skickar svar..."
+		}
+	},
+	"pwaInstallPrompt": {
+		"button": {
+			"closeTitle": "Klicka för att stänga PWA-installationsprompten",
+			"install": "Installera"
+		},
+		"message": "PWA tillgänglig"
+	},
+	"qrCodeScanner": {
+		"cameraPermissionAllow": "Tillåt kamerabehörighet för att använda QR-skannern.",
+		"description": "Rikta mot QR-koden, och du kommer att omdirigeras för att fortsätta processen",
+		"title": "Skanna QR-koden",
+		"unsupportedDescription": "Denna QR-kod stöds inte av plånboken. Skanna ett intygserbjudande eller en presentationsförfrågan.",
+		"unsupportedTitle": "QR-kod stöds inte"
+	},
+	"qrShareMdoc": {
+		"communicating": "Kommunicerar med verifierare...",
+		"enablePermissions": "Vi kunde inte komma åt funktioner för enheter i närheten. Aktivera behörigheter för enheter i närheten i inställningarna och starta om appen.",
+		"nearbyVerifierRequested": "En verifierare i närheten begärde följande fält:",
+		"send": "Skicka",
+		"shareUsingQR": "Dela med QR-kod"
+	},
+	"queryableList": {
+		"all": "Alla",
+		"recent": "Senaste"
+	},
+	"registerPasskey": {
+		"authOnceMore": "Autentisera med den en gång till för att slutföra.",
+		"giveNickname": "Ge detta intyg ett smeknamn:",
+		"messageDone": "Nästan klart!",
+		"messageErrorTryAgain": "Något gick fel, försök igen.<br/> Observera att du måste använda samma passkey som du skapade i föregående steg.",
+		"messageInteract": "Vänligen interagera med din autentiserare...",
+		"messageInteractNewPasskey": "Autentisera med den nya passkeyn...",
+		"messageSuccess": "Lyckades!",
+		"nicknameAriaLabel": "Smeknamn för nytt intyg",
+		"nicknamePlaceholder": "Intygets smeknamn",
+		"passkeyCreated": "Din passkey har skapats."
+	},
+	"selectCredentialPopup": {
+		"allClaimsRequested": "Verifieraren har begärt alla attribut i intyget.",
+		"baseTitle": "Skicka intyg",
+		"credentialSelectTitle": "Klicka för att välja {{friendlyName}}",
+		"nextButtonDisabledTitle": "Du måste välja ett intyg för att fortsätta",
+		"previewDescription": "Du kommer att bli ombedd att välja intyg som matchar kraven nedan.",
+		"previewTitle": "Förhandsgranskning",
+		"purpose": "Syfte: ",
+		"purposeNotSpecified": " Inte angivet av verifieraren",
+		"qcRequest": "Denna transaktion begär skapande av signaturbrev enligt villkoren (T&C) för QTSP",
+		"request": "Förfrågan:",
+		"requestedCredentialsFieldsTitle": "Begärda fält:",
+		"requestingParty": "Begärande part: ",
+		"selectDescription": "Välj det intyg du vill presentera.",
+		"selectTitle": "Välj",
+		"signedDocuments": "Dokument att signera: ",
+		"specificClaimsRequested": "Verifieraren har begärt specifika attribut i intyget.",
+		"summaryDescription": "Du är på väg att dela <strong>endast följande fält</strong> från de valda intygen.",
+		"summaryTitle": "Sammanfattning",
+		"transactionDataExample": "Acceptera exempelvillkor för transaktionsdata"
+	},
+	"sidebar": {
+		"navItemLogout": "Logga ut",
+		"obliviousEnabled": "Privata förfrågningar med Oblivious HTTP aktiverat",
+		"poweredBy": "Drivs av <docLinkWalletGithub>wwWallet</docLinkWalletGithub>",
+		"poweredByAriaLabel": "GitHub-repository för wwWallet"
+	},
+	"syncPopup": {
+		"description": "Det verkar som att du har <strong>ändrat din plånbok i en annan session</strong>. Använd din <strong>passkey</strong> för att synkronisera din plånbok.",
+		"title": "Synkronisera plånbok"
+	},
+	"tenantSelector": {
+		"closePopup": "Stäng popup",
+		"currentTenantHeading": "Aktuell klient",
+		"currentlySelected": "Vald för närvarande",
+		"defaultTenant": "Standard",
+		"description": "Välj klient",
+		"label": "Byt klient",
+		"selectOtherTenant": "Välj annan klient",
+		"selectTenant": "Välj klient",
+		"switchActiveTenant": "Byt aktiv klient",
+		"switchDescription": "Att byta klient loggar ut dig från din nuvarande plånbokssession",
+		"userCount_one": "{{count}} användare",
+		"userCount_other": "{{count}} användare"
+	},
+	"tourGuide": {
+		"closeTourButton": "Stäng guiden",
+		"tourComplete": "Tack för att du genomförde guiden, vi hoppas att den var till hjälp!",
+		"tourStep1": "Här kan du se alla dina sparade intyg. Klicka på 'Lägg till nytt intyg'-kortet för att hämta ett nytt VC från en tillgänglig utfärdare",
+		"tourStep2": "'Intyg'-sidan är din startsida, där du kan hantera dina intyg.",
+		"tourStep3": "'Lägg till intyg'-sidan låter dig ta emot intyg från en specifik utfärdare",
+		"tourStep4": "Klicka på den här knappen för att skanna en QR-kod för att skicka eller ta emot intyg.",
+		"tourStep5": "Använd 'Skicka intyg'-sidan för att välja en verifierare att dela dina intyg med.",
+		"tourStep6": "På 'Historik'-sidan kan du se detaljer om intygssändningar, inklusive när och till vilka verifierare de skickades.",
+		"tourStep7": "På 'Inställningar'-sidan kan du hantera dina passkeys och kontoinställningar."
+	},
+	"txCodeInput": {
+		"defaultDescription": "Ange transaktionskoden som visas på din skärm",
+		"errorEmpty": "Ange transaktionskoden",
+		"errorInvalid": "Ogiltig transaktionskod. Försök igen.",
+		"errorLength": "Transaktionskoden måste vara {{length}} tecken",
+		"inputLabel": "Transaktionskod",
+		"lengthHint": "Kodlängd: {{length}} tecken",
+		"placeholder": "Ange kod",
+		"placeholderWithLength": "Ange {{length}}-teckens kod",
+		"title": "Transaktionskod krävs"
+	},
+	"updateNotification": {
+		"description": "Ny version tillgänglig!"
+	},
+	"viewSelect": {
+		"aria": {
+			"menuLabel": "Visningsalternativ för intyg",
+			"option": "Vy: {{label}}",
+			"toggle": "Ändra vy"
+		},
+		"options": {
+			"horizontalSlider": "Horisontellt reglage",
+			"list": "Lista",
+			"verticalSlider": "Vertikalt reglage"
+		},
+		"view": "Vy"
+	},
+	"welcomeModal": {
+		"description": "Upptäck <strong> $t(common.walletName) </strong>, ditt ultimata verktyg för att hantera digitala intyg. Visa, hämta, presentera och håll koll på alla dina intyg enkelt!",
+		"dismissButton": "Avvisa",
+		"question": "Är du redo att utforska funktionerna i $t(common.walletName) genom en guidad tur?",
+		"startTourButton": "Starta guiden",
+		"title": "Välkommen till $t(common.walletName)!"
+	}
+}

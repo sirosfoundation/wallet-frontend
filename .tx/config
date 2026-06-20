@@ -1,0 +1,9 @@
+[main]
+host = https://www.transifex.com
+
+[o:sirosfoundation:p:wallet-frontend:r:en-json]
+file_filter  = src/locales/<lang>.json
+source_file  = src/locales/en.json
+source_lang  = en
+type         = KEYVALUEJSON
+minimum_perc = 0
