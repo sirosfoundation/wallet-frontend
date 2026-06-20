@@ -19,6 +19,7 @@
  */
 
 import type { OIDCProviderConfig } from '../api/types';
+import { createLocalJWKSet, jwtVerify } from 'jose';
 
 // ---------------------------------------------------------------------------
 // 1. Types & constants
@@ -147,12 +148,56 @@ async function generateCodeChallenge(verifier: string): Promise<string> {
 }
 
 // ---------------------------------------------------------------------------
-// 4. Token parsing
+// 4. Token parsing & validation
 // ---------------------------------------------------------------------------
 
 /**
+ * Validate an ID token by verifying its signature against the IdP's JWKS
+ * and checking critical claims (issuer, audience, nonce, expiry, azp).
+ *
+ * @param jwksUri - Pre-discovered JWKS URI to avoid a redundant discovery fetch.
+ * Throws on any validation failure.
+ */
+export async function validateIdToken(
+	idToken: string,
+	config: OIDCFlowConfig,
+	expectedNonce: string,
+	jwksUri: string
+): Promise<void> {
+	const issuer = config.issuer.replace(/\/$/, '');
+
+	// Fetch JWKS and create a local key set for verification
+	const jwksResponse = await fetch(jwksUri);
+	if (!jwksResponse.ok) {
+		throw new Error(`Failed to fetch JWKS: ${jwksResponse.status}`);
+	}
+	const jwks = await jwksResponse.json();
+
+	const JWKS = createLocalJWKSet(jwks);
+
+	const { payload } = await jwtVerify(idToken, JWKS, {
+		issuer: [issuer, `${issuer}/`],
+		audience: config.clientId,
+	});
+
+	// Verify nonce matches the one we sent in the authorization request
+	if (payload.nonce !== expectedNonce) {
+		throw new Error('ID token nonce mismatch');
+	}
+
+	// OIDC Core §3.1.3.7 step 4: if aud contains multiple values, azp MUST
+	// be present and equal to client_id.
+	const aud = payload.aud;
+	if (Array.isArray(aud) && aud.length > 1) {
+		if (payload.azp !== config.clientId) {
+			throw new Error('ID token azp claim mismatch for multi-audience token');
+		}
+	}
+}
+
+/**
  * Extract claims from JWT ID token (without validation).
- * Used for display purposes only — actual validation happens on the backend.
+ * Used for display purposes only — actual validation happens in validateIdToken.
  */
 export function extractIdTokenClaims(idToken: string): Record<string, unknown> {
 	try {
@@ -364,8 +409,8 @@ export async function handleOIDCCallback(
 		throw new Error('No ID token in response');
 	}
 
-	// TODO: Validate ID token (nonce, signature, etc.)
-	// For now, we rely on backend validation
+	// Validate ID token: verify signature against IdP JWKS and check claims
+	await validateIdToken(idToken, config, state.nonce, endpoints.jwksUri);
 
 	storeIdToken(purpose, idToken);
 
