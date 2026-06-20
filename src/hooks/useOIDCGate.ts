@@ -153,6 +153,7 @@ export function useOIDCGate({ purpose, redirectUri }: UseOIDCGateOptions): UseOI
 				// (but normally we won't get here as the page will redirect)
 			}
 		} catch (error) {
+			console.error('OIDC flow failed:', error);
 			setState({
 				status: 'error',
 				message: t('oidcGate.errorGeneric'),
