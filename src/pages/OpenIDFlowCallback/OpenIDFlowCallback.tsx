@@ -113,7 +113,7 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			logger.error('Error in OID4VCI flow:', err);
 			displayError({
 				title: t('openIdCallback.vciFlowError.title'),
-				description: err instanceof Error ? err.message : String(err),
+				description: t('openIdCallback.vciFlowError.description'),
 				onClose: () => navigateHome(),
 			});
 		},
@@ -256,7 +256,7 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				logger.error('Error in OID4VCI flow:', error);
 				displayError({
 					title: t('openIdCallback.vciFlowError.title'),
-					description: error instanceof Error ? error.message : String(error),
+					description: t('openIdCallback.vciFlowError.description'),
 					onClose: () => navigateHome(),
 				});
 			}
@@ -306,30 +306,27 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		if (!(err instanceof OIDFlowError)) {
 			displayError({
 				title: t('openIdCallback.vpFlowError.title'),
-				description: err.message,
+				description: t('openIdCallback.vpFlowError.description'),
 			});
 			return;
 		}
 
-		switch (err.code.toUpperCase()) {
-			case 'INSUFFICIENT_CREDENTIALS':
-				displayError({
-					title: t('openIdCallback.insufficientCredentials.title'),
-					description: t('openIdCallback.insufficientCredentials.description'),
-				});
-				return;
-			case 'NONTRUSTED_VERIFIER':
-				displayError({
-					title: t('openIdCallback.nonTrustedVerifier.title'),
-					description: t('openIdCallback.nonTrustedVerifier.description'),
-				});
-				return;
-			default:
-				displayError({
-					title: t('openIdCallback.vpFlowError.title'),
-					description: err.message,
-				});
-				return;
+		const code = err.code.toUpperCase();
+		const titleKey = `openIdCallback.errorCodes.${code}.title`;
+		const descKey = `openIdCallback.errorCodes.${code}.description`;
+		const translatedTitle = t(titleKey, { defaultValue: '' });
+		const translatedDesc = t(descKey, { defaultValue: '' });
+
+		if (translatedTitle) {
+			displayError({
+				title: translatedTitle,
+				description: translatedDesc || t('openIdCallback.vpFlowError.description'),
+			});
+		} else {
+			displayError({
+				title: t('openIdCallback.vpFlowError.title'),
+				description: t('openIdCallback.vpFlowError.description'),
+			});
 		}
 	}, [displayError, t]);
 
@@ -472,17 +469,13 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 
 			session.close();
 		} catch (err) {
-			const description = err instanceof Error
-				? err.message
-				: String(err) || t('openIdCallback.vpFlowError.requestFailed');
-
 			logger.error('Error processing DC API request:', err);
 
 			displayError({
 				title: t('openIdCallback.vpFlowError.title'),
-				description,
+				description: t('openIdCallback.vpFlowError.description'),
 				onClose: () => {
-					session.sendErrorAndClose('access_denied');
+					session.close();
 				},
 			});
 		}
@@ -515,7 +508,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 					logger.error('Error in OID4VP flow:', error);
 				displayError({
 					title: t('openIdCallback.vpFlowError.title'),
-					description: error instanceof Error ? error.message : String(error),
+					description: t('openIdCallback.vpFlowError.description'),
 					onClose: () => navigateHome(),
 				});
 			}

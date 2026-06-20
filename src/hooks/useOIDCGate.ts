@@ -9,6 +9,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTenant } from '../context/TenantContext';
 import {
 	type OIDCGatePurpose,
@@ -62,6 +63,7 @@ export interface UseOIDCGateResult {
  * Hook to manage OIDC gate flow for registration or login
  */
 export function useOIDCGate({ purpose, redirectUri }: UseOIDCGateOptions): UseOIDCGateResult {
+	const { t } = useTranslation();
 	const {
 		isLoadingConfig,
 		requiresOIDCGateForRegistration,
@@ -153,7 +155,7 @@ export function useOIDCGate({ purpose, redirectUri }: UseOIDCGateOptions): UseOI
 		} catch (error) {
 			setState({
 				status: 'error',
-				message: error instanceof Error ? error.message : 'OIDC flow failed',
+				message: t('oidcGate.errorGeneric'),
 			});
 		}
 	}, [providerConfig, purpose, redirectUri]);

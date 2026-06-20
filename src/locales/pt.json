@@ -156,6 +156,48 @@
 		"authorizationError": {
 			"title": "Erro de Autorização"
 		},
+		"errorCodes": {
+			"AUTHORIZATION_RESPONSE_FAILED": {
+				"description": "A resposta de autorização não pôde ser concluída.",
+				"title": "Falha na Resposta de Autorização"
+			},
+			"FLOW_ERROR": {
+				"description": "Ocorreu um erro durante o fluxo de credencial. Tente novamente.",
+				"title": "Erro de Fluxo"
+			},
+			"INSUFFICIENT_CREDENTIALS": {
+				"description": "Uma ou mais das credenciais que deseja apresentar não estão disponíveis para seleção.",
+				"title": "Credenciais Insuficientes"
+			},
+			"NONTRUSTED_VERIFIER": {
+				"description": "O verifier não forneceu informação válida para verificação.",
+				"title": "Verifier Não Confiável"
+			},
+			"NO_DCQL_QUERY_OR_PREMATCHED_CREDENTIALS": {
+				"description": "O pedido de apresentação é inválido — nenhuma consulta ou credenciais pré-correspondidas fornecidas.",
+				"title": "Pedido de Apresentação Inválido"
+			},
+			"NO_MATCHING_CREDENTIALS": {
+				"description": "Não possui credenciais que correspondam a este pedido.",
+				"title": "Sem Credenciais Correspondentes"
+			},
+			"NO_TRANSPORT": {
+				"description": "Nenhum transporte disponível para apresentação verificável.",
+				"title": "Transporte Indisponível"
+			},
+			"RESPONSE_ERROR": {
+				"description": "Ocorreu um erro ao enviar a resposta de apresentação.",
+				"title": "Erro de Resposta"
+			},
+			"SELECTION_ERROR": {
+				"description": "Ocorreu um erro durante a seleção de credenciais.",
+				"title": "Erro de Seleção"
+			},
+			"WALLET_STATE_UNAVAILABLE": {
+				"description": "O estado da carteira não está disponível. Faça login novamente.",
+				"title": "Carteira Indisponível"
+			}
+		},
 		"insufficientCredentials": {
 			"description": "Uma ou mais das credenciais que deseja apresentar não estão disponíveis para seleção.",
 			"title": "Credenciais insuficientes"
@@ -173,9 +215,11 @@
 			"title": "Callback Não Suportado"
 		},
 		"vciFlowError": {
+			"description": "Ocorreu um erro durante a emissão de credencial. Tente novamente.",
 			"title": "Erro de Emissão de Credencial"
 		},
 		"vpFlowError": {
+			"description": "Ocorreu um erro durante a verificação de credencial. Tente novamente.",
 			"title": "Erro de Verificação"
 		}
 	},

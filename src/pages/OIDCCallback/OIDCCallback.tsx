@@ -80,7 +80,7 @@ export default function OIDCCallback() {
 				console.error('OIDC callback error:', error);
 				setState({
 					status: 'error',
-					message: error instanceof Error ? error.message : 'Authentication failed',
+					message: t('oidcGate.errorGeneric'),
 				});
 			}
 		};

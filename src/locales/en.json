@@ -201,6 +201,48 @@
 		"authorizationError": {
 			"title": "Authorization Error"
 		},
+		"errorCodes": {
+			"AUTHORIZATION_RESPONSE_FAILED": {
+				"description": "The authorization response could not be completed.",
+				"title": "Authorization Response Failed"
+			},
+			"FLOW_ERROR": {
+				"description": "An error occurred during the credential flow. Please try again.",
+				"title": "Flow Error"
+			},
+			"INSUFFICIENT_CREDENTIALS": {
+				"description": "One or more of the credentials you want to present do not exist for selection.",
+				"title": "Insufficient Credentials"
+			},
+			"NONTRUSTED_VERIFIER": {
+				"description": "Verifier did not provide valid data for verification.",
+				"title": "Verifier is not Trusted"
+			},
+			"NO_DCQL_QUERY_OR_PREMATCHED_CREDENTIALS": {
+				"description": "The presentation request is malformed — no query or pre-matched credentials provided.",
+				"title": "Invalid Presentation Request"
+			},
+			"NO_MATCHING_CREDENTIALS": {
+				"description": "You do not have any credentials that match this request.",
+				"title": "No Matching Credentials"
+			},
+			"NO_TRANSPORT": {
+				"description": "No transport is available for verifiable presentation.",
+				"title": "Transport Unavailable"
+			},
+			"RESPONSE_ERROR": {
+				"description": "An error occurred while sending the presentation response.",
+				"title": "Response Error"
+			},
+			"SELECTION_ERROR": {
+				"description": "An error occurred during credential selection.",
+				"title": "Selection Error"
+			},
+			"WALLET_STATE_UNAVAILABLE": {
+				"description": "Wallet state is not available. Please log in again.",
+				"title": "Wallet Unavailable"
+			}
+		},
 		"insufficientCredentials": {
 			"description": "One or more of the credentials you want to present do not exist for selection.",
 			"title": "Insufficient Credentials"
@@ -218,9 +260,11 @@
 			"title": "Unsupported Callback"
 		},
 		"vciFlowError": {
+			"description": "An error occurred during credential issuance. Please try again.",
 			"title": "Credential Issuance Error"
 		},
 		"vpFlowError": {
+			"description": "An error occurred during credential verification. Please try again.",
 			"title": "Verification Error"
 		}
 	},
