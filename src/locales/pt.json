@@ -5,7 +5,8 @@
 			"fair": "Razoável",
 			"good": "Boa",
 			"poor": "Má",
-			"veryPoor": "Muito má"
+			"veryPoor": "Muito má",
+			"connecting": "A conectar..."
 		},
 		"status": "Estado da conexão:"
 	},
@@ -46,7 +47,11 @@
 		"showMore": "Mostrar mais",
 		"submit": "Submeter",
 		"tryAgain": "Tentar novamente",
-		"walletName": "wwWallet"
+		"walletName": "wwWallet",
+		"externalPasskey": "Passkey numa chave de segurança",
+		"hybridPasskey": "Passkey num dispositivo próximo",
+		"loading": "A carregar...",
+		"platformPasskey": "Passkey neste dispositivo"
 	},
 	"expiredRibbon": {
 		"expired": "Expirada"
@@ -128,7 +133,9 @@
 		"usernameExistsError": "Não foi possível criar conta de utilizador. O nome de utilizador já existe.",
 		"usernameLabel": "Nome de utilizador",
 		"weakPasswordError": "Palavra-passe fraca",
-		"welcomeMessage": "Bem-vindo(a) à <highlight>$t(common.walletName)</highlight>"
+		"welcomeMessage": "Bem-vindo(a) à <highlight>$t(common.walletName)</highlight>",
+		"inviteInvalid": "O código de convite é inválido ou expirou.",
+		"inviteRequired": "É necessário um código de convite para se registar neste fornecedor."
 	},
 	"loginState": {
 		"confirm": "Confirmar",
@@ -156,6 +163,48 @@
 		"authorizationError": {
 			"title": "Erro de Autorização"
 		},
+		"errorCodes": {
+			"AUTHORIZATION_RESPONSE_FAILED": {
+				"description": "A resposta de autorização não pôde ser concluída.",
+				"title": "Falha na Resposta de Autorização"
+			},
+			"FLOW_ERROR": {
+				"description": "Ocorreu um erro durante o fluxo de credencial. Tente novamente.",
+				"title": "Erro de Fluxo"
+			},
+			"INSUFFICIENT_CREDENTIALS": {
+				"description": "Uma ou mais das credenciais que deseja apresentar não estão disponíveis para seleção.",
+				"title": "Credenciais Insuficientes"
+			},
+			"NONTRUSTED_VERIFIER": {
+				"description": "O verifier não forneceu informação válida para verificação.",
+				"title": "Verifier Não Confiável"
+			},
+			"NO_DCQL_QUERY_OR_PREMATCHED_CREDENTIALS": {
+				"description": "O pedido de apresentação é inválido — nenhuma consulta ou credenciais pré-correspondidas fornecidas.",
+				"title": "Pedido de Apresentação Inválido"
+			},
+			"NO_MATCHING_CREDENTIALS": {
+				"description": "Não possui credenciais que correspondam a este pedido.",
+				"title": "Sem Credenciais Correspondentes"
+			},
+			"NO_TRANSPORT": {
+				"description": "Nenhum transporte disponível para apresentação verificável.",
+				"title": "Transporte Indisponível"
+			},
+			"RESPONSE_ERROR": {
+				"description": "Ocorreu um erro ao enviar a resposta de apresentação.",
+				"title": "Erro de Resposta"
+			},
+			"SELECTION_ERROR": {
+				"description": "Ocorreu um erro durante a seleção de credenciais.",
+				"title": "Erro de Seleção"
+			},
+			"WALLET_STATE_UNAVAILABLE": {
+				"description": "O estado da carteira não está disponível. Faça login novamente.",
+				"title": "Carteira Indisponível"
+			}
+		},
 		"insufficientCredentials": {
 			"description": "Uma ou mais das credenciais que deseja apresentar não estão disponíveis para seleção.",
 			"title": "Credenciais insuficientes"
@@ -173,9 +222,11 @@
 			"title": "Callback Não Suportado"
 		},
 		"vciFlowError": {
+			"description": "Ocorreu um erro durante a emissão de credencial. Tente novamente.",
 			"title": "Erro de Emissão de Credencial"
 		},
 		"vpFlowError": {
+			"description": "Ocorreu um erro durante a verificação de credencial. Tente novamente.",
 			"title": "Erro de Verificação"
 		}
 	},
@@ -190,7 +241,8 @@
 	},
 	"pageCredentials": {
 		"addCard": {
-			"text": "Adicionar Nova Credencial"
+			"text": "Adicionar Nova Credencial",
+			"title": "Credencial Verificável"
 		},
 		"credentialDetailsTitle": "Clique para ver detalhes sobre {{friendlyName}}",
 		"credentialFullScreenTitle": "Clique para ver em tela cheia o {{friendlyName}}",
@@ -211,7 +263,8 @@
 		"slideButtonTitleDisable": "Sem credencial {{direction}} disponível",
 		"slideButtonTitleEnable": "Clique para ir para a credencial {{direction}}",
 		"slideNext": "Seguinte",
-		"slidePrevious": "Anterior"
+		"slidePrevious": "Anterior",
+		"copyDatasetToClipboard": "Copiar dados (JSON) para a área de transferência"
 	},
 	"pageHistory": {
 		"description": "Consulte o histórico de transmissões de credenciais, com informação sobre quando e para que verifiers elas foram enviadas.",
@@ -304,7 +357,28 @@
 			"register": "Registar no Wallet Companion",
 			"registered": "Registado no Wallet Companion",
 			"title": "Wallet Companion (beta)"
-		}
+		},
+		"appearance": {
+			"colorScheme": {
+				"dark": "Escuro",
+				"description": "Escolha se a aparência deve ser clara ou escura, ou seguir as definições do dispositivo.",
+				"light": "Claro",
+				"system": "Sistema",
+				"title": "Esquema de Cores"
+			},
+			"title": "Aparência"
+		},
+		"lockSensitive": "Bloquear ações sensíveis",
+		"lockSensitiveTitle": "Clique para bloquear ações sensíveis",
+		"oblivious": {
+			"description": "Selecione um gateway privado para usar Oblivious HTTP",
+			"disabled": "Não usar Oblivious HTTP",
+			"gunet": "Gateway GUnet",
+			"successMessage": "Guardado",
+			"title": "Oblivious HTTP"
+		},
+		"unlockSensitive": "Desbloquear ações sensíveis",
+		"unlockSensitiveTitle": "Clique para desbloquear ações sensíveis"
 	},
 	"passkeyInfoPopup": {
 		"closeAriaLabel": "Fechar popup de informações da chave de acesso",
@@ -387,12 +461,22 @@
 		"request": "Solicitação:",
 		"requestedCredentialsFieldsTitle": "Campos solicitados:",
 		"selectDescription": "Você está prestes a compartilhar <strong>apenas os seguintes campos</strong> das credenciais selecionadas.",
-		"selectTitle": "Selecionar"
+		"selectTitle": "Selecionar",
+		"previewDescription": "Será solicitado a selecionar credenciais que correspondam aos requisitos abaixo.",
+		"previewTitle": "Pré-visualização",
+		"qcRequest": "Esta transação solicita a criação de certificados de assinatura de acordo com os Termos e Condições (T&C) do QTSP",
+		"requestingParty": "Parte solicitante: ",
+		"signedDocuments": "Documentos a Assinar: ",
+		"specificClaimsRequested": "O verificador solicitou atributos específicos da credencial.",
+		"summaryDescription": "Está prestes a partilhar <strong>apenas os seguintes campos</strong> das credenciais selecionadas.",
+		"summaryTitle": "Resumo",
+		"transactionDataExample": "Aceitar exemplo de termos e condições de dados de transação"
 	},
 	"sidebar": {
 		"navItemLogout": "Sair",
 		"poweredBy": "Desenvolvido por <docLinkWalletGithub>wwWallet</docLinkWalletGithub>",
-		"poweredByAriaLabel": "Repositório GitHub da wwWallet"
+		"poweredByAriaLabel": "Repositório GitHub da wwWallet",
+		"obliviousEnabled": "Pedidos privados com Oblivious HTTP ativado"
 	},
 	"tenantSelector": {
 		"closePopup": "Fechar popup",
@@ -439,5 +523,83 @@
 		"question": "Está disponível para explorar as funcionalidades da $t(common.walletName) através de uma apresentação guiada?",
 		"startTourButton": "Começar",
 		"title": "Bem vindo(a) à $t(common.walletName)!"
+	},
+	"credentialInfo": {
+		"legendAriaLabel": "Legenda de atributos",
+		"legendRequested": "Solicitado pelo verificador",
+		"legendRequired": "Obrigatório"
+	},
+	"issuance": {
+		"credentialsHaveErrors": "Foram encontrados erros ao verificar a credencial que está a tentar receber.",
+		"error": "Erro de Emissão",
+		"proceed": "Deseja receber esta credencial?",
+		"title": "Emissão de Credencial"
+	},
+	"notifications": {
+		"newCredential": {
+			"message": "Uma nova credencial chegou.",
+			"title": "Nova credencial"
+		},
+		"success": {
+			"message": "A operação foi concluída com sucesso.",
+			"title": "Sucesso"
+		}
+	},
+	"oidcGate": {
+		"awaitingAuth": "A aguardar autenticação...",
+		"awaitingAuthHint": "Complete o processo de início de sessão na janela pop-up ou no novo separador.",
+		"callbackError": "Erro de autenticação",
+		"callbackProcessing": "A processar autenticação...",
+		"callbackSuccess": "Autenticação bem-sucedida! A redirecionar...",
+		"errorCancelled": "A autenticação foi cancelada.",
+		"errorExpired": "A sua sessão expirou. Por favor, tente novamente.",
+		"errorGeneric": "A autenticação falhou. Por favor, tente novamente.",
+		"errorIdentityMismatch": "Esta carteira está registada com uma identidade diferente.",
+		"loginExplanation": "A sua organização ({{tenant}}) requer que verifique a sua identidade antes de aceder à sua carteira.",
+		"registrationExplanation": "A sua organização ({{tenant}}) requer que verifique a sua identidade antes de criar uma carteira.",
+		"signInWith": "Iniciar sessão com {{provider}}",
+		"signUpWith": "Registar com {{provider}}",
+		"verified": "Verificado: {{name}}",
+		"verifiedUser": "Identidade verificada"
+	},
+	"pagePending": {
+		"description": "Ver pedidos de emissão pendentes",
+		"noFound": "Nenhum pedido de emissão pendente encontrado",
+		"title": "Pedidos de Emissão Pendentes"
+	},
+	"parsing": {
+		"errorCouldNotParse": "A credencial não pôde ser analisada.",
+		"errorInvalidDatatype": "A credencial não pôde ser analisada.",
+		"errorMissingIssuerIdentifier": "O identificador do emissor está em falta.",
+		"errorNotSupportedCredentialType": "Este tipo de credencial não é suportado."
+	},
+	"pendingTransactions": {
+		"subtitle": "A aguardar conclusão da emissão",
+		"title": "{{count}} credencial(is) pendente(s)",
+		"view": "Ver detalhes"
+	},
+	"qrShareMdoc": {
+		"communicating": "A comunicar com o verificador...",
+		"enablePermissions": "Não foi possível aceder às funcionalidades de dispositivos próximos. Ative as permissões de dispositivos próximos nas definições e reinicie a aplicação.",
+		"nearbyVerifierRequested": "Um verificador próximo solicitou os seguintes campos:",
+		"send": "Enviar",
+		"shareUsingQR": "Partilhar com QR Code"
+	},
+	"syncPopup": {
+		"description": "Parece que <strong>modificou a sua carteira noutra sessão</strong>. Use a sua <strong>passkey</strong> para sincronizar a sua carteira.",
+		"title": "Sincronizar Carteira"
+	},
+	"viewSelect": {
+		"aria": {
+			"menuLabel": "Opções de visualização de credenciais",
+			"option": "Vista: {{label}}",
+			"toggle": "Alterar vista"
+		},
+		"options": {
+			"horizontalSlider": "Slider Horizontal",
+			"list": "Lista",
+			"verticalSlider": "Slider Vertical"
+		},
+		"view": "Vista"
 	}
 }

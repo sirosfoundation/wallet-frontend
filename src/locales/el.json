@@ -5,7 +5,8 @@
 			"fair": "Μέτρια",
 			"good": "Καλή",
 			"poor": "Κακή",
-			"veryPoor": "Πολύ Κακή"
+			"veryPoor": "Πολύ Κακή",
+			"connecting": "Σύνδεση..."
 		},
 		"status": "Κατάσταση σύνδεσης:"
 	},
@@ -46,7 +47,11 @@
 		"showMore": "Εμφάνιση περισσότερων",
 		"submit": "Υποβολή",
 		"tryAgain": "Δοκιμάστε ξανά",
-		"walletName": "wwWallet"
+		"walletName": "wwWallet",
+		"externalPasskey": "Passkey σε κλειδί ασφαλείας",
+		"hybridPasskey": "Passkey σε κοντινή συσκευή",
+		"loading": "Φόρτωση...",
+		"platformPasskey": "Passkey σε αυτήν τη συσκευή"
 	},
 	"expiredRibbon": {
 		"expired": "Ληγμένο"
@@ -134,7 +139,9 @@
 		"usernameExistsError": "Απέτυχε η δημιουργία λογαριασμού χρήστη, το όνομα χρήστη υπάρχει ήδη.",
 		"usernameLabel": "Όνομα Χρήστη",
 		"weakPasswordError": "Αδύναμος κωδικός",
-		"welcomeMessage": "Καλώς ήρθατε στο <highlight>$t(common.walletName)</highlight>"
+		"welcomeMessage": "Καλώς ήρθατε στο <highlight>$t(common.walletName)</highlight>",
+		"inviteInvalid": "Ο κωδικός πρόσκλησης δεν είναι έγκυρος ή έχει λήξει.",
+		"inviteRequired": "Απαιτείται κωδικός πρόσκλησης για εγγραφή σε αυτόν τον πάροχο."
 	},
 	"loginState": {
 		"confirm": "Επιβεβαίωση",
@@ -162,6 +169,48 @@
 		"authorizationError": {
 			"title": "Σφάλμα Εξουσιοδότησης"
 		},
+		"errorCodes": {
+			"AUTHORIZATION_RESPONSE_FAILED": {
+				"description": "Η απόκριση εξουσιοδότησης δεν μπόρεσε να ολοκληρωθεί.",
+				"title": "Αποτυχία Απόκρισης Εξουσιοδότησης"
+			},
+			"FLOW_ERROR": {
+				"description": "Παρουσιάστηκε σφάλμα κατά τη ροή πιστοποιητικού. Δοκιμάστε ξανά.",
+				"title": "Σφάλμα Ροής"
+			},
+			"INSUFFICIENT_CREDENTIALS": {
+				"description": "Ένα ή περισσότερα από τα πιστοποιητικά που θέλετε να στείλετε δεν υπάρχουν για επιλογή.",
+				"title": "Ανεπαρκή Πιστοποιητικά"
+			},
+			"NONTRUSTED_VERIFIER": {
+				"description": "Ο Verifier δεν παρείχε έγκυρα δεδομένα για επαλήθευση.",
+				"title": "Ο Verifier δεν είναι Αξιόπιστος"
+			},
+			"NO_DCQL_QUERY_OR_PREMATCHED_CREDENTIALS": {
+				"description": "Το αίτημα παρουσίασης δεν είναι σωστό — δεν παρασχέθηκε ερώτημα ή προ-επιλεγμένα πιστοποιητικά.",
+				"title": "Μη Έγκυρο Αίτημα Παρουσίασης"
+			},
+			"NO_MATCHING_CREDENTIALS": {
+				"description": "Δεν διαθέτετε πιστοποιητικά που ταιριάζουν με αυτό το αίτημα.",
+				"title": "Χωρίς Αντίστοιχα Πιστοποιητικά"
+			},
+			"NO_TRANSPORT": {
+				"description": "Δεν είναι διαθέσιμη μεταφορά για επαληθεύσιμη παρουσίαση.",
+				"title": "Μεταφορά Μη Διαθέσιμη"
+			},
+			"RESPONSE_ERROR": {
+				"description": "Παρουσιάστηκε σφάλμα κατά την αποστολή της απόκρισης παρουσίασης.",
+				"title": "Σφάλμα Απόκρισης"
+			},
+			"SELECTION_ERROR": {
+				"description": "Παρουσιάστηκε σφάλμα κατά την επιλογή πιστοποιητικών.",
+				"title": "Σφάλμα Επιλογής"
+			},
+			"WALLET_STATE_UNAVAILABLE": {
+				"description": "Η κατάσταση πορτοφολιού δεν είναι διαθέσιμη. Συνδεθείτε ξανά.",
+				"title": "Πορτοφόλι Μη Διαθέσιμο"
+			}
+		},
 		"insufficientCredentials": {
 			"description": "Ένα ή περισσότερα από τα πιστοποιητικά που θέλετε να στείλετε δεν υπάρχουν για επιλογή.",
 			"title": "Ανεπαρκή Πιστοποιητικά"
@@ -179,9 +228,11 @@
 			"title": "Μη Υποστηριζόμενη Κλήση"
 		},
 		"vciFlowError": {
+			"description": "Παρουσιάστηκε σφάλμα κατά την έκδοση πιστοποιητικού. Δοκιμάστε ξανά.",
 			"title": "Σφάλμα Έκδοσης Πιστοποιητικού"
 		},
 		"vpFlowError": {
+			"description": "Παρουσιάστηκε σφάλμα κατά την επαλήθευση πιστοποιητικού. Δοκιμάστε ξανά.",
 			"title": "Σφάλμα Επαλήθευσης"
 		}
 	},
@@ -196,7 +247,8 @@
 	},
 	"pageCredentials": {
 		"addCard": {
-			"text": "Προσθήκη Νέου Πιστοποιητικού"
+			"text": "Προσθήκη Νέου Πιστοποιητικού",
+			"title": "Επαληθεύσιμο Πιστοποιητικό"
 		},
 		"credentialDetailsTitle": "Κάντε κλικ για να δείτε λεπτομέρειες για το {{friendlyName}}",
 		"credentialFullScreenTitle": "Κάντε κλικ για πλήρη οθόνη στο {{friendlyName}}",
@@ -217,7 +269,8 @@
 		"slideButtonTitleDisable": "Δεν υπάρχει διαθέσιμο {{direction}} πιστοποιητικό",
 		"slideButtonTitleEnable": "Κάντε κλικ για να μεταβείτε στο {{direction}} πιστοποιητικό",
 		"slideNext": "επόμενο",
-		"slidePrevious": "προηγούμενο"
+		"slidePrevious": "προηγούμενο",
+		"copyDatasetToClipboard": "Αντιγραφή δεδομένων (JSON) στο πρόχειρο"
 	},
 	"pageHistory": {
 		"description": "Δείτε στο ιστορικό αποστολών πιστοποιητικών πότε και σε ποιους verifiers τα στείλατε.",
@@ -310,7 +363,28 @@
 			"register": "Καταχώρηση στο Wallet Companion",
 			"registered": "Καταχωρημένο στο Wallet Companion",
 			"title": "Wallet Companion (beta)"
-		}
+		},
+		"appearance": {
+			"colorScheme": {
+				"dark": "Σκοτεινό",
+				"description": "Επιλέξτε αν η εμφάνιση θα είναι φωτεινή ή σκοτεινή, ή ακολουθήστε τις ρυθμίσεις της συσκευής σας.",
+				"light": "Φωτεινό",
+				"system": "Σύστημα",
+				"title": "Χρωματικό Σχήμα"
+			},
+			"title": "Εμφάνιση"
+		},
+		"lockSensitive": "Κλείδωμα ευαίσθητων ενεργειών",
+		"lockSensitiveTitle": "Κλικ για κλείδωμα ευαίσθητων ενεργειών",
+		"oblivious": {
+			"description": "Επιλέξτε ιδιωτική πύλη για χρήση Oblivious HTTP",
+			"disabled": "Χωρίς χρήση Oblivious HTTP",
+			"gunet": "Πύλη GUnet",
+			"successMessage": "Αποθηκεύτηκε",
+			"title": "Oblivious HTTP"
+		},
+		"unlockSensitive": "Ξεκλείδωμα ευαίσθητων ενεργειών",
+		"unlockSensitiveTitle": "Κλικ για ξεκλείδωμα ευαίσθητων ενεργειών"
 	},
 	"parsing": {
 		"errorCouldNotParse": "Δεν ήταν δυνατή η ανάγνωση του credential.",
@@ -411,12 +485,17 @@
 		"selectDescription": "Επιλέξτε το Πιστοποιητικό που θέλετε να στείλετε.",
 		"selectTitle": "Επιλογή",
 		"summaryDescription": "Πρόκειται να μοιραστείτε <strong>μόνο τα παρακάτω πεδία</strong> από τα επιλεγμένα πιστοποιητικά.",
-		"summaryTitle": "Σύνοψη"
+		"summaryTitle": "Σύνοψη",
+		"qcRequest": "Αυτή η συναλλαγή ζητά τη δημιουργία πιστοποιητικών υπογραφής σύμφωνα με τους Όρους και Προϋποθέσεις (T&C) του QTSP",
+		"signedDocuments": "Έγγραφα προς Υπογραφή: ",
+		"specificClaimsRequested": "Ο επαληθευτής ζήτησε συγκεκριμένες αξιώσεις του πιστοποιητικού.",
+		"transactionDataExample": "Αποδοχή παραδείγματος όρων και προϋποθέσεων δεδομένων συναλλαγής"
 	},
 	"sidebar": {
 		"navItemLogout": "Αποσύνδεση",
 		"poweredBy": "Powered by <docLinkWalletGithub>wwWallet</docLinkWalletGithub>",
-		"poweredByAriaLabel": "GitHub repository του wwWallet"
+		"poweredByAriaLabel": "GitHub repository του wwWallet",
+		"obliviousEnabled": "Ιδιωτικά αιτήματα με Oblivious HTTP ενεργοποιημένο"
 	},
 	"tenantSelector": {
 		"closePopup": "Κλείσιμο παραθύρου",
@@ -463,5 +542,64 @@
 		"question": "Είστε έτοιμοι να εξερευνήσετε τις δυνατότητες του $t(common.walletName) μέσω μιας ξενάγησης;",
 		"startTourButton": "Έναρξη Ξενάγησης",
 		"title": "Καλώς ήρθατε στο $t(common.walletName)!"
+	},
+	"credentialInfo": {
+		"legendAriaLabel": "Υπόμνημα αξιώσεων",
+		"legendRequested": "Ζητήθηκε από τον επαληθευτή",
+		"legendRequired": "Απαιτείται"
+	},
+	"notifications": {
+		"newCredential": {
+			"message": "Ένα νέο πιστοποιητικό έφτασε.",
+			"title": "Νέο πιστοποιητικό"
+		},
+		"success": {
+			"message": "Η λειτουργία ολοκληρώθηκε επιτυχώς.",
+			"title": "Επιτυχία"
+		}
+	},
+	"oidcGate": {
+		"awaitingAuth": "Αναμονή για πιστοποίηση...",
+		"awaitingAuthHint": "Ολοκληρώστε τη διαδικασία σύνδεσης στο αναδυόμενο παράθυρο ή τη νέα καρτέλα.",
+		"callbackError": "Σφάλμα πιστοποίησης",
+		"callbackProcessing": "Επεξεργασία πιστοποίησης...",
+		"callbackSuccess": "Επιτυχής πιστοποίηση! Ανακατεύθυνση...",
+		"errorCancelled": "Η πιστοποίηση ακυρώθηκε.",
+		"errorExpired": "Η συνεδρία σας έληξε. Παρακαλώ δοκιμάστε ξανά.",
+		"errorGeneric": "Η πιστοποίηση απέτυχε. Παρακαλώ δοκιμάστε ξανά.",
+		"errorIdentityMismatch": "Αυτό το πορτοφόλι είναι καταχωρημένο σε διαφορετική ταυτότητα.",
+		"loginExplanation": "Ο οργανισμός σας ({{tenant}}) απαιτεί επαλήθευση ταυτότητας πριν από την πρόσβαση στο πορτοφόλι σας.",
+		"registrationExplanation": "Ο οργανισμός σας ({{tenant}}) απαιτεί επαλήθευση ταυτότητας πριν τη δημιουργία πορτοφολιού.",
+		"signInWith": "Σύνδεση με {{provider}}",
+		"signUpWith": "Εγγραφή με {{provider}}",
+		"verified": "Επαληθευμένο: {{name}}",
+		"verifiedUser": "Ταυτότητα επαληθευμένη"
+	},
+	"pagePending": {
+		"description": "Προβολή εκκρεμών αιτημάτων έκδοσης",
+		"noFound": "Δεν βρέθηκαν εκκρεμή αιτήματα έκδοσης",
+		"title": "Εκκρεμή Αιτήματα Έκδοσης"
+	},
+	"pendingTransactions": {
+		"subtitle": "Αναμονή ολοκλήρωσης έκδοσης",
+		"title": "{{count}} εκκρεμές/ή πιστοποιητικό/ά",
+		"view": "Προβολή λεπτομερειών"
+	},
+	"syncPopup": {
+		"description": "Φαίνεται ότι <strong>τροποποιήσατε το πορτοφόλι σας σε άλλη συνεδρία</strong>. Χρησιμοποιήστε το <strong>passkey</strong> σας για συγχρονισμό.",
+		"title": "Συγχρονισμός Πορτοφολιού"
+	},
+	"viewSelect": {
+		"aria": {
+			"menuLabel": "Επιλογές προβολής πιστοποιητικών",
+			"option": "Προβολή: {{label}}",
+			"toggle": "Αλλαγή προβολής"
+		},
+		"options": {
+			"horizontalSlider": "Οριζόντιο Σλάιντερ",
+			"list": "Λίστα",
+			"verticalSlider": "Κάθετο Σλάιντερ"
+		},
+		"view": "Προβολή"
 	}
 }
