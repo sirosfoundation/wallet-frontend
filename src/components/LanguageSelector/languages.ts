@@ -10,3 +10,4 @@ export const languageOptions: Option[] = [
 	{ value: "fi", label: "FI", name: "Suomi" },
 	{ value: "pt", label: "PT", name: "Português" },
 	{ value: "sv", label: "SV", name: "Svenska" },
+];
