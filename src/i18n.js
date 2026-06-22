@@ -54,6 +54,9 @@ const languageSetting = isMultiLanguageEnabled ? preferredLanguage : fallbackLng
 
 i18n
 	.use(initReactI18next)
+	.on('languageChanged', (lng) => {
+		document.documentElement.lang = lng;
+	})
 	.init({
 		resources: availableResources,
 		fallbackLng,
