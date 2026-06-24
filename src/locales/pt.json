@@ -414,7 +414,8 @@
 			"title": "Porquê digitalização facial?",
 			"description": "Utilizamos uma verificação facial 3D rápida para prevenir o uso fraudulento do seu documento. Os seus dados biométricos são encriptados e eliminados após a conclusão da verificação."
 		},
-		"startScan": "Iniciar Digitalização"
+		"startScan": "Iniciar Digitalização",
+		"biometricConsent": "Consinto o processamento biométrico para verificação de identidade."
 	},
 	"passkeyInfoPopup": {
 		"closeAriaLabel": "Fechar popup de informações da chave de acesso",

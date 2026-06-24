@@ -1,17 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, ScanFace, ScanSearch, Nfc, IdCard, Sun, Signal, ShieldCheck } from 'lucide-react';
+import { TFunction } from 'i18next';
+import { ArrowLeft, ScanFace, ScanSearch, Nfc, IdCard, Sun, Signal, ShieldCheck, LucideIcon } from 'lucide-react';
 import { H1 } from '@/components/Shared/Heading';
 import Button from '@/components/Buttons/Button';
 
-const StepIcon = ({ Icon }) => (
+const StepIcon = ({ Icon }: { Icon: LucideIcon }) => (
 	<div className="flex items-center justify-center h-10 w-10 rounded-lg bg-brand-lighter/20 dark:bg-brand-darker/40 text-primary shrink-0">
 		<Icon size={20} />
 	</div>
 );
 
-const PrerequisiteIcon = ({ Icon }) => (
+const PrerequisiteIcon = ({ Icon }: { Icon: LucideIcon }) => (
 	<div className="flex items-center justify-center h-12 w-12 rounded-full bg-lm-gray-300 dark:bg-dm-gray-600 text-primary">
 		<Icon size={22} />
 	</div>
@@ -20,6 +21,8 @@ const PrerequisiteIcon = ({ Icon }) => (
 const ScanPhysicalID = () => {
 	const navigate = useNavigate();
 	const { t } = useTranslation();
+	const [hasConsented, setHasConsented] = useState(false);
+	const isNativeScanAvailable = typeof window.nativeWrapper?.startScanPhysicalId === 'function';
 
 	const steps = [
 		{ icon: ScanFace,   title: t('pageScanPhysicalId.steps.step1.title'), description: t('pageScanPhysicalId.steps.step1.description') },
@@ -101,24 +104,30 @@ const ScanPhysicalID = () => {
 						<WhyFaceScan t={t} />
 					</div>
 
-					{/* Start Scan — desktop: right column bottom */}
-					<div className="hidden md:block" data-widget="scan-physical-id-start">
-						<StartScanButton t={t} />
+					{/* Consent + Start Scan — desktop: right column bottom */}
+					<div className="hidden md:block">
+						<ConsentCheckbox t={t} checked={hasConsented} onChange={setHasConsented} />
+						<div data-widget="scan-physical-id-start">
+							<StartScanButton t={t} disabled={!hasConsented || !isNativeScanAvailable} />
+						</div>
 					</div>
 
 				</div>
 			</div>
 
-			{/* Start Scan — mobile: full-width at bottom */}
-			<div className="md:hidden mt-6" data-widget="scan-physical-id-start">
-				<StartScanButton t={t} />
+			{/* Consent + Start Scan — mobile: full-width at bottom */}
+			<div className="md:hidden mt-6">
+				<ConsentCheckbox t={t} checked={hasConsented} onChange={setHasConsented} />
+				<div data-widget="scan-physical-id-start">
+					<StartScanButton t={t} disabled={!hasConsented || !isNativeScanAvailable} />
+				</div>
 			</div>
 
 		</div>
 	);
 };
 
-const WhyFaceScan = ({ t }) => (
+const WhyFaceScan = ({ t }: { t: TFunction }) => (
 	<div className="flex items-start gap-4">
 		<div className="flex-1">
 			<p className="font-semibold mb-2 text-lm-gray-900 dark:text-dm-gray-100">
@@ -134,8 +143,26 @@ const WhyFaceScan = ({ t }) => (
 	</div>
 );
 
-const StartScanButton = ({ t }) => (
-	<Button variant="primary" additionalClassName="w-full" size="lg">
+const ConsentCheckbox = ({ t, checked, onChange }: { t: TFunction, checked: boolean, onChange: (checked: boolean) => void }) => (
+	<label className="mb-4 text-sm relative flex items-start gap-2 cursor-pointer text-lm-gray-900 dark:text-dm-gray-100">
+		<input
+			className="mt-0.5 w-4 h-4 accent-primary cursor-pointer shrink-0"
+			type="checkbox"
+			checked={checked}
+			onChange={(e) => onChange(e.target.checked)}
+		/>
+		<span>{t('pageScanPhysicalId.biometricConsent')}</span>
+	</label>
+);
+
+const StartScanButton = ({ t, disabled }: { t: TFunction, disabled: boolean }) => (
+	<Button
+		variant="primary"
+		additionalClassName="w-full"
+		size="lg"
+		disabled={disabled}
+		onClick={() => window.nativeWrapper?.startScanPhysicalId()}
+	>
 		{t('pageScanPhysicalId.startScan')}
 	</Button>
 );

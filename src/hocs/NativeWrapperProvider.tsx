@@ -11,6 +11,7 @@ declare global {
 
 	interface NativeWrapper {
 		isKeystoreOpen(): Promise<boolean>;
+		startScanPhysicalId?(): void;
 	}
 }
 

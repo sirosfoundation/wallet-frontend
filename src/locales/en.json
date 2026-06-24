@@ -457,7 +457,8 @@
 			"title": "Why face scan?",
 			"description": "We use a quick 3D face verification to prevent fraudulent use of your document. Your biometric data is encrypted and discarded after the verification is complete."
 		},
-		"startScan": "Start Scan"
+		"startScan": "Start Scan",
+		"biometricConsent": "I consent to biometric processing for identity verification."
 	},
 	"parsing": {
 		"errorCouldNotParse": "Credential could not be parsed.",
