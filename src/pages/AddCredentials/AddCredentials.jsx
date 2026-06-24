@@ -27,6 +27,11 @@ const AddCredentials = () => {
 	const { vcEntityList, getData } = useContext(CredentialsContext);
 	const { getCredentialIssuerMetadata } = useOpenID4VCIHelper();
 
+	// Scan Physical ID hands off to the native wrapper's FT flow, so the entry
+	// point only makes sense when that bridge is actually present (i.e. inside
+	// the wrapper app, not a plain browser/PWA).
+	const isNativeScanAvailable = typeof window.nativeWrapper?.startScanPhysicalId === 'function';
+
 	const { buildPath } = useTenant();
 	const navigate = useNavigate();
 	const { t } = useTranslation();
@@ -192,7 +197,7 @@ const AddCredentials = () => {
 						identifierField='identifierField'
 						onClick={handleCredentialConfigurationClick}
 						extraSection={
-							<div className="mb-4 hidden" data-widget="scan-physical-id">
+							<div className={`mb-4 ${isNativeScanAvailable ? '' : 'hidden'}`} data-widget="scan-physical-id">
 								<H3 heading={t('pageAddCredentials.scanPhysicalId.sectionTitle')} hr />
 								<button
 									className="w-full flex items-center justify-between gap-4 border border-lm-gray-400 dark:border-dm-gray-600 rounded-xl p-4 bg-lm-gray-50 dark:bg-dm-gray-800 hover:brightness-[0.97] dark:hover:brightness-[1.05] transition-all text-left cursor-pointer"
