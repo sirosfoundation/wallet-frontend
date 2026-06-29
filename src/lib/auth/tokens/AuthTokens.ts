@@ -62,6 +62,32 @@ export class AuthTokens {
 		return token;
 	}
 
+	public backendTokenExists(checkExpiration: boolean = true): boolean {
+		return this.tokenExists('backend', checkExpiration);
+	}
+
+	public anonymousTokenExists(checkExpiration: boolean = true): boolean {
+		return this.tokenExists('anonymous', checkExpiration);
+	}
+
+	public tokenExists(name: keyof typeof AuthTokens.MANIFEST, checkExpiration: boolean = true): boolean {
+		const existing = this.#tokens.get(name);
+		if (existing && (!checkExpiration || !existing.isExpired())) return true;
+
+		const jwt = localStorage.getItem(`authToken:${name}`);
+		if (!jwt) return false;
+
+		if (!checkExpiration) return true;
+
+		try {
+			const token = new AccessToken(jwt);
+			this.#tokens.set(name, token);
+			return !token.isExpired();
+		} catch {
+			return false;
+		}
+	}
+
 	async clear(): Promise<void> {
 		for (const name of this.#tokens.keys()) {
 			localStorage.removeItem(`authToken:${name}`);
