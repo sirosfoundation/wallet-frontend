@@ -23,9 +23,7 @@ export type Tac = ReadonlySet<TacPermission>;
  * Authentication Context Class Reference.
  * Keep known values explicit, allow forward-compatible custom values.
  */
-export type Acr =
-	| 'passkey'
-	| 'oidc';
+export type Acr = `urn:siros:acr:${| 'passkey' | 'oidc'}`;
 
 /**
  * Parsed access token with claims and utility methods.
