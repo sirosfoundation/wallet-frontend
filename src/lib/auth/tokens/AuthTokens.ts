@@ -1,18 +1,16 @@
 import { logger } from '@/logger';
-import { BACKEND_URL } from '@/config';
-import HttpClient from '@/lib/services/HttpClient';
 import type { AccessTokenInterface } from './types';
 import { AccessToken } from './AccessToken';
-import { AuthError, TokenResponseSchema } from '../resources';
+import { AuthServerClient } from '../auth-server/AuthServerClient';
 
 type AuthTokensOptions = {
-	httpClient: HttpClient,
+	authServerClient: AuthServerClient,
 	tenantId: string;
 }
 
 export class AuthTokens {
 	#tenantId: string;
-	#httpClient: HttpClient;
+	#authServerClient: AuthServerClient;
 
 	/**
 	 * Manifest of available auth tokens.
@@ -32,8 +30,8 @@ export class AuthTokens {
 
 	#tokens = new Map<string, AccessTokenInterface>();
 
-	constructor({ httpClient, tenantId }: AuthTokensOptions) {
-		this.#httpClient = httpClient;
+	constructor({ authServerClient, tenantId }: AuthTokensOptions) {
+		this.#authServerClient = authServerClient;
 		this.#tenantId = tenantId;
 	}
 
@@ -75,24 +73,13 @@ export class AuthTokens {
 		audience: string;
 		tac?: string;
 	}): Promise<AccessTokenInterface> {
-		const res = await this.#httpClient.post(
-			new URL('/auth/token', BACKEND_URL).toString(),
-			{
-				aud: options.audience,
-				tac: options.tac,
-				tenant_id: this.#tenantId,
-			},
-			{},
-			{
-				useCache: false,
-			});
+		const data = await this.#authServerClient.requestAccessToken(
+			options.audience,
+			this.#tenantId,
+			options.tac,
+		);
 
-		const parsed = TokenResponseSchema.safeParse(res.data);
-		if (!parsed.success) {
-			throw new AuthError('Invalid token endpoint response');
-		}
-
-		return new AccessToken(parsed.data.access_token);
+		return new AccessToken(data.access_token);
 	}
 
 	#loadTokensFromStorage(): void {
