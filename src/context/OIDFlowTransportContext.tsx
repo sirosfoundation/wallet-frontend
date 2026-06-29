@@ -32,6 +32,8 @@ import { logger } from '@/logger';
 import { createIssuerTrustEvaluator, createVerifierTrustEvaluator } from '@/lib/services/TrustEvaluator';
 import { TrustEvaluators } from '@/lib/openid-flow';
 import { useHttpClient } from '@/hooks/useHttpClient';
+import SessionContext from './SessionContext';
+import { getTenantFromUrlPath } from '@/lib/tenant';
 
 // Re-export sign and match types with WS prefix for clarity
 export type {
@@ -81,10 +83,6 @@ const OIDFlowTransportContext = createContext<OIDFlowTransportContextValue | nul
 
 interface OIDFlowTransportProviderProps {
 	children: React.ReactNode;
-	/** Auth token for WebSocket connection */
-	authToken: string | null;
-	/** Tenant ID for multi-tenant routing */
-	tenantId: string;
 }
 
 /**
@@ -92,10 +90,28 @@ interface OIDFlowTransportProviderProps {
  */
 export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> = ({
 	children,
-	authToken,
-	tenantId
 }) => {
+	const { api } = useContext(SessionContext);
 	const httpClient = useHttpClient();
+
+	// Tenant ID for multi-tenant routing (from URL path, more robust than sessionStorage)
+	const tenantId = getTenantFromUrlPath() ?? 'default';
+
+	// Resolve the backend access token (the WebSocket/relay auth credential) from
+	// the AuthTokens manager exposed on the session api.
+	const [authToken, setAuthToken] = useState<string | null>(null);
+	useEffect(() => {
+		let active = true;
+		(async () => {
+			try {
+				const token = await api.authTokens.ensureBackendToken();
+				if (active) setAuthToken(token.raw);
+			} catch {
+				if (active) setAuthToken(null);
+			}
+		})();
+		return () => { active = false; };
+	}, [api]);
 
 	const [isConnected, setIsConnected] = useState(false);
 	const [wsTransport, setWsTransport] = useState<OIDFlowWebSocketTransport | null>(null);
