@@ -338,9 +338,6 @@ export default class HttpClient {
 				headers: {
 					...headers,
 					...(targetIsBackend && { 'X-Tenant-ID': tenantId }),
-					...(targetIsBackend && {
-						Authorization: 'Bearer ' + JSON.parse(sessionStorage.getItem('appToken')!),
-					}),
 				},
 				...(isBinaryRequest && { responseType: 'arraybuffer' }),
 			});

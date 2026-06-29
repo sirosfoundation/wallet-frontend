@@ -12,7 +12,7 @@ export const AccessTokenPayloadSchema = z.object({
 	aud: z.string(),
 	tenant_id: z.string(),
 	tac: z.string(),
-	acr: z.enum(['passkey', 'oidc']),
+	acr: z.enum(['urn:siros:acr:passkey', 'urn:siros:acr:oidc']),
 	exp: z.number(),
 });
 export type AccessTokenPayload = z.infer<typeof AccessTokenPayloadSchema>;
