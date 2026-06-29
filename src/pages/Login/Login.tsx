@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState, useCallback, ChangeEventHandler, FormEventHandler } from 'react';
+import React, { useContext, useEffect, useState, useCallback, ChangeEventHandler } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Trans, useTranslation } from 'react-i18next';
 
@@ -11,18 +11,15 @@ import { useTenant } from '../../context/TenantContext';
 import { buildTenantRoutePath, filterUsersByTenantID, matchesTenantFromUrl } from '../../lib/tenant';
 import { useOIDCGate } from '../../hooks/useOIDCGate';
 
-import * as config from '../../config';
 import Button, { Variant } from '../../components/Buttons/Button';
 
 import LanguageSelector from '../../components/LanguageSelector/LanguageSelector';
 import TenantSelector from '../../components/TenantSelector/TenantSelector';
-import SeparatorLine from '../../components/Shared/SeparatorLine';
-import PasswordStrength from '../../components/Auth/PasswordStrength';
 import LoginLayout from '../../components/Auth/LoginLayout';
 import OIDCGateFlowStatus from '../../components/Auth/OIDCGateFlowStatus';
 import checkForUpdates from '../../offlineUpdateSW';
 
-import { Eye, EyeOff, Info, KeyRoundIcon, Lock, LockKeyholeOpen, User, Wallet, X } from 'lucide-react';
+import { Eye, EyeOff, Info, KeyRoundIcon, Wallet, X } from 'lucide-react';
 import { UsbStickDotIcon } from '@/components/Shared/CustomIcons';
 import PolicyLinks from '@/components/Shared/PolicyLinks';
 import PasskeyInfoPopup from '@/components/Popups/PasskeyInfoPopup';
@@ -41,15 +38,6 @@ const FormInputRow = ({
 			{label}
 		</label>
 		{children}
-	</div>
-);
-
-const PasswordCriterionMessage = ({ text, ok }) => (
-	<div className={ok ? "text-lm-green dark:text-dm-green" : "text-lm-red dark:text-dm-red"}>
-		<p className="text-sm">
-			<LockKeyholeOpen className="inline-block mr-2" />
-			{text}
-		</p>
 	</div>
 );
 
@@ -106,102 +94,6 @@ const FormInputField = ({
 				</div>
 			)}
 		</div>
-	);
-};
-
-type UsernamePasswordFormData = {
-	username: string,
-	password: string,
-	confirmPassword: string,
-}
-
-const UsernamePasswordForm = ({
-	choosePassword,
-	disabled,
-	onChange,
-	onSubmit,
-	submitButtonContent,
-}: {
-	choosePassword?: boolean,
-	disabled?: boolean,
-	onChange: (changed: { username?: string, password?: string, confirmPassword?: string }) => void,
-	onSubmit: (event: React.FormEvent<HTMLFormElement>, formData: UsernamePasswordFormData) => void,
-	submitButtonContent: React.ReactNode,
-}) => {
-	const { t } = useTranslation();
-
-	const [formData, setFormData] = useState<UsernamePasswordFormData>({
-		username: '',
-		password: '',
-		confirmPassword: '',
-	});
-	const { username, password, confirmPassword } = formData;
-
-	const handleInputChange: ChangeEventHandler<HTMLInputElement> = (event) => {
-		const { name, value } = event.target;
-		setFormData((prevFormData) => ({
-			...prevFormData,
-			[name]: value,
-		}));
-		onChange({ [name]: value });
-	};
-
-	const handleFormSubmit: FormEventHandler<HTMLFormElement> = async (event) => {
-		onSubmit(event, formData);
-	};
-
-	return (
-		<>
-			<form className="space-y-4 md:space-y-6" onSubmit={handleFormSubmit}>
-				<FormInputRow label={t('loginSignup.usernameLabel')} name="username" IconComponent={User}>
-					<FormInputField
-						ariaLabel="Username"
-						name="username"
-						onChange={handleInputChange}
-						placeholder={t('loginSignup.enterUsername')}
-						type="text"
-						value={username}
-						disabled={disabled}
-					/>
-				</FormInputRow>
-
-				<FormInputRow label={t('loginSignup.passwordLabel')} name="password" IconComponent={Lock}>
-					<FormInputField
-						ariaLabel="Password"
-						name="password"
-						onChange={handleInputChange}
-						placeholder={t('loginSignup.enterPassword')}
-						type="password"
-						value={password}
-						disabled={disabled}
-					/>
-					{choosePassword && password !== '' && <PasswordStrength label={t('loginSignup.strength')} password={password} />}
-				</FormInputRow>
-
-				{choosePassword && (
-					<FormInputRow label={t('loginSignup.confirmPasswordLabel')} name="confirm-password" IconComponent={Lock}>
-						<FormInputField
-							ariaLabel="Confirm Password"
-							name="confirmPassword"
-							onChange={handleInputChange}
-							placeholder={t('loginSignup.enterconfirmPasswordLabel')}
-							type="password"
-							value={confirmPassword}
-							disabled={disabled}
-						/>
-					</FormInputRow>
-				)}
-				<Button
-					id="submit-username-password-loginsignup"
-					type="submit"
-					variant="primary"
-					disabled={disabled}
-					additionalClassName='w-full'
-				>
-					{submitButtonContent}
-				</Button>
-			</form>
-		</>
 	);
 };
 
@@ -716,14 +608,11 @@ const WebauthnSignupLogin = ({
 
 const Auth = () => {
 	const { isOnline, updateOnlineStatus } = useContext(StatusContext);
-	const { api, isLoggedIn, keystore } = useContext(SessionContext);
+	const { isLoggedIn, keystore } = useContext(SessionContext);
 	const { urlTenantId, effectiveTenantId } = useTenant();
 	const { t } = useTranslation();
 	const location = useLocation();
 
-	const from = location.search || '/';
-
-	const [error, setError] = useState<React.ReactNode>('');
 	const [webauthnError, setWebauthnError] = useState<React.ReactNode>('');
 	// Initialize isLogin from URL query parameter (mode=signup means registration)
 	// This allows OIDC callback to redirect back and preserve the registration state
@@ -754,67 +643,9 @@ const Auth = () => {
 		}
 	}, [effectiveTenantId, isLoggedIn, navigate, location.search, urlTenantId]);
 
-	const handleFormChange = () => setError('');
-
-	const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>, { username, password, confirmPassword }: UsernamePasswordFormData) => {
-		event.preventDefault();
-
-		if (username === '' || password === '') {
-			setError(t('loginSignup.fillInFieldsError'));
-			return;
-		}
-
-		if (!isLogin && password !== confirmPassword) {
-			setError(t('loginSignup.passwordsNotMatchError'));
-			return;
-		}
-
-		// Validate password criteria
-		if (!isLogin) {
-			const validations = [
-				{ ok: password.length >= 8, text: t('loginSignup.passwordLength') },
-				{ ok: /[A-Z]/.test(password), text: t('loginSignup.capitalLetter') },
-				{ ok: /[0-9]/.test(password), text: t('loginSignup.number') },
-				{ ok: /[^A-Za-z0-9]/.test(password), text: t('loginSignup.specialCharacter') },
-			];
-
-			if (!validations.every(({ ok }) => ok)) {
-				setError(
-					<>
-						<p className="text-lm-red dark:text-dm-red font-bold">{t('loginSignup.weakPasswordError')}</p>
-						{validations.map(({ ok, text }) => <PasswordCriterionMessage key={text} ok={ok} text={text} />)}
-					</>
-				);
-				return;
-			}
-		}
-
-		setIsSubmitting(true);
-
-		if (isLogin) {
-			const result = await api.login(username, password, keystore);
-			if (result.ok) {
-				navigate(from, { replace: true });
-			} else {
-				setError(t('loginSignup.incorrectCredentialsError'));
-			}
-
-		} else {
-			const result = await api.signup(username, password, keystore);
-			if (result.ok) {
-				navigate(from, { replace: true });
-			} else {
-				setError(t('loginSignup.usernameExistsError'));
-			}
-		}
-
-		setIsSubmitting(false);
-	};
-
 	const toggleForm = () => {
 		if (isOnline || !isLogin) {
 			setIsLogin(!isLogin);
-			setError('');
 			checkForUpdates();
 			updateOnlineStatus();
 		};
@@ -822,7 +653,6 @@ const Auth = () => {
 
 	const useOtherAccount = () => {
 		setIsLoginCache(false);
-		setError('');
 		setWebauthnError('');
 		checkForUpdates();
 		updateOnlineStatus();
@@ -852,22 +682,6 @@ const Auth = () => {
 						{t('loginSignup.messageOffline')}
 					</p>
 				)}
-
-				{!isLoginCache && config.LOGIN_WITH_PASSWORD ?
-					<>
-						{error && <div className="text-lm-red dark:text-dm-red">{error}</div>}
-						<UsernamePasswordForm
-							choosePassword={!isLogin}
-							disabled={isSubmitting}
-							onChange={handleFormChange}
-							onSubmit={handleFormSubmit}
-							submitButtonContent={isSubmitting ? t('loginSignup.submitting') : isLogin ? t('loginSignup.login') : t('loginSignup.signUp')}
-						/>
-						<SeparatorLine>{t('loginSignup.or')}</SeparatorLine>
-					</>
-					:
-					<></>
-				}
 
 				<WebauthnSignupLogin
 					isLogin={isLogin}
