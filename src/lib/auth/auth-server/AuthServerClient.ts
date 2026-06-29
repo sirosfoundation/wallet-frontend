@@ -19,6 +19,8 @@ export type AuthServerClientOptions = {
 export class AuthServerClient {
 	#baseUrl: string;
 
+	#pendingTokenRequests = new Map<string, Promise<TokenResponse>>();
+
 	constructor({ baseUrl }: AuthServerClientOptions) {
 		this.#baseUrl = baseUrl;
 	}
@@ -169,18 +171,31 @@ export class AuthServerClient {
 	}
 
 	async requestAccessToken(aud: string, tenantId: string, tac?: string): Promise<TokenResponse> {
-		const res = await this.#post(
-			'/auth/token',
-			{ aud, tac, tenant_id: tenantId },
-			{ 'X-Token-Mode': 'session' },
-		);
+		const key = `${tenantId}::${aud}::${tac ?? ''}`;
+		const inFlight = this.#pendingTokenRequests.get(key);
+		if (inFlight) return inFlight;
 
-		const { success, data } = TokenResponseSchema.safeParse(res.data);
-		if (!success) {
-			throw new Error('Invalid token endpoint response');
+		const request = (async () => {
+			const res = await this.#post(
+				'/auth/token',
+				{ aud, tac, tenant_id: tenantId },
+				{ 'X-Token-Mode': 'session' },
+			);
+
+			const { success, data } = TokenResponseSchema.safeParse(res.data);
+			if (!success) {
+				throw new Error('Invalid token endpoint response');
+			}
+
+			return data;
+		})();
+
+		this.#pendingTokenRequests.set(key, request);
+		try {
+			return await request;
+		} finally {
+			this.#pendingTokenRequests.delete(key);
 		}
-
-		return data;
 	}
 
 	async logout(): Promise<void> {

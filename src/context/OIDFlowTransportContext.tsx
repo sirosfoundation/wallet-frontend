@@ -111,7 +111,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 			}
 		})();
 		return () => { active = false; };
-	}, [api]);
+	}, [api.authTokens]);
 
 	const [isConnected, setIsConnected] = useState(false);
 	const [wsTransport, setWsTransport] = useState<OIDFlowWebSocketTransport | null>(null);
