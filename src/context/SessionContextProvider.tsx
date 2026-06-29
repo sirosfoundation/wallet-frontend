@@ -24,6 +24,8 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	const [globalTabId] = useLocalStorage<string | null>("globalTabId", null);
 	const [tabId] = useSessionStorage<string | null>("tabId", null);
 
+	const loginIsOnlineRef = useRef<boolean | null>(null);
+
 	// Use a ref to hold a stable reference to the clearSession function
 	const clearSessionRef = useRef<() => void>();
 
@@ -96,12 +98,16 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	}, [globalTabId, tabId, clearSession, api, keystore]);
 
 	useEffect(() => {
-		if ((!api.authTokens.backendTokenExists(false) && isLoggedIn === true && isOnline === true) || // is logged-in when offline but now user is online again
-			(api.authTokens.backendTokenExists(false) && isLoggedIn === true && isOnline === false)) { // is logged-in when online but now the user has lost connection
-			logout();
+		if (isLoggedIn === true) {
+			if (loginIsOnlineRef.current === null) {
+				loginIsOnlineRef.current = isOnline;
+			} else if (loginIsOnlineRef.current !== isOnline) {
+				logout();
+			}
+		} else {
+			loginIsOnlineRef.current = null;
 		}
-
-	}, [api.authTokens, isLoggedIn, isOnline, logout])
+	}, [isLoggedIn, isOnline, logout]);
 
 	if ((api.isLoggedIn() === true && (keystore.isOpen() === false || !walletStateLoaded))) {
 		return <></>
