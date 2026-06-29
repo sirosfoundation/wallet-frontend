@@ -1,7 +1,7 @@
 import * as config from '../config';
 
 
-export function loginWebAuthnBeginOffline(): { getOptions: { publicKey: PublicKeyCredentialRequestOptions } } {
+export function loginWebAuthnBeginOffline(): { challengeId?: string; getOptions: { publicKey: PublicKeyCredentialRequestOptions } } {
 	return {
 		getOptions: {
 			publicKey: {
