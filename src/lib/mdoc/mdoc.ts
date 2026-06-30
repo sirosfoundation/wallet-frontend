@@ -11,17 +11,9 @@ import { parse } from '@auth0/mdl';
  */
 export function parseIssuerSignedToMDoc(raw: string) {
 	const credentialBytes = base64url.decode(raw);
-	const issuerSigned = cborDecode(credentialBytes);
-	const issuerAuth = issuerSigned.get('issuerAuth') as Array<Uint8Array>;
-	const payload = issuerAuth?.[2];
-	const docType = cborDecode(payload).data.get('docType');
-	const envelope = {
-		version: '1.0',
-		documents: [new Map([['docType', docType], ['issuerSigned', issuerSigned]])],
-		status: 0,
-	};
-
-	return parse(cborEncode(envelope));
+	const deviceResponse = cborDecode(credentialBytes);
+	const parsed =  parse(cborEncode(deviceResponse));
+	return parsed;
 }
 
 /**
