@@ -316,6 +316,14 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 
 	useEffect(() => {
 		const checkPrivateData = async () => {
+			// Only run cleanup when this tab actually has a local session. While a
+			// login is in progress the server session cookie already exists but
+			// globalUserHandleB64u is not set yet. bailing out here prevents this
+			// effect from logging the user out immediately after login.
+			if (!userHandleB64u) {
+				return;
+			}
+
 			if (!globalUserHandleB64u) {
 				closeSessionTabLocal();
 				return;
@@ -328,7 +336,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		};
 
 		checkPrivateData();
-	}, [closeSessionTabLocal, globalUserHandleB64u, readPrivateDataFromIdb]);
+	}, [closeSessionTabLocal, userHandleB64u, globalUserHandleB64u, readPrivateDataFromIdb]);
 
 	const openPrivateData = useCallback(async (): Promise<[PrivateData, CryptoKey, WalletState]> => {
 		const [privateData, mainKey] = await assertKeystoreOpen();
