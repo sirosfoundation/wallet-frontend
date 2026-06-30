@@ -21,7 +21,6 @@ import { COSEKeyToJWK } from "cose-kit";
 import { IOpenID4VCIClientStateRepository } from '@/lib/interfaces/IOpenID4VCIClientStateRepository';
 import { useNavigate } from 'react-router-dom';
 import { logger } from '@/logger';
-import { parseIssuerSignedToMDoc } from '@/lib/mdoc/mdoc';
 import { useHttpClient } from '@/hooks/useHttpClient';
 
 /**
@@ -51,38 +50,43 @@ const openid4vciProofTypePrecedence = config.OPENID4VCI_PROOF_TYPE_PRECEDENCE.sp
 
 const textDecoder = new TextDecoder();
 
-
-export const deriveHolderKidFromCredential = async (credential: string, format: VerifiableCredentialFormat): Promise<string | undefined> => {
-	switch (format) {
-		case VerifiableCredentialFormat.VC_SDJWT:
-		case VerifiableCredentialFormat.DC_SDJWT:
-		case VerifiableCredentialFormat.JWT_VC_JSON: {
-			const payload = credential.split('.')[1];
-			if (!payload) {
-				return undefined;
-			}
-
-			try {
-				const decoded = JSON.parse(textDecoder.decode(fromBase64Url(payload)));
-				const cnf = decoded.cnf as { jwk?: jose.JWK } | undefined;
-				if (cnf?.jwk) {
-					return jose.calculateJwkThumbprint(cnf.jwk, "sha256");
-				}
-			} catch {
-				return undefined;
-			}
-			return undefined;
-		}
-		case VerifiableCredentialFormat.MSO_MDOC: {
-			const mdocCredential = parseIssuerSignedToMDoc(credential);
-			const p: DataItem = cborDecode(mdocCredential.documents[0].issuerSigned.issuerAuth.payload);
-			const deviceKeyInfo = p.data.get('deviceKeyInfo');
-			const deviceKey = deviceKeyInfo.get('deviceKey');
-			// @ts-ignore
-			const devicePublicKeyJwk = COSEKeyToJWK(deviceKey);
-			return jose.calculateJwkThumbprint(devicePublicKeyJwk, "sha256");
+export const deriveHolderKidFromCredential = async (credential: string, format: string) => {
+	if (format === VerifiableCredentialFormat.VC_SDJWT || format === VerifiableCredentialFormat.DC_SDJWT) {
+		const payload = credential.split('.')[1];
+		const { cnf } = JSON.parse(textDecoder.decode(fromBase64Url(payload)));
+		if (cnf && cnf.jwk) {
+			const jwkThumbprint = await jose.calculateJwkThumbprint(cnf.jwk as jose.JWK, "sha256");
+			return jwkThumbprint;
 		}
 	}
+	else if (format === VerifiableCredentialFormat.MSO_MDOC) {
+		const credentialBytes = fromBase64Url(credential);
+		const mdoc = cborDecode(credentialBytes);
+		const mdocDocument = mdoc.get("documents");
+		const issuerSigned = mdocDocument[0].get('issuerSigned');
+		const issuerAuth = issuerSigned.get('issuerAuth');
+		const msoBinaryRaw = issuerAuth[2];
+		let msoBinary;
+		if (msoBinaryRaw instanceof Uint8Array) {
+			msoBinary = msoBinaryRaw;
+		} else if (msoBinaryRaw instanceof ArrayBuffer) {
+			msoBinary = new Uint8Array(msoBinaryRaw);
+		} else {
+			msoBinary = new Uint8Array(msoBinaryRaw.buffer, msoBinaryRaw.byteOffset || 0, msoBinaryRaw.byteLength || msoBinaryRaw.length);
+		} 
+		if (msoBinary && msoBinary.length > 0) {			
+			try {
+				const msoData = cborDecode(msoBinary);
+				const deviceKeyInfo = msoData.data.get('deviceKeyInfo');
+				const deviceKey = deviceKeyInfo.get('deviceKey');
+				const devicePublicKeyJwk = COSEKeyToJWK(deviceKey);
+				const kid = await jose.calculateJwkThumbprint(devicePublicKeyJwk, "sha256");
+				return kid;
+			} catch (e) {
+				console.log("Failed to decode MSO:", e);
+			}
+		}
+		}
 }
 
 export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopup, openID4VCIClientStateRepository }: { errorCallback: (title: string, message: string) => void, showPopupConsent: (options: Record<string, unknown>) => Promise<boolean>, showMessagePopup: (message: { title: string, description: string }) => void, openID4VCIClientStateRepository: IOpenID4VCIClientStateRepository }): IOpenID4VCI {
