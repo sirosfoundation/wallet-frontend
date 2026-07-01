@@ -25,13 +25,13 @@ type RootProviderProps = {
 
 const AppProvider: React.FC<RootProviderProps> = ({ children }) => {
 	return (
-		<StatusContextProvider>
-			<SessionContextProvider>
-				<CredentialsContextProvider>
-					<OIDFlowTransportProvider>
-						<WebSocketSignHandlerProvider>
-							<I18nextProvider i18n={i18n}>
-								<ErrorDialogContextProvider>
+		<I18nextProvider i18n={i18n}>
+			<ErrorDialogContextProvider>
+				<StatusContextProvider>
+					<SessionContextProvider>
+						<CredentialsContextProvider>
+							<OIDFlowTransportProvider>
+								<WebSocketSignHandlerProvider>
 									<OpenID4VPContextProvider>
 										<OpenID4VCIContextProvider>
 											<TxCodeInputProvider>
@@ -45,13 +45,13 @@ const AppProvider: React.FC<RootProviderProps> = ({ children }) => {
 											</TxCodeInputProvider>
 										</OpenID4VCIContextProvider>
 									</OpenID4VPContextProvider>
-								</ErrorDialogContextProvider>
-							</I18nextProvider>
-						</WebSocketSignHandlerProvider>
-					</OIDFlowTransportProvider>
-				</CredentialsContextProvider>
-			</SessionContextProvider>
-		</StatusContextProvider>
+								</WebSocketSignHandlerProvider>
+							</OIDFlowTransportProvider>
+						</CredentialsContextProvider>
+					</SessionContextProvider>
+				</StatusContextProvider>
+			</ErrorDialogContextProvider>
+		</I18nextProvider>
 	);
 };
 
