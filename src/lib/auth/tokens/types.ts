@@ -68,3 +68,10 @@ export interface AccessTokenInterface {
 	 */
 	token(): string;
 }
+
+export interface TokenRejectionInfo<M extends string> {
+	name: M;
+	rejections: number;
+}
+
+export type TokenRejectionListener<M extends string> = (info: TokenRejectionInfo<M>) => void;

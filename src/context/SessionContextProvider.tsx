@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useCallback, useRef, useMemo, useState } from 'react';
-
+import { useTranslation } from 'react-i18next';
 import StatusContext from './StatusContext';
 import { useApi } from '../api';
 import { KeystoreEvent, useLocalStorageKeystore } from '../services/LocalStorageKeystore';
@@ -9,6 +9,7 @@ import { useLocalStorage, useSessionStorage } from '@/hooks/useStorage';
 import { fetchKeyConfig, HpkeConfig } from '@/lib/utils/ohttpHelpers';
 import { OHTTP_KEY_CONFIG } from '@/config';
 import { logger } from '../logger';
+import useErrorDialog from '@/hooks/useErrorDialog';
 
 export const SessionContextProvider = ({ children }: React.PropsWithChildren) => {
 	const { isOnline } = useContext(StatusContext);
@@ -16,6 +17,8 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	const keystore = useLocalStorageKeystore(keystoreEvents);
 	const { getCalculatedWalletState } = keystore;
 	const isLoggedIn = useMemo(() => api.isLoggedIn() && keystore.isOpen(), [keystore, api]);
+	const { displayError } = useErrorDialog();
+	const { t } = useTranslation();
 
 	const [walletStateLoaded, setWalletStateLoaded] = useState<boolean>(false);
 	const [obliviousKeyConfig, setObliviousKeyConfig] = useState<HpkeConfig>(null);
@@ -46,6 +49,16 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 		logger.debug('[Session Context] Close Keystore');
 		await keystore.close();
 	}, [keystore]);
+
+	useEffect(() => {
+		return api.authTokens.onTokenRejection(() => {
+			displayError({
+				title: t('errors.walletServiceAuth.title'),
+				description: t('errors.walletServiceAuth.description'),
+				fatal: true,
+			});
+		});
+	}, [displayError, clearSession, api.authTokens, t]);
 
 	useEffect(() => {
 		// Handler function that calls the current clearSession function

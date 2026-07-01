@@ -1,5 +1,5 @@
 import { logger } from '@/logger';
-import type { AccessTokenInterface } from './types';
+import type { AccessTokenInterface, TokenRejectionInfo, TokenRejectionListener } from './types';
 import { AccessToken } from './AccessToken';
 import { AuthServerClient } from '../auth-server/AuthServerClient';
 
@@ -8,9 +8,16 @@ type AuthTokensOptions = {
 	tenantId: string;
 }
 
+type AuthTokensManifest = typeof AuthTokens.MANIFEST;
+
 export class AuthTokens {
 	#tenantId: string;
 	#authServerClient: AuthServerClient;
+
+	#rejectionListeners = new Set<TokenRejectionListener<keyof AuthTokensManifest>>();
+	#rejectionTimes = new Map<keyof AuthTokensManifest, number[]>();
+	#rejectionWindowMs = 60 * 1000;
+	#maxRejections = 3;
 
 	/**
 	 * Manifest of available auth tokens.
@@ -24,7 +31,8 @@ export class AuthTokens {
 		},
 		'anonymous': {
 			audience: 'wallet-backend',
-			tac: 'rl'
+			tac: 'rl',
+			anonymous: true,
 		},
 	}
 
@@ -43,6 +51,40 @@ export class AuthTokens {
 		session.#loadTokensFromStorage();
 		return session;
 	}
+
+	/**
+	 * Register a listener for token rejection events.
+	 * The listener will be called with the token name and rejection count.
+	 * Returns a function to unregister the listener.
+	 */
+	public onTokenRejection(listener: TokenRejectionListener<keyof AuthTokensManifest>): () => void {
+		this.#rejectionListeners.add(listener);
+		return () => this.#rejectionListeners.delete(listener);
+	}
+
+	/**
+	 * Report that the token with the given name was rejected by a consuming service
+	 * (e.g. engine WS handshake, resolve API or metadata registry).
+	 */
+	public registerTokenRejection(name: keyof AuthTokensManifest): boolean {
+		const now = Date.now();
+		const times = (this.#rejectionTimes.get(name) ?? [])
+			.filter(t => now - t < this.#rejectionWindowMs);
+		times.push(now);
+
+		// Always invalidate the cached token so a retry mints a new one.
+		this.#clearToken(name);
+
+		if (times.length >= this.#maxRejections) {
+			this.#rejectionTimes.delete(name);
+			this.#emitTokenRejection({ name, rejections: times.length });
+			return false;
+		}
+
+		this.#rejectionTimes.set(name, times);
+		return true;
+	}
+
 
 	public async ensureBackendToken(): Promise<AccessTokenInterface> {
 		return this.ensureToken('backend');
@@ -88,11 +130,24 @@ export class AuthTokens {
 		}
 	}
 
+	public forceRefreshBackendToken(): Promise<AccessTokenInterface> {
+		return this.forceRefreshToken('backend');
+	}
+
+	public forceRefreshAnonymousToken(): Promise<AccessTokenInterface> {
+		return this.forceRefreshToken('anonymous');
+	}
+
+	public async forceRefreshToken(name: keyof typeof AuthTokens.MANIFEST): Promise<AccessTokenInterface> {
+		this.#clearToken(name);
+		return this.ensureToken(name);
+	}
+
 	async clear(): Promise<void> {
 		for (const name of this.#tokens.keys()) {
-			localStorage.removeItem(`authToken:${name}`);
+			this.#clearToken(name);
 		}
-		this.#tokens.clear();
+		this.#rejectionTimes.clear();
 	}
 
 	async #requestAccessToken(options: {
@@ -122,5 +177,20 @@ export class AuthTokens {
 
 	#storeToken(tokenId: string, token: AccessTokenInterface): void {
 		localStorage.setItem(`authToken:${tokenId}`, token.raw);
+	}
+
+	#clearToken(tokenId: string): void {
+		localStorage.removeItem(`authToken:${tokenId}`);
+		this.#tokens.delete(tokenId);
+	}
+
+	#emitTokenRejection(info: TokenRejectionInfo<keyof AuthTokensManifest>): void {
+		for (const listener of this.#rejectionListeners) {
+			try {
+				listener(info);
+			} catch (e) {
+				logger.error('Error in token rejection listener:', e);
+			}
+		}
 	}
 }

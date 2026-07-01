@@ -830,24 +830,47 @@ function useTokenRequest(
 		};
 	}, [authHeaders, getPrivateDataEtag]);
 
+	const withTokenRejection = useCallback(async <T>(send: () => Promise<T>): Promise<T> => {
+		const tryRequest = async (send: () => Promise<T>) => {
+			try {
+				return await send();
+			} catch (e) {
+				if (
+					e?.response?.status !== 401 ||
+					e?.response?.data?.error !== 'Invalid token'
+				) throw e;
+
+				const shouldRetry = authTokens.registerTokenRejection(tokenKind);
+				if (!shouldRetry) {
+					// Threshold crossed
+					throw e;
+				}
+
+				// retry with fresh token
+				return await tryRequest(send);
+			}
+		}
+
+		return tryRequest(send);
+	}, [authTokens, tokenKind]);
 
 	const get = useCallback(async (
 		path: string,
 		headers: Record<string, string> = {},
-	): Promise<AxiosResponse> => {
+	): Promise<AxiosResponse> => withTokenRejection(async () => {
 		return axios.get(`${walletBackendUrl}${path}`, {
 			headers: await authHeaders(headers),
 			withCredentials: true,
 			validateStatus: status => (status >= 200 && status < 300) || status === 304,
 			transformResponse: transformTaggedResponse,
 		});
-	}, [authHeaders]);
+	}), [withTokenRejection, authHeaders]);
 
 	const post = useCallback(async (
 		path: string,
 		body: object,
 		headers: Record<string, string> = {},
-	): Promise<AxiosResponse> => {
+	): Promise<AxiosResponse> => withTokenRejection(async () => {
 		try {
 			return await axios.post(`${walletBackendUrl}${path}`, body, {
 				headers: { 'Content-Type': 'application/json', ...(await mutationHeaders(headers)) },
@@ -861,12 +884,12 @@ function useTokenRequest(
 			}
 			throw e;
 		}
-	}, [mutationHeaders]);
+	}), [withTokenRejection, mutationHeaders]);
 
 	const del = useCallback(async (
 		path: string,
 		headers: Record<string, string> = {},
-	): Promise<AxiosResponse> => {
+	): Promise<AxiosResponse> => withTokenRejection(async () => {
 		try {
 			return await axios.delete(`${walletBackendUrl}${path}`, {
 				headers: await mutationHeaders(headers),
@@ -879,7 +902,7 @@ function useTokenRequest(
 			}
 			throw e;
 		}
-	}, [mutationHeaders]);
+	}), [withTokenRejection, mutationHeaders]);
 
 	return useMemo(() => ({ get, post, del }), [get, post, del]);
 }

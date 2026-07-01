@@ -34,6 +34,7 @@ import { TrustEvaluators } from '@/lib/openid-flow';
 import { useHttpClient } from '@/hooks/useHttpClient';
 import SessionContext from './SessionContext';
 import { getTenantFromUrlPath } from '@/lib/tenant';
+import { OIDFlowError } from '@/lib/openid-flow/errors';
 
 // Re-export sign and match types with WS prefix for clarity
 export type {
@@ -260,10 +261,22 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 			}
 		})();
 
-		const unsubscribeError = ws.onError((error) => {
+		const unsubscribeError = ws.onError(async (error) => {
 			logger.error('WebSocket error:', error);
 			setIsConnected(false);
 			setLastError(error);
+
+			if (error instanceof OIDFlowError && error.code === 'AUTH_FAILED') {
+				const shouldRetry = api.authTokens.registerTokenRejection('backend');
+				if (!shouldRetry) {
+					logger.error('Engine auth still failing after refresh; giving up (global handler notified)');
+					return;
+				}
+
+				const fresh = await api.authTokens.ensureBackendToken();
+				setAuthToken(fresh.raw);
+				return;
+			}
 		});
 
 		return () => {
@@ -278,7 +291,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 				return next;
 			});
 		};
-	}, [authToken, tenantId, capabilitiesLoaded, wsCapabilityAvailable, trustEvaluators]);
+	}, [authToken, tenantId, capabilitiesLoaded, wsCapabilityAvailable, trustEvaluators, api.authTokens]);
 
 	// Update auth token and tenant ID on WebSocket when they change
 	useEffect(() => {

@@ -25,6 +25,7 @@ import type { CredentialsMatchedResult } from '@/services/CredentialMatchingServ
 import { logger } from '@/logger';
 import { TrustEvaluators, TrustStatus } from '../types';
 import { DcqlQuery } from 'dcql';
+import { OIDFlowError } from '../errors';
 
 /**
  * Pending request waiting for a response
@@ -162,6 +163,8 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	private connectionPromise: Promise<void> | null = null;
 
 	private trustEvaluators: TrustEvaluators;
+
+	private authFailed = false;
 
 	constructor(wsUrl: string, authToken: string, tenantId: string = 'default', trustEvaluators?: TrustEvaluators) {
 		this.wsUrl = wsUrl;
@@ -706,6 +709,15 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			return;
 		}
 
+		if (type === 'error' && !flowId && message.code === 'AUTH_FAILED') {
+			this.authFailed = true;
+			this.emitError(new OIDFlowError({
+				code: message.code as string,
+				message: (message.message as string) ?? 'Authentication failed',
+			}));
+			return;
+		}
+
 		// All other message types resolve a pending request
 		const pending = this.pending.get(flowId);
 		if (pending) {
@@ -1031,6 +1043,11 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			return;
 		}
 
+		if (this.authFailed) {
+			logger.warn('WebSocket closed after auth failure; not reconnecting');
+			return;
+		}
+
 		// Mobile WebViews may suspend networking while app is backgrounded during
 		// external OAuth redirects. Avoid consuming reconnect attempts until the app
 		// is visible again; foreground logic will trigger reconnect.
@@ -1136,6 +1153,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	 */
 	updateAuthToken(token: string, tenantId?: string): void {
 		this.authToken = token;
+		this.authFailed = false;   // new token → allow reconnecting again
 		if (tenantId !== undefined) {
 			this.tenantId = tenantId;
 		}

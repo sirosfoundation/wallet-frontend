@@ -19,6 +19,9 @@ export const ErrorDialogContextProvider = ({ children }: ErrorDialogContextProvi
 	}, []);
 
 	const onClose = () => {
+		if (error?.fatal) {
+			return;
+		}
 		const errorOnClose = error?.onClose;
 		clearError();
 		if (typeof errorOnClose === "function") {
@@ -34,6 +37,7 @@ export const ErrorDialogContextProvider = ({ children }: ErrorDialogContextProvi
 					<MessagePopup
 						type="error"
 						onClose={onClose}
+						closable={!error.fatal}
 						message={{
 							title: error.title,
 							emphasis: error.emphasis,
