@@ -38,7 +38,7 @@ export class AccessToken implements AccessTokenInterface {
 
 	static #parseJwt(raw: string) {
 		const base64 = raw.split('.')[1];
-		const json = atob(base64.replace(/-/g, '+').replace(/_/g, '/'));
+		const json = atob(base64.replaceAll('-', '+').replaceAll('_', '/'));
 		return JSON.parse(json);
 	}
 }

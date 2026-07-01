@@ -172,8 +172,9 @@ export class AuthServerClient {
 
 	async requestAccessToken(aud: string, tenantId: string, tac?: string): Promise<TokenResponse> {
 		const key = `${tenantId}::${aud}::${tac ?? ''}`;
-		const inFlight = this.#pendingTokenRequests.get(key);
-		if (inFlight) return inFlight;
+		if (this.#pendingTokenRequests.has(key)) {
+			return this.#pendingTokenRequests.get(key)!;
+		}
 
 		const request = (async () => {
 			const res = await this.#post(
