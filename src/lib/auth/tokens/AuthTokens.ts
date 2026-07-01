@@ -86,14 +86,29 @@ export class AuthTokens {
 	}
 
 
+	/**
+	 * Ensure that a valid backend token is available.
+	 *
+	 * @see {@link AuthTokens.ensureToken}
+	 */
 	public async ensureBackendToken(): Promise<AccessTokenInterface> {
 		return this.ensureToken('backend');
 	}
 
+	/**
+	 * Ensure that a valid anonymous token is available.
+	 *
+	 * @see {@link AuthTokens.ensureToken}
+	 */
 	public async ensureAnonymousToken(): Promise<AccessTokenInterface> {
 		return this.ensureToken('anonymous');
 	}
 
+	/**
+	 * Ensure that a valid token is available, refreshing it if necessary.
+	 *
+	 * @param name The name of the token to ensure. Must be present in the {@link AuthTokens.MANIFEST}.
+	 */
 	async ensureToken(name: keyof typeof AuthTokens.MANIFEST): Promise<AccessTokenInterface> {
 		const existing = this.#tokens.get(name);
 		if (existing && !existing.isExpired()) return existing;
@@ -104,14 +119,30 @@ export class AuthTokens {
 		return token;
 	}
 
+	/**
+	 * Check if a valid backend token exists.
+	 *
+	 * @see {@link AuthTokens.tokenExists}
+	 */
 	public backendTokenExists(checkExpiration: boolean = true): boolean {
 		return this.tokenExists('backend', checkExpiration);
 	}
 
+	/**
+	 * Check if a valid anonymous token exists.
+	 *
+	 * @see {@link AuthTokens.tokenExists}
+	 */
 	public anonymousTokenExists(checkExpiration: boolean = true): boolean {
 		return this.tokenExists('anonymous', checkExpiration);
 	}
 
+	/**
+	 * Check if a valid token exists.
+	 *
+	 * This checks both the in-memory cache and local storage for a token with the given name.
+	 * If `checkExpiration` is true, it will also check if the token is expired.
+	 */
 	public tokenExists(name: keyof typeof AuthTokens.MANIFEST, checkExpiration: boolean = true): boolean {
 		const existing = this.#tokens.get(name);
 		if (existing && (!checkExpiration || !existing.isExpired())) return true;
@@ -130,19 +161,39 @@ export class AuthTokens {
 		}
 	}
 
+	/**
+	 * Force-refresh backend token.
+	 *
+	 * @see {@link AuthTokens.forceRefreshToken}
+	 */
 	public forceRefreshBackendToken(): Promise<AccessTokenInterface> {
 		return this.forceRefreshToken('backend');
 	}
 
+	/**
+	 * Force-refresh anonymous token.
+	 *
+	 * @see {@link AuthTokens.forceRefreshToken}
+	 */
 	public forceRefreshAnonymousToken(): Promise<AccessTokenInterface> {
 		return this.forceRefreshToken('anonymous');
 	}
 
+	/**
+	 * Force-refresh a token, clearing any cached value and requesting a new one from the auth server.
+	 *
+	 * @param name The name of the token to refresh. Must be present in the {@link AuthTokens.MANIFEST}.
+	 */
 	public async forceRefreshToken(name: keyof typeof AuthTokens.MANIFEST): Promise<AccessTokenInterface> {
 		this.#clearToken(name);
 		return this.ensureToken(name);
 	}
 
+	/**
+	 * Clear all tokens from memory and local storage.
+	 * This is typically called on logout or when the session is cleared.
+	 * It does not notify listeners of token rejections.
+	 */
 	async clear(): Promise<void> {
 		for (const name of this.#tokens.keys()) {
 			this.#clearToken(name);
