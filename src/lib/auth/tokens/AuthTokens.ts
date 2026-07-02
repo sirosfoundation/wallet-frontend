@@ -12,13 +12,15 @@ type AuthTokensOptions = {
 type AuthTokensManifest = typeof AuthTokens.MANIFEST;
 
 export class AuthTokens {
-	#tenantId: string;
-	#authServerClient: AuthServerClient;
+	readonly #tenantId: string;
+	readonly #authServerClient: AuthServerClient;
 
-	#rejectionListeners = new Set<TokenRejectionListener<keyof AuthTokensManifest>>();
-	#rejectionTimes = new Map<keyof AuthTokensManifest, number[]>();
-	#rejectionWindowMs = 60 * 1000;
-	#maxRejections = 3;
+	readonly #rejectionListeners = new Set<TokenRejectionListener<keyof AuthTokensManifest>>();
+	readonly #rejectionTimes = new Map<keyof AuthTokensManifest, number[]>();
+	readonly #rejectionWindowMs = 60 * 1000;
+	readonly #maxRejections = 3;
+
+	readonly #tokens = new Map<string, AccessTokenInterface>();
 
 	readonly #tokenStorageBackend: Storage;
 	readonly #tokenStoragePrefix = 'authToken';
@@ -51,8 +53,6 @@ export class AuthTokens {
 			anonymous: true,
 		},
 	}
-
-	#tokens = new Map<string, AccessTokenInterface>();
 
 	constructor({ authServerClient, tenantId, storage }: AuthTokensOptions) {
 		this.#authServerClient = authServerClient;

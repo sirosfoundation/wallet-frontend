@@ -275,7 +275,6 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 
 				const fresh = await api.authTokens.ensureBackendToken();
 				setAuthToken(fresh.raw);
-				return;
 			}
 		});
 

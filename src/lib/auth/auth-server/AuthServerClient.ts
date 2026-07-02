@@ -17,9 +17,9 @@ export type AuthServerClientOptions = {
 };
 
 export class AuthServerClient {
-	#baseUrl: string;
+	readonly #baseUrl: string;
 
-	#pendingTokenRequests = new Map<string, Promise<TokenResponse>>();
+	readonly #pendingTokenRequests = new Map<string, Promise<TokenResponse>>();
 
 	constructor({ baseUrl }: AuthServerClientOptions) {
 		this.#baseUrl = baseUrl;
