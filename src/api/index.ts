@@ -125,7 +125,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 	const [sessionState, setSessionState, clearSessionState] = useSessionStorage<SessionState | null>("sessionState", null);
 
 	const authTokens = useMemo(
-		() => AuthTokens.fromStorage({ authServerClient: authServer, tenantId }),
+		() => AuthTokens.fromStorage({ authServerClient: authServer, tenantId, storage: window.sessionStorage }),
 		[authServer, tenantId]
 	);
 

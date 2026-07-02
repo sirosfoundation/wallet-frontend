@@ -8,7 +8,7 @@ export function useAuthTokens(): AuthTokens {
 	const tenantId = getTenantFromUrlPath();
 
 	const authTokens = useMemo(
-		() => AuthTokens.fromStorage({ authServerClient, tenantId }),
+		() => AuthTokens.fromStorage({ authServerClient, tenantId, storage: window.sessionStorage }),
 		[authServerClient, tenantId],
 	);
 

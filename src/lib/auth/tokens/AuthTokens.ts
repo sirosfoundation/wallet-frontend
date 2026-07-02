@@ -6,6 +6,7 @@ import { AuthServerClient } from '../auth-server/AuthServerClient';
 type AuthTokensOptions = {
 	authServerClient: AuthServerClient,
 	tenantId: string;
+	storage: Storage,
 }
 
 type AuthTokensManifest = typeof AuthTokens.MANIFEST;
@@ -18,6 +19,21 @@ export class AuthTokens {
 	#rejectionTimes = new Map<keyof AuthTokensManifest, number[]>();
 	#rejectionWindowMs = 60 * 1000;
 	#maxRejections = 3;
+
+	readonly #tokenStorageBackend: Storage;
+	readonly #tokenStoragePrefix = 'authToken';
+	readonly #tokenStorage = {
+		get: (tokenId: string): string | undefined => {
+			return this.#tokenStorageBackend.getItem(`${this.#tokenStoragePrefix}:${tokenId}`) ?? undefined;
+		},
+		store: (tokenId: string, token: AccessTokenInterface): void => {
+			this.#tokenStorageBackend.setItem(`${this.#tokenStoragePrefix}:${tokenId}`, token.raw);
+		},
+		clear: (tokenId: string): void => {
+			this.#tokenStorageBackend.removeItem(`${this.#tokenStoragePrefix}:${tokenId}`);
+			this.#tokens.delete(tokenId);
+		},
+	}
 
 	/**
 	 * Manifest of available auth tokens.
@@ -38,9 +54,10 @@ export class AuthTokens {
 
 	#tokens = new Map<string, AccessTokenInterface>();
 
-	constructor({ authServerClient, tenantId }: AuthTokensOptions) {
+	constructor({ authServerClient, tenantId, storage }: AuthTokensOptions) {
 		this.#authServerClient = authServerClient;
 		this.#tenantId = tenantId;
+		this.#tokenStorageBackend = storage;
 	}
 
 	/**
@@ -73,7 +90,7 @@ export class AuthTokens {
 		times.push(now);
 
 		// Always invalidate the cached token so a retry mints a new one.
-		this.#clearToken(name);
+		this.#tokenStorage.clear(name);
 
 		if (times.length >= this.#maxRejections) {
 			this.#rejectionTimes.delete(name);
@@ -115,7 +132,7 @@ export class AuthTokens {
 
 		const token = await this.#requestAccessToken(AuthTokens.MANIFEST[name]);
 		this.#tokens.set(name, token);
-		this.#storeToken(name, token);
+		this.#tokenStorage.store(name, token);
 		return token;
 	}
 
@@ -147,7 +164,7 @@ export class AuthTokens {
 		const existing = this.#tokens.get(name);
 		if (existing && (!checkExpiration || !existing.isExpired())) return true;
 
-		const jwt = localStorage.getItem(`authToken:${name}`);
+		const jwt = this.#tokenStorage.get(name);
 		if (!jwt) return false;
 
 		if (!checkExpiration) return true;
@@ -185,7 +202,7 @@ export class AuthTokens {
 	 * @param name The name of the token to refresh. Must be present in the {@link AuthTokens.MANIFEST}.
 	 */
 	public async forceRefreshToken(name: keyof typeof AuthTokens.MANIFEST): Promise<AccessTokenInterface> {
-		this.#clearToken(name);
+		this.#tokenStorage.clear(name);
 		return this.ensureToken(name);
 	}
 
@@ -196,7 +213,7 @@ export class AuthTokens {
 	 */
 	async clear(): Promise<void> {
 		for (const name of this.#tokens.keys()) {
-			this.#clearToken(name);
+			this.#tokenStorage.clear(name);
 		}
 		this.#rejectionTimes.clear();
 	}
@@ -216,7 +233,7 @@ export class AuthTokens {
 
 	#loadTokensFromStorage(): void {
 		for (const name of Object.keys(AuthTokens.MANIFEST)) {
-			const jwt = localStorage.getItem(`authToken:${name}`);
+			const jwt = this.#tokenStorage.get(name);
 			if (!jwt) continue;
 			try {
 				this.#tokens.set(name, new AccessToken(jwt));
@@ -226,14 +243,6 @@ export class AuthTokens {
 		}
 	}
 
-	#storeToken(tokenId: string, token: AccessTokenInterface): void {
-		localStorage.setItem(`authToken:${tokenId}`, token.raw);
-	}
-
-	#clearToken(tokenId: string): void {
-		localStorage.removeItem(`authToken:${tokenId}`);
-		this.#tokens.delete(tokenId);
-	}
 
 	#emitTokenRejection(info: TokenRejectionInfo<keyof AuthTokensManifest>): void {
 		for (const listener of this.#rejectionListeners) {
