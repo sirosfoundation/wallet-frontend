@@ -102,6 +102,19 @@ export class AuthTokens {
 		return true;
 	}
 
+	/**
+	 * @see {@link AuthTokens.registerTokenRejection}
+	 */
+	public registerBackendTokenRejection(): boolean {
+		return this.registerTokenRejection('backend');
+	}
+
+	/**
+	 * @see {@link AuthTokens.registerTokenRejection}
+	 */
+	public registerAnonymousTokenRejection(): boolean {
+		return this.registerTokenRejection('anonymous');
+	}
 
 	/**
 	 * Ensure that a valid backend token is available.
