@@ -221,11 +221,13 @@ export class AuthTokens {
 	async #requestAccessToken(options: {
 		audience: string;
 		tac?: string;
+		anonymous?: boolean;
 	}): Promise<AccessTokenInterface> {
 		const data = await this.#authServerClient.requestAccessToken(
 			options.audience,
 			this.#tenantId,
 			options.tac,
+			options.anonymous,
 		);
 
 		return new AccessToken(data.access_token);

@@ -170,8 +170,8 @@ export class AuthServerClient {
 		return data;
 	}
 
-	async requestAccessToken(aud: string, tenantId: string, tac?: string): Promise<TokenResponse> {
-		const key = `${tenantId}::${aud}::${tac ?? ''}`;
+	async requestAccessToken(aud: string, tenantId: string, tac?: string, anonymous?: boolean): Promise<TokenResponse> {
+		const key = `${tenantId}::${aud}::${tac ?? ''}::${anonymous ?? false}`;
 		if (this.#pendingTokenRequests.has(key)) {
 			return this.#pendingTokenRequests.get(key)!;
 		}
@@ -179,7 +179,7 @@ export class AuthServerClient {
 		const request = (async () => {
 			const res = await this.#post(
 				'/auth/token',
-				{ aud, tac, tenant_id: tenantId },
+				{ aud, tac, tenant_id: tenantId, anonymous },
 				{ 'X-Token-Mode': 'session' },
 			);
 
