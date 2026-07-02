@@ -47,7 +47,7 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 					logger.warn(`Schema validation failed for ${credentialIssuerIdentifier}:`, JSON.stringify(parsed.error.issues));
 					return null;
 				}
-				return { metadata: trustMetadata };
+				return { metadata: parsed.data };
 			}
 			catch (err) {
 				logger.error(err);

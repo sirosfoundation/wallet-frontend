@@ -15,13 +15,13 @@ import { CredentialConfigurationSupported, CredentialOfferSchema, VerifiableCred
 import CredentialsContext from "@/context/CredentialsContext";
 import { WalletStateUtils } from '@/services/WalletStateUtils';
 import { fromBase64Url } from '@/util';
-import { DataItem } from '@auth0/mdl';
 import { cborDecode } from '@auth0/mdl/lib/cbor';
 import { COSEKeyToJWK } from "cose-kit";
 import { IOpenID4VCIClientStateRepository } from '@/lib/interfaces/IOpenID4VCIClientStateRepository';
 import { useNavigate } from 'react-router-dom';
 import { logger } from '@/logger';
 import { useHttpClient } from '@/hooks/useHttpClient';
+import { parseIssuerSignedToMDoc } from '@/lib/mdoc/mdoc';
 
 /**
  * Raw tx_code spec from OID4VCI §4.1.1 (snake_case, matching protocol wire format).
@@ -74,9 +74,14 @@ export const deriveHolderKidFromCredential = async (credential: string, format: 
 			const credentialBytes = fromBase64Url(credential);
 			const mdoc = cborDecode(credentialBytes);
 			const mdocDocument = mdoc.get("documents");
-			const issuerSigned = mdocDocument[0].get('issuerSigned');
-			const issuerAuth = issuerSigned.get('issuerAuth');
-			const msoBinaryRaw = issuerAuth[2];
+			const msoBinaryRaw = (() => {
+				if (mdocDocument) {
+					const issuerSigned = mdocDocument[0].get('issuerSigned');
+					const issuerAuth = issuerSigned.get('issuerAuth');
+					return issuerAuth[2];
+				}
+				return parseIssuerSignedToMDoc(credential);
+			})();
 			let msoBinary;
 			if (msoBinaryRaw instanceof Uint8Array) {
 				msoBinary = msoBinaryRaw;
