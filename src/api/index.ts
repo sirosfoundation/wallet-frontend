@@ -520,6 +520,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 					uuid: finishResult.uuid,
 					displayName: finishResult.displayName,
 					tenantId: finishResult.tenantId,
+					tenantDisplayName: finishResult.tenantDisplayName,
 					privateData: serializedPrivateData,
 				};
 			} else {
@@ -665,7 +666,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 						const userHandleB64u = toBase64Url(beginData.createOptions.publicKey.user.id);
 						keystore.updateCachedUserTenant(userHandleB64u, {
 							id: tenantToStore,
-							displayName: (finishResult as any).tenantDisplayName,
+							displayName: finishResult.tenantDisplayName,
 						});
 
 						await setSession(

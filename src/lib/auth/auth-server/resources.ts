@@ -12,6 +12,7 @@ export const LoginFinishResponseSchema = z.object({
 	uuid: z.string(),
 	displayName: z.string(),
 	tenantId: z.string(),
+	tenantDisplayName: z.string(),
 });
 export type LoginFinishResponse = z.infer<typeof LoginFinishResponseSchema>;
 
@@ -27,5 +28,6 @@ export const RegisterFinishResponseSchema = z.object({
 	uuid: z.string(),
 	displayName: z.string(),
 	tenantId: z.string(),
+	tenantDisplayName: z.string(),
 });
 export type RegisterFinishResponse = z.infer<typeof RegisterFinishResponseSchema>;
