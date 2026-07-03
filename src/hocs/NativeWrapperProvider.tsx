@@ -82,8 +82,11 @@ export const NativeWrapperProvider = ({
 
 	useEffect(() => {
 		(async () => {
+			if (!window.nativeWrapper) return;
+
 			const registryEntries =
 				await prepareCredentialsForNativeWrapper(vcEntityList);
+			
 			logger.debug("Updated native wrapper with credentials:", registryEntries);
 			window.nativeWrapper.updateAllCredentials(JSON.stringify(registryEntries));
 		})();
