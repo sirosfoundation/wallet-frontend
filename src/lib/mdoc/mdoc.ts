@@ -20,7 +20,6 @@ export function parseIssuerSignedToMDoc(raw: string) {
 		documents: [new Map([['docType', docType], ['issuerSigned', issuerSigned]])],
 		status: 0,
 	};
-
 	return parse(cborEncode(envelope));
 }
 

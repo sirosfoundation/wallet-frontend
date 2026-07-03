@@ -15,14 +15,13 @@ import { CredentialConfigurationSupported, CredentialOfferSchema, VerifiableCred
 import CredentialsContext from "@/context/CredentialsContext";
 import { WalletStateUtils } from '@/services/WalletStateUtils';
 import { fromBase64Url } from '@/util';
-import { DataItem } from '@auth0/mdl';
 import { cborDecode } from '@auth0/mdl/lib/cbor';
 import { COSEKeyToJWK } from "cose-kit";
 import { IOpenID4VCIClientStateRepository } from '@/lib/interfaces/IOpenID4VCIClientStateRepository';
 import { useNavigate } from 'react-router-dom';
 import { logger } from '@/logger';
-import { parseIssuerSignedToMDoc } from '@/lib/mdoc/mdoc';
 import { useHttpClient } from '@/hooks/useHttpClient';
+import { parseIssuerSignedToMDoc } from '@/lib/mdoc/mdoc';
 
 /**
  * Raw tx_code spec from OID4VCI §4.1.1 (snake_case, matching protocol wire format).
@@ -51,8 +50,7 @@ const openid4vciProofTypePrecedence = config.OPENID4VCI_PROOF_TYPE_PRECEDENCE.sp
 
 const textDecoder = new TextDecoder();
 
-
-export const deriveHolderKidFromCredential = async (credential: string, format: VerifiableCredentialFormat): Promise<string | undefined> => {
+export const deriveHolderKidFromCredential = async (credential: string, format: string) => {
 	switch (format) {
 		case VerifiableCredentialFormat.VC_SDJWT:
 		case VerifiableCredentialFormat.DC_SDJWT:
@@ -61,7 +59,6 @@ export const deriveHolderKidFromCredential = async (credential: string, format: 
 			if (!payload) {
 				return undefined;
 			}
-
 			try {
 				const decoded = JSON.parse(textDecoder.decode(fromBase64Url(payload)));
 				const cnf = decoded.cnf as { jwk?: jose.JWK } | undefined;
@@ -74,13 +71,39 @@ export const deriveHolderKidFromCredential = async (credential: string, format: 
 			return undefined;
 		}
 		case VerifiableCredentialFormat.MSO_MDOC: {
-			const mdocCredential = parseIssuerSignedToMDoc(credential);
-			const p: DataItem = cborDecode(mdocCredential.documents[0].issuerSigned.issuerAuth.payload);
-			const deviceKeyInfo = p.data.get('deviceKeyInfo');
-			const deviceKey = deviceKeyInfo.get('deviceKey');
-			// @ts-ignore
-			const devicePublicKeyJwk = COSEKeyToJWK(deviceKey);
-			return jose.calculateJwkThumbprint(devicePublicKeyJwk, "sha256");
+			const credentialBytes = fromBase64Url(credential);
+			const mdoc = cborDecode(credentialBytes);
+			const fullMdocDocument = mdoc.get("documents");
+			const msoBinaryRaw = (() => {
+				if (fullMdocDocument) {
+					const issuerSigned = fullMdocDocument[0].get('issuerSigned');
+					const issuerAuth = issuerSigned.get('issuerAuth');
+					return issuerAuth[2];
+				}
+
+				const issuerAuth = mdoc.get('issuerAuth');
+				return issuerAuth[2];
+			})();
+			let msoBinary;
+			if (msoBinaryRaw instanceof Uint8Array) {
+				msoBinary = msoBinaryRaw;
+			} else if (msoBinaryRaw instanceof ArrayBuffer) {
+				msoBinary = new Uint8Array(msoBinaryRaw);
+			} else {
+				msoBinary = new Uint8Array(msoBinaryRaw.buffer, msoBinaryRaw.byteOffset || 0, msoBinaryRaw.byteLength || msoBinaryRaw.length);
+			}
+			if (msoBinary && msoBinary.length > 0) {
+				try {
+					const msoData = cborDecode(msoBinary);
+					const deviceKeyInfo = msoData.data.get('deviceKeyInfo');
+					const deviceKey = deviceKeyInfo.get('deviceKey');
+					const devicePublicKeyJwk = COSEKeyToJWK(deviceKey);
+					const kid = await jose.calculateJwkThumbprint(devicePublicKeyJwk, "sha256");
+					return kid;
+				} catch (e) {
+					console.log("Failed to decode MSO:", e);
+				}
+			}
 		}
 	}
 }
