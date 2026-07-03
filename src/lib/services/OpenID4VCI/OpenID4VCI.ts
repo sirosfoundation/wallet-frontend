@@ -73,14 +73,17 @@ export const deriveHolderKidFromCredential = async (credential: string, format: 
 		case VerifiableCredentialFormat.MSO_MDOC: {
 			const credentialBytes = fromBase64Url(credential);
 			const mdoc = cborDecode(credentialBytes);
-			const mdocDocument = mdoc.get("documents");
+			const fullMdocDocument = mdoc.get("documents");
 			const msoBinaryRaw = (() => {
-				if (mdocDocument) {
-					const issuerSigned = mdocDocument[0].get('issuerSigned');
+				if (fullMdocDocument) {
+					const issuerSigned = fullMdocDocument[0].get('issuerSigned');
 					const issuerAuth = issuerSigned.get('issuerAuth');
 					return issuerAuth[2];
 				}
-				return parseIssuerSignedToMDoc(credential);
+				const mdocDcument = parseIssuerSignedToMDoc(credential);
+				const issuerSigned = mdocDcument[0].get('issuerSigned');
+				const issuerAuth = issuerSigned.get('issuerAuth');
+				return issuerAuth[2];
 			})();
 			let msoBinary;
 			if (msoBinaryRaw instanceof Uint8Array) {
