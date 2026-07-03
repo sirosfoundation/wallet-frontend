@@ -13,7 +13,7 @@ import { OpenID4VPContextProvider } from './context/OpenID4VPContextProvider';
 import { OpenID4VCIContextProvider } from './context/OpenID4VCIContextProvider';
 import { AppSettingsProvider } from './context/AppSettingsProvider';
 import { NotificationProvider } from './context/NotificationProvider';
-import { OIDFlowTransportProviderWrapper } from './context/OIDFlowTransportProviderWrapper';
+import { OIDFlowTransportProvider } from './context/OIDFlowTransportContext';
 import { WebSocketSignHandlerProvider } from './context/WebSocketSignHandlerProvider';
 import { ErrorDialogContextProvider } from './context/ErrorDialogContextProvider';
 import { TxCodeInputProvider } from './context/TxCodeInputContext';
@@ -25,13 +25,13 @@ type RootProviderProps = {
 
 const AppProvider: React.FC<RootProviderProps> = ({ children }) => {
 	return (
-		<StatusContextProvider>
-			<SessionContextProvider>
-				<CredentialsContextProvider>
-					<OIDFlowTransportProviderWrapper>
-						<WebSocketSignHandlerProvider>
-							<I18nextProvider i18n={i18n}>
-								<ErrorDialogContextProvider>
+		<I18nextProvider i18n={i18n}>
+			<ErrorDialogContextProvider>
+				<StatusContextProvider>
+					<SessionContextProvider>
+						<CredentialsContextProvider>
+							<OIDFlowTransportProvider>
+								<WebSocketSignHandlerProvider>
 									<OpenID4VPContextProvider>
 										<OpenID4VCIContextProvider>
 											<TxCodeInputProvider>
@@ -45,13 +45,13 @@ const AppProvider: React.FC<RootProviderProps> = ({ children }) => {
 											</TxCodeInputProvider>
 										</OpenID4VCIContextProvider>
 									</OpenID4VPContextProvider>
-								</ErrorDialogContextProvider>
-							</I18nextProvider>
-						</WebSocketSignHandlerProvider>
-					</OIDFlowTransportProviderWrapper>
-				</CredentialsContextProvider>
-			</SessionContextProvider>
-		</StatusContextProvider>
+								</WebSocketSignHandlerProvider>
+							</OIDFlowTransportProvider>
+						</CredentialsContextProvider>
+					</SessionContextProvider>
+				</StatusContextProvider>
+			</ErrorDialogContextProvider>
+		</I18nextProvider>
 	);
 };
 

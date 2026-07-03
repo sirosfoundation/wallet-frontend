@@ -34,7 +34,7 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 		const clientConfig: AuthZENClientConfig = {
 			httpClient: httpClient,
 			baseUrl: BACKEND_URL,
-			getAuthToken: () => api.getAppToken() ?? '',
+			getAuthToken: async () => (await api.authTokens.ensureAnonymousToken()).raw,
 			tenantId: getTenantFromUrlPath() ?? 'default',
 		};
 		return AuthZENClient(clientConfig);

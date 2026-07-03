@@ -78,7 +78,7 @@ export function useOpenID4VP({
 		const trustEvaluatorConfig = {
 			httpClient: httpClient,
 			backendUrl: BACKEND_URL,
-			getAuthToken: () => api.getAppToken() ?? '',
+			getAuthToken: async () => (await api.authTokens.ensureAnonymousToken()).raw,
 			tenantId: getTenantFromUrlPath() ?? 'default',
 		};
 		const evaluateTrust = createVerifierTrustEvaluator(trustEvaluatorConfig);

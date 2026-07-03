@@ -77,6 +77,10 @@ export function jsonParseTaggedBinary(json: string): any {
 	return JSON.parse(json, reviverTaggedBinaryToUint8Array);
 }
 
+export function transformTaggedResponse(data: any): any {
+	return data ? jsonParseTaggedBinary(data) : data;
+}
+
 /** Get the last element of `arr`, or `undefined` if `arr` is empty or nullish. */
 export function last<T>(arr: T[]): T | undefined {
 	return arr ? arr[arr.length - 1] : undefined;

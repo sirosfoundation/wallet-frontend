@@ -6,6 +6,7 @@ export type ErrorDialogState = {
 	emphasis?: string;
 	err?: Error;
 	onClose?: () => void;
+	fatal?: boolean;
 }
 
 export type DisplayErrorFunction = (error: ErrorDialogState) => void;

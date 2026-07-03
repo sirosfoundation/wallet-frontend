@@ -271,11 +271,16 @@ export const encryptedHttpRequest = async (relayUrl: string, keysInfo: HpkeConfi
 		new Uint8Array(ct2)
 	)
 
+	const relayHeaders: Record<string, string> = { 'Content-Type': 'message/ohttp-req' };
+	// Forward the request's own bearer
+	const requestAuthorization = (requestParams.headers as Record<string, string> | undefined)?.['Authorization'];
+	if (requestAuthorization) {
+		relayHeaders['Authorization'] = requestAuthorization;
+	}
+
 	const res2 = await fetch(relayUrl, {
 		method: 'POST',
-		headers: { 'Content-Type': 'message/ohttp-req',
-			'Authorization': 'Bearer ' + JSON.parse(sessionStorage.getItem('appToken'))
-		},
+		headers: relayHeaders,
 		body: toArrayBuffer(encapsulatedRequest) as ArrayBuffer,
 	});
 

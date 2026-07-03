@@ -32,6 +32,9 @@ import { logger } from '@/logger';
 import { createIssuerTrustEvaluator, createVerifierTrustEvaluator } from '@/lib/services/TrustEvaluator';
 import { TrustEvaluators } from '@/lib/openid-flow';
 import { useHttpClient } from '@/hooks/useHttpClient';
+import SessionContext from './SessionContext';
+import { getTenantFromUrlPath } from '@/lib/tenant';
+import { OIDFlowError } from '@/lib/openid-flow/errors';
 
 // Re-export sign and match types with WS prefix for clarity
 export type {
@@ -81,10 +84,6 @@ const OIDFlowTransportContext = createContext<OIDFlowTransportContextValue | nul
 
 interface OIDFlowTransportProviderProps {
 	children: React.ReactNode;
-	/** Auth token for WebSocket connection */
-	authToken: string | null;
-	/** Tenant ID for multi-tenant routing */
-	tenantId: string;
 }
 
 /**
@@ -92,10 +91,28 @@ interface OIDFlowTransportProviderProps {
  */
 export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> = ({
 	children,
-	authToken,
-	tenantId
 }) => {
+	const { api } = useContext(SessionContext);
 	const httpClient = useHttpClient();
+
+	// Tenant ID for multi-tenant routing (from URL path, more robust than sessionStorage)
+	const tenantId = getTenantFromUrlPath() ?? 'default';
+
+	// Resolve the backend access token (the WebSocket/relay auth credential) from
+	// the AuthTokens manager exposed on the session api.
+	const [authToken, setAuthToken] = useState<string | null>(null);
+	useEffect(() => {
+		let active = true;
+		(async () => {
+			try {
+				const token = await api.authTokens.ensureAnonymousToken();
+				if (active) setAuthToken(token.raw);
+			} catch {
+				if (active) setAuthToken(null);
+			}
+		})();
+		return () => { active = false; };
+	}, [api.authTokens]);
 
 	const [isConnected, setIsConnected] = useState(false);
 	const [wsTransport, setWsTransport] = useState<OIDFlowWebSocketTransport | null>(null);
@@ -244,10 +261,21 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 			}
 		})();
 
-		const unsubscribeError = ws.onError((error) => {
+		const unsubscribeError = ws.onError(async (error) => {
 			logger.error('WebSocket error:', error);
 			setIsConnected(false);
 			setLastError(error);
+
+			if (error instanceof OIDFlowError && error.code === 'AUTH_FAILED') {
+				const shouldRetry = api.authTokens.registerAnonymousTokenRejection();
+				if (!shouldRetry) {
+					logger.error('Engine auth still failing after refresh; giving up (global handler notified)');
+					return;
+				}
+
+				const fresh = await api.authTokens.ensureAnonymousToken();
+				setAuthToken(fresh.raw);
+			}
 		});
 
 		return () => {
@@ -262,7 +290,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 				return next;
 			});
 		};
-	}, [authToken, tenantId, capabilitiesLoaded, wsCapabilityAvailable, trustEvaluators]);
+	}, [authToken, tenantId, capabilitiesLoaded, wsCapabilityAvailable, trustEvaluators, api.authTokens]);
 
 	// Update auth token and tenant ID on WebSocket when they change
 	useEffect(() => {

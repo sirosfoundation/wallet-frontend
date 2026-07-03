@@ -3,10 +3,10 @@ import { Err, Ok, Result } from 'ts-results';
 
 import * as config from '../config';
 import { logger } from '../logger';
-import { fromBase64Url, jsonParseTaggedBinary, jsonStringifyTaggedBinary, toBase64Url } from '../util';
+import { fromBase64Url, jsonParseTaggedBinary, jsonStringifyTaggedBinary, toBase64Url, transformTaggedResponse } from '../util';
 import { EncryptedContainer, makeAssertionPrfExtensionInputs, parsePrivateData, serializePrivateData } from '../services/keystore';
 import { CachedUser, LocalStorageKeystore } from '../services/LocalStorageKeystore';
-import { UserData, UserId, Verifier } from './types';
+import { UserId, Verifier } from './types';
 import { useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UseStorageHandle, useClearStorages, useLocalStorage, useSessionStorage } from '../hooks/useStorage';
@@ -15,7 +15,9 @@ import { loginWebAuthnBeginOffline } from './LocalAuthentication';
 import { withAuthenticatorAttachmentFromHints, withHintsFromAllowCredentials } from '@/util-webauthn';
 import { getTenantFromUrlPath, setStoredTenant, clearStoredTenant } from '../lib/tenant';
 import { clearOIDCState } from '../lib/oidc';
-import { refreshAccessToken, isUnauthorizedError, TokenRefreshConfig } from './tokenRefresh';
+import { AuthTokens } from '@/lib/auth';
+import { useAuthServerClient } from '@/hooks/useAuthServerClient';
+import { useTenant } from '@/context/TenantContext';
 
 const walletBackendUrl = config.BACKEND_URL;
 
@@ -51,19 +53,15 @@ const events: EventTarget = new EventTarget();
 export interface BackendApi {
 	del(path: string): Promise<AxiosResponse>,
 	get(path: string): Promise<AxiosResponse>,
-	getExternalEntity(path: string, options?: { appToken?: string }, forceIndexDB?: boolean): Promise<AxiosResponse>,
+	getExternalEntity(path: string, options?: { headers?: { [header: string]: string } }, forceIndexDB?: boolean): Promise<AxiosResponse>,
 	post(path: string, body: object): Promise<AxiosResponse>,
 
 	getSession(): SessionState,
 	isLoggedIn(): boolean,
-	// getAppToken(): string | undefined,
 	clearSession(): void,
-	getAppToken(): string | null,
-	/** Refresh the access token using the stored refresh token. Returns true on success. */
-	refreshAccessToken(): Promise<boolean>,
 
-	login(username: string, password: string, keystore: LocalStorageKeystore): Promise<Result<void, any>>,
-	signup(username: string, password: string, keystore: LocalStorageKeystore): Promise<Result<void, any>>,
+	authTokens: AuthTokens,
+
 	getAllVerifiers(): Promise<Verifier[]>,
 	getAllPresentations(): Promise<{ vp_list: any[] }>,
 	initiatePresentationExchange(verifier_id: number, scope_name: string): Promise<{ redirect_to?: string }>,
@@ -120,11 +118,16 @@ export interface BackendApi {
 
 export function useApi(isOnlineProp: boolean = true): BackendApi {
 	const isOnline = useMemo(() => isOnlineProp === null ? true : isOnlineProp, [isOnlineProp]);
-	const [appToken, setAppToken, clearAppToken] = useSessionStorage<string | null>("appToken", null);
-	const [refreshToken, setRefreshToken, clearRefreshToken] = useSessionStorage<string | null>("refreshToken", null);
+	const authServer = useAuthServerClient();
+	const { urlTenantId: tenantId } = useTenant();
 	const [userHandle,] = useSessionStorage<string | null>("userHandle", null);
 	const [cachedUsers] = useLocalStorage<CachedUser[] | null>("cachedUsers", null);
 	const [sessionState, setSessionState, clearSessionState] = useSessionStorage<SessionState | null>("sessionState", null);
+
+	const authTokens = useMemo(
+		() => AuthTokens.fromStorage({ authServerClient: authServer, tenantId, storage: window.sessionStorage }),
+		[authServer, tenantId]
+	);
 
 	/**
 	 * Synchronization tag for the encrypted private data. To prevent data loss,
@@ -143,23 +146,23 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		localStorage.removeItem('privateDataEtag');
 	}, []);
 
-	const navigate = useNavigate();
-	const clearSessionStorage = useClearStorages(clearAppToken, clearRefreshToken, clearSessionState);
+	const authedRequest = useTokenRequest(authTokens, 'backend', getPrivateDataEtag);
+	const anonRequest   = useTokenRequest(authTokens, 'anonymous');
 
-	// Ref to store current refresh token for the refresh config
-	// This allows the refresh mechanism to access the latest value without stale closures
-	const refreshTokenRef = useRef(refreshToken);
-	refreshTokenRef.current = refreshToken;
+	const navigate = useNavigate();
+	const clearSessionStorage = useClearStorages(clearSessionState);
 
 	// Define clearSession early so it can be used by token refresh config
 	const clearSession = useCallback((): void => {
+		authServer.logout().catch((e) => logger.error('Failed to clear server session', e));
 		clearSessionStorage();
+		authTokens.clear();
 		removePrivateDataEtag();
 		clearStoredTenant(); // Clear tenant on logout
 		clearOIDCState('registration'); // Clear OIDC gate tokens on logout
 		clearOIDCState('login');
 		events.dispatchEvent(new CustomEvent<ClearSessionEvent>(CLEAR_SESSION_EVENT));
-	}, [clearSessionStorage, removePrivateDataEtag]);
+	}, [authServer, authTokens, clearSessionStorage, removePrivateDataEtag]);
 
 	// Stable ref for clearSession to avoid stale closures in token refresh
 	const clearSessionRef = useRef<() => void>(clearSession);
@@ -168,34 +171,6 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		clearSessionRef.current = clearSession;
 	}, [clearSession]);
 
-	/**
-	 * Get the token refresh configuration.
-	 * This creates a config object that can be used by the token refresh utilities.
-	 */
-	const getTokenRefreshConfig = useCallback((): TokenRefreshConfig => ({
-		backendUrl: walletBackendUrl,
-		getRefreshToken: () => refreshTokenRef.current,
-		setAppToken,
-		setRefreshToken,
-		clearSession: () => clearSessionRef.current(),
-	}), [setAppToken, setRefreshToken]);
-
-	const getAppToken = useCallback((): string | null => {
-		return appToken;
-	}, [appToken]);
-
-	const doRefreshAccessToken = useCallback(async (): Promise<boolean> => {
-		const result = await refreshAccessToken(getTokenRefreshConfig());
-		return result.success;
-	}, [getTokenRefreshConfig]);
-
-	function transformResponse(data: any): any {
-		if (data) {
-			return jsonParseTaggedBinary(data);
-		} else {
-			return data;
-		}
-	}
 
 	const updatePrivateDataEtag = useCallback((resp: AxiosResponse): AxiosResponse => {
 		const newValue = resp.headers['x-private-data-etag']
@@ -205,113 +180,59 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		return resp;
 	}, [setPrivateDataEtag]);
 
-	const buildGetHeaders = useCallback((
-		headers: { [header: string]: string },
-		options: { appToken?: string },
-	): { [header: string]: string } => {
-		const authz = options?.appToken || appToken;
-		const tenantId = getTenantFromUrlPath() || 'default';
-		return {
-			...headers,
-			'X-Tenant-ID': headers['X-Tenant-ID'] || tenantId,
-			...(authz ? { Authorization: `Bearer ${authz}` } : {}),
-		};
-	}, [appToken]);
-
-	const buildMutationHeaders = useCallback((
-		headers: { [header: string]: string },
-		options: { appToken?: string },
-	): { [header: string]: string } => {
-		return {
-			...(getPrivateDataEtag() ? { 'X-Private-Data-If-Match': getPrivateDataEtag() } : {}),
-			...buildGetHeaders(headers, options),
-		};
-	}, [buildGetHeaders, getPrivateDataEtag]);
-
 	const getWithLocalDbKey = useCallback(async (
+		doGet: (path: string, headers?: Record<string, string>) => Promise<AxiosResponse>,
 		path: string,
 		dbKey: string,
-		options?: { appToken?: string, headers?: { [header: string]: string } },
+		options?: { headers?: { [header: string]: string } },
 		forceIndexDB: boolean = false,
-		_retried: boolean = false
 	): Promise<AxiosResponse> => {
 		logger.debug(`Get: ${path} ${isOnline ? 'online' : 'offline'} mode ${isOnline}`);
 
-		// Offline case
 		if (!isOnline && !EXCLUDED_INDEXEDDB_PATHS.has(path)) {
-			return {
-				data: await getItem(path, dbKey),
-			} as AxiosResponse;
+			return { data: await getItem(path, dbKey) } as AxiosResponse;
 		}
-
 		if (forceIndexDB && !EXCLUDED_INDEXEDDB_PATHS.has(path)) {
 			const data = await getItem(path, dbKey);
-			if (data) {
-				return { data } as AxiosResponse;
-			}
+			if (data) return { data } as AxiosResponse;
 		}
-		// Online case
-		try {
-			const respBackend = await axios.get(
-				`${walletBackendUrl}${path}`,
-				{
-					headers: buildGetHeaders(options?.headers ?? {}, { appToken: options?.appToken }),
-					validateStatus: status => (status >= 200 && status < 300) || status === 304,
-					transformResponse,
-				},
-			);
-			if (!EXCLUDED_INDEXEDDB_PATHS.has(path)) {
-				await addItem(path, dbKey, respBackend.data);
-			}
-			return respBackend;
-		} catch (error) {
-			// Attempt token refresh on 401 if not already retried
-			if (!_retried && isUnauthorizedError(error)) {
-				const refreshResult = await refreshAccessToken(getTokenRefreshConfig());
-				if (refreshResult.success) {
-					// Retry with new token. Drop any stale appToken so headers use the refreshed access token.
-					const retryOptions = options ? { ...options } : undefined;
-					if (retryOptions && 'appToken' in retryOptions) {
-						delete retryOptions.appToken;
-					}
-					return getWithLocalDbKey(path, dbKey, retryOptions, forceIndexDB, true);
-				}
-			}
-			throw error;
+
+		const respBackend = await doGet(path, options?.headers ?? {});
+		if (!EXCLUDED_INDEXEDDB_PATHS.has(path)) {
+			await addItem(path, dbKey, respBackend.data);
 		}
-	}, [buildGetHeaders, isOnline, getTokenRefreshConfig]);
+		return respBackend;
+	}, [isOnline]);
 
 	const get = useCallback(async (
 		path: string,
 		options?: {
-			appToken?: string,
 			headers?: { [header: string]: string },
 			userUuid?: string,
 		},
 	): Promise<AxiosResponse> => {
-		return getWithLocalDbKey(path, sessionState?.uuid || options?.userUuid, options);
-	}, [getWithLocalDbKey, sessionState?.uuid]);
+		return getWithLocalDbKey(authedRequest.get, path, sessionState?.uuid || options?.userUuid, options);
+	}, [getWithLocalDbKey, authedRequest, sessionState?.uuid]);
 
 	const getExternalEntity = useCallback(async (
 		path: string,
-		options?: { appToken?: string, headers?: { [header: string]: string } },
+		options?: { headers?: { [header: string]: string } },
 		force: boolean = false
 	): Promise<AxiosResponse> => {
 		const tenantId = getTenantFromUrlPath() || 'default';
 		// Include tenant in cache key so different tenants have separate caches
 		const cacheKey = `${tenantId}:${path}`;
-		return getWithLocalDbKey(path, cacheKey, options, force);
-	}, [getWithLocalDbKey]);
+		return getWithLocalDbKey(anonRequest.get, path, cacheKey, options, force);
+	}, [getWithLocalDbKey, anonRequest]);
 
 	const fetchInitialData = useCallback(async (
-		appToken: string,
 		userUuid: string
 	): Promise<void> => {
 		try {
 			// get('/storage/vc') on home page ('/')
 			// get('/storage/vp') on home page ('/')
-			await get('/user/session/account-info', { appToken, userUuid });
-			await getExternalEntity('/verifier/all', { appToken }, false);
+			await get('/user/session/account-info', { userUuid });
+			await getExternalEntity('/verifier/all', undefined, false);
 			// getExternalEntity('/issuer/all') on credentialContext
 			// getCredentialIssuerMetadata() on credentialContext
 		} catch (error) {
@@ -322,67 +243,17 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 	const post = useCallback(async (
 		path: string,
 		body: object,
-		options?: { appToken?: string, headers?: { [header: string]: string } },
-		_retried: boolean = false
+		options?: { headers?: { [header: string]: string } },
 	): Promise<AxiosResponse> => {
-		try {
-			return await axios.post(
-				`${walletBackendUrl}${path}`,
-				body,
-				{
-					headers: {
-						'Content-Type': 'application/json',
-						...buildMutationHeaders(options?.headers ?? {}, { appToken: options?.appToken }),
-					},
-					transformRequest: (data, headers) => jsonStringifyTaggedBinary(data),
-					transformResponse,
-				},
-			);
-		} catch (e) {
-			if (e?.response?.status === 412 && (e?.response?.headers ?? {})['x-private-data-etag']) {
-				return Promise.reject({ cause: 'x-private-data-etag' });
-			}
-			// Attempt token refresh on 401 if not already retried
-			if (!_retried && isUnauthorizedError(e)) {
-				const refreshResult = await refreshAccessToken(getTokenRefreshConfig());
-				if (refreshResult.success) {
-					// Retry with new token: do not reuse an explicit (possibly expired) appToken
-					const retryOptions = options ? { ...options, appToken: undefined } : undefined;
-					return post(path, body, retryOptions, true);
-				}
-			}
-			throw e;
-		}
-	}, [buildMutationHeaders, getTokenRefreshConfig]);
+		return authedRequest.post(path, body, options?.headers ?? {});
+	}, [authedRequest]);
 
 	const del = useCallback(async (
 		path: string,
-		options?: { appToken?: string, headers?: { [header: string]: string } },
-		_retried: boolean = false
+		options?: { headers?: { [header: string]: string } },
 	): Promise<AxiosResponse> => {
-		try {
-			return await axios.delete(
-				`${walletBackendUrl}${path}`,
-				{
-					headers: buildMutationHeaders(options?.headers ?? {}, { appToken: options?.appToken }),
-					transformResponse,
-				});
-		} catch (e) {
-			if (e?.response?.status === 412 && (e?.response?.headers ?? {})['x-private-data-etag']) {
-				return Promise.reject({ cause: 'x-private-data-etag' });
-			}
-			// Attempt token refresh on 401 if not already retried
-			if (!_retried && isUnauthorizedError(e)) {
-				const refreshResult = await refreshAccessToken(getTokenRefreshConfig());
-				if (refreshResult.success) {
-					// Retry with new token: do not reuse an explicit (possibly expired) appToken
-					const retryOptions = options ? { ...options, appToken: undefined } : undefined;
-					return del(path, retryOptions, true);
-				}
-			}
-			throw e;
-		}
-	}, [buildMutationHeaders, getTokenRefreshConfig]);
+		return authedRequest.del(path, options?.headers ?? {});
+	}, [authedRequest]);
 
 	const syncPrivateData = useCallback(async (
 		cachedUser: CachedUser | undefined,
@@ -472,33 +343,27 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 	}, [getSession]);
 
 	const setSession = useCallback(async (
-		response: AxiosResponse,
+		userRecord: any,
 		credential: PublicKeyCredential | null,
 		authenticationType: 'signup' | 'login'
 	): Promise<void> => {
-		setAppToken(response.data.appToken);
-		// Store refresh token if provided by backend (when refresh-tokens capability enabled)
-		if (response.data.refreshToken) {
-			setRefreshToken(response.data.refreshToken);
-		}
 		setSessionState({
-			uuid: response.data.uuid,
-			displayName: response.data.displayName,
-			username: response.data.username,
+			uuid: userRecord.uuid,
+			displayName: userRecord.displayName,
+			username: userRecord.username,
 			webauthnCredentialCredentialId: credential?.id,
 			authenticationType,
 			showWelcome: authenticationType === 'signup',
 		});
 
-		await addItem('users', response.data.uuid, response.data);
+		await addItem('users', userRecord.uuid, userRecord);
 		if (isOnline) {
-			await fetchInitialData(response.data.appToken, response.data.uuid).catch((error) => logger.error('Error in performGetRequests', error));
+			await fetchInitialData(userRecord.uuid).catch((error) => logger.error('Error in performGetRequests', error));
 		}
-	}, [setAppToken, setRefreshToken, setSessionState, fetchInitialData, isOnline]);
+	}, [setSessionState, fetchInitialData, isOnline]);
 
 	const updatePrivateData = useCallback(async (
 		newPrivateData: EncryptedContainer,
-		options?: { appToken?: string }
 	): Promise<void> => {
 		try {
 			async function writeOnIndexedDB() {
@@ -520,7 +385,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 				return;
 			}
 			const updateResp = updatePrivateDataEtag(
-				await post('/user/session/private-data', serializePrivateData(newPrivateData), options),
+				await post('/user/session/private-data', serializePrivateData(newPrivateData)),
 			);
 			if (updateResp.status === 204) {
 				await writeOnIndexedDB();
@@ -540,74 +405,6 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			throw e;
 		}
 	}, [post, updatePrivateDataEtag, cachedUsers, userHandle, syncPrivateData, isOnline]);
-
-	const login = useCallback(async (
-		username: string,
-		password: string,
-		keystore: LocalStorageKeystore
-	): Promise<Result<void, any>> => {
-		try {
-			const response = updatePrivateDataEtag(await post('/user/login', { username, password }));
-			const userData = response.data as UserData;
-			const privateData = await parsePrivateData(userData.privateData);
-			try {
-				const privateDataUpdate = await keystore.unlockPassword(privateData, password, { displayName: userData.displayName, userHandle: UserId.fromId(userData.uuid).asUserHandle() });
-				if (privateDataUpdate) {
-					const [newPrivateData, keystoreCommit] = privateDataUpdate;
-					try {
-						await updatePrivateData(newPrivateData, { appToken: response.data.appToken });
-						await keystoreCommit();
-					} catch (e) {
-						logger.error("Failed to upgrade password key", e, e.status);
-						if (e?.cause === 'x-private-data-etag') {
-							return Err('x-private-data-etag');
-						}
-						return Err('loginKeystoreFailed');
-					}
-				}
-				await setSession(response, null, 'login');
-				return Ok.EMPTY;
-			} catch (e) {
-				logger.error("Failed to unlock local keystore", e);
-				return Err(e);
-			}
-
-		} catch (error) {
-			logger.error('Failed to log in', error);
-			return Err(error);
-		}
-	}, [post, setSession, updatePrivateDataEtag, updatePrivateData]);
-
-	const signup = useCallback(async (
-		username: string,
-		password: string,
-		keystore: LocalStorageKeystore
-	): Promise<Result<void, any>> => {
-		try {
-			const [privateData, setUserHandleB64u] = await keystore.initPassword(password);
-
-			try {
-				const response = updatePrivateDataEtag(await post('/user/register', {
-					username,
-					password,
-					displayName: username,
-					privateData: serializePrivateData(privateData),
-				}));
-				const userData = response.data as UserData;
-				setUserHandleB64u(toBase64Url(UserId.fromId(userData.uuid).asUserHandle()));
-				await setSession(response, null, 'signup');
-				return Ok.EMPTY;
-
-			} catch (e) {
-				logger.error("Signup failed", e);
-				return Err(e);
-			}
-
-		} catch (e) {
-			logger.error("Failed to initialize local keystore", e);
-			return Err(e);
-		}
-	}, [post, setSession, updatePrivateDataEtag]);
 
 	const getAllVerifiers = useCallback(async (): Promise<Verifier[]> => {
 		try {
@@ -660,6 +457,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		| 'passkeyInvalid'
 		| 'passkeyLoginFailedTryAgain'
 		| 'passkeyLoginFailedServerError'
+		| 'oidcTokenExpired'
 		| 'x-private-data-etag'
 	>> => {
 		try {
@@ -670,27 +468,9 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 
 			const loginTenantId = urlTenantId || 'default';
 
-			// Build headers - include OIDC token if provided for gate enforcement
-			const loginHeaders: Record<string, string> = { 'X-Tenant-ID': loginTenantId };
-			if (oidcIdToken) {
-				loginHeaders['Authorization'] = `Bearer ${oidcIdToken}`;
-			}
-
-			const beginData = await (async (): Promise<{
-				challengeId?: string,
-				getOptions: { publicKey: PublicKeyCredentialRequestOptions },
-			}> => {
-				if (isOnline) {
-					const beginResp = await post('/user/login-webauthn-begin', {}, {
-						headers: loginHeaders,
-					});
-					logger.debug("begin", beginResp);
-					return beginResp.data;
-				}
-				else {
-					return loginWebAuthnBeginOffline();
-				}
-			})();
+			const beginData = isOnline
+				? await authServer.loginBegin(loginTenantId, oidcIdToken)
+				: loginWebAuthnBeginOffline();
 
 			const prfInputs = cachedUser && makeAssertionPrfExtensionInputs(cachedUser.prfKeys);
 
@@ -719,63 +499,51 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			}) as PublicKeyCredential;
 			const response = credential.response as AuthenticatorAssertionResponse;
 
-			// Get the userHandle for the finish request
-			// The backend extracts tenant from the userHandle's binary format (v1: version + tenant hash + UUID)
-			const userHandleForFinish = response.userHandle ?? fromBase64Url(cachedUser?.userHandleB64u);
+			// Finish the ceremony and load the user's private data. Online, the
+			// finish response only establishes the session cookie; private data is
+			// fetched separately using a freshly-minted access token (which also
+			// validates that the new session works end-to-end).
+			let userRecord: any;
+			let serializedPrivateData: Uint8Array;
+			if (isOnline) {
+				const finishResult = await authServer.loginFinish(
+					beginData.challengeId!,
+					credential,
+					loginTenantId,
+					oidcIdToken,
+				);
+				const privateDataResp = updatePrivateDataEtag(
+					await authedRequest.get('/user/session/private-data'),
+				);
+				serializedPrivateData = privateDataResp.data.privateData;
+				userRecord = {
+					uuid: finishResult.uuid,
+					displayName: finishResult.displayName,
+					tenantId: finishResult.tenantId,
+					tenantDisplayName: finishResult.tenantDisplayName,
+					privateData: serializedPrivateData,
+				};
+			} else {
+				const userId = UserId.fromUserHandle(response.userHandle);
+				const user = await getItem("users", userId.id);
+				serializedPrivateData = user.privateData;
+				userRecord = user;
+			}
 
-			const finishResp = await (async () => {
-				if (isOnline) {
-					return updatePrivateDataEtag(await post('/user/login-webauthn-finish', {
-						challengeId: beginData.challengeId,
-						credential: {
-							type: credential.type,
-							id: credential.id,
-							rawId: credential.rawId,
-							response: {
-								authenticatorData: response.authenticatorData,
-								clientDataJSON: response.clientDataJSON,
-								signature: response.signature,
-								userHandle: userHandleForFinish,
-							},
-							authenticatorAttachment: credential.authenticatorAttachment,
-							clientExtensionResults: credential.getClientExtensionResults(),
-						},
-					}, {
-						headers: loginHeaders,
-					}));
-				}
-				else {
-					const userId = UserId.fromUserHandle(response.userHandle);
-					const user = await getItem("users", userId.id);
-					return {
-						data: {
-							uuid: user.uuid,
-							appToken: "",
-							did: user.did,
-							displayName: user.displayName,
-							privateData: user.privateData,
-							username: null,
-							tenantId: user.tenantId,  // Use stored tenant from offline user data
-						},
-					};
-				}
-			})() as any;
-
-			const userData = finishResp.data as UserData;
-			const privateData = await parsePrivateData(userData.privateData);
+			const privateData = await parsePrivateData(serializedPrivateData);
 			const privateDataUpdate = await keystore.unlockPrf(
 				privateData,
 				credential,
 				promptForPrfRetry,
 				cachedUser || {
-					...userData,
+					...userRecord,
 					userHandle: new Uint8Array(response.userHandle),
 				},
 			);
 			if (privateDataUpdate) {
 				const [newPrivateData, keystoreCommit] = privateDataUpdate;
 				try {
-					await updatePrivateData(newPrivateData, { appToken: finishResp.data.appToken });
+					await updatePrivateData(newPrivateData);
 					await keystoreCommit();
 				} catch (e) {
 					logger.error("Failed to upgrade PRF key", e, e.status);
@@ -788,7 +556,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 
 			// Store the tenant from response, falling back to 'default' if not provided
 			// This ensures we always have a valid tenant context
-			const tenantToStore = finishResp?.data?.tenantId ?? 'default';
+			const tenantToStore = userRecord.tenantId ?? 'default';
 			setStoredTenant(tenantToStore);
 
 			// Store tenant metadata on the cached user for tenant selector
@@ -796,11 +564,11 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 				const userHandleB64u = toBase64Url(response.userHandle);
 				keystore.updateCachedUserTenant(userHandleB64u, {
 					id: tenantToStore,
-					displayName: finishResp?.data?.tenantDisplayName,
+					displayName: userRecord.tenantDisplayName,
 				});
 			}
 
-			await setSession(finishResp, credential, 'login');
+			await setSession(userRecord, credential, 'login');
 			return Ok.EMPTY;
 
 		} catch (e) {
@@ -821,7 +589,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			}
 			return Err('passkeyLoginFailedServerError');
 		}
-	}, [post, updatePrivateDataEtag, updatePrivateData, setSession, isOnline]);
+	}, [authServer, authedRequest, updatePrivateDataEtag, updatePrivateData, setSession, isOnline]);
 
 	const signupWebauthn = useCallback(async (
 		name: string,
@@ -837,25 +605,12 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		// This ensures the passkey's userHandle encodes the tenant for proper isolation
 		const storedTenant = tenantId || getTenantFromUrlPath();
 
-		// Build headers - include OIDC token if provided for gate enforcement
-		const signupHeaders: Record<string, string> = { 'X-Tenant-ID': storedTenant };
-		if (oidcIdToken) {
-			signupHeaders['Authorization'] = `Bearer ${oidcIdToken}`;
-		}
-
 		try {
-			const res = await post(
-				'/user/register-webauthn-begin',
-				{
-					tenantId: storedTenant,
-					inviteCode,
-				},
-				{
-					headers: signupHeaders,
-				},
+			const beginData = retryFrom?.beginData || await authServer.registerBegin(
+				storedTenant,
+				inviteCode,
+				oidcIdToken,
 			);
-
-			const beginData = retryFrom?.beginData || res.data;
 			logger.debug("begin", beginData);
 
 			try {
@@ -880,7 +635,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 						authenticatorSelection: withAuthenticatorAttachmentFromHints(beginData.createOptions.publicKey.authenticatorSelection, webauthnHints),
 					},
 				}) as PublicKeyCredential;
-				const response = credential.response as AuthenticatorAttestationResponse;
+				// const response = credential.response as AuthenticatorAttestationResponse;
 				logger.debug("created", credential);
 
 				try {
@@ -892,39 +647,38 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 					);
 
 					try {
-						const finishResp = updatePrivateDataEtag(await post('/user/register-webauthn-finish', {
-							challengeId: beginData.challengeId,
-							displayName: name,
-							privateData: serializePrivateData(privateData),
-							credential: {
-								type: credential.type,
-								id: credential.id,
-								rawId: credential.rawId,
-								response: {
-									attestationObject: response.attestationObject,
-									clientDataJSON: response.clientDataJSON,
-									transports: response.getTransports(),
-								},
-								authenticatorAttachment: credential.authenticatorAttachment,
-								clientExtensionResults: credential.getClientExtensionResults(),
-							},
-						}, {
-							headers: signupHeaders,
-						}));
+						const serializedPrivateData = serializePrivateData(privateData);
+						const finishResult = await authServer.registerFinish(
+							beginData.challengeId,
+							credential,
+							name,
+							serializedPrivateData,
+							storedTenant,
+							oidcIdToken,
+						);
 
 						// Store the tenant from the response, falling back to 'default' if not provided
 						// This ensures we always have a valid tenant context
-						const tenantToStore = finishResp?.data?.tenantId ?? 'default';
+						const tenantToStore = finishResult.tenantId ?? 'default';
 						setStoredTenant(tenantToStore);
 
 						// Store tenant metadata on the cached user for tenant selector
 						const userHandleB64u = toBase64Url(beginData.createOptions.publicKey.user.id);
 						keystore.updateCachedUserTenant(userHandleB64u, {
 							id: tenantToStore,
-							displayName: finishResp?.data?.tenantDisplayName,
+							displayName: finishResult.tenantDisplayName,
 						});
 
-						await setSession(finishResp, credential, 'signup');
+						await setSession(
+							{
+								uuid: finishResult.uuid,
+								displayName: finishResult.displayName,
+								tenantId: finishResult.tenantId,
+								privateData: serializedPrivateData,
+							},
+							credential,
+							'signup',
+						);
 						return Ok.EMPTY;
 
 					} catch (e) {
@@ -959,7 +713,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			if (errorMsg === 'invite_invalid') return Err('inviteInvalid');
 			return Err('passkeySignupFinishFailedServerError');
 		}
-	}, [post, updatePrivateDataEtag, setSession]);
+	}, [authServer, setSession]);
 
 	const addEventListener = useCallback((type: ApiEventType, listener: EventListener, options?: boolean | AddEventListenerOptions): void => {
 		events.addEventListener(type, listener, options);
@@ -998,13 +752,10 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		isLoggedIn,
 		clearSession,
 
-		login,
-		signup,
 		getAllVerifiers,
 		getAllPresentations,
-		getAppToken,
 		initiatePresentationExchange,
-		refreshAccessToken: doRefreshAccessToken,
+		authTokens,
 
 		loginWebauthn,
 		signupWebauthn,
@@ -1027,13 +778,10 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		isLoggedIn,
 		clearSession,
 
-		login,
-		signup,
 		getAllVerifiers,
 		getAllPresentations,
-		getAppToken,
 		initiatePresentationExchange,
-		doRefreshAccessToken,
+		authTokens,
 
 		loginWebauthn,
 		signupWebauthn,
@@ -1050,4 +798,112 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		...memoizedApi,
 		useClearOnClearSession: stableUseClearOnClearSession,
 	};
+}
+
+/**
+ * Helper hook to create a set of request functions that automatically include
+ * the appropriate authorization headers for the given token kind.
+ */
+function useTokenRequest(
+	authTokens: AuthTokens,
+	tokenKind: keyof typeof AuthTokens.MANIFEST,
+	getPrivateDataEtag?: () => string,
+) {
+	const authHeaders = useCallback(async (
+		headers: Record<string, string> = {},
+	): Promise<Record<string, string>> => {
+		const tenantId = getTenantFromUrlPath() || 'default';
+		const token = await authTokens.ensureToken(tokenKind);
+		return {
+			'X-Tenant-ID': tenantId,
+			...headers,
+			Authorization: `Bearer ${token.token()}`,
+		};
+	}, [authTokens, tokenKind]);
+
+	const mutationHeaders = useCallback(async (
+		headers: Record<string, string> = {},
+	): Promise<Record<string, string>> => {
+		const etag = getPrivateDataEtag?.();
+		return {
+			...(etag ? { 'X-Private-Data-If-Match': etag } : {}),
+			...(await authHeaders(headers)),
+		};
+	}, [authHeaders, getPrivateDataEtag]);
+
+	const withTokenRejection = useCallback(async <T>(send: () => Promise<T>): Promise<T> => {
+		const tryRequest = async (send: () => Promise<T>) => {
+			try {
+				return await send();
+			} catch (e) {
+				if (
+					e?.response?.status !== 401 ||
+					e?.response?.data?.error !== 'Invalid token'
+				) throw e;
+
+				const shouldRetry = authTokens.registerTokenRejection(tokenKind);
+				if (!shouldRetry) {
+					// Threshold crossed
+					throw e;
+				}
+
+				// retry with fresh token
+				return await tryRequest(send);
+			}
+		}
+
+		return tryRequest(send);
+	}, [authTokens, tokenKind]);
+
+	const get = useCallback(async (
+		path: string,
+		headers: Record<string, string> = {},
+	): Promise<AxiosResponse> => withTokenRejection(async () => {
+		return axios.get(`${walletBackendUrl}${path}`, {
+			headers: await authHeaders(headers),
+			withCredentials: true,
+			validateStatus: status => (status >= 200 && status < 300) || status === 304,
+			transformResponse: transformTaggedResponse,
+		});
+	}), [withTokenRejection, authHeaders]);
+
+	const post = useCallback(async (
+		path: string,
+		body: object,
+		headers: Record<string, string> = {},
+	): Promise<AxiosResponse> => withTokenRejection(async () => {
+		try {
+			return await axios.post(`${walletBackendUrl}${path}`, body, {
+				headers: { 'Content-Type': 'application/json', ...(await mutationHeaders(headers)) },
+				withCredentials: true,
+				transformRequest: (data) => jsonStringifyTaggedBinary(data),
+				transformResponse: transformTaggedResponse,
+			});
+		} catch (e: any) {
+			if (e?.response?.status === 412 && (e?.response?.headers ?? {})['x-private-data-etag']) {
+				return Promise.reject({ cause: 'x-private-data-etag' });
+			}
+			throw e;
+		}
+	}), [withTokenRejection, mutationHeaders]);
+
+	const del = useCallback(async (
+		path: string,
+		headers: Record<string, string> = {},
+	): Promise<AxiosResponse> => withTokenRejection(async () => {
+		try {
+			return await axios.delete(`${walletBackendUrl}${path}`, {
+				headers: await mutationHeaders(headers),
+				withCredentials: true,
+				transformResponse: transformTaggedResponse,
+			});
+		} catch (e: any) {
+			if (e?.response?.status === 412 && (e?.response?.headers ?? {})['x-private-data-etag']) {
+				return Promise.reject({ cause: 'x-private-data-etag' });
+			}
+			throw e;
+		}
+	}), [withTokenRejection, mutationHeaders]);
+
+	return useMemo(() => ({ get, post, del }), [get, post, del]);
 }
