@@ -80,9 +80,8 @@ export const deriveHolderKidFromCredential = async (credential: string, format: 
 					const issuerAuth = issuerSigned.get('issuerAuth');
 					return issuerAuth[2];
 				}
-				const mdocDcument = parseIssuerSignedToMDoc(credential);
-				const issuerSigned = mdocDcument[0].get('issuerSigned');
-				const issuerAuth = issuerSigned.get('issuerAuth');
+
+				const issuerAuth = mdoc.get('issuerAuth');
 				return issuerAuth[2];
 			})();
 			let msoBinary;
