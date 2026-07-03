@@ -8,11 +8,11 @@ export const TokenResponseSchema = z.object({
 export type TokenResponse = z.infer<typeof TokenResponseSchema>;
 
 export const AccessTokenPayloadSchema = z.object({
-	sub: z.string(),
+	sub: z.string().optional(),
 	aud: z.string(),
 	tenant_id: z.string(),
 	tac: z.string(),
-	acr: z.enum(['urn:siros:acr:passkey', 'urn:siros:acr:oidc']),
+	acr: z.enum(['urn:siros:acr:passkey', 'urn:siros:acr:oidc']).optional(),
 	exp: z.number(),
 });
 export type AccessTokenPayload = z.infer<typeof AccessTokenPayloadSchema>;
