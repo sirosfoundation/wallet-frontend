@@ -1,15 +1,15 @@
 import { compactDecrypt, CompactDecryptResult, exportJWK, generateKeyPair, JWK, KeyLike } from "jose";
 import { generateDPoP } from "../../utils/dpop";
-import { useHttpProxy } from "../HttpProxy/HttpProxy";
 import { useOpenID4VCIHelper } from "../OpenID4VCIHelper";
 import { useContext, useCallback, useMemo, useRef } from "react";
 import SessionContext from "@/context/SessionContext";
 import { OpenidCredentialIssuerMetadata } from "wallet-common";
 import { OPENID4VCI_MAX_ACCEPTED_BATCH_SIZE } from "@/config";
 import { logger, jsonToLog } from '@/logger';
+import { useHttpClient } from "@/hooks/useHttpClient";
 
 export function useCredentialRequest() {
-	const httpProxy = useHttpProxy();
+	const httpClient = useHttpClient();
 	const openID4VCIHelper = useOpenID4VCIHelper();
 	const { keystore, api } = useContext(SessionContext);
 
@@ -132,7 +132,7 @@ export function useCredentialRequest() {
 
 	const executeDeferredFetch = useCallback(async (transactionId: string): Promise<{ credentialResponse: any }> => {
 		try {
-			const credentialResponse = await httpProxy.post(deferredCredentialEndpointURLRef.current, { transaction_id: transactionId }, httpHeaders);
+			const credentialResponse = await httpClient.post(deferredCredentialEndpointURLRef.current, { transaction_id: transactionId }, httpHeaders);
 			return { credentialResponse };
 		}
 		catch (err) {
@@ -140,7 +140,7 @@ export function useCredentialRequest() {
 			throw new Error("Deferred Credential Request failed");
 		}
 
-	}, [httpProxy, httpHeaders]);
+	}, [httpClient, httpHeaders]);
 
 	const execute = useCallback(async (credentialConfigurationId: string, proofType: "jwt" | "attestation", cachedProofs?: unknown[]): Promise<{ credentialResponse: any }> => {
 		logger.debug("Executing credential request...");
@@ -258,7 +258,7 @@ export function useCredentialRequest() {
 			};
 		}
 
-		const credentialResponse = await httpProxy.post(credentialEndpointURLRef.current, credentialEndpointBody, httpHeaders);
+		const credentialResponse = await httpClient.post(credentialEndpointURLRef.current, credentialEndpointBody, httpHeaders);
 		const contentType = credentialResponse.headers['Content-Type'] ?? credentialResponse.headers['content-type'];
 		if (encryptionRequested && typeof contentType === 'string' && contentType.startsWith('application/jwt')) {
 			let decryptResult: { data: CompactDecryptResult | null; err: Error | null };
@@ -299,7 +299,7 @@ export function useCredentialRequest() {
 		// receivedCredentialsArrayRef.current = credentialArray;
 		logger.debug("Credential response received, status:", credentialResponse.status);
 		return { credentialResponse };
-	}, [updatePrivateData, httpProxy, keystore, openID4VCIHelper, setDpopHeader, setDpopNonce, httpHeaders, requestKeyAttestation]);
+	}, [updatePrivateData, httpClient, keystore, openID4VCIHelper, setDpopHeader, setDpopNonce, httpHeaders, requestKeyAttestation]);
 
 
 

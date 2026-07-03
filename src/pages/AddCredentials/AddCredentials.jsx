@@ -12,6 +12,7 @@ import QueryableList from '../../components/QueryableList/QueryableList';
 import CredentialsContext from '@/context/CredentialsContext';
 import useFilterItemByLang from '@/hooks/useFilterItemByLang';
 import { buildCredentialConfiguration } from '@/components/QueryableList/CredentialsDisplayUtils';
+import { useOpenID4VCIHelper } from '@/lib/services/OpenID4VCIHelper';
 
 const AddCredentials = () => {
 	const { isOnline } = useContext(StatusContext);
@@ -23,6 +24,7 @@ const AddCredentials = () => {
 
 	const [selectedCredentialConfiguration, setSelectedCredentialConfiguration] = useState(null);
 	const { vcEntityList, getData } = useContext(CredentialsContext);
+	const { getCredentialIssuerMetadata } = useOpenID4VCIHelper();
 
 	const { buildPath } = useTenant();
 	const navigate = useNavigate();
@@ -90,7 +92,7 @@ const AddCredentials = () => {
 						if (!issuer.visible) {
 							return;
 						}
-						const metadata = (await api.getExternalEntity(`/issuer/${issuer.id}/metadata`, undefined, true)).data;
+						const metadata = (await getCredentialIssuerMetadata(issuer.credentialIssuerIdentifier, true)).metadata;
 						const configs = metadata.credential_configurations_supported;
 
 						// add issuer
@@ -132,7 +134,7 @@ const AddCredentials = () => {
 			logger.debug("Fetching issuers...")
 			fetchIssuers();
 		}
-	}, [api, isOnline, filterItemByLang]);
+	}, [api, isOnline, filterItemByLang, getCredentialIssuerMetadata]);
 
 	const handleCredentialConfigurationClick = async (credentialConfigurationIdWithCredentialIssuerIdentifier) => {
 		const [credentialConfigurationId, credentialIssuerIdentifier] = JSON.parse(credentialConfigurationIdWithCredentialIssuerIdentifier);

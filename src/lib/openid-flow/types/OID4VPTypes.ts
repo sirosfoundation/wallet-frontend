@@ -4,6 +4,7 @@
 
 import type { DcqlQuery } from 'dcql';
 import type { TrustEvaluation } from './TrustTypes';
+import { TrustStatus } from 'wallet-common';
 
 // Note: These types are defined locally to avoid coupling to wallet-common exports
 // which may vary between versions. The transport layer handles conversion.
@@ -110,6 +111,10 @@ export interface OID4VPVerifierInfo extends TrustEvaluation {
 	clientIdScheme?: string;
 	/** Trust framework identifier */
 	trustFramework?: string;
+	/** Trust evaluation status */
+	trustStatus?: TrustStatus;
+	/** Whether the verifier is trusted */
+	trusted?: boolean;
 }
 
 /**

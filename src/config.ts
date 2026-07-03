@@ -118,6 +118,14 @@ export const OPENID4VCI_REDIRECT_URI = config.openid4vci_redirect_uri ?  config.
 export const CLOCK_TOLERANCE = config.clock_tolerance && !isNaN(parseInt(config.clock_tolerance)) ? parseInt(config.clock_tolerance) : 60;
 export const STATIC_PUBLIC_URL = config.static_public_url || 'https://demo.wwwallet.org';
 export const STATIC_NAME = config.static_name || 'wwWallet';
+
+/**
+ * When true, deleting a credential does NOT remove associated presentation
+ * history records.  Default is false (deletion is the default behaviour);
+ * set preserve_presentation_history=true in the deployment config to opt in
+ * to keeping history.
+ */
+export const PRESERVE_PRESENTATION_HISTORY: boolean = config.preserve_presentation_history === 'true';
 export const OPENID4VCI_PROOF_TYPE_PRECEDENCE = config.openid4vci_proof_type_precedence || 'jwt';
 export const FOLD_EVENT_HISTORY_AFTER_SECONDS = config.fold_event_history_after_seconds && !isNaN(parseInt(config.fold_event_history_after_seconds)) ? parseInt(config.fold_event_history_after_seconds) : 2592000; // 30 days
 export const DISPLAY_ISSUANCE_WARNINGS: boolean = config.display_issuance_warnings ? JSON.parse(config.display_issuance_warnings) : false;
@@ -129,6 +137,7 @@ export const OHTTP_RELAY = config.ohttp_relay;
 export const VCT_REGISTRY_URL: string | undefined = config.vct_registry_url;
 export const POLICY_LINKS = config.policy_links;
 export const SHOW_PWA_INSTALL_PROMPT = config.show_pwa_install_prompt === 'true';
+export const WALLET_COMPANION_INTEGRATION = config.wallet_companion_integration === 'true';
 export const POWERED_BY = config.powered_by;
 
 // ===== Transport Configuration =====

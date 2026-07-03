@@ -2,7 +2,6 @@ import { IOpenID4VCI } from '../../interfaces/IOpenID4VCI';
 import * as jose from 'jose';
 import { generateRandomIdentifier } from '../../utils/generateRandomIdentifier';
 import * as config from '../../../config';
-import { useHttpProxy } from '../HttpProxy/HttpProxy';
 import { useCallback, useMemo, useEffect, useRef, useState, useContext } from 'react';
 import { useLocation } from "react-router-dom";
 import { usePushedAuthorizationRequest } from './OAuth/PushedAuthorizationRequest';
@@ -16,12 +15,12 @@ import { CredentialConfigurationSupported, CredentialOfferSchema, VerifiableCred
 import CredentialsContext from "@/context/CredentialsContext";
 import { WalletStateUtils } from '@/services/WalletStateUtils';
 import { fromBase64Url } from '@/util';
-import { DataItem } from '@auth0/mdl';
 import { cborDecode } from '@auth0/mdl/lib/cbor';
 import { COSEKeyToJWK } from "cose-kit";
 import { IOpenID4VCIClientStateRepository } from '@/lib/interfaces/IOpenID4VCIClientStateRepository';
 import { useNavigate } from 'react-router-dom';
 import { logger } from '@/logger';
+import { useHttpClient } from '@/hooks/useHttpClient';
 import { parseIssuerSignedToMDoc } from '@/lib/mdoc/mdoc';
 
 /**
@@ -51,8 +50,7 @@ const openid4vciProofTypePrecedence = config.OPENID4VCI_PROOF_TYPE_PRECEDENCE.sp
 
 const textDecoder = new TextDecoder();
 
-
-export const deriveHolderKidFromCredential = async (credential: string, format: VerifiableCredentialFormat): Promise<string | undefined> => {
+export const deriveHolderKidFromCredential = async (credential: string, format: string) => {
 	switch (format) {
 		case VerifiableCredentialFormat.VC_SDJWT:
 		case VerifiableCredentialFormat.DC_SDJWT:
@@ -61,7 +59,6 @@ export const deriveHolderKidFromCredential = async (credential: string, format: 
 			if (!payload) {
 				return undefined;
 			}
-
 			try {
 				const decoded = JSON.parse(textDecoder.decode(fromBase64Url(payload)));
 				const cnf = decoded.cnf as { jwk?: jose.JWK } | undefined;
@@ -74,13 +71,39 @@ export const deriveHolderKidFromCredential = async (credential: string, format: 
 			return undefined;
 		}
 		case VerifiableCredentialFormat.MSO_MDOC: {
-			const mdocCredential = parseIssuerSignedToMDoc(credential);
-			const p: DataItem = cborDecode(mdocCredential.documents[0].issuerSigned.issuerAuth.payload);
-			const deviceKeyInfo = p.data.get('deviceKeyInfo');
-			const deviceKey = deviceKeyInfo.get('deviceKey');
-			// @ts-ignore
-			const devicePublicKeyJwk = COSEKeyToJWK(deviceKey);
-			return jose.calculateJwkThumbprint(devicePublicKeyJwk, "sha256");
+			const credentialBytes = fromBase64Url(credential);
+			const mdoc = cborDecode(credentialBytes);
+			const fullMdocDocument = mdoc.get("documents");
+			const msoBinaryRaw = (() => {
+				if (fullMdocDocument) {
+					const issuerSigned = fullMdocDocument[0].get('issuerSigned');
+					const issuerAuth = issuerSigned.get('issuerAuth');
+					return issuerAuth[2];
+				}
+
+				const issuerAuth = mdoc.get('issuerAuth');
+				return issuerAuth[2];
+			})();
+			let msoBinary;
+			if (msoBinaryRaw instanceof Uint8Array) {
+				msoBinary = msoBinaryRaw;
+			} else if (msoBinaryRaw instanceof ArrayBuffer) {
+				msoBinary = new Uint8Array(msoBinaryRaw);
+			} else {
+				msoBinary = new Uint8Array(msoBinaryRaw.buffer, msoBinaryRaw.byteOffset || 0, msoBinaryRaw.byteLength || msoBinaryRaw.length);
+			}
+			if (msoBinary && msoBinary.length > 0) {
+				try {
+					const msoData = cborDecode(msoBinary);
+					const deviceKeyInfo = msoData.data.get('deviceKeyInfo');
+					const deviceKey = deviceKeyInfo.get('deviceKey');
+					const devicePublicKeyJwk = COSEKeyToJWK(deviceKey);
+					const kid = await jose.calculateJwkThumbprint(devicePublicKeyJwk, "sha256");
+					return kid;
+				} catch (e) {
+					console.log("Failed to decode MSO:", e);
+				}
+			}
 		}
 	}
 }
@@ -101,7 +124,7 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 		[params]
 	);
 
-	const httpProxy = useHttpProxy();
+	const httpClient = useHttpClient();
 	const { api, keystore } = useContext(SessionContext);
 	const { credentialEngine } = useContext<any>(CredentialsContext);
 
@@ -139,7 +162,7 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 			credentialIssuerMetadataRef.current = credentialIssuerMetadata
 			credentialConfigurationIdRef.current = flowState.credentialConfigurationId;
 			if (credentialIssuerMetadata.metadata.nonce_endpoint) {
-				const nonceEndpointResp = await httpProxy.post(credentialIssuerMetadata.metadata.nonce_endpoint, {});
+				const nonceEndpointResp = await httpClient.post(credentialIssuerMetadata.metadata.nonce_endpoint, {});
 				const { c_nonce } = nonceEndpointResp.data as { c_nonce: string };
 				credentialRequestBuilder.setCNonce(c_nonce);
 			}
@@ -205,7 +228,7 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 		openID4VCIHelper,
 		openID4VCIClientStateRepository,
 		credentialRequestBuilder,
-		httpProxy,
+		httpClient,
 		navigate,
 		buildPath
 	]);
@@ -443,10 +466,11 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 	);
 
 	const requestCredentialsWithPreAuthorization = useCallback(async (credentialIssuer: string, selectedCredentialConfigurationId: string, preAuthorizedCode: string, txCode?: string): Promise<{}> => {
-		const [authzServerMetadata, clientIdResult] = await Promise.all([
-			openID4VCIHelper.getAuthorizationServerMetadata(credentialIssuer, false),
+		const [credentialIssuerMetadata, clientIdResult] = await Promise.all([
+			openID4VCIHelper.getCredentialIssuerMetadata(credentialIssuer),
 			openID4VCIHelper.getClientId(credentialIssuer),
 		]);
+		const authzServerMetadata = await openID4VCIHelper.getAuthorizationServerMetadata(credentialIssuer, false, credentialIssuerMetadata?.metadata);
 
 		const flowState: WalletStateCredentialIssuanceSession = {
 			sessionId: WalletStateUtils.getRandomUint32(),
@@ -536,7 +560,7 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 					throw new Error("Credential offer URL must contain either 'credential_offer' or 'credential_offer_uri' parameter");
 				}
 				try {
-					let response = await httpProxy.get(credentialOfferUri, {})
+					let response = await httpClient.get(credentialOfferUri, {})
 					offer = CredentialOfferSchema.parse(response.data);
 				}
 				catch (err) {
@@ -570,7 +594,7 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 
 			return { credentialIssuer: offer.credential_issuer, selectedCredentialConfigurationId: selectedConfigurationId, issuer_state };
 		},
-		[httpProxy, openID4VCIHelper]
+		[httpClient, openID4VCIHelper]
 	);
 
 	const getAvailableCredentialConfigurations = useCallback(
@@ -600,11 +624,11 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 			}
 			catch (err) { logger.error(err) }
 
-			const [authzServerMetadata, credentialIssuerMetadata, clientId] = await Promise.all([
-				openID4VCIHelper.getAuthorizationServerMetadata(credentialIssuerIdentifier),
+			const [credentialIssuerMetadata, clientId] = await Promise.all([
 				openID4VCIHelper.getCredentialIssuerMetadata(credentialIssuerIdentifier),
 				openID4VCIHelper.getClientId(credentialIssuerIdentifier)
 			]);
+			const authzServerMetadata = await openID4VCIHelper.getAuthorizationServerMetadata(credentialIssuerIdentifier, undefined, credentialIssuerMetadata?.metadata);
 
 			if (!clientId) {
 				logger.error("clientId not found");

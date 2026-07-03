@@ -16,6 +16,7 @@ import { useOIDFlowTransport } from '@/context/OIDFlowTransportContext';
 import { useTenant } from '@/context/TenantContext';
 import { parseOIDFlowCallbackUrl } from '@/lib/openid-flow/utils/oidFlowCallbackUrl';
 import IssuanceWarningPopup from '@/components/Popups/IssuanceWarningPopup';
+import { DCAPISession } from '@/lib/openid-flow/platforms/dc-api';
 
 type OpenIDFlowCallbackProps = {
 	callbackUrl: OIDFlowCallbackURL;
@@ -112,7 +113,7 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			logger.error('Error in OID4VCI flow:', err);
 			displayError({
 				title: t('openIdCallback.vciFlowError.title'),
-				description: err instanceof Error ? err.message : String(err),
+				description: t('openIdCallback.vciFlowError.description'),
 				onClose: () => navigateHome(),
 			});
 		},
@@ -255,7 +256,7 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				logger.error('Error in OID4VCI flow:', error);
 				displayError({
 					title: t('openIdCallback.vciFlowError.title'),
-					description: error instanceof Error ? error.message : String(error),
+					description: t('openIdCallback.vciFlowError.description'),
 					onClose: () => navigateHome(),
 				});
 			}
@@ -305,30 +306,27 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		if (!(err instanceof OIDFlowError)) {
 			displayError({
 				title: t('openIdCallback.vpFlowError.title'),
-				description: err.message,
+				description: t('openIdCallback.vpFlowError.description'),
 			});
 			return;
 		}
 
-		switch (err.code.toUpperCase()) {
-			case 'INSUFFICIENT_CREDENTIALS':
-				displayError({
-					title: t('openIdCallback.insufficientCredentials.title'),
-					description: t('openIdCallback.insufficientCredentials.description'),
-				});
-				return;
-			case 'NONTRUSTED_VERIFIER':
-				displayError({
-					title: t('openIdCallback.nonTrustedVerifier.title'),
-					description: t('openIdCallback.nonTrustedVerifier.description'),
-				});
-				return;
-			default:
-				displayError({
-					title: t('openIdCallback.vpFlowError.title'),
-					description: err.message,
-				});
-				return;
+		const code = err.code.toUpperCase();
+		const titleKey = `openIdCallback.errorCodes.${code}.title`;
+		const descKey = `openIdCallback.errorCodes.${code}.description`;
+		const translatedTitle = t(titleKey, { defaultValue: '' });
+		const translatedDesc = t(descKey, { defaultValue: '' });
+
+		if (translatedTitle) {
+			displayError({
+				title: translatedTitle,
+				description: translatedDesc || t('openIdCallback.vpFlowError.description'),
+			});
+		} else {
+			displayError({
+				title: t('openIdCallback.vpFlowError.title'),
+				description: t('openIdCallback.vpFlowError.description'),
+			});
 		}
 	}, [displayError, t]);
 
@@ -374,6 +372,8 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		handleAuthorizationRequest,
 		handleCredentialSelection,
 		sendAuthorizationResponse,
+		handleDCAPIRequest,
+		sendDCAPIResponse,
 	} = useOID4VPFlow({
 		onError: handleOID4VPError,
 		onProgress: handleOID4VPProgress,
@@ -428,6 +428,59 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		}
 	};
 
+	const processDcApiRequest = async (url: URL) => {
+		const session = new DCAPISession(url);
+
+		try {
+			await session.initialize();
+			cleanupUrl();
+
+			const result = await handleDCAPIRequest(session.request, session.verifiedOrigin);
+			if (!result?.success) {
+				throw new OIDFlowError(result.error);
+			}
+
+			const credSelectResult = await handleCredentialSelection(
+				result.verifierInfo,
+				result.dcqlQuery,
+				result.conformantCredentials,
+			);
+
+			if (!credSelectResult?.success) {
+				if (credSelectResult?.error?.code === 'USER_CANCELLED') {
+					session.sendErrorAndClose('user_cancelled');
+					return;
+				}
+				throw new OIDFlowError(credSelectResult.error);
+			}
+
+			const sendResult = await sendDCAPIResponse(
+				session,
+				credSelectResult.selectedCredentials
+			);
+			logger.debug('DC API response sent:', sendResult);
+
+			if (sendResult.success) {
+				setSuccessMessage({
+					title: t('openIdCallback.sendResponseSuccess.title'),
+					description: t('openIdCallback.sendResponseSuccess.description'),
+				});
+			}
+
+			session.close();
+		} catch (err) {
+			logger.error('Error processing DC API request:', err);
+
+			displayError({
+				title: t('openIdCallback.vpFlowError.title'),
+				description: t('openIdCallback.vpFlowError.description'),
+				onClose: () => {
+					session.sendErrorAndClose('access_denied');
+				},
+			});
+		}
+	};
+
 	useEffect(() => {
 		if (flowIsActive.current) return;
 		flowIsActive.current = true;
@@ -439,6 +492,9 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				switch (callbackUrl.type) {
 					case 'presentation_request':
 						await processAuthorizationRequest(callbackUrl.url);
+						break;
+					case 'dc_api_request':
+						await processDcApiRequest(callbackUrl.url);
 						break;
 					default:
 						throw new OIDFlowError({
@@ -452,7 +508,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 					logger.error('Error in OID4VP flow:', error);
 				displayError({
 					title: t('openIdCallback.vpFlowError.title'),
-					description: error instanceof Error ? error.message : String(error),
+					description: t('openIdCallback.vpFlowError.description'),
 					onClose: () => navigateHome(),
 				});
 			}

@@ -9,6 +9,7 @@ set -e
 # - OHTTP_KEY_CONFIG
 # - OHTTP_RELAY
 # - VCT_REGISTRY_URL
+# - OIDC_GATE_OP_URL
 # - NGINX_CSP_ENFORCE_RESOURCE_HTTPS ("true" or "false". Default: "false")
 # - NGINX_ENABLE_HSTS ("true" or "false". Default: "false")
 
@@ -44,6 +45,10 @@ fi
 
 if [ -n "${VCT_REGISTRY_URL}" ]; then
 	CONNECT_SRC="${CONNECT_SRC} ${VCT_REGISTRY_URL}"
+fi
+
+if [ -n "${OIDC_GATE_OP_URL}" ]; then
+	CONNECT_SRC="${CONNECT_SRC} ${OIDC_GATE_OP_URL}"
 fi
 
 if [ "${NGINX_CSP_ENFORCE_RESOURCE_HTTPS}" = "true" ]; then

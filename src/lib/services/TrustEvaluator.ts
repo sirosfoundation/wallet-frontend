@@ -14,21 +14,14 @@ import {
 	AuthZENClient,
 	AuthZENClientConfig,
 	TrustStatus,
-	TrustInfo,
 	KeyMaterial,
 	DIDResolutionResult,
 	DIDDocument,
 	DIDResolver,
 	ClientIdScheme,
-	OpenID4VPKeyMaterial,
-	TrustEvaluationResult,
-	OpenID4VPTrustEvaluator,
 } from 'wallet-common';
 import type { HttpClient } from 'wallet-common';
 import { logger } from '@/logger';
-
-// Re-export types from wallet-common for convenience
-export { TrustStatus, TrustInfo, KeyMaterial, DIDResolutionResult, DIDDocument, DIDResolver, ClientIdScheme, OpenID4VPKeyMaterial, TrustEvaluationResult, OpenID4VPTrustEvaluator };
 
 /**
  * Configuration for creating a trust evaluator.
@@ -61,6 +54,70 @@ export interface TrustEvaluatorConfig {
 }
 
 /**
+ * Verifier trust evaluation parameters.
+ * @todo consider moving to wallet-common.
+ */
+export interface VerifierTrustEvaluationParams {
+	/**
+	 * Parsed client_id scheme information.
+	 */
+	clientIdScheme: ClientIdScheme;
+
+	/**
+	 * Key material from the request JWT header.
+	 * For unsigned requests, use { type: 'resolution', key: [] }.
+	 */
+	keyMaterial: KeyMaterial;
+
+	/**
+	 * Request URI (for hostname validation).
+	 */
+	requestUri?: string;
+
+	/**
+	 * Response URI (for hostname validation).
+	 */
+	responseUri?: string;
+}
+
+/**
+ * Verifier trust evaluation result.
+ * @todo consider moving to wallet-common.
+ */
+export interface VerifierTrustResult {
+	/**
+	 * Whether the verifier is trusted.
+	 */
+	trusted: boolean;
+
+	/**
+	 * Trust status from AuthZEN evaluation.
+	 */
+	status: TrustStatus;
+
+	/**
+	 * Verifier's display name (from DID document or entity config).
+	 */
+	name?: string;
+
+	/**
+	 * Verifier's logo URL.
+	 */
+	logo?: string;
+
+	/**
+	 * Additional metadata from trust evaluation.
+	 */
+	metadata?: Record<string, unknown>;
+}
+
+/**
+ * Verifier trust evaluator function type.
+ * @todo consider moving to wallet-common.
+ */
+export type VerifierTrustEvaluator = (params: VerifierTrustEvaluationParams) => Promise<VerifierTrustResult>;
+
+/**
  * Create an OpenID4VP trust evaluator using the AuthZEN client.
  *
  * This evaluator calls the wallet backend's /v1/evaluate endpoint,
@@ -85,7 +142,7 @@ export interface TrustEvaluatorConfig {
  * }
  * ```
  */
-export function createVerifierTrustEvaluator(config: TrustEvaluatorConfig): OpenID4VPTrustEvaluator {
+export function createVerifierTrustEvaluator(config: TrustEvaluatorConfig): VerifierTrustEvaluator {
 	const clientConfig: AuthZENClientConfig = {
 		httpClient: config.httpClient,
 		baseUrl: config.backendUrl,
@@ -96,7 +153,7 @@ export function createVerifierTrustEvaluator(config: TrustEvaluatorConfig): Open
 
 	const authzenClient = AuthZENClient(clientConfig);
 
-	return async (params): Promise<TrustEvaluationResult> => {
+	return async (params: VerifierTrustEvaluationParams): Promise<VerifierTrustResult> => {
 		const { clientIdScheme, keyMaterial, requestUri, responseUri } = params;
 
 		// Build context with request/response URIs for additional validation
@@ -116,7 +173,7 @@ export function createVerifierTrustEvaluator(config: TrustEvaluatorConfig): Open
 
 		// Call the AuthZEN evaluator
 		const result = await authzenClient.evaluateVerifier({
-			clientId: clientIdScheme.clientId,
+			clientId: clientIdScheme.identifier,
 			keyMaterial: authzenKeyMaterial,
 			context,
 		});
@@ -145,6 +202,7 @@ export function createVerifierTrustEvaluator(config: TrustEvaluatorConfig): Open
 
 /**
  * Issuer trust evaluation parameters.
+ * @todo consider moving to wallet-common.
  */
 export interface IssuerTrustEvaluationParams {
 	/**
@@ -169,6 +227,7 @@ export interface IssuerTrustEvaluationParams {
 
 /**
  * Issuer trust evaluation result.
+ * @todo consider moving to wallet-common.
  */
 export interface IssuerTrustResult {
 	/**
@@ -199,6 +258,7 @@ export interface IssuerTrustResult {
 
 /**
  * Issuer trust evaluator function type.
+ * @todo consider moving to wallet-common.
  */
 export type IssuerTrustEvaluator = (params: IssuerTrustEvaluationParams) => Promise<IssuerTrustResult>;
 

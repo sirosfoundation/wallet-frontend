@@ -1,9 +1,9 @@
 import { useCallback, useRef, useMemo } from 'react';
 import { JWK, KeyLike } from 'jose';
-import { useHttpProxy } from '../../HttpProxy/HttpProxy';
 import * as oauth4webapi from 'oauth4webapi';
 import { PreAuthorizedGrant } from '../PreAuthorizedGrant';
 import { MODE, OPENID4VCI_REDIRECT_URI } from '@/config';
+import { useHttpClient } from '@/hooks/useHttpClient';
 
 const { customFetch, allowInsecureRequests } = oauth4webapi;
 const isDev = MODE === 'development';
@@ -33,7 +33,7 @@ export enum TokenRequestError {
 }
 
 export function useTokenRequest() {
-	const httpProxy = useHttpProxy();
+	const httpClient = useHttpClient();
 
 	const tokenEndpointURL = useRef<string | null>(null);
 	const issuer = useRef<string | null>(null);
@@ -84,7 +84,7 @@ export function useTokenRequest() {
 
 			let wrapped;
 			if (method === 'post') {
-				wrapped = await httpProxy.post(url, data, headers);
+				wrapped = await httpClient.post(url, data, headers);
 			} else {
 				throw new Error(`Unsupported method in customFetch: ${method}`);
 			}
@@ -105,7 +105,7 @@ export function useTokenRequest() {
 				headers: resHeaders,
 			});
 		};
-	}, [httpProxy]);
+	}, [httpClient]);
 
 	const setClientId = useCallback((clientIdValue: string) => {
 		clientId.current = clientIdValue;

@@ -13,7 +13,7 @@ import * as keystore from "./keystore";
 import type { AsymmetricEncryptedContainer, AsymmetricEncryptedContainerKeys, EncryptedContainer, OpenedContainer, PrivateData, UnlockSuccess, WebauthnPrfEncryptionKeyInfo, WebauthnPrfSaltInfo, WrappedKeyInfo } from "./keystore";
 import { MDoc } from "@auth0/mdl";
 import { WalletStateUtils } from "./WalletStateUtils";
-import { addAlterSettingsEvent, addDeleteCredentialEvent, addDeleteCredentialIssuanceSessionEvent, addDeleteKeypairEvent, addNewCredentialEvent, addNewPresentationEvent, addSaveCredentialIssuanceSessionEvent, CurrentSchema, foldOldEventsIntoBaseState, foldState, mergeEventHistories } from "./WalletStateSchema";
+import { addAlterSettingsEvent, addDeleteCredentialEvent, addDeleteCredentialIssuanceSessionEvent, addDeleteKeypairEvent, addDeletePresentationEvent, addNewCredentialEvent, addNewPresentationEvent, addSaveCredentialIssuanceSessionEvent, CurrentSchema, foldOldEventsIntoBaseState, foldState, mergeEventHistories } from "./WalletStateSchema";
 import { UserId } from "@/api/types";
 import { getItem } from "@/indexedDB";
 import { WalletStateContainerGeneric } from "./WalletStateSchemaCommon";
@@ -109,6 +109,10 @@ export interface LocalStorageKeystore {
 		mdocCredential: MDoc, presentationDefinition: any,
 		nonce: string, clientId: string, responseUri: string,
 		verifierJwkThumbprint: string | null,
+	): Promise<{ deviceResponseMDoc: MDoc }>,
+	generateDeviceResponseForDCAPI(
+		mdocCredential: MDoc, presentationDefinition: any,
+		nonce: string, origin: string, jwkThumbprint: string | null
 	): Promise<{ deviceResponseMDoc: MDoc }>,
 	generateDeviceResponseWithProximity(mdocCredential: MDoc, presentationDefinition: any, sessionTranscriptBytes: any): Promise<{ deviceResponseMDoc: MDoc }>,
 
@@ -708,6 +712,13 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		[openPrivateData]
 	);
 
+	const generateDeviceResponseForDCAPI = useCallback(
+		async (mdocCredential: MDoc, presentationDefinition: any, nonce: string, origin: string, verifierJwkThumbprint: string | null): Promise<{ deviceResponseMDoc: MDoc }> => (
+			await keystore.generateDeviceResponseForDCAPI(await openPrivateData(), mdocCredential, presentationDefinition, nonce, origin, verifierJwkThumbprint)
+		),
+		[openPrivateData]
+	);
+
 	const generateDeviceResponseWithProximity = useCallback(
 		async (mdocCredential: MDoc, presentationDefinition: any, sessionTranscriptBytes: any): Promise<{ deviceResponseMDoc: MDoc }> => (
 			await keystore.generateDeviceResponseWithProximity(await openPrivateData(), mdocCredential, presentationDefinition, sessionTranscriptBytes)
@@ -792,12 +803,24 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		walletStateContainer = await foldOldEventsIntoBaseState(walletStateContainer);
 
 		const credentialsToBeDeleted = calculatedWalletState.credentials.filter((cred) => cred.batchId === batchId);
+		const deletedCredentialIds = new Set(credentialsToBeDeleted.map((cred) => cred.credentialId));
 		for (const cred of credentialsToBeDeleted) {
 			walletStateContainer = await addDeleteCredentialEvent(walletStateContainer, cred.credentialId);
 			// delete keypair
 			const kid = calculatedWalletState.credentials.filter((c) => c.credentialId === cred.credentialId).map((c) => c.kid)[0];
 			if (kid) {
 				walletStateContainer = await addDeleteKeypairEvent(walletStateContainer, kid);
+			}
+		}
+
+		// delete presentations that reference any of the deleted credentials
+		// (unless the deployment has opted to preserve history via config)
+		if (!config.PRESERVE_PRESENTATION_HISTORY) {
+			const presentationsToDelete = calculatedWalletState.presentations.filter((p) =>
+				p.usedCredentialIds.some((id) => deletedCredentialIds.has(id))
+			);
+			for (const presentation of presentationsToDelete) {
+				walletStateContainer = await addDeletePresentationEvent(walletStateContainer, presentation.presentationId);
 			}
 		}
 
@@ -941,6 +964,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		generateOpenid4vciProofs,
 		generateKeypairs,
 		generateDeviceResponse,
+		generateDeviceResponseForDCAPI,
 		generateDeviceResponseWithProximity,
 		getCalculatedWalletState,
 		getAllCredentials,
@@ -973,6 +997,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		generateOpenid4vciProofs,
 		generateKeypairs,
 		generateDeviceResponse,
+		generateDeviceResponseForDCAPI,
 		generateDeviceResponseWithProximity,
 		getCalculatedWalletState,
 		getAllCredentials,

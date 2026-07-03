@@ -80,13 +80,13 @@ export default function OIDCCallback() {
 				console.error('OIDC callback error:', error);
 				setState({
 					status: 'error',
-					message: error instanceof Error ? error.message : 'Authentication failed',
+					message: t('oidcGate.errorGeneric'),
 				});
 			}
 		};
 
 		processCallback();
-	}, [isLoadingConfig, getRegistrationOIDCProvider, getLoginOIDCProvider, buildPath, navigate]);
+	}, [isLoadingConfig, getRegistrationOIDCProvider, getLoginOIDCProvider, buildPath, navigate, t]);
 
 	const handleRetry = () => {
 		// Go back to login page to start over

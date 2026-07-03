@@ -1178,6 +1178,8 @@ export async function signJwtPresentation([privateData, mainKey, calculatedState
 	);
 	const sdJwt = verifiableCredentials[0];
 	const sd_hash = toBase64Url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sdJwt)));
+	// Build a public-key-only JWK for the KB-JWT header (strip any private key material)
+	const { d: _, ...publicJwk } = cnf.jwk as JWK & { d?: string };
 	const kbJWT = await new SignJWT({
 		nonce,
 		aud: audience,
@@ -1186,7 +1188,8 @@ export async function signJwtPresentation([privateData, mainKey, calculatedState
 	}).setIssuedAt()
 		.setProtectedHeader({
 			typ: "kb+jwt",
-			alg: alg
+			alg: alg,
+			jwk: publicJwk,
 		})
 		.sign(importedPrivateKey);
 
@@ -1243,31 +1246,58 @@ export async function generateKeypairs(
 	const { newPrivateData, keypairs } = await addNewCredentialKeypairs(container, didKeyVersion, deriveKid, numberOfKeyPairs);
 	return [{ keypairs }, newPrivateData];
 }
+type SessionTranscriptOptions =
+	| {
+		name: "OpenID4VPHandover",
+		clientId: string,
+		responseUri: string,
+		nonce: string,
+		jwkThumbprint: string | null,
+	}
+	| {
+		name: "OpenID4VPDCAPIHandover",
+		origin: string,
+		nonce: string,
+		jwkThumbprint: string | null,
+	};
 
-export async function generateDeviceResponse(
+async function generateDeviceResponseInternal(
 	[privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState],
 	mdocCredential: MDoc,
 	presentationDefinition: any,
-	nonce: string,
-	clientId: string,
-	responseUri: string,
-	verifierJwkThumbprint: string | null,
+	sessionTranscript: SessionTranscriptOptions,
 ): Promise<{ deviceResponseMDoc: MDoc }> {
-	const getSessionTranscriptBytesForOID4VP = async (
-		clId: string, nonce: string, respUri: string, jwkThumbprint: string | null,
-	) => {
-		const handoverInfo = [
-			clId,
-			nonce,
-			jwkThumbprint ? jose.base64url.decode(jwkThumbprint) : null,
-			respUri,
-		];
+	const getSessionTranscriptBytesForOID4VP = async (sessionTranscript: SessionTranscriptOptions) => {
+		const decodedThumbprint = sessionTranscript.jwkThumbprint
+			? jose.base64url.decode(sessionTranscript.jwkThumbprint)
+			: null;
+
+		const handoverInfo = [];
+		switch (sessionTranscript.name) {
+			case "OpenID4VPHandover":
+				handoverInfo.push(
+					sessionTranscript.clientId,
+					sessionTranscript.nonce,
+					decodedThumbprint,
+					sessionTranscript.responseUri,
+				);
+				break;
+			case "OpenID4VPDCAPIHandover":
+				handoverInfo.push(
+					sessionTranscript.origin,
+					sessionTranscript.nonce,
+					decodedThumbprint,
+				);
+				break;
+		}
+
 		const handoverInfoHash = new Uint8Array(
 			await crypto.subtle.digest('SHA-256', cborEncode(handoverInfo)),
 		);
-		const handover = ["OpenID4VPHandover", handoverInfoHash];
+		const handover = [sessionTranscript.name, handoverInfoHash];
 		return cborEncode(DataItem.fromData([null, null, handover]));
 	};
+
 	// extract the COSE device public key from mdoc
 	const p: DataItem = cborDecode(mdocCredential.documents[0].issuerSigned.issuerAuth.payload);
 	const deviceKeyInfo = p.data.get('deviceKeyInfo');
@@ -1291,10 +1321,7 @@ export async function generateDeviceResponse(
 	logger.debug("Building session transcript for OID4VP response");
 
 	const sessionTranscriptBytes = await getSessionTranscriptBytesForOID4VP(
-		clientId,
-		nonce,
-		responseUri,
-		verifierJwkThumbprint,
+		sessionTranscript
 	);
 
 	logger.debug("Session transcript bytes created, length:", sessionTranscriptBytes.byteLength);
@@ -1305,6 +1332,52 @@ export async function generateDeviceResponse(
 		.authenticateWithSignature({ ...privateKeyJwk, alg, kid } as JWK, alg as SupportedAlgs)
 		.sign();
 	return { deviceResponseMDoc };
+}
+
+// Original signature for backward compatibility (HTTP redirect flow)
+export async function generateDeviceResponse(
+	[privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState],
+	mdocCredential: MDoc,
+	presentationDefinition: any,
+	nonce: string,
+	clientId: string,
+	responseUri: string,
+	verifierJwkThumbprint: string | null,
+): Promise<{ deviceResponseMDoc: MDoc }> {
+	return generateDeviceResponseInternal(
+		[privateData, mainKey, calculatedState],
+		mdocCredential,
+		presentationDefinition,
+		{
+			name: "OpenID4VPHandover",
+			clientId,
+			responseUri,
+			nonce,
+			jwkThumbprint: verifierJwkThumbprint,
+		},
+	);
+}
+
+// New method for DC API flow
+export async function generateDeviceResponseForDCAPI(
+	[privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState],
+	mdocCredential: MDoc,
+	presentationDefinition: any,
+	nonce: string,
+	origin: string,
+	verifierJwkThumbprint: string | null,
+): Promise<{ deviceResponseMDoc: MDoc }> {
+	return generateDeviceResponseInternal(
+		[privateData, mainKey, calculatedState],
+		mdocCredential,
+		presentationDefinition,
+		{
+			name: "OpenID4VPDCAPIHandover",
+			origin,
+			nonce,
+			jwkThumbprint: verifierJwkThumbprint,
+		},
+	);
 }
 
 export async function generateDeviceResponseWithProximity([privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState], mdocCredential: MDoc, presentationDefinition: any, sessionTranscriptBytes: any): Promise<{ deviceResponseMDoc: MDoc }> {

@@ -15,7 +15,6 @@ import { nullOIDFlowTransport } from '@/lib/openid-flow/types/IOIDFlowTransport'
 import { OIDFlowHttpProxyTransport } from '@/lib/openid-flow/transports/OIDFlowHttpProxyTransport';
 import { OIDFlowWebSocketTransport } from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
 import type { SignRequestHandler, MatchRequestHandler } from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
-import { useHttpProxy } from '@/lib/services/HttpProxy/HttpProxy';
 import {
 	Capabilities,
 	getEngineCapabilities,
@@ -32,6 +31,7 @@ import type { OIDFlowActiveTransportType, OIDFlowTransportType } from '@/lib/ope
 import { logger } from '@/logger';
 import { createIssuerTrustEvaluator, createVerifierTrustEvaluator } from '@/lib/services/TrustEvaluator';
 import { TrustEvaluators } from '@/lib/openid-flow';
+import { useHttpClient } from '@/hooks/useHttpClient';
 
 // Re-export sign and match types with WS prefix for clarity
 export type {
@@ -71,6 +71,8 @@ interface OIDFlowTransportContextValue {
 	registerMatchHandler: (handler: MatchRequestHandler) => () => void;
 	/** Whether transport selection has settled (safe to start flows) */
 	transportReady: boolean;
+	/** Trust evaluators for verifier/issuer trust checks */
+	trustEvaluators: TrustEvaluators;
 }
 
 const TRANSPORT_CONNECT_TIMEOUT = 10 * 1000;
@@ -93,7 +95,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 	authToken,
 	tenantId
 }) => {
-	const httpProxy = useHttpProxy();
+	const httpClient = useHttpClient();
 
 	const [isConnected, setIsConnected] = useState(false);
 	const [wsTransport, setWsTransport] = useState<OIDFlowWebSocketTransport | null>(null);
@@ -119,14 +121,14 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 
 	const trustEvaluators = useMemo((): TrustEvaluators => {
 		const evaluateIssuerTrust = createIssuerTrustEvaluator({
-			httpClient: httpProxy,
+			httpClient: httpClient,
 			backendUrl: BACKEND_URL,
 			getAuthToken: () => authToken ?? '',
 			tenantId,
 		});
 
 		const evaluateVerifierTrust = createVerifierTrustEvaluator({
-			httpClient: httpProxy,
+			httpClient: httpClient,
 			backendUrl: BACKEND_URL,
 			getAuthToken: () => authToken ?? '',
 			tenantId,
@@ -136,7 +138,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		evaluateIssuerTrust,
 		evaluateVerifierTrust,
 		};
-	}, [tenantId, authToken, httpProxy]);
+	}, [tenantId, authToken, httpClient]);
 
 	// Fetch engine capabilities on mount
 	useEffect(() => {
@@ -181,8 +183,8 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 	// Create HTTP proxy transport only if allowed
 	const httpTransport = useMemo(() => {
 		if (!HTTP_PROXY_TRANSPORT_ALLOWED) return null;
-		return new OIDFlowHttpProxyTransport(httpProxy);
-	}, [httpProxy]);
+		return new OIDFlowHttpProxyTransport(httpClient);
+	}, [httpClient]);
 
 	// Create and manage WebSocket transport (only if capability is available)
 	useEffect(() => {
@@ -407,7 +409,8 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		registerSignHandler,
 		registerMatchHandler,
 		transportReady,
-	}), [transport, transportType, isConnected, reconnect, availableTransports, lastError, clearError, capabilitiesLoaded, engineCapabilities, registerSignHandler, registerMatchHandler, transportReady]);
+		trustEvaluators,
+	}), [transport, transportType, isConnected, reconnect, availableTransports, lastError, clearError, capabilitiesLoaded, engineCapabilities, registerSignHandler, registerMatchHandler, transportReady, trustEvaluators]);
 
 	return (
 		<OIDFlowTransportContext.Provider value={value}>
