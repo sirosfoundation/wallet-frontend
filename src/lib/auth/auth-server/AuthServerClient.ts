@@ -21,6 +21,13 @@ export class AuthServerClient {
 
 	readonly #pendingTokenRequests = new Map<string, Promise<TokenResponse>>();
 
+	readonly #endpointLoginBegin = '/auth/passkey/login/begin';
+	readonly #endpointLoginFinish = '/auth/passkey/login/finish';
+	readonly #endpointRegisterBegin = '/auth/passkey/register/begin';
+	readonly #endpointRegisterFinish = '/auth/passkey/register/finish';
+	readonly #endpointToken = '/auth/token';
+	readonly #endpointSession = '/auth/session';
+
 	constructor({ baseUrl }: AuthServerClientOptions) {
 		this.#baseUrl = baseUrl;
 	}
@@ -38,7 +45,7 @@ export class AuthServerClient {
 		}
 
 		const res = await this.#post(
-			'/auth/passkey/login/begin',
+			this.#endpointLoginBegin,
 			{},
 			headers,
 		);
@@ -68,7 +75,7 @@ export class AuthServerClient {
 		const response = credential.response as AuthenticatorAssertionResponse;
 
 		const res = await this.#post(
-			'/auth/passkey/login/finish',
+			this.#endpointLoginFinish,
 			{
 				challengeId,
 				credential: {
@@ -110,7 +117,7 @@ export class AuthServerClient {
 		}
 
 		const res = await this.#post(
-			'/auth/passkey/register/begin',
+			this.#endpointRegisterBegin,
 			{ tenantId, inviteCode },
 			headers,
 		);
@@ -142,7 +149,7 @@ export class AuthServerClient {
 		const response = credential.response as AuthenticatorAttestationResponse;
 
 		const res = await this.#post(
-			'/auth/passkey/register/finish',
+			this.#endpointRegisterFinish,
 			{
 				challengeId,
 				displayName,
@@ -178,7 +185,7 @@ export class AuthServerClient {
 
 		const request = (async () => {
 			const res = await this.#post(
-				'/auth/token',
+				this.#endpointToken,
 				{ aud, tac, tenant_id: tenantId, anonymous },
 				{ 'X-Token-Mode': 'session' },
 			);
@@ -200,7 +207,7 @@ export class AuthServerClient {
 	}
 
 	async logout(): Promise<void> {
-		await axios.delete(this.#url('/auth/session'), {
+		await axios.delete(this.#url(this.#endpointSession), {
 			withCredentials: true,
 		});
 	}
