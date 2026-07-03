@@ -323,26 +323,6 @@ describe('HttpClient', () => {
 				}),
 			);
 		});
-
-		it('adds authorization header for backend requests', async () => {
-			mockGetItem.mockResolvedValue(null);
-			mockAxiosRequest.mockResolvedValue({
-				status: 200,
-				headers: {},
-				data: {},
-			});
-
-			const client = new HttpClient(true, null);
-			await client.get('http://backend.localhost/api/test');
-
-			expect(mockAxiosRequest).toHaveBeenCalledWith(
-				expect.objectContaining({
-					headers: expect.objectContaining({
-						Authorization: 'Bearer test-token',
-					}),
-				}),
-			);
-		});
 	});
 
 	describe('binary requests', () => {

@@ -21,6 +21,7 @@ const loginFinishData = {
 	uuid: 'u-1',
 	displayName: 'Alice',
 	tenantId: 'default',
+	tenantDisplayName: 'Default',
 };
 const registerBeginData = {
 	challengeId: 'chal-2',
@@ -30,6 +31,7 @@ const registerFinishData = {
 	uuid: 'u-2',
 	displayName: 'Bob',
 	tenantId: 'acme',
+	tenantDisplayName: 'Acme',
 };
 const tokenData = {
 	access_token: 'jwt-token',
