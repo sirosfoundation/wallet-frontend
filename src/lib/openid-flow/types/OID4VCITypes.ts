@@ -128,7 +128,12 @@ export interface OID4VCIFlowResult {
 		format?: string;
 		credential: string;
 		vct?: string;
+		/** OID4VCI §10 notification identifier for lifecycle events */
+		notification_id?: string;
 	}>;
+
+	/** Flow ID from the backend (needed for credential notification) */
+	flowId?: string;
 
 	// ===== Deferred issuance =====
 

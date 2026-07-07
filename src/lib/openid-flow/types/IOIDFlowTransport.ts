@@ -54,6 +54,16 @@ export interface IOIDFlowTransport {
 	 */
 	startOID4VCIFlow(params: OID4VCIFlowParams): Promise<OID4VCIFlowResult>;
 
+	// ===== OID4VCI §10 Notification =====
+
+	/**
+	 * Send an OID4VCI §10 credential lifecycle notification.
+	 * Fire-and-forget: the backend forwards it to the issuer's notification
+	 * endpoint using ephemeral issuance credentials. Only meaningful for
+	 * transports that maintain a persistent connection (WebSocket).
+	 */
+	sendCredentialNotification(flowId: string, notificationId: string, event: string): void;
+
 	// ===== OID4VP (Verifiable Presentation) =====
 
 	/**
@@ -112,6 +122,10 @@ export class NullOIDFlowTransport implements IOIDFlowTransport {
 
 	async startOID4VCIFlow(): Promise<OID4VCIFlowResult> {
 		throw new Error('No transport configured');
+	}
+
+	sendCredentialNotification(): void {
+		// No-op: notification requires a connected transport
 	}
 
 	async startOID4VPFlow(): Promise<OID4VPFlowResult> {
