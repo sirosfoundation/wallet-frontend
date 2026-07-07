@@ -101,6 +101,14 @@ export class OIDFlowDirectTransport implements IOIDFlowTransport {
 	// ===== Event Subscriptions =====
 
 	onProgress(callback: (event: OIDFlowProgressEvent) => void): () => void {
+		this.progressCallbacks.add(callback);
+		return () => this.progressCallbacks.delete(callback);
+	}
+
+	onError(callback: (error: Error) => void): () => void {
+		this.errorCallbacks.add(callback);
+		return () => this.errorCallbacks.delete(callback);
+	}
 
 	/**
 	 * Check if a URL supports CORS from the current origin

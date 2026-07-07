@@ -137,6 +137,14 @@ export class OIDFlowHttpProxyTransport implements IOIDFlowTransport {
 	// ===== Event Subscriptions =====
 
 	onProgress(callback: (event: OIDFlowProgressEvent) => void): () => void {
+		this.progressCallbacks.add(callback);
+		return () => this.progressCallbacks.delete(callback);
+	}
+
+	onError(callback: (error: Error) => void): () => void {
+		this.errorCallbacks.add(callback);
+		return () => this.errorCallbacks.delete(callback);
+	}
 
 	private emitError(error: Error): void {
 		Array.from(this.errorCallbacks).forEach(callback => {
