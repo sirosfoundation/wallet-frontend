@@ -559,7 +559,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		} finally {
 			setIsLoading(false);
 		}
-	}, [api, keystore,	credentialEngine, onError, onIssuanceWarnings, assertNotAborted, transportType, transport]);
+	}, [api, keystore, credentialEngine, onError, onIssuanceWarnings, assertNotAborted, transportType, transport]);
 
 	return {
 		handleCredentialOffer,

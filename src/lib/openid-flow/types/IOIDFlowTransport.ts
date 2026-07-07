@@ -124,7 +124,7 @@ export class NullOIDFlowTransport implements IOIDFlowTransport {
 		throw new Error('No transport configured');
 	}
 
-	sendCredentialNotification(): void {
+	sendCredentialNotification(_flowId: string, _notificationId: string, _event: string): void {
 		// No-op: notification requires a connected transport
 	}
 

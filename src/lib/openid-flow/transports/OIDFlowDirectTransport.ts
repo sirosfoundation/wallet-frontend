@@ -92,19 +92,15 @@ export class OIDFlowDirectTransport implements IOIDFlowTransport {
 		);
 	}
 
+	// ===== OID4VCI §10 Notification =====
+
+	sendCredentialNotification(): void {
+		// No-op: direct transport has no persistent connection for notifications
+	}
+
 	// ===== Event Subscriptions =====
 
 	onProgress(callback: (event: OIDFlowProgressEvent) => void): () => void {
-		this.progressCallbacks.add(callback);
-		return () => this.progressCallbacks.delete(callback);
-	}
-
-	onError(callback: (error: Error) => void): () => void {
-		this.errorCallbacks.add(callback);
-		return () => this.errorCallbacks.delete(callback);
-	}
-
-	// ===== CORS Discovery Methods =====
 
 	/**
 	 * Check if a URL supports CORS from the current origin
