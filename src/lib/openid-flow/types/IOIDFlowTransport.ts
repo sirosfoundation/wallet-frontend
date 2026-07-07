@@ -59,8 +59,8 @@ export interface IOIDFlowTransport {
 	/**
 	 * Send an OID4VCI §10 credential lifecycle notification.
 	 * Fire-and-forget: the backend forwards it to the issuer's notification
-	 * endpoint using ephemeral issuance credentials. Only meaningful for
-	 * transports that maintain a persistent connection (WebSocket).
+	 * endpoint using ephemeral issuance credentials.
+	 * Transports without notification support may no-op.
 	 */
 	sendCredentialNotification(flowId: string, notificationId: string, event: string): void;
 

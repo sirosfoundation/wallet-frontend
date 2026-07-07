@@ -446,19 +446,20 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 
 	/**
 	 * OID4VCI §10: send credential_accepted notifications for each credential
-	 * that has a notification_id.
+	 * that has a notification_id. Delegates to the transport — each transport
+	 * decides how (or whether) to deliver the notification.
 	 */
 	const sendCredentialNotifications = useCallback((
 		credentials: OID4VCIFlowResult['credentials'],
 		flowId?: string,
 	) => {
-		if (!flowId || transportType !== 'websocket' || !transport) return;
+		if (!flowId || !transport) return;
 		for (const c of credentials ?? []) {
 			if (c.notification_id) {
 				transport.sendCredentialNotification(flowId, c.notification_id, 'credential_accepted');
 			}
 		}
-	}, [transportType, transport]);
+	}, [transport]);
 
 	/**
 	 * Handle received credentials: validate, store in wallet, and notify.
