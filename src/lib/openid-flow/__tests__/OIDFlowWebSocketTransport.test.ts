@@ -1093,6 +1093,22 @@ describe('OIDFlowWebSocketTransport', () => {
 			}).not.toThrow();
 		});
 
+		it('should catch and log errors when send throws', async () => {
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+
+			const mockWs = mockWebSocketInstances[0];
+			// Force send() to throw
+			vi.spyOn(mockWs, 'send').mockImplementation(() => {
+				throw new Error('WebSocket send failed');
+			});
+
+			// Should not propagate the error
+			expect(() => {
+				transport.sendCredentialNotification('flow-123', 'notif-abc', 'credential_accepted');
+			}).not.toThrow();
+		});
+
 		it('should include notification_id in mapped credentials', async () => {
 			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();

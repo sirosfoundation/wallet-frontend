@@ -24,5 +24,18 @@ export default defineConfig({
 		typecheck: {
 			enabled: true,
 		},
+		coverage: {
+			provider: 'istanbul',
+			reporter: ['lcov', 'text-summary'],
+			reportsDirectory: './coverage',
+			exclude: [
+				'lib/**',
+				'node_modules/**',
+				'src/lib/openid-flow/__tests__/**',
+				'src/**/__tests__/**',
+				'src/**/*.test.*',
+				'src/**/*.spec.*',
+			],
+		},
 	},
 });

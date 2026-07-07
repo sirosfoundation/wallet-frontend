@@ -10,6 +10,7 @@ import SessionContext from '@/context/SessionContext';
 import { notify } from '@/context/notifier';
 import CredentialsContext from '@/context/CredentialsContext';
 import { logger } from '@/logger';
+import { dispatchCredentialNotifications } from '@/lib/openid-flow/utils/credentialNotifications';
 
 export interface UseOID4VCIFlowOptions {
 	/**
@@ -444,22 +445,10 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		}
 	}, [transportType, transport, openID4VCI, onProgress, onError, assertNotAborted]);
 
-	/**
-	 * OID4VCI §10: send credential_accepted notifications for each credential
-	 * that has a notification_id. Delegates to the transport — each transport
-	 * decides how (or whether) to deliver the notification.
-	 */
 	const sendCredentialNotifications = useCallback((
 		credentials: OID4VCIFlowResult['credentials'],
 		flowId?: string,
-	) => {
-		if (!flowId || !transport) return;
-		for (const c of credentials ?? []) {
-			if (c.notification_id) {
-				transport.sendCredentialNotification(flowId, c.notification_id, 'credential_accepted');
-			}
-		}
-	}, [transport]);
+	) => dispatchCredentialNotifications(transport, credentials, flowId), [transport]);
 
 	/**
 	 * Handle received credentials: validate, store in wallet, and notify.
