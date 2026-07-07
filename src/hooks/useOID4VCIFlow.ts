@@ -445,6 +445,22 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 	}, [transportType, transport, openID4VCI, onProgress, onError, assertNotAborted]);
 
 	/**
+	 * OID4VCI §10: send credential_accepted notifications for each credential
+	 * that has a notification_id.
+	 */
+	const sendCredentialNotifications = useCallback((
+		credentials: OID4VCIFlowResult['credentials'],
+		flowId?: string,
+	) => {
+		if (!flowId || transportType !== 'websocket' || !transport) return;
+		for (const c of credentials ?? []) {
+			if (c.notification_id) {
+				transport.sendCredentialNotification(flowId, c.notification_id, 'credential_accepted');
+			}
+		}
+	}, [transportType, transport]);
+
+	/**
 	 * Handle received credentials: validate, store in wallet, and notify.
 	 */
 	const handleReceivedCredentials = useCallback(async (
@@ -528,17 +544,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 
 			// OID4VCI §10: once credentials are stored, send credential_accepted
 			// notification for each credential that has a notification_id.
-			if (flowId && transportType === 'websocket' && transport) {
-				for (const c of credentials) {
-					if (c.notification_id) {
-						transport.sendCredentialNotification(
-							flowId,
-							c.notification_id,
-							'credential_accepted',
-						);
-					}
-				}
-			}
+			sendCredentialNotifications(credentials, flowId);
 
 			return { success: true };
 		} catch (err) {
@@ -559,7 +565,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		} finally {
 			setIsLoading(false);
 		}
-	}, [api, keystore, credentialEngine, onError, onIssuanceWarnings, assertNotAborted, transportType, transport]);
+	}, [api, keystore, credentialEngine, onError, onIssuanceWarnings, assertNotAborted, sendCredentialNotifications]);
 
 	return {
 		handleCredentialOffer,

@@ -1088,7 +1088,9 @@ describe('OIDFlowWebSocketTransport', () => {
 		it('should be a no-op when not connected', () => {
 			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			// Not connected — should not throw
-			transport.sendCredentialNotification('flow-123', 'notif-abc', 'credential_accepted');
+			expect(() => {
+				transport.sendCredentialNotification('flow-123', 'notif-abc', 'credential_accepted');
+			}).not.toThrow();
 		});
 
 		it('should include notification_id in mapped credentials', async () => {
