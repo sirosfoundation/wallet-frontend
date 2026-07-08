@@ -46,7 +46,7 @@ const AddCredentials = () => {
 
 	useEffect(() => {
 		const fetchRecentCredConfigs = async () => {
-			vcEntityList.map(async (vcEntity, key) => {
+			vcEntityList.forEach(async (vcEntity, key) => {
 				const identifierField = JSON.stringify([vcEntity.credentialConfigurationId, vcEntity.credentialIssuerIdentifier]);
 				setRecent((currentArray) => {
 					const recentRecordExists = currentArray.some((rec) =>
