@@ -46,7 +46,7 @@ const Sidebar = ({ isOpen, toggle }) => {
 	const { api, logout, obliviousKeyConfig } = useContext(SessionContext);
 	const { pendingTransactions } = useContext(CredentialsContext);
 	const { buildPath, effectiveTenantId } = useTenant();
-	const { username, displayName } = api.getSession() ?? {};
+	const { username, displayName } = api.getSession();
 	const location = useLocation();
 	const navigate = useNavigate();
 	const { t } = useTranslation();

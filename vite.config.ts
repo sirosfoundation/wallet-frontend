@@ -14,7 +14,7 @@ export default defineConfig(async ({ mode, command }) => {
 	mkdirSync(resolve('public'), { recursive: true });
 
 	return {
-		base: command === 'serve' ? '/' : './',
+		base: './',
 		define: {
 			'import.meta.env.VITE_APP_VERSION': JSON.stringify(process.env.npm_package_version),
 		},

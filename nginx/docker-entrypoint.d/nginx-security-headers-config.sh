@@ -10,9 +10,6 @@ set -e
 # - OHTTP_RELAY
 # - VCT_REGISTRY_URL
 # - OIDC_GATE_OP_URL
-# - NGINX_CSP_EXTRA_CONNECT_SRC (space-separated extra origins to allow in connect-src,
-#   e.g. for fetching type metadata/SVG templates hosted outside the tunnel/backend
-#   during local dev testing. Not intended for production use.)
 # - NGINX_CSP_ENFORCE_RESOURCE_HTTPS ("true" or "false". Default: "false")
 # - NGINX_ENABLE_HSTS ("true" or "false". Default: "false")
 
@@ -52,10 +49,6 @@ fi
 
 if [ -n "${OIDC_GATE_OP_URL}" ]; then
 	CONNECT_SRC="${CONNECT_SRC} ${OIDC_GATE_OP_URL}"
-fi
-
-if [ -n "${NGINX_CSP_EXTRA_CONNECT_SRC}" ]; then
-	CONNECT_SRC="${CONNECT_SRC} ${NGINX_CSP_EXTRA_CONNECT_SRC}"
 fi
 
 if [ "${NGINX_CSP_ENFORCE_RESOURCE_HTTPS}" = "true" ]; then

@@ -136,6 +136,12 @@ const WhyFaceScan = ({ t }: { t: TFunction }) => (
 			<p className="text-sm text-lm-gray-700 dark:text-dm-gray-300">
 				{t('pageScanPhysicalId.whyFaceScan.description')}
 			</p>
+			<p className="text-sm text-lm-gray-700 dark:text-dm-gray-300">
+				{t('pageScanPhysicalId.whyFaceScan.viewOur')}
+				<a href="https://siros.org/policies/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+					{t('pageScanPhysicalId.whyFaceScan.privacyPolicy')}
+				</a>
+			</p>
 		</div>
 		<div className="flex items-center justify-center h-14 w-14 rounded-lg bg-lm-gray-300 dark:bg-dm-gray-600 text-primary shrink-0">
 			<ShieldCheck size={28} />
