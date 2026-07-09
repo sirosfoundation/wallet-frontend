@@ -38,7 +38,7 @@ export function ensureWalletCompanionI18nCompatibility(
 		'en';
 
 	const ensureBrowserApiI18n = (browserApi?: WalletCompanionBrowserApi) => {
-		if (!browserApi?.runtime || browserApi.i18n?.getUILanguage) return;
+		if (!browserApi?.runtime || typeof browserApi.i18n?.getUILanguage === 'function') return;
 
 		browserApi.i18n = {
 			...browserApi.i18n,
