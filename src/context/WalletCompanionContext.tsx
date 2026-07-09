@@ -3,6 +3,7 @@ import { type WalletCompanionInterface } from '@sirosfoundation/wcc-types';
 import {
 	WALLET_COMPANION_INTEGRATION,
 	I18N_WALLET_NAME_OVERRIDE,
+	STATIC_NAME,
 	STATIC_PUBLIC_URL
 } from '@/config';
 
@@ -14,6 +15,40 @@ type WalletCompanionContextValue = {
 }
 
 const WalletCompanionContext = createContext<WalletCompanionContextValue | null>(null);
+
+type WalletCompanionBrowserApi = {
+	runtime?: unknown;
+	i18n?: {
+		getUILanguage?: () => string;
+	};
+};
+
+type WalletCompanionWindow = {
+	navigator: Pick<Navigator, 'language' | 'languages'>;
+	browser?: WalletCompanionBrowserApi;
+	chrome?: WalletCompanionBrowserApi;
+};
+
+export function ensureWalletCompanionI18nCompatibility(
+	walletCompanionWindow: WalletCompanionWindow = window
+) {
+	const getFallbackLanguage = () =>
+		walletCompanionWindow.navigator.languages?.[0] ??
+		walletCompanionWindow.navigator.language ??
+		'en';
+
+	const ensureBrowserApiI18n = (browserApi?: WalletCompanionBrowserApi) => {
+		if (!browserApi?.runtime || browserApi.i18n?.getUILanguage) return;
+
+		browserApi.i18n = {
+			...browserApi.i18n,
+			getUILanguage: getFallbackLanguage,
+		};
+	};
+
+	ensureBrowserApiI18n(walletCompanionWindow.browser);
+	ensureBrowserApiI18n(walletCompanionWindow.chrome);
+}
 
 export const WalletCompanionProvider = ({ children }: { children: ReactNode }) => {
 	const [api] = useState<WalletCompanionInterface | null>(
@@ -39,8 +74,9 @@ export const WalletCompanionProvider = ({ children }: { children: ReactNode }) =
 
 	const register = useCallback(async () => {
 		if (!api) return;
+		ensureWalletCompanionI18nCompatibility();
 		const result = await api.registerWallet({
-			name: I18N_WALLET_NAME_OVERRIDE,
+			name: I18N_WALLET_NAME_OVERRIDE ?? STATIC_NAME,
 			url: walletUrl,
 			protocols: [
 				'openid4vp-v1',
