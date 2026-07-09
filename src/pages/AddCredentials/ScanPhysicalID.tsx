@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { TFunction } from 'i18next';
 import { ArrowLeft, ScanFace, ScanSearch, Nfc, IdCard, Sun, Signal, ShieldCheck, LucideIcon } from 'lucide-react';
 import { H1 } from '@/components/Shared/Heading';
 import Button from '@/components/Buttons/Button';
+import { useTenant } from '@/context/TenantContext';
+import { SCAN_PHYSICAL_ID_ENABLED } from '@/config';
 
 const StepIcon = ({ Icon }: { Icon: LucideIcon }) => (
 	<div className="flex items-center justify-center h-10 w-10 rounded-lg bg-brand-lighter/20 dark:bg-brand-darker/40 text-primary shrink-0">
@@ -20,9 +22,24 @@ const PrerequisiteIcon = ({ Icon }: { Icon: LucideIcon }) => (
 
 const ScanPhysicalID = () => {
 	const navigate = useNavigate();
+	const { buildPath } = useTenant();
 	const { t } = useTranslation();
 	const [hasConsented, setHasConsented] = useState(false);
-	const isNativeScanAvailable = typeof window.nativeWrapper?.startScanPhysicalId === 'function';
+	const isNativeScanAvailable = SCAN_PHYSICAL_ID_ENABLED && typeof window.nativeWrapper?.startScanPhysicalId === 'function';
+
+	// Defense in depth: this route is only reachable from AddCredentials' entry
+	// point, which already hides itself when the feature is disabled -- but a
+	// stale bookmark/deep-link could still land here directly, so redirect away
+	// rather than showing a scan flow the tenant has opted out of.
+	useEffect(() => {
+		if (!SCAN_PHYSICAL_ID_ENABLED) {
+			navigate(buildPath('add'), { replace: true });
+		}
+	}, [navigate, buildPath]);
+
+	if (!SCAN_PHYSICAL_ID_ENABLED) {
+		return null;
+	}
 
 	const steps = [
 		{ icon: ScanFace,   title: t('pageScanPhysicalId.steps.step1.title'), description: t('pageScanPhysicalId.steps.step1.description') },

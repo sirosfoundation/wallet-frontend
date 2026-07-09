@@ -5,6 +5,9 @@ import i18n from '@/i18n';
 import ScanPhysicalID from './ScanPhysicalID';
 
 const mockNavigate = vi.fn();
+const mockBuildPath = vi.fn((subPath?: string) => (subPath ? `/${subPath}` : '/'));
+
+const mockConfig = vi.hoisted(() => ({ SCAN_PHYSICAL_ID_ENABLED: true }));
 
 vi.mock('react-router-dom', async () => {
 	const actual = await vi.importActual('react-router-dom');
@@ -14,9 +17,25 @@ vi.mock('react-router-dom', async () => {
 	};
 });
 
+vi.mock('@/context/TenantContext', () => ({
+	useTenant: () => ({ buildPath: mockBuildPath }),
+}));
+
+vi.mock('@/config', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('@/config')>();
+	return {
+		...actual,
+		get SCAN_PHYSICAL_ID_ENABLED() {
+			return mockConfig.SCAN_PHYSICAL_ID_ENABLED;
+		},
+	};
+});
+
 beforeEach(() => {
 	i18n.changeLanguage('en');
 	mockNavigate.mockClear();
+	mockBuildPath.mockClear();
+	mockConfig.SCAN_PHYSICAL_ID_ENABLED = true;
 	// @ts-expect-error - test-only global, cleared/reset per test
 	delete window.nativeWrapper;
 });
@@ -115,5 +134,26 @@ describe('ScanPhysicalID', () => {
 
 		const startButtons = screen.getAllByRole('button', { name: 'Start Scan' });
 		startButtons.forEach((button) => expect(button).toBeDisabled());
+	});
+
+	describe('when SCAN_PHYSICAL_ID_ENABLED is false', () => {
+		beforeEach(() => {
+			mockConfig.SCAN_PHYSICAL_ID_ENABLED = false;
+		});
+
+		it('renders nothing', () => {
+			// @ts-expect-error - test-only global
+			window.nativeWrapper = { startScanPhysicalId: vi.fn() };
+			const { container } = render(<ScanPhysicalID />);
+
+			expect(container).toBeEmptyDOMElement();
+		});
+
+		it('redirects away to the tenant-aware add-credentials path', () => {
+			render(<ScanPhysicalID />);
+
+			expect(mockBuildPath).toHaveBeenCalledWith('add');
+			expect(mockNavigate).toHaveBeenCalledWith('/add', { replace: true });
+		});
 	});
 });

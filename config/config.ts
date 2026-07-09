@@ -55,6 +55,7 @@ export const ClientEnvConfigSchema = z.object({
 	SHOW_PWA_INSTALL_PROMPT: z.string().optional(),
 	WALLET_COMPANION_INTEGRATION: z.string().optional(),
 	PRESERVE_PRESENTATION_HISTORY: z.string().optional(),
+	SCAN_PHYSICAL_ID_ENABLED: z.string().optional(),
 });
 export type ClientEnvConfig = z.infer<typeof ClientEnvConfigSchema>;
 

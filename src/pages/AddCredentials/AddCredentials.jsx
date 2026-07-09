@@ -3,6 +3,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Camera } from 'lucide-react';
 import { logger } from '@/logger';
+import { SCAN_PHYSICAL_ID_ENABLED } from '@/config';
 import { useTenant } from '@/context/TenantContext';
 import StatusContext from '@/context/StatusContext';
 import SessionContext from '@/context/SessionContext';
@@ -29,8 +30,9 @@ const AddCredentials = () => {
 
 	// Scan Physical ID hands off to the native wrapper's FT flow, so the entry
 	// point only makes sense when that bridge is actually present (i.e. inside
-	// the wrapper app, not a plain browser/PWA).
-	const isNativeScanAvailable = typeof window.nativeWrapper?.startScanPhysicalId === 'function';
+	// the wrapper app, not a plain browser/PWA) -- and only when the tenant has
+	// opted into offering it via SCAN_PHYSICAL_ID_ENABLED (see @/config).
+	const isScanAvailable = SCAN_PHYSICAL_ID_ENABLED && typeof window.nativeWrapper?.startScanPhysicalId === 'function';
 
 	const { buildPath } = useTenant();
 	const navigate = useNavigate();
@@ -197,7 +199,7 @@ const AddCredentials = () => {
 						identifierField='identifierField'
 						onClick={handleCredentialConfigurationClick}
 						extraSection={
-							<div className={`mb-4 ${isNativeScanAvailable ? '' : 'hidden'}`} data-widget="scan-physical-id">
+							<div className={`mb-4 ${isScanAvailable ? '' : 'hidden'}`} data-widget="scan-physical-id">
 								<H3 heading={t('pageAddCredentials.scanPhysicalId.sectionTitle')} hr />
 								<button
 									className="w-full flex items-center justify-between gap-4 border border-lm-gray-400 dark:border-dm-gray-600 rounded-xl p-4 bg-lm-gray-50 dark:bg-dm-gray-800 hover:brightness-[0.97] dark:hover:brightness-[1.05] transition-all text-left cursor-pointer"
