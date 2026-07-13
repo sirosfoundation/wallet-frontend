@@ -664,6 +664,15 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				await this.handleTrustEvaluationStep(flowId, payload);
 			}
 
+			// Server-side issuer trust result (informational, no response needed).
+			// The backend evaluated issuer trust directly via go-trust PDP.
+			if (stage === 'trust_evaluated' && payload?.issuer_trust_evaluated) {
+				console.log(
+					`[OID4VP] Server-side issuer trust: trusted=${payload.trusted} ` +
+					`framework=${payload.framework} issuer=${payload.issuer}`
+				);
+			}
+
 			if (
 				stage === 'authorization_required' &&
 				(payload?.authorization_url || payload?.pre_authorized_code)
