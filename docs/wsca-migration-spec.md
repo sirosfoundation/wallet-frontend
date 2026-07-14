@@ -1,7 +1,7 @@
 # Wallet-Frontend WSCA Migration Specification
 
-Version: 0.1 (Draft)  
-Date: 2026-07-05  
+Version: 0.2 (Draft)  
+Date: 2026-07-14  
 Status: Proposal
 
 ## 1. Overview
@@ -869,7 +869,83 @@ to document:
 5. Migration rules from envelope v1 (legacy, single `jwe`) to v2.
 6. The `mainKey` sharing model (both JWEs use the same key).
 
-## 12. Implementation Phases
+## 12. Cross-Client Compatibility
+
+### 12.1 Current Client Landscape
+
+Multiple clients share the same backend private data blob:
+
+| Client | Keystore | Blob behavior |
+|--------|----------|---------------|
+| **wallet-frontend** | WebCrypto + JWE | Reads/writes V3 blob with events. Authoritative. |
+| **Kotlin SDK (JweKeystore)** | Same JWE container | Round-trips blob verbatim (`preservedWalletState`). |
+| **Kotlin SDK (WscdKeystoreAdapter)** | WSCD manager | `exportEncryptedContainer()` throws. Blob not updated. |
+| **Swift SDK (JweKeystore)** | Same JWE container | Same verbatim round-trip as Kotlin. |
+| **Swift SDK (WscdKeystoreAdapter)** | WSCD manager | Returns `{}`. Blob not updated. |
+
+### 12.2 Key Finding
+
+Native SDKs using `WscdKeystoreAdapter` are already **disconnected from
+the private data blob** — they either throw on export or write empty
+data. The `CredentialPersistence` interface exists in both SDKs but is
+**not wired into `WscdKeystoreAdapter`**, meaning credentials stored
+via the WSCD path are in-memory only and lost on app restart.
+
+This means:
+- **wallet-frontend is the only client that meaningfully reads AND writes
+  the private data blob today.**
+- Native SDK `JweKeystore` (legacy path) returns the blob verbatim on
+  export — it never overwrites wallet-frontend's data, but also never
+  persists its own in-session changes.
+- The blob format can be changed safely once native SDKs have local
+  credential persistence and no longer depend on reading credentials
+  from the blob.
+
+### 12.3 Native SDK Prerequisites (Phase 0)
+
+Before the blob format can change, the native SDKs need fixes:
+
+1. **Wire `CredentialPersistence` into `WscdKeystoreAdapter`** (Kotlin +
+   Swift). Credentials must survive app restart via local encrypted
+   storage (`EncryptedSharedPreferences` / Keychain).
+2. **Fix `JweKeystore.buildWalletStateV3()`** to merge in-memory state
+   into the preserved blob instead of returning it verbatim (for the
+   legacy path, if still used).
+
+These fixes are blob-format-neutral — they don't change what's written
+to the backend. They can ship independently.
+
+### 12.4 Compatibility Strategy
+
+The migration uses a **V3-compatible intermediate step** (Phase 2) that
+lets wallet-frontend use the WASM `WscdManager` internally while
+continuing to write V3-format blobs. This avoids cross-client breakage:
+
+```
+Phase 0:  Fix native SDK credential persistence (no blob changes)
+Phase 1:  Build WASM module (no blob changes)
+Phase 2:  wallet-frontend uses WASM internally, writes V3 blobs
+          ↑ SAFE: all clients see the same V3 format
+Phase 3:  Blob split to V4 envelope (gate on Phase 0 complete)
+          ↑ SAFE: native SDKs no longer depend on blob for credentials
+```
+
+In Phase 2, the `KeystoreAdapter` generates keys via the WASM
+`WscdManager` but serializes them back into `S.keypairs[]` in V3 format
+for the blob. Keys live in both the WASM softkey container (in-memory)
+and in the blob (for cross-device sync). This is a transitional state
+that can run indefinitely.
+
+## 13. Implementation Phases
+
+### Phase 0: Native SDK Bug Fixes (prerequisite, no blob changes)
+
+| Task | Repo | Risk |
+|------|------|------|
+| Wire `CredentialPersistence` into `WscdKeystoreAdapter` | siros-sdk-kotlin | None — local storage only |
+| Same | siros-sdk-swift | None |
+| Fix `buildWalletStateV3()` to merge in-memory state | siros-sdk-kotlin | Low — legacy path only |
+| Same | siros-sdk-swift | Low |
 
 ### Phase 1: WASM Build (siros-wscd-manager)
 
@@ -882,35 +958,38 @@ to document:
 6. CI: `wasm-pack build` + `wasm-pack test --headless --chrome`.
 7. Publish `@sirosfoundation/wscd-manager-wasm` on **npmjs.com**.
 
-### Phase 2: TypeScript Integration (wallet-frontend)
+### Phase 2: wallet-frontend Integration (V3-compatible)
 
 1. Add `@sirosfoundation/wscd-manager-wasm` dependency.
 2. Implement `WscdManager` TypeScript wrapper.
 3. Implement `KeystoreAdapter` bridging WSCA → protocol operations.
-4. Define `WalletStateSchemaVersion4.ts` types.
-5. Unit tests for `KeystoreAdapter` (mock `WscdManager`).
+4. **Write V3-format blobs**: keys managed by WASM but serialized into
+   `S.keypairs[]` in the existing V3 schema. On load, populate the WASM
+   softkey container from `S.keypairs[]`. On save, export softkey
+   container back into `S.keypairs[]`.
+5. `security_properties` sent with KA requests.
+6. Unit tests for `KeystoreAdapter` (mock `WscdManager`).
+7. End-to-end testing — verify blob is readable by native SDKs.
 
-### Phase 3: Storage Split
+This phase can ship independently of Phase 0. No blob format changes.
+All three WSCD plugins (softkey, FIDO2 rawSign, R2PS) are available
+to wallet-frontend users through the WASM `WscdManager`.
 
-1. Define `EncryptedWalletData` envelope type.
-2. Implement dual-JWE encryption/decryption in `keystore.ts`.
-3. Update IndexedDB schema (v3 → v4).
-4. Update `updatePrivateData()` to produce V4 envelopes.
-5. Update `syncPrivateData()` to handle V4 envelopes.
+### Phase 3: Storage Split (V4 envelope) — gate on Phase 0
 
-### Phase 4: Migration
+1. Define `WalletStateSchemaVersion4.ts` types.
+2. Define `EncryptedWalletData` envelope type.
+3. Implement dual-JWE encryption/decryption in `keystore.ts`.
+4. Update IndexedDB schema (v3 → v4).
+5. Implement `migrateV3ToV4()` migration.
+6. Update `updatePrivateData()` / `syncPrivateData()`.
+7. Update `privatedata-spec/SPEC.md` to v3.0.
+8. Integration tests with V3 test vectors.
 
-1. Implement `migrateV3ToV4()` in `keystore.ts`.
-2. Wire into `decryptPrivateData()` migration chain.
-3. Integration tests with V3 test vectors.
-4. Update `privatedata-spec/SPEC.md` to v3.0.
-
-### Phase 5: Wire Up
+### Phase 4: Wire Up and Cleanup
 
 1. Replace `generateKeypairs()` call sites with `KeystoreAdapter`.
 2. Replace `signJwtPresentation()` call sites.
 3. Replace `generateDeviceResponse*()` call sites.
-4. Add `security_properties` to KA request
-   (`useOIDFlowSignHandler.generateProof()`).
-5. Remove V3 `keypairs[]` code paths.
-6. End-to-end testing with `sirosid-tests`.
+4. Remove V3 `keypairs[]` code paths.
+5. End-to-end testing with `sirosid-tests`.
