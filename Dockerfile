@@ -47,10 +47,10 @@ RUN touch /var/run/nginx.pid && chown nginx:0 /var/run/nginx.pid && chmod g+rw /
     chown -R nginx:0 /usr/share/nginx /var/cache/nginx /etc/nginx/conf.d /home/node/app /docker-entrypoint.d && \
     chmod -R g+rwX /usr/share/nginx /var/cache/nginx /etc/nginx/conf.d /home/node/app /docker-entrypoint.d
 
-COPY --from=builder --chown=nginx:0 /home/node/app/dist/ ./html/
-COPY --from=builder --chown=nginx:0 /home/node/app/dist/ ./dist/
-COPY --from=builder --chown=nginx:0 /home/node/app/config/ ./config/
-COPY --from=builder --chown=nginx:0 /home/node/app/branding/ ./branding/
+COPY --from=builder --chown=nginx:0 --chmod=0775 /home/node/app/dist/ ./html/
+COPY --from=builder --chown=nginx:0 --chmod=0775 /home/node/app/dist/ ./dist/
+COPY --from=builder --chown=nginx:0 --chmod=0775 /home/node/app/config/ ./config/
+COPY --from=builder --chown=nginx:0 --chmod=0775 /home/node/app/branding/ ./branding/
 
 USER nginx
 
