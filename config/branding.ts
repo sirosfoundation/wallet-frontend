@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { copyFile, mkdir, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 import sharp from "sharp";
@@ -210,8 +210,13 @@ export async function copyScreenshots(sourceDir: string, publicDir: string): Pro
 
 	for (const file of files) {
 		const source = findScreenshotFile(sourceDir, file);
-		await copyFile(source, path.join(screenshotsDir, file));
+		await copyFileContent(source, path.join(screenshotsDir, file));
 	}
+}
+
+async function copyFileContent(source: string, destination: string): Promise<void> {
+	const content = await readFile(source);
+	await writeFile(destination, content, { mode: 0o664 });
 }
 
 // ============================================
@@ -284,9 +289,9 @@ export async function generateAllIcons({
 	// Full scale logos
 	if (copySource !== false) {
 		await Promise.all([
-			copyFile(logoLight.pathname, path.join(publicDir, logoLight.filename)),
-			copyFile(logoDark.pathname, path.join(publicDir, logoDark.filename)),
-			copyFile(favicon.pathname, path.join(publicDir, path.basename(favicon.filename))).catch(() => {
+			copyFileContent(logoLight.pathname, path.join(publicDir, logoLight.filename)),
+			copyFileContent(logoDark.pathname, path.join(publicDir, logoDark.filename)),
+			copyFileContent(favicon.pathname, path.join(publicDir, path.basename(favicon.filename))).catch(() => {
 				console.warn(`No file ${favicon} was found, skipping...`);
 			}),
 		]);
