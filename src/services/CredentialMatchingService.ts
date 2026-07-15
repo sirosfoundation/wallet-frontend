@@ -13,7 +13,8 @@
 import { ExtendedVcEntity } from '@/context/CredentialsContext';
 import { DcqlQuery, DcqlCredential, DcqlQueryResult } from 'dcql';
 import { logger } from '@/logger';
-import { parseIssuerSignedToMDoc } from '@/lib/mdoc/mdoc';
+import * as cbor from 'cbor-x'; 
+import { fromBase64Url } from "../util";
 
 export interface CredentialMatch {
 	input_descriptor_id: string;
@@ -94,7 +95,6 @@ export function matchCredentials(
 	return { matches };
 }
 
-
 /**
  * Shape an ExtendedVcEntity into a DcqlCredential for the dcql library.
  * Returns null if shaping fails (e.g., unparseable mDOC).
@@ -104,17 +104,27 @@ export function shapeCredential(credential: ExtendedVcEntity): (DcqlCredential &
 
 	if (format === 'mso_mdoc') {
 		try {
-			const mdoc = parseIssuerSignedToMDoc(credential.data);
-			const [document] = mdoc.documents;
+			const data = credential.data;
+			const bytes = fromBase64Url(data);
+			const mdoc = cbor.decode(bytes); // full DeviceResponse (or IssuerSigned, depending on stored shape)
 
-			const namespaces: Record<string, any> = {};
-			for (const nsName of document.issuerSignedNameSpaces) {
-				namespaces[nsName] = document.getIssuerNameSpace(nsName);
+			const doc = mdoc.documents[0];
+			const docType = doc.docType; 
+			const rawNameSpaces = doc.issuerSigned.nameSpaces; // { [namespaceName]: TaggedItem[] }
+
+			const namespaces: Record<string, Record<string, unknown>> = {};
+
+			for (const [nsName, items] of Object.entries(rawNameSpaces as Record<string, any[]>)) {
+				const claims: Record<string, unknown> = {};
+				for (const taggedItem of items) {
+					const item = cbor.decode(taggedItem.value);
+					claims[item.elementIdentifier] = item.elementValue;
+				}
+				namespaces[nsName] = claims;
 			}
-
 			return {
 				credential_format: 'mso_mdoc',
-				doctype: document.docType,
+				doctype: docType,
 				namespaces,
 				cryptographic_holder_binding: true,
 				_batchId: credential.batchId,
@@ -124,6 +134,7 @@ export function shapeCredential(credential: ExtendedVcEntity): (DcqlCredential &
 			return null;
 		}
 	}
+
 
 	// SD-JWT (vc+sd-jwt or dc+sd-jwt)
 	const signedClaims = credential.parsedCredential?.signedClaims;
