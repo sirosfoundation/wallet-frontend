@@ -379,6 +379,26 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		throw new Error('Invalid OID4VCI flow params: no valid entry point or continuation');
 	}
 
+	/**
+	 * Send an OID4VCI §10 credential lifecycle notification to the backend.
+	 * Fire-and-forget over the existing WebSocket connection. The backend
+	 * forwards it to the issuer's notification endpoint using the ephemeral
+	 * issuance credentials retained in memory for the given flow.
+	 */
+	sendCredentialNotification(flowId: string, notificationId: string, event: string): void {
+		if (!this.isConnected()) return;
+		try {
+			this.ws!.send(JSON.stringify({
+				type: 'credential_notification',
+				flow_id: flowId,
+				notification_id: notificationId,
+				event,
+			}));
+		} catch (e) {
+			logger.error('Failed to send credential notification:', e);
+		}
+	}
+
 	private mapOID4VCIResponse(response: ServerMessage): OID4VCIFlowResult {
 		if (response.type === 'error' || response.type === 'flow_error') {
 			return {
@@ -465,7 +485,13 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		}
 		// Handle credentials array from server
 		if (response?.credentials && Array.isArray(response.credentials)) {
-				result.credentials = (response.credentials as Array<{format: string; credential: string; vct?: string}>);
+			result.credentials = (response.credentials as Array<{format: string; credential: string; vct?: string; notification_id?: string}>);
+		}
+
+		// Flow ID (needed for credential notification)
+		const flowId = (response.flow_id as string) || (response.flowId as string);
+		if (flowId) {
+			result.flowId = flowId;
 		}
 
 		// Deferred

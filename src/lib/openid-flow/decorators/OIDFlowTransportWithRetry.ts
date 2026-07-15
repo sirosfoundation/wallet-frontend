@@ -174,6 +174,12 @@ export class OIDFlowTransportWithRetry implements IOIDFlowTransport {
 		}
 	}
 
+	// ===== OID4VCI §10 Notification (delegated) =====
+
+	sendCredentialNotification(flowId: string, notificationId: string, event: string): void {
+		this.transport.sendCredentialNotification(flowId, notificationId, event);
+	}
+
 	// ===== Event Subscriptions (delegated) =====
 
 	onProgress(callback: (event: OIDFlowProgressEvent) => void): () => void {

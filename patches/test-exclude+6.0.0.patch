@@ -1,0 +1,15 @@
+diff --git a/node_modules/test-exclude/index.js b/node_modules/test-exclude/index.js
+index 3e99aab..b1d8a4b 100644
+--- a/node_modules/test-exclude/index.js
++++ b/node_modules/test-exclude/index.js
+@@ -3,7 +3,10 @@
+ const path = require('path');
+ const { promisify } = require('util');
+ const glob = promisify(require('glob'));
+-const minimatch = require('minimatch');
++// Support both minimatch v3 (default export is function) and v9+/v10+
++// (named export). The named export is `minimatch.minimatch` in newer versions.
++const _minimatchModule = require('minimatch');
++const minimatch = typeof _minimatchModule === 'function' ? _minimatchModule : _minimatchModule.minimatch;
+ const { defaults } = require('@istanbuljs/schema');
+ const isOutsideDir = require('./is-outside-dir');

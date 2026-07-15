@@ -128,6 +128,12 @@ export class OIDFlowHttpProxyTransport implements IOIDFlowTransport {
 		}
 	}
 
+	// ===== OID4VCI §10 Notification =====
+
+	sendCredentialNotification(): void {
+		// No-op: HTTP transport has no persistent connection for notifications
+	}
+
 	// ===== Event Subscriptions =====
 
 	onProgress(callback: (event: OIDFlowProgressEvent) => void): () => void {
@@ -139,8 +145,6 @@ export class OIDFlowHttpProxyTransport implements IOIDFlowTransport {
 		this.errorCallbacks.add(callback);
 		return () => this.errorCallbacks.delete(callback);
 	}
-
-	// ===== Internal Helpers =====
 
 	private emitError(error: Error): void {
 		Array.from(this.errorCallbacks).forEach(callback => {
