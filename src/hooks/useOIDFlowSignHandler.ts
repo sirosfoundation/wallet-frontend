@@ -311,7 +311,6 @@ async function createVpTokenFromMdoc(
 		mdoc.documents[0].docType,
 		disclosedClaims ?? [],
 	);
-	console.log("presentation Defnition: ", presentationDefinition)
 	let deviceResponseMDoc: MDoc;
 	if (responseUri) {
 		const { deviceResponseMDoc: drm } = await keystore.generateDeviceResponse(
