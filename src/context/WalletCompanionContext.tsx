@@ -29,6 +29,12 @@ type WalletCompanionWindow = {
 	chrome?: WalletCompanionBrowserApi;
 };
 
+export const WALLET_COMPANION_PROTOCOLS = [
+	'openid4vp-v1',
+	'openid4vp-v1-signed',
+	'openid4vp-v1-unsigned'
+] as const;
+
 export function ensureWalletCompanionI18nCompatibility(
 	walletCompanionWindow: WalletCompanionWindow = window
 ) {
@@ -78,11 +84,7 @@ export const WalletCompanionProvider = ({ children }: { children: ReactNode }) =
 		const result = await api.registerWallet({
 			name: I18N_WALLET_NAME_OVERRIDE ?? STATIC_NAME,
 			url: walletUrl,
-			protocols: [
-				'openid4vp-v1',
-				'openid4vp-v1-signed',
-				'openid4vp-v1-unsigned'
-			],
+			protocols: [...WALLET_COMPANION_PROTOCOLS],
 		});
 		if (result.success) setIsRegistered(true);
 	}, [api, walletUrl]);

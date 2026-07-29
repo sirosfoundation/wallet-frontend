@@ -11,6 +11,7 @@ vi.mock('@/config', () => ({
 
 let ensureWalletCompanionI18nCompatibility: typeof import('./WalletCompanionContext').ensureWalletCompanionI18nCompatibility;
 let WalletCompanionProvider: typeof import('./WalletCompanionContext').WalletCompanionProvider;
+let WALLET_COMPANION_PROTOCOLS: typeof import('./WalletCompanionContext').WALLET_COMPANION_PROTOCOLS;
 let useWalletCompanion: typeof import('./WalletCompanionContext').useWalletCompanion;
 let originalWalletCompanion: unknown;
 let originalChrome: unknown;
@@ -21,6 +22,7 @@ beforeAll(async () => {
 	({
 		ensureWalletCompanionI18nCompatibility,
 		WalletCompanionProvider,
+		WALLET_COMPANION_PROTOCOLS,
 		useWalletCompanion,
 	} = await import('./WalletCompanionContext'));
 
@@ -155,7 +157,7 @@ describe('ensureWalletCompanionI18nCompatibility', () => {
 		expect(walletCompanionWindow.chrome.i18n?.getUILanguage?.()).toBe('en');
 	});
 
-	it('does not add a getUILanguage fallback when the runtime API is missing', () => {
+	it('does not add a getUILanguage fallback when chrome.runtime is missing', () => {
 		const walletCompanionWindow = {
 			navigator: {
 				language: 'en-US',
@@ -217,11 +219,7 @@ describe('WalletCompanionProvider', () => {
 		expect(registerWallet).toHaveBeenCalledWith({
 			name: 'Test Wallet',
 			url: 'https://wallet.example',
-			protocols: [
-				'openid4vp-v1',
-				'openid4vp-v1-signed',
-				'openid4vp-v1-unsigned'
-			],
+			protocols: [...WALLET_COMPANION_PROTOCOLS],
 		});
 		expect(walletCompanionWindow.chrome.i18n?.getUILanguage?.()).toBe('sv-SE');
 		await waitFor(() => expect(result.current?.isRegistered).toBe(true));
