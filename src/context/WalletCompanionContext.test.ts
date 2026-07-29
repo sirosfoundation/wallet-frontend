@@ -161,7 +161,7 @@ describe('ensureWalletCompanionI18nCompatibility', () => {
 		expect(walletCompanionWindow.chrome.i18n?.getUILanguage?.()).toBe('en');
 	});
 
-	it('does not add a getUILanguage fallback when chrome.runtime is missing', () => {
+	it('does not add a getUILanguage fallback when chrome exists without runtime', () => {
 		const walletCompanionWindow = {
 			navigator: {
 				language: 'en-US',
@@ -188,7 +188,7 @@ describe('ensureWalletCompanionI18nCompatibility', () => {
 });
 
 describe('WalletCompanionProvider', () => {
-	it('registers with the static name fallback and installs Safari i18n compatibility using navigator.languages[0]', async () => {
+	const setupWalletCompanionProvider = async () => {
 		const registerWallet = vi.fn().mockResolvedValue({ success: true });
 		const isWalletRegistered = vi.fn().mockResolvedValue(false);
 		const walletCompanionWindow = window as typeof window & {
@@ -231,6 +231,16 @@ describe('WalletCompanionProvider', () => {
 
 		await waitFor(() => expect(result.current?.isLoading).toBe(false));
 
+		return {
+			registerWallet,
+			result,
+			walletCompanionWindow,
+		};
+	};
+
+	it('registers with the static name fallback', async () => {
+		const { registerWallet, result } = await setupWalletCompanionProvider();
+
 		await act(async () => {
 			await result.current?.register();
 		});
@@ -240,7 +250,16 @@ describe('WalletCompanionProvider', () => {
 			url: 'https://wallet.example',
 			protocols: [...WALLET_COMPANION_PROTOCOLS],
 		});
-		expect(walletCompanionWindow.chrome.i18n?.getUILanguage?.()).toBe('sv-SE');
 		await waitFor(() => expect(result.current?.isRegistered).toBe(true));
+	});
+
+	it('installs Safari i18n compatibility using navigator.languages[0] during registration', async () => {
+		const { result, walletCompanionWindow } = await setupWalletCompanionProvider();
+
+		await act(async () => {
+			await result.current?.register();
+		});
+
+		expect(walletCompanionWindow.chrome.i18n?.getUILanguage?.()).toBe('sv-SE');
 	});
 });
