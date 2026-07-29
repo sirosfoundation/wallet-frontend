@@ -12,6 +12,10 @@ vi.mock('@/config', () => ({
 let ensureWalletCompanionI18nCompatibility: typeof import('./WalletCompanionContext').ensureWalletCompanionI18nCompatibility;
 let WalletCompanionProvider: typeof import('./WalletCompanionContext').WalletCompanionProvider;
 let useWalletCompanion: typeof import('./WalletCompanionContext').useWalletCompanion;
+let originalWalletCompanion: unknown;
+let originalChrome: unknown;
+let originalNavigatorLanguage: PropertyDescriptor | undefined;
+let originalNavigatorLanguages: PropertyDescriptor | undefined;
 
 beforeAll(async () => {
 	({
@@ -19,10 +23,12 @@ beforeAll(async () => {
 		WalletCompanionProvider,
 		useWalletCompanion,
 	} = await import('./WalletCompanionContext'));
-});
 
-const originalWalletCompanion = (window as typeof window & { WalletCompanion?: unknown }).WalletCompanion;
-const originalChrome = (window as typeof window & { chrome?: unknown }).chrome;
+	originalWalletCompanion = (window as typeof window & { WalletCompanion?: unknown }).WalletCompanion;
+	originalChrome = (window as typeof window & { chrome?: unknown }).chrome;
+	originalNavigatorLanguage = Object.getOwnPropertyDescriptor(window.navigator, 'language');
+	originalNavigatorLanguages = Object.getOwnPropertyDescriptor(window.navigator, 'languages');
+});
 
 afterEach(() => {
 	const walletCompanionWindow = window as typeof window & {
@@ -40,6 +46,14 @@ afterEach(() => {
 		delete walletCompanionWindow.chrome;
 	} else {
 		walletCompanionWindow.chrome = originalChrome;
+	}
+
+	if (originalNavigatorLanguage) {
+		Object.defineProperty(window.navigator, 'language', originalNavigatorLanguage);
+	}
+
+	if (originalNavigatorLanguages) {
+		Object.defineProperty(window.navigator, 'languages', originalNavigatorLanguages);
 	}
 
 	vi.clearAllMocks();
@@ -176,6 +190,14 @@ describe('WalletCompanionProvider', () => {
 		walletCompanionWindow.chrome = {
 			runtime: {},
 		};
+		Object.defineProperty(window.navigator, 'language', {
+			configurable: true,
+			value: 'en-US',
+		});
+		Object.defineProperty(window.navigator, 'languages', {
+			configurable: true,
+			value: ['sv-SE', 'en-US'],
+		});
 
 		const wrapper = ({ children }: { children: React.ReactNode }) =>
 			React.createElement(WalletCompanionProvider, null, children);
@@ -197,9 +219,7 @@ describe('WalletCompanionProvider', () => {
 				'openid4vp-v1-unsigned'
 			],
 		});
-		expect(walletCompanionWindow.chrome.i18n?.getUILanguage?.()).toBe(
-			window.navigator.languages?.[0] ?? window.navigator.language ?? 'en'
-		);
+		expect(walletCompanionWindow.chrome.i18n?.getUILanguage?.()).toBe('sv-SE');
 		await waitFor(() => expect(result.current?.isRegistered).toBe(true));
 	});
 });
