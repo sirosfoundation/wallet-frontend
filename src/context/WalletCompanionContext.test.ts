@@ -206,7 +206,11 @@ describe('WalletCompanionProvider', () => {
 		});
 
 		const wrapper = ({ children }: { children: React.ReactNode }) =>
-			React.createElement(WalletCompanionProvider, null, children);
+			React.createElement(
+				WalletCompanionProvider,
+				{ walletCompanionWindow },
+				children
+			);
 
 		const { result } = renderHook(() => useWalletCompanion(), { wrapper });
 

@@ -29,6 +29,10 @@ type WalletCompanionWindow = {
 	chrome?: WalletCompanionBrowserApi;
 };
 
+type WalletCompanionAppWindow = WalletCompanionWindow & {
+	WalletCompanion?: WalletCompanionInterface | null;
+};
+
 export const WALLET_COMPANION_PROTOCOLS = [
 	'openid4vp-v1',
 	'openid4vp-v1-signed',
@@ -56,9 +60,15 @@ export function ensureWalletCompanionI18nCompatibility(
 	ensureBrowserApiI18n(walletCompanionWindow.chrome);
 }
 
-export const WalletCompanionProvider = ({ children }: { children: ReactNode }) => {
+export const WalletCompanionProvider = ({
+	children,
+	walletCompanionWindow = window as WalletCompanionAppWindow,
+}: {
+	children: ReactNode;
+	walletCompanionWindow?: WalletCompanionAppWindow;
+}) => {
 	const [api] = useState<WalletCompanionInterface | null>(
-		() => window.WalletCompanion ?? null
+		() => walletCompanionWindow.WalletCompanion ?? null
 	);
 
 	const [isRegistered, setIsRegistered] = useState(false);
@@ -80,14 +90,14 @@ export const WalletCompanionProvider = ({ children }: { children: ReactNode }) =
 
 	const register = useCallback(async () => {
 		if (!api) return;
-		ensureWalletCompanionI18nCompatibility();
+		ensureWalletCompanionI18nCompatibility(walletCompanionWindow);
 		const result = await api.registerWallet({
 			name: I18N_WALLET_NAME_OVERRIDE ?? STATIC_NAME,
 			url: walletUrl,
 			protocols: [...WALLET_COMPANION_PROTOCOLS],
 		});
 		if (result.success) setIsRegistered(true);
-	}, [api, walletUrl]);
+	}, [api, walletCompanionWindow, walletUrl]);
 
 	const value = useMemo(() =>
 		api && WALLET_COMPANION_INTEGRATION
