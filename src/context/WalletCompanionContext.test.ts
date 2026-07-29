@@ -1,4 +1,4 @@
-import React from 'react';
+import { createElement, type ReactNode } from 'react';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { beforeAll, describe, expect, it, afterEach, vi } from 'vitest';
 
@@ -15,6 +15,8 @@ let WALLET_COMPANION_PROTOCOLS: typeof import('./WalletCompanionContext').WALLET
 let useWalletCompanion: typeof import('./WalletCompanionContext').useWalletCompanion;
 let originalWalletCompanion: unknown;
 let originalChrome: unknown;
+let hadOriginalWalletCompanion: boolean;
+let hadOriginalChrome: boolean;
 let originalNavigatorLanguage: PropertyDescriptor | undefined;
 let originalNavigatorLanguages: PropertyDescriptor | undefined;
 
@@ -26,6 +28,8 @@ beforeAll(async () => {
 		useWalletCompanion,
 	} = await import('./WalletCompanionContext'));
 
+	hadOriginalWalletCompanion = Object.prototype.hasOwnProperty.call(window, 'WalletCompanion');
+	hadOriginalChrome = Object.prototype.hasOwnProperty.call(window, 'chrome');
 	originalWalletCompanion = (window as typeof window & { WalletCompanion?: unknown }).WalletCompanion;
 	originalChrome = (window as typeof window & { chrome?: unknown }).chrome;
 	originalNavigatorLanguage = Object.getOwnPropertyDescriptor(window.navigator, 'language');
@@ -38,16 +42,16 @@ afterEach(() => {
 		chrome?: unknown;
 	};
 
-	if (originalWalletCompanion === undefined) {
-		delete walletCompanionWindow.WalletCompanion;
-	} else {
+	if (hadOriginalWalletCompanion) {
 		walletCompanionWindow.WalletCompanion = originalWalletCompanion;
+	} else {
+		delete walletCompanionWindow.WalletCompanion;
 	}
 
-	if (originalChrome === undefined) {
-		delete walletCompanionWindow.chrome;
-	} else {
+	if (hadOriginalChrome) {
 		walletCompanionWindow.chrome = originalChrome;
+	} else {
+		delete walletCompanionWindow.chrome;
 	}
 
 	if (originalNavigatorLanguage) {
@@ -170,6 +174,17 @@ describe('ensureWalletCompanionI18nCompatibility', () => {
 
 		expect(walletCompanionWindow.chrome).not.toHaveProperty('i18n');
 	});
+
+	it('does not throw when the browser APIs are absent', () => {
+		expect(() =>
+			ensureWalletCompanionI18nCompatibility({
+				navigator: {
+					language: 'en-US',
+					languages: ['en-US'],
+				},
+			})
+		).not.toThrow();
+	});
 });
 
 describe('WalletCompanionProvider', () => {
@@ -205,8 +220,8 @@ describe('WalletCompanionProvider', () => {
 			value: ['sv-SE', 'en-US'],
 		});
 
-		const wrapper = ({ children }: { children: React.ReactNode }) =>
-			React.createElement(
+		const wrapper = ({ children }: { children: ReactNode }) =>
+			createElement(
 				WalletCompanionProvider,
 				{ walletCompanionWindow },
 				children
