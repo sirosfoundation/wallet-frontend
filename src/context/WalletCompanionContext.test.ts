@@ -50,10 +50,14 @@ afterEach(() => {
 
 	if (originalNavigatorLanguage) {
 		Object.defineProperty(window.navigator, 'language', originalNavigatorLanguage);
+	} else {
+		delete (window.navigator as Navigator & { language?: string }).language;
 	}
 
 	if (originalNavigatorLanguages) {
 		Object.defineProperty(window.navigator, 'languages', originalNavigatorLanguages);
+	} else {
+		delete (window.navigator as Navigator & { languages?: readonly string[] }).languages;
 	}
 
 	vi.clearAllMocks();
