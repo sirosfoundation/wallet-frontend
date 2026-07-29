@@ -171,7 +171,7 @@ describe('ensureWalletCompanionI18nCompatibility', () => {
 });
 
 describe('WalletCompanionProvider', () => {
-	it('registers with the static name fallback and installs Safari i18n compatibility', async () => {
+	it('registers with the static name fallback and installs Safari i18n compatibility using navigator.languages[0]', async () => {
 		const registerWallet = vi.fn().mockResolvedValue({ success: true });
 		const isWalletRegistered = vi.fn().mockResolvedValue(false);
 		const walletCompanionWindow = window as typeof window & {
