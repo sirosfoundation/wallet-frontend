@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { type WalletCompanionInterface } from '@sirosfoundation/wcc-types';
 import {
 	WALLET_COMPANION_INTEGRATION,
