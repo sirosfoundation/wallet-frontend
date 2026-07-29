@@ -197,7 +197,7 @@ describe('WalletCompanionProvider', () => {
 				registerWallet: typeof registerWallet;
 			};
 			chrome?: {
-				runtime: {};
+				runtime: Record<string, never>;
 				i18n?: {
 					getUILanguage?: () => string;
 				};
