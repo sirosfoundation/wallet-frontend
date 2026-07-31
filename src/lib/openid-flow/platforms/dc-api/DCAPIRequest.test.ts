@@ -75,6 +75,27 @@ describe('DCAPIRequest', () => {
 
 			expect(request.responseMode).toBe('dc_api.jwt');
 		});
+
+		it('parses state when present', () => {
+			const url = new URL('https://wallet.example.com/dc');
+			url.searchParams.set('nonce', 'test-nonce');
+			url.searchParams.set('dcql_query', JSON.stringify(validDcqlQuery));
+			url.searchParams.set('state', 'verifier-state-abc');
+
+			const request = new DCAPIRequest(url);
+
+			expect(request.state).toBe('verifier-state-abc');
+		});
+
+		it('leaves state undefined when absent', () => {
+			const url = new URL('https://wallet.example.com/dc');
+			url.searchParams.set('nonce', 'test-nonce');
+			url.searchParams.set('dcql_query', JSON.stringify(validDcqlQuery));
+
+			const request = new DCAPIRequest(url);
+
+			expect(request.state).toBeUndefined();
+		});
 	});
 
 	describe('signed request parsing', () => {
@@ -219,6 +240,24 @@ describe('DCAPIRequest', () => {
 			const request = new DCAPIRequest(url);
 
 			expect(request.clientMetadata).toEqual(clientMetadata);
+		});
+
+		it('parses state from JWT payload', async () => {
+			const { jwt } = await createSignedJwt({
+				nonce: 'test-nonce',
+				dcql_query: validDcqlQuery,
+				client_id: 'https://verifier.example.com',
+				expected_origins: ['https://verifier.example.com'],
+				state: 'verifier-state-abc',
+			});
+
+			const url = new URL('https://wallet.example.com/dc');
+			url.searchParams.set('request', jwt);
+			url.searchParams.set('client_id', 'https://verifier.example.com');
+
+			const request = new DCAPIRequest(url);
+
+			expect(request.state).toBe('verifier-state-abc');
 		});
 
 		it('logs warning when iss claim is present', async () => {
