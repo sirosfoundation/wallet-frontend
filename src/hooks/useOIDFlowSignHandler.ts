@@ -303,7 +303,11 @@ async function createVpTokenFromMdoc(
 		throw new Error('disclosedClaims required for mdoc presentation');
 	}
 	const deviceResponse = cbor.decode(fromBase64Url(credentialRaw));
-	const issuerSigned = deviceResponse.documents[0].issuerSigned;
+	// `deviceResponse` may be a full DeviceResponse envelope, or a bare
+	// IssuerSigned structure directly (what real-world/interop issuers, e.g.
+	// geneva2026.mdoc.online, send for mso_mdoc credential responses) - in
+	// the latter case it already *is* the issuerSigned structure.
+	const issuerSigned = deviceResponse.documents?.[0]?.issuerSigned ?? deviceResponse;
 	const issuerSignedBytes = cbor.encode(issuerSigned);
 	const issuerSignedB64 = toBase64Url(issuerSignedBytes);
 	const mdoc = parseIssuerSignedToMDoc(issuerSignedB64);
