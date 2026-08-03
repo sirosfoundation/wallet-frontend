@@ -8,7 +8,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 import tailwindcss from '@tailwindcss/vite';
 import { InjectConfigPlugin } from './vite-plugins';
 
-export default defineConfig(async ({ mode }) => {
+export default defineConfig(async ({ mode, command }) => {
 	const env = loadEnv(mode, process.cwd(), '');
 
 	mkdirSync(resolve('public'), { recursive: true });

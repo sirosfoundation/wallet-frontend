@@ -3,6 +3,7 @@
   "version": "0.5.0-1-sirosid.3",
   "private": true,
   "type": "module",
+  "packageManager": "yarn@1.22.22",
   "dependencies": {
     "@auth0/mdl": "^2.2.0",
     "@cef-ebsi/key-did-resolver": "^1.1.0",
@@ -72,6 +73,7 @@
     "concurrently": "^9.2.1",
     "depcheck": "^1.4.7",
     "eslint": "^8.56.0",
+    "@vitest/coverage-v8": "^1.5.0",
     "eslint-config-react-app": "^7.0.1",
     "happy-dom": "^20.8.9",
     "jsdom": "^28.0.0",
@@ -90,6 +92,7 @@
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx --max-warnings=0",
     "test": "VITE_CJS_IGNORE_WARNING=true vitest run",
     "test-start": "VITE_CJS_IGNORE_WARNING=true vitest",
+    "test:coverage": "VITE_CJS_IGNORE_WARNING=true vitest run --coverage",
     "translations": "node translation_coverage/translations.js",
     "typecheck": "tsc --noEmit",
     "typecheck:watch": "tsc --noEmit --watch --preserveWatchOutput",
@@ -100,8 +103,8 @@
   "repository": "https://github.com/wwwallet/wallet-frontend",
   "license": "BSD-2-Clause",
   "resolutions": {
-    "minimatch": ">=3.1.4",
-    "brace-expansion": ">=2.0.3",
+    "minimatch": "^7.4.6",
+    "brace-expansion": "^2.0.3",
     "picomatch": ">=2.3.2",
     "fast-uri": ">=3.1.0",
     "form-data": ">=4.0.4"

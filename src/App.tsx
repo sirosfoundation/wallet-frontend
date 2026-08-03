@@ -24,6 +24,7 @@ const lazyWithDelay = (importFunction, delay = 1000) => {
 const PrivateRoute = React.lazy(() => import('./components/Auth/PrivateRoute'));
 const NotificationOfflineWarning = React.lazy(() => import('./components/Notifications/NotificationOfflineWarning'));
 const AddCredentials = React.lazy(() => import('./pages/AddCredentials/AddCredentials'));
+const ScanPhysicalID = React.lazy(() => import('./pages/AddCredentials/ScanPhysicalID'));
 const Credential = React.lazy(() => import('./pages/Home/Credential'));
 const CredentialHistory = React.lazy(() => import('./pages/Home/CredentialHistory'));
 const History = React.lazy(() => import('./pages/History/History'));
@@ -112,6 +113,7 @@ function App() {
 							<Route path="pending" element={<Pending />} />
 							<Route path="history/:transactionId" element={<HistoryDetail />} />
 							<Route path="add" element={<AddCredentials />} />
+							<Route path="add/digital-id" element={<ScanPhysicalID />} />
 							<Route path="send" element={<SendCredentials />} />
 							<Route path="verification/result" element={<VerificationResult />} />
 						</Route>

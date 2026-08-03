@@ -243,7 +243,14 @@
 			"message": "Θα ανακατευθυνθείτε στο <strong>{{issuerName}}</strong> <i>{{issuerDescription}}</i> για να εκδώσετε ένα <strong>{{credentialName}}</strong> <i>{{credentialDescription}}</i>.",
 			"title": "Επιλεγμένο:"
 		},
-		"searchPlaceholder": "Αναζήτηση credential..."
+		"searchPlaceholder": "Αναζήτηση credential...",
+		"scanPhysicalId": {
+			"sectionTitle": "Σάρωση Φυσικής Ταυτότητας",
+			"digitalId": {
+				"title": "Ψηφιακή Ταυτότητα (σαρωμένο διαβατήριο)",
+				"description": "Χρησιμοποιήστε το διαβατήριό σας για να δημιουργήσετε ψηφιακή ταυτότητα."
+			}
+		}
 	},
 	"pageCredentials": {
 		"addCard": {
@@ -385,6 +392,38 @@
 		},
 		"unlockSensitive": "Ξεκλείδωμα ευαίσθητων ενεργειών",
 		"unlockSensitiveTitle": "Κλικ για ξεκλείδωμα ευαίσθητων ενεργειών"
+	},
+	"pageScanPhysicalId": {
+		"title": "Σάρωση Φυσικής Ταυτότητας",
+		"goBackAriaLabel": "Πίσω",
+		"steps": {
+			"step1": {
+				"title": "Βήμα 1",
+				"description": "Σαρώστε το πρόσωπό σας για να αποδείξετε ότι είστε πραγματικός, ζωντανός άνθρωπος"
+			},
+			"step2": {
+				"title": "Βήμα 2",
+				"description": "Σαρώστε το έγγραφό σας"
+			},
+			"step3": {
+				"title": "Βήμα 3",
+				"description": "Τοποθετήστε το τηλέφωνό σας πάνω στο έγγραφο για να διαβάσετε το chip NFC"
+			}
+		},
+		"beforeYouBegin": {
+			"title": "Πριν ξεκινήσετε",
+			"passportReady": "Έχετε το διαβατήριό σας έτοιμο",
+			"goodLighting": "Καλός φωτισμός",
+			"goodInternet": "Καλή σύνδεση internet"
+		},
+		"whyFaceScan": {
+			"title": "Γιατί σάρωση προσώπου;",
+			"description": "Χρησιμοποιούμε γρήγορη τρισδιάστατη επαλήθευση προσώπου για να αποτρέψουμε δόλια χρήση του εγγράφου σας. Τα βιομετρικά σας δεδομένα κρυπτογραφούνται και διαγράφονται μετά την ολοκλήρωση της επαλήθευσης.",
+			"viewOur": "δείτε την ",
+			"privacyPolicy": "πολιτική απορρήτου μας"
+		},
+		"startScan": "Έναρξη Σάρωσης",
+		"biometricConsent": "Συναινώ στην επεξεργασία βιομετρικών δεδομένων για επαλήθευση ταυτότητας."
 	},
 	"parsing": {
 		"errorCouldNotParse": "Δεν ήταν δυνατή η ανάγνωση του credential.",
