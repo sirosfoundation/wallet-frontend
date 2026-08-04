@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { generateKeyPair, exportJWK, importJWK, jwtVerify, decodeProtectedHeader, JWK } from 'jose';
-import { requestWIA, buildClientAttestationPop, attestFlowIfEnabled, attachWalletAttestationHeaders, generateFlowAttestation, generatePARAttestationKeyPair, WIAKeyPair } from './WIA';
+import { generateKeyPair, exportJWK, importJWK, jwtVerify, decodeProtectedHeader } from 'jose';
+import { requestWIA, buildClientAttestationPop, attestFlowIfEnabled, attachWalletAttestationHeaders, generateFlowAttestation, WIAKeyPair } from './WIA';
 
 vi.mock('@/logger', () => ({
 	logger: {
@@ -246,41 +246,5 @@ describe('generateFlowAttestation', () => {
 		const result = await generateFlowAttestation(post, true, 'https://issuer.example.com', 'https://wallet-provider.example.com');
 
 		expect(result).toEqual({});
-	});
-});
-
-describe('generatePARAttestationKeyPair', () => {
-	beforeEach(() => {
-		vi.clearAllMocks();
-	});
-
-	it('generates a keypair, requests a WIA, and returns both plus the exported private JWK', async () => {
-		const post = vi.fn()
-			.mockResolvedValueOnce({ data: { challenge: 'test-challenge' } })
-			.mockResolvedValueOnce({ data: { wallet_instance_attestation: 'signed.wia.jwt' } });
-
-		const result = await generatePARAttestationKeyPair(post, true, 'https://issuer.example.com', 'https://wallet-provider.example.com');
-
-		expect(result.wia).toBe('signed.wia.jwt');
-		expect(result.dpopKeyPair).toBeDefined();
-		expect(result.dpopPrivateKeyJwk).toBeDefined();
-		// The persisted private JWK must correspond to the same keypair used
-		// to request the WIA (flowState.dpop/flowState.wia are reused together
-		// at token-exchange time) - round-trip it and confirm it matches the
-		// public half returned in dpopKeyPair.
-		const roundTripPublic = await importJWK(result.dpopPrivateKeyJwk as JWK, 'ES256');
-		expect(await exportJWK(roundTripPublic)).toBeDefined();
-	});
-
-	it('degrades to an empty result rather than throwing when WIA generation fails', async () => {
-		const post = vi.fn().mockRejectedValueOnce({ response: { status: 503, data: { error: 'WIA_NOT_SUPPORTED' } } });
-
-		const result = await generatePARAttestationKeyPair(post, true, 'https://issuer.example.com', 'https://wallet-provider.example.com');
-
-		// requestWIA itself already swallows the 503 and returns undefined
-		// (WIA is Tier 3) - dpopKeyPair is still generated and returned since
-		// only the WIA request failed, not the keypair generation.
-		expect(result.wia).toBeUndefined();
-		expect(result.dpopKeyPair).toBeDefined();
 	});
 });

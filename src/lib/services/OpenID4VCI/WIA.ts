@@ -228,38 +228,3 @@ export async function generateFlowAttestation(
 	}
 }
 
-/**
- * Generate a fresh DPoP/attestation keypair and request a WIA bound to it,
- * for the PAR-based authorization-code flow (OpenID4VCI.ts's
- * generateAuthorizationRequest) - distinct from generateFlowAttestation
- * (used by the WebSocket-transport flow) because this caller needs the raw
- * keypair and WIA back, not pre-built header values: both get persisted
- * into flow state so the token exchange after the redirect reuses the exact
- * same key (the WIA's cnf claim must match the key actually used).
- *
- * Never throws: WIA is Tier 3 (informative) - a failure here degrades to
- * an attestation-less PAR request rather than blocking issuance. Extracted
- * purely so this logic is unit-testable without the full useOpenID4VCI
- * hook's dependency graph (SessionContext, CredentialsContext, react-router,
- * etc.) - attestFlowIfEnabled already swallows its own errors, so this
- * wrapper only needs to guard the keypair-generation step itself.
- */
-export async function generatePARAttestationKeyPair(
-	post: BackendApiPost,
-	enabled: boolean,
-	clientId: string,
-	walletProviderURI: string,
-): Promise<{ dpopKeyPair?: WIAKeyPair; dpopPrivateKeyJwk?: JWK; wia?: string }> {
-	try {
-		const { privateKey, publicKey } = await generateKeyPair('ES256', { extractable: true });
-		const publicKeyJwk = await exportJWK(publicKey);
-		const dpopPrivateKeyJwk = await exportJWK(privateKey);
-		const dpopKeyPair: WIAKeyPair = { privateKey, publicKeyJwk };
-		const wia = await attestFlowIfEnabled(post, enabled, undefined, dpopKeyPair, clientId, walletProviderURI);
-		return { dpopKeyPair, dpopPrivateKeyJwk, wia };
-	}
-	catch (err) {
-		logger.debug('Wallet attestation unavailable for this flow', err);
-		return {};
-	}
-}
