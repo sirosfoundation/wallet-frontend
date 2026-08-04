@@ -22,7 +22,7 @@ import { useNavigate } from 'react-router-dom';
 import { logger } from '@/logger';
 import { useHttpClient } from '@/hooks/useHttpClient';
 import { parseIssuerSignedToMDoc } from '@/lib/mdoc/mdoc';
-import { attestFlowIfEnabled, WIAKeyPair } from './WIA';
+import { attestFlowIfEnabled, generatePARAttestationKeyPair, WIAKeyPair } from './WIA';
 import { ENGINE_URL, WIA_ENABLED } from '@/config';
 
 /**
@@ -702,11 +702,10 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 				let wia: string | undefined;
 				let dpopPrivateKeyJwk: jose.JWK | undefined;
 				if (authzServerMetadata.authzServerMetadata.dpop_signing_alg_values_supported) {
-					const { privateKey, publicKey } = await jose.generateKeyPair('ES256', { extractable: true });
-					const publicKeyJwk = await jose.exportJWK(publicKey);
-					dpopPrivateKeyJwk = await jose.exportJWK(privateKey);
-					dpopKeyPair = { privateKey, publicKeyJwk };
-					wia = await attestFlowIfEnabled(api.post, WIA_ENABLED, undefined, dpopKeyPair, clientId.client_id, ENGINE_URL);
+					const generated = await generatePARAttestationKeyPair(api.post, WIA_ENABLED, clientId.client_id, ENGINE_URL);
+					dpopKeyPair = generated.dpopKeyPair;
+					wia = generated.wia;
+					dpopPrivateKeyJwk = generated.dpopPrivateKeyJwk;
 				}
 
 				const parRes = await sendPushedAuthorizationRequest(

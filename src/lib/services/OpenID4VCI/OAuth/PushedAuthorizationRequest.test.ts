@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { generateKeyPair, exportJWK } from 'jose';
+import { exportJWK } from 'jose';
 import { OpenidAuthorizationServerMetadata } from 'wallet-common';
 import { usePushedAuthorizationRequest } from './PushedAuthorizationRequest';
 
