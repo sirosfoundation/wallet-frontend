@@ -22,6 +22,8 @@ import { useNavigate } from 'react-router-dom';
 import { logger } from '@/logger';
 import { useHttpClient } from '@/hooks/useHttpClient';
 import { parseIssuerSignedToMDoc } from '@/lib/mdoc/mdoc';
+import { requestWIA, WIAKeyPair } from './WIA';
+import { WIA_ENABLED } from '@/config';
 
 /**
  * Raw tx_code spec from OID4VCI §4.1.1 (snake_case, matching protocol wire format).
@@ -365,6 +367,19 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 					dpopPrivateKeyJwk: dpopPrivateKeyJwk,
 					dpopPublicKeyJwk: dpopPublicKeyJwk,
 				}
+
+				if (WIA_ENABLED) {
+					// The WIA cnf key MUST be the same key used as the DPoP key for
+					// this token request (security/wia-strategy.md section 3.3), so
+					// this only runs where a DPoP key is actually in use above.
+					// Reuse an already-requested WIA for this flow rather than
+					// requesting a fresh one on every retry/step of the same flow.
+					const attestationKeyPair: WIAKeyPair = { privateKey: dpopPrivateKey, publicKeyJwk: dpopPublicKeyJwk };
+					if (!flowState.wia) {
+						flowState.wia = await requestWIA(api.post, attestationKeyPair, clientId.client_id);
+					}
+					tokenRequestBuilder.setWalletAttestation(flowState.wia, attestationKeyPair);
+				}
 			}
 
 
@@ -425,7 +440,8 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 			openID4VCIHelper,
 			credentialRequest,
 			tokenRequestBuilder,
-			getRememberIssuerAge
+			getRememberIssuerAge,
+			api,
 		]
 	);
 
@@ -500,6 +516,15 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 				dpopPrivateKeyJwk: dpopPrivateKeyJwk,
 				dpopPublicKeyJwk: dpopPublicKeyJwk,
 			}
+
+			if (WIA_ENABLED && clientIdResult?.client_id) {
+				// See the matching comment in requestCredentials above: the WIA
+				// cnf key MUST be the same key used as the DPoP key for this
+				// token request, so this only runs where a DPoP key exists.
+				const attestationKeyPair: WIAKeyPair = { privateKey: dpopPrivateKey, publicKeyJwk: dpopPublicKeyJwk };
+				flowState.wia = await requestWIA(api.post, attestationKeyPair, clientIdResult.client_id);
+				tokenRequestBuilder.setWalletAttestation(flowState.wia, attestationKeyPair);
+			}
 		}
 
 		const tokenEndpoint = authzServerMetadata.authzServerMetadata.token_endpoint;
@@ -538,7 +563,7 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 
 		const reqRes = await credentialRequest(tokenResponse, flowState);
 		return reqRes ?? {};
-	}, [tokenRequestBuilder, credentialRequest, openID4VCIHelper]);
+	}, [tokenRequestBuilder, credentialRequest, openID4VCIHelper, api]);
 
 	/**
  *

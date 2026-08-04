@@ -885,6 +885,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 				issuanceSession.credentialConfigurationId,
 				issuanceSession.tokenResponse,
 				issuanceSession.dpop,
+				issuanceSession.wia,
 				issuanceSession.firstPartyAuthorization,
 				issuanceSession.credentialEndpoint,
 				issuanceSession.created,

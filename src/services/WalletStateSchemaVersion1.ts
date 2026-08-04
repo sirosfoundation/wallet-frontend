@@ -110,6 +110,11 @@ export type WalletSessionEventSaveCredentialIssuanceSession = {
 		dpopPublicKeyJwk?: JWK,
 		dpopAlg: string,
 	},
+	// Wallet Instance Attestation (WIA) bound to this flow's dpop key -
+	// per EC TS03 section 2.2.1.1 / security/wia-strategy.md section 3.3, the WIA
+	// cnf key MUST be the same key used as the DPoP key for this flow, so a
+	// WIA is requested once per flow, not persisted independently of it.
+	wia?: string,
 	firstPartyAuthorization?: {
 		auth_session: string,
 	},
@@ -174,6 +179,7 @@ export type WalletState = {
 			dpopPublicKeyJwk?: JWK,
 			dpopAlg: string,
 		},
+		wia?: string,
 		firstPartyAuthorization?: {
 			auth_session: string,
 		},
@@ -272,6 +278,7 @@ export function credentialIssuanceSessionReducer(state: WalletStateCredentialIss
 				credentialIssuerIdentifier: newEvent.credentialIssuerIdentifier,
 				tokenResponse: newEvent.tokenResponse,
 				dpop: newEvent.dpop,
+				wia: newEvent.wia,
 				firstPartyAuthorization: newEvent.firstPartyAuthorization,
 				credentialEndpoint: newEvent.credentialEndpoint,
 				created: newEvent.created,
