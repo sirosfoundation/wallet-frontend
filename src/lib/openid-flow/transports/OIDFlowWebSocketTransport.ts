@@ -327,6 +327,12 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				credential_offer_uri: params.credentialOfferUri,
 				offer: params.credentialOffer,
 				redirect_uri: params.redirectUri,  // Include redirect URI for authorization code flow continuation
+				// Wire names match go-wallet-backend's FlowStartMessage exactly
+				// (internal/engine/messages.go) - see OID4VCITypes.ts for why
+				// these are generated transport-agnostically, once, upstream
+				// of this WebSocket-specific encoding.
+				client_attestation: params.clientAttestation,
+				client_attestation_pop: params.clientAttestationPoP,
 			});
 
 			return this.mapOID4VCIResponse(response);
