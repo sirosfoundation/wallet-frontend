@@ -4,8 +4,7 @@ import * as oauth4webapi from 'oauth4webapi';
 import { PreAuthorizedGrant } from '../PreAuthorizedGrant';
 import { MODE, OPENID4VCI_REDIRECT_URI } from '@/config';
 import { useHttpClient } from '@/hooks/useHttpClient';
-import { buildClientAttestationPop, WIAKeyPair } from '../WIA';
-import { logger } from '@/logger';
+import { attachWalletAttestationHeaders, WalletAttestation, WIAKeyPair } from '../WIA';
 
 const { customFetch, allowInsecureRequests } = oauth4webapi;
 const isDev = MODE === 'development';
@@ -52,7 +51,7 @@ export function useTokenRequest() {
 	const retries = useRef<number>(0);
 	const dpopParams = useRef<{ dpopPrivateKey: KeyLike, dpopPublicKeyJwk: JWK } | null>(null);
 	const dpopHandle = useRef<oauth4webapi.DPoPHandle | null>(null);
-	const walletAttestation = useRef<{ wia: string, keyPair: WIAKeyPair } | null>(null);
+	const walletAttestation = useRef<WalletAttestation | null>(null);
 
 	function normalizeHeaders(h: any): Record<string, string> {
 		const out: Record<string, string> = {};
@@ -73,29 +72,17 @@ export function useTokenRequest() {
 	const myCustomFetch = useMemo(() => {
 		return async (url: string, options?: RequestInit) => {
 			const method = (options?.method ?? 'POST').toLowerCase();
-			const headers = normalizeHeaders(options?.headers);
-			const body = options?.body;
-
 			// OAuth-Client-Attestation / -PoP (draft-ietf-oauth-attestation-based-client-auth):
 			// present the WIA plus a PoP JWT freshly signed for THIS request
 			// (anti-replay — a PoP must never be reused across requests, including
-			// retries). The PoP's audience is this token endpoint's issuer, which is
-			// exactly `issuer.current` already set via setIssuer() below.
-			if (walletAttestation.current) {
-				try {
-					const pop = await buildClientAttestationPop(
-						walletAttestation.current.keyPair,
-						clientId.current,
-						issuer.current ?? tokenEndpointURL.current,
-					);
-					headers['oauth-client-attestation'] = walletAttestation.current.wia;
-					headers['oauth-client-attestation-pop'] = pop;
-				} catch (err) {
-					// Don't fail the token request over an attestation PoP signing
-					// failure — WIA here is Tier 3 (informative); proceed without it.
-					logger.debug(err);
-				}
-			}
+			// retries). The PoP's audience is this token endpoint's issuer.
+			const headers = await attachWalletAttestationHeaders(
+				normalizeHeaders(options?.headers),
+				walletAttestation.current,
+				clientId.current,
+				issuer.current ?? tokenEndpointURL.current,
+			);
+			const body = options?.body;
 
 			let data: string | undefined;
 			if (typeof body === 'string') {

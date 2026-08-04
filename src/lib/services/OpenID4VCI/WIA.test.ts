@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { generateKeyPair, exportJWK, importJWK, jwtVerify, decodeProtectedHeader } from 'jose';
-import { requestWIA, buildClientAttestationPop, WIAKeyPair } from './WIA';
+import { requestWIA, buildClientAttestationPop, attestFlowIfEnabled, attachWalletAttestationHeaders, WIAKeyPair } from './WIA';
 
 vi.mock('@/logger', () => ({
 	logger: {
@@ -115,5 +115,88 @@ describe('buildClientAttestationPop', () => {
 		const { payload: p1 } = await jwtVerify(pop1, verifyKey);
 		const { payload: p2 } = await jwtVerify(pop2, verifyKey);
 		expect(p1.jti).not.toBe(p2.jti);
+	});
+});
+
+describe('attestFlowIfEnabled', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('returns undefined without calling post when disabled', async () => {
+		const keyPair = await makeKeyPair();
+		const post = vi.fn();
+
+		const wia = await attestFlowIfEnabled(post, false, undefined, keyPair, 'client-id');
+
+		expect(wia).toBeUndefined();
+		expect(post).not.toHaveBeenCalled();
+	});
+
+	it('reuses an existing WIA for the flow rather than requesting a new one', async () => {
+		const keyPair = await makeKeyPair();
+		const post = vi.fn();
+
+		const wia = await attestFlowIfEnabled(post, true, 'already-requested.wia.jwt', keyPair, 'client-id');
+
+		expect(wia).toBe('already-requested.wia.jwt');
+		expect(post).not.toHaveBeenCalled();
+	});
+
+	it('requests a fresh WIA when enabled and none exists yet for the flow', async () => {
+		const keyPair = await makeKeyPair();
+		const post = vi.fn()
+			.mockResolvedValueOnce({ data: { challenge: 'test-challenge' } })
+			.mockResolvedValueOnce({ data: { wallet_instance_attestation: 'fresh.wia.jwt' } });
+
+		const wia = await attestFlowIfEnabled(post, true, undefined, keyPair, 'client-id');
+
+		expect(wia).toBe('fresh.wia.jwt');
+		expect(post).toHaveBeenCalledTimes(2);
+	});
+});
+
+describe('attachWalletAttestationHeaders', () => {
+	it('returns the headers unchanged when no wallet attestation is present', async () => {
+		const headers = { 'content-type': 'application/x-www-form-urlencoded' };
+
+		const result = await attachWalletAttestationHeaders(headers, null, 'client-id', 'https://issuer.example.com');
+
+		expect(result).toBe(headers);
+	});
+
+	it('adds OAuth-Client-Attestation headers alongside existing ones when present', async () => {
+		const keyPair = await makeKeyPair();
+		const headers = { 'content-type': 'application/x-www-form-urlencoded' };
+
+		const result = await attachWalletAttestationHeaders(
+			headers,
+			{ wia: 'signed.wia.jwt', keyPair },
+			'https://wallet.example.com/redirect',
+			'https://issuer.example.com',
+		);
+
+		expect(result['content-type']).toBe('application/x-www-form-urlencoded');
+		expect(result['oauth-client-attestation']).toBe('signed.wia.jwt');
+
+		const verifyKey = await importJWK(keyPair.publicKeyJwk, 'ES256');
+		const { payload } = await jwtVerify(result['oauth-client-attestation-pop'], verifyKey);
+		expect(payload.aud).toBe('https://issuer.example.com');
+	});
+
+	it('falls back to the original headers if PoP signing fails, rather than throwing', async () => {
+		const headers = { 'content-type': 'application/x-www-form-urlencoded' };
+		// An invalid privateKey makes .sign() reject.
+		const brokenKeyPair = { privateKey: {} as any, publicKeyJwk: {} };
+
+		const result = await attachWalletAttestationHeaders(
+			headers,
+			{ wia: 'signed.wia.jwt', keyPair: brokenKeyPair },
+			'client-id',
+			'https://issuer.example.com',
+		);
+
+		expect(result).toEqual(headers);
+		expect(result['oauth-client-attestation']).toBeUndefined();
 	});
 });

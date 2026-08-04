@@ -98,3 +98,70 @@ export async function buildClientAttestationPop(
 		.setJti(generateRandomIdentifier(8))
 		.sign(dpopKeyPair.privateKey);
 }
+
+/**
+ * Decide whether to (re-)request a WIA for the current OID4VCI flow, and do
+ * so if needed. Pulled out of the OpenID4VCI flow orchestration so the
+ * enabled/reuse decision is independently testable, rather than only
+ * reachable by exercising the whole React hook.
+ *
+ * Reuses existingWia rather than requesting a fresh one — each flow's WIA
+ * is requested at most once, matching the single-use-per-issuance design
+ * (see requestWIA's docs above); a retry within the same flow (e.g. on a
+ * DPoP nonce challenge) must not mint a second WIA for the same flow.
+ */
+export async function attestFlowIfEnabled(
+	post: BackendApiPost,
+	enabled: boolean,
+	existingWia: string | undefined,
+	dpopKeyPair: WIAKeyPair,
+	clientId: string,
+): Promise<string | undefined> {
+	if (!enabled) {
+		return undefined;
+	}
+	if (existingWia) {
+		return existingWia;
+	}
+	return await requestWIA(post, dpopKeyPair, clientId);
+}
+
+export interface WalletAttestation {
+	wia: string;
+	keyPair: WIAKeyPair;
+}
+
+/**
+ * Merge OAuth-Client-Attestation / -PoP headers into an existing headers
+ * object for a single outgoing PAR/token request, when a wallet attestation
+ * is present for this flow. Pulled out of TokenRequest.ts's myCustomFetch so
+ * the header-building logic is testable without oauth4webapi/React
+ * machinery — myCustomFetch itself just calls this and forwards the result.
+ *
+ * Returns headers unchanged (not a copy with attestation fields cleared) if
+ * walletAttestation is absent, or if signing the fresh per-request PoP
+ * fails — a PoP signing failure must not fail the whole token request, since
+ * WIA here is Tier 3 (informative).
+ */
+export async function attachWalletAttestationHeaders(
+	headers: Record<string, string>,
+	walletAttestation: WalletAttestation | null,
+	clientId: string,
+	authorizationServerIssuer: string,
+): Promise<Record<string, string>> {
+	if (!walletAttestation) {
+		return headers;
+	}
+	try {
+		const pop = await buildClientAttestationPop(walletAttestation.keyPair, clientId, authorizationServerIssuer);
+		return {
+			...headers,
+			"oauth-client-attestation": walletAttestation.wia,
+			"oauth-client-attestation-pop": pop,
+		};
+	}
+	catch (err) {
+		logger.debug(err);
+		return headers;
+	}
+}

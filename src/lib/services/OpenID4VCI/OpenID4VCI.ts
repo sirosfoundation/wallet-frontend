@@ -22,7 +22,7 @@ import { useNavigate } from 'react-router-dom';
 import { logger } from '@/logger';
 import { useHttpClient } from '@/hooks/useHttpClient';
 import { parseIssuerSignedToMDoc } from '@/lib/mdoc/mdoc';
-import { requestWIA, WIAKeyPair } from './WIA';
+import { attestFlowIfEnabled, WIAKeyPair } from './WIA';
 import { WIA_ENABLED } from '@/config';
 
 /**
@@ -368,18 +368,12 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 					dpopPublicKeyJwk: dpopPublicKeyJwk,
 				}
 
-				if (WIA_ENABLED) {
-					// The WIA cnf key MUST be the same key used as the DPoP key for
-					// this token request (security/wia-strategy.md section 3.3), so
-					// this only runs where a DPoP key is actually in use above.
-					// Reuse an already-requested WIA for this flow rather than
-					// requesting a fresh one on every retry/step of the same flow.
-					const attestationKeyPair: WIAKeyPair = { privateKey: dpopPrivateKey, publicKeyJwk: dpopPublicKeyJwk };
-					if (!flowState.wia) {
-						flowState.wia = await requestWIA(api.post, attestationKeyPair, clientId.client_id);
-					}
-					tokenRequestBuilder.setWalletAttestation(flowState.wia, attestationKeyPair);
-				}
+				// The WIA cnf key MUST be the same key used as the DPoP key for this
+				// token request (security/wia-strategy.md section 3.3), so this only
+				// runs where a DPoP key is actually in use above.
+				const attestationKeyPair: WIAKeyPair = { privateKey: dpopPrivateKey, publicKeyJwk: dpopPublicKeyJwk };
+				flowState.wia = await attestFlowIfEnabled(api.post, WIA_ENABLED, flowState.wia, attestationKeyPair, clientId.client_id);
+				tokenRequestBuilder.setWalletAttestation(flowState.wia, attestationKeyPair);
 			}
 
 
@@ -517,12 +511,12 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 				dpopPublicKeyJwk: dpopPublicKeyJwk,
 			}
 
-			if (WIA_ENABLED && clientIdResult?.client_id) {
+			if (clientIdResult?.client_id) {
 				// See the matching comment in requestCredentials above: the WIA
 				// cnf key MUST be the same key used as the DPoP key for this
 				// token request, so this only runs where a DPoP key exists.
 				const attestationKeyPair: WIAKeyPair = { privateKey: dpopPrivateKey, publicKeyJwk: dpopPublicKeyJwk };
-				flowState.wia = await requestWIA(api.post, attestationKeyPair, clientIdResult.client_id);
+				flowState.wia = await attestFlowIfEnabled(api.post, WIA_ENABLED, flowState.wia, attestationKeyPair, clientIdResult.client_id);
 				tokenRequestBuilder.setWalletAttestation(flowState.wia, attestationKeyPair);
 			}
 		}
