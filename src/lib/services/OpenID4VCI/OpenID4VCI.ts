@@ -689,11 +689,36 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 
 			if (authzServerMetadata.authzServerMetadata.pushed_authorization_request_endpoint) {
 				const { sendPushedAuthorizationRequest } = openID4VCIPushedAuthorizationRequest;
+
+				// PAR is where OAuth client authentication actually happens for a
+				// PAR-only AS (require_pushed_authorization_requests) - a WIA
+				// attached only at the token endpoint never gets a chance to
+				// authenticate the client, since the token exchange that follows
+				// is keyed off an already-PAR-accepted request_uri. The
+				// DPoP/attestation key must therefore be generated here, before
+				// PAR, not deferred to token-exchange time as it is for the
+				// pre-authorized-code grant (which has no PAR step at all).
+				let dpopKeyPair: WIAKeyPair | undefined;
+				let wia: string | undefined;
+				let dpopPrivateKeyJwk: jose.JWK | undefined;
+				if (authzServerMetadata.authzServerMetadata.dpop_signing_alg_values_supported) {
+					const { privateKey, publicKey } = await jose.generateKeyPair('ES256', { extractable: true });
+					const publicKeyJwk = await jose.exportJWK(publicKey);
+					dpopPrivateKeyJwk = await jose.exportJWK(privateKey);
+					dpopKeyPair = { privateKey, publicKeyJwk };
+					wia = await attestFlowIfEnabled(api.post, WIA_ENABLED, undefined, dpopKeyPair, clientId.client_id);
+				}
+
 				const parRes = await sendPushedAuthorizationRequest(
 					authzServerMetadata.authzServerMetadata,
-					params
+					params,
+					wia && dpopKeyPair ? { wia, keyPair: dpopKeyPair } : undefined,
 				);
-				// Persist state/code_verifier for later token exchange
+				// Persist state/code_verifier for later token exchange - dpop/wia
+				// too, when generated above, so the token exchange after the
+				// redirect reuses this exact key (the WIA's cnf claim and the
+				// PAR request's dpop_jkt both commit to it) instead of minting a
+				// second, unrelated one.
 				await openID4VCIClientStateRepository.create({
 					sessionId: WalletStateUtils.getRandomUint32(),
 					credentialIssuerIdentifier: credentialIssuerMetadata.metadata.credential_issuer,
@@ -701,6 +726,15 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 					code_verifier: parRes.code_verifier,
 					credentialConfigurationId,
 					created: Math.floor(Date.now() / 1000),
+					...(dpopKeyPair && dpopPrivateKeyJwk ? {
+						dpop: {
+							dpopJti: generateRandomIdentifier(8),
+							dpopPrivateKeyJwk,
+							dpopPublicKeyJwk: dpopKeyPair.publicKeyJwk,
+							dpopAlg: 'ES256',
+						},
+						wia,
+					} : {}),
 				});
 				await openID4VCIClientStateRepository.commitStateChanges();
 				// Build authorization request URL
@@ -718,7 +752,7 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 				return { url: authorizationRequestURL.toString() };
 			}
 		},
-		[openID4VCIClientStateRepository, openID4VCIHelper, openID4VCIPushedAuthorizationRequest, requestCredentials, keystore, getRememberIssuerAge]
+		[openID4VCIClientStateRepository, openID4VCIHelper, openID4VCIPushedAuthorizationRequest, requestCredentials, keystore, getRememberIssuerAge, api]
 	);
 
 	useEffect(() => {
