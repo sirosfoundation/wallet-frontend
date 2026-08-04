@@ -5,7 +5,7 @@ import { CredentialOfferSchema, VerifiableCredentialFormat } from 'wallet-common
 import type { OID4VCIFlowResult } from '@/lib/openid-flow/types/OID4VCITypes';
 import type { OIDFlowActiveTransportType, OIDFlowProgressEvent } from '@/lib/openid-flow/types/OIDFlowTypes';
 import * as jose from 'jose';
-import { DISPLAY_ISSUANCE_WARNINGS, OPENID4VCI_REDIRECT_URI, WIA_ENABLED } from '@/config';
+import { DISPLAY_ISSUANCE_WARNINGS, ENGINE_URL, OPENID4VCI_REDIRECT_URI, WIA_ENABLED } from '@/config';
 import { deriveHolderKidFromCredential } from '@/lib/services/OpenID4VCI/OpenID4VCI';
 import { attachWalletAttestationHeaders, attestFlowIfEnabled, WIAKeyPair } from '@/lib/services/OpenID4VCI/WIA';
 import SessionContext from '@/context/SessionContext';
@@ -196,7 +196,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 						const publicKeyJwk = await jose.exportJWK(publicKey);
 						const attestationKeyPair: WIAKeyPair = { privateKey, publicKeyJwk };
 						const wia = await attestFlowIfEnabled(
-							api.post, WIA_ENABLED, undefined, attestationKeyPair, parsedOffer.credentialIssuer,
+							api.post, WIA_ENABLED, undefined, attestationKeyPair, parsedOffer.credentialIssuer, ENGINE_URL,
 						);
 						if (wia) {
 							const headers = await attachWalletAttestationHeaders(

@@ -30,6 +30,7 @@ export async function requestWIA(
 	post: BackendApiPost,
 	dpopKeyPair: WIAKeyPair,
 	clientId: string,
+	walletProviderURI: string,
 ): Promise<string | undefined> {
 	try {
 		const challengeResponse = await post("/wallet-provider/wia/challenge", {});
@@ -46,6 +47,17 @@ export async function requestWIA(
 				jwk: dpopKeyPair.publicKeyJwk,
 			})
 			.setIssuer(clientId)
+			// go-wallet-backend's validatePop requires aud to match
+			// WalletProvider.WIA.WalletProviderURI when configured
+			// (internal/service/wia.go) - this is the WIA-REQUEST's own PoP,
+			// proving possession to OUR wallet-provider backend, so the
+			// audience is the wallet provider's own public identity
+			// (ENGINE_URL - see src/config.ts), NOT the credential issuer
+			// (that's buildClientAttestationPop's aud, a different PoP for a
+			// different audience). Missing this claim was never caught before
+			// since it was never exercised against a real backend until now
+			// (WIA.test.ts mocks the backend entirely).
+			.setAudience(walletProviderURI)
 			.setIssuedAt()
 			.setExpirationTime("5m")
 			.setJti(generateRandomIdentifier(8))
@@ -116,6 +128,7 @@ export async function attestFlowIfEnabled(
 	existingWia: string | undefined,
 	dpopKeyPair: WIAKeyPair,
 	clientId: string,
+	walletProviderURI: string,
 ): Promise<string | undefined> {
 	if (!enabled) {
 		return undefined;
@@ -123,7 +136,7 @@ export async function attestFlowIfEnabled(
 	if (existingWia) {
 		return existingWia;
 	}
-	return await requestWIA(post, dpopKeyPair, clientId);
+	return await requestWIA(post, dpopKeyPair, clientId, walletProviderURI);
 }
 
 export interface WalletAttestation {

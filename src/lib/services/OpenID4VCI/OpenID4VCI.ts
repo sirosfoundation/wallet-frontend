@@ -23,7 +23,7 @@ import { logger } from '@/logger';
 import { useHttpClient } from '@/hooks/useHttpClient';
 import { parseIssuerSignedToMDoc } from '@/lib/mdoc/mdoc';
 import { attestFlowIfEnabled, WIAKeyPair } from './WIA';
-import { WIA_ENABLED } from '@/config';
+import { ENGINE_URL, WIA_ENABLED } from '@/config';
 
 /**
  * Raw tx_code spec from OID4VCI §4.1.1 (snake_case, matching protocol wire format).
@@ -380,7 +380,7 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 				// token request (security/wia-strategy.md section 3.3), so this only
 				// runs where a DPoP key is actually in use above.
 				const attestationKeyPair: WIAKeyPair = { privateKey: dpopPrivateKey, publicKeyJwk: dpopPublicKeyJwk };
-				flowState.wia = await attestFlowIfEnabled(api.post, WIA_ENABLED, flowState.wia, attestationKeyPair, clientId.client_id);
+				flowState.wia = await attestFlowIfEnabled(api.post, WIA_ENABLED, flowState.wia, attestationKeyPair, clientId.client_id, ENGINE_URL);
 				tokenRequestBuilder.setWalletAttestation(flowState.wia, attestationKeyPair);
 			}
 
@@ -530,7 +530,7 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 				// cnf key MUST be the same key used as the DPoP key for this
 				// token request, so this only runs where a DPoP key exists.
 				const attestationKeyPair: WIAKeyPair = { privateKey: dpopPrivateKey, publicKeyJwk: dpopPublicKeyJwk };
-				flowState.wia = await attestFlowIfEnabled(api.post, WIA_ENABLED, flowState.wia, attestationKeyPair, clientIdResult.client_id);
+				flowState.wia = await attestFlowIfEnabled(api.post, WIA_ENABLED, flowState.wia, attestationKeyPair, clientIdResult.client_id, ENGINE_URL);
 				tokenRequestBuilder.setWalletAttestation(flowState.wia, attestationKeyPair);
 			}
 		}
@@ -706,7 +706,7 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 					const publicKeyJwk = await jose.exportJWK(publicKey);
 					dpopPrivateKeyJwk = await jose.exportJWK(privateKey);
 					dpopKeyPair = { privateKey, publicKeyJwk };
-					wia = await attestFlowIfEnabled(api.post, WIA_ENABLED, undefined, dpopKeyPair, clientId.client_id);
+					wia = await attestFlowIfEnabled(api.post, WIA_ENABLED, undefined, dpopKeyPair, clientId.client_id, ENGINE_URL);
 				}
 
 				const parRes = await sendPushedAuthorizationRequest(
