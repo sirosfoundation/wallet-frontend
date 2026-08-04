@@ -4,10 +4,9 @@ import OpenID4VCIContext from '@/context/OpenID4VCIContext';
 import { CredentialOfferSchema, VerifiableCredentialFormat } from 'wallet-common';
 import type { OID4VCIFlowResult } from '@/lib/openid-flow/types/OID4VCITypes';
 import type { OIDFlowActiveTransportType, OIDFlowProgressEvent } from '@/lib/openid-flow/types/OIDFlowTypes';
-import * as jose from 'jose';
 import { DISPLAY_ISSUANCE_WARNINGS, ENGINE_URL, OPENID4VCI_REDIRECT_URI, WIA_ENABLED } from '@/config';
 import { deriveHolderKidFromCredential } from '@/lib/services/OpenID4VCI/OpenID4VCI';
-import { attachWalletAttestationHeaders, attestFlowIfEnabled, WIAKeyPair } from '@/lib/services/OpenID4VCI/WIA';
+import { generateFlowAttestation } from '@/lib/services/OpenID4VCI/WIA';
 import SessionContext from '@/context/SessionContext';
 import { notify } from '@/context/notifier';
 import CredentialsContext from '@/context/CredentialsContext';
@@ -170,9 +169,10 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 
 				// Wallet attestation (OAuth-Client-Attestation): generated here,
 				// transport-agnostically, rather than inside a specific
-				// transport implementation - see OID4VCITypes.ts. Every
-				// transport that talks to a credential issuer needs the same
-				// two values; only the wire encoding differs per transport.
+				// transport implementation - see OID4VCITypes.ts and
+				// WIA.ts's generateFlowAttestation. Every transport that talks
+				// to a credential issuer needs the same two values; only the
+				// wire encoding differs per transport.
 				//
 				// client_id/aud is credentialIssuer, not a separately-resolved
 				// authorization_server: matches go-wallet-backend's own
@@ -190,25 +190,12 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 				let clientAttestation: string | undefined;
 				let clientAttestationPoP: string | undefined;
 				if (WIA_ENABLED && openID4VCI) {
-					try {
-						const parsedOffer = await openID4VCI.handleCredentialOffer(credentialOfferUrl.toString());
-						const { privateKey, publicKey } = await jose.generateKeyPair('ES256', { extractable: true });
-						const publicKeyJwk = await jose.exportJWK(publicKey);
-						const attestationKeyPair: WIAKeyPair = { privateKey, publicKeyJwk };
-						const wia = await attestFlowIfEnabled(
-							api.post, WIA_ENABLED, undefined, attestationKeyPair, parsedOffer.credentialIssuer, ENGINE_URL,
-						);
-						if (wia) {
-							const headers = await attachWalletAttestationHeaders(
-								{}, { wia, keyPair: attestationKeyPair }, parsedOffer.credentialIssuer, parsedOffer.credentialIssuer,
-							);
-							clientAttestation = headers['oauth-client-attestation'];
-							clientAttestationPoP = headers['oauth-client-attestation-pop'];
-						}
-					} catch (err) {
-						// WIA is Tier 3 (informative) - never block issuance over it.
-						logger.debug('Wallet attestation unavailable for this flow', err);
-					}
+					const parsedOffer = await openID4VCI.handleCredentialOffer(credentialOfferUrl.toString());
+					const attestation = await generateFlowAttestation(
+						api.post, WIA_ENABLED, parsedOffer.credentialIssuer, ENGINE_URL,
+					);
+					clientAttestation = attestation.clientAttestation;
+					clientAttestationPoP = attestation.clientAttestationPoP;
 				}
 
 				// Subscribe to progress events for this flow

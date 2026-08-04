@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { generateKeyPair, exportJWK, importJWK, jwtVerify, decodeProtectedHeader } from 'jose';
-import { requestWIA, buildClientAttestationPop, attestFlowIfEnabled, attachWalletAttestationHeaders, WIAKeyPair } from './WIA';
+import { requestWIA, buildClientAttestationPop, attestFlowIfEnabled, attachWalletAttestationHeaders, generateFlowAttestation, WIAKeyPair } from './WIA';
 
 vi.mock('@/logger', () => ({
 	logger: {
@@ -204,5 +204,47 @@ describe('attachWalletAttestationHeaders', () => {
 
 		expect(result).toEqual(headers);
 		expect(result['oauth-client-attestation']).toBeUndefined();
+	});
+});
+
+describe('generateFlowAttestation', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('returns empty (no fields) without calling post when disabled', async () => {
+		const post = vi.fn();
+
+		const result = await generateFlowAttestation(post, false, 'https://issuer.example.com', 'https://wallet-provider.example.com');
+
+		expect(result).toEqual({});
+		expect(post).not.toHaveBeenCalled();
+	});
+
+	it('generates a fresh keypair, requests a WIA, and returns both attestation headers', async () => {
+		const post = vi.fn()
+			.mockResolvedValueOnce({ data: { challenge: 'test-challenge' } })
+			.mockResolvedValueOnce({ data: { wallet_instance_attestation: 'signed.wia.jwt' } });
+
+		const result = await generateFlowAttestation(post, true, 'https://issuer.example.com', 'https://wallet-provider.example.com');
+
+		expect(result.clientAttestation).toBe('signed.wia.jwt');
+		expect(typeof result.clientAttestationPoP).toBe('string');
+		expect(post).toHaveBeenCalledTimes(2);
+
+		// The per-request PoP must be bound to the credential issuer (aud),
+		// distinct from the WIA-request PoP's audience (the wallet provider),
+		// and issued by the same client_id used to request the WIA.
+		const header = decodeProtectedHeader(result.clientAttestationPoP as string);
+		expect(header.typ).toBe('oauth-client-attestation-pop+jwt');
+		expect(header.jwk).toBeUndefined();
+	});
+
+	it('returns empty (no fields) rather than throwing when the backend does not support WIA', async () => {
+		const post = vi.fn().mockRejectedValueOnce({ response: { status: 503, data: { error: 'WIA_NOT_SUPPORTED' } } });
+
+		const result = await generateFlowAttestation(post, true, 'https://issuer.example.com', 'https://wallet-provider.example.com');
+
+		expect(result).toEqual({});
 	});
 });

@@ -1,4 +1,4 @@
-import { JWK, KeyLike, SignJWT } from "jose";
+import { exportJWK, generateKeyPair, JWK, KeyLike, SignJWT } from "jose";
 import { generateRandomIdentifier } from "../../utils/generateRandomIdentifier";
 import { logger } from "@/logger";
 
@@ -176,5 +176,54 @@ export async function attachWalletAttestationHeaders(
 	catch (err) {
 		logger.debug(err);
 		return headers;
+	}
+}
+
+/**
+ * Generate a fresh attestation keypair, request a WIA bound to it, and build
+ * the resulting OAuth-Client-Attestation/-PoP header VALUES for a single
+ * flow - transport-agnostic (see OID4VCITypes.ts's clientAttestation/
+ * clientAttestationPoP fields on OID4VCIFlowParams): every transport that
+ * talks to a credential issuer needs the same two values, generated the same
+ * way, once per flow; only the wire encoding differs per transport.
+ *
+ * clientId doubles as the WIA's client_id (-> its sub claim, per
+ * go-wallet-backend's pkg/service/wia.go) and the per-request PoP's
+ * audience - it must be the credential issuer, matching go-wallet-backend's
+ * own fallback for resolving the OAuth client_id used in the PAR/token
+ * request (internal/engine/oid4vci.go's handleAuthorizationCode).
+ *
+ * Never throws: WIA is Tier 3 (informative), so any failure here (backend
+ * doesn't support WIA, network error, PoP signing failure) must degrade to
+ * an attestation-less flow rather than block issuance.
+ */
+export async function generateFlowAttestation(
+	post: BackendApiPost,
+	enabled: boolean,
+	clientId: string,
+	walletProviderURI: string,
+): Promise<{ clientAttestation?: string; clientAttestationPoP?: string }> {
+	if (!enabled) {
+		return {};
+	}
+	try {
+		const { privateKey, publicKey } = await generateKeyPair('ES256', { extractable: true });
+		const publicKeyJwk = await exportJWK(publicKey);
+		const keyPair: WIAKeyPair = { privateKey, publicKeyJwk };
+
+		const wia = await attestFlowIfEnabled(post, enabled, undefined, keyPair, clientId, walletProviderURI);
+		if (!wia) {
+			return {};
+		}
+
+		const headers = await attachWalletAttestationHeaders({}, { wia, keyPair }, clientId, clientId);
+		return {
+			clientAttestation: headers['oauth-client-attestation'],
+			clientAttestationPoP: headers['oauth-client-attestation-pop'],
+		};
+	}
+	catch (err) {
+		logger.debug('Wallet attestation unavailable for this flow', err);
+		return {};
 	}
 }
