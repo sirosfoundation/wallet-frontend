@@ -359,6 +359,14 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 			tokenRequestBuilder.setTokenEndpoint(tokenEndpoint);
 			tokenRequestBuilder.setIssuer(authzServerMetadata.authzServerMetadata.issuer);
 
+			// tokenRequestBuilder is one long-lived instance reused across every
+			// OID4VCI flow in this session — clear any wallet attestation left
+			// over from a previous flow before deciding whether to set a new one
+			// for THIS flow below. Without this, a flow whose issuer doesn't
+			// support DPoP would silently reuse a stale WIA (and its PoP key)
+			// from an unrelated earlier flow/issuer.
+			tokenRequestBuilder.setWalletAttestation(undefined);
+
 			if (authzServerMetadata.authzServerMetadata.dpop_signing_alg_values_supported) {
 				await tokenRequestBuilder.setDpopHeader(dpopPrivateKey as jose.KeyLike, dpopPublicKeyJwk, jti);
 				flowState.dpop = {
@@ -495,6 +503,12 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 		let dpopPrivateKeyJwk: jose.JWK | null = null;
 		let dpopPublicKeyJwk: jose.JWK | null = null;
 		const jti = generateRandomIdentifier(18);
+
+		// See the matching comment in requestCredentials above: tokenRequestBuilder
+		// is reused across every flow in the session, so clear any stale
+		// attestation before possibly setting a new one for THIS flow below.
+		tokenRequestBuilder.setWalletAttestation(undefined);
+
 		if (authzServerMetadata.authzServerMetadata.dpop_signing_alg_values_supported && authzServerMetadata.authzServerMetadata.dpop_signing_alg_values_supported.includes('ES256')) {
 			const { privateKey, publicKey } = await jose.generateKeyPair('ES256', { extractable: true }); // keypair for dpop if used
 			[dpopPrivateKeyJwk, dpopPublicKeyJwk] = await Promise.all([
