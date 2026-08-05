@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { generateKeyPair, exportJWK } from 'jose';
+import { exportJWK } from 'jose';
 import { useTokenRequest, GrantType } from './TokenRequest';
 
 const mockPost = vi.fn();
@@ -35,56 +35,25 @@ async function setUpBasicPreAuthorizedRequest(result: ReturnType<typeof renderHo
 	});
 }
 
-describe('useTokenRequest - wallet attestation header lifecycle', () => {
+describe('useTokenRequest', () => {
 	beforeEach(() => {
 		mockPost.mockReset();
 	});
 
-	// Regression test for a review finding: tokenRequestBuilder is one
-	// long-lived hook instance reused across every OID4VCI flow in the
-	// session. If a flow that sets a wallet attestation is followed by a
-	// flow that never calls setWalletAttestation at all (e.g. because that
-	// issuer doesn't support DPoP), the second flow's token request must
-	// NOT still carry the first flow's stale WIA/PoP.
-	it('does not leak a wallet attestation from a previous call once explicitly cleared', async () => {
+	it('sends a pre-authorized_code token request and returns the access token', async () => {
 		mockPost.mockResolvedValue(tokenResponse());
 		const { result } = renderHook(() => useTokenRequest());
 		await setUpBasicPreAuthorizedRequest(result);
 
-		const { privateKey, publicKey } = await generateKeyPair('ES256', { extractable: true });
-		const publicKeyJwk = await exportJWK(publicKey);
-		act(() => {
-			result.current.setWalletAttestation('signed.wia.jwt', { privateKey, publicKeyJwk });
-		});
-
+		let outcome: Awaited<ReturnType<typeof result.current.execute>> | undefined;
 		await act(async () => {
-			await result.current.execute();
-		});
-		const [, , firstHeaders] = mockPost.mock.calls[0];
-		expect(firstHeaders['oauth-client-attestation']).toBe('signed.wia.jwt');
-
-		// Simulate the next flow: clear without ever calling
-		// setWalletAttestation(wia, keyPair) again — matching what
-		// OpenID4VCI.ts does unconditionally at the top of each flow.
-		act(() => {
-			result.current.setWalletAttestation(undefined);
+			outcome = await result.current.execute();
 		});
 
-		await act(async () => {
-			await result.current.execute();
-		});
-		const [, , secondHeaders] = mockPost.mock.calls[1];
-		expect(secondHeaders['oauth-client-attestation']).toBeUndefined();
-		expect(secondHeaders['oauth-client-attestation-pop']).toBeUndefined();
-	});
-
-	it('setWalletAttestation(undefined) does not throw without a keyPair argument', async () => {
-		const { result } = renderHook(() => useTokenRequest());
-
-		expect(() => {
-			act(() => {
-				result.current.setWalletAttestation(undefined);
-			});
-		}).not.toThrow();
+		expect(outcome && 'response' in outcome && outcome.response.access_token).toBe('at');
+		// No wallet attestation mechanism on this path (removed - see the
+		// transport-agnostic implementation in useOID4VCIFlow.ts/WIA.ts instead).
+		const [, , headers] = mockPost.mock.calls[0];
+		expect(headers['oauth-client-attestation']).toBeUndefined();
 	});
 });

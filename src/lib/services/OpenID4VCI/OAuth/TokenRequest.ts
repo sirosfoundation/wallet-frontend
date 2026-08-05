@@ -4,7 +4,6 @@ import * as oauth4webapi from 'oauth4webapi';
 import { PreAuthorizedGrant } from '../PreAuthorizedGrant';
 import { MODE, OPENID4VCI_REDIRECT_URI } from '@/config';
 import { useHttpClient } from '@/hooks/useHttpClient';
-import { attachWalletAttestationHeaders, WalletAttestation, WIAKeyPair } from '../WIA';
 
 const { customFetch, allowInsecureRequests } = oauth4webapi;
 const isDev = MODE === 'development';
@@ -51,7 +50,6 @@ export function useTokenRequest() {
 	const retries = useRef<number>(0);
 	const dpopParams = useRef<{ dpopPrivateKey: KeyLike, dpopPublicKeyJwk: JWK } | null>(null);
 	const dpopHandle = useRef<oauth4webapi.DPoPHandle | null>(null);
-	const walletAttestation = useRef<WalletAttestation | null>(null);
 
 	function normalizeHeaders(h: any): Record<string, string> {
 		const out: Record<string, string> = {};
@@ -72,16 +70,7 @@ export function useTokenRequest() {
 	const myCustomFetch = useMemo(() => {
 		return async (url: string, options?: RequestInit) => {
 			const method = (options?.method ?? 'POST').toLowerCase();
-			// OAuth-Client-Attestation / -PoP (draft-ietf-oauth-attestation-based-client-auth):
-			// present the WIA plus a PoP JWT freshly signed for THIS request
-			// (anti-replay — a PoP must never be reused across requests, including
-			// retries). The PoP's audience is this token endpoint's issuer.
-			const headers = await attachWalletAttestationHeaders(
-				normalizeHeaders(options?.headers),
-				walletAttestation.current,
-				clientId.current,
-				issuer.current ?? tokenEndpointURL.current,
-			);
+			const headers = normalizeHeaders(options?.headers);
 			const body = options?.body;
 
 			let data: string | undefined;
@@ -169,14 +158,6 @@ export function useTokenRequest() {
 	const setDpopHeader = useCallback(async (dpopPrivateKey: KeyLike, dpopPublicKeyJwk: JWK, _jti: string) => {
 		dpopParams.current = { dpopPrivateKey, dpopPublicKeyJwk };
 		dpopHandle.current = null;
-	}, []);
-
-	// keyPair is optional specifically so callers can clear a stale
-	// attestation from a previous flow (tokenRequestBuilder is one
-	// long-lived instance reused across every OID4VCI flow in the session)
-	// without needing a dummy keyPair just to call this.
-	const setWalletAttestation = useCallback((wia: string | undefined, keyPair?: WIAKeyPair) => {
-		walletAttestation.current = wia && keyPair ? { wia, keyPair } : null;
 	}, []);
 
 	const getDPoPHandle = useCallback(async (client: oauth4webapi.Client) => {
@@ -376,7 +357,6 @@ export function useTokenRequest() {
 		setRedirectUri,
 		setTokenEndpoint,
 		setDpopHeader,
-		setWalletAttestation,
 		execute,
 	}), [
 		setClientId,
@@ -392,7 +372,6 @@ export function useTokenRequest() {
 		setRedirectUri,
 		setTokenEndpoint,
 		setDpopHeader,
-		setWalletAttestation,
 		execute,
 	]);
 }

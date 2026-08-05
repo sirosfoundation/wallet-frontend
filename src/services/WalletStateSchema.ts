@@ -220,7 +220,6 @@ export async function addSaveCredentialIssuanceSessionEvent(container: WalletSta
 		dpopPublicKeyJwk?: JWK,
 		dpopAlg: string,
 	},
-	wia?: string,
 	firstPartyAuthorization?: {
 		auth_session: string,
 	},
@@ -247,7 +246,6 @@ export async function addSaveCredentialIssuanceSessionEvent(container: WalletSta
 				credentialConfigurationId,
 				tokenResponse,
 				dpop,
-				wia,
 				firstPartyAuthorization,
 				credentialEndpoint,
 				created: created ?? Math.floor(Date.now() / 1000),

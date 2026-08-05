@@ -22,8 +22,6 @@ import { useNavigate } from 'react-router-dom';
 import { logger } from '@/logger';
 import { useHttpClient } from '@/hooks/useHttpClient';
 import { parseIssuerSignedToMDoc } from '@/lib/mdoc/mdoc';
-import { attestFlowIfEnabled, WIAKeyPair } from './WIA';
-import { ENGINE_URL, WIA_ENABLED } from '@/config';
 
 /**
  * Raw tx_code spec from OID4VCI §4.1.1 (snake_case, matching protocol wire format).
@@ -359,14 +357,6 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 			tokenRequestBuilder.setTokenEndpoint(tokenEndpoint);
 			tokenRequestBuilder.setIssuer(authzServerMetadata.authzServerMetadata.issuer);
 
-			// tokenRequestBuilder is one long-lived instance reused across every
-			// OID4VCI flow in this session — clear any wallet attestation left
-			// over from a previous flow before deciding whether to set a new one
-			// for THIS flow below. Without this, a flow whose issuer doesn't
-			// support DPoP would silently reuse a stale WIA (and its PoP key)
-			// from an unrelated earlier flow/issuer.
-			tokenRequestBuilder.setWalletAttestation(undefined);
-
 			if (authzServerMetadata.authzServerMetadata.dpop_signing_alg_values_supported) {
 				await tokenRequestBuilder.setDpopHeader(dpopPrivateKey as jose.KeyLike, dpopPublicKeyJwk, jti);
 				flowState.dpop = {
@@ -375,13 +365,6 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 					dpopPrivateKeyJwk: dpopPrivateKeyJwk,
 					dpopPublicKeyJwk: dpopPublicKeyJwk,
 				}
-
-				// The WIA cnf key MUST be the same key used as the DPoP key for this
-				// token request (security/wia-strategy.md section 3.3), so this only
-				// runs where a DPoP key is actually in use above.
-				const attestationKeyPair: WIAKeyPair = { privateKey: dpopPrivateKey, publicKeyJwk: dpopPublicKeyJwk };
-				flowState.wia = await attestFlowIfEnabled(api.post, WIA_ENABLED, flowState.wia, attestationKeyPair, clientId.client_id, ENGINE_URL);
-				tokenRequestBuilder.setWalletAttestation(flowState.wia, attestationKeyPair);
 			}
 
 
@@ -504,11 +487,6 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 		let dpopPublicKeyJwk: jose.JWK | null = null;
 		const jti = generateRandomIdentifier(18);
 
-		// See the matching comment in requestCredentials above: tokenRequestBuilder
-		// is reused across every flow in the session, so clear any stale
-		// attestation before possibly setting a new one for THIS flow below.
-		tokenRequestBuilder.setWalletAttestation(undefined);
-
 		if (authzServerMetadata.authzServerMetadata.dpop_signing_alg_values_supported && authzServerMetadata.authzServerMetadata.dpop_signing_alg_values_supported.includes('ES256')) {
 			const { privateKey, publicKey } = await jose.generateKeyPair('ES256', { extractable: true }); // keypair for dpop if used
 			[dpopPrivateKeyJwk, dpopPublicKeyJwk] = await Promise.all([
@@ -523,15 +501,6 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 				dpopJti: jti,
 				dpopPrivateKeyJwk: dpopPrivateKeyJwk,
 				dpopPublicKeyJwk: dpopPublicKeyJwk,
-			}
-
-			if (clientIdResult?.client_id) {
-				// See the matching comment in requestCredentials above: the WIA
-				// cnf key MUST be the same key used as the DPoP key for this
-				// token request, so this only runs where a DPoP key exists.
-				const attestationKeyPair: WIAKeyPair = { privateKey: dpopPrivateKey, publicKeyJwk: dpopPublicKeyJwk };
-				flowState.wia = await attestFlowIfEnabled(api.post, WIA_ENABLED, flowState.wia, attestationKeyPair, clientIdResult.client_id, ENGINE_URL);
-				tokenRequestBuilder.setWalletAttestation(flowState.wia, attestationKeyPair);
 			}
 		}
 
