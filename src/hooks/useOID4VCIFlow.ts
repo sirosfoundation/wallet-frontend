@@ -174,25 +174,21 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 				// to a credential issuer needs the same two values; only the
 				// wire encoding differs per transport.
 				//
-				// client_id/aud is credentialIssuer, not a separately-resolved
-				// authorization_server: matches go-wallet-backend's own
-				// fallback (internal/engine/oid4vci.go's handleAuthorizationCode:
-				// authServer := metadata.authorizationServer(); if "" { authServer
-				// = metadata.CredentialIssuer } ) and go-wallet-backend's WIA
-				// generation sets the attestation's sub to exactly whatever
-				// client_id is supplied here (pkg/service/wia.go) - so this
-				// must be the SAME value the engine will end up using as
-				// req.ClientID in the PAR/token request, or the issuer's
-				// subject-match check rejects the attestation.
-				// openID4VCI.handleCredentialOffer is reused here purely for
-				// its existing inline-vs-URI offer parsing (already handles
-				// both cases); it performs no side effects.
+				// client_id must be OPENID4VCI_REDIRECT_URI, matching
+				// go-wallet-backend's actual default (internal/engine/oid4vci.go:
+				// h.clientID = h.redirectURI, itself set from this same
+				// redirect_uri sent below) for an unregistered client (OID4VCI
+				// §7.1 convention - same value OpenID4VCIHelper.ts's client_id
+				// fallback uses). go-wallet-backend's WIA generation sets the
+				// attestation's sub to exactly whatever client_id is supplied
+				// here (pkg/service/wia.go), so it must match what the engine
+				// ends up using as req.ClientID in the PAR/token request, or
+				// the issuer's subject-match check rejects the attestation.
 				let clientAttestation: string | undefined;
 				let clientAttestationPoP: string | undefined;
-				if (WIA_ENABLED && openID4VCI) {
-					const parsedOffer = await openID4VCI.handleCredentialOffer(credentialOfferUrl.toString());
+				if (WIA_ENABLED) {
 					const attestation = await generateFlowAttestation(
-						api.post, WIA_ENABLED, parsedOffer.credentialIssuer, ENGINE_URL,
+						api.post, WIA_ENABLED, OPENID4VCI_REDIRECT_URI, ENGINE_URL,
 					);
 					clientAttestation = attestation.clientAttestation;
 					clientAttestationPoP = attestation.clientAttestationPoP;
