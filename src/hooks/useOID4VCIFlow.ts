@@ -184,11 +184,19 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 				// here (pkg/service/wia.go), so it must match what the engine
 				// ends up using as req.ClientID in the PAR/token request, or
 				// the issuer's subject-match check rejects the attestation.
+				//
+				// The per-request PoP's audience is separate: it's sent to the
+				// credential issuer's own PAR/token endpoint, so it must be
+				// the credential issuer's URL, not client_id.
+				// openID4VCI.handleCredentialOffer is reused here purely for
+				// its existing inline-vs-URI offer parsing (already handles
+				// both cases); it performs no side effects.
 				let clientAttestation: string | undefined;
 				let clientAttestationPoP: string | undefined;
-				if (WIA_ENABLED) {
+				if (WIA_ENABLED && openID4VCI) {
+					const parsedOffer = await openID4VCI.handleCredentialOffer(credentialOfferUrl.toString());
 					const attestation = await generateFlowAttestation(
-						api.post, WIA_ENABLED, OPENID4VCI_REDIRECT_URI, ENGINE_URL,
+						api.post, WIA_ENABLED, OPENID4VCI_REDIRECT_URI, parsedOffer.credentialIssuer, ENGINE_URL,
 					);
 					clientAttestation = attestation.clientAttestation;
 					clientAttestationPoP = attestation.clientAttestationPoP;

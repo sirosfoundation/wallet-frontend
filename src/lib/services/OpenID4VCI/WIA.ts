@@ -187,11 +187,13 @@ export async function attachWalletAttestationHeaders(
  * talks to a credential issuer needs the same two values, generated the same
  * way, once per flow; only the wire encoding differs per transport.
  *
- * clientId doubles as the WIA's client_id (-> its sub claim, per
- * go-wallet-backend's pkg/service/wia.go) and the per-request PoP's
- * audience - it must be the credential issuer, matching go-wallet-backend's
- * own fallback for resolving the OAuth client_id used in the PAR/token
- * request (internal/engine/oid4vci.go's handleAuthorizationCode).
+ * clientId becomes the WIA's client_id (-> its sub claim, per
+ * go-wallet-backend's pkg/service/wia.go) - it must match whatever
+ * go-wallet-backend's engine resolves as req.ClientID for this flow (its
+ * redirect_uri fallback for unregistered clients, internal/engine/oid4vci.go).
+ * credentialIssuer is a separate value: the per-request PoP's audience,
+ * since the PoP is sent to the credential issuer's PAR/token endpoint, not
+ * back to the wallet itself.
  *
  * Never throws: WIA is Tier 3 (informative), so any failure here (backend
  * doesn't support WIA, network error, PoP signing failure) must degrade to
@@ -201,6 +203,7 @@ export async function generateFlowAttestation(
 	post: BackendApiPost,
 	enabled: boolean,
 	clientId: string,
+	credentialIssuer: string,
 	walletProviderURI: string,
 ): Promise<{ clientAttestation?: string; clientAttestationPoP?: string }> {
 	if (!enabled) {
@@ -216,7 +219,7 @@ export async function generateFlowAttestation(
 			return {};
 		}
 
-		const headers = await attachWalletAttestationHeaders({}, { wia, keyPair }, clientId, clientId);
+		const headers = await attachWalletAttestationHeaders({}, { wia, keyPair }, clientId, credentialIssuer);
 		return {
 			clientAttestation: headers['oauth-client-attestation'],
 			clientAttestationPoP: headers['oauth-client-attestation-pop'],
