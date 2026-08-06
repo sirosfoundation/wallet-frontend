@@ -6,7 +6,7 @@ import {
 } from 'jose';
 import { DCAPIRequest } from './DCAPIRequest';
 import { DCAPIMode } from './resources';
-import { DCAPIWalletCompanionMode } from './modes';
+import { DCAPIAndroidMode, DCAPIWalletCompanionMode } from './modes';
 
 export class DCAPISession {
 	readonly request: DCAPIRequest;
@@ -80,6 +80,10 @@ export class DCAPISession {
 	#detectMode(): DCAPIMode {
 		if (window.opener) {
 			return new DCAPIWalletCompanionMode();
+		}
+
+		if (window.nativeWrapper?.DCAPI && window.nativeWrapper.platform === 'android') {
+			return new DCAPIAndroidMode();
 		}
 
 		throw new Error('Unable to detect DC API mode, no supported environment detected');
