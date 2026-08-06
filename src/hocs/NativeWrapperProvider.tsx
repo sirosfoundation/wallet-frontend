@@ -62,9 +62,15 @@ declare global {
 	}
 
 	interface NativeWrapper {
+		platform: "android" | "ios";
 		updateAllCredentials(credentials: string): void;
 		isKeystoreOpen(): Promise<boolean>;
 		startScanPhysicalId?(): void;
+		DCAPI: {
+			getRequestOrigin(requestId: string): Promise<string>;
+			sendResponse(message: Record<string, unknown>): void;
+			close(): void;
+		}
 	}
 }
 
@@ -86,7 +92,7 @@ export const NativeWrapperProvider = ({
 
 			const registryEntries =
 				await prepareCredentialsForNativeWrapper(vcEntityList);
-			
+
 			logger.debug("Updated native wrapper with credentials:", registryEntries);
 			window.nativeWrapper.updateAllCredentials(JSON.stringify(registryEntries));
 		})();
