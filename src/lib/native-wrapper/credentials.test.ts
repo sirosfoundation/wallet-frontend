@@ -4,9 +4,9 @@ import {
 	shapeCredential,
 	extractAvailableClaims,
 } from '@/services/CredentialMatchingService';
-import { getCredentialType } from '@/components/QueryableList/CredentialsDisplayUtils';
 import { getElementPropValue } from '@/util';
 import type { ExtendedVcEntity } from '@/context/CredentialsContext';
+import { getCredentialType } from '../utils/getCredentialType';
 
 vi.mock('@/services/CredentialMatchingService', () => ({
 	shapeCredential: vi.fn(),

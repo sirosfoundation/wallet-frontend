@@ -1,4 +1,3 @@
-import { getCredentialType } from '@/components/QueryableList/CredentialsDisplayUtils';
 import { ExtendedVcEntity } from '@/context/CredentialsContext';
 import {
 	CredentialDisplayProperties,
@@ -12,6 +11,7 @@ import {
 	extractAvailableClaims,
 } from '@/services/CredentialMatchingService';
 import { getElementPropValue } from '@/util';
+import { getCredentialType } from '../utils/getCredentialType';
 
 const REGISTRY_RESERVED_CLAIMS = new Set([
 	'iss',
