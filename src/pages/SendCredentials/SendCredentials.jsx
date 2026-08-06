@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
+import { logger } from '@/logger';
 import QRCode from 'qrcode';
 
 import StatusContext from '@/context/StatusContext';
@@ -134,7 +135,7 @@ export function BleQrPanel() {
       const assembled = new Uint8Array(rawFrameArray);
       assembledPayloadRef.current = assembled;
       setAssembledPayload(assembled);
-      setBleStatus(`✅ Request received (${assembled.length} bytes)`);
+      setBleStatus(`Request received (${assembled.length} bytes)`);
     }
   };
 
@@ -142,7 +143,6 @@ export function BleQrPanel() {
 const startPollingForIncomingData = () => {
     if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
     pollingIntervalRef.current = setInterval(async () => {
-        console.log('🔄 poll tick');
         try {
             let statusReport = null;
             try {
@@ -336,9 +336,6 @@ const handleManualMdocDelivery = async () => {
       const kid = await jose.calculateJwkThumbprint(devicePublicKeyJwk, "sha256");
 
       const calculatedState = keystore.getCalculatedWalletState();
-      console.log('devicePublicKeyJwk: ', devicePublicKeyJwk)
-      console.log('Looking for kid:', kid);
-      console.log('Available kids:', calculatedState.keypairs.map(k => k.kid))
       const foundKeypair = calculatedState.keypairs.find(k => k.kid === kid);
       if (!foundKeypair) {
         throw new Error("Key pair not found for kid (key ID): " + kid);
@@ -402,7 +399,6 @@ const handleManualMdocDelivery = async () => {
     } catch (err) {
       setError(`Send failed: ${err.message}`);
       setBleStatus('Send error');
-      console.error('❌', err);
     } finally {
       setIsTransmitting(false);
     }
