@@ -1,10 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { formatDate } from 'wallet-common';
 import { getLanguage } from '@/i18n';
 import { useTranslation } from 'react-i18next';
 import JsonViewer from '../JsonViewer/JsonViewer';
 import useScreenType from '../../hooks/useScreenType';
-import { Asterisk, Send } from 'lucide-react';
+import { Asterisk, Eye, EyeOff, Send, ShieldAlert } from 'lucide-react';
 
 const Legend = ({ showRequired, showRequested, t }) => {
 	if (!showRequired && !showRequested) return null;
@@ -74,7 +74,7 @@ const getValueByPath = (path, obj) => {
 	return result;
 };
 
-const addToNestedObject = (target, path, display, value, required) => {
+const addToNestedObject = (target, path, display, value, required, sensitive) => {
 	let current = target;
 	for (let i = 0; i < path.length; i++) {
 		const key = path[i] ?? '*';
@@ -83,6 +83,7 @@ const addToNestedObject = (target, path, display, value, required) => {
 			current[key].display = display;
 			current[key].value = value;
 			current[key].required = required;
+			current[key].sensitive = sensitive;
 		} else {
 			if (typeof current[key].value !== 'object' || current[key].value === null || React.isValidElement(current[key].value)) {
 				current[key].value = {};
@@ -189,7 +190,41 @@ const formatClaimValue = (value) => {
 	return formatDate(value, 'date');
 };
 
-const CredentialInfo = ({ parsedCredential, mainClassName = "text-sm lg:text-base w-full", fallbackClaims, requested }) => {
+const SENSITIVE_PATHS = new Set([
+	'document_number',
+	'personal_number',
+	'national_id',
+	'birth_date',
+	'date_of_birth',
+	'social_security_number',
+	'tax_id',
+]);
+
+const isSensitiveClaim = (claim) => {
+	if (!claim) return false;
+	if (claim.sd === 'always') return true;
+	const leaf = Array.isArray(claim.path) ? claim.path[claim.path.length - 1] : undefined;
+	return SENSITIVE_PATHS.has(String(leaf));
+};
+
+const MaskedValue = ({ value }) => {
+	const [revealed, setRevealed] = useState(false);
+	return (
+		<div className="inline-flex items-center gap-1">
+			<span>{revealed ? value : '••••••••'}</span>
+			<button
+				type="button"
+				onClick={() => setRevealed(prev => !prev)}
+				className="text-lm-gray-900 dark:text-dm-gray-100"
+				aria-label={revealed ? 'Hide sensitive value' : 'Reveal sensitive value'}
+			>
+				{revealed ? <EyeOff size={14} /> : <Eye size={14} />}
+			</button>
+		</div>
+	);
+};
+
+const CredentialInfo = ({ parsedCredential, mainClassName = "text-sm lg:text-base w-full", fallbackClaims, requested, showSensitiveBadge = false }) => {
 	const { t, i18n } = useTranslation();
 	const screenType = useScreenType();
 	const { language, options: { fallbackLng } } = i18n;
@@ -316,7 +351,7 @@ const CredentialInfo = ({ parsedCredential, mainClassName = "text-sm lg:text-bas
 
 		const formattedValue = formatClaimValue(rawValue);
 
-		addToNestedObject(nestedClaims, claim.path, display, formattedValue, claim.required);
+		addToNestedObject(nestedClaims, claim.path, display, formattedValue, claim.required, isSensitiveClaim(claim));
 	});
 
 	const requestedPaths = useMemo(() => {
@@ -361,6 +396,7 @@ const CredentialInfo = ({ parsedCredential, mainClassName = "text-sm lg:text-bas
 			const label = node.display?.label || null;
 			const value = node.value;
 			const fullPath = [...currentPath, key].join('.');
+			const isSensitive = Boolean(node.sensitive);
 			const isRequested = !requestedPaths || Array.from(requestedPaths).some(requested =>
 				requested === fullPath || requested.startsWith(fullPath + '.') || fullPath.startsWith(requested + '.')
 			);
@@ -397,7 +433,12 @@ const CredentialInfo = ({ parsedCredential, mainClassName = "text-sm lg:text-bas
 								(label && label.length > 20 && !label.includes(' ') ? ' break-all' : '')
 							}
 						>
-							{label}:
+							<div className="inline-flex items-center gap-1">
+								<span>{label}:</span>
+								{showSensitiveBadge && isSensitive && (
+									<ShieldAlert size={14} className="text-lm-gray-800 dark:text-dm-gray-200" aria-label="Sensitive field" />
+								)}
+							</div>
 						</div>
 						<div
 							className={
@@ -405,7 +446,7 @@ const CredentialInfo = ({ parsedCredential, mainClassName = "text-sm lg:text-bas
 								(value && value.length > 20 && !value.includes(' ') ? ' break-all' : '')
 							}
 						>
-							{value}
+							{isSensitive ? <MaskedValue value={value} /> : value}
 							{(isRequested || isRequired) && (
 								<div className='flex'>
 									{isRequired && (
