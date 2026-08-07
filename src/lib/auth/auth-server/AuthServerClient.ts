@@ -186,8 +186,16 @@ export class AuthServerClient {
 		const request = (async () => {
 			const res = await this.#post(
 				this.#endpointToken,
-				{ aud, tac, tenant_id: tenantId, anonymous },
-				{ 'X-Token-Mode': 'session' },
+				{
+					aud,
+					tac,
+					tenant_id: tenantId,
+					anonymous,
+				},
+				{
+					'X-Token-Mode': 'session',
+					'X-Tenant-ID': tenantId,
+				},
 			);
 
 			const { success, data } = TokenResponseSchema.safeParse(res.data);
