@@ -232,14 +232,20 @@ describe('AuthServerClient', () => {
 	});
 
 	describe('logout', () => {
-		it('deletes the session with credentials', async () => {
+		it('deletes the session with credentials and tenant headers', async () => {
 			del.mockResolvedValue(okData({}));
 
-			await client.logout();
+			await client.logout('acme');
 
 			expect(del).toHaveBeenCalledWith(
 				`${BASE_URL}/auth/session`,
-				expect.objectContaining({ withCredentials: true }),
+				expect.objectContaining({
+					withCredentials: true,
+					headers: expect.objectContaining({
+						'X-Token-Mode': 'session',
+						'X-Tenant-ID': 'acme',
+					}),
+				}),
 			);
 		});
 	});
