@@ -17,7 +17,6 @@ import { getTenantFromUrlPath, setStoredTenant, clearStoredTenant } from '../lib
 import { clearOIDCState } from '../lib/oidc';
 import { AuthTokens } from '@/lib/auth';
 import { useAuthServerClient } from '@/hooks/useAuthServerClient';
-import { useTenant } from '@/context/TenantContext';
 
 const walletBackendUrl = config.BACKEND_URL;
 
@@ -119,7 +118,7 @@ export interface BackendApi {
 export function useApi(isOnlineProp: boolean = true): BackendApi {
 	const isOnline = useMemo(() => isOnlineProp === null ? true : isOnlineProp, [isOnlineProp]);
 	const authServer = useAuthServerClient();
-	const { urlTenantId: tenantId } = useTenant();
+	const tenantId = getTenantFromUrlPath() ?? 'default';
 	const [userHandle,] = useSessionStorage<string | null>("userHandle", null);
 	const [cachedUsers] = useLocalStorage<CachedUser[] | null>("cachedUsers", null);
 	const [sessionState, setSessionState, clearSessionState] = useSessionStorage<SessionState | null>("sessionState", null);
