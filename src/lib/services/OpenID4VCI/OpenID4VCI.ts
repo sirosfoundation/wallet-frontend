@@ -9,6 +9,7 @@ import { useOpenID4VCIHelper } from '../OpenID4VCIHelper';
 import { GrantType, TokenRequestError, useTokenRequest } from './OAuth/TokenRequest';
 import { useCredentialRequest } from './CredentialRequest';
 import { CurrentSchema } from '@/services/WalletStateSchema';
+import { resolveCnfKid } from '@/services/keystore';
 import SessionContext from '@/context/SessionContext';
 import { useTenant } from '@/context/TenantContext';
 import { CredentialConfigurationSupported, CredentialOfferSchema, VerifiableCredentialFormat } from 'wallet-common';
@@ -54,6 +55,7 @@ export const deriveHolderKidFromCredential = async (credential: string, format: 
 	switch (format) {
 		case VerifiableCredentialFormat.VC_SDJWT:
 		case VerifiableCredentialFormat.DC_SDJWT:
+		case VerifiableCredentialFormat.W3C_VCDM_SDJWT:
 		case VerifiableCredentialFormat.JWT_VC_JSON: {
 			const payload = credential.split('.')[1];
 			if (!payload) {
@@ -61,14 +63,12 @@ export const deriveHolderKidFromCredential = async (credential: string, format: 
 			}
 			try {
 				const decoded = JSON.parse(textDecoder.decode(fromBase64Url(payload)));
-				const cnf = decoded.cnf as { jwk?: jose.JWK } | undefined;
-				if (cnf?.jwk) {
-					return jose.calculateJwkThumbprint(cnf.jwk, "sha256");
-				}
+				const cnf = decoded.cnf as { jwk?: jose.JWK, kid?: string } | undefined;
+				// DIIP v5 binds the holder by `cnf.kid`; `cnf.jwk` covers did:key credentials.
+				return (await resolveCnfKid(cnf)) ?? undefined;
 			} catch {
 				return undefined;
 			}
-			return undefined;
 		}
 		case VerifiableCredentialFormat.MSO_MDOC: {
 			const credentialBytes = fromBase64Url(credential);
@@ -642,14 +642,35 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 			const userHandleB64u = keystore.getUserHandleB64u();
 			const state = btoa(JSON.stringify({ userHandleB64u: userHandleB64u, id: generateRandomIdentifier(12) })).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
 
+			// DIIP v5 requires Wallets to support both ways of asking for a specific credential
+			// type: `authorization_details` with a `credential_configuration_id`, and `scope`.
+			// `authorization_details` is the structured form and the one Issuer Agents must
+			// support, so send it whenever the Authorization Server advertises support — and
+			// always when the credential configuration declares no scope to fall back on.
+			const authorizationDetailsSupported =
+				authzServerMetadata.authzServerMetadata.authorization_details_types_supported?.includes("openid_credential")
+				?? undefined;
+			const useAuthorizationDetails = authorizationDetailsSupported !== false || !scope;
+
 			// OAuth params
 			const params: Record<string, string> = {
-				scope,
 				response_type: "code",
 				client_id: clientId.client_id,
 				state,
 				redirect_uri: redirectUri
 			};
+			if (useAuthorizationDetails) {
+				params["authorization_details"] = JSON.stringify([{
+					type: "openid_credential",
+					credential_configuration_id: credentialConfigurationId,
+				}]);
+			}
+			if (scope) {
+				params["scope"] = scope;
+			}
+			if (!useAuthorizationDetails && !scope) {
+				throw new Error(`Credential configuration ${credentialConfigurationId} declares no scope and the Authorization Server does not support authorization_details`);
+			}
 			if (issuer_state) {
 				params["issuer_state"] = issuer_state;
 			}

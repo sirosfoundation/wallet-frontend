@@ -59,7 +59,10 @@
 		"legendRequired": "Required"
 	},
 	"expiredRibbon": {
-		"expired": "Expired"
+		"expired": "Expired",
+		"notYetValid": "Not yet valid",
+		"revoked": "Revoked",
+		"suspended": "Suspended"
 	},
 	"issuance": {
 		"credentialsHaveErrors": "Errors have been found while verifying the credential you are trying to receive.",
@@ -301,7 +304,10 @@
 		"details": {
 			"availableUsages": "Available Usages",
 			"description": "View all the information about the chosen credential",
-			"expired": "This Credential has been expired"
+			"expired": "This Credential has been expired",
+			"notYetValid": "This Credential is not valid yet",
+			"revoked": "This Credential has been revoked by its issuer",
+			"suspended": "This Credential has been suspended by its issuer"
 		},
 		"presentationsTitle": "Presentations",
 		"slideButtonAriaLabelDisable": "No {{direction}} credential",

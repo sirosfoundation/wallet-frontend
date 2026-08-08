@@ -1136,14 +1136,90 @@ async function addNewCredentialKeypairs(
 	};
 }
 
+/**
+ * Build a `did:jwk` from a public key.
+ *
+ * The method-specific identifier is the base64url-encoded JWK, and the DID document's single
+ * verification method is `<did>#0`.
+ *
+ * @see https://github.com/quartzjer/did-jwk/blob/main/spec.md
+ */
+async function createDidJwk(publicKey: CryptoKey): Promise<string> {
+	const publicKeyJwk = await crypto.subtle.exportKey("jwk", publicKey) as JWK;
+	// Strip the WebCrypto bookkeeping that is not part of the key itself, so the same key always
+	// yields the same DID.
+	const { ext, key_ops, ...jwk } = publicKeyJwk as JWK & { ext?: boolean, key_ops?: string[] };
+	return `did:jwk:${toBase64Url(new TextEncoder().encode(JSON.stringify(jwk)))}`;
+}
+
 async function createDid(publicKey: CryptoKey, didKeyVersion: DidKeyVersion): Promise<string> {
-	if (didKeyVersion === "p256-pub") {
+	if (didKeyVersion === "jwk") {
+		return createDidJwk(publicKey);
+	} else if (didKeyVersion === "p256-pub") {
 		const { didKeyString } = await createW3CDID(publicKey);
 		return didKeyString;
 	} else if (didKeyVersion === "jwk_jcs-pub") {
 		const publicKeyJwk = await crypto.subtle.exportKey("jwk", publicKey);
 		return didUtil.createDid(publicKeyJwk as JWK);
 	}
+	throw new Error(`Unsupported DID key version: ${didKeyVersion}`);
+}
+
+/**
+ * The `kid` a credential key pair is addressed by.
+ *
+ * For `did:jwk` this is the DID URL of the key's verification method — DIIP v5 requires the
+ * `cnf` holder binding to carry a `kid` from the holder's `authentication` relationship, and
+ * `#0` is the only verification method a did:jwk document has. The `did:key` versions keep
+ * using the JWK thumbprint they have always used.
+ */
+async function deriveKidForDid(publicKey: CryptoKey, did: string, didKeyVersion: DidKeyVersion): Promise<string> {
+	if (didKeyVersion === "jwk") {
+		return `${did}#0`;
+	}
+	const pubKey = await crypto.subtle.exportKey("jwk", publicKey);
+	return jose.calculateJwkThumbprint(pubKey as JWK, "sha256");
+}
+
+/**
+ * The local `kid` a credential's `cnf` claim binds it to.
+ *
+ * DIIP v5 binds the Holder with a `cnf.kid` naming a verification method of their DID document,
+ * which is exactly the `kid` stored alongside a `did:jwk` key pair. Credentials issued against
+ * the older `did:key` versions carry `cnf.jwk` instead, and are addressed by JWK thumbprint.
+ */
+/**
+ * Find a stored credential key pair by the `kid` a credential refers to it by.
+ *
+ * A key pair's `kid` depends on `DID_KEY_VERSION`: a DID URL for did:jwk, a JWK thumbprint for
+ * the did:key versions. Formats that identify the holder key by value rather than by name — mdoc
+ * device keys, and SD-JWT `cnf.jwk` — can only produce a thumbprint, so fall back to comparing
+ * thumbprints of the stored public keys. Without this, a wallet configured for did:jwk could not
+ * present the mdoc credentials it already holds.
+ */
+export async function findKeypairByKid(calculatedState: WalletState, kid: string): Promise<CredentialKeyPair | null> {
+	const direct = calculatedState.keypairs.find((k) => k.kid === kid);
+	if (direct) {
+		return direct.keypair;
+	}
+
+	for (const { keypair } of calculatedState.keypairs) {
+		const thumbprint = await jose.calculateJwkThumbprint(keypair.publicKey as JWK, "sha256").catch(() => null);
+		if (thumbprint === kid) {
+			return keypair;
+		}
+	}
+	return null;
+}
+
+export async function resolveCnfKid(cnf: { jwk?: JWK, kid?: string } | undefined): Promise<string | null> {
+	if (cnf?.kid) {
+		return cnf.kid;
+	}
+	if (cnf?.jwk) {
+		return jose.calculateJwkThumbprint(cnf.jwk, "sha256");
+	}
+	return null;
 }
 
 export async function signJwtPresentation([privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState], nonce: string, audience: string, verifiableCredentials: any[], transactionDataResponseParams?: { transaction_data_hashes: string[], transaction_data_hashes_alg: string[] }): Promise<{ vpjwt: string }> {
@@ -1156,19 +1232,20 @@ export async function signJwtPresentation([privateData, mainKey, calculatedState
 	}
 
 	const inputJwt = await SDJwt.fromEncode(verifiableCredentials[0], hasher);
-	const { cnf } = inputJwt.jwt.payload as { cnf?: { jwk?: JWK } };
+	const { cnf } = inputJwt.jwt.payload as { cnf?: { jwk?: JWK, kid?: string } };
 
-	if (!cnf?.jwk) {
-		throw new Error("Holder public key could not be resolved from cnf.jwk attribute");
+	const kid = await resolveCnfKid(cnf);
+	if (!kid) {
+		throw new Error("Holder public key could not be resolved from the cnf claim");
 	}
 
-	const kid = await jose.calculateJwkThumbprint(cnf.jwk, "sha256");
-
-	const keypair = calculatedState.keypairs.filter((k) => k.kid === kid)[0];
+	// An issuer may bind by `cnf.jwk` even when this wallet names its keys by did:jwk URL, so the
+	// lookup has to tolerate either identifier.
+	const keypair = await findKeypairByKid(calculatedState, kid);
 	if (!keypair) {
 		throw new Error("Key pair not found for kid (key ID): " + kid);
 	}
-	const { alg, privateKey } = keypair.keypair;
+	const { alg, privateKey } = keypair;
 	const importedPrivateKey = await crypto.subtle.importKey(
 		'jwk',
 		privateKey,
@@ -1179,18 +1256,20 @@ export async function signJwtPresentation([privateData, mainKey, calculatedState
 	const sdJwt = verifiableCredentials[0];
 	const sd_hash = toBase64Url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sdJwt)));
 	// Build a public-key-only JWK for the KB-JWT header (strip any private key material)
-	const { d: _, ...publicJwk } = cnf.jwk as JWK & { d?: string };
+	const { d: _, ...publicJwk } = (cnf.jwk ?? keypair.publicKey) as JWK & { d?: string };
 	const kbJWT = await new SignJWT({
 		nonce,
 		aud: audience,
 		sd_hash,
 		...transactionDataResponseParams,
 	}).setIssuedAt()
-		.setProtectedHeader({
-			typ: "kb+jwt",
-			alg: alg,
-			jwk: publicJwk,
-		})
+		.setProtectedHeader(
+			// When the credential binds the holder by `kid` (DIIP v5), the KB-JWT names the same
+			// verification method rather than re-embedding the key.
+			cnf.jwk
+				? { typ: "kb+jwt", alg: alg, jwk: publicJwk }
+				: { typ: "kb+jwt", alg: alg, kid: kid },
+		)
 		.sign(importedPrivateKey);
 
 	const jws = sdJwt + kbJWT;
@@ -1205,26 +1284,28 @@ export async function generateOpenid4vciProofs(
 	issuer: string,
 	numberOfKeyPairs: number = 1
 ): Promise<[{ proof_jwts: string[] }, OpenedContainer]> {
-	const deriveKid = async (publicKey: CryptoKey) => {
-		const pubKey = await crypto.subtle.exportKey("jwk", publicKey);
-		const jwkThumbprint = await jose.calculateJwkThumbprint(pubKey as JWK, "sha256");
-		return jwkThumbprint;
-	};
+	const deriveKid = (publicKey: CryptoKey, did: string) => deriveKidForDid(publicKey, did, didKeyVersion);
 	const { privateKeys, newPrivateData, keypairs } = await addNewCredentialKeypairs(container, didKeyVersion, deriveKid, numberOfKeyPairs);
+
+	const usesDidJwk = didKeyVersion === "jwk";
 
 	const proof_jwts = await Promise.all(keypairs.map(async (keypair, index) => {
 		const privateKey = privateKeys[index];
 		const jws: string = await new SignJWT({
 			nonce: nonce,
 			aud: audience,
-			iss: issuer,
+			// DIIP v5: the `jwt` proof type carries the Holder's did:jwk as the `iss` value.
+			// Without did:jwk there is no DID to name, so the caller-supplied client_id stands in.
+			iss: usesDidJwk ? keypair.did : issuer,
 		})
 			.setIssuedAt()
-			.setProtectedHeader({
-				alg: keypair.alg,
-				typ: "openid4vci-proof+jwt",
-				jwk: { ...keypair.publicKey, kid: keypair.kid, key_ops: ['verify'] } as JWK,
-			})
+			.setProtectedHeader(
+				usesDidJwk
+					// DIIP v5 identifies the proof key by a `kid` from the Holder's DID document
+					// rather than embedding the key in the header.
+					? { alg: keypair.alg, typ: "openid4vci-proof+jwt", kid: keypair.kid }
+					: { alg: keypair.alg, typ: "openid4vci-proof+jwt", jwk: { ...keypair.publicKey, kid: keypair.kid, key_ops: ['verify'] } as JWK },
+			)
 			.sign(privateKey);
 		return jws;
 	}));
@@ -1238,11 +1319,7 @@ export async function generateKeypairs(
 	didKeyVersion: DidKeyVersion,
 	numberOfKeyPairs: number = 1
 ): Promise<[{ keypairs: CredentialKeyPair[] }, OpenedContainer]> {
-	const deriveKid = async (publicKey: CryptoKey) => {
-		const pubKey = await crypto.subtle.exportKey("jwk", publicKey);
-		const jwkThumbprint = await jose.calculateJwkThumbprint(pubKey as JWK, "sha256");
-		return jwkThumbprint;
-	};
+	const deriveKid = (publicKey: CryptoKey, did: string) => deriveKidForDid(publicKey, did, didKeyVersion);
 	const { newPrivateData, keypairs } = await addNewCredentialKeypairs(container, didKeyVersion, deriveKid, numberOfKeyPairs);
 	return [{ keypairs }, newPrivateData];
 }
@@ -1389,13 +1466,13 @@ export async function generateDeviceResponseWithProximity([privateData, mainKey,
 	const devicePublicKeyJwk = COSEKeyToJWK(deviceKey);
 	const kid = await jose.calculateJwkThumbprint(devicePublicKeyJwk, "sha256");
 
-	// get the keypair based on the jwk Thumbprint
-	const keypair = calculatedState.keypairs.filter((k) => k.kid === kid)[0];
+	// get the keypair the mdoc's device key belongs to
+	const keypair = await findKeypairByKid(calculatedState, kid);
 	if (!keypair) {
 		throw new Error("Key pair not found for kid (key ID): " + kid);
 	}
 
-	const { alg, privateKey } = keypair.keypair;
+	const { alg, privateKey } = keypair;
 	const privateKeyJwk = privateKey;
 
 	const options = getCborEncodeDecodeOptions();

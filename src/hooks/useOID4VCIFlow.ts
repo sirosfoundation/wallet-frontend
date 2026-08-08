@@ -1,7 +1,7 @@
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useOIDFlowTransportSafe } from '@/context/OIDFlowTransportContext';
 import OpenID4VCIContext from '@/context/OpenID4VCIContext';
-import { CredentialOfferSchema, VerifiableCredentialFormat } from 'wallet-common';
+import { CredentialOfferSchema, VerifiableCredentialFormat, detectCredentialFormat } from 'wallet-common';
 import type { OID4VCIFlowResult } from '@/lib/openid-flow/types/OID4VCITypes';
 import type { OIDFlowActiveTransportType, OIDFlowProgressEvent } from '@/lib/openid-flow/types/OIDFlowTypes';
 import { DISPLAY_ISSUANCE_WARNINGS, OPENID4VCI_REDIRECT_URI } from '@/config';
@@ -479,6 +479,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 				if (
 					batchFormat === VerifiableCredentialFormat.VC_SDJWT ||
 					batchFormat === VerifiableCredentialFormat.DC_SDJWT ||
+					batchFormat === VerifiableCredentialFormat.W3C_VCDM_SDJWT ||
 					batchFormat === VerifiableCredentialFormat.MSO_MDOC
 				) {
 					kid = await deriveHolderKidFromCredential(c.credential, batchFormat) ?? '';
@@ -607,7 +608,11 @@ function inferFormatFromCredential(credential: string): VerifiableCredentialForm
 		const header = JSON.parse(atob(headerB64.replace(/-/g, '+').replace(/_/g, '/')));
 
 		if (header.typ === 'dc+sd-jwt') return VerifiableCredentialFormat.DC_SDJWT;
-		if (header.typ === 'vc+sd-jwt') return VerifiableCredentialFormat.VC_SDJWT;
+		if (header.typ === 'vc+sd-jwt') {
+			// VC-JOSE-COSE secures W3C VCDM 2.0 credentials with this same typ; the payload
+			// tells them apart.
+			return detectCredentialFormat(credential) ?? VerifiableCredentialFormat.VC_SDJWT;
+		}
 		if (header.typ === 'JWT' || header.typ === 'jwt_vc_json') return VerifiableCredentialFormat.JWT_VC_JSON;
 	} catch (error) {
 		logger.debug('Failed to parse credential as JWT for format inference', { error });

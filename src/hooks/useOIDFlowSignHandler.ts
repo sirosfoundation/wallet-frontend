@@ -218,8 +218,11 @@ async function createVpToken(
 	const { nonce, audience, responseUri, origin, verifierJwkThumbprint } = params;
 
 	switch (detectCredentialFormat(credentialRaw)) {
+			// W3C_VCDM_SDJWT is a W3C VCDM 2.0 credential secured with SD-JWT: presented through
+			// the same SD-JWT + KB-JWT envelope, only its payload vocabulary differs.
 			case VerifiableCredentialFormat.DC_SDJWT:
 			case VerifiableCredentialFormat.VC_SDJWT:
+			case VerifiableCredentialFormat.W3C_VCDM_SDJWT:
 			case VerifiableCredentialFormat.JWT_VC_JSON:
 				return await createVpTokenFromSdJwt(
 					keystore,
