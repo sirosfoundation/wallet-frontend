@@ -12,7 +12,7 @@
  * - Better error handling with flow state
  */
 
-import { TrustStatus as TrustStatusEnum } from 'wallet-common';
+import { TrustStatus as TrustStatusEnum, parseClientIdScheme } from 'wallet-common';
 import type { IOIDFlowTransport } from '../types/IOIDFlowTransport';
 import type {
 	OIDFlowRequest,
@@ -338,6 +338,13 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				// of this WebSocket-specific encoding.
 				client_attestation: params.clientAttestation,
 				client_attestation_pop: params.clientAttestationPoP,
+				// DIIP v5 requires the Wallet to ask for a credential configuration by
+				// `authorization_details`. The engine builds the Authorization Request, so the
+				// wallet states the intent here and the engine forwards it. Omitted entirely
+				// when absent - an empty value is not the same as not asking.
+				...(params.authorizationDetails
+					? { authorization_details: params.authorizationDetails }
+					: {}),
 			});
 
 			return this.mapOID4VCIResponse(response);
@@ -779,13 +786,13 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 					});
 					break;
 				case 'credential_verifier':
-					const scheme = (request.context?.client_id_scheme as string) || 'x509_san_dns';
 					const clientId = request.subject_id;
-
-					let identifier = clientId;
-					if (scheme === 'x509_san_dns' && clientId.startsWith('x509_san_dns:')) {
-						identifier = clientId.slice('x509_san_dns:'.length);
-					}
+					// Derive the scheme from the client_id itself so OID4VP Client Identifier
+					// Prefixes are handled — DIIP v5 requires the `did` scheme, which arrives as
+					// `decentralized_identifier:did:web:…`. An explicit hint from the backend wins.
+					const parsedScheme = parseClientIdScheme(clientId);
+					const scheme = (request.context?.client_id_scheme as string) || parsedScheme.scheme;
+					const identifier = scheme === parsedScheme.scheme ? parsedScheme.identifier : clientId;
 
 					result = await this.trustEvaluators.evaluateVerifierTrust({
 						clientIdScheme: {

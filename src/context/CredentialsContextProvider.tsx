@@ -2,7 +2,7 @@ import React, { useState, useCallback, useContext, useRef, useEffect, useMemo } 
 import SessionContext from './SessionContext';
 import { initializeCredentialEngine } from "../lib/initializeCredentialEngine";
 import { AuthZENClient, AuthZENClientConfig, CredentialVerificationError, ParsedCredential } from "wallet-common";
-import CredentialsContext, { ExtendedVcEntity, Instance } from "./CredentialsContext";
+import CredentialsContext, { CredentialStatus, ExtendedVcEntity, Instance } from "./CredentialsContext";
 import { useOpenID4VCIHelper } from "@/lib/services/OpenID4VCIHelper";
 import { CurrentSchema } from '@/services/WalletStateSchema';
 import { logger } from '../logger';
@@ -10,6 +10,21 @@ import { BACKEND_URL } from '@/config';
 import { getTenantFromUrlPath } from '@/lib/tenant';
 import { useHttpClient } from '@/hooks/useHttpClient';
 import Spinner from '@/components/Shared/Spinner';
+
+/**
+ * Map the verification errors of the DIIP v5 validity and revocation algorithm onto the status a
+ * credential is shown with. Any other verification failure is not a status the user can act on,
+ * so it is left unset.
+ */
+function toCredentialStatus(error: CredentialVerificationError): CredentialStatus {
+	switch (error) {
+		case CredentialVerificationError.ExpiredCredential: return 'expired';
+		case CredentialVerificationError.NotYetValidCredential: return 'notYetValid';
+		case CredentialVerificationError.RevokedCredential: return 'revoked';
+		case CredentialVerificationError.SuspendedCredential: return 'suspended';
+		default: return null;
+	}
+}
 
 type WalletStateCredential = CurrentSchema.WalletStateCredential;
 
@@ -162,13 +177,15 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 						return null;
 					}
 					const result = await credentialVerifyingEngine.verify({ rawCredential: credential.data, opts: {} });
+					const credentialStatus = result.success === false ? toCredentialStatus(result.error) : null;
 
 					// Attach the instances array from the map and add parsedCredential
 					return {
 						...credential,
 						instances: instancesMap[credential.batchId],
 						parsedCredential,
-						isExpired: result.success === false && result.error === CredentialVerificationError.ExpiredCredential,
+						credentialStatus,
+						isExpired: credentialStatus === 'expired',
 						sigCount: instancesMap[credential.batchId].reduce((acc: number, curr: Instance) =>
 							acc + curr.sigCount
 							, 0),

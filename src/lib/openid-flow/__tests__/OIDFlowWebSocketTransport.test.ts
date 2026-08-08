@@ -152,6 +152,58 @@ describe('OIDFlowWebSocketTransport', () => {
 	});
 
 	describe('OID4VCI Flow', () => {
+		it('forwards authorization_details on flow_start when the wallet asks for a configuration', async () => {
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+
+			const authorizationDetails = [
+				{ type: 'openid_credential' as const, credential_configuration_id: 'ehic' },
+			];
+			const flowPromise = transport.startOID4VCIFlow({
+				credentialOfferUri: 'openid-credential-offer://?credential_offer=...',
+				authorizationDetails,
+			});
+
+			await vi.waitFor(() => {
+				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(1);
+			});
+
+			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[1]);
+			expect(sentMessage.authorization_details).toEqual(authorizationDetails);
+
+			mockWebSocketInstances[0].simulateMessage({
+				flow_id: sentMessage.flow_id,
+				type: 'flow_complete',
+				payload: {},
+			});
+			await flowPromise;
+		});
+
+		it('omits authorization_details entirely when the wallet is not asking that way', async () => {
+			// Absent is not the same as empty: the engine falls back to `scope`, and a key with
+			// an empty value would be something it has to reject.
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+
+			const flowPromise = transport.startOID4VCIFlow({
+				credentialOfferUri: 'openid-credential-offer://?credential_offer=...',
+			});
+
+			await vi.waitFor(() => {
+				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(1);
+			});
+
+			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[1]);
+			expect('authorization_details' in sentMessage).toBe(false);
+
+			mockWebSocketInstances[0].simulateMessage({
+				flow_id: sentMessage.flow_id,
+				type: 'flow_complete',
+				payload: {},
+			});
+			await flowPromise;
+		});
+
 		it('should send flow_start message with credential_offer_uri', async () => {
 			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
