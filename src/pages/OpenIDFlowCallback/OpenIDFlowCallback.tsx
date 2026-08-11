@@ -350,8 +350,9 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		}>,
 		verifierDomainName: string,
 		verifierPurpose: string,
+		dcqlQuery?: any,
 	) => {
-		logger.debug("Prompting for credential selection...", { conformantCredentialsMap, verifierDomainName, verifierPurpose });
+		logger.debug("Prompting for credential selection...", { conformantCredentialsMap, verifierDomainName, verifierPurpose, dcqlQuery });
 
 		if (!showCredentialSelectionPopup) {
 			throw new Error('No credential selection popup configured');
@@ -361,6 +362,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			conformantCredentialsMap,
 			verifierDomainName,
 			verifierPurpose,
+			dcqlQuery,
 		);
 
 		logger.debug("User selection:", selection);

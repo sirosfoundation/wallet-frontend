@@ -66,8 +66,9 @@ export const OpenID4VPContextProvider = ({ children }: React.PropsWithChildren) 
 			}>,
 			verifierDomainName: string,
 			verifierPurpose: string,
+			dcqlQuery?: any,
 		): Promise<Map<string, number>> => {
-			return showPopup({ conformantCredentialsMap, verifierDomainName, verifierPurpose });
+			return showPopup({ conformantCredentialsMap, verifierDomainName, verifierPurpose, dcqlQuery });
 		},
 		[showPopup]
 	);

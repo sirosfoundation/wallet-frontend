@@ -46,6 +46,7 @@ export interface UseOID4VPFlowOptions {
 		conformantCredentialsMap: Record<string, { credentials: number[]; requestedFields: Array<{ name?: string; path?: (string | null)[] }> }>,
 		verifierDomainName: string,
 		verifierPurpose: string,
+		dcqlQuery?: any,
 	) => Promise<Map<string, number>>;
 }
 
@@ -300,6 +301,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				conformantCredentialsMap,
 				verifierInfo?.name ?? '',
 				verifierInfo?.purpose ?? '',
+				dcqlQuery,
 			);
 
 			// Convert to OID4VPSelectedCredential[]
