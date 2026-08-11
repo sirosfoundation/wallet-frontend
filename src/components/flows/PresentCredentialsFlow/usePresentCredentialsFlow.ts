@@ -32,7 +32,7 @@ export function usePresentCredentialsFlow() {
 				dcqlQuery,
 				conformantCredentials,
 				vcEntityList,
-				language,
+				[language, 'en'],
 			);
 
 			return new Promise((resolve, reject) => {
@@ -85,7 +85,7 @@ async function resolveCredentialPresentationRequest(
 	dcqlQuery: DcqlQuery.Input,
 	conformantCredentials: ConformantCredentials,
 	vcEntityList: ExtendedVcEntity[],
-	preferredLanguage: string
+	preferredLanguages: string[]
 ): Promise<PresentCredentialsRequest> {
 	const verifier: PresentCredentialsVerifier = {
 		name: verifierInfo.name,
@@ -107,19 +107,20 @@ async function resolveCredentialPresentationRequest(
 			})
 			.map(async (vcEntity) => {
 				const { parsedCredential } = vcEntity;
-				const { name } = parsedCredential.metadata.credential;
+				const { name, rendering } = parsedCredential.metadata.credential;
 				const claims = parsedCredential.metadata.credential.TypeMetadata?.claims ?? [];
 
+				const { backgroundColor, textColor, logo } = await rendering(preferredLanguages);
 				return {
 					batchId: vcEntity.batchId,
 					display: {
-						name: await name([preferredLanguage]),
-						// TODO: expose color and icon from credential metadata
-						color: null,
-						icon: null,
+						name: await name(preferredLanguages),
+						backgroundColor,
+						textColor,
+						logo,
 					},
 					fields: (conformant?.requestedFields ?? []).map((f) => ({
-						name: resolveClaimLabel(claims, f, preferredLanguage),
+						name: resolveClaimLabel(claims, f, preferredLanguages),
 						value: getValueByPath(f.path ?? [], parsedCredential.signedClaims),
 					})),
 				};
@@ -184,11 +185,11 @@ function getValueByPath(path: string[], obj: Record<string, unknown>): any {
 function resolveClaimLabel(
 	claims: Array<{ path: Array<string | number | null>; display?: Array<{ locale: string; label: string }> }>,
 	field: { name?: string; path?: string[] },
-	preferredLanguage: string,
+	preferredLanguages: string[],
 ): string {
 	const target = JSON.stringify(field.path ?? []);
 	const claim = claims.find((c) => JSON.stringify(c.path.filter((s) => s !== null)) === target);
-	const label = claim?.display?.find((d) => d.locale === preferredLanguage)?.label
+	const label = claim?.display?.find((d) => preferredLanguages.includes(d.locale))?.label
 		?? claim?.display?.[0]?.label;
 
 	return label ?? field.name ?? field.path?.filter(Boolean).join(' › ') ?? 'Unknown';

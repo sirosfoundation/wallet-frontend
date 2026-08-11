@@ -10,8 +10,9 @@ export type PresentCredentialsQuery = {
 		batchId: number;
 		display: {
 			name: string;
-			color?: string;
-			icon?: string;
+			backgroundColor?: string;
+			textColor?: string;
+			logo?: string;
 		};
 		fields: Array<{
 			name: string;

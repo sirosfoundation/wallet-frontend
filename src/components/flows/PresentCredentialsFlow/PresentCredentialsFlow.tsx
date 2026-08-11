@@ -163,17 +163,19 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 					<dd key={entry.id} className="mt-2">
 						<div className="border border-lm-gray-700 dark:border-dm-gray-400 rounded-md p-4 flex flex-col gap-4">
 							<div
-								className="px-3 py-1 rounded-md flex justify-between items-center bg-(--color) text-white"
+								className="px-3 py-1 rounded-md flex justify-between items-center bg-(--bg-color) text-(--text-color)"
 								style={
 									{
-										'--color':
-											entry.selected?.display.color ?? 'var(--color-primary)',
+										'--bg-color':
+											entry.selected?.display.backgroundColor ?? 'var(--color-primary)',
+										'--text-color':
+											entry.selected?.display.textColor ?? '#fff',
 									} as React.CSSProperties
 								}
 							>
 								<p className="font-bold">{entry.selected?.display.name}</p>
-								{entry.selected?.display.icon ? (
-									<img src={entry.selected.display.icon} alt="" />
+								{entry.selected?.display.logo ? (
+									<img className="max-h-8 max-w-8" src={entry.selected.display.logo} alt="" />
 								) : (
 									<IdCardIcon size={24} />
 								)}
