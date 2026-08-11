@@ -91,6 +91,9 @@ export type ConformantCredentials = Map<
 
 /**
  * A map of selected credentials, keyed by the credential ID.
+ *
+ * @deprecated Unused. Selection state is tracked inline in the overview screen as
+ * a `Record<queryId, batchId>`; this type is not referenced anywhere.
  */
 export type CredentialSelection = {
 	selected: Map<string, number>;

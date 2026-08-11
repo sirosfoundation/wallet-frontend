@@ -58,6 +58,10 @@ export const OpenID4VPContextProvider = ({ children }: React.PropsWithChildren) 
 		}));
 	}, [setPopupConsentState]);
 
+	/**
+	 * @deprecated Superseded by the `PresentCredentialsFlow` presentation UI
+	 * (`usePresentCredentialsFlow` + `onCredentialSelection`).
+	 */
 	const showCredentialSelectionPopup = useCallback(
 		async (
 			conformantCredentialsMap: Record<string, {

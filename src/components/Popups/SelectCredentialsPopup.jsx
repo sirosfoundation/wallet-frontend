@@ -145,6 +145,10 @@ const StepTitle = ({ currentKey, t }) => {
 	);
 };
 
+/**
+ * @deprecated Superseded by the `PresentCredentialsFlow` / `usePresentCredentialsFlow`
+ * OID4VP presentation UI.
+ */
 function SelectCredentialsPopup({ popupState, setPopupState, showPopup, hidePopup, vcEntityList }) {
 
 	const [vcEntities, setVcEntities] = useState(null);

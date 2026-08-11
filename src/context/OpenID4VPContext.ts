@@ -1,6 +1,10 @@
 import React, { createContext } from "react";
 import { IOpenID4VP } from "../lib/interfaces/IOpenID4VP";
 
+/**
+ * @deprecated Superseded by `usePresentCredentialsFlow`'s `onCredentialSelection`
+ * handling
+ */
 export type CredentialSelectionPopupFn = (
 	conformantCredentialsMap: Record<string, {
 		credentials: number[];
@@ -12,6 +16,7 @@ export type CredentialSelectionPopupFn = (
 
 export type OpenID4VPContextValue = {
 	openID4VP: IOpenID4VP;
+	/** @deprecated Superseded by the `PresentCredentialsFlow` presentation UI. */
 	showCredentialSelectionPopup?: CredentialSelectionPopupFn;
 	showTransactionDataConsentPopup?: (options: Record<string, unknown>) => Promise<boolean>;
 };
