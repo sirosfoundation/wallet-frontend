@@ -15,6 +15,17 @@ import type {
 	PresentCredentialsVerifier,
 } from './types';
 
+/**
+ * Hook for managing the Present Credentials Flow.
+ *
+ * Provides state and functions for displaying the various screens of the flow.
+ *
+ * Used in tandem with the {@link PresentCredentialsFlow} component
+ * to render the flow.
+ *
+ * See {@link PresentCredentialsFlowView} for details on the view state.
+ * See {@link PresentCredentialsRequest} for details on the request data.
+ */
 export function usePresentCredentialsFlow() {
 	const [view, setView] = useState<PresentCredentialsFlowView>({ status: 'loading' });
 	const sharingAbort = useRef<AbortController | null>(null);
@@ -47,9 +58,6 @@ export function usePresentCredentialsFlow() {
 		[vcEntityList, language],
 	);
 
-	/**
-	 * Show the processing screen for cancellable, pre-send work.
-	 */
 	const displayProcessingScreen = useCallback((messages: string[] = ['Loading...']): AbortSignal => {
 		const controller = new AbortController();
 		sharingAbort.current = controller;
@@ -58,9 +66,6 @@ export function usePresentCredentialsFlow() {
 		return controller.signal;
 	}, []);
 
-	/**
-	 * Show the sharing screen while the response is sent to the verifier.
-	 */
 	const displaySendingScreen = useCallback((): void => {
 		sharingAbort.current = null;
 		setView({ status: 'sharing', messages: ['Sending...'], onCancel: undefined, });
@@ -83,16 +88,51 @@ export function usePresentCredentialsFlow() {
 	}, []);
 
 	return {
+		/**
+		 * The current view of the Present Credentials Flow.
+		 * This can be used to render the appropriate screen for the user.
+		 * The view is a discriminated union of the possible states of the flow.
+		 * See {@link PresentCredentialsFlowView} for details.
+		 */
 		view,
+		/**
+		 * Display the request overview screen, allowing the user to
+		 * accept or decline the request.
+		 * See {@link displayRequestOverviewScreen} for details.
+		 */
 		displayRequestOverviewScreen,
+		/**
+		 * Display the processing screen for cancellable, pre-send work.
+		 * See {@link displayProcessingScreen} for details.
+		 */
 		displayProcessingScreen,
+		/**
+		 * Display the sharing screen while the response is sent to the verifier.
+		 * See {@link displaySendingScreen} for details.
+		 */
 		displaySendingScreen,
+		/**
+		 * Display the completed screen after the response has been successfully sent.
+		 * See {@link displayCompletedScreen} for details.
+		 */
 		displayCompletedScreen,
+		/**
+		 * Display the error screen if something goes wrong.
+		 * See {@link displayErrorScreen} for details.
+		 */
 		displayErrorScreen,
+		/**
+		 * Reset the flow to the initial loading state.
+		 * See {@link resetScreen} for details.
+		 */
 		resetScreen,
 	};
 }
 
+/**
+ * Resolve a credential presentation request into a PresentCredentialsRequest object.
+ * This includes shaping the credentials, extracting available claims, and resolving display information.
+ */
 async function resolveCredentialPresentationRequest(
 	verifierInfo: OID4VPVerifierInfo,
 	dcqlQuery: DcqlQuery.Input,
@@ -163,7 +203,16 @@ async function resolveCredentialPresentationRequest(
 	};
 }
 
-
+/**
+ * Get a value from an object by a path array, where null segments indicate
+ * "any key".
+ *
+ * @example
+ * ```ts
+ * getValueByPath(['a', null, 'c'], { a: { x: { c: 1 }, y: { c: 2 } } });
+ * // [1, 2]
+ * ```
+ */
 function getValueByPath(path: string[], obj: Record<string, unknown>): any {
 	if (!Array.isArray(path) || path.length === 0) return undefined;
 
@@ -195,6 +244,10 @@ function getValueByPath(path: string[], obj: Record<string, unknown>): any {
 	return result;
 }
 
+/**
+ * Resolve a claim label from the claims metadata, falling back to
+ * the field name or path if no label is found.
+ */
 function resolveClaimLabel(
 	claims: Array<{ path: Array<string | number | null>; display?: Array<{ locale: string; label: string }> }>,
 	field: { name?: string; path?: string[] },

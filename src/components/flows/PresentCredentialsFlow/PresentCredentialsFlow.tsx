@@ -73,6 +73,9 @@ const RedirectHome: FC = () => {
 	return <Navigate to={buildPath()} />;
 };
 
+/**
+ * Loading screen for the Present Credentials Flow.
+ */
 const PresentationLoadingScreen: FC = () => (
 	<FlowScreen>
 		<div className="flex flex-col gap-4 justify-center items-center h-[80vh]">
