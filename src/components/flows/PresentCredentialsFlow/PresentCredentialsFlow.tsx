@@ -217,7 +217,10 @@ const PresentationSharingScreen: FC<PresentationSharingScreenProps> = ({
 
 	useEffect(() => {
 		if (items.length <= 1) return;
-		const id = setInterval(() => setIndex((i) => (i + 1) % items.length), 5000);
+		const id = setInterval(
+			() => setIndex((i) => (i + 1) % items.length),
+			1000 * 8,
+		);
 		return () => clearInterval(id);
 	}, [items.length]);
 

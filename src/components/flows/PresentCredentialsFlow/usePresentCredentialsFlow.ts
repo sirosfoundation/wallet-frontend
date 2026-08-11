@@ -50,10 +50,10 @@ export function usePresentCredentialsFlow() {
 	/**
 	 * Show the processing screen for cancellable, pre-send work.
 	 */
-	const displayProcessingScreen = useCallback((): AbortSignal => {
+	const displayProcessingScreen = useCallback((messages: string[] = ['Loading...']): AbortSignal => {
 		const controller = new AbortController();
 		sharingAbort.current = controller;
-		setView({ status: 'sharing', onCancel: () => controller.abort() });
+		setView({ status: 'sharing', messages, onCancel: () => controller.abort() });
 
 		return controller.signal;
 	}, []);
@@ -63,7 +63,7 @@ export function usePresentCredentialsFlow() {
 	 */
 	const displaySendingScreen = useCallback((): void => {
 		sharingAbort.current = null;
-		setView({ status: 'sharing', onCancel: undefined });
+		setView({ status: 'sharing', messages: ['Sending...'], onCancel: undefined, });
 	}, []);
 
 	const displayCompletedScreen = useCallback(async (result: PresentationResult) => {
