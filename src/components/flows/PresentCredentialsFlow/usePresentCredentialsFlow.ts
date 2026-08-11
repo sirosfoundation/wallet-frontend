@@ -1,13 +1,18 @@
 import { useState, useRef, useCallback, useContext, isValidElement } from 'react';
+import { useTranslation } from 'react-i18next';
 import { DcqlQuery } from 'dcql';
 import { type OID4VPVerifierInfo } from '@/lib/openid-flow';
-import type { ConformantCredentials, PresentationResult, PresentCredentialSet, PresentCredentialsFlowView, PresentCredentialsQuery, PresentCredentialsRequest, PresentCredentialsResult, PresentCredentialsVerifier } from './types';
 import CredentialsContext, { ExtendedVcEntity } from '@/context/CredentialsContext';
-import { useTranslation } from 'react-i18next';
-
-// TODO: Update the method names to indicate we're modifying UI state
-// and not actually performing an action, for example "beginSharing" is not
-// the best name.
+import type {
+	ConformantCredentials,
+	PresentationResult,
+	PresentCredentialSet,
+	PresentCredentialsFlowView,
+	PresentCredentialsQuery,
+	PresentCredentialsRequest,
+	PresentCredentialsResult,
+	PresentCredentialsVerifier,
+} from './types';
 
 export function usePresentCredentialsFlow() {
 	const [view, setView] = useState<PresentCredentialsFlowView>({ status: 'loading' });
@@ -15,7 +20,7 @@ export function usePresentCredentialsFlow() {
 	const { vcEntityList } = useContext(CredentialsContext);
 	const { i18n: { language } } = useTranslation();
 
-	const requestSelection = useCallback(
+	const displayRequestOverviewScreen = useCallback(
 		async (
 			verifierInfo: OID4VPVerifierInfo,
 			dcqlQuery: DcqlQuery.Input,
@@ -41,14 +46,14 @@ export function usePresentCredentialsFlow() {
 		[vcEntityList, language],
 	);
 
-	const beginSharing = useCallback((): AbortSignal => {
+	const displaySharingScreen = useCallback((): AbortSignal => {
 		const controller = new AbortController();
 		sharingAbort.current = controller;
 		setView({ status: 'sharing', onCancel: () => controller.abort() });
 		return controller.signal;
 	}, []);
 
-	const sharingComplete = useCallback(async (result: PresentationResult) => {
+	const displayCompletedScreen = useCallback(async (result: PresentationResult) => {
 		setView({ status: 'shared', result });
 
 		return new Promise((resolve) => {
@@ -56,15 +61,22 @@ export function usePresentCredentialsFlow() {
 		});
 	}, []);
 
-	const sharingFailed = useCallback((error: string, onRetry: () => void) => {
+	const displayFailedScreen = useCallback((error: string, onRetry: () => void) => {
 		setView({ status: 'error', error, onRetry });
 	}, []);
 
-	const resetSharing = useCallback(() => {
+	const resetScreen = useCallback(() => {
 		setView({ status: 'loading' });
 	}, []);
 
-	return { view, requestSelection, beginSharing, sharingComplete, sharingFailed, resetSharing };
+	return {
+		view,
+		displayRequestOverviewScreen,
+		displaySharingScreen,
+		displayCompletedScreen,
+		displayFailedScreen,
+		resetScreen,
+	};
 }
 
 async function resolveCredentialPresentationRequest(
