@@ -160,8 +160,8 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 			</div>
 			<dl>
 				<dt className="font-bold not-first:mt-4">{t('presentCredentialsFlow.overview.requester')}</dt>
-				{[verifier.name, verifier.domain].map((info, index) => (
-					<dd key={index} className="mt-2">
+				{[verifier.name, verifier.domain].map((info) => (
+					<dd key={info} className="mt-2">
 						{info}
 					</dd>
 				))}
