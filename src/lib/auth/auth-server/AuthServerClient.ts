@@ -186,8 +186,16 @@ export class AuthServerClient {
 		const request = (async () => {
 			const res = await this.#post(
 				this.#endpointToken,
-				{ aud, tac, tenant_id: tenantId, anonymous },
-				{ 'X-Token-Mode': 'session' },
+				{
+					aud,
+					tac,
+					tenant_id: tenantId,
+					anonymous,
+				},
+				{
+					'X-Token-Mode': 'session',
+					'X-Tenant-ID': tenantId,
+				},
 			);
 
 			const { success, data } = TokenResponseSchema.safeParse(res.data);
@@ -206,9 +214,10 @@ export class AuthServerClient {
 		}
 	}
 
-	async logout(): Promise<void> {
-		await axios.delete(this.#url(this.#endpointSession), {
-			withCredentials: true,
+	async logout(tenantId: string): Promise<void> {
+		await this.#delete(this.#endpointSession, {
+			'X-Token-Mode': 'session',
+			'X-Tenant-ID': tenantId,
 		});
 	}
 
@@ -217,14 +226,32 @@ export class AuthServerClient {
 		body: object,
 		headers: Record<string, string> = {},
 	): Promise<AxiosResponse> {
-		return axios.post(this.#url(path), body, {
+		return this.#request('POST', path, headers, body);
+	}
+
+	async #delete(
+		path: string,
+		headers: Record<string, string> = {},
+	): Promise<AxiosResponse> {
+		return this.#request('DELETE', path, headers);
+	}
+
+	async #request(
+		method: 'GET' | 'POST' | 'DELETE',
+		path: string,
+		headers: Record<string, string>,
+		body?: object,
+	): Promise<AxiosResponse> {
+		return axios.request({
+			method,
+			url: this.#url(path),
 			headers: { 'Content-Type': 'application/json', ...headers },
 			withCredentials: true,
+			data: body,
 			transformRequest: (data) => jsonStringifyTaggedBinary(data),
 			transformResponse: transformTaggedResponse,
 		});
 	}
-
 
 	#url(path: string): string {
 		return new URL(path, this.#baseUrl).toString();
