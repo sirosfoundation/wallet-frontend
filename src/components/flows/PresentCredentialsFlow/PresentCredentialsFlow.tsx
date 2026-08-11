@@ -52,7 +52,7 @@ const PresentCredentialsFlowRouter: FC<PresentCredentialsFlowRouterProps> = ({
 }) => {
 	switch (view.status) {
 		case 'loading':
-			return <Spinner />;
+			return <PresentationLoadingScreen />;
 		case 'request':
 			return <PresentationOverviewScreen {...view} />;
 		case 'sharing':
@@ -72,6 +72,14 @@ const RedirectHome: FC = () => {
 	const { buildPath } = useTenant();
 	return <Navigate to={buildPath()} />;
 };
+
+const PresentationLoadingScreen: FC = () => (
+	<FlowScreen>
+		<div className="flex flex-col gap-4 justify-center items-center h-[80vh]">
+			<Spinner size="large" standalone />
+		</div>
+	</FlowScreen>
+);
 
 type PresentationOverviewScreenProps = {
 	request: PresentCredentialsRequest;
