@@ -42,6 +42,13 @@ export type PresentationResult = {
 	redirectUri?: string;
 };
 
+export type PresentationErrorState = {
+	title: string;
+	description: string;
+	err?: Error;
+	onClose: () => void;
+};
+
 export type ConformantCredentials = Map<
 	string,
 	{
@@ -67,4 +74,4 @@ export type PresentCredentialsFlowView =
 	}
 	| { status: 'sharing'; onCancel: () => void }
 	| { status: 'shared'; result: PresentationResult }
-	| { status: 'error'; error: string; onRetry: () => void };
+	| { status: 'error'; state: PresentationErrorState };

@@ -5,6 +5,7 @@ import { type OID4VPVerifierInfo } from '@/lib/openid-flow';
 import CredentialsContext, { ExtendedVcEntity } from '@/context/CredentialsContext';
 import type {
 	ConformantCredentials,
+	PresentationErrorState,
 	PresentationResult,
 	PresentCredentialSet,
 	PresentCredentialsFlowView,
@@ -61,8 +62,8 @@ export function usePresentCredentialsFlow() {
 		});
 	}, []);
 
-	const displayFailedScreen = useCallback((error: string, onRetry: () => void) => {
-		setView({ status: 'error', error, onRetry });
+	const displayErrorScreen = useCallback((state: PresentationErrorState) => {
+		setView({ status: 'error', state });
 	}, []);
 
 	const resetScreen = useCallback(() => {
@@ -74,7 +75,7 @@ export function usePresentCredentialsFlow() {
 		displayRequestOverviewScreen,
 		displaySharingScreen,
 		displayCompletedScreen,
-		displayFailedScreen,
+		displayErrorScreen,
 		resetScreen,
 	};
 }

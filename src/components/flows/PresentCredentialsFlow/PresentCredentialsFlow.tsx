@@ -7,8 +7,9 @@ import {
 	type ReactElement,
 } from 'react';
 import { Navigate } from 'react-router-dom';
-import { CircleCheckIcon, IdCardIcon } from 'lucide-react';
+import { CircleCheckIcon, CircleXIcon, IdCardIcon } from 'lucide-react';
 import type {
+	PresentationErrorState,
 	PresentationResult,
 	PresentCredentialsFlowView,
 	PresentCredentialsRequest,
@@ -264,27 +265,32 @@ const PresentationCompleteScreen: FC<PresentationCompleteScreenProps> = ({
 };
 
 type PresentationErrorScreenProps = {
-	error: string;
-	onRetry: () => void;
+	state: PresentationErrorState
 };
 
 /**
  * Screen that shows the error state of the presentation request.
  */
 const PresentationErrorScreen: FC<PresentationErrorScreenProps> = ({
-	error,
-	onRetry,
+	state,
 }) => {
 	return (
 		<FlowScreen
 			buttons={
-				<Button variant="primary" size="lg" onClick={onRetry}>
-					Try again
+				<Button variant="primary" size="lg" onClick={state.onClose}>
+					Close
 				</Button>
 			}
 		>
-			<H1 heading="Error occurred" />
-			<p>{error}</p>
+			<CircleXIcon
+				size={80}
+				strokeWidth={1}
+				className="mt-10 text-lm-red dark:text-dm-red"
+			/>
+			<div className="pt-6 space-y-4">
+				<h1 className="text-2xl font-bold">{state.title}</h1>
+				<p>{state.description}</p>
+			</div>
 		</FlowScreen>
 	);
 };
