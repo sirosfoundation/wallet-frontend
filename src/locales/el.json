@@ -53,6 +53,27 @@
 		"loading": "Φόρτωση...",
 		"platformPasskey": "Passkey σε αυτήν τη συσκευή"
 	},
+	"presentCredentialsFlow": {
+		"overview": {
+			"title": "Αίτημα κοινοποίησης δεδομένων",
+			"requester": "Αιτών",
+			"purpose": "Σκοπός",
+			"requestedInformation": "Ζητούμενες πληροφορίες",
+			"share": "Κοινοποίηση",
+			"decline": "Απόρριψη"
+		},
+		"sharing": {
+			"sending": "Αποστολή..."
+		},
+		"completed": {
+			"title": "Επιτυχία!",
+			"description": "Τα δεδομένα σας κοινοποιήθηκαν στον {{verifierName}}.",
+			"redirecting": "Ανακατεύθυνση..."
+		},
+		"error": {
+			"close": "Κλείσιμο"
+		}
+	},
 	"expiredRibbon": {
 		"expired": "Ληγμένο"
 	},

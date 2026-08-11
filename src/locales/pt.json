@@ -53,6 +53,27 @@
 		"loading": "A carregar...",
 		"platformPasskey": "Passkey neste dispositivo"
 	},
+	"presentCredentialsFlow": {
+		"overview": {
+			"title": "Pedido para partilhar dados",
+			"requester": "Solicitante",
+			"purpose": "Objetivo",
+			"requestedInformation": "Informação solicitada",
+			"share": "Partilhar",
+			"decline": "Recusar"
+		},
+		"sharing": {
+			"sending": "A enviar..."
+		},
+		"completed": {
+			"title": "Sucesso!",
+			"description": "Os seus dados foram partilhados com {{verifierName}}.",
+			"redirecting": "A redirecionar..."
+		},
+		"error": {
+			"close": "Fechar"
+		}
+	},
 	"expiredRibbon": {
 		"expired": "Expirada"
 	},

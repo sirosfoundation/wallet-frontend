@@ -20,6 +20,7 @@ import { useTenant } from '@/context/TenantContext';
 import Button from '@/components/Buttons/Button';
 import { H1 } from '@/components/Shared/Heading';
 import Header from '@/components/Layout/Header';
+import { useTranslation } from 'react-i18next';
 
 type PresentCredentialsFlowProps = {
 	view: PresentCredentialsFlowView;
@@ -99,6 +100,7 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 	onAccept,
 	onDecline,
 }) => {
+	const { t } = useTranslation();
 	const { verifier, queries, sets } = request;
 
 	// The requested credentials, in order.
@@ -139,11 +141,11 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 					)
 				}
 			>
-				Share
+				{t('presentCredentialsFlow.overview.share')}
 			</Button>
 			{/* TODO: We need a outline delete variant... */}
 			<Button variant="outline" size="lg" onClick={onDecline}>
-				Decline
+				{t('presentCredentialsFlow.overview.decline')}
 			</Button>
 		</>
 	);
@@ -154,10 +156,10 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 	return (
 		<FlowScreen buttons={buttons}>
 			<div className="mt-4">
-				<H1 heading="Request to Share Data" />
+				<H1 heading={t('presentCredentialsFlow.overview.title')} />
 			</div>
 			<dl>
-				<dt className="font-bold not-first:mt-4">Requester</dt>
+				<dt className="font-bold not-first:mt-4">{t('presentCredentialsFlow.overview.requester')}</dt>
 				{[verifier.name, verifier.domain].map((info, index) => (
 					<dd key={index} className="mt-2">
 						{info}
@@ -165,11 +167,11 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 				))}
 				{singlePurpose && (
 					<>
-						<dt className="font-bold not-first:mt-4">Purpose</dt>
+						<dt className="font-bold not-first:mt-4">{t('presentCredentialsFlow.overview.purpose')}</dt>
 						<dd className="mt-2">{String(singlePurpose)}</dd>
 					</>
 				)}
-				<dt className="font-bold not-first:mt-4">Requested Information</dt>
+				<dt className="font-bold not-first:mt-4">{t('presentCredentialsFlow.overview.requestedInformation')}</dt>
 				{view.map((entry) => (
 					<dd key={entry.id} className="mt-2">
 						<div className="border border-lm-gray-700 dark:border-dm-gray-400 rounded-md p-4 flex flex-col gap-4">
@@ -223,7 +225,8 @@ const PresentationSharingScreen: FC<PresentationSharingScreenProps> = ({
 	onCancel,
 	messages,
 }) => {
-	const items = messages?.length ? messages : ['Loading...'];
+	const { t } = useTranslation();
+	const items = messages?.length ? messages : [t('common.loading')];
 	const [index, setIndex] = useState(0);
 
 	useEffect(() => {
@@ -240,7 +243,7 @@ const PresentationSharingScreen: FC<PresentationSharingScreenProps> = ({
 			buttons={
 				typeof onCancel === 'function' && (
 					<Button variant="outline" size="lg" onClick={onCancel}>
-						Cancel
+						{t('common.cancel')}
 					</Button>
 				)
 			}
@@ -265,6 +268,7 @@ type PresentationCompleteScreenProps = {
 const PresentationCompleteScreen: FC<PresentationCompleteScreenProps> = ({
 	result,
 }) => {
+	const { t } = useTranslation();
 	return (
 		<FlowScreen>
 			<CircleCheckIcon
@@ -273,10 +277,10 @@ const PresentationCompleteScreen: FC<PresentationCompleteScreenProps> = ({
 				className="mt-10 text-lm-green dark:text-dm-green"
 			/>
 			<div className="pt-6 space-y-4">
-				<h1 className="text-2xl font-bold">Success!</h1>
-				<p>Your data has been shared with {result.verifierName}.</p>
+				<h1 className="text-2xl font-bold">{t('presentCredentialsFlow.completed.title')}</h1>
+				<p>{t('presentCredentialsFlow.completed.description', { verifierName: result.verifierName })}</p>
 				<hr className="border-lm-gray-300 dark:border-dm-gray-700" />
-				<p>Redirecting...</p>
+				<p>{t('presentCredentialsFlow.completed.redirecting')}</p>
 			</div>
 		</FlowScreen>
 	);
@@ -292,11 +296,12 @@ type PresentationErrorScreenProps = {
 const PresentationErrorScreen: FC<PresentationErrorScreenProps> = ({
 	state,
 }) => {
+	const { t } = useTranslation();
 	return (
 		<FlowScreen
 			buttons={
 				<Button variant="primary" size="lg" onClick={state.onClose}>
-					Close
+					{t('presentCredentialsFlow.error.close')}
 				</Button>
 			}
 		>

@@ -53,6 +53,27 @@
 		"tryAgain": "Försök igen",
 		"walletName": "wwWallet"
 	},
+	"presentCredentialsFlow": {
+		"overview": {
+			"title": "Begäran om att dela data",
+			"requester": "Begärande part",
+			"purpose": "Syfte",
+			"requestedInformation": "Begärd information",
+			"share": "Dela",
+			"decline": "Avvisa"
+		},
+		"sharing": {
+			"sending": "Skickar..."
+		},
+		"completed": {
+			"title": "Lyckades!",
+			"description": "Dina uppgifter har delats med {{verifierName}}.",
+			"redirecting": "Omdirigerar..."
+		},
+		"error": {
+			"close": "Stäng"
+		}
+	},
 	"credentialInfo": {
 		"legendAriaLabel": "Attributförklaring",
 		"legendRequested": "Begärt av verifierare",

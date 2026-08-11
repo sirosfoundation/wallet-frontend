@@ -30,7 +30,7 @@ export function usePresentCredentialsFlow() {
 	const [view, setView] = useState<PresentCredentialsFlowView>({ status: 'loading' });
 	const sharingAbort = useRef<AbortController | null>(null);
 	const { vcEntityList } = useContext(CredentialsContext);
-	const { i18n: { language } } = useTranslation();
+	const { t, i18n: { language } } = useTranslation();
 
 	const displayRequestOverviewScreen = useCallback(
 		async (
@@ -58,18 +58,18 @@ export function usePresentCredentialsFlow() {
 		[vcEntityList, language],
 	);
 
-	const displayProcessingScreen = useCallback((messages: string[] = ['Loading...']): AbortSignal => {
+	const displayProcessingScreen = useCallback((messages: string[] = [t('common.loading')]): AbortSignal => {
 		const controller = new AbortController();
 		sharingAbort.current = controller;
 		setView({ status: 'sharing', messages, onCancel: () => controller.abort() });
 
 		return controller.signal;
-	}, []);
+	}, [t]);
 
 	const displaySendingScreen = useCallback((): void => {
 		sharingAbort.current = null;
-		setView({ status: 'sharing', messages: ['Sending...'], onCancel: undefined, });
-	}, []);
+		setView({ status: 'sharing', messages: [t('presentCredentialsFlow.sharing.sending')], onCancel: undefined, });
+	}, [t]);
 
 	const displayCompletedScreen = useCallback(async (result: PresentationResult) => {
 		setView({ status: 'shared', result });
