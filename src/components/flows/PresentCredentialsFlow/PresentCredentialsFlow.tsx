@@ -201,7 +201,7 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 };
 
 type PresentationSharingScreenProps = {
-	onCancel: () => void;
+	onCancel?: () => void;
 	messages?: string[];
 };
 
@@ -224,9 +224,11 @@ const PresentationSharingScreen: FC<PresentationSharingScreenProps> = ({
 	return (
 		<FlowScreen
 			buttons={
-				<Button variant="outline" size="lg" onClick={onCancel}>
-					Cancel
-				</Button>
+				typeof onCancel === 'function' && (
+					<Button variant="outline" size="lg" onClick={onCancel}>
+						Cancel
+					</Button>
+				)
 			}
 		>
 			<div className="flex flex-col gap-4 justify-center items-center h-100">

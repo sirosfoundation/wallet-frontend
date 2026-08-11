@@ -47,11 +47,23 @@ export function usePresentCredentialsFlow() {
 		[vcEntityList, language],
 	);
 
-	const displaySharingScreen = useCallback((): AbortSignal => {
+	/**
+	 * Show the processing screen for cancellable, pre-send work.
+	 */
+	const displayProcessingScreen = useCallback((): AbortSignal => {
 		const controller = new AbortController();
 		sharingAbort.current = controller;
 		setView({ status: 'sharing', onCancel: () => controller.abort() });
+
 		return controller.signal;
+	}, []);
+
+	/**
+	 * Show the sharing screen while the response is sent to the verifier.
+	 */
+	const displaySendingScreen = useCallback((): void => {
+		sharingAbort.current = null;
+		setView({ status: 'sharing', onCancel: undefined });
 	}, []);
 
 	const displayCompletedScreen = useCallback(async (result: PresentationResult) => {
@@ -73,7 +85,8 @@ export function usePresentCredentialsFlow() {
 	return {
 		view,
 		displayRequestOverviewScreen,
-		displaySharingScreen,
+		displayProcessingScreen,
+		displaySendingScreen,
 		displayCompletedScreen,
 		displayErrorScreen,
 		resetScreen,

@@ -29,6 +29,7 @@ import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
 import { BackendApi } from '@/api';
 import { parseClientIdScheme, KeyMaterial } from 'wallet-common';
 import { logger } from '@/logger';
+import { ConformantCredentials } from '@/components/flows/PresentCredentialsFlow';
 
 export interface UseOID4VPFlowOptions {
 	/**
@@ -43,9 +44,9 @@ export interface UseOID4VPFlowOptions {
 	 * Callback to show credential selection UI
 	 */
 	onCredentialSelection?: (
-		conformantCredentialsMap: Record<string, { credentials: number[]; requestedFields: Array<{ name?: string; path?: (string | null)[] }> }>,
-		verifierDomainName: string,
-		verifierPurpose: string,
+		verifierInfo: OID4VPVerifierInfo,
+		dcqlQuery: DcqlQuery.Input,
+		conformantCredentialsMap: ConformantCredentials,
 	) => Promise<Map<string, number>>;
 }
 
@@ -269,37 +270,31 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 
 			// TODO: Remove preMatchedCredentials once http_proxy flow fully migrated to use
 			// matchCredentials in the hook instead of backend matching in wallet-common
-			let conformantCredentialsMap: Record<string, {
-				credentials: number[];
-				requestedFields: Array<{
-					name?: string;
-					path?: string[];
-				}>;
-			}> = {};
+			let conformantCredentialsMap: ConformantCredentials = new Map();
 
 			if (preMatchedCredentials) {
-				conformantCredentialsMap = Object.fromEntries(preMatchedCredentials);
+				conformantCredentialsMap = new Map(preMatchedCredentials);
 			} else if (dcqlQuery) {
-				const { matches, no_match_reason } = matchCredentials(credentials, dcqlQuery);
+				const { matches, no_match_reason, code } = matchCredentials(credentials, dcqlQuery);
 
 				if (matches.length === 0) {
-					throw new OIDFlowError({ code: no_match_reason || 'NO_MATCHING_CREDENTIALS', message: 'No matching credentials' });
+					throw new OIDFlowError({ code: code ?? 'NO_MATCHING_CREDENTIALS', message: no_match_reason || 'No matching credentials' });
 				}
 
-				conformantCredentialsMap = Object.fromEntries(buildConformantCredentialsMap(matches, dcqlQuery));
+				conformantCredentialsMap = new Map(buildConformantCredentialsMap(matches, dcqlQuery));
 			} else {
 				throw new OIDFlowError({ code: 'NO_DCQL_QUERY_OR_PREMATCHED_CREDENTIALS', message: 'No dcqlQuery or preMatchedCredentials provided' });
 			}
 
-			if (Object.keys(conformantCredentialsMap).length === 0) {
+			if (conformantCredentialsMap.size === 0) {
 				throw new OIDFlowError({ code: 'INSUFFICIENT_CREDENTIALS', message: 'No credentials available for selection' });
 			}
 
 			// Show popup → user picks descriptorId → batchId
 			const selectionMap = await options.onCredentialSelection(
+				verifierInfo,
+				dcqlQuery,
 				conformantCredentialsMap,
-				verifierInfo?.name ?? '',
-				verifierInfo?.purpose ?? '',
 			);
 
 			// Convert to OID4VPSelectedCredential[]

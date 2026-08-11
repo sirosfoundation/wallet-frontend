@@ -73,6 +73,6 @@ export type PresentCredentialsFlowView =
 			onAccept: (result: PresentCredentialsResult) => void;
 			onDecline: () => void;
 	}
-	| { status: 'sharing'; onCancel: () => void }
+	| { status: 'sharing'; onCancel?: () => void }
 	| { status: 'shared'; result: PresentationResult }
 	| { status: 'error'; state: PresentationErrorState };

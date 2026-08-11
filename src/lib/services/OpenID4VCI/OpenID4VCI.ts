@@ -21,7 +21,6 @@ import { IOpenID4VCIClientStateRepository } from '@/lib/interfaces/IOpenID4VCICl
 import { useNavigate } from 'react-router-dom';
 import { logger } from '@/logger';
 import { useHttpClient } from '@/hooks/useHttpClient';
-import { parseIssuerSignedToMDoc } from '@/lib/mdoc/mdoc';
 
 /**
  * Raw tx_code spec from OID4VCI §4.1.1 (snake_case, matching protocol wire format).
