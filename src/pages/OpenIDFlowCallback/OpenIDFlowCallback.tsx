@@ -10,7 +10,6 @@ import OpenID4VPContext from '@/context/OpenID4VPContext';
 import useOID4VPFlow from '@/hooks/useOID4VPFlow';
 import { useTxCodeInput } from '@/context/TxCodeInputContext';
 import { TxCodeInputPopup } from '@/components/Popups/TxCodeInputPopup';
-import MessagePopup from '@/components/Popups/MessagePopup';
 import Spinner from '@/components/Shared/Spinner';
 import { useOIDFlowTransport } from '@/context/OIDFlowTransportContext';
 import { useTenant } from '@/context/TenantContext';
@@ -295,7 +294,6 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	const { displayError } = useErrorDialog();
 	const { t } = useTranslation();
 	const { showTransactionDataConsentPopup } = useContext(OpenID4VPContext);
-	const [successMessage, setSuccessMessage] = useState<{ title: string; description: string } | null>(null);
 	const navigateHome = useNavigateHome();
 	const flowIsActive = useRef(false);
 	const {
@@ -455,6 +453,8 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				throw new OIDFlowError(credSelectResult.error);
 			}
 
+			displaySendingScreen();
+
 			const sendResult = await sendDCAPIResponse(
 				session,
 				credSelectResult.selectedCredentials
@@ -462,9 +462,8 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			logger.debug('DC API response sent:', sendResult);
 
 			if (sendResult.success) {
-				setSuccessMessage({
-					title: t('openIdCallback.sendResponseSuccess.title'),
-					description: t('openIdCallback.sendResponseSuccess.description'),
+				await displayCompletedScreen({
+					verifierName: result.verifierInfo.name,
 				});
 			}
 
@@ -472,9 +471,10 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		} catch (err) {
 			logger.error('Error processing DC API request:', err);
 
-			displayError({
+			displayErrorScreen({
 				title: t('openIdCallback.vpFlowError.title'),
 				description: t('openIdCallback.vpFlowError.description'),
+				err: err instanceof Error ? err : new Error(String(err)),
 				onClose: () => {
 					session.sendErrorAndClose('access_denied');
 				},
@@ -512,21 +512,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
-	return (
-		<>
-			<PresentCredentialsFlow view={view} />
-			{successMessage && (
-				<MessagePopup
-					type="success"
-					onClose={() => {
-						setSuccessMessage(null);
-						navigateHome();
-					}}
-					message={successMessage}
-				/>
-			)}
-		</>
-	);
+	return <PresentCredentialsFlow view={view} />;
 };
 
 /**
