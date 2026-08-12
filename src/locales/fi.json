@@ -53,6 +53,27 @@
 		"tryAgain": "Yritä uudelleen",
 		"walletName": "wwWallet"
 	},
+	"presentCredentialsFlow": {
+		"overview": {
+			"title": "Pyyntö jakaa tietoja",
+			"requester": "Pyytäjä",
+			"purpose": "Tarkoitus",
+			"requestedInformation": "Pyydetyt tiedot",
+			"share": "Jaa",
+			"decline": "Hylkää"
+		},
+		"sharing": {
+			"sending": "Lähetetään..."
+		},
+		"completed": {
+			"title": "Onnistui!",
+			"description": "Tietosi jaettiin taholle {{verifierName}}.",
+			"redirecting": "Ohjataan uudelleen..."
+		},
+		"error": {
+			"close": "Sulje"
+		}
+	},
 	"credentialInfo": {
 		"legendAriaLabel": "Attribuuttien selite",
 		"legendRequested": "Todentajan pyytämä",

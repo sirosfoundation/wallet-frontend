@@ -53,6 +53,27 @@
 		"tryAgain": "Try again",
 		"walletName": "wwWallet"
 	},
+	"presentCredentialsFlow": {
+		"overview": {
+			"title": "Request to Share Data",
+			"requester": "Requester",
+			"purpose": "Purpose",
+			"requestedInformation": "Requested Information",
+			"share": "Share",
+			"decline": "Decline"
+		},
+		"sharing": {
+			"sending": "Sending..."
+		},
+		"completed": {
+			"title": "Success!",
+			"description": "Your data has been shared with {{verifierName}}.",
+			"redirecting": "Redirecting..."
+		},
+		"error": {
+			"close": "Close"
+		}
+	},
 	"credentialInfo": {
 		"legendAriaLabel": "Claim legend",
 		"legendRequested": "Requested by verifier",
