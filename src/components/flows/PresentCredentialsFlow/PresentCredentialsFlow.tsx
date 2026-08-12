@@ -194,6 +194,17 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 								)}
 							</div>
 							<dl>
+								{/**
+								 * The "Masked Identifier" field would be displayed here.
+								 *
+								 * @todo we should include a generic way to insert fields into
+								 *       the overview that is not part of the requested claims
+								 *       from the credential.
+								 */}
+								<dt className="font-bold not-first:mt-2 not-first:pt-2 not-first:border-t not-first:border-t-lm-gray-300 dark:not-first:border-t-dm-gray-700">
+									Masked Identifier
+								</dt>
+								<dd>-</dd>
 								{entry.selected?.fields.map((field) => (
 									<Fragment key={field.name}>
 										<dt className="font-bold not-first:mt-2 not-first:pt-2 not-first:border-t not-first:border-t-lm-gray-300 dark:not-first:border-t-dm-gray-700">
