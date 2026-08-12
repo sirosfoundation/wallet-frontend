@@ -58,7 +58,7 @@ export class DCAPIWalletCompanionMode implements DCAPIMode {
 	}
 }
 
-export class DCAPIAndroidMode implements DCAPIMode {
+export class DCAPINativeMode implements DCAPIMode {
 	#verifiedOrigin?: string;
 
 	get verifiedOrigin(): string {
@@ -76,7 +76,7 @@ export class DCAPIAndroidMode implements DCAPIMode {
 
 		try {
 			const origin = await Promise.race([
-				window.nativeWrapper.DCAPI.getRequestOrigin(requestId),
+				window.nativeWrapper.getDCAPIRequestOrigin(requestId),
 				timeout,
 			]);
 
@@ -98,12 +98,12 @@ export class DCAPIAndroidMode implements DCAPIMode {
 
 		const message = responseToMessage(response);
 
-		window.nativeWrapper.DCAPI.sendResponse(message);
+		window.nativeWrapper.sendDCAPIResponse(message);
 	}
 
 	public close(): void {
 		if (!window.nativeWrapper) throw new Error('No native wrapper available');
-		window.nativeWrapper.DCAPI.close();
+		window.nativeWrapper.sendDCAPIResponse({});
 	}
 }
 

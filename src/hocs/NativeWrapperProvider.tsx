@@ -11,15 +11,11 @@ declare global {
 	}
 
 	interface NativeWrapper {
-		platform: "android" | "ios";
 		updateAllCredentials(credentials: string): void;
+		getDCAPIRequestOrigin(requestId: string): Promise<string>;
+		sendDCAPIResponse(message: Record<string, unknown>): void;
 		isKeystoreOpen(): Promise<boolean>;
 		startScanPhysicalId?(): void;
-		DCAPI: {
-			getRequestOrigin(requestId: string): Promise<string>;
-			sendResponse(message: Record<string, unknown>): void;
-			close(): void;
-		}
 	}
 }
 
