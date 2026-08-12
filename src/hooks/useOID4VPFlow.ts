@@ -89,7 +89,11 @@ export interface UseOID4VPFlowReturn {
 	/**
 	 * Handle DC API request - parse URL, match credentials, store session
 	 */
-	handleDCAPIRequest: (request: DCAPIRequest, verifiedOrigin: string) => Promise<OID4VPFlowResult>;
+	handleDCAPIRequest: (
+		request: DCAPIRequest,
+		selectedCredentialIDs: string[],
+		verifiedOrigin: string,
+	) => Promise<OID4VPFlowResult>;
 	/**
 	 * Send DC API response - sign, record history, send via session
 	 */
@@ -460,7 +464,11 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 	/**
 	 * Handle DC API request - parse URL, match credentials, store session
 	 */
-	const handleDCAPIRequest = useCallback(async (request: DCAPIRequest, verifiedOrigin: string): Promise<OID4VPFlowResult> => {
+	const handleDCAPIRequest = useCallback(async (
+		request: DCAPIRequest,
+		selectedCredentialIDs: string[],
+		verifiedOrigin: string
+	): Promise<OID4VPFlowResult> => {
 		setIsLoading(true);
 		try {
 			const clientIdForTrust = request.clientId ?? verifiedOrigin;
@@ -486,7 +494,11 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				});
 			}
 
-			const credentials = await waitForCredentials();
+			// We should filter the credentials based on the selectedCredentialIDs
+			// if provided otherwise use all available credentials.
+			const credentials = (await waitForCredentials())
+				.filter(vc => selectedCredentialIDs.length === 0 || selectedCredentialIDs.includes(String(vc.batchId)));
+
 			const { matches, no_match_reason } = matchCredentials(credentials, request.dcqlQuery);
 
 			if (matches.length === 0) {

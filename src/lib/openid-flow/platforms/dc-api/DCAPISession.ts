@@ -6,11 +6,12 @@ import {
 } from 'jose';
 import { DCAPIRequest } from './DCAPIRequest';
 import { DCAPIMode } from './resources';
-import { DCAPIWalletCompanionMode } from './modes';
+import { DCAPIAndroidMode, DCAPIWalletCompanionMode } from './modes';
 
 export class DCAPISession {
 	readonly request: DCAPIRequest;
 	readonly requestId: string;
+	readonly selectedCredentialIDs: string[];
 	readonly mode: DCAPIMode;
 
 	constructor(url: URL) {
@@ -19,6 +20,7 @@ export class DCAPISession {
 
 		this.mode = this.#detectMode();
 		this.request = new DCAPIRequest(url);
+		this.selectedCredentialIDs = url.searchParams.getAll('selected_credential_id');
 	}
 
 	async initialize(): Promise<void> {
@@ -80,6 +82,10 @@ export class DCAPISession {
 	#detectMode(): DCAPIMode {
 		if (window.opener) {
 			return new DCAPIWalletCompanionMode();
+		}
+
+		if (window.nativeWrapper?.DCAPI && window.nativeWrapper.platform === 'android') {
+			return new DCAPIAndroidMode();
 		}
 
 		throw new Error('Unable to detect DC API mode, no supported environment detected');
