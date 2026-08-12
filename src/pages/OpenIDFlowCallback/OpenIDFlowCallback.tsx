@@ -458,6 +458,17 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				throw new OIDFlowError(credSelectResult.error);
 			}
 
+			// We can also call displayProcessingScreen() here if we want to show a
+			// processing state before sending the response. Useful for longer operations
+			// like proof generation etc.
+			//
+			// It looks just like the loading screen, but with a cancel button.
+			// We can send custom messages in an array of strings to
+			// displayProcessingScreen() to show progress messages, like so:
+			//
+			// displayProcessingScreen(['Preparing response...', 'Sending response...']);
+			//
+
 			displaySendingScreen();
 
 			const sendResult = await sendDCAPIResponse(
