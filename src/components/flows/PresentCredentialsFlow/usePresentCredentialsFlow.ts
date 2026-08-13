@@ -14,6 +14,7 @@ import type {
 	PresentCredentialsResult,
 	PresentCredentialsVerifier,
 } from './types';
+import { prettyDomain } from '@/utils';
 
 /**
  * Hook for managing the Present Credentials Flow.
@@ -142,7 +143,7 @@ async function resolveCredentialPresentationRequest(
 ): Promise<PresentCredentialsRequest> {
 	const verifier: PresentCredentialsVerifier = {
 		name: verifierInfo.name,
-		domain: verifierInfo.domain,
+		domain: prettyDomain(verifierInfo.domain),
 		logo: verifierInfo.logo,
 	};
 
