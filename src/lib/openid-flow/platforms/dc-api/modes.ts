@@ -69,41 +69,54 @@ export class DCAPINativeMode implements DCAPIMode {
 	async originHandshake(requestId: string, expectedOrigins?: string[]): Promise<string> {
 		if (!window.nativeWrapper) throw new Error('No native wrapper available');
 
-		let timer: ReturnType<typeof setTimeout>;
-		const timeout = new Promise<never>((_, reject) => {
-			timer = setTimeout(() => reject(new Error('Origin handshake timeout')), 5000);
-		});
+		// The native wrapper app sends the request_origin as a query parameter
+		// in the DC API request URL, hence we dont use the requestId.
+		// For now, we intercept it here since it's still part of the url,
+		// pending furthe negotiation.
+		void requestId;
 
-		try {
-			const origin = await Promise.race([
-				window.nativeWrapper.getDCAPIRequestOrigin(requestId),
-				timeout,
-			]);
+		const requestOrigin = new URLSearchParams(window.location.search)
+			.get('request_origin');
 
-			if (!origin) throw new Error('Native wrapper returned empty origin');
-
-			if (expectedOrigins && !expectedOrigins.includes(origin)) {
-				throw new Error(`Origin ${origin} not in expected_origins`);
-			}
-
-			this.#verifiedOrigin = origin;
-			return origin;
-		} finally {
-			clearTimeout(timer);
+		if (!requestOrigin) {
+			throw new Error('Missing request_origin parameter in DC API request');
 		}
+
+		if (expectedOrigins && !expectedOrigins.includes(requestOrigin)) {
+			throw new Error(`Origin ${requestOrigin} not in expected_origins`);
+		}
+
+		this.#verifiedOrigin = requestOrigin;
+		return requestOrigin;
 	}
 
 	public send(response: DCAPIResponse): void {
 		if (!window.nativeWrapper) throw new Error('No native wrapper available');
 
-		const message = responseToMessage(response);
+		// Right now we don't care about returning the requestId in the response,
+		// since the native wrapper doesn't check it.
+		const { payload } = response;
 
-		window.nativeWrapper.sendDCAPIResponse(message);
+		const errorString = payload.error ? JSON.stringify(payload.error) : undefined;
+
+		const responseString = JSON.stringify((() => {
+			const res: Record<string, unknown> = {};
+
+			if (payload.response) {
+				res.response = payload.response;
+			} else if (payload.vp_token) {
+				res.response = { vp_token: payload.vp_token };
+			}
+
+			return res;
+		})());
+
+		window.nativeWrapper.sendDcApiResponse(responseString, errorString);
 	}
 
 	public close(): void {
 		if (!window.nativeWrapper) throw new Error('No native wrapper available');
-		window.nativeWrapper.sendDCAPIResponse({});
+		window.nativeWrapper.sendDcApiResponse("", "Session closed");
 	}
 }
 
