@@ -1,6 +1,7 @@
 import {
 	Fragment,
 	useEffect,
+	useId,
 	useState,
 	type FC,
 	type PropsWithChildren,
@@ -21,6 +22,7 @@ import Button from '@/components/Buttons/Button';
 import { H1 } from '@/components/Shared/Heading';
 import Header from '@/components/Layout/Header';
 import { useTranslation } from 'react-i18next';
+import { truncateByWords } from '@/utils';
 
 type PresentCredentialsFlowProps = {
 	view: PresentCredentialsFlowView;
@@ -168,7 +170,9 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 				{singlePurpose && (
 					<>
 						<dt className="font-bold not-first:mt-4">{t('presentCredentialsFlow.overview.purpose')}</dt>
-						<dd className="mt-2">{String(singlePurpose)}</dd>
+						<dd className="mt-2">
+							<Purpose purpose={singlePurpose} />
+						</dd>
 					</>
 				)}
 				<dt className="font-bold not-first:mt-4">{t('presentCredentialsFlow.overview.requestedInformation')}</dt>
@@ -345,3 +349,32 @@ const FlowScreen: FC<PropsWithChildren<{ buttons?: ReactElement }>> = ({
 		)}
 	</>
 );
+
+const Purpose: FC<{ purpose: string }> = ({ purpose }) => {
+	const { t } = useTranslation();
+	const id = useId();
+	const { text, truncated } = truncateByWords(purpose, 40);
+	const [expanded, setExpanded] = useState(false);
+
+	return (
+		<p>
+			<span id={id}>
+				{expanded ? purpose : text}
+			</span>
+			{truncated && (
+				<>
+					{' '}
+					{expanded && <br />}
+					<Button
+						onClick={() => setExpanded(!expanded)}
+						variant='link'
+						aria-expanded={expanded}
+						aria-controls={id}
+					>
+						{expanded ? t('common.showLess') : t('common.showMore')}
+					</Button>
+				</>
+			)}
+		</p>
+	);
+};
