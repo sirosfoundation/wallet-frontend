@@ -21,6 +21,10 @@ vi.mock('@/util', () => ({
 	getElementPropValue: vi.fn(),
 }));
 
+vi.mock('@/lib/utils/getCredentialType', () => ({
+	getCredentialType: vi.fn(),
+}))
+
 const mockShapeCredential = vi.mocked(shapeCredential);
 const mockExtractAvailableClaims = vi.mocked(extractAvailableClaims);
 const mockGetCredentialType = vi.mocked(getCredentialType);
