@@ -194,7 +194,7 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 								{entry.selected?.display.logo ? (
 									<img className="max-h-8 max-w-8" src={entry.selected.display.logo} alt="" />
 								) : (
-									<IdCardIcon size={24} />
+									<IdCardIcon size={24} aria-hidden="true" />
 								)}
 							</div>
 							<dl>
@@ -279,6 +279,7 @@ const PresentationCompleteScreen: FC<PresentationCompleteScreenProps> = ({
 				size={80}
 				strokeWidth={1}
 				className="mt-10 text-lm-green dark:text-dm-green"
+				aria-hidden="true"
 			/>
 			<div className="pt-6 space-y-4">
 				<h1 className="text-2xl font-bold">{t('presentCredentialsFlow.completed.title')}</h1>
@@ -313,6 +314,7 @@ const PresentationErrorScreen: FC<PresentationErrorScreenProps> = ({
 				size={80}
 				strokeWidth={1}
 				className="mt-10 text-lm-red dark:text-dm-red"
+				aria-hidden="true"
 			/>
 			<div className="pt-6 space-y-4">
 				<h1 className="text-2xl font-bold">{state.title}</h1>
