@@ -12,8 +12,7 @@ declare global {
 
 	interface NativeWrapper {
 		updateAllCredentials(credentials: string): void;
-		getDCAPIRequestOrigin(requestId: string): Promise<string>;
-		sendDCAPIResponse(message: Record<string, unknown>): void;
+		sendDcApiResponse(response: string, error?: string): void;
 		isKeystoreOpen(): Promise<boolean>;
 		startScanPhysicalId?(): void;
 	}
