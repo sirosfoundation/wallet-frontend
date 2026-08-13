@@ -2,6 +2,7 @@ import {
 	Fragment,
 	useEffect,
 	useId,
+	useRef,
 	useState,
 	type FC,
 	type PropsWithChildren,
@@ -336,21 +337,35 @@ const FlowContainer: FC<PropsWithChildren> = ({ children }) => (
 const FlowScreen: FC<PropsWithChildren<{ buttons?: ReactElement }>> = ({
 	children,
 	buttons,
-}) => (
-	<>
-		<div className="max-w-[500px] mx-6 mb-[25vh]">{children}</div>
-		{buttons && (
+}) => {
+	const ref = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		ref.current?.focus();
+	}, []);
+
+	return (
+		<>
 			<div
-				className="
-				fixed bottom-0 w-[min(500px,100%)] px-6 pt-4 pb-10 bg-lm-gray-100 dark:bg-dm-gray-900 flex flex-col gap-4
-				before:content-[''] before:pointer-events-none before:absolute before:bottom-full before:left-0 before:right-0 before:h-12
-				before:bg-linear-to-t before:from-lm-gray-100 dark:before:from-dm-gray-900 before:to-transparent"
+				ref={ref}
+				tabIndex={-1}
+				className="max-w-[500px] mx-6 mb-[25vh]"
 			>
-				{buttons}
+				{children}
 			</div>
-		)}
-	</>
-);
+			{buttons && (
+				<div
+					className="
+					fixed bottom-0 w-[min(500px,100%)] px-6 pt-4 pb-10 bg-lm-gray-100 dark:bg-dm-gray-900 flex flex-col gap-4
+					before:content-[''] before:pointer-events-none before:absolute before:bottom-full before:left-0 before:right-0 before:h-12
+					before:bg-linear-to-t before:from-lm-gray-100 dark:before:from-dm-gray-900 before:to-transparent"
+				>
+					{buttons}
+				</div>
+			)}
+		</>
+	);
+};
 
 const Purpose: FC<{ purpose: string }> = ({ purpose }) => {
 	const { t } = useTranslation();
