@@ -145,7 +145,31 @@
 	}
 
 	.animate-text-shimmer {
-		animation: loading-shimmer 2s ease-in-out;
+		--shimmer-base: var(--color-primary);
+		--shimmer-highlight: color-mix(
+			in srgb,
+			white 50%,
+			var(--color-primary) 50%
+		);
+
+		@media (prefers-reduced-motion: no-preference) {
+			background-image: linear-gradient(
+				90deg,
+				var(--shimmer-base) 25%,
+				var(--shimmer-highlight) 50%,
+				var(--shimmer-base) 75%
+			);
+			background-size: 200% auto;
+			background-clip: text;
+			-webkit-background-clip: text;
+			color: transparent;
+			animation: loading-shimmer 2s linear infinite;
+		}
+	}
+
+	.dark .animate-text-shimmer {
+		--shimmer-base: white;
+		--shimmer-highlight: var(--color-dm-gray-400);
 	}
 }
 
@@ -304,32 +328,4 @@ input:-webkit-autofill {
 /* Hide security key button by default */
 html:not(.is-wrapper-app) .passkey-button-security-key {
 	display: none;
-}
-
-.animate-text-shimmer {
-	--shimmer-base: var(--color-primary);
-	--shimmer-highlight: color-mix(
-		in srgb,
-		white 50%,
-		var(--color-primary) 50%
-	);
-
-	@media (prefers-reduced-motion: no-preference) {
-		background-image: linear-gradient(
-			90deg,
-			var(--shimmer-base) 25%,
-			var(--shimmer-highlight) 50%,
-			var(--shimmer-base) 75%
-		);
-		background-size: 200% auto;
-		background-clip: text;
-		-webkit-background-clip: text;
-		color: transparent;
-		animation: loading-shimmer 2s linear infinite;
-	}
-}
-
-.dark .animate-text-shimmer {
-	--shimmer-base: white;
-	--shimmer-highlight: var(--color-dm-gray-400);
 }
