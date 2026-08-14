@@ -115,8 +115,9 @@ export class DCAPINativeMode implements DCAPIMode {
 	}
 
 	public close(): void {
-		if (!window.nativeWrapper) throw new Error('No native wrapper available');
-		window.nativeWrapper.sendDcApiResponse("", "Session closed");
+		throw new Error(
+			'DCAPINativeMode.close() should not be called in native mode, as closing happens during DCAPINativeMode.send()'
+		);
 	}
 }
 
