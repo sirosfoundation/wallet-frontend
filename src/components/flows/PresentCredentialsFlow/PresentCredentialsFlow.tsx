@@ -176,44 +176,50 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 						</dd>
 					</>
 				)}
-				<dt className="font-bold not-first:mt-4">{t('presentCredentialsFlow.overview.requestedInformation')}</dt>
-				{view.map((entry) => (
-					<dd key={entry.id} className="mt-2">
-						<div className="border border-lm-gray-700 dark:border-dm-gray-400 rounded-md p-4 flex flex-col gap-4">
-							<div
-								className="px-3 py-1 rounded-md flex justify-between items-center bg-(--bg-color) text-(--text-color)"
-								style={
-									{
-										'--bg-color':
-											entry.selected?.display.backgroundColor ?? 'var(--color-primary)',
-										'--text-color':
-											entry.selected?.display.textColor ?? '#fff',
-									} as React.CSSProperties
-								}
-							>
-								<p className="font-bold">{entry.selected?.display.name}</p>
-								{entry.selected?.display.logo ? (
-									<img className="max-h-8 max-w-8" src={entry.selected.display.logo} alt="" />
-								) : (
-									<IdCardIcon size={24} aria-hidden="true" />
-								)}
-							</div>
-							<dl>
-								{entry.selected?.fields.map((field) => (
-									<Fragment key={field.name}>
-										<dt className="font-bold not-first:mt-2 not-first:pt-2 not-first:border-t not-first:border-t-lm-gray-300 dark:not-first:border-t-dm-gray-700">
-											{field.name}
-										</dt>
-										<dd className="mt-2 overflow-x-auto whitespace-nowrap mask-[linear-gradient(to_right,#000_85%,transparent)]">
-											{String(field.value)}
-										</dd>
-									</Fragment>
-								))}
-							</dl>
-						</div>
-					</dd>
-				))}
 			</dl>
+			<div className="mt-4">
+				<h2 className="font-bold">
+					{t('presentCredentialsFlow.overview.requestedInformation')}
+				</h2>
+				<ul>
+					{view.map((entry) => (
+						<li key={entry.id} className="mt-2">
+							<div className="border border-lm-gray-700 dark:border-dm-gray-400 rounded-md p-4 flex flex-col gap-4">
+								<div
+									className="px-3 py-1 rounded-md flex justify-between items-center bg-(--bg-color) text-(--text-color)"
+									style={
+										{
+											'--bg-color':
+												entry.selected?.display.backgroundColor ?? 'var(--color-primary)',
+											'--text-color':
+												entry.selected?.display.textColor ?? '#fff',
+										} as React.CSSProperties
+									}
+								>
+									<h3 className="font-bold">{entry.selected.display.name}</h3>
+									{entry.selected?.display.logo ? (
+										<img className="max-h-8 max-w-8" src={entry.selected.display.logo} alt="" />
+									) : (
+										<IdCardIcon size={24} aria-hidden="true" />
+									)}
+								</div>
+								<dl>
+									{entry.selected?.fields.map((field) => (
+										<Fragment key={field.name+field.value}>
+											<dt className="font-bold not-first:mt-2 not-first:pt-2 not-first:border-t not-first:border-t-lm-gray-300 dark:not-first:border-t-dm-gray-700">
+												{field.name}
+											</dt>
+											<dd className="mt-2 wrap-break-word">
+												{String(field.value)}
+											</dd>
+										</Fragment>
+									))}
+								</dl>
+							</div>
+						</li>
+					))}
+				</ul>
+			</div>
 		</FlowScreen>
 	);
 };
@@ -349,7 +355,7 @@ const FlowScreen: FC<PropsWithChildren<{ buttons?: ReactElement }>> = ({
 			<div
 				ref={ref}
 				tabIndex={-1}
-				className="max-w-[500px] mx-6 mb-[25vh]"
+				className="max-w-[500px] mx-6 mb-[25vh] focus:outline-none"
 			>
 				{children}
 			</div>
