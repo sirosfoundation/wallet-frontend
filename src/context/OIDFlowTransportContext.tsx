@@ -105,7 +105,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		let active = true;
 		(async () => {
 			try {
-				const token = await api.authTokens.ensureAnonymousToken();
+				const token = await api.authTokens.ensureBackendToken();
 				if (active) setAuthToken(token.raw);
 			} catch {
 				if (active) setAuthToken(null);
@@ -267,13 +267,13 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 			setLastError(error);
 
 			if (error instanceof OIDFlowError && error.code === 'AUTH_FAILED') {
-				const shouldRetry = api.authTokens.registerAnonymousTokenRejection();
+				const shouldRetry = api.authTokens.registerBackendTokenRejection();
 				if (!shouldRetry) {
 					logger.error('Engine auth still failing after refresh; giving up (global handler notified)');
 					return;
 				}
 
-				const fresh = await api.authTokens.ensureAnonymousToken();
+				const fresh = await api.authTokens.ensureBackendToken();
 				setAuthToken(fresh.raw);
 			}
 		});
