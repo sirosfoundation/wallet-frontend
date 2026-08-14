@@ -261,7 +261,11 @@ const PresentationSharingScreen: FC<PresentationSharingScreenProps> = ({
 		>
 			<div className="flex flex-col gap-4 justify-center items-center h-100">
 				<Spinner size="large" standalone />
-				<p className="text-center text-2xl font-bold animate-text-shimmer">
+				<p
+					className="text-center text-2xl font-bold animate-text-shimmer"
+					role="status"
+					aria-live="polite"
+				>
 					{items[index]}
 				</p>
 			</div>
