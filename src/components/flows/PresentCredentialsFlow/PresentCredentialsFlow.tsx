@@ -292,7 +292,7 @@ const PresentationCompleteScreen: FC<PresentationCompleteScreenProps> = ({
 				className="mt-10 text-lm-green dark:text-dm-green"
 				aria-hidden="true"
 			/>
-			<div className="pt-6 space-y-4">
+			<div className="pt-6 space-y-4" role="status">
 				<h1 className="text-2xl font-bold">{t('presentCredentialsFlow.completed.title')}</h1>
 				<p>{t('presentCredentialsFlow.completed.description', { verifierName: result.verifierName })}</p>
 				<hr className="border-lm-gray-300 dark:border-dm-gray-700" />
@@ -327,7 +327,7 @@ const PresentationErrorScreen: FC<PresentationErrorScreenProps> = ({
 				className="mt-10 text-lm-red dark:text-dm-red"
 				aria-hidden="true"
 			/>
-			<div className="pt-6 space-y-4">
+			<div className="pt-6 space-y-4" role="alert">
 				<h1 className="text-2xl font-bold">{state.title}</h1>
 				<p>{state.description}</p>
 			</div>
