@@ -221,9 +221,21 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 											<dt className="font-bold not-first:mt-2 not-first:pt-2 not-first:border-t not-first:border-t-lm-gray-300 dark:not-first:border-t-dm-gray-700">
 												{field.name}
 											</dt>
-											<dd className="mt-2 wrap-break-word">
-												{String(field.value)}
-											</dd>
+											{typeof field.value === 'object' ? (
+												<dd className="mt-2 wrap-break-word">
+													<table className="text-sm">
+														<tbody>
+															{Object.entries(field.value).map(([key, value]) => (
+																<tr key={key} className="not-first:mt-1 not-first:pt-1 not-first:border-t not-first:border-t-lm-gray-300 dark:not-first:border-t-dm-gray-700">
+																	<td className="font-bold p-1 pr-2">{key}</td>
+																	<td className="p-1">{String(value)}</td>
+																</tr>
+															))}
+														</tbody>
+													</table>
+												</dd>
+											) : <dd className="mt-2 wrap-break-word">{String(field.value)}</dd>}
+
 										</Fragment>
 									))}
 								</dl>
