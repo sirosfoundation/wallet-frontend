@@ -592,6 +592,11 @@
 	"credentialTypeCard": {
 		"selectAriaLabel": "Selecionar credencial {{name}}"
 	},
+	"switchCredentialPopup": {
+		"title": "Escolher credencial",
+		"description": "Pode selecionar uma destas credenciais para apresentar:",
+		"close": "Fechar"
+	},
 	"issuance": {
 		"credentialsHaveErrors": "Foram encontrados erros ao verificar a credencial que está a tentar receber.",
 		"error": "Erro de Emissão",

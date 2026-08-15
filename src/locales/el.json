@@ -611,6 +611,11 @@
 	"credentialTypeCard": {
 		"selectAriaLabel": "Επιλογή πιστοποιητικού {{name}}"
 	},
+	"switchCredentialPopup": {
+		"title": "Επιλογή πιστοποιητικού",
+		"description": "Μπορείτε να επιλέξετε ένα από αυτά τα πιστοποιητικά για παρουσίαση:",
+		"close": "Κλείσιμο"
+	},
 	"notifications": {
 		"newCredential": {
 			"message": "Ένα νέο πιστοποιητικό έφτασε.",

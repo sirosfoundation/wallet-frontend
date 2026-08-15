@@ -82,6 +82,11 @@
 	"credentialTypeCard": {
 		"selectAriaLabel": "Select credential {{name}}"
 	},
+	"switchCredentialPopup": {
+		"title": "Choose credential",
+		"description": "You can select one of these credentials to present:",
+		"close": "Close"
+	},
 	"expiredRibbon": {
 		"expired": "Expired"
 	},

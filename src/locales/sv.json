@@ -82,6 +82,11 @@
 	"credentialTypeCard": {
 		"selectAriaLabel": "Välj intyg {{name}}"
 	},
+	"switchCredentialPopup": {
+		"title": "Välj intyg",
+		"description": "Du kan välja ett av dessa intyg att visa:",
+		"close": "Stäng"
+	},
 	"expiredRibbon": {
 		"expired": "Utgånget"
 	},

@@ -82,6 +82,11 @@
 	"credentialTypeCard": {
 		"selectAriaLabel": "Valitse todistus {{name}}"
 	},
+	"switchCredentialPopup": {
+		"title": "Valitse todistus",
+		"description": "Voit valita yhden näistä todistuksista esitettäväksi:",
+		"close": "Sulje"
+	},
 	"expiredRibbon": {
 		"expired": "Vanhentunut"
 	},
