@@ -79,6 +79,9 @@
 		"legendRequested": "Begärt av verifierare",
 		"legendRequired": "Obligatoriskt"
 	},
+	"credentialTypeCard": {
+		"selectAriaLabel": "Välj intyg {{name}}"
+	},
 	"expiredRibbon": {
 		"expired": "Utgånget"
 	},

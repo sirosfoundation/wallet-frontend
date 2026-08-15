@@ -79,6 +79,9 @@
 		"legendRequested": "Requested by verifier",
 		"legendRequired": "Required"
 	},
+	"credentialTypeCard": {
+		"selectAriaLabel": "Select credential {{name}}"
+	},
 	"expiredRibbon": {
 		"expired": "Expired"
 	},

@@ -608,6 +608,9 @@
 		"legendRequested": "Ζητήθηκε από τον επαληθευτή",
 		"legendRequired": "Απαιτείται"
 	},
+	"credentialTypeCard": {
+		"selectAriaLabel": "Επιλογή πιστοποιητικού {{name}}"
+	},
 	"notifications": {
 		"newCredential": {
 			"message": "Ένα νέο πιστοποιητικό έφτασε.",

@@ -79,6 +79,9 @@
 		"legendRequested": "Todentajan pyytämä",
 		"legendRequired": "Pakollinen"
 	},
+	"credentialTypeCard": {
+		"selectAriaLabel": "Valitse todistus {{name}}"
+	},
 	"expiredRibbon": {
 		"expired": "Vanhentunut"
 	},

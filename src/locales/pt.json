@@ -589,6 +589,9 @@
 		"legendRequested": "Solicitado pelo verificador",
 		"legendRequired": "Obrigatório"
 	},
+	"credentialTypeCard": {
+		"selectAriaLabel": "Selecionar credencial {{name}}"
+	},
 	"issuance": {
 		"credentialsHaveErrors": "Foram encontrados erros ao verificar a credencial que está a tentar receber.",
 		"error": "Erro de Emissão",
