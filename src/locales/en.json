@@ -60,7 +60,9 @@
 			"purpose": "Purpose",
 			"requestedInformation": "Requested Information",
 			"share": "Share",
-			"decline": "Decline"
+			"decline": "Decline",
+			"switchCredential": "Switch credential",
+			"switchCredentialAria": "Switch credential: {{name}}, {{count}} available"
 		},
 		"sharing": {
 			"sending": "Sending..."

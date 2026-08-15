@@ -22,8 +22,13 @@ import { useTenant } from '@/context/TenantContext';
 import Button from '@/components/Buttons/Button';
 import { H1 } from '@/components/Shared/Heading';
 import Header from '@/components/Layout/Header';
+import {
+	SwitchCredentialPopup,
+	type SwitchCredentialPopupState
+} from '@/components/Popups/SwitchCredentialPopup';
 import { useTranslation } from 'react-i18next';
 import { truncateByWords } from '@/utils';
+import { logger } from '@/logger';
 
 type PresentCredentialsFlowProps = {
 	view: PresentCredentialsFlowView;
@@ -115,18 +120,25 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 	);
 
 	// State: chosen batchId per query. Swap = change one entry.
-	const [selection] = useState<Record<string, number>>(() =>
+	const [selection, setSelection] = useState<Record<string, number>>(() =>
 		Object.fromEntries(requested.map((q) => [q.id, q.matches[0]?.batchId])),
 	);
 
-	// const swap = (queryId: string, batchId: number) =>
-	// 	setSelection((prev) => ({ ...prev, [queryId]: batchId }));
+	const [
+		switchCredentialState,
+		setSwitchCredentialState,
+	] = useState<SwitchCredentialPopupState | null>(null);
+
+	const swap = (queryId: string, batchId: number) =>
+		setSelection((prev) => ({ ...prev, [queryId]: batchId }));
+
 
 	// Derived, display-ready. The render map just reads this.
 	const view = requested.map((q) => ({
 		id: q.id,
 		selected: q.matches.find((m) => m.batchId === selection[q.id]),
 		alternatives: q.matches.filter((m) => m.batchId !== selection[q.id]),
+		total: q.matches.length,
 	}));
 
 	const buttons = (
@@ -196,7 +208,7 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 										} as React.CSSProperties
 									}
 								>
-									<h3 className="font-bold">{entry.selected.display.name}</h3>
+									<h3 className="font-bold" aria-live="polite" aria-atomic="true">{entry.selected.display.name}</h3>
 									{entry.selected?.display.logo ? (
 										<img className="max-h-8 max-w-8" src={entry.selected.display.logo} alt="" />
 									) : (
@@ -215,11 +227,52 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 										</Fragment>
 									))}
 								</dl>
+								{entry.alternatives.length > 0 && (
+									<div className="px-4 pt-4 pb-1 -mx-4 border-t border-t-lm-gray-600 dark:border-t-dm-gray-400">
+										<Button
+											variant="link"
+											linkClassName="flex items-center gap-1"
+											aria-label={t('presentCredentialsFlow.overview.switchCredentialAria', {
+												name: entry.selected?.display.name ?? '',
+												count: entry.total,
+											})}
+											onClick={() =>
+												setSwitchCredentialState({
+													id: entry.id,
+													matches: [
+														entry.selected,
+														...entry.alternatives,
+													],
+												})
+											}
+										>
+											{t('presentCredentialsFlow.overview.switchCredential')}
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} className="w-6 h-6" aria-hidden="true" >
+												<rect x="4" y="4" width="19" height="14" rx="2" fill="transparent" className="stroke-black dark:stroke-white" />
+												<rect x="2" y="7" width="19" height="14" rx="2" className="fill-black dark:fill-white" />
+												<text x="11" y="18" textAnchor="middle" fontSize="12" fontWeight="600" className="fill-white dark:fill-black">
+													{entry.total}
+												</text>
+											</svg>
+										</Button>
+									</div>
+								)}
 							</div>
 						</li>
 					))}
 				</ul>
 			</div>
+			{switchCredentialState && (
+				<SwitchCredentialPopup
+					switchCredentialState={switchCredentialState}
+					setSwitchCredentialState={setSwitchCredentialState}
+					selectCredential={(batchId) => {
+						logger.debug('Switching credential', { batchId });
+						swap(switchCredentialState.id, batchId);
+						setSwitchCredentialState(null);
+					}}
+				/>
+			)}
 		</FlowScreen>
 	);
 };

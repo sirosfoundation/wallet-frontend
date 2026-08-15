@@ -60,7 +60,9 @@
 			"purpose": "Syfte",
 			"requestedInformation": "Begärd information",
 			"share": "Dela",
-			"decline": "Avvisa"
+			"decline": "Avvisa",
+			"switchCredential": "Byt intyg",
+			"switchCredentialAria": "Byt intyg: {{name}}, {{count}} tillgängliga"
 		},
 		"sharing": {
 			"sending": "Skickar..."

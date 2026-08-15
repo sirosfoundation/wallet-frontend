@@ -8,6 +8,22 @@ export type PresentCredentialsVerifier = {
 };
 
 /**
+ * A matching credential.
+ */
+export type PresentCredentialsMatch = {
+	batchId: number;
+	display: {
+		name: string;
+		backgroundColor?: string;
+		textColor?: string;
+		logo?: string;
+	};
+	fields: Array<{
+		name: string;
+		value: unknown;
+	}>;
+};
+/**
  * A single query for credentials, including the requested credential ID
  * and the matching credentials in the wallet.
  *
@@ -15,19 +31,7 @@ export type PresentCredentialsVerifier = {
  */
 export type PresentCredentialsQuery = {
 	id: string;
-	matches: Array<{
-		batchId: number;
-		display: {
-			name: string;
-			backgroundColor?: string;
-			textColor?: string;
-			logo?: string;
-		};
-		fields: Array<{
-			name: string;
-			value: unknown;
-		}>;
-	}>;
+	matches: PresentCredentialsMatch[];
 };
 
 /**

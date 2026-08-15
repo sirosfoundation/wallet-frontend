@@ -60,7 +60,9 @@
 			"purpose": "Σκοπός",
 			"requestedInformation": "Ζητούμενες πληροφορίες",
 			"share": "Κοινοποίηση",
-			"decline": "Απόρριψη"
+			"decline": "Απόρριψη",
+			"switchCredential": "Αλλαγή πιστοποιητικού",
+			"switchCredentialAria": "Αλλαγή πιστοποιητικού: {{name}}, {{count}} διαθέσιμα"
 		},
 		"sharing": {
 			"sending": "Αποστολή..."

@@ -60,7 +60,9 @@
 			"purpose": "Objetivo",
 			"requestedInformation": "Informação solicitada",
 			"share": "Partilhar",
-			"decline": "Recusar"
+			"decline": "Recusar",
+			"switchCredential": "Trocar credencial",
+			"switchCredentialAria": "Trocar credencial: {{name}}, {{count}} disponíveis"
 		},
 		"sharing": {
 			"sending": "A enviar..."

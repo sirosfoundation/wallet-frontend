@@ -60,7 +60,9 @@
 			"purpose": "Tarkoitus",
 			"requestedInformation": "Pyydetyt tiedot",
 			"share": "Jaa",
-			"decline": "Hylkää"
+			"decline": "Hylkää",
+			"switchCredential": "Vaihda todistus",
+			"switchCredentialAria": "Vaihda todistus: {{name}}, {{count}} saatavilla"
 		},
 		"sharing": {
 			"sending": "Lähetetään..."
