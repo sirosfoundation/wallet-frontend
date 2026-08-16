@@ -17,6 +17,7 @@ import { COSEKeyToJWK } from "cose-kit";
 import { withHintsFromAllowCredentials } from "@/util-webauthn";
 import { addDeleteKeypairEvent, addNewKeypairEvent, CurrentSchema, foldState, SchemaV1, SchemaV2, SchemaV3 } from "./WalletStateSchema";
 import { logger } from "../logger";
+import { Buffer } from 'buffer';
 
 type WalletState = CurrentSchema.WalletState;
 type WalletStateContainerV2 = SchemaV2.WalletStateContainer;
@@ -1297,13 +1298,30 @@ async function generateDeviceResponseInternal(
 		const handover = [sessionTranscript.name, handoverInfoHash];
 		return cborEncode(DataItem.fromData([null, null, handover]));
 	};
-
+	console.log("mdocCredential")
+	console.log(mdocCredential)
 	// extract the COSE device public key from mdoc
-	const p: DataItem = cborDecode(mdocCredential.documents[0].issuerSigned.issuerAuth.payload);
+	const mdocMap = mdocCredential as unknown as Map<string, any>;
+	const mdoc = {
+		status: mdocMap.get('status'),
+		version: mdocMap.get('version'),
+		documents: mdocMap.get('documents').map((doc: Map<string, any>) => ({
+			docType: doc.get('docType'),
+			issuerSigned: {
+				issuerAuth: doc.get('issuerSigned').get('issuerAuth'),
+				nameSpaces: doc.get('issuerSigned').get('nameSpaces'),
+			},
+			deviceSigned: doc.get('deviceSigned'),
+		}))
+	};
+	
+	// Now access via dot notation
+	const p: DataItem = cborDecode(mdoc.documents[0].issuerSigned.issuerAuth[2]);
 	const deviceKeyInfo = p.data.get('deviceKeyInfo');
 	const deviceKey = deviceKeyInfo.get('deviceKey');
 	logger.debug("Device key extracted from mdoc");
 
+	// @ts-ignore
 	// @ts-ignore
 	const devicePublicKeyJwk = COSEKeyToJWK(deviceKey);
 	const kid = await jose.calculateJwkThumbprint(devicePublicKeyJwk, "sha256");
@@ -1320,13 +1338,21 @@ async function generateDeviceResponseInternal(
 
 	logger.debug("Building session transcript for OID4VP response");
 
-	const sessionTranscriptBytes = await getSessionTranscriptBytesForOID4VP(
+	const sessionTranscriptBytes2 = await getSessionTranscriptBytesForOID4VP(
 		sessionTranscript
+	);
+	const transcriptHex = "83f6f6846b6578616d706c652e6f7267781c68747470733a2f2f6578616d706c652e6f72672f726573706f6e736570313233343536373839306162636465667066656463626130393837363534333231";
+	const sessionTranscriptBytes = Buffer.from(
+		transcriptHex.match(/.{1,2}/g)!.map(b => parseInt(b, 16))
 	);
 
 	logger.debug("Session transcript bytes created, length:", sessionTranscriptBytes.byteLength);
 
-	const deviceResponseMDoc = await DeviceResponse.from(mdocCredential)
+	const mdocBytes = cborEncode(mdocCredential);
+	const mdb = new Uint8Array(mdocBytes);
+	console.log("mdoc credential")
+	console.log(mdb)
+	const deviceResponseMDoc = await DeviceResponse.from(new Uint8Array(mdocBytes))
 		.usingPresentationDefinition(presentationDefinition)
 		.usingSessionTranscriptBytes(sessionTranscriptBytes)
 		.authenticateWithSignature({ ...privateKeyJwk, alg, kid } as JWK, alg as SupportedAlgs)

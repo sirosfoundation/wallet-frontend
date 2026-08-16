@@ -19,7 +19,19 @@ import { DCAPISession } from '@/lib/openid-flow/platforms/dc-api';
 import { ConformantCredentials, PresentCredentialsFlow, usePresentCredentialsFlow } from '@/components/flows/PresentCredentialsFlow';
 import { DcqlQuery } from 'dcql';
 import { OID4VPVerifierInfo } from '@/lib/openid-flow/types/OID4VPTypes';
-
+import { MdocProverService } from '@/utils';
+import { encode, decode, Tag } from "cbor-x";
+import { cborEncode, cborDecode, DataItem } from "@auth0/mdl/lib/cbor";
+import { COSEKeyToJWK } from "cose-kit";
+import * as jose from "jose";
+import SessionContext from "@/context/SessionContext";
+import { useIndexedDb } from "../../hooks/useIndexedDb";
+import { 
+    generateDeviceSignature, 
+    signMdocWithPlaceholder,
+    buildCombinedDeviceResponse,
+    DEFAULT_PID_ZKP_CONFIG 
+} from '@/utils/MdocZkpService';
 type OpenIDFlowCallbackProps = {
 	callbackUrl: OIDFlowCallbackURL;
 }
@@ -287,6 +299,87 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	);
 };
 
+function minimalMapHeader(count) {
+	if (count < 24) return new Uint8Array([0xa0 | count]);
+	if (count < 256) return new Uint8Array([0xb8, count]);
+	return new Uint8Array([0xb9, (count >> 8) & 0xff, count & 0xff]);
+}
+
+function minimalArrayHeader(count) {
+	if (count < 24) return new Uint8Array([0x80 | count]);
+	if (count < 256) return new Uint8Array([0x98, count]);
+	return new Uint8Array([0x99, (count >> 8) & 0xff, count & 0xff]);
+}
+
+function concatBytes(arrays) {
+	const total = arrays.reduce((sum, a) => sum + a.length, 0);
+	const result = new Uint8Array(total);
+	let offset = 0;
+	for (const a of arrays) {
+		result.set(a, offset);
+		offset += a.length;
+	}
+	return result;
+}
+
+function uint8ToBase64(uint8) {
+	let binary = '';
+	const len = uint8.byteLength;
+	for (let i = 0; i < len; i++) {
+		binary += String.fromCharCode(uint8[i]);
+	}
+	const standard = btoa(binary);
+	return standard
+		.replace(/\+/g, '-')
+		.replace(/\//g, '_')
+		.replace(/=+$/, '');
+}
+function minimalBstrHeader(count) {
+	if (count < 24) return new Uint8Array([0x40 | count]);
+	if (count < 256) return new Uint8Array([0x58, count]);
+	if (count < 65536) return new Uint8Array([0x59, (count >> 8) & 0xff, count & 0xff]);
+	return new Uint8Array([0x5a, (count >> 24) & 0xff, (count >> 16) & 0xff, (count >> 8) & 0xff, count & 0xff]);
+}
+
+function manualBstr(contentBytes) {
+	return concatBytes([minimalBstrHeader(contentBytes.length), contentBytes]);
+}
+
+
+function ensureArrayBuffer(buf: any): Uint8Array<ArrayBuffer> {
+    const u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+    // Force copy into a fresh ArrayBuffer
+    const copy = new Uint8Array(u8.length);
+    copy.set(u8);
+    return copy as Uint8Array<ArrayBuffer>;
+}
+
+function manualMap(pairs) {
+    const header = minimalMapHeader(pairs.length);
+    const parts = [header];
+    for (const [key, valueBytes] of pairs) {
+        parts.push(ensureArrayBuffer(cborEncode(key)));
+        parts.push(ensureArrayBuffer(valueBytes));
+    }
+    return concatBytes(parts);
+}
+
+function manualArray(itemsBytes) {
+	const header = minimalArrayHeader(itemsBytes.length);
+	return concatBytes([header, ...itemsBytes]);
+}
+
+// Tag wrapper: tag numbers 0-23 fit in a single header byte (0xc0 | tag).
+// Tag 24 needs one extra byte (0xd8, 24) since 24 doesn't fit in the initial byte alone.
+function manualTag(tagNumber, contentBytes) {
+	if (tagNumber < 24) {
+		return concatBytes([new Uint8Array([0xc0 | tagNumber]), contentBytes]);
+	}
+	if (tagNumber < 256) {
+		return concatBytes([new Uint8Array([0xd8, tagNumber]), contentBytes]);
+	}
+	throw new Error("tag number too large for this helper");
+}
 /**
  * OpenID4VPFlow - Handles OID4VP presentation request callbacks.
  */
@@ -294,6 +387,9 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	const { displayError } = useErrorDialog();
 	const { t } = useTranslation();
 	const { showTransactionDataConsentPopup } = useContext(OpenID4VPContext);
+	const { keystore, api } = useContext(SessionContext);
+	const [ppidHex, setPpidHex] = useState(null);
+
 	const navigateHome = useNavigateHome();
 	const flowIsActive = useRef(false);
 	const {
@@ -305,6 +401,15 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		displayErrorScreen,
 	} = usePresentCredentialsFlow();
 
+	const proofCacheDb = useIndexedDb(
+		'zkProofCache',
+		1,
+		(db) => {
+			if (!db.objectStoreNames.contains('proofs')) {
+				db.createObjectStore('proofs');
+			}
+		}
+	);
 	/**
 	 * Handle errors thrown during OID4VP flows.
 	 */
@@ -426,8 +531,76 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			window.location.href = sendResult.redirectUri;
 		}
 	};
+	function base64ToHex(str) {
+		const b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+		const bin = atob(b64);
+		return Array.from(bin)
+				.map(char => char.charCodeAt(0).toString(16).padStart(2, '0'))
+				.join('');
+	}
+	
+ 
+ 
 
-	const processDcApiRequest = async (url: URL) => {
+
+
+	function assembleFinalVP_V8(originalMdocHex, proofUint8, ppid, transcriptHex, Now) {
+		const hexToBuf = (hex) => new Uint8Array(hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+		const mdocBytes = hexToBuf(originalMdocHex);
+		const mdocDecoded = decode(mdocBytes);
+		const doc = mdocDecoded.documents[0];
+		const issuerSigned = doc.issuerSigned;
+		const issuerAuth = issuerSigned.issuerAuth;
+		const unprotectedHeaders = issuerAuth[1];
+		const certs = unprotectedHeaders.get ? unprotectedHeaders.get(33) : unprotectedHeaders[33];
+		const certDer = Array.isArray(certs) ? certs[0] : certs;
+		const claim1 = manualMap([
+			["elementIdentifier", cborEncode("age_over_18")],
+			["elementValue", cborEncode(true)],
+		]);
+		const claim2 = manualMap([
+			["elementIdentifier", cborEncode("pairwise_pseudonym")],
+			["elementValue", cborEncode(ppid)],
+		]);
+		const claimsArray = manualArray([claim1, claim2]);
+		const issuerSignedMap = manualMap([
+			["eu.europa.ec.eudi.pid.1", claimsArray],
+		]);
+	
+		const timestampTagged = manualTag(0, cborEncode(Now));
+	
+		const documentDataMap = manualMap([
+			["zkSystemId", cborEncode("longfellow-libzk-v1_8_2_4307_2945_bb8e6a26d2700ddad968562d1c4aee83067772fee6f889748a0bc64f2c694ad5")],
+			["docType", cborEncode("eu.europa.ec.eudi.pid.1")],
+			["timestamp", timestampTagged],
+			["issuerSigned", issuerSignedMap],
+			["deviceSigned", manualMap([])],
+			["msoX5chain", cborEncode(certDer)],
+		]);
+	
+		const documentDataTagged2 = manualTag(24, documentDataMap);
+		const documentDataTagged = manualTag(24, manualBstr(documentDataMap));
+		const zkDocMap = manualMap([
+			["proof", cborEncode(proofUint8)],
+			["documentData", documentDataTagged],
+		]);
+	
+		const zkDocumentsArray = manualArray([zkDocMap]);
+	
+		const outerResponseBytes = manualMap([
+			["version", cborEncode("1.1")],
+			["status", cborEncode(0)],
+			["zkDocuments", zkDocumentsArray],
+		]);
+	
+		const handoverBytes = hexToBuf(transcriptHex);
+		return {
+			Transcript: uint8ToBase64(handoverBytes),
+			ZKDeviceResponseCBOR: uint8ToBase64(outerResponseBytes),
+			zkDocumentsArray: zkDocumentsArray
+		};
+	}
+	const processDcApiRequest = async (url: URL, keystore: any, proofCacheDb: any) => {
 		const session = new DCAPISession(url);
 
 		try {
@@ -457,23 +630,102 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				}
 				throw new OIDFlowError(credSelectResult.error);
 			}
+			
+			const proverService = new MdocProverService();
+			if (!proverService.isInitialized) {
+				await proverService.bootstrap();
+			}
+			const selectedCredential = credSelectResult.selectedCredentials[0];
+			const originalMdocBase64 = selectedCredential.credentialRaw;
+			const originalMdocHex = base64ToHex(originalMdocBase64);
+			
+ 			const transcriptHex = "83f6f6846b6578616d706c652e6f7267781c68747470733a2f2f6578616d706c652e6f72672f726573706f6e736570313233343536373839306162636465667066656463626130393837363534333231";
+			const CACHE_KEY = `${selectedCredential.walletCredentialRef}_${transcriptHex.slice(0, 16)}`;
+	
+			// Check IndexedDB cache
+			let cached = null;
+			try {
+				cached = await proofCacheDb.read(['proofs'], (tr) =>
+					tr.objectStore('proofs').get(CACHE_KEY)
+				);
+			} catch (e) {
+				console.log("No cached proof found");
+			}
+			const now = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+ 
+			let finalVP
+			if (cached) {
+				//setPpidHex(Array.from(cached.ppid).map(b => b.toString(16).padStart(2, '0')).join(''));
+				finalVP = assembleFinalVP_V8(originalMdocHex, cached.proof, cached.ppid, transcriptHex, now) as unknown as { 
+					Transcript: string, 
+					ZKDeviceResponseCBOR: string, 
+					zkDocumentsArray: Uint8Array 
+				};
+			} else {
+				// Sign the mdoc with the device key
+				//const rawSignatureHex = await generate(keystore, originalMdocHex, transcriptHex);
+				const rawSignatureHex = await generateDeviceSignature(
+					keystore,
+					originalMdocHex,
+					transcriptHex,
+					"eu.europa.ec.eudi.pid.1",
+					decode
+				);
 
-			// We can also call displayProcessingScreen() here if we want to show a
-			// processing state before sending the response. Useful for longer operations
-			// like proof generation etc.
-			//
-			// It looks just like the loading screen, but with a cancel button.
-			// We can send custom messages in an array of strings to
-			// displayProcessingScreen() to show progress messages, like so:
-			//
-			// displayProcessingScreen(['Preparing response...', 'Sending response...']);
-			//
+				const signedMdocHex = signMdocWithPlaceholder(originalMdocHex, rawSignatureHex);
 
-			displaySendingScreen();
-
+				const mdocBytes = new Uint8Array(base64ToHex(selectedCredential.credentialRaw).match(/.{1,2}/g).map(b => parseInt(b, 16)));
+				const mdoc = decode(mdocBytes);
+				const nsItems = mdoc.documents[0].issuerSigned.nameSpaces;
+				const ns = Object.keys(nsItems)[0];
+				let pseudonymSeed = null;
+				for (const item of nsItems[ns]) {
+					const decoded = decode(item.value);
+					if (decoded.elementIdentifier === 'pseudonym_seed') {
+						pseudonymSeed = decoded.elementValue;
+						break;
+					}
+				}
+				const payload = {
+					mdoc: signedMdocHex,
+					transcript: transcriptHex,
+					now: now,
+					pseudonymSeed: pseudonymSeed,
+				};
+				//const proofResult = await proverService.generateProof(payload);
+				const proofResult = await proverService.generateProof({
+					mdoc: signedMdocHex,
+					transcript:   transcriptHex,
+					now: now,
+					pseudonymSeed: pseudonymSeed,
+				});
+				
+				setPpidHex(proofResult.ppidHex);
+				 finalVP = assembleFinalVP_V8(originalMdocHex, proofResult.proof, proofResult.ppid, transcriptHex, now) as unknown as { 
+					Transcript: string, 
+					ZKDeviceResponseCBOR: string, 
+					zkDocumentsArray: Uint8Array 
+				};
+ 
+				// Cache proof and ppid in IndexedDB
+				try {
+					await proofCacheDb.write(['proofs'], (tr) =>
+						tr.objectStore('proofs').put(
+							{ proof: proofResult.proof, ppid: proofResult.ppid },
+							CACHE_KEY
+						)
+					);
+					console.log("Proof cached in IndexedDB");
+				} catch (e) {
+					console.warn("Failed to cache proof:", e);
+				}
+				displaySendingScreen();
+			}
 			const sendResult = await sendDCAPIResponse(
 				session,
-				credSelectResult.selectedCredentials
+				credSelectResult.selectedCredentials,
+				finalVP,
+				
 			);
 			logger.debug('DC API response sent:', sendResult);
 
@@ -511,7 +763,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 						await processAuthorizationRequest(callbackUrl.url);
 						break;
 					case 'dc_api_request':
-						await processDcApiRequest(callbackUrl.url);
+						await processDcApiRequest(callbackUrl.url, keystore, proofCacheDb);
 						break;
 					default:
 						throw new OIDFlowError({

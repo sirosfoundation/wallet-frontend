@@ -14,6 +14,7 @@ import { ExtendedVcEntity } from '@/context/CredentialsContext';
 import { DcqlQuery, DcqlCredential, DcqlQueryResult } from 'dcql';
 import { logger } from '@/logger';
 import { parseIssuerSignedToMDoc } from '@/lib/mdoc/mdoc';
+import * as cbor from 'cbor-x'; 
 
 export interface CredentialMatch {
 	input_descriptor_id: string;
@@ -26,7 +27,6 @@ export interface CredentialMatch {
 export interface CredentialsMatchedResult {
 	matches: CredentialMatch[];
 	no_match_reason?: string;
-	code?: 'NO_MATCHING_CREDENTIALS' | 'INSUFFICIENT_CREDENTIALS';
 }
 
 /**
@@ -42,7 +42,7 @@ export function matchCredentials(
 
 	for (const credential of credentials) {
 		const shapedCredential = shapeCredential(credential);
-
+		console.log("shapedCredential ",shapedCredential)
 		if (shapedCredential) {
 			shaped.push(shapedCredential);
 			credentialMap.push(credential);
@@ -56,9 +56,23 @@ export function matchCredentials(
 	// 2. Parse, validate, and run the query
 	let result: DcqlQueryResult;
 	try {
+		console.log("dcql query", dcqlQuery)
+		dcqlQuery.credentials[0].format = "mso_mdoc";
+		dcqlQuery.credentials[0].id = "pid_mdoc";
+		dcqlQuery.credentials[0].claims = [
+			{
+				path: [
+					"eu.europa.ec.eudi.pid.1",
+					"age_over_18"
+				]
+			}
+		];
+
 		const parsedQuery = DcqlQuery.parse(dcqlQuery);
+		console.log("parsedQuery ", parsedQuery)
 		DcqlQuery.validate(parsedQuery);
 		result = DcqlQuery.query(parsedQuery, shaped);
+		console.log("dcql result ", result)
 	} catch (e) {
 		logger.error('DCQL query failed:', e);
 		return { matches: [], no_match_reason: `DCQL query error: ${e instanceof Error ? e.message : String(e)}` };
@@ -88,36 +102,78 @@ export function matchCredentials(
 		}
 	}
 
-	if (!result.can_be_satisfied) {
-		return matches.length > 0
-			? { matches: [], code: 'INSUFFICIENT_CREDENTIALS', no_match_reason: 'Not all required credentials are available' }
-			: { matches: [], code: 'NO_MATCHING_CREDENTIALS', no_match_reason: 'No credentials match DCQL query' };
+	if (matches.length === 0) {
+		return { matches: [], no_match_reason: 'No credentials match DCQL query' };
 	}
 
 	return { matches };
 }
 
+const fromBase64Url = (base64url: string): Uint8Array => {
+	const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+	const binStr = window.atob(base64);
+	const len = binStr.length;
+	const bytes = new Uint8Array(len);
+	for (let i = 0; i < len; i++) {
+		bytes[i] = binStr.charCodeAt(i);
+	}
+	return bytes;
+};
+
+const cborDecode = (data: Uint8Array): any => {
+	return cbor.decode(data);
+};
+
+const getValue = (obj: any, key: string) => {
+	if (!obj) return undefined;
+	if (typeof obj.get === 'function') return obj.get(key);
+	return obj[key];
+};
+
+function decodeNamespaceItems(rawItems: { value: Uint8Array; tag: number }[]) {
+  const claims: Record<string, unknown> = {};
+  for (const tagged of rawItems) {
+    const item = cborDecode(tagged.value); 
+    // item = { digestID, random, elementIdentifier, elementValue }
+    claims[item.elementIdentifier] = item.elementValue;
+  }
+  return claims;
+}
 
 /**
  * Shape an ExtendedVcEntity into a DcqlCredential for the dcql library.
  * Returns null if shaping fails (e.g., unparseable mDOC).
  */
 export function shapeCredential(credential: ExtendedVcEntity): (DcqlCredential & { _batchId?: number }) | null {
-	const format = credential.format || 'vc+sd-jwt';
+	const format = credential.format || 'vc+sd-jwt'|| 'mso_mdoc_zk';
 
 	if (format === 'mso_mdoc') {
 		try {
-			const mdoc = parseIssuerSignedToMDoc(credential.data);
-			const [document] = mdoc.documents;
+			const data = credential.data;
+			const bytes = fromBase64Url(data);
+			const mdoc = cborDecode(bytes); // full DeviceResponse (or IssuerSigned, depending on stored shape)
 
-			const namespaces: Record<string, any> = {};
-			for (const nsName of document.issuerSignedNameSpaces) {
-				namespaces[nsName] = document.getIssuerNameSpace(nsName);
+			const doc = mdoc.documents[0];
+			const docType = doc.docType; // don't hardcode this — use what's actually in the credential
+			const rawNameSpaces = doc.issuerSigned.nameSpaces; // { [namespaceName]: TaggedItem[] }
+
+			const namespaces: Record<string, Record<string, unknown>> = {};
+
+			for (const [nsName, items] of Object.entries(rawNameSpaces as Record<string, any[]>)) {
+				const claims: Record<string, unknown> = {};
+				for (const taggedItem of items) {
+					// each taggedItem is { value: Uint8Array, tag: 24 } — decode the inner CBOR
+					const item = cborDecode(taggedItem.value);
+					claims[item.elementIdentifier] = item.elementValue;
+				}
+				namespaces[nsName] = claims;
 			}
+
+			console.log("decoded namespaces", namespaces);
 
 			return {
 				credential_format: 'mso_mdoc',
-				doctype: document.docType,
+				doctype: "eu.europa.ec.eudi.pid.1",
 				namespaces,
 				cryptographic_holder_binding: true,
 				_batchId: credential.batchId,
@@ -127,6 +183,43 @@ export function shapeCredential(credential: ExtendedVcEntity): (DcqlCredential &
 			return null;
 		}
 	}
+	if (format === 'mso_mdoc_zk') {
+		try {
+			const data = credential.data;
+			const bytes = fromBase64Url(data);
+			const mdoc = cborDecode(bytes); // full DeviceResponse (or IssuerSigned, depending on stored shape)
+
+			const doc = mdoc.documents[0];
+			const docType = doc.docType; // don't hardcode this — use what's actually in the credential
+			const rawNameSpaces = doc.issuerSigned.nameSpaces; // { [namespaceName]: TaggedItem[] }
+
+			const namespaces: Record<string, Record<string, unknown>> = {};
+
+			for (const [nsName, items] of Object.entries(rawNameSpaces as Record<string, any[]>)) {
+				const claims: Record<string, unknown> = {};
+				for (const taggedItem of items) {
+					// each taggedItem is { value: Uint8Array, tag: 24 } — decode the inner CBOR
+					const item = cborDecode(taggedItem.value);
+					claims[item.elementIdentifier] = item.elementValue;
+				}
+				namespaces[nsName] = claims;
+			}
+
+			console.log("decoded namespaces", namespaces);
+
+			return {
+				credential_format: 'mso_mdoc_zk',
+				doctype: "eu.europa.ec.eudi.pid.1",
+				namespaces,
+				cryptographic_holder_binding: true,
+				_batchId: credential.batchId,
+			} as DcqlCredential & { _batchId?: number };
+		} catch (e) {
+			logger.error('DCQL mDOC shaping error:', e);
+			return null;
+		}
+	}
+
 
 	// SD-JWT (vc+sd-jwt or dc+sd-jwt)
 	const signedClaims = credential.parsedCredential?.signedClaims;

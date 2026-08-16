@@ -10,7 +10,16 @@ import { buildMdocPresentationDefinition, parseIssuerSignedToMDoc } from '@/lib/
 import { detectCredentialFormat, VerifiableCredentialFormat } from 'wallet-common';
 import { MDoc } from '@auth0/mdl';
 import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
-
+import { cborDecode, cborEncode } from '@auth0/mdl/lib/cbor';
+import { fromBase64Url } from '@/util';
+import { encode as cborXEncode, decode as cborXDecode } from 'cbor-x';
+import { 
+    generateDeviceSignature, 
+    buildZkpResponse, 
+    signMdocWithPlaceholder,
+    buildCombinedDeviceResponse,
+    DEFAULT_PID_ZKP_CONFIG 
+} from '@/utils/MdocZkpService';
 interface ProofTypeConfig {
 	key_attestations_required?: Record<string, unknown> | null;
 	proof_signing_alg_values_supported: string[];
@@ -38,6 +47,7 @@ export type OIDFlowSignOptions = {
 		credentialRaw?: string;
 	}>;
 	verifierJwkThumbprint?: string;
+	finalVP?: Uint8Array;
 }
 
 export interface OIDFlowSignRequest {
@@ -72,7 +82,7 @@ export function useOIDFlowSignHandler() {
 	const keystore = sessionContext?.keystore;
 
 	const signPresentation = useCallback(async (options: OIDFlowSignOptions): Promise<OIDFlowSignResponse> => {
-		const { audience, nonce, credentialsToInclude, responseUri, origin, verifierJwkThumbprint } = options;
+		const { audience, nonce, credentialsToInclude, responseUri, origin, verifierJwkThumbprint, finalVP } = options;
 		if (!audience || !nonce) {
 			throw new Error('Missing audience or nonce for presentation signing');
 		}
@@ -102,7 +112,8 @@ export function useOIDFlowSignHandler() {
 					responseUri,
 					origin,
 					verifierJwkThumbprint,
-				}
+				},
+				finalVP,
 			);
 
 			vpTokenMap[c.credentialQueryId] = [vpToken];
@@ -212,7 +223,8 @@ async function createVpToken(
 		responseUri?: string;
 		origin?: string;
 		verifierJwkThumbprint?: string;
-	}
+	},
+	finalVP: Uint8Array,
 ) {
 	const { credentialRaw, disclosedClaims } = credentialData;
 	const { nonce, audience, responseUri, origin, verifierJwkThumbprint } = params;
@@ -245,7 +257,8 @@ async function createVpToken(
 						responseUri,
 						origin,
 						verifierJwkThumbprint,
-					}
+					},
+					finalVP,
 				);
 			default:
 				throw new Error('Unsupported credential format for presentation signing');
@@ -283,7 +296,8 @@ async function createVpTokenFromMdoc(
 		responseUri?: string;
 		origin?: string;
 		verifierJwkThumbprint?: string;
-	}
+	},
+    finalVP: { Transcript: string; ZKDeviceResponseCBOR: string; zkDocumentsArray: Uint8Array } | null,
 ): Promise<string> {
 	const { credentialRaw, disclosedClaims } = credentialData;
 	const { nonce, audience, responseUri, origin, verifierJwkThumbprint } = params;
@@ -300,9 +314,14 @@ async function createVpTokenFromMdoc(
 		throw new Error('disclosedClaims required for mdoc presentation');
 	}
 
-	const mdoc = parseIssuerSignedToMDoc(credentialRaw);
+	//const mdoc = parseIssuerSignedToMDoc(credentialRaw);
+	const data = credentialRaw;
+	const bytes = fromBase64Url(data);
+	const mdoc = cborDecode(bytes); 
+	const docType =  "eu.europa.ec.eudi.pid.1";
+
 	const presentationDefinition = buildMdocPresentationDefinition(
-		mdoc.documents[0].docType,
+		docType,
 		disclosedClaims ?? [],
 	);
 
@@ -323,5 +342,12 @@ async function createVpTokenFromMdoc(
 		throw new Error('Unexpected error: neither responseUri nor origin provided for mdoc presentation');
 	}
 
-	return base64url.encode(new Uint8Array(deviceResponseMDoc.encode()));
+	const versionKey = new Uint8Array([0x67, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e]); // "version"
+	const versionVal = new Uint8Array([0x63, 0x31, 0x2e, 0x30]); // "1.0"
+	const statusKey = new Uint8Array([0x66, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73]); // "status"
+	const statusVal = new Uint8Array([0x00]); // 0
+	const zkDocsKey = new Uint8Array([0x6b, 0x7a, 0x6b, 0x44, 0x6f, 0x63, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x73]); // "zkDocuments"
+
+	const combined = buildCombinedDeviceResponse(finalVP.zkDocumentsArray);
+	return base64url.encode(combined);
 }

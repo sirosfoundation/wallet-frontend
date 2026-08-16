@@ -98,7 +98,7 @@ export interface UseOID4VPFlowReturn {
 	/**
 	 * Send DC API response - sign, record history, send via session
 	 */
-	sendDCAPIResponse: (session: DCAPISession, credentials: OID4VPSelectedCredential[]) => Promise<OID4VPFlowResult>;
+	sendDCAPIResponse: (session: DCAPISession, credentials: OID4VPSelectedCredential[], finalVP: OID4VPSelectedCredential[]) => Promise<OID4VPFlowResult>;
 }
 
 /**
@@ -542,7 +542,9 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 	 */
 	const sendDCAPIResponse = useCallback(async (
 		session: DCAPISession,
-		selectedCredentials: OID4VPSelectedCredential[]
+		selectedCredentials: OID4VPSelectedCredential[],
+		finalVP: Uint8Array,
+
 	): Promise<OID4VPFlowResult> => {
 		setIsLoading(true);
 		setError(null);
@@ -550,7 +552,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		try {
 			// DC API audience format per OpenID4VP spec
 			const audience = `origin:${session.verifiedOrigin}`;
-
+			console.log("audience: ", audience);
 			const signResponse = await signPresentation({
 				audience,
 				nonce: session.request.nonce,
@@ -562,16 +564,12 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 					disclosedClaims: c.disclosedClaims,
 					credentialRaw: c.credentialRaw,
 				})),
+				finalVP,
 			});
-
-			if (keystore) {
-				await recordPresentationHistory(keystore, api, selectedCredentials, audience);
-			}
 
 			if (!signResponse.vpToken) {
 				throw new OIDFlowError({ code: 'SIGNING_FAILED', message: 'Failed to generate VP token' });
 			}
-
 			await session.sendResponse(JSON.parse(signResponse.vpToken));
 			return { success: true };
 		} catch (err) {

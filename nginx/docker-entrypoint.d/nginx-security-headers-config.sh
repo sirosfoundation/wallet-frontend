@@ -51,6 +51,14 @@ if [ -n "${OIDC_GATE_OP_URL}" ]; then
 	CONNECT_SRC="${CONNECT_SRC} ${OIDC_GATE_OP_URL}"
 fi
 
+if [ -n "${VERIFIER_URL}" ]; then
+	CONNECT_SRC="${CONNECT_SRC} ${VERIFIER_URL}"
+fi
+
+if [ -n "${VERIFIER_URL}" ]; then
+	CONNECT_SRC="${CONNECT_SRC} ${VERIFIER_URL}"
+fi
+
 if [ "${NGINX_CSP_ENFORCE_RESOURCE_HTTPS}" = "true" ]; then
 	RESOURCE_SCHEME_SRC="https:"
 else
@@ -60,7 +68,7 @@ fi
 # -------------------------------------------------------------------------------------------------
 # Content Security Policy configuration
 CSP="default-src 'self'; \
-script-src 'self'; \
+script-src 'self' 'wasm-unsafe-eval'; \
 style-src 'self'; \
 font-src 'self' data:; \
 img-src 'self' data: ${RESOURCE_SCHEME_SRC}; \

@@ -31,17 +31,40 @@ export const ClientMetadataSchema = z.object({
 	authorization_encrypted_response_enc: z.string().optional(),
 }).passthrough();
 
-export const dcqlQuerySchema = z.custom<DcqlQuery.Input>(
-	(val) => {
-		if (!val || typeof val !== 'object') return false;
-		try {
-			DcqlQuery.parse(val);
-			return true;
-		} catch {
-			return false;
-		}
-	},
-	{ message: 'Invalid dcql_query' }
+function normalizeDcqlQuery(dcqlQueryParam: any) {
+    const normalized = structuredClone(dcqlQueryParam);
+    let isZk = false;
+
+    for (const cred of normalized.credentials) {
+        if (cred.format === 'mso_mdoc_zk') {
+            cred.format = 'mso_mdoc';
+            isZk = true;
+        }
+    }
+
+    normalized._isZk = isZk;
+    return normalized;
+}
+
+export const dcqlQuerySchema = z.preprocess(
+    (val) => {
+        if (!val || typeof val !== 'object') return val;
+        return normalizeDcqlQuery(val);
+    },
+    z.custom<DcqlQuery.Input>(
+        (val) => {
+            if (!val || typeof val !== 'object') return false;
+            try {
+                const { _isZk, ...rest } = val as any;
+                DcqlQuery.parse(rest);
+                console.log("dcql query normalized", val, "isZk:", _isZk);
+                return true;
+            } catch {
+                return false;
+            }
+        },
+        { message: 'Invalid dcql_query' }
+    )
 );
 
 const BaseDCApiRequestSchema = z.object({
