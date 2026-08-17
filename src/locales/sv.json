@@ -60,7 +60,9 @@
 			"purpose": "Syfte",
 			"requestedInformation": "Begärd information",
 			"share": "Dela",
-			"decline": "Avvisa"
+			"decline": "Avvisa",
+			"switchCredential": "Byt intyg",
+			"switchCredentialAria": "Byt intyg: {{name}}, {{count}} tillgängliga"
 		},
 		"sharing": {
 			"sending": "Skickar..."
@@ -78,6 +80,14 @@
 		"legendAriaLabel": "Attributförklaring",
 		"legendRequested": "Begärt av verifierare",
 		"legendRequired": "Obligatoriskt"
+	},
+	"credentialTypeCard": {
+		"selectAriaLabel": "Välj intyg {{name}}"
+	},
+	"switchCredentialPopup": {
+		"title": "Välj intyg",
+		"description": "Du kan välja ett av dessa intyg att visa:",
+		"close": "Stäng"
 	},
 	"expiredRibbon": {
 		"expired": "Utgånget"

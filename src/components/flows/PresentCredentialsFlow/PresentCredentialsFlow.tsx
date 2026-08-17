@@ -1,6 +1,8 @@
 import {
 	Fragment,
 	useEffect,
+	useId,
+	useRef,
 	useState,
 	type FC,
 	type PropsWithChildren,
@@ -20,7 +22,13 @@ import { useTenant } from '@/context/TenantContext';
 import Button from '@/components/Buttons/Button';
 import { H1 } from '@/components/Shared/Heading';
 import Header from '@/components/Layout/Header';
+import {
+	SwitchCredentialPopup,
+	type SwitchCredentialPopupState
+} from '@/components/Popups/SwitchCredentialPopup';
 import { useTranslation } from 'react-i18next';
+import { truncateByWords } from '@/utils';
+import { logger } from '@/logger';
 
 type PresentCredentialsFlowProps = {
 	view: PresentCredentialsFlowView;
@@ -112,18 +120,25 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 	);
 
 	// State: chosen batchId per query. Swap = change one entry.
-	const [selection] = useState<Record<string, number>>(() =>
+	const [selection, setSelection] = useState<Record<string, number>>(() =>
 		Object.fromEntries(requested.map((q) => [q.id, q.matches[0]?.batchId])),
 	);
 
-	// const swap = (queryId: string, batchId: number) =>
-	// 	setSelection((prev) => ({ ...prev, [queryId]: batchId }));
+	const [
+		switchCredentialState,
+		setSwitchCredentialState,
+	] = useState<SwitchCredentialPopupState | null>(null);
+
+	const swap = (queryId: string, batchId: number) =>
+		setSelection((prev) => ({ ...prev, [queryId]: batchId }));
+
 
 	// Derived, display-ready. The render map just reads this.
 	const view = requested.map((q) => ({
 		id: q.id,
 		selected: q.matches.find((m) => m.batchId === selection[q.id]),
 		alternatives: q.matches.filter((m) => m.batchId !== selection[q.id]),
+		total: q.matches.length,
 	}));
 
 	const buttons = (
@@ -168,58 +183,119 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 				{singlePurpose && (
 					<>
 						<dt className="font-bold not-first:mt-4">{t('presentCredentialsFlow.overview.purpose')}</dt>
-						<dd className="mt-2">{String(singlePurpose)}</dd>
+						<dd className="mt-2">
+							<Purpose purpose={singlePurpose} />
+						</dd>
 					</>
 				)}
-				<dt className="font-bold not-first:mt-4">{t('presentCredentialsFlow.overview.requestedInformation')}</dt>
-				{view.map((entry) => (
-					<dd key={entry.id} className="mt-2">
-						<div className="border border-lm-gray-700 dark:border-dm-gray-400 rounded-md p-4 flex flex-col gap-4">
-							<div
-								className="px-3 py-1 rounded-md flex justify-between items-center bg-(--bg-color) text-(--text-color)"
-								style={
-									{
-										'--bg-color':
-											entry.selected?.display.backgroundColor ?? 'var(--color-primary)',
-										'--text-color':
-											entry.selected?.display.textColor ?? '#fff',
-									} as React.CSSProperties
-								}
-							>
-								<p className="font-bold">{entry.selected?.display.name}</p>
-								{entry.selected?.display.logo ? (
-									<img className="max-h-8 max-w-8" src={entry.selected.display.logo} alt="" />
-								) : (
-									<IdCardIcon size={24} />
+			</dl>
+			<div className="mt-4">
+				<h2 className="font-bold">
+					{t('presentCredentialsFlow.overview.requestedInformation')}
+				</h2>
+				<ul>
+					{view.map((entry) => (
+						<li key={entry.id} className="mt-2">
+							<div className="border border-lm-gray-700 dark:border-dm-gray-400 rounded-md p-4 flex flex-col gap-4">
+								<div
+									className="px-3 py-1 rounded-md flex justify-between items-center bg-(--bg-color) text-(--text-color)"
+									style={
+										{
+											'--bg-color':
+												entry.selected?.display.backgroundColor ?? 'var(--color-primary)',
+											'--text-color':
+												entry.selected?.display.textColor ?? '#fff',
+										} as React.CSSProperties
+									}
+								>
+									<h3 className="font-bold" aria-live="polite" aria-atomic="true">{entry.selected.display.name}</h3>
+									{entry.selected?.display.logo ? (
+										<img className="max-h-8 max-w-8" src={entry.selected.display.logo} alt="" />
+									) : (
+										<IdCardIcon size={24} aria-hidden="true" />
+									)}
+								</div>
+								<dl>
+									{/**
+										* The "Masked Identifier" field would be displayed here.
+										*
+										* @todo we should include a generic way to insert fields into
+										*       the overview that is not part of the requested claims
+										*       from the credential.
+										*/}
+									<dt className="font-bold not-first:mt-2 not-first:pt-2 not-first:border-t not-first:border-t-lm-gray-300 dark:not-first:border-t-dm-gray-700">
+										Masked Identifier
+									</dt>
+									<dd>-</dd>
+									{entry.selected?.fields.map((field) => (
+										<Fragment key={field.name+field.value}>
+											<dt className="font-bold not-first:mt-2 not-first:pt-2 not-first:border-t not-first:border-t-lm-gray-300 dark:not-first:border-t-dm-gray-700">
+												{field.name}
+											</dt>
+											{typeof field.value === 'object' ? (
+												<dd className="mt-2 wrap-break-word">
+													<table className="text-sm">
+														<tbody>
+															{Object.entries(field.value).map(([key, value]) => (
+																<tr key={key} className="not-first:mt-1 not-first:pt-1 not-first:border-t not-first:border-t-lm-gray-300 dark:not-first:border-t-dm-gray-700">
+																	<td className="font-bold p-1 pr-2">{key}</td>
+																	<td className="p-1">{String(value)}</td>
+																</tr>
+															))}
+														</tbody>
+													</table>
+												</dd>
+											) : <dd className="mt-2 wrap-break-word">{String(field.value)}</dd>}
+
+										</Fragment>
+									))}
+								</dl>
+								{entry.alternatives.length > 0 && (
+									<div className="px-4 pt-4 pb-1 -mx-4 border-t border-t-lm-gray-600 dark:border-t-dm-gray-400">
+										<Button
+											variant="link"
+											linkClassName="flex items-center gap-1"
+											aria-label={t('presentCredentialsFlow.overview.switchCredentialAria', {
+												name: entry.selected?.display.name ?? '',
+												count: entry.total,
+											})}
+											onClick={() =>
+												setSwitchCredentialState({
+													id: entry.id,
+													matches: [
+														entry.selected,
+														...entry.alternatives,
+													],
+												})
+											}
+										>
+											{t('presentCredentialsFlow.overview.switchCredential')}
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} className="w-6 h-6" aria-hidden="true" >
+												<rect x="4" y="4" width="19" height="14" rx="2" fill="transparent" className="stroke-black dark:stroke-white" />
+												<rect x="2" y="7" width="19" height="14" rx="2" className="fill-black dark:fill-white" />
+												<text x="11" y="18" textAnchor="middle" fontSize="12" fontWeight="600" className="fill-white dark:fill-black">
+													{entry.total}
+												</text>
+											</svg>
+										</Button>
+									</div>
 								)}
 							</div>
-							<dl>
-								{/**
-								 * The "Masked Identifier" field would be displayed here.
-								 *
-								 * @todo we should include a generic way to insert fields into
-								 *       the overview that is not part of the requested claims
-								 *       from the credential.
-								 */}
-								<dt className="font-bold not-first:mt-2 not-first:pt-2 not-first:border-t not-first:border-t-lm-gray-300 dark:not-first:border-t-dm-gray-700">
-									Masked Identifier
-								</dt>
-								<dd>-</dd>
-								{entry.selected?.fields.map((field) => (
-									<Fragment key={field.name}>
-										<dt className="font-bold not-first:mt-2 not-first:pt-2 not-first:border-t not-first:border-t-lm-gray-300 dark:not-first:border-t-dm-gray-700">
-											{field.name}
-										</dt>
-										<dd className="mt-2 overflow-x-auto whitespace-nowrap mask-[linear-gradient(to_right,#000_85%,transparent)]">
-											{String(field.value)}
-										</dd>
-									</Fragment>
-								))}
-							</dl>
-						</div>
-					</dd>
-				))}
-			</dl>
+						</li>
+					))}
+				</ul>
+			</div>
+			{switchCredentialState && (
+				<SwitchCredentialPopup
+					switchCredentialState={switchCredentialState}
+					setSwitchCredentialState={setSwitchCredentialState}
+					selectCredential={(batchId) => {
+						logger.debug('Switching credential', { batchId });
+						swap(switchCredentialState.id, batchId);
+						setSwitchCredentialState(null);
+					}}
+				/>
+			)}
 		</FlowScreen>
 	);
 };
@@ -261,7 +337,11 @@ const PresentationSharingScreen: FC<PresentationSharingScreenProps> = ({
 		>
 			<div className="flex flex-col gap-4 justify-center items-center h-100">
 				<Spinner size="large" standalone />
-				<p className="text-center text-2xl font-bold animate-text-shimmer">
+				<p
+					className="text-center text-2xl font-bold animate-text-shimmer"
+					role="status"
+					aria-live="polite"
+				>
 					{items[index]}
 				</p>
 			</div>
@@ -286,8 +366,9 @@ const PresentationCompleteScreen: FC<PresentationCompleteScreenProps> = ({
 				size={80}
 				strokeWidth={1}
 				className="mt-10 text-lm-green dark:text-dm-green"
+				aria-hidden="true"
 			/>
-			<div className="pt-6 space-y-4">
+			<div className="pt-6 space-y-4" role="status">
 				<h1 className="text-2xl font-bold">{t('presentCredentialsFlow.completed.title')}</h1>
 				<p>{t('presentCredentialsFlow.completed.description', { verifierName: result.verifierName })}</p>
 				<hr className="border-lm-gray-300 dark:border-dm-gray-700" />
@@ -320,8 +401,9 @@ const PresentationErrorScreen: FC<PresentationErrorScreenProps> = ({
 				size={80}
 				strokeWidth={1}
 				className="mt-10 text-lm-red dark:text-dm-red"
+				aria-hidden="true"
 			/>
-			<div className="pt-6 space-y-4">
+			<div className="pt-6 space-y-4" role="alert">
 				<h1 className="text-2xl font-bold">{state.title}</h1>
 				<p>{state.description}</p>
 			</div>
@@ -341,18 +423,61 @@ const FlowContainer: FC<PropsWithChildren> = ({ children }) => (
 const FlowScreen: FC<PropsWithChildren<{ buttons?: ReactElement }>> = ({
 	children,
 	buttons,
-}) => (
-	<>
-		<div className="max-w-[500px] mx-6 mb-[25vh]">{children}</div>
-		{buttons && (
+}) => {
+	const ref = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		ref.current?.focus();
+	}, []);
+
+	return (
+		<>
 			<div
-				className="
-				fixed bottom-0 w-[min(500px,100%)] px-6 pt-4 pb-10 bg-lm-gray-100 dark:bg-dm-gray-900 flex flex-col gap-4
-				before:content-[''] before:pointer-events-none before:absolute before:bottom-full before:left-0 before:right-0 before:h-12
-				before:bg-linear-to-t before:from-lm-gray-100 dark:before:from-dm-gray-900 before:to-transparent"
+				ref={ref}
+				tabIndex={-1}
+				className="max-w-[500px] mx-6 mb-[25vh] focus:outline-none"
 			>
-				{buttons}
+				{children}
 			</div>
-		)}
-	</>
-);
+			{buttons && (
+				<div
+					className="
+					fixed bottom-0 w-[min(500px,100%)] px-6 pt-4 pb-10 bg-lm-gray-100 dark:bg-dm-gray-900 flex flex-col gap-4
+					before:content-[''] before:pointer-events-none before:absolute before:bottom-full before:left-0 before:right-0 before:h-12
+					before:bg-linear-to-t before:from-lm-gray-100 dark:before:from-dm-gray-900 before:to-transparent"
+				>
+					{buttons}
+				</div>
+			)}
+		</>
+	);
+};
+
+const Purpose: FC<{ purpose: string }> = ({ purpose }) => {
+	const { t } = useTranslation();
+	const id = useId();
+	const { text, truncated } = truncateByWords(purpose, 40);
+	const [expanded, setExpanded] = useState(false);
+
+	return (
+		<p>
+			<span id={id}>
+				{expanded ? purpose : text}
+			</span>
+			{truncated && (
+				<>
+					{' '}
+					{expanded && <br />}
+					<Button
+						onClick={() => setExpanded(!expanded)}
+						variant='link'
+						aria-expanded={expanded}
+						aria-controls={id}
+					>
+						{expanded ? t('common.showLess') : t('common.showMore')}
+					</Button>
+				</>
+			)}
+		</p>
+	);
+};

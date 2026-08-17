@@ -60,7 +60,9 @@
 			"purpose": "Purpose",
 			"requestedInformation": "Requested Information",
 			"share": "Share",
-			"decline": "Decline"
+			"decline": "Decline",
+			"switchCredential": "Switch credential",
+			"switchCredentialAria": "Switch credential: {{name}}, {{count}} available"
 		},
 		"sharing": {
 			"sending": "Sending..."
@@ -78,6 +80,14 @@
 		"legendAriaLabel": "Claim legend",
 		"legendRequested": "Requested by verifier",
 		"legendRequired": "Required"
+	},
+	"credentialTypeCard": {
+		"selectAriaLabel": "Select credential {{name}}"
+	},
+	"switchCredentialPopup": {
+		"title": "Choose credential",
+		"description": "You can select one of these credentials to present:",
+		"close": "Close"
 	},
 	"expiredRibbon": {
 		"expired": "Expired"

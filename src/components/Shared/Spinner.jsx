@@ -20,7 +20,7 @@ const Spinner = ({ size = 'large', standalone = false }) => {
 	const currentSize = sizes[size] || sizes.large;
 
 	const spinner = (
-		<div className={`relative ${currentSize.container}`}>
+		<div className={`relative ${currentSize.container}`} role="status">
 			<LoaderCircle strokeWidth={1} className={`absolute rounded-full ${currentSize.container} text-brand-base dark:text-white animate-spin ${currentSize.opacity}`} />
 			<div className={`absolute inset-0 scale-60 flex items-center justify-center ${currentSize.opacity}`}>
 				<Logo clickable={false}  alt="Loading..." imgClassName={`${currentSize.image}`} />

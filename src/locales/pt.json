@@ -60,7 +60,9 @@
 			"purpose": "Objetivo",
 			"requestedInformation": "Informação solicitada",
 			"share": "Partilhar",
-			"decline": "Recusar"
+			"decline": "Recusar",
+			"switchCredential": "Trocar credencial",
+			"switchCredentialAria": "Trocar credencial: {{name}}, {{count}} disponíveis"
 		},
 		"sharing": {
 			"sending": "A enviar..."
@@ -588,6 +590,14 @@
 		"legendAriaLabel": "Legenda de atributos",
 		"legendRequested": "Solicitado pelo verificador",
 		"legendRequired": "Obrigatório"
+	},
+	"credentialTypeCard": {
+		"selectAriaLabel": "Selecionar credencial {{name}}"
+	},
+	"switchCredentialPopup": {
+		"title": "Escolher credencial",
+		"description": "Pode selecionar uma destas credenciais para apresentar:",
+		"close": "Fechar"
 	},
 	"issuance": {
 		"credentialsHaveErrors": "Foram encontrados erros ao verificar a credencial que está a tentar receber.",

@@ -60,7 +60,9 @@
 			"purpose": "Tarkoitus",
 			"requestedInformation": "Pyydetyt tiedot",
 			"share": "Jaa",
-			"decline": "Hylkää"
+			"decline": "Hylkää",
+			"switchCredential": "Vaihda todistus",
+			"switchCredentialAria": "Vaihda todistus: {{name}}, {{count}} saatavilla"
 		},
 		"sharing": {
 			"sending": "Lähetetään..."
@@ -78,6 +80,14 @@
 		"legendAriaLabel": "Attribuuttien selite",
 		"legendRequested": "Todentajan pyytämä",
 		"legendRequired": "Pakollinen"
+	},
+	"credentialTypeCard": {
+		"selectAriaLabel": "Valitse todistus {{name}}"
+	},
+	"switchCredentialPopup": {
+		"title": "Valitse todistus",
+		"description": "Voit valita yhden näistä todistuksista esitettäväksi:",
+		"close": "Sulje"
 	},
 	"expiredRibbon": {
 		"expired": "Vanhentunut"

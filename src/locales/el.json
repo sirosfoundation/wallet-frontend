@@ -60,7 +60,9 @@
 			"purpose": "Σκοπός",
 			"requestedInformation": "Ζητούμενες πληροφορίες",
 			"share": "Κοινοποίηση",
-			"decline": "Απόρριψη"
+			"decline": "Απόρριψη",
+			"switchCredential": "Αλλαγή πιστοποιητικού",
+			"switchCredentialAria": "Αλλαγή πιστοποιητικού: {{name}}, {{count}} διαθέσιμα"
 		},
 		"sharing": {
 			"sending": "Αποστολή..."
@@ -607,6 +609,14 @@
 		"legendAriaLabel": "Υπόμνημα αξιώσεων",
 		"legendRequested": "Ζητήθηκε από τον επαληθευτή",
 		"legendRequired": "Απαιτείται"
+	},
+	"credentialTypeCard": {
+		"selectAriaLabel": "Επιλογή πιστοποιητικού {{name}}"
+	},
+	"switchCredentialPopup": {
+		"title": "Επιλογή πιστοποιητικού",
+		"description": "Μπορείτε να επιλέξετε ένα από αυτά τα πιστοποιητικά για παρουσίαση:",
+		"close": "Κλείσιμο"
 	},
 	"notifications": {
 		"newCredential": {
