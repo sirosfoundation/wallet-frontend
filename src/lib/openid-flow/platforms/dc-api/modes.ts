@@ -12,7 +12,7 @@ export class DCAPIWalletCompanionMode implements DCAPIMode {
 		// no-op for now
 	}
 
-	async originHandshake(requestId: string, expectedOrigins?: string[]): Promise<string> {
+	async originHandshake(envelope: DCAPIEnvelope, expectedOrigins?: string[]): Promise<string> {
 		return new Promise((resolve, reject) => {
 			const timeout = setTimeout(() => reject(new Error('Origin handshake timeout')), 5000);
 
@@ -23,7 +23,7 @@ export class DCAPIWalletCompanionMode implements DCAPIMode {
 					!event.data?.requestId
 				) return;
 
-				if (event.data.requestId !== requestId) {
+				if (event.data.requestId !== envelope.requestId) {
 					return reject(new Error('Mismatched requestId in origin handshake response.'));
 				}
 
@@ -43,7 +43,7 @@ export class DCAPIWalletCompanionMode implements DCAPIMode {
 			// We don't know the opener's origin yet - that's what we're discovering.
 			// The probe contains only a request ID; the opener's origin is captured from
 			// the ACK response and validated against expectedOrigins before any credentials are sent.
-			window.opener.postMessage({ type: 'WC_ORIGIN_CHECK', requestId }, '*');
+			window.opener.postMessage({ type: 'WC_ORIGIN_CHECK', requestId: envelope.requestId }, '*');
 		});
 	}
 
@@ -75,17 +75,10 @@ export class DCAPINativeMode implements DCAPIMode {
 		this.#ensureRequestProtocol(envelope.requestProtocol);
 	}
 
-	async originHandshake(requestId: string, expectedOrigins?: string[]): Promise<string> {
+	async originHandshake(envelope: DCAPIEnvelope, expectedOrigins?: string[]): Promise<string> {
 		if (!window.nativeWrapper) throw new Error('No native wrapper available');
 
-		// The native wrapper app sends the request_origin as a query parameter
-		// in the DC API request URL, hence we dont use the requestId.
-		// For now, we intercept it here since it's still part of the url,
-		// pending furthe negotiation.
-		void requestId;
-
-		const requestOrigin = new URLSearchParams(window.location.search)
-			.get('request_origin');
+		const requestOrigin = envelope.requestOrigin;
 
 		if (!requestOrigin) {
 			throw new Error('Missing request_origin parameter in DC API request');

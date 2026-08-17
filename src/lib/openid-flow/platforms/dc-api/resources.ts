@@ -4,7 +4,7 @@ import { z } from 'zod';
 export interface DCAPIMode {
 	readonly verifiedOrigin: string;
 	initialize(envelope: DCAPIEnvelope): Promise<void>;
-	originHandshake(requestId: string, expectedOrigins?: string[]): Promise<string>;
+	originHandshake(envelope: DCAPIEnvelope, expectedOrigins?: string[]): Promise<string>;
 	send(response: DCAPIResponse): void;
 	close(): void;
 }

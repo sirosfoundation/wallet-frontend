@@ -36,9 +36,8 @@ export class DCAPISession {
 		}
 
 		await this.mode.initialize(this.envelope);
-
 		await this.mode.originHandshake(
-			this.envelope.requestId,
+			this.envelope,
 			this.request.expectedOrigins,
 		);
 	}
