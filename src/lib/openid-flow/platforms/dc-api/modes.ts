@@ -117,7 +117,7 @@ export class DCAPINativeMode implements DCAPIMode {
 			if (payload.response) {
 				res.response = payload.response;
 			} else if (payload.vp_token) {
-				res.response = { vp_token: payload.vp_token };
+				res.vp_token = payload.vp_token;
 			}
 
 			return res;
