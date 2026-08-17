@@ -6,11 +6,11 @@ export function coerce<T>(value: T): T {
 
 
 export function toU8(b: BufferSource): Uint8Array {
-  if (b instanceof ArrayBuffer) {
-    return new Uint8Array(b);
-  } else {
-    return new Uint8Array(b.buffer, b.byteOffset, b.byteLength);
-  }
+	if (b instanceof ArrayBuffer) {
+		return new Uint8Array(b);
+	} else {
+		return new Uint8Array(b.buffer, b.byteOffset, b.byteLength);
+	}
 }
 
 export function toBase64(binary: BufferSource): string {

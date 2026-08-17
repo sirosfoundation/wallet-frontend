@@ -10,7 +10,7 @@ import { buildMdocPresentationDefinition, parseIssuerSignedToMDoc } from '@/lib/
 import { detectCredentialFormat, VerifiableCredentialFormat } from 'wallet-common';
 import { MDoc } from '@auth0/mdl';
 import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
-import * as cbor from 'cbor-x'; 
+import * as cbor from 'cbor-x';
 import { fromBase64Url, toBase64Url } from "../util";
 
 
@@ -311,7 +311,7 @@ async function createVpTokenFromMdoc(
 	const issuerSignedBytes = cbor.encode(issuerSigned);
 	const issuerSignedB64 = toBase64Url(issuerSignedBytes);
 	const mdoc = parseIssuerSignedToMDoc(issuerSignedB64);
-	const presentationDefinition = buildMdocPresentationDefinition(	
+	const presentationDefinition = buildMdocPresentationDefinition(
 		mdoc.documents[0].docType,
 		disclosedClaims ?? [],
 	);
