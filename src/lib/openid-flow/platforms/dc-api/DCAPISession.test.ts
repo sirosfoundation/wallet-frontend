@@ -33,6 +33,7 @@ async function createSignedJwt(payload: Record<string, unknown>, options: { alg?
 
 function createMockMode() {
 	return {
+		initialize: vi.fn().mockResolvedValue(undefined),
 		originHandshake: vi.fn().mockResolvedValue('https://verifier.example.com'),
 		send: vi.fn(),
 		close: vi.fn(),

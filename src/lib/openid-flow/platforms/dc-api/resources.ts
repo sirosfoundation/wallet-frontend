@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 export interface DCAPIMode {
 	readonly verifiedOrigin: string;
+	initialize(envelope: DCAPIEnvelope): Promise<void>;
 	originHandshake(requestId: string, expectedOrigins?: string[]): Promise<string>;
 	send(response: DCAPIResponse): void;
 	close(): void;
@@ -61,6 +62,26 @@ export const SignedDCApiRequestSchema = BaseDCApiRequestSchema.extend({
 
 export type UnsignedDCAPIRequest = z.infer<typeof UnsignedDCApiRequestSchema>;
 export const UnsignedDCApiRequestSchema = BaseDCApiRequestSchema;
+
+export type DCAPIRequestProtocol = z.infer<typeof DCAPIRequestProtocolSchema>;
+export const DCAPIRequestProtocolSchema = z.enum([
+	'openid4vp-v1',
+	'openid4vp-v1-unsigned',
+	'openid4vp-v1-signed',
+]);
+
+export type DCAPIEnvelope = z.infer<typeof DCAPIEnvelopeSchema>;
+export const DCAPIEnvelopeSchema = z.object({
+	requestId: z
+		.string({
+			required_error: 'Missing request_id',
+			invalid_type_error: 'Missing request_id',
+		})
+		.min(1, 'Missing request_id'),
+	requestProtocol: DCAPIRequestProtocolSchema.optional(),
+	requestOrigin: z.string().optional(),
+	selectedCredentialIDs: z.array(z.string()).default([]),
+});
 
 export type DCAPIResponse = {
 	requestId: string;
