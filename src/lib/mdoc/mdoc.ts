@@ -1,5 +1,5 @@
 import { base64url } from 'jose';
-import { cborDecode, cborEncode } from '@auth0/mdl/lib/cbor';
+import { cborDecode, cborEncode, DataItem } from '@auth0/mdl/lib/cbor';
 import { parse } from '@auth0/mdl';
 
 /**
@@ -21,6 +21,32 @@ export function parseIssuerSignedToMDoc(raw: string) {
 		status: 0,
 	};
 	return parse(cborEncode(envelope));
+}
+
+/**
+ * Extract `docType` from the MSO (MobileSecurityObject) embedded in a bare
+ * `IssuerSigned` structure's `issuerAuth` COSE_Sign1 payload (index 2 of the
+ * 4-element array) - the only place docType is available when there's no
+ * enclosing `{docType, issuerSigned}` document wrapper (e.g. a stored mdoc
+ * credential issued directly as a bare IssuerSigned, as real-world/interop
+ * issuers such as geneva2026.mdoc.online do for `mso_mdoc` credential
+ * responses).
+ *
+ * @param issuerAuth - The decoded COSE_Sign1 array `[protected, unprotected, payload, signature]`
+ * @returns The MSO's `docType`
+ */
+export function extractDocTypeFromIssuerAuth(issuerAuth: unknown[]): string {
+	const payload = issuerAuth?.[2] as Uint8Array | undefined;
+	if (!payload) {
+		throw new Error('issuerAuth is not a COSE_Sign1 array (missing payload)');
+	}
+	const decoded = cborDecode(payload);
+	const mso = decoded instanceof DataItem ? decoded.data : decoded;
+	const docType = mso?.get?.('docType');
+	if (!docType) {
+		throw new Error('MSO missing docType');
+	}
+	return docType;
 }
 
 /**

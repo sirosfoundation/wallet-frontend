@@ -6,20 +6,15 @@ import { logger } from '@/logger';
 import { OPENID4VCI_PROOF_TYPE_PRECEDENCE } from '@/config';
 import { applySelectiveDisclosure } from '@/lib/sd-jwt/sd-jwt';
 import { base64url } from 'jose';
-import { buildMdocPresentationDefinition, parseIssuerSignedToMDoc } from '@/lib/mdoc/mdoc';
+import { buildMdocPresentationDefinition } from '@/lib/mdoc/mdoc';
 import { detectCredentialFormat, VerifiableCredentialFormat } from 'wallet-common';
 import { MDoc } from '@auth0/mdl';
 import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
-import { cborDecode, cborEncode } from '@auth0/mdl/lib/cbor';
-import { fromBase64Url } from '@/util';
-import { encode as cborXEncode, decode as cborXDecode } from 'cbor-x';
-import { 
-    generateDeviceSignature, 
-    buildZkpResponse, 
-    signMdocWithPlaceholder,
-    buildCombinedDeviceResponse,
-    DEFAULT_PID_ZKP_CONFIG 
-} from '@/utils/MdocZkpService';
+import { cborDecode } from '@auth0/mdl/lib/cbor';
+import { buildCombinedDeviceResponse } from '@/utils/MdocZkpService';
+import { fromBase64Url } from "../util";
+
+
 interface ProofTypeConfig {
 	key_attestations_required?: Record<string, unknown> | null;
 	proof_signing_alg_values_supported: string[];
@@ -297,7 +292,7 @@ async function createVpTokenFromMdoc(
 		origin?: string;
 		verifierJwkThumbprint?: string;
 	},
-    finalVP: { Transcript: string; ZKDeviceResponseCBOR: string; zkDocumentsArray: Uint8Array } | null,
+	finalVP: { Transcript: string; ZKDeviceResponseCBOR: string; zkDocumentsArray: Uint8Array } | null,
 ): Promise<string> {
 	const { credentialRaw, disclosedClaims } = credentialData;
 	const { nonce, audience, responseUri, origin, verifierJwkThumbprint } = params;
@@ -317,14 +312,13 @@ async function createVpTokenFromMdoc(
 	//const mdoc = parseIssuerSignedToMDoc(credentialRaw);
 	const data = credentialRaw;
 	const bytes = fromBase64Url(data);
-	const mdoc = cborDecode(bytes); 
+	const mdoc = cborDecode(bytes);
 	const docType =  "eu.europa.ec.eudi.pid.1";
 
 	const presentationDefinition = buildMdocPresentationDefinition(
 		docType,
 		disclosedClaims ?? [],
 	);
-
 	let deviceResponseMDoc: MDoc;
 	if (responseUri) {
 		const { deviceResponseMDoc: drm } = await keystore.generateDeviceResponse(

@@ -3,7 +3,8 @@ import { z } from 'zod';
 
 export interface DCAPIMode {
 	readonly verifiedOrigin: string;
-	originHandshake(requestId: string, expectedOrigins?: string[]): Promise<string>;
+	initialize(envelope: DCAPIEnvelope): Promise<void>;
+	originHandshake(envelope: DCAPIEnvelope, expectedOrigins?: string[]): Promise<string>;
 	send(response: DCAPIResponse): void;
 	close(): void;
 }
@@ -32,39 +33,39 @@ export const ClientMetadataSchema = z.object({
 }).passthrough();
 
 function normalizeDcqlQuery(dcqlQueryParam: any) {
-    const normalized = structuredClone(dcqlQueryParam);
-    let isZk = false;
+	const normalized = structuredClone(dcqlQueryParam);
+	let isZk = false;
 
-    for (const cred of normalized.credentials) {
-        if (cred.format === 'mso_mdoc_zk') {
-            cred.format = 'mso_mdoc';
-            isZk = true;
-        }
-    }
+	for (const cred of normalized.credentials) {
+		if (cred.format === 'mso_mdoc_zk') {
+			cred.format = 'mso_mdoc';
+			isZk = true;
+		}
+	}
 
-    normalized._isZk = isZk;
-    return normalized;
+	normalized._isZk = isZk;
+	return normalized;
 }
 
 export const dcqlQuerySchema = z.preprocess(
-    (val) => {
-        if (!val || typeof val !== 'object') return val;
-        return normalizeDcqlQuery(val);
-    },
-    z.custom<DcqlQuery.Input>(
-        (val) => {
-            if (!val || typeof val !== 'object') return false;
-            try {
-                const { _isZk, ...rest } = val as any;
-                DcqlQuery.parse(rest);
-                console.log("dcql query normalized", val, "isZk:", _isZk);
-                return true;
-            } catch {
-                return false;
-            }
-        },
-        { message: 'Invalid dcql_query' }
-    )
+	(val) => {
+		if (!val || typeof val !== 'object') return val;
+		return normalizeDcqlQuery(val);
+	},
+	z.custom<DcqlQuery.Input>(
+		(val) => {
+			if (!val || typeof val !== 'object') return false;
+			try {
+				const { _isZk, ...rest } = val as any;
+				DcqlQuery.parse(rest);
+				console.log("dcql query normalized", val, "isZk:", _isZk);
+				return true;
+			} catch {
+				return false;
+			}
+		},
+		{ message: 'Invalid dcql_query' }
+	)
 );
 
 const BaseDCApiRequestSchema = z.object({
@@ -84,6 +85,26 @@ export const SignedDCApiRequestSchema = BaseDCApiRequestSchema.extend({
 
 export type UnsignedDCAPIRequest = z.infer<typeof UnsignedDCApiRequestSchema>;
 export const UnsignedDCApiRequestSchema = BaseDCApiRequestSchema;
+
+export type DCAPIRequestProtocol = z.infer<typeof DCAPIRequestProtocolSchema>;
+export const DCAPIRequestProtocolSchema = z.enum([
+	'openid4vp-v1',
+	'openid4vp-v1-unsigned',
+	'openid4vp-v1-signed',
+]);
+
+export type DCAPIEnvelope = z.infer<typeof DCAPIEnvelopeSchema>;
+export const DCAPIEnvelopeSchema = z.object({
+	requestId: z
+		.string({
+			required_error: 'Missing request_id',
+			invalid_type_error: 'Missing request_id',
+		})
+		.min(1, 'Missing request_id'),
+	requestProtocol: DCAPIRequestProtocolSchema.optional(),
+	requestOrigin: z.string().optional(),
+	selectedCredentialIDs: z.array(z.string()).default([]),
+});
 
 export type DCAPIResponse = {
 	requestId: string;

@@ -14,7 +14,8 @@ import { ExtendedVcEntity } from '@/context/CredentialsContext';
 import { DcqlQuery, DcqlCredential, DcqlQueryResult } from 'dcql';
 import { logger } from '@/logger';
 import { parseIssuerSignedToMDoc } from '@/lib/mdoc/mdoc';
-import * as cbor from 'cbor-x'; 
+import * as cbor from 'cbor-x';
+import { extractDocTypeFromIssuerAuth } from '@/lib/mdoc/mdoc';
 
 export interface CredentialMatch {
 	input_descriptor_id: string;
@@ -131,18 +132,21 @@ const getValue = (obj: any, key: string) => {
 };
 
 function decodeNamespaceItems(rawItems: { value: Uint8Array; tag: number }[]) {
-  const claims: Record<string, unknown> = {};
-  for (const tagged of rawItems) {
-    const item = cborDecode(tagged.value); 
-    // item = { digestID, random, elementIdentifier, elementValue }
-    claims[item.elementIdentifier] = item.elementValue;
-  }
-  return claims;
+	const claims: Record<string, unknown> = {};
+	for (const tagged of rawItems) {
+		const item = cborDecode(tagged.value);
+		// item = { digestID, random, elementIdentifier, elementValue }
+		claims[item.elementIdentifier] = item.elementValue;
+	}
+	return claims;
 }
 
 /**
  * Shape an ExtendedVcEntity into a DcqlCredential for the dcql library.
  * Returns null if shaping fails (e.g., unparseable mDOC).
+ *
+ * Exported for direct unit testing of the mso_mdoc envelope-shape handling,
+ * without needing to build a full DcqlQuery to exercise it via matchCredentials.
  */
 export function shapeCredential(credential: ExtendedVcEntity): (DcqlCredential & { _batchId?: number }) | null {
 	const format = credential.format || 'vc+sd-jwt'|| 'mso_mdoc_zk';
@@ -219,6 +223,7 @@ export function shapeCredential(credential: ExtendedVcEntity): (DcqlCredential &
 			return null;
 		}
 	}
+
 
 
 	// SD-JWT (vc+sd-jwt or dc+sd-jwt)
