@@ -10,6 +10,7 @@ import type {
 	PresentCredentialsQuery,
 	PresentCredentialSet,
 } from './types';
+import { logger } from '@/logger';
 
 /**
  * Resolve a credential presentation request into a PresentCredentialsRequest object.
@@ -45,15 +46,30 @@ export async function resolveCredentialPresentationRequest(
 				const { name, rendering } = parsedCredential.metadata.credential;
 				const claims = parsedCredential.metadata.credential.TypeMetadata?.claims ?? [];
 
-				const { backgroundColor, textColor, logo } = await rendering(preferredLanguages);
+				let display = {
+					name: `Credential ${vcEntity.batchId}`,
+					backgroundColor: undefined as string | undefined,
+					textColor: undefined as string | undefined,
+					logo: undefined as string | undefined,
+				};
+				try {
+					const [resolvedName, branding] = await Promise.all([
+						name(preferredLanguages),
+						rendering(preferredLanguages),
+					]);
+					display = {
+						name: resolvedName ?? display.name,
+						backgroundColor: branding.backgroundColor,
+						textColor: branding.textColor,
+						logo: branding.logo,
+					};
+				} catch (e) {
+					logger.warn('Credential metadata failed; using fallback display', { batchId: vcEntity.batchId, e });
+				}
+
 				return {
 					batchId: vcEntity.batchId,
-					display: {
-						name: await name(preferredLanguages),
-						backgroundColor,
-						textColor,
-						logo,
-					},
+					display,
 					fields: (conformant?.requestedFields ?? []).map((f) => ({
 						name: resolveClaimLabel(claims, f, preferredLanguages),
 						value: getValueByPath(f.path ?? [], parsedCredential.signedClaims),
