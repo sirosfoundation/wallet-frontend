@@ -11,6 +11,7 @@ import type {
 	PresentCredentialSet,
 } from './types';
 import { logger } from '@/logger';
+import { normalizePath } from '@/util';
 
 /**
  * Resolve a credential presentation request into a PresentCredentialsRequest object.
@@ -33,6 +34,14 @@ export async function resolveCredentialPresentationRequest(
 		const id = query.id;
 
 		const conformant = conformantCredentials.get(id);
+
+		const seen = new Set<string>();
+		const requestedFields = (conformant?.requestedFields ?? []).filter((f) => {
+			const key = JSON.stringify(normalizePath(f.path ?? []));
+			if (seen.has(key)) return false;
+			seen.add(key);
+			return true;
+		});
 
 		const matches = await Promise.all(vcEntityList
 			.filter((vcEntity) => {
@@ -70,9 +79,9 @@ export async function resolveCredentialPresentationRequest(
 				return {
 					batchId: vcEntity.batchId,
 					display,
-					fields: (conformant?.requestedFields ?? []).map((f) => ({
+					fields: requestedFields.map((f) => ({
 						name: resolveClaimLabel(claims, f, preferredLanguages),
-						value: getValueByPath(f.path ?? [], parsedCredential.signedClaims),
+						value: getValueByPath(normalizePath(f.path ?? []), parsedCredential.signedClaims),
 					})),
 				};
 			}));
@@ -100,6 +109,8 @@ export async function resolveCredentialPresentationRequest(
 		sets,
 	};
 }
+
+
 
 /**
  * Get a value from an object by a path array, where null segments indicate

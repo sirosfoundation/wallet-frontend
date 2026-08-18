@@ -217,26 +217,7 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 								</div>
 								<dl>
 									{entry.selected?.fields.map((field) => (
-										<Fragment key={field.name+field.value}>
-											<dt className="font-bold not-first:mt-2 not-first:pt-2 not-first:border-t not-first:border-t-lm-gray-300 dark:not-first:border-t-dm-gray-700">
-												{field.name}
-											</dt>
-											{typeof field.value === 'object' ? (
-												<dd className="mt-2 wrap-break-word">
-													<table className="text-sm">
-														<tbody>
-															{Object.entries(field.value).map(([key, value]) => (
-																<tr key={key} className="not-first:mt-1 not-first:pt-1 not-first:border-t not-first:border-t-lm-gray-300 dark:not-first:border-t-dm-gray-700">
-																	<td className="font-bold p-1 pr-2">{key}</td>
-																	<td className="p-1">{String(value)}</td>
-																</tr>
-															))}
-														</tbody>
-													</table>
-												</dd>
-											) : <dd className="mt-2 wrap-break-word">{String(field.value)}</dd>}
-
-										</Fragment>
+										<ClaimDetails key={field.name+field.value} name={field.name} value={field.value} />
 									))}
 								</dl>
 								{entry.alternatives.length > 0 && (
@@ -468,5 +449,48 @@ const Purpose: FC<{ purpose: string }> = ({ purpose }) => {
 				</>
 			)}
 		</p>
+	);
+};
+
+const ClaimDetails: FC<{ name: string; value: unknown }> = ({ name, value }) => {
+	const resolvedValue = (() => {
+		if (value === null || value === undefined) {
+			return '-';
+		}
+
+		if (Array.isArray(value)) {
+			return (
+				<ul>
+					{value.map((item, index) => (
+						<li key={index}>{String(item)}</li>
+					))}
+				</ul>
+			);
+		}
+
+		if (typeof value === 'object') {
+			return (
+				<table className="text-sm">
+					<tbody>
+						{Object.entries(value).map(([key, val]) => (
+							<tr key={key} className="not-first:mt-1 not-first:pt-1 not-first:border-t not-first:border-t-lm-gray-300 dark:not-first:border-t-dm-gray-700">
+								<td className="font-bold p-1 pr-2">{key}</td>
+								<td className="p-1">{String(val)}</td>
+							</tr>
+						))}
+					</tbody>
+				</table>
+			);
+		}
+
+		return String(value);
+	})();
+
+
+	return (
+		<>
+			<dt className="font-bold not-first:mt-2 not-first:pt-2 not-first:border-t not-first:border-t-lm-gray-300 dark:not-first:border-t-dm-gray-700">{name}</dt>
+			<dd className="mt-2 wrap-break-word">{resolvedValue}</dd>
+		</>
 	);
 };
