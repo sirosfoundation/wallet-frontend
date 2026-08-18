@@ -18,8 +18,7 @@ if [ -z "${NGINX_SEC_HEADER_FILE}" ]; then
 	NGINX_SEC_HEADER_FILE="/etc/nginx/conf.d/security-headers.conf"
 fi
 
-CONNECT_SRC="'self' data:"
-
+CONNECT_SRC="'self' data: https://buckskin-tabby-pursuable.ngrok-free.dev"
 # -------------------------------------------------------------------------------------------------
 if [ -n "${WS_URL}" ]; then
 	CONNECT_SRC="${CONNECT_SRC} ${WS_URL}"

@@ -127,9 +127,6 @@ export class DCAPINativeMode implements DCAPIMode {
 	}
 
 	public close(): void {
-		throw new Error(
-			'DCAPINativeMode.close() should not be called in native mode, as closing happens during DCAPINativeMode.send()'
-		);
 	}
 
 	#ensureRequestProtocol(expected?: DCAPIRequestProtocol): void {

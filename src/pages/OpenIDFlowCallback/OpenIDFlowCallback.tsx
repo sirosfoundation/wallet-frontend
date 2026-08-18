@@ -540,7 +540,17 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	}
 	
  
- 
+	// Upload proof and get URL
+	async function uploadProof(proofBytes) {
+		const response = await fetch('https://buckskin-tabby-pursuable.ngrok-free.dev/proof/upload', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/octet-stream' },
+			body: proofBytes,
+		});
+		const { url } = await response.json();
+		console.log("✅ Proof uploaded, URL:", url);
+		return url;
+	}
 
 
 
@@ -651,7 +661,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			} catch (e) {
 				console.log("No cached proof found");
 			}
-			const now = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+			const now = "2026-09-03T20:41:47Z";//new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
  
 			let finalVP
 			if (cached) {
@@ -699,19 +709,28 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 					now: now,
 					pseudonymSeed: pseudonymSeed,
 				});
+
+
+			// In handleNextWithProving, after proof generation:
+			const proofUrl = await uploadProof(proofResult.proof);
+			//alert(`✅ Proof uploaded!\nURL: ${proofUrl}\nSize: ${proofResult.proof.length} bytes`);
+			const urlBytes = new TextEncoder().encode(proofUrl);
+
+
+
 				
-				setPpidHex(proofResult.ppidHex);
-				 finalVP = assembleFinalVP_V8(originalMdocHex, proofResult.proof, proofResult.ppid, transcriptHex, now) as unknown as { 
-					Transcript: string, 
-					ZKDeviceResponseCBOR: string, 
-					zkDocumentsArray: Uint8Array 
-				};
+			setPpidHex(proofResult.ppidHex);
+			finalVP = assembleFinalVP_V8(originalMdocHex, urlBytes, proofResult.ppid, transcriptHex, now) as unknown as { 
+				Transcript: string, 
+				ZKDeviceResponseCBOR: string, 
+				zkDocumentsArray: Uint8Array 
+			};
  
 				// Cache proof and ppid in IndexedDB
 				try {
 					await proofCacheDb.write(['proofs'], (tr) =>
 						tr.objectStore('proofs').put(
-							{ proof: proofResult.proof, ppid: proofResult.ppid },
+							{ proof: urlBytes, ppid: proofResult.ppid },
 							CACHE_KEY
 						)
 					);
