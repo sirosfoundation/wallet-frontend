@@ -24,6 +24,11 @@ export const SwitchCredentialPopup: FC<SwitchCredentialPopupProps> = ({
 	const { t } = useTranslation();
 	const headingId = useId();
 
+	const allCredentials = [
+		switchCredentialState.selected,
+		...switchCredentialState.alternatives,
+	];
+
 	return (
 		<PopupLayout
 			isOpen={switchCredentialState !== null}
@@ -47,9 +52,10 @@ export const SwitchCredentialPopup: FC<SwitchCredentialPopupProps> = ({
 			</div>
 			<p>{t('switchCredentialPopup.description')}</p>
 			<ul className="space-y-2 mt-4">
-				{switchCredentialState.matches.map(({ batchId, display: { name, backgroundColor, logo, textColor } }) => (
+				{allCredentials.map(({ batchId, display: { name, backgroundColor, logo, textColor } }, index) => (
 					<li key={batchId}>
 						<CredentialTypeCard
+							status={index === 0 ? 'selected' : undefined}
 							name={name}
 							logo={logo}
 							backgroundColor={backgroundColor}

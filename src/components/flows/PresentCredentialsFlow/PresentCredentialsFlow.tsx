@@ -29,6 +29,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { truncateByWords } from '@/utils';
 import { logger } from '@/logger';
+import { buildRequestedGroups } from './utils';
 
 type PresentCredentialsFlowProps = {
 	view: PresentCredentialsFlowView;
@@ -108,53 +109,25 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 	onAccept,
 	onDecline,
 }) => {
+	const { verifier, sets } = request;
 	const { t } = useTranslation();
-	const { verifier, queries, sets } = request;
+	const [selection, setSelection] = useState<Record<string, number>>({});
+	const { groups, result } = buildRequestedGroups(request, selection);
 
-	// The requested credentials, in order.
-	const requested = sets.flatMap((set) =>
-		set.options.flat().flatMap((id) => {
-			const query = queries.find((q) => q.id === id);
-			return query ? [query] : [];
-		}),
-	);
-
-	// State: chosen batchId per query. Swap = change one entry.
-	const [selection, setSelection] = useState<Record<string, number>>(() =>
-		Object.fromEntries(requested.map((q) => [q.id, q.matches[0]?.batchId])),
-	);
+	const swap = (queryId: string, batchId: number) =>
+		setSelection((prev) => ({ ...prev, [queryId]: batchId }));
 
 	const [
 		switchCredentialState,
 		setSwitchCredentialState,
 	] = useState<SwitchCredentialPopupState | null>(null);
 
-	const swap = (queryId: string, batchId: number) =>
-		setSelection((prev) => ({ ...prev, [queryId]: batchId }));
-
-
-	// Derived, display-ready. The render map just reads this.
-	const view = requested.map((q) => ({
-		id: q.id,
-		selected: q.matches.find((m) => m.batchId === selection[q.id]),
-		alternatives: q.matches.filter((m) => m.batchId !== selection[q.id]),
-		total: q.matches.length,
-	}));
-
 	const buttons = (
 		<>
 			<Button
 				variant="primary"
 				size="lg"
-				onClick={() =>
-					onAccept(
-						view.flatMap((entry) =>
-							entry.selected
-								? [{ queryId: entry.id, batchId: entry.selected.batchId }]
-								: [],
-						),
-					)
-				}
+				onClick={() => onAccept(result)}
 			>
 				{t('presentCredentialsFlow.overview.share')}
 			</Button>
@@ -194,7 +167,7 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 					{t('presentCredentialsFlow.overview.requestedInformation')}
 				</h2>
 				<ul>
-					{view.map((entry) => (
+					{groups.map((entry) => (
 						<li key={entry.id} className="mt-2">
 							<div className="border border-lm-gray-700 dark:border-dm-gray-400 rounded-md p-4 flex flex-col gap-4">
 								<div
@@ -249,13 +222,7 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 												count: entry.total,
 											})}
 											onClick={() =>
-												setSwitchCredentialState({
-													id: entry.id,
-													matches: [
-														entry.selected,
-														...entry.alternatives,
-													],
-												})
+												setSwitchCredentialState(entry)
 											}
 										>
 											{t('presentCredentialsFlow.overview.switchCredential')}

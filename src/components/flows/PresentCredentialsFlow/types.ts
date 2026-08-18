@@ -94,6 +94,16 @@ export type ConformantCredentials = Map<
 >;
 
 /**
+ * Display-ready credential request information.
+ */
+export type GroupView = {
+	id: string;
+	selected: PresentCredentialsMatch;
+	alternatives: PresentCredentialsMatch[];
+	total: number;
+};
+
+/**
  * A map of selected credentials, keyed by the credential ID.
  *
  * @deprecated Unused. Selection state is tracked inline in the overview screen as

@@ -9,6 +9,8 @@ import type {
 	PresentCredentialsVerifier,
 	PresentCredentialsQuery,
 	PresentCredentialSet,
+	PresentCredentialsResult,
+	GroupView,
 } from './types';
 
 /**
@@ -144,4 +146,45 @@ export function resolveClaimLabel(
 		?? claim?.display?.[0]?.label;
 
 	return label ?? field.name ?? field.path?.filter(Boolean).join(' › ') ?? 'Unknown';
+}
+
+/**
+ * Build a list of groups to display in the overview screen, along with the
+ * result of the user's selection.
+ *
+ * A "group" is derived from the DCQL query "OR" sets.
+ *
+ * This relies on react to re-render the overview screen when the selection
+ * state changes, so that this function can be called again
+ * to produce the updated groups and result.
+ */
+export function buildRequestedGroups(
+	request: PresentCredentialsRequest,
+	selection: Record<string, number>,
+): { groups: GroupView[]; result: PresentCredentialsResult } {
+	const { queries, sets } = request;
+
+	const requested = sets.flatMap((set) =>
+		set.options.flat().flatMap((id) => {
+			const query = queries.find((q) => q.id === id);
+			return query ? [query] : [];
+		}),
+	);
+
+	const groups = requested.map((q) => {
+		const selected =
+			q.matches.find((m) => m.batchId === selection[q.id]) ?? q.matches[0];
+		return {
+			id: q.id,
+			selected,
+			alternatives: q.matches.filter((m) => m.batchId !== selected?.batchId),
+			total: q.matches.length,
+		};
+	});
+
+	const result = groups.flatMap((g) =>
+		g.selected ? [{ queryId: g.id, batchId: g.selected.batchId }] : [],
+	);
+
+	return { groups, result };
 }
