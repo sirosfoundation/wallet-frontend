@@ -108,7 +108,7 @@ export function isReservedTenantName(name: string): boolean {
 export function buildTenantRoutePath(tenantId: string | undefined, subPath?: string): string {
 	const cleanSubPath = subPath?.startsWith('/') ? subPath.slice(1) : (subPath || '');
 
-	if (!tenantId) {
+	if (!tenantId || !isMultiTenant()) {
 		return cleanSubPath ? `/${cleanSubPath}` : '/';
 	}
 
