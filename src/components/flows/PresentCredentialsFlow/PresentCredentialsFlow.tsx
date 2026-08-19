@@ -1,5 +1,6 @@
 import {
 	Fragment,
+	useContext,
 	useEffect,
 	useId,
 	useRef,
@@ -29,6 +30,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { truncateByWords } from '@/utils';
 import { logger } from '@/logger';
+import SessionContext from '@/context/SessionContext';
 
 type PresentCredentialsFlowProps = {
 	view: PresentCredentialsFlowView;
@@ -381,12 +383,16 @@ const PresentationErrorScreen: FC<PresentationErrorScreenProps> = ({
 
 // UI components for the flow screens.
 
-const FlowContainer: FC<PropsWithChildren> = ({ children }) => (
-	<div className="relative max-w-[500px] m-auto flex flex-col gap-4 min-h-screen">
-		<Header sticky={false} alwaysVisible />
-		{children}
-	</div>
-);
+const FlowContainer: FC<PropsWithChildren> = ({ children }) => {
+	const { api } = useContext(SessionContext);
+	const { displayName, username } = api.getSession();
+	return (
+		<div className="relative max-w-[500px] m-auto flex flex-col gap-4 min-h-screen">
+			<Header sticky={false} alwaysVisible username={displayName || username} />
+			{children}
+		</div>
+	);
+};
 
 const FlowScreen: FC<PropsWithChildren<{ buttons?: ReactElement }>> = ({
 	children,
