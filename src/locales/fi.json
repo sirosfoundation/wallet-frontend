@@ -82,11 +82,14 @@
 		"legendRequired": "Pakollinen"
 	},
 	"credentialTypeCard": {
-		"selectAriaLabel": "Valitse todistus {{name}}"
+		"selectAriaLabel": "Valitse todistus {{name}}",
+		"selectedAriaLabel": "Tämä todistus on tällä hetkellä valittuna"
 	},
 	"switchCredentialPopup": {
-		"title": "Valitse todistus",
-		"description": "Voit valita yhden näistä todistuksista esitettäväksi:",
+		"title": "Vaihda todistus",
+		"description": "Valitse todistus, jota käytetään tähän pyyntöön.",
+		"selectedCredential": "Tällä hetkellä valittu todistus",
+		"alternativeCredentials": "Valitse toinen todistus",
 		"close": "Sulje"
 	},
 	"expiredRibbon": {

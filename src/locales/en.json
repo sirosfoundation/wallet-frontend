@@ -82,11 +82,14 @@
 		"legendRequired": "Required"
 	},
 	"credentialTypeCard": {
-		"selectAriaLabel": "Select credential {{name}}"
+		"selectAriaLabel": "Select credential {{name}}",
+		"selectedAriaLabel": "This credential is currently selected"
 	},
 	"switchCredentialPopup": {
-		"title": "Choose credential",
-		"description": "You can select one of these credentials to present:",
+		"title": "Switch credential",
+		"description": "Select the credential to use for this request.",
+		"selectedCredential": "Currently selected credential",
+		"alternativeCredentials": "Select another credential",
 		"close": "Close"
 	},
 	"expiredRibbon": {

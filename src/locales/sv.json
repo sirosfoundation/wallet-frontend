@@ -82,11 +82,14 @@
 		"legendRequired": "Obligatoriskt"
 	},
 	"credentialTypeCard": {
-		"selectAriaLabel": "Välj intyg {{name}}"
+		"selectAriaLabel": "Välj intyg {{name}}",
+		"selectedAriaLabel": "Detta intyg är för närvarande valt"
 	},
 	"switchCredentialPopup": {
-		"title": "Välj intyg",
-		"description": "Du kan välja ett av dessa intyg att visa:",
+		"title": "Byt intyg",
+		"description": "Välj intyget som ska användas för denna begäran.",
+		"selectedCredential": "Valt intyg",
+		"alternativeCredentials": "Välj ett annat intyg",
 		"close": "Stäng"
 	},
 	"expiredRibbon": {

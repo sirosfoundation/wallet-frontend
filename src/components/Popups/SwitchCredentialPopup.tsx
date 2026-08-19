@@ -7,7 +7,8 @@ import { CredentialTypeCard } from '../Credentials/CredentialTypeCard';
 
 export type SwitchCredentialPopupState = {
 	id: string;
-	matches: PresentCredentialsMatch[];
+	selected: PresentCredentialsMatch;
+	alternatives: PresentCredentialsMatch[]
 };
 
 type SwitchCredentialPopupProps = {
@@ -23,6 +24,10 @@ export const SwitchCredentialPopup: FC<SwitchCredentialPopupProps> = ({
 }) => {
 	const { t } = useTranslation();
 	const headingId = useId();
+
+	if (!switchCredentialState) return null;
+
+	const { selected, alternatives } = switchCredentialState;
 
 	return (
 		<PopupLayout
@@ -45,16 +50,16 @@ export const SwitchCredentialPopup: FC<SwitchCredentialPopupProps> = ({
 					</svg>
 				</Button>
 			</div>
-			<p>{t('switchCredentialPopup.description')}</p>
-			<ul className="space-y-2 mt-4">
-				{switchCredentialState.matches.map(({ batchId, display: { name, backgroundColor, logo, textColor } }) => (
+			<p className="mb-6">{t('switchCredentialPopup.description')}</p>
+			<h3 className="mb-2 font-semibold">{t('switchCredentialPopup.selectedCredential')}</h3>
+			<CredentialTypeCard display={selected.display} />
+			<hr className="my-2 border-t border-lm-gray-400 dark:border-dm-gray-600" />
+			<h3 className="mt-4 mb-2 font-semibold">{t('switchCredentialPopup.alternativeCredentials')}</h3>
+			<ul className="space-y-2">
+				{alternatives.map(({ batchId, display }) => (
 					<li key={batchId}>
 						<CredentialTypeCard
-							name={name}
-							logo={logo}
-							backgroundColor={backgroundColor}
-							textColor={textColor}
-							description={switchCredentialState.id}
+							display={display}
 							onClick={() => {
 								selectCredential(batchId);
 								setSwitchCredentialState(null);

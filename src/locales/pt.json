@@ -592,11 +592,14 @@
 		"legendRequired": "Obrigatório"
 	},
 	"credentialTypeCard": {
-		"selectAriaLabel": "Selecionar credencial {{name}}"
+		"selectAriaLabel": "Selecionar credencial {{name}}",
+		"selectedAriaLabel": "Esta credencial está atualmente selecionada"
 	},
 	"switchCredentialPopup": {
-		"title": "Escolher credencial",
-		"description": "Pode selecionar uma destas credenciais para apresentar:",
+		"title": "Trocar credencial",
+		"description": "Selecione a credencial a utilizar para este pedido.",
+		"selectedCredential": "Credencial atualmente selecionada",
+		"alternativeCredentials": "Selecionar outra credencial",
 		"close": "Fechar"
 	},
 	"issuance": {

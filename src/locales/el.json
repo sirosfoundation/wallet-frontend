@@ -611,11 +611,14 @@
 		"legendRequired": "Απαιτείται"
 	},
 	"credentialTypeCard": {
-		"selectAriaLabel": "Επιλογή πιστοποιητικού {{name}}"
+		"selectAriaLabel": "Επιλογή πιστοποιητικού {{name}}",
+		"selectedAriaLabel": "Αυτό το πιστοποιητικό είναι επιλεγμένο αυτήν τη στιγμή"
 	},
 	"switchCredentialPopup": {
-		"title": "Επιλογή πιστοποιητικού",
-		"description": "Μπορείτε να επιλέξετε ένα από αυτά τα πιστοποιητικά για παρουσίαση:",
+		"title": "Εναλλαγή πιστοποιητικού",
+		"description": "Επιλέξτε το πιστοποιητικό που θα χρησιμοποιηθεί για αυτό το αίτημα.",
+		"selectedCredential": "Τρέχον επιλεγμένο πιστοποιητικό",
+		"alternativeCredentials": "Επιλέξτε άλλο πιστοποιητικό",
 		"close": "Κλείσιμο"
 	},
 	"notifications": {

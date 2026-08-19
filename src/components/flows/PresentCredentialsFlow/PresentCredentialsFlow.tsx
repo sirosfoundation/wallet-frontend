@@ -232,10 +232,8 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 											onClick={() =>
 												setSwitchCredentialState({
 													id: entry.id,
-													matches: [
-														entry.selected,
-														...entry.alternatives,
-													],
+													selected: entry.selected,
+													alternatives: entry.alternatives,
 												})
 											}
 										>
@@ -244,7 +242,7 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 												<rect x="4" y="4" width="19" height="14" rx="2" fill="transparent" className="stroke-black dark:stroke-white" />
 												<rect x="2" y="7" width="19" height="14" rx="2" className="fill-black dark:fill-white" />
 												<text x="11" y="18" textAnchor="middle" fontSize="12" fontWeight="600" className="fill-white dark:fill-black">
-													{entry.total}
+													{entry.alternatives.length}
 												</text>
 											</svg>
 										</Button>
