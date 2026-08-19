@@ -1,12 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { getValueByPath, resolveClaimLabel } from './utils';
 
-// getValueByPath is typed `string[]`, but supports null ("any key") and numeric
-// (array index) segments at runtime; cast through this helper in those cases.
-const getPath = getValueByPath as (
-	path: Array<string | number | null>,
-	obj: Record<string, unknown>,
-) => unknown;
 
 describe('getValueByPath', () => {
 	it('reads a simple nested value', () => {
@@ -23,12 +17,12 @@ describe('getValueByPath', () => {
 
 	it('maps over all values for a null segment', () => {
 		const obj = { a: { x: { c: 1 }, y: { c: 2 } } };
-		expect(getPath(['a', null, 'c'], obj)).toEqual([1, 2]);
+		expect(getValueByPath(['a', null, 'c'], obj)).toEqual([1, 2]);
 	});
 
 	it('filters out children that lack the trailing path on a null segment', () => {
 		const obj = { a: { x: { c: 1 }, y: { d: 2 } } };
-		expect(getPath(['a', null, 'c'], obj)).toEqual([1]);
+		expect(getValueByPath(['a', null, 'c'], obj)).toEqual([1]);
 	});
 
 	it('collapses an empty-object result to undefined', () => {
@@ -46,7 +40,7 @@ describe('getValueByPath', () => {
 	});
 
 	it('supports numeric (array index) segments', () => {
-		expect(getPath(['a', 1], { a: ['x', 'y'] })).toBe('y');
+		expect(getValueByPath(['a', 1], { a: ['x', 'y'] })).toBe('y');
 	});
 });
 

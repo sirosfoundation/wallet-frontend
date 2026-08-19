@@ -11,6 +11,7 @@ import type {
 	PresentCredentialsResult,
 } from './types';
 import { resolveCredentialPresentationRequest } from './utils';
+import { OIDFlowError } from '@/lib/openid-flow/errors';
 
 /**
  * Hook for managing the Present Credentials Flow.
@@ -47,7 +48,7 @@ export function usePresentCredentialsFlow() {
 				setView({
 					status: 'request',
 					onAccept: (result) => resolve(result),
-					onDecline: () => reject(),
+					onDecline: () => reject(new OIDFlowError({ code: 'USER_CANCELLED', message: 'User cancelled' })),
 					request,
 				});
 			});

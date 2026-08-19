@@ -124,10 +124,10 @@ export async function resolveCredentialPresentationRequest(
  * // [1, 2]
  * ```
  */
-export function getValueByPath(path: string[], obj: Record<string, unknown>): any {
+export function getValueByPath(path: Array<string | number | null>, obj: Record<string, unknown>): any {
 	if (!Array.isArray(path) || path.length === 0) return undefined;
 
-	const traverse = (segments: string[], current: unknown): unknown => {
+	const traverse = (segments: Array<string | number | null>, current: unknown): unknown => {
 		if (segments.length === 0) return current;
 		const [head, ...tail] = segments;
 
@@ -135,8 +135,8 @@ export function getValueByPath(path: string[], obj: Record<string, unknown>): an
 			return Object.values(current).map(item => traverse(tail, item)).filter(v => v !== undefined);
 		}
 
-		if (current && typeof current === 'object' && head in current) {
-			return traverse(tail, current[head]);
+		if (head !== null && current && typeof current === 'object' && head in current) {
+			return traverse(tail, (current as Record<string | number, unknown>)[head]);
 		}
 		return undefined;
 	};
