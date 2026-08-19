@@ -20,6 +20,7 @@ export type PresentCredentialsMatch = {
 		issuer?: string;
 	};
 	fields: Array<{
+		path: string;
 		name: string;
 		value: unknown;
 	}>;

@@ -45,7 +45,6 @@ export async function resolveCredentialPresentationRequest(
 
 		const matches = await Promise.all(vcEntityList
 			.filter((vcEntity) => {
-				const conformant = conformantCredentials.get(id);
 				if (!conformant) return false;
 
 				return conformant.credentials.includes(vcEntity.batchId);
@@ -82,6 +81,7 @@ export async function resolveCredentialPresentationRequest(
 					batchId: vcEntity.batchId,
 					display,
 					fields: requestedFields.map((f) => ({
+						path: JSON.stringify(normalizePath(f.path ?? [])),
 						name: resolveClaimLabel(claims, f, preferredLanguages),
 						value: getValueByPath(normalizePath(f.path ?? []), parsedCredential.signedClaims),
 					})),

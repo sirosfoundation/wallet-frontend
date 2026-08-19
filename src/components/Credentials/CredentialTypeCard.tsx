@@ -31,7 +31,7 @@ export const CredentialTypeCard: FC<CredentialTypeCardProps> = ({
 	const Element = isClickable ? 'button' : 'div';
 
 	if (!Array.isArray(display)) display = [display];
-	if (display.length === 0) return;
+	if (display.length === 0) return null;
 
 	return (
 		<Element
@@ -52,7 +52,7 @@ export const CredentialTypeCard: FC<CredentialTypeCardProps> = ({
 		>
 			<div className="flex flex-col justify-start items-start gap-2 w-full min-w-0">
 				{display.map(({ name, issuer, logo, backgroundColor, textColor }) => (
-					<span className="flex justify-start items-start gap-2 w-full min-w-0">
+					<span key={name} className="flex justify-start items-start gap-2 w-full min-w-0">
 						{!compact && (
 							<div
 								className="

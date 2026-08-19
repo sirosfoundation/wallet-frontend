@@ -217,7 +217,7 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 								</div>
 								<dl>
 									{entry.selected?.fields.map((field) => (
-										<ClaimDetails key={field.name+field.value} name={field.name} value={field.value} />
+										<ClaimDetails key={field.path} name={field.name} value={field.value} />
 									))}
 								</dl>
 								{entry.alternatives.length > 0 && (

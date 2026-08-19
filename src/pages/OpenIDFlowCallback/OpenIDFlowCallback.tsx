@@ -350,7 +350,11 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		dcqlQuery: DcqlQuery.Input,
 		conformantCredentialsMap: ConformantCredentials
 	) => {
-		logger.debug("Prompting for credential selection...", { conformantCredentialsMap, verifierInfo, dcqlQuery });
+		// Only log the count
+		const conformantMatchCounts = Object.fromEntries(
+			[...conformantCredentialsMap].map(([id, { credentials }]) => [id, credentials.length]),
+		);
+		logger.debug("Prompting for credential selection...", { conformantMatchCounts, verifierInfo, dcqlQuery });
 
 		const selection = await displayRequestOverviewScreen(
 			verifierInfo,
@@ -385,7 +389,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			return;
 		}
 
-		logger.debug('Authorization request result:', result);
+		logger.debug('Authorization request processed');
 
 		if (result.transactionData?.length) {
 			const consented = await showTransactionDataConsentPopup({
