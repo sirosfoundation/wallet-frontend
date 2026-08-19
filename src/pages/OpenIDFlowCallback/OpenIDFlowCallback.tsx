@@ -362,7 +362,6 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			conformantCredentialsMap,
 		);
 
-
 		logger.debug("User selection:", selection);
 
 		return new Map(selection.map(({ queryId, batchId }) => [queryId, batchId])	);
