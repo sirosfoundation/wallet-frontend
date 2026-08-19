@@ -115,7 +115,7 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 	const requested = sets.flatMap((set) =>
 		set.options.flat().flatMap((id) => {
 			const query = queries.find((q) => q.id === id);
-			return query ? [query] : [];
+			return query && query.matches.length > 0 ? [query] : [];
 		}),
 	);
 
