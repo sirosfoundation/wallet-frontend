@@ -17,6 +17,7 @@ export type PresentCredentialsMatch = {
 		backgroundColor?: string;
 		textColor?: string;
 		logo?: string;
+		issuer?: string;
 	};
 	fields: Array<{
 		name: string;

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 type Display = {
 	name: string;
-	description?: string;
+	issuer?: string;
 	logo?: string;
 	backgroundColor?: string;
 	textColor?: string;
@@ -50,9 +50,9 @@ export const CredentialTypeCard: FC<CredentialTypeCardProps> = ({
 			onClick={onClick}
 			aria-label={isClickable ? t('credentialTypeCard.selectAriaLabel', { name: display[0].name }) : undefined}
 		>
-			<div className="flex flex-col justify-start items-start gap-2 w-full">
-				{display.map(({ name, description, logo, backgroundColor, textColor }) => (
-					<span className="flex justify-start items-start gap-2 w-full">
+			<div className="flex flex-col justify-start items-start gap-2 w-full min-w-0">
+				{display.map(({ name, issuer, logo, backgroundColor, textColor }) => (
+					<span className="flex justify-start items-start gap-2 w-full min-w-0">
 						{!compact && (
 							<div
 								className="
@@ -73,7 +73,7 @@ export const CredentialTypeCard: FC<CredentialTypeCardProps> = ({
 								)}
 							</div>
 						)}
-						<div className="py-1 flex flex-col justify-start items-start gap-3 w-full">
+						<div className="py-1 flex flex-col justify-start items-start gap-3 w-full min-w-0">
 							<span
 								className="
 									flex w-full px-2 py-1 text-sm rounded-md items-center gap-2
@@ -91,20 +91,20 @@ export const CredentialTypeCard: FC<CredentialTypeCardProps> = ({
 									/>
 								)}
 							</span>
-							{!compact && description && (
+							{!compact && issuer && (
 								<span
 									className="
-										px-2 truncate text-lm-gray-700 dark:text-dm-gray-300 text-sm
+										px-2 truncate max-w-full text-lm-gray-700 dark:text-dm-gray-300 text-sm
 									"
 								>
-									{description}
+									{issuer}
 								</span>
 							)}
 						</div>
 					</span>
 				))}
 			</div>
-			{showChevron && <ChevronRightIcon aria-hidden="true" />}
+			{showChevron && <ChevronRightIcon aria-hidden="true" className="shrink-0" />}
 		</Element>
 	);
 };

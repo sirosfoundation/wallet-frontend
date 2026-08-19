@@ -57,6 +57,7 @@ export async function resolveCredentialPresentationRequest(
 
 				let display = {
 					name: `Credential ${vcEntity.batchId}`,
+					issuer: undefined as string | undefined,
 					backgroundColor: undefined as string | undefined,
 					textColor: undefined as string | undefined,
 					logo: undefined as string | undefined,
@@ -71,6 +72,7 @@ export async function resolveCredentialPresentationRequest(
 						backgroundColor: branding.backgroundColor,
 						textColor: branding.textColor,
 						logo: branding.logo,
+						issuer: parsedCredential.metadata.issuer.name ?? parsedCredential.metadata.issuer.id
 					};
 				} catch (e) {
 					logger.warn('Credential metadata failed; using fallback display', { batchId: vcEntity.batchId, e });
