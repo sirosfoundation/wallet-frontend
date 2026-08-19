@@ -325,13 +325,22 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 			};
 		} catch (err) {
 			if (err instanceof OIDFlowError && err.code === 'USER_CANCELLED') {
-				// User cancelled the popup
 				return {
 					success: false,
-					error: { code: 'USER_CANCELLED', message: 'User cancelled' }
+					error: {
+						code: 'USER_CANCELLED',
+						message: 'User cancelled',
+					},
 				};
 			}
-			const error = err instanceof OIDFlowError ? err : new OIDFlowError({ code: 'SELECTION_ERROR', message: err instanceof Error ? err.message : String(err) });
+
+			const error = err instanceof OIDFlowError
+				? err
+				: new OIDFlowError({
+						code: 'SELECTION_ERROR',
+						message: err instanceof Error ? err.message : String(err),
+					});
+
 			setError(error);
 			onError?.(error);
 			return {
