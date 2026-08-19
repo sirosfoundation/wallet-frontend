@@ -137,12 +137,12 @@ const CredentialLayout = ({ children, title = null, displayCredentialInfo = null
 				)}
 			</div>
 
-			{screenType === 'mobile' && vcEntity?.isExpired && (
+			{screenType === 'mobile' && vcEntity?.credentialStatus && (
 				<div className="bg-lm-orange-bg dark:bg-dm-orange-bg text-black mx-2 p-2 shadow-lg text-sm rounded-lg mb-4 flex items-center">
 					<div className="mr-2 ">
 						<TriangleAlert size={18} />
 					</div>
-					<p>{t('pageCredentials.details.expired')}</p>
+					<p>{t(`pageCredentials.details.${vcEntity.credentialStatus}`)}</p>
 				</div>
 			)}
 			<div className="mb-2">

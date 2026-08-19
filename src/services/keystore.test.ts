@@ -6,6 +6,7 @@ import * as util from '@cef-ebsi/key-did-resolver/dist/util.js';
 import * as keystore from "./keystore.js";
 import { byteArrayEquals, fromBase64, jsonParseTaggedBinary, toBase64, toBase64Url } from "../util";
 import { DidKeyVersion } from "../config.js";
+import { findPublicKeyInDidDocument, resolveDidJwk } from "wallet-common";
 
 
 async function asyncAssertThrows(fn: () => Promise<any>, message: string): Promise<unknown> {
@@ -267,6 +268,32 @@ describe("The keystore", () => {
 		};
 		it("p256-pub.", async () => test("p256-pub"));
 		it("jwk_jcs-pub.", async () => test("jwk_jcs-pub"));
+
+		// DIIP v5 requires the `jwt` proof type to carry the Holder's did:jwk as `iss` and to
+		// name the key with a `kid` from the DID document instead of embedding a `jwk` header.
+		it("jwk (did:jwk).", async () => {
+			const [{ proof_jwts }, [newPrivateData, newMainKey]] = await keystore.generateOpenid4vciProofs(
+				[privateData, mainKey],
+				"jwk",
+				"test-nonce",
+				"test-audience",
+				"test-issuer",
+			);
+			const [, , calculatedState] = await keystore.openPrivateData(newMainKey, newPrivateData);
+			const { kid, did, publicKey: publicKeyJwk } = calculatedState.keypairs[0].keypair;
+
+			assert.isTrue(did.startsWith("did:jwk:"));
+			assert.equal(kid, `${did}#0`);
+
+			const publicKey = await jose.importJWK(publicKeyJwk);
+			const { protectedHeader, payload } = await jose.jwtVerify(proof_jwts[0], publicKey, {
+				audience: "test-audience",
+			});
+			assert.equal(protectedHeader.kid, kid);
+			assert.isUndefined(protectedHeader.jwk);
+			assert.equal(payload.iss, did);
+			assert.equal(payload.nonce, "test-nonce");
+		});
 	});
 
 	describe("can generate and store new credential keypairs on request with DID key version", async () => {
@@ -294,6 +321,93 @@ describe("The keystore", () => {
 		};
 		it("p256-pub.", async () => test("p256-pub"));
 		it("jwk_jcs-pub.", async () => test("jwk_jcs-pub"));
+		it("jwk.", async () => test("jwk"));
+	});
+
+	describe("resolveCnfKid", () => {
+		it("returns a DIIP v5 cnf.kid unchanged", async () => {
+			const kid = "did:jwk:eyJrdHkiOiJFQyJ9#0";
+			assert.equal(await keystore.resolveCnfKid({ kid }), kid);
+		});
+
+		it("falls back to the JWK thumbprint for a cnf.jwk", async () => {
+			const jwk = {
+				kty: "EC",
+				crv: "P-256",
+				x: "acbIQiuMs3i8_uszEjJ2tpTtRM4EU3yz91PH6CdH2V0",
+				y: "_KcyLj9vWMptnmKtm46GqDz8wf74I5LKgrl2GzH3nSE",
+			};
+			assert.equal(await keystore.resolveCnfKid({ jwk }), await jose.calculateJwkThumbprint(jwk, "sha256"));
+		});
+
+		it("prefers kid when both are present", async () => {
+			assert.equal(await keystore.resolveCnfKid({ kid: "did:jwk:abc#0", jwk: { kty: "EC" } }), "did:jwk:abc#0");
+		});
+
+		it("returns null when the credential has no holder binding", async () => {
+			assert.isNull(await keystore.resolveCnfKid(undefined));
+			assert.isNull(await keystore.resolveCnfKid({}));
+		});
+	});
+
+	// The keystore mints did:jwk identifiers and wallet-common resolves them; nothing else covers
+	// that seam, and a mismatch would only surface as an unverifiable credential at issuance time.
+	describe("did:jwk round trip with the wallet-common resolver", () => {
+		it("resolves a keystore-generated did:jwk back to the signing key", async () => {
+			const privateData: keystore.AsymmetricEncryptedContainer = jsonParseTaggedBinary('{"mainKey":{"publicKey":{"importKey":{"format":"raw","keyData":{"$b64u":"BDlRO3IEL-F27glDVct16_imvjenX1-EmTigMk2YHpmXh8j_sw156BudaNxXDH2QQqUldVMxNRrto4aEUhCfRaI"},"algorithm":{"name":"ECDH","namedCurve":"P-256"}}},"unwrapKey":{"format":"raw","unwrapAlgo":"AES-KW","unwrappedKeyAlgo":{"name":"AES-GCM","length":256}}},"jwe":"eyJhbGciOiJBMjU2R0NNS1ciLCJlbmMiOiJBMjU2R0NNIiwiaXYiOiJ2a2g0N0praHVZTEhMdVNDIiwidGFnIjoiSmlmOUM2TWVhbkZnNFpobS12anBNdyJ9.V1kqO2rF2FLWIMunZChEJfiiVs7QomiuQeR5BghozHk.snCD6eGCTQI5qkot.RuJHw4jUSrb5I5FMVujO.UpvJ6zQM3RTE6ynfs7z7nw","prfKeys":[{"credentialId":{"$b64u":"L36kS042hbgmDGkvMt_8abWT0n93IxW5HQB5YKfq0W0nPZQDehu07Qk9L0Aw5C76"},"prfSalt":{"$b64u":"_JMrkAUh64gigXqI--DWoUlgP3zqTCLS2uQASAhutxA"},"hkdfSalt":{"$b64u":"j_sssVxuQMTXzzUj5899uAxVVIEf87FFT6Vrn-ckPxw"},"hkdfInfo":{"$b64u":"ZURpcGxvbWFzIFBSRg"},"algorithm":{"name":"AES-GCM","length":256},"keypair":{"publicKey":{"importKey":{"format":"raw","keyData":{"$b64u":"BAnaAJXU1ja9ddHcWBVqDpLBQWY4wF3KB1Av92rqFdfWx6XWKSzNLsgKlrZnLJN7xo3pOwhJTXAXqxowPykzvx8"},"algorithm":{"name":"ECDH","namedCurve":"P-256"}}},"privateKey":{"unwrapKey":{"format":"jwk","wrappedKey":{"$b64u":"FWhWa7XO_Mqjpr0FhyR_HZcJmgcpoPIsOSdPllVNmsGnnALJ6rj1278lxTW-HEOAsdxUK2K7njciF2e7L4nsGu0ZJ4LqsXkD7a47YLJ75hg9nH1kesbPunyS7rGBsVtKI9WxiZYxDwhiIqIPYRDGJbUXJQG-zunxo1KERsu4me_rsBmOuwqfesDvMllrm1wTY-R0h7UhIpFa2wTCXmW7pRPx3Pbvw7GAhWBBd6hpvWsUsOtCGSN9ujw6IUi5itB8xAcMCB2KbRuCicJa0MCsnyOOtUnsG-YzJFr4W-0FNT8UGvM"},"unwrapAlgo":{"name":"AES-GCM","iv":{"$b64u":"MbbvhJZyE8YP710b"}},"unwrappedKeyAlgo":{"name":"ECDH","namedCurve":"P-256"}}}},"unwrapKey":{"wrappedKey":{"$b64u":"aTU0F0u6QJG-tJ-jDXKe2noFVGb8QPri3GzprVaV0UcPEAegAU2tzw"},"unwrappingKey":{"deriveKey":{"algorithm":{"name":"ECDH"},"derivedKeyAlgorithm":{"name":"AES-KW","length":256}}}}}]}');
+			const mockCredential = mockPrfCredential({
+				id: privateData.prfKeys[0].credentialId,
+				prfOutput: fromBase64("2WEuykvYBxHGT2RCAoVrsPnkUl+T/tOQZbliln7bNmM="),
+			});
+			const [{ mainKey },] = await keystore.unlockPrf(privateData, mockCredential, async () => false);
+
+			const [{ proof_jwts }, [newPrivateData, newMainKey]] = await keystore.generateOpenid4vciProofs(
+				[privateData, mainKey], "jwk", "nonce", "https://issuer.example", "client-id",
+			);
+			const [, , calculatedState] = await keystore.openPrivateData(newMainKey, newPrivateData);
+			const { did } = calculatedState.keypairs[0].keypair;
+
+			// Resolve the DID exactly as an issuer verifying the proof would.
+			const resolution = resolveDidJwk(did);
+			assert.isTrue(resolution.resolved);
+			const jwk = findPublicKeyInDidDocument(resolution.didDocument!, `${did}#0`, "authentication");
+			assert.isOk(jwk);
+
+			// The resolved key must verify the proof the keystore just signed.
+			// wallet-common bundles its own copy of jose, so the JWK type is nominally distinct.
+			const { payload } = await jose.jwtVerify(proof_jwts[0], await jose.importJWK(jwk as jose.JWK, "ES256"));
+			assert.equal(payload.iss, did);
+		});
+	});
+
+	describe("findKeypairByKid", () => {
+		const publicKey = {
+			kty: "EC",
+			crv: "P-256",
+			x: "acbIQiuMs3i8_uszEjJ2tpTtRM4EU3yz91PH6CdH2V0",
+			y: "_KcyLj9vWMptnmKtm46GqDz8wf74I5LKgrl2GzH3nSE",
+		};
+		const stateWithKid = (kid: string) => ({
+			keypairs: [{ kid, keypair: { kid, did: "did:jwk:x", alg: "ES256", publicKey, privateKey: {} } }],
+		} as any);
+
+		it("matches a key pair by its stored kid", async () => {
+			const found = await keystore.findKeypairByKid(stateWithKid("did:jwk:x#0"), "did:jwk:x#0");
+			assert.isOk(found);
+		});
+
+		// mdoc device keys and SD-JWT `cnf.jwk` can only be addressed by thumbprint, so a wallet
+		// configured for did:jwk must still find the key pairs those credentials are bound to.
+		it("falls back to the thumbprint when the key pair has a did:jwk kid", async () => {
+			const thumbprint = await jose.calculateJwkThumbprint(publicKey as jose.JWK, "sha256");
+			const found = await keystore.findKeypairByKid(stateWithKid("did:jwk:x#0"), thumbprint);
+			assert.isOk(found);
+			assert.deepEqual(found?.publicKey, publicKey);
+		});
+
+		it("returns null when nothing matches", async () => {
+			assert.isNull(await keystore.findKeypairByKid(stateWithKid("did:jwk:x#0"), "no-such-kid"));
+		});
 	});
 
 	it("can automatically upgrade a symmetric PRF key to an asymmetric key.", async () => {
