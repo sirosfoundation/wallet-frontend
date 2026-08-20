@@ -1,9 +1,8 @@
-import { Logger, jsonToLog } from '@sirosfoundation/browser-log';
-import { LOG_LEVEL, type LogLevel } from './config';
+import { Logger } from '@sirosfoundation/browser-log';
+import { LOG_LEVEL } from './config';
 
-export type { LogLevel };
-
-export { jsonToLog };
+export { jsonToLog } from '@sirosfoundation/browser-log';
+export type { LogLevel } from './config';
 
 export const logger = new Logger({ level: LOG_LEVEL || 'info' });
 
