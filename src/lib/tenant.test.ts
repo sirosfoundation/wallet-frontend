@@ -3,6 +3,7 @@ import {
 	extractTenantFromUserHandle,
 	isDefaultTenant,
 	isReservedTenantName,
+	isValidTenantId,
 	buildTenantRoutePath,
 	DEFAULT_TENANT_ID,
 	TENANT_PATH_PREFIX,
@@ -143,6 +144,47 @@ describe('tenant utilities', () => {
 	describe('TENANT_PATH_PREFIX', () => {
 		it('should be "id"', () => {
 			expect(TENANT_PATH_PREFIX).toBe('id');
+		});
+	});
+
+	describe('isValidTenantId', () => {
+		it('should accept valid tenant IDs', () => {
+			expect(isValidTenantId('acme')).toBe(true);
+			expect(isValidTenantId('acme-corp')).toBe(true);
+			expect(isValidTenantId('my-tenant-1')).toBe(true);
+			expect(isValidTenantId('a1')).toBe(true);
+			expect(isValidTenantId('default')).toBe(true);
+		});
+
+		it('should reject IDs starting with a digit', () => {
+			expect(isValidTenantId('1acme')).toBe(false);
+		});
+
+		it('should reject IDs ending with a hyphen', () => {
+			expect(isValidTenantId('acme-')).toBe(false);
+		});
+
+		it('should reject IDs with uppercase letters', () => {
+			expect(isValidTenantId('Acme')).toBe(false);
+			expect(isValidTenantId('ACME')).toBe(false);
+		});
+
+		it('should reject IDs with special characters', () => {
+			expect(isValidTenantId('acme_corp')).toBe(false);
+			expect(isValidTenantId('acme.corp')).toBe(false);
+			expect(isValidTenantId('acme/corp')).toBe(false);
+			expect(isValidTenantId('../etc/passwd')).toBe(false);
+			expect(isValidTenantId('acme corp')).toBe(false);
+		});
+
+		it('should reject empty or undefined values', () => {
+			expect(isValidTenantId('')).toBe(false);
+			expect(isValidTenantId(undefined)).toBe(false);
+		});
+
+		it('should reject a single character (too short for pattern)', () => {
+			// Pattern requires start-char + at least one more char + end-char
+			expect(isValidTenantId('a')).toBe(false);
 		});
 	});
 });
