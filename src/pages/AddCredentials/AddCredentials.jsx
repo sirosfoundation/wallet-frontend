@@ -79,14 +79,33 @@ const AddCredentials = () => {
 
 	const getSelectedIssuerDisplay = () => {
 		const selectedIssuer = getSelectedIssuer();
-
-		if (selectedIssuer) {
-			const selectedDisplayBasedOnLang = filterItemByLang(selectedIssuer.display, 'locale')
-			if (selectedDisplayBasedOnLang) {
-				const { name, description } = selectedDisplayBasedOnLang;
-				return { name, description };
-			}
+		if (!selectedIssuer) {
+			return null;
 		}
+
+		// Spec-compliant location (OID4VCI issuer metadata's own top-level
+		// `display`) - not every issuer publishes this.
+		const issuerDisplayBasedOnLang = filterItemByLang(selectedIssuer.display, 'locale');
+		if (issuerDisplayBasedOnLang) {
+			const { name, description } = issuerDisplayBasedOnLang;
+			return { name, description };
+		}
+
+		// Fallback: some issuers (e.g. SUNET/vc-based ones) only publish
+		// display info per credential_configuration, nested under that
+		// configuration's own `credential_metadata.display` rather than the
+		// issuer document's top-level `display` - without this, the
+		// confirmation popup always shows "Unknown" for such issuers,
+		// regardless of which credential is being requested.
+		const configDisplayBasedOnLang = filterItemByLang(
+			selectedCredentialConfiguration?.credentialConfiguration?.credential_metadata?.display,
+			'locale'
+		);
+		if (configDisplayBasedOnLang) {
+			const { name, description } = configDisplayBasedOnLang;
+			return { name, description };
+		}
+
 		return null;
 	}
 
