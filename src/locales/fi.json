@@ -88,7 +88,7 @@
 	"switchCredentialPopup": {
 		"title": "Vaihda todistus",
 		"description": "Valitse todistus, jota käytetään tähän pyyntöön.",
-		"selectedCredential": "Tällä hetkellä valittu todistus",
+		"selectedCredential": "Nykyinen todistus",
 		"alternativeCredentials": "Valitse toinen todistus",
 		"close": "Sulje"
 	},

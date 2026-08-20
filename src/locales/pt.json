@@ -598,7 +598,7 @@
 	"switchCredentialPopup": {
 		"title": "Trocar credencial",
 		"description": "Selecione a credencial a utilizar para este pedido.",
-		"selectedCredential": "Credencial atualmente selecionada",
+		"selectedCredential": "Credencial atual",
 		"alternativeCredentials": "Selecionar outra credencial",
 		"close": "Fechar"
 	},

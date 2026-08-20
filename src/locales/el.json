@@ -617,7 +617,7 @@
 	"switchCredentialPopup": {
 		"title": "Εναλλαγή πιστοποιητικού",
 		"description": "Επιλέξτε το πιστοποιητικό που θα χρησιμοποιηθεί για αυτό το αίτημα.",
-		"selectedCredential": "Τρέχον επιλεγμένο πιστοποιητικό",
+		"selectedCredential": "Τρέχον πιστοποιητικό",
 		"alternativeCredentials": "Επιλέξτε άλλο πιστοποιητικό",
 		"close": "Κλείσιμο"
 	},

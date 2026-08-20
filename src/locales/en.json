@@ -88,7 +88,7 @@
 	"switchCredentialPopup": {
 		"title": "Switch credential",
 		"description": "Select the credential to use for this request.",
-		"selectedCredential": "Currently selected credential",
+		"selectedCredential": "Current credential",
 		"alternativeCredentials": "Select another credential",
 		"close": "Close"
 	},

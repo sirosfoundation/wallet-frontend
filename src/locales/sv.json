@@ -88,7 +88,7 @@
 	"switchCredentialPopup": {
 		"title": "Byt intyg",
 		"description": "Välj intyget som ska användas för denna begäran.",
-		"selectedCredential": "Valt intyg",
+		"selectedCredential": "Nuvarande intyg",
 		"alternativeCredentials": "Välj ett annat intyg",
 		"close": "Stäng"
 	},

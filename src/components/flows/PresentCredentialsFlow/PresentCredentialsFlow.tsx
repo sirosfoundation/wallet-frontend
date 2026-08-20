@@ -241,8 +241,8 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 										>
 											{t('presentCredentialsFlow.overview.switchCredential')}
 											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} className="w-6 h-6" aria-hidden="true" >
-												<rect x="4" y="4" width="19" height="14" rx="2" fill="transparent" className="stroke-black dark:stroke-white" />
-												<rect x="2" y="7" width="19" height="14" rx="2" className="fill-black dark:fill-white" />
+												<rect x="4" y="4" width="19" height="14" rx="2" fill="transparent" className="stroke-lm-gray-700 dark:stroke-dm-gray-300" />
+												<rect x="2" y="7" width="19" height="14" rx="2" className="fill-lm-gray-700 dark:fill-dm-gray-300" />
 												<text x="11" y="18" textAnchor="middle" fontSize="12" fontWeight="600" className="fill-white dark:fill-black">
 													{entry.alternatives.length}
 												</text>
@@ -493,7 +493,7 @@ const ClaimDetails: FC<{ name: string; value: unknown }> = ({ name, value }) => 
 
 	return (
 		<>
-			<dt className="font-bold not-first:mt-2 not-first:pt-2 not-first:border-t not-first:border-t-lm-gray-300 dark:not-first:border-t-dm-gray-700">{name}</dt>
+			<dt className="font-bold not-first:mt-2 not-first:pt-2">{name}</dt>
 			<dd className="mt-2 wrap-break-word">{resolvedValue}</dd>
 		</>
 	);
