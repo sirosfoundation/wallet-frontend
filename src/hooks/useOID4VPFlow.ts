@@ -10,7 +10,6 @@
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useOIDFlowTransportSafe } from '@/context/OIDFlowTransportContext';
 import SessionContext from '@/context/SessionContext';
-import OpenID4VPContext from '@/context/OpenID4VPContext';
 import CredentialsContext, { ExtendedVcEntity } from '@/context/CredentialsContext';
 import { matchCredentials } from '@/services/CredentialMatchingService';
 import type {
@@ -111,7 +110,6 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 	const transportContext = useOIDFlowTransportSafe();
 	const { keystore, api } = useContext(SessionContext);
 	const { vcEntityList } = useContext(CredentialsContext);
-	const { openID4VP } = useContext(OpenID4VPContext);
 	const { signPresentation } = useOIDFlowSignHandler();
 
 	const [isLoading, setIsLoading] = useState(false);
@@ -192,42 +190,11 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 			}
 
 			// HTTP proxy transport: use existing implementation
-			if (transportType === 'http_proxy' && openID4VP) {
-				try {
-					const credentials = await waitForCredentials();
-					const result = await openID4VP.handleAuthorizationRequest(
-						authorizationRequestUrl.toString(),
-						credentials,
-					);
-
-					verifierAudienceRef.current = authorizationRequestUrl.searchParams.get('client_id') ?? '';
-
-					// Check for error response
-					if ('error' in result) {
-						throw new OIDFlowError({ code: result.error, message: 'Authorization request failed' });
-					}
-
-					// Convert to OID4VPFlowResult format
-					// The conformantCredentialsMap is a Map<string, any>
-					const conformantCredentials = result.conformantCredentialsMap;
-
-					return {
-						success: true,
-						conformantCredentials,
-						verifierInfo: {
-							name: result.verifierDomainName,
-							purpose: result.verifierPurpose,
-							domain: result.verifierDomainName,
-						},
-						transactionData: result.parsedTransactionData?.map(td => ({
-							type: 'transaction',
-							description: ('description' in (td.parsed ?? {}) ? (td.parsed as any).description : null) || JSON.stringify(td.parsed || td).slice(0, 100),
-							data: td,
-						})),
-					};
-				} catch (err) {
-					throw err;
-				}
+			if (transportType === 'http_proxy') {
+				throw new OIDFlowError({
+					code: 'DEPRECATED_HTTP_PROXY_FLOW',
+					message: 'HTTP proxy transport flow is deprecated. Please use WebSocket transport instead.',
+				});
 			}
 
 			// No transport available
@@ -247,7 +214,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		} finally {
 			setIsLoading(false);
 		}
-	}, [transportType, transport, openID4VP, onProgress, onError, waitForCredentials]);
+	}, [transportType, transport, onProgress, onError]);
 
 	/**
 	 * Handle credential selection by showing the configured UI and returning the user's selection
@@ -397,45 +364,11 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 			}
 
 			// HTTP proxy transport: use existing implementation
-			if (transportType === 'http_proxy' && openID4VP) {
-				// Convert OID4VPSelectedCredential[] to Map<string, number>
-				// The existing implementation uses descriptor ID -> credential index
-				const selectionMap = new Map<string, number>();
-
-				const currentVcEntityList = await waitForCredentials();
-
-				// Note: This assumes the credential indices match vcEntityList
-				// In practice, we'd need more sophisticated matching
-				selectedCredentials.forEach(cred => {
-					selectionMap.set(cred.credentialQueryId, cred.batchId);
+			if (transportType === 'http_proxy') {
+				throw new OIDFlowError({
+					code: 'DEPRECATED_HTTP_PROXY_FLOW',
+					message: 'HTTP proxy transport flow is deprecated. Please use WebSocket transport instead.',
 				});
-
-				const result = await openID4VP.sendAuthorizationResponse(
-					selectionMap,
-					currentVcEntityList
-				);
-
-				// Check result type
-				if (result && 'url' in result && result.url) {
-					return {
-						success: true,
-						redirectUri: result.url,
-					};
-				}
-
-				if (result && 'presentation_during_issuance_session' in result) {
-					return {
-						success: true,
-						responseData: {
-							presentation_during_issuance_session:
-								result.presentation_during_issuance_session,
-						},
-					};
-				}
-
-				return {
-					success: true,
-				};
 			}
 
 			throw new OIDFlowError({ code: 'NO_TRANSPORT_AVAILABLE', message: 'No transport available' });
@@ -456,7 +389,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		} finally {
 			setIsLoading(false);
 		}
-	}, [transportType, transport, openID4VP, onProgress, onError, keystore, api, waitForCredentials]);
+	}, [transportType, transport, onProgress, onError, keystore, api]);
 
 	/**
 	 * Handle DC API request - parse URL, match credentials, store session
