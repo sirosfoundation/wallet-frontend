@@ -10,6 +10,9 @@ import { buildMdocPresentationDefinition, parseIssuerSignedToMDoc } from '@/lib/
 import { detectCredentialFormat, VerifiableCredentialFormat } from 'wallet-common';
 import { MDoc } from '@auth0/mdl';
 import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
+import * as cbor from 'cbor-x';
+import { fromBase64Url, toBase64Url } from "../util";
+
 
 interface ProofTypeConfig {
 	key_attestations_required?: Record<string, unknown> | null;
@@ -299,13 +302,19 @@ async function createVpTokenFromMdoc(
 	if (!disclosedClaims?.length) {
 		throw new Error('disclosedClaims required for mdoc presentation');
 	}
-
-	const mdoc = parseIssuerSignedToMDoc(credentialRaw);
+	const deviceResponse = cbor.decode(fromBase64Url(credentialRaw));
+	// `deviceResponse` may be a full DeviceResponse envelope, or a bare
+	// IssuerSigned structure directly (what real-world/interop issuers, e.g.
+	// geneva2026.mdoc.online, send for mso_mdoc credential responses) - in
+	// the latter case it already *is* the issuerSigned structure.
+	const issuerSigned = deviceResponse.documents?.[0]?.issuerSigned ?? deviceResponse;
+	const issuerSignedBytes = cbor.encode(issuerSigned);
+	const issuerSignedB64 = toBase64Url(issuerSignedBytes);
+	const mdoc = parseIssuerSignedToMDoc(issuerSignedB64);
 	const presentationDefinition = buildMdocPresentationDefinition(
 		mdoc.documents[0].docType,
 		disclosedClaims ?? [],
 	);
-
 	let deviceResponseMDoc: MDoc;
 	if (responseUri) {
 		const { deviceResponseMDoc: drm } = await keystore.generateDeviceResponse(
