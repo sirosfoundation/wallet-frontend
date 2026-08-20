@@ -7,7 +7,7 @@ import { useQRScanner } from '../../../hooks/useQRScanner';
 import QRCodeScanner from '../../QRCodeScanner/QRCodeScanner';
 import CredentialsContext from '@/context/CredentialsContext';
 import CounterBadge from '@/components/Shared/CounterBadge';
-import { Bell, PlusCircle, QrCode, Send, UserCircle, Wallet } from 'lucide-react';
+import { Bell, CircleEllipsisIcon, PlusCircle, QrCode, Send, Wallet } from 'lucide-react';
 
 const BottomNav = ({ isOpen, toggle }) => {
 	const { updateAvailable } = useContext(StatusContext);
@@ -72,14 +72,14 @@ const BottomNav = ({ isOpen, toggle }) => {
 				))}
 				<button
 					id="bottom-nav-item-profile"
-					key={t("common.navItemProfile")}
+					key={t("common.navItemMore")}
 					className={`relative cursor-pointer flex flex-col items-center gap-1 w-[20%] relative ${isOpen ? 'text-lm-gray-900 dark:text-white' : 'text-lm-gray-700 dark:text-dm-gray-300'} transition-colors duration-200`}
 					onClick={toggle}
-					title={t("common.navItemProfile")}
+					title={t("common.navItemMore")}
 				>
-					<UserCircle size={20} />
+					<CircleEllipsisIcon size={20} />
 					<span className="hidden 2xs:block text-xs">
-						{t("common.navItemProfile")}
+						{t("common.navItemMore")}
 					</span>
 					{updateAvailable && (
 						<Bell
