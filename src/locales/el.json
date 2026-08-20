@@ -53,6 +53,29 @@
 		"loading": "Φόρτωση...",
 		"platformPasskey": "Passkey σε αυτήν τη συσκευή"
 	},
+	"presentCredentialsFlow": {
+		"overview": {
+			"title": "Αίτημα κοινοποίησης δεδομένων",
+			"requester": "Αιτών",
+			"purpose": "Σκοπός",
+			"requestedInformation": "Ζητούμενες πληροφορίες",
+			"share": "Κοινοποίηση",
+			"decline": "Απόρριψη",
+			"switchCredential": "Αλλαγή πιστοποιητικού",
+			"switchCredentialAria": "Αλλαγή πιστοποιητικού: {{name}}, {{count}} διαθέσιμα"
+		},
+		"sharing": {
+			"sending": "Αποστολή..."
+		},
+		"completed": {
+			"title": "Επιτυχία!",
+			"description": "Τα δεδομένα σας κοινοποιήθηκαν στον {{verifierName}}.",
+			"redirecting": "Ανακατεύθυνση..."
+		},
+		"error": {
+			"close": "Κλείσιμο"
+		}
+	},
 	"expiredRibbon": {
 		"expired": "Ληγμένο"
 	},
@@ -586,6 +609,17 @@
 		"legendAriaLabel": "Υπόμνημα αξιώσεων",
 		"legendRequested": "Ζητήθηκε από τον επαληθευτή",
 		"legendRequired": "Απαιτείται"
+	},
+	"credentialTypeCard": {
+		"selectAriaLabel": "Επιλογή πιστοποιητικού {{name}}",
+		"selectedAriaLabel": "Αυτό το πιστοποιητικό είναι επιλεγμένο αυτήν τη στιγμή"
+	},
+	"switchCredentialPopup": {
+		"title": "Εναλλαγή πιστοποιητικού",
+		"description": "Επιλέξτε το πιστοποιητικό που θα χρησιμοποιηθεί για αυτό το αίτημα.",
+		"selectedCredential": "Τρέχον πιστοποιητικό",
+		"alternativeCredentials": "Επιλέξτε άλλο πιστοποιητικό",
+		"close": "Κλείσιμο"
 	},
 	"notifications": {
 		"newCredential": {

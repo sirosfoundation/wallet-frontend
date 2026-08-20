@@ -53,10 +53,44 @@
 		"tryAgain": "Försök igen",
 		"walletName": "wwWallet"
 	},
+	"presentCredentialsFlow": {
+		"overview": {
+			"title": "Begäran om att dela data",
+			"requester": "Begärande part",
+			"purpose": "Syfte",
+			"requestedInformation": "Begärd information",
+			"share": "Dela",
+			"decline": "Avvisa",
+			"switchCredential": "Byt intyg",
+			"switchCredentialAria": "Byt intyg: {{name}}, {{count}} tillgängliga"
+		},
+		"sharing": {
+			"sending": "Skickar..."
+		},
+		"completed": {
+			"title": "Lyckades!",
+			"description": "Dina uppgifter har delats med {{verifierName}}.",
+			"redirecting": "Omdirigerar..."
+		},
+		"error": {
+			"close": "Stäng"
+		}
+	},
 	"credentialInfo": {
 		"legendAriaLabel": "Attributförklaring",
 		"legendRequested": "Begärt av verifierare",
 		"legendRequired": "Obligatoriskt"
+	},
+	"credentialTypeCard": {
+		"selectAriaLabel": "Välj intyg {{name}}",
+		"selectedAriaLabel": "Detta intyg är för närvarande valt"
+	},
+	"switchCredentialPopup": {
+		"title": "Byt intyg",
+		"description": "Välj intyget som ska användas för denna begäran.",
+		"selectedCredential": "Nuvarande intyg",
+		"alternativeCredentials": "Välj ett annat intyg",
+		"close": "Stäng"
 	},
 	"expiredRibbon": {
 		"expired": "Utgånget"
