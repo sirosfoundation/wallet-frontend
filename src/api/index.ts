@@ -17,7 +17,6 @@ import { getTenantFromUrlPath, setStoredTenant, clearStoredTenant } from '../lib
 import { clearOIDCState } from '../lib/oidc';
 import { AuthTokens } from '@/lib/auth';
 import { useAuthServerClient } from '@/hooks/useAuthServerClient';
-import { useTenant } from '@/context/TenantContext';
 
 const walletBackendUrl = config.BACKEND_URL;
 
@@ -119,7 +118,7 @@ export interface BackendApi {
 export function useApi(isOnlineProp: boolean = true): BackendApi {
 	const isOnline = useMemo(() => isOnlineProp === null ? true : isOnlineProp, [isOnlineProp]);
 	const authServer = useAuthServerClient();
-	const { urlTenantId: tenantId } = useTenant();
+	const tenantId = getTenantFromUrlPath() ?? 'default';
 	const [userHandle,] = useSessionStorage<string | null>("userHandle", null);
 	const [cachedUsers] = useLocalStorage<CachedUser[] | null>("cachedUsers", null);
 	const [sessionState, setSessionState, clearSessionState] = useSessionStorage<SessionState | null>("sessionState", null);
@@ -154,7 +153,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 
 	// Define clearSession early so it can be used by token refresh config
 	const clearSession = useCallback((): void => {
-		authServer.logout().catch((e) => logger.error('Failed to clear server session', e));
+		authServer.logout(tenantId ?? 'default').catch((e) => logger.error('Failed to clear server session', e));
 		clearSessionStorage();
 		authTokens.clear();
 		removePrivateDataEtag();
@@ -162,7 +161,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		clearOIDCState('registration'); // Clear OIDC gate tokens on logout
 		clearOIDCState('login');
 		events.dispatchEvent(new CustomEvent<ClearSessionEvent>(CLEAR_SESSION_EVENT));
-	}, [authServer, authTokens, clearSessionStorage, removePrivateDataEtag]);
+	}, [authServer, authTokens, clearSessionStorage, removePrivateDataEtag, tenantId]);
 
 	// Stable ref for clearSession to avoid stale closures in token refresh
 	const clearSessionRef = useRef<() => void>(clearSession);
