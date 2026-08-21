@@ -115,7 +115,7 @@ export const DELEGATE_TRUST_TO_BACKEND: boolean = (() => {
 export const OPENID4VCI_REDIRECT_URI = config.openid4vci_redirect_uri ?  config.openid4vci_redirect_uri : "http://localhost:3000/";
 export const CLOCK_TOLERANCE = config.clock_tolerance && !isNaN(parseInt(config.clock_tolerance)) ? parseInt(config.clock_tolerance) : 60;
 export const STATIC_PUBLIC_URL = config.static_public_url || 'https://demo.wwwallet.org';
-export const STATIC_NAME = config.static_name || 'wwWallet';
+export const STATIC_NAME = config.static_name || 'SIROS ID (dev)';
 
 /**
  * When true, deleting a credential does NOT remove associated presentation

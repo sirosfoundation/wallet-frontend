@@ -48,7 +48,7 @@
 		"showMore": "Mostrar mais",
 		"submit": "Submeter",
 		"tryAgain": "Tentar novamente",
-		"walletName": "wwWallet",
+		"walletName": "SIROS ID (dev)",
 		"externalPasskey": "Passkey numa chave de segurança",
 		"hybridPasskey": "Passkey num dispositivo próximo",
 		"loading": "A carregar...",
@@ -537,8 +537,8 @@
 	},
 	"sidebar": {
 		"navItemLogout": "Sair",
-		"poweredBy": "Desenvolvido por <docLinkWalletGithub>wwWallet</docLinkWalletGithub>",
-		"poweredByAriaLabel": "Repositório GitHub da wwWallet",
+		"poweredBy": "Desenvolvido por <docLinkWalletGithub>SIROS Foundation</docLinkWalletGithub>",
+		"poweredByAriaLabel": "Repositório GitHub da SIROS Foundation",
 		"obliviousEnabled": "Pedidos privados com Oblivious HTTP ativado"
 	},
 	"tenantSelector": {

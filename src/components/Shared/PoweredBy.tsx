@@ -15,7 +15,7 @@ const PoweredBy = ({ className, linkClassName }: PoweredByProps) => {
 				components={{
 					docLinkWalletGithub: (
 						<a
-							href="https://github.com/wwWallet"
+							href="https://github.com/sirosfoundation"
 							rel="noreferrer"
 							target="_blank"
 							className={linkClassName}

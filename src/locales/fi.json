@@ -52,7 +52,7 @@
 		"showMore": "Näytä lisää",
 		"submit": "Lähetä",
 		"tryAgain": "Yritä uudelleen",
-		"walletName": "wwWallet"
+		"walletName": "SIROS ID (dev)"
 	},
 	"presentCredentialsFlow": {
 		"overview": {
@@ -571,8 +571,8 @@
 	"sidebar": {
 		"navItemLogout": "Kirjaudu ulos",
 		"obliviousEnabled": "Yksityiset pyynnöt Oblivious HTTP:llä käytössä",
-		"poweredBy": "Käyttää <docLinkWalletGithub>wwWallet</docLinkWalletGithub>",
-		"poweredByAriaLabel": "wwWalletin GitHub-repositorio"
+		"poweredBy": "Käyttää <docLinkWalletGithub>SIROS Foundation</docLinkWalletGithub>",
+		"poweredByAriaLabel": "SIROS Foundationin GitHub-repositorio"
 	},
 	"syncPopup": {
 		"description": "Näyttää siltä, että olet <strong>muokannut lompakkoasi toisessa istunnossa</strong>. Käytä <strong>passkeytäsi</strong> synkronoidaksesi lompakon.",

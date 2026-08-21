@@ -48,7 +48,7 @@
 		"showMore": "Εμφάνιση περισσότερων",
 		"submit": "Υποβολή",
 		"tryAgain": "Δοκιμάστε ξανά",
-		"walletName": "wwWallet",
+		"walletName": "SIROS ID (dev)",
 		"externalPasskey": "Passkey σε κλειδί ασφαλείας",
 		"hybridPasskey": "Passkey σε κοντινή συσκευή",
 		"loading": "Φόρτωση...",
@@ -556,8 +556,8 @@
 	},
 	"sidebar": {
 		"navItemLogout": "Αποσύνδεση",
-		"poweredBy": "Powered by <docLinkWalletGithub>wwWallet</docLinkWalletGithub>",
-		"poweredByAriaLabel": "GitHub repository του wwWallet",
+		"poweredBy": "Powered by <docLinkWalletGithub>SIROS Foundation</docLinkWalletGithub>",
+		"poweredByAriaLabel": "GitHub repository του SIROS Foundation",
 		"obliviousEnabled": "Ιδιωτικά αιτήματα με Oblivious HTTP ενεργοποιημένο"
 	},
 	"tenantSelector": {
