@@ -170,7 +170,9 @@ export function useOpenID4VP({
 				return { presentation_during_issuance_session: responseData.presentation_during_issuance_session };
 			}
 			if (responseData.redirect_uri) {
-				return { url: responseData.redirect_uri };
+				// Ignored on purpose: the browser that started the flow owns the
+				// redirect back to the RP (see issue #159).
+				logger.debug("Ignoring redirect_uri from direct_post response");
 			}
 		} catch (err) {
 			logger.error(err);

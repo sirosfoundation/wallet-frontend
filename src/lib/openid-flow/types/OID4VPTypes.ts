@@ -76,9 +76,6 @@ export interface OID4VPFlowResult {
 
 	// ===== After submission =====
 
-	/** Redirect URI (for same-device flow) */
-	redirectUri?: string;
-
 	/** Response for cross-device flow */
 	responseData?: unknown;
 

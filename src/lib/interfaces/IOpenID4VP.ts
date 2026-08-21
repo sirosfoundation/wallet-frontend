@@ -15,5 +15,5 @@ export interface IOpenID4VP {
 		}
 		| { error: HandleAuthorizationRequestError }
 	>;
-	sendAuthorizationResponse(selectionMap: Map<string, number>, vcEntitylist: ExtendedVcEntity[]): Promise<{ url?: string } | { presentation_during_issuance_session: string }>;
+	sendAuthorizationResponse(selectionMap: Map<string, number>, vcEntitylist: ExtendedVcEntity[]): Promise<{ presentation_during_issuance_session: string } | void>;
 }

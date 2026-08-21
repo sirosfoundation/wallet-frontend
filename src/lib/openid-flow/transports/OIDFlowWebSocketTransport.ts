@@ -567,7 +567,9 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 		// Submission result
 		if (response.redirect_uri) {
-			result.redirectUri = response.redirect_uri as string;
+			// Ignored on purpose: the browser that started the flow owns the
+			// redirect back to the RP (see issue #159).
+			logger.debug('Ignoring redirect_uri from flow response');
 		}
 		if (response.response_data) {
 			result.responseData = response.response_data;

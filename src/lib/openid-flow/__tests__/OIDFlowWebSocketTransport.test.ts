@@ -398,7 +398,9 @@ describe('OIDFlowWebSocketTransport', () => {
 
 			const result = await flowPromise;
 			expect(result.success).toBe(true);
-			expect(result.redirectUri).toBe('https://verifier.example.com/callback');
+			// The verifier's redirect_uri must not be surfaced to the wallet UI:
+			// the browser that started the flow owns the redirect back to the RP.
+			expect(result).not.toHaveProperty('redirectUri');
 		});
 
 		it('should reject invalid params', async () => {

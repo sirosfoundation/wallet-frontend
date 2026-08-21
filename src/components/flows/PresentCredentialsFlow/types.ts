@@ -68,7 +68,6 @@ export type PresentCredentialsResult = Array<{
  */
 export type PresentationResult = {
 	verifierName: string;
-	redirectUri?: string;
 };
 
 /**

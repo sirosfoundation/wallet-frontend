@@ -426,9 +426,6 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			});
 		}
 
-		if ('redirectUri' in sendResult) {
-			window.location.href = sanitizeRedirectUrl(sendResult.redirectUri);
-		}
 	};
 
 	const processDcApiRequest = async (url: URL) => {
