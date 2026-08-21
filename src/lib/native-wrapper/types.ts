@@ -10,7 +10,7 @@ export interface CredentialDisplayProperties {
 /**
  * Claim info with value and localized labels
  */
-export type ClaimEntry = {
+export type SdJwtClaim = {
 	path: string;
 	value: unknown;
 	display: Record<string, string>;
@@ -24,8 +24,15 @@ export interface SdJwtRegistryEntry {
 	format: "sd-jwt";
 	id: string;
 	verifiableCredentialType: string;
-	claims: ClaimEntry[];
+	claims: SdJwtClaim[];
 	display: CredentialDisplayProperties;
+}
+
+export type MdocField = {
+	namespace: string;
+	identifier: string;
+	value: unknown;
+	display: Record<string, string>;
 }
 
 /**
@@ -35,7 +42,7 @@ export interface MdocRegistryEntry {
 	format: "mdoc";
 	id: string;
 	docType: string;
-	claims: ClaimEntry[];
+	fields: MdocField[];
 	display: CredentialDisplayProperties;
 }
 

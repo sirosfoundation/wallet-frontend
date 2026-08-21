@@ -2,9 +2,10 @@ import { ExtendedVcEntity } from '@/context/CredentialsContext';
 import {
 	CredentialDisplayProperties,
 	CredentialRegistryEntry,
-	ClaimEntry,
+	SdJwtClaim,
 	SdJwtRegistryEntry,
 	MdocRegistryEntry,
+	MdocField,
 } from './types';
 import {
 	shapeCredential,
@@ -95,13 +96,13 @@ function shapeMdocEntry(
 	metadataByPath: Map<string, { locale: string; label: string }[]>,
 	display: CredentialDisplayProperties,
 ): MdocRegistryEntry {
-	const claims: ClaimEntry[] = [];
+	const fields: MdocField[] = [];
 
-	for (const [ns, elements] of Object.entries(shaped.namespaces)) {
+	for (const [namespace, elements] of Object.entries(shaped.namespaces)) {
 		for (const [element, value] of Object.entries(elements as object)) {
-			const pathKey = `${ns}.${element}`;
+			const identifier = element;
 			const displayLabels: Record<string, string> = {};
-			const meta = metadataByPath.get(element) ?? metadataByPath.get(pathKey);
+			const meta = metadataByPath.get(identifier);
 
 			if (meta) {
 				for (const d of meta) {
@@ -111,7 +112,7 @@ function shapeMdocEntry(
 				}
 			}
 
-			claims.push({ path: pathKey, value, display: displayLabels });
+			fields.push({ namespace, identifier, value, display: displayLabels });
 		}
 	}
 
@@ -119,7 +120,7 @@ function shapeMdocEntry(
 		format: 'mdoc',
 		id: String(credential.batchId),
 		docType: shaped.doctype,
-		claims,
+		fields,
 		display,
 	};
 }
@@ -137,7 +138,7 @@ function shapeJwtClaims(
 		return !REGISTRY_RESERVED_CLAIMS.has(rootKey);
 	});
 
-	const claims: ClaimEntry[] = [];
+	const claims: SdJwtClaim[] = [];
 
 	for (const claimPath of availableClaims) {
 		const value = getElementPropValue(signedClaims, claimPath);
