@@ -27,9 +27,10 @@
 		"navItemCredentials": "Credenciais",
 		"navItemHistory": "Histórico",
 		"navItemMore": "Mais",
-		"navItemSendCredentials": "Enviar Credenciais",
 		"navItemSendCredentialsSimple": "Enviar",
 		"navItemSettings": "Definições",
+		"navItemShareCredentials": "Partilhar Credenciais",
+		"navItemShareCredentialsSimple": "Partilhar",
 		"next": "Próximo",
 		"offline": "Offline",
 		"offlineTitle": "Está offline. Não tem acesso neste momento.",
@@ -304,7 +305,7 @@
 			"title": "Detalhes de apresentação"
 		}
 	},
-	"pageSendCredentials": {
+	"pageShareCredentials": {
 		"description": "Pesquise e selecione um verifier para partilhar credenciais",
 		"noFound": "Sem verifiers correspondentes.",
 		"popup": {
@@ -561,7 +562,7 @@
 		"tourStep2": "A página 'Credenciais' é a sua página inicial. Aqui, pode gerir as suas credenciais.",
 		"tourStep3": "A página 'Adicionar Credenciais' permite que receba credenciais de um issuer específico.",
 		"tourStep4": "Clique neste botão para ler um código QR para enviar ou receber crendenciais.",
-		"tourStep5": "Utilize a página 'Enviar Credenciais' para selecionar um verifier e partilhar as suas credenciais.",
+		"tourStep5": "Utilize a página 'Partilhar Credenciais' para selecionar um verifier e partilhar as suas credenciais.",
 		"tourStep6": "Na página 'Histórico', pode ver detalhes das transmissões de credenciais, incluindo quando e para que verifiers elas foram enviadas.",
 		"tourStep7": "Na página 'Definições' pode gerir as suas chaves de acesso e configurações de conta."
 	},

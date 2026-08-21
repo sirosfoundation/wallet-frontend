@@ -30,9 +30,10 @@
 		"navItemCredentials": "Intyg",
 		"navItemHistory": "Historik",
 		"navItemMore": "Mer",
-		"navItemSendCredentials": "Skicka intyg",
 		"navItemSendCredentialsSimple": "Skicka",
 		"navItemSettings": "Inställningar",
+		"navItemShareCredentials": "Dela intyg",
+		"navItemShareCredentialsSimple": "Dela",
 		"next": "Nästa",
 		"offline": "Offline",
 		"offlineTitle": "Du är offline. Du har inte åtkomst här just nu.",
@@ -351,7 +352,7 @@
 		"noFound": "Inga väntande utfärdningsförfrågningar hittades",
 		"title": "Väntande utfärdningsförfrågningar"
 	},
-	"pageSendCredentials": {
+	"pageShareCredentials": {
 		"description": "Sök och välj en verifierare att dela intyg med",
 		"noFound": "Inga matchande verifierare hittades.",
 		"popup": {
@@ -598,7 +599,7 @@
 		"tourStep2": "'Intyg'-sidan är din startsida, där du kan hantera dina intyg.",
 		"tourStep3": "'Lägg till intyg'-sidan låter dig ta emot intyg från en specifik utfärdare",
 		"tourStep4": "Klicka på den här knappen för att skanna en QR-kod för att skicka eller ta emot intyg.",
-		"tourStep5": "Använd 'Skicka intyg'-sidan för att välja en verifierare att dela dina intyg med.",
+		"tourStep5": "Använd 'Dela intyg'-sidan för att välja en verifierare att dela dina intyg med.",
 		"tourStep6": "På 'Historik'-sidan kan du se detaljer om intygssändningar, inklusive när och till vilka verifierare de skickades.",
 		"tourStep7": "På 'Inställningar'-sidan kan du hantera dina passkeys och kontoinställningar."
 	},
