@@ -555,8 +555,8 @@
 	},
 	"sidebar": {
 		"navItemLogout": "Αποσύνδεση",
-		"poweredBy": "Powered by <docLinkWalletGithub>wwWallet</docLinkWalletGithub>",
-		"poweredByAriaLabel": "GitHub repository του wwWallet",
+		"poweredBy": "Powered by <docLinkWalletGithub>$t(common.walletName)</docLinkWalletGithub>",
+		"poweredByAriaLabel": "GitHub repository του $t(common.walletName)",
 		"obliviousEnabled": "Ιδιωτικά αιτήματα με Oblivious HTTP ενεργοποιημένο"
 	},
 	"tenantSelector": {
