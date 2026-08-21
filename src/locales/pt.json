@@ -26,7 +26,7 @@
 		"navItemAddCredentialsSimple": "Adicionar",
 		"navItemCredentials": "Credenciais",
 		"navItemHistory": "Histórico",
-		"navItemProfile": "Perfil",
+		"navItemMore": "Mais",
 		"navItemSendCredentials": "Enviar Credenciais",
 		"navItemSendCredentialsSimple": "Enviar",
 		"navItemSettings": "Definições",
@@ -52,6 +52,29 @@
 		"hybridPasskey": "Passkey num dispositivo próximo",
 		"loading": "A carregar...",
 		"platformPasskey": "Passkey neste dispositivo"
+	},
+	"presentCredentialsFlow": {
+		"overview": {
+			"title": "Pedido para partilhar dados",
+			"requester": "Solicitante",
+			"purpose": "Objetivo",
+			"requestedInformation": "Informação solicitada",
+			"share": "Partilhar",
+			"decline": "Recusar",
+			"switchCredential": "Trocar credencial",
+			"switchCredentialAria": "Trocar credencial: {{name}}, {{count}} disponíveis"
+		},
+		"sharing": {
+			"sending": "A enviar..."
+		},
+		"completed": {
+			"title": "Sucesso!",
+			"description": "Os seus dados foram partilhados com {{verifierName}}.",
+			"redirecting": "A redirecionar..."
+		},
+		"error": {
+			"close": "Fechar"
+		}
 	},
 	"expiredRibbon": {
 		"expired": "Expirada"
@@ -567,6 +590,17 @@
 		"legendAriaLabel": "Legenda de atributos",
 		"legendRequested": "Solicitado pelo verificador",
 		"legendRequired": "Obrigatório"
+	},
+	"credentialTypeCard": {
+		"selectAriaLabel": "Selecionar credencial {{name}}",
+		"selectedAriaLabel": "Esta credencial está atualmente selecionada"
+	},
+	"switchCredentialPopup": {
+		"title": "Trocar credencial",
+		"description": "Selecione a credencial a utilizar para este pedido.",
+		"selectedCredential": "Credencial atual",
+		"alternativeCredentials": "Selecionar outra credencial",
+		"close": "Fechar"
 	},
 	"issuance": {
 		"credentialsHaveErrors": "Foram encontrados erros ao verificar a credencial que está a tentar receber.",

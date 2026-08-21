@@ -29,7 +29,7 @@
 		"navItemAddCredentialsSimple": "Lisää",
 		"navItemCredentials": "Todistukset",
 		"navItemHistory": "Historia",
-		"navItemProfile": "Profiili",
+		"navItemMore": "Lisää",
 		"navItemSendCredentials": "Lähetä todistuksia",
 		"navItemSendCredentialsSimple": "Lähetä",
 		"navItemSettings": "Asetukset",
@@ -53,10 +53,44 @@
 		"tryAgain": "Yritä uudelleen",
 		"walletName": "wwWallet"
 	},
+	"presentCredentialsFlow": {
+		"overview": {
+			"title": "Pyyntö jakaa tietoja",
+			"requester": "Pyytäjä",
+			"purpose": "Tarkoitus",
+			"requestedInformation": "Pyydetyt tiedot",
+			"share": "Jaa",
+			"decline": "Hylkää",
+			"switchCredential": "Vaihda todistus",
+			"switchCredentialAria": "Vaihda todistus: {{name}}, {{count}} saatavilla"
+		},
+		"sharing": {
+			"sending": "Lähetetään..."
+		},
+		"completed": {
+			"title": "Onnistui!",
+			"description": "Tietosi jaettiin taholle {{verifierName}}.",
+			"redirecting": "Ohjataan uudelleen..."
+		},
+		"error": {
+			"close": "Sulje"
+		}
+	},
 	"credentialInfo": {
 		"legendAriaLabel": "Attribuuttien selite",
 		"legendRequested": "Todentajan pyytämä",
 		"legendRequired": "Pakollinen"
+	},
+	"credentialTypeCard": {
+		"selectAriaLabel": "Valitse todistus {{name}}",
+		"selectedAriaLabel": "Tämä todistus on tällä hetkellä valittuna"
+	},
+	"switchCredentialPopup": {
+		"title": "Vaihda todistus",
+		"description": "Valitse todistus, jota käytetään tähän pyyntöön.",
+		"selectedCredential": "Nykyinen todistus",
+		"alternativeCredentials": "Valitse toinen todistus",
+		"close": "Sulje"
 	},
 	"expiredRibbon": {
 		"expired": "Vanhentunut"

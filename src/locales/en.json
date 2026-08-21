@@ -29,7 +29,7 @@
 		"navItemAddCredentialsSimple": "Add",
 		"navItemCredentials": "Credentials",
 		"navItemHistory": "History",
-		"navItemProfile": "Profile",
+		"navItemMore": "More",
 		"navItemSendCredentials": "Send Credentials",
 		"navItemSendCredentialsSimple": "Send",
 		"navItemSettings": "Settings",
@@ -53,10 +53,44 @@
 		"tryAgain": "Try again",
 		"walletName": "wwWallet"
 	},
+	"presentCredentialsFlow": {
+		"overview": {
+			"title": "Request to Share Data",
+			"requester": "Requester",
+			"purpose": "Purpose",
+			"requestedInformation": "Requested Information",
+			"share": "Share",
+			"decline": "Decline",
+			"switchCredential": "Switch credential",
+			"switchCredentialAria": "Switch credential: {{name}}, {{count}} available"
+		},
+		"sharing": {
+			"sending": "Sending..."
+		},
+		"completed": {
+			"title": "Success!",
+			"description": "Your data has been shared with {{verifierName}}.",
+			"redirecting": "Redirecting..."
+		},
+		"error": {
+			"close": "Close"
+		}
+	},
 	"credentialInfo": {
 		"legendAriaLabel": "Claim legend",
 		"legendRequested": "Requested by verifier",
 		"legendRequired": "Required"
+	},
+	"credentialTypeCard": {
+		"selectAriaLabel": "Select credential {{name}}",
+		"selectedAriaLabel": "This credential is currently selected"
+	},
+	"switchCredentialPopup": {
+		"title": "Switch credential",
+		"description": "Select the credential to use for this request.",
+		"selectedCredential": "Current credential",
+		"alternativeCredentials": "Select another credential",
+		"close": "Close"
 	},
 	"expiredRibbon": {
 		"expired": "Expired"

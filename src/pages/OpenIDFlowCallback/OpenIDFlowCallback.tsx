@@ -10,7 +10,6 @@ import OpenID4VPContext from '@/context/OpenID4VPContext';
 import useOID4VPFlow from '@/hooks/useOID4VPFlow';
 import { useTxCodeInput } from '@/context/TxCodeInputContext';
 import { TxCodeInputPopup } from '@/components/Popups/TxCodeInputPopup';
-import MessagePopup from '@/components/Popups/MessagePopup';
 import Spinner from '@/components/Shared/Spinner';
 import { useOIDFlowTransport } from '@/context/OIDFlowTransportContext';
 import { useTenant } from '@/context/TenantContext';
@@ -18,6 +17,9 @@ import { parseOIDFlowCallbackUrl } from '@/lib/openid-flow/utils/oidFlowCallback
 import IssuanceWarningPopup from '@/components/Popups/IssuanceWarningPopup';
 import { DCAPISession } from '@/lib/openid-flow/platforms/dc-api';
 import { sanitizeRedirectUrl } from '@/lib/utils/sanitizeRedirectUrl';
+import { ConformantCredentials, PresentCredentialsFlow, usePresentCredentialsFlow } from '@/components/flows/PresentCredentialsFlow';
+import { DcqlQuery } from 'dcql';
+import { OID4VPVerifierInfo } from '@/lib/openid-flow/types/OID4VPTypes';
 
 type OpenIDFlowCallbackProps = {
 	callbackUrl: OIDFlowCallbackURL;
@@ -53,12 +55,9 @@ const OpenIDFlowCallback: React.FC = () => {
 		return parseOIDFlowCallbackUrl(url);
 	}, []);
 
-	return (
-		<>
-			<Spinner/>
-			{transportReady && <OpenIDFlowRouter callbackUrl={callbackUrl} />}
-		</>
-	);
+	if (!transportReady) return <Spinner />;
+
+	return <OpenIDFlowRouter callbackUrl={callbackUrl} />;
 };
 
 /**
@@ -269,6 +268,7 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 
 	return (
 		<>
+			<Spinner />
 			<IssuanceWarningPopup
 				isOpen={warningState.isOpen}
 				warnings={warningState.warnings}
@@ -294,10 +294,17 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	const { displayError } = useErrorDialog();
 	const { t } = useTranslation();
-	const { showCredentialSelectionPopup, showTransactionDataConsentPopup } = useContext(OpenID4VPContext);
-	const [successMessage, setSuccessMessage] = useState<{ title: string; description: string } | null>(null);
+	const { showTransactionDataConsentPopup } = useContext(OpenID4VPContext);
 	const navigateHome = useNavigateHome();
 	const flowIsActive = useRef(false);
+	const {
+		view,
+		displayRequestOverviewScreen,
+		// displayProcessingScreen,
+		displaySendingScreen,
+		displayCompletedScreen,
+		displayErrorScreen,
+	} = usePresentCredentialsFlow();
 
 	/**
 	 * Handle errors thrown during OID4VP flows.
@@ -318,18 +325,15 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		const translatedTitle = t(titleKey, { defaultValue: '' });
 		const translatedDesc = t(descKey, { defaultValue: '' });
 
-		if (translatedTitle) {
-			displayError({
-				title: translatedTitle,
-				description: translatedDesc || t('openIdCallback.vpFlowError.description'),
-			});
-		} else {
-			displayError({
-				title: t('openIdCallback.vpFlowError.title'),
-				description: t('openIdCallback.vpFlowError.description'),
-			});
-		}
-	}, [displayError, t]);
+		displayErrorScreen({
+			title: translatedTitle || t('openIdCallback.vpFlowError.title'),
+			description: translatedDesc || t('openIdCallback.vpFlowError.description'),
+			err,
+			onClose: () => {
+				navigateHome();
+			},
+		});
+	}, [displayError, displayErrorScreen, navigateHome, t]);
 
 	/**
 	 * Handle OID4VP flow progress events.
@@ -343,31 +347,26 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	 * Handle credential selection during OID4VP flows by showing the configured UI and returning the user's selection.
 	 */
 	const handleOID4VPCredentialSelection = useCallback(async (
-		conformantCredentialsMap: Record<string, {
-			credentials: number[];
-			requestedFields: Array<{
-				name?: string;
-			}>;
-		}>,
-		verifierDomainName: string,
-		verifierPurpose: string,
+		verifierInfo: OID4VPVerifierInfo,
+		dcqlQuery: DcqlQuery.Input,
+		conformantCredentialsMap: ConformantCredentials
 	) => {
-		logger.debug("Prompting for credential selection...", { conformantCredentialsMap, verifierDomainName, verifierPurpose });
+		// Only log the count
+		const conformantMatchCounts = Object.fromEntries(
+			[...conformantCredentialsMap].map(([id, { credentials }]) => [id, credentials.length]),
+		);
+		logger.debug("Prompting for credential selection...", { conformantMatchCounts, verifierInfo, dcqlQuery });
 
-		if (!showCredentialSelectionPopup) {
-			throw new Error('No credential selection popup configured');
-		}
-
-		const selection = await showCredentialSelectionPopup(
+		const selection = await displayRequestOverviewScreen(
+			verifierInfo,
+			dcqlQuery,
 			conformantCredentialsMap,
-			verifierDomainName,
-			verifierPurpose,
 		);
 
 		logger.debug("User selection:", selection);
 
-		return selection;
-	}, [showCredentialSelectionPopup]);
+		return new Map(selection.map(({ queryId, batchId }) => [queryId, batchId])	);
+	}, [displayRequestOverviewScreen]);
 
 	const {
 		handleAuthorizationRequest,
@@ -387,10 +386,10 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		cleanupUrl();
 
 		if (!result?.success) {
-			return; // Hook already called onError with the proper error dialog
+			return;
 		}
 
-		logger.debug('Authorization request result:', result);
+		logger.debug('Authorization request processed');
 
 		if (result.transactionData?.length) {
 			const consented = await showTransactionDataConsentPopup({
@@ -408,9 +407,13 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		);
 
 		if (!credSelectResult?.success) {
-			if (credSelectResult?.error?.code === 'USER_CANCELLED') return;
-			throw new OIDFlowError(credSelectResult.error);
+			if (credSelectResult?.error?.code === 'USER_CANCELLED') {
+				navigateHome();
+			}
+			return;
 		}
+
+		displaySendingScreen();
 
 		const sendResult = await sendAuthorizationResponse(
 			credSelectResult.selectedCredentials,
@@ -418,9 +421,8 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		logger.debug('Authorization response sent:', sendResult);
 
 		if (sendResult.success) {
-			setSuccessMessage({
-				title: t('openIdCallback.sendResponseSuccess.title'),
-				description: t('openIdCallback.sendResponseSuccess.description'),
+			await displayCompletedScreen({
+				verifierName: result.verifierInfo.name,
 			});
 		}
 
@@ -455,6 +457,8 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				throw new OIDFlowError(credSelectResult.error);
 			}
 
+			displaySendingScreen();
+
 			const sendResult = await sendDCAPIResponse(
 				session,
 				credSelectResult.selectedCredentials
@@ -462,9 +466,8 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			logger.debug('DC API response sent:', sendResult);
 
 			if (sendResult.success) {
-				setSuccessMessage({
-					title: t('openIdCallback.sendResponseSuccess.title'),
-					description: t('openIdCallback.sendResponseSuccess.description'),
+				await displayCompletedScreen({
+					verifierName: result.verifierInfo.name,
 				});
 			}
 
@@ -472,9 +475,10 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		} catch (err) {
 			logger.error('Error processing DC API request:', err);
 
-			displayError({
+			displayErrorScreen({
 				title: t('openIdCallback.vpFlowError.title'),
 				description: t('openIdCallback.vpFlowError.description'),
+				err: err instanceof Error ? err : new Error(String(err)),
 				onClose: () => {
 					session.sendErrorAndClose('access_denied');
 				},
@@ -503,15 +507,8 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 							message: 'Unsupported callback type',
 						});
 				}
-
-				navigateHome();
 			} catch (error) {
-					logger.error('Error in OID4VP flow:', error);
-				displayError({
-					title: t('openIdCallback.vpFlowError.title'),
-					description: t('openIdCallback.vpFlowError.description'),
-					onClose: () => navigateHome(),
-				});
+				handleOID4VPError(error);
 			}
 		})();
 		// One-shot flow: runs once on mount, guarded by flowIsActive ref.
@@ -519,20 +516,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
-	return (
-		<>
-			{successMessage && (
-				<MessagePopup
-					type="success"
-					onClose={() => {
-						setSuccessMessage(null);
-						navigateHome();
-					}}
-					message={successMessage}
-				/>
-			)}
-		</>
-	);
+	return <PresentCredentialsFlow view={view} />;
 };
 
 /**
