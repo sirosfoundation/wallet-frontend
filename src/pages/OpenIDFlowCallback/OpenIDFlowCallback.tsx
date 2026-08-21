@@ -16,6 +16,7 @@ import { useTenant } from '@/context/TenantContext';
 import { parseOIDFlowCallbackUrl } from '@/lib/openid-flow/utils/oidFlowCallbackUrl';
 import IssuanceWarningPopup from '@/components/Popups/IssuanceWarningPopup';
 import { DCAPISession } from '@/lib/openid-flow/platforms/dc-api';
+import { sanitizeRedirectUrl } from '@/lib/utils/sanitizeRedirectUrl';
 import { ConformantCredentials, PresentCredentialsFlow, usePresentCredentialsFlow } from '@/components/flows/PresentCredentialsFlow';
 import { DcqlQuery } from 'dcql';
 import { OID4VPVerifierInfo } from '@/lib/openid-flow/types/OID4VPTypes';
@@ -164,7 +165,7 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		}
 
 		if (offer.authorizationUrl) {
-			window.location.href = offer.authorizationUrl;
+			window.location.href = sanitizeRedirectUrl(offer.authorizationUrl);
 			return;
 		}
 
@@ -426,7 +427,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		}
 
 		if ('redirectUri' in sendResult) {
-			window.location.href = sendResult.redirectUri;
+			window.location.href = sanitizeRedirectUrl(sendResult.redirectUri);
 		}
 	};
 
