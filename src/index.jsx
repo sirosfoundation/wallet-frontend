@@ -2,7 +2,6 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
-import ConsoleBehavior from './ConsoleBehavior';
 import { logger } from './logger';
 import { initializeDataSource } from './indexedDB';
 import Modal from 'react-modal';
@@ -15,8 +14,6 @@ import AppProvider from './AppProvider';
 
 // Set root element for react-modal
 Modal.setAppElement('#root');
-
-ConsoleBehavior();
 
 // Initialize IndexedDB BEFORE React renders
 (async () => {
