@@ -1,6 +1,6 @@
 /* eslint-disable no-script-url -- intentional dangerous-scheme payloads for security tests */
-import { describe, it, expect } from "vitest";
-import { sanitizeRedirectUrl } from "./sanitizeRedirectUrl";
+import { describe, it, expect } from 'vitest';
+import { sanitizeRedirectUrl } from './sanitizeRedirectUrl';
 
 describe('sanitizeRedirectUrl', () => {
 	it('should allow http URLs', () => {
