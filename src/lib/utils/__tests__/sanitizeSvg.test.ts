@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { sanitizeSvgDataUri, sanitizeSvgContent, isSvgDataUri } from '../sanitizeSvg';
+import { sanitizeSvgDataUri, sanitizeSvgContent, isSvgDataUri, normalizeSvgImageDimensions } from '../sanitizeSvg';
 
 describe('sanitizeSvg', () => {
 	describe('isSvgDataUri', () => {
@@ -123,6 +123,60 @@ describe('sanitizeSvg', () => {
 			const malformedUri = 'data:image/svg+xml;base64,!!!invalid!!!';
 			const result = sanitizeSvgDataUri(malformedUri);
 			expect(result).toBeNull();
+		});
+	});
+
+	describe('normalizeSvgImageDimensions', () => {
+		it('defaults a missing <image> height to the root <svg> height', () => {
+			// Same shape as the real EHIC template that renders blank: an
+			// <image> with width but no height at all.
+			const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="829" height="504">' +
+				'<image x="0" y="0" width="100%" xlink:href="data:image/png;base64,AAAA"/>' +
+				'</svg>';
+			const result = normalizeSvgImageDimensions(svg);
+			expect(result).toContain('height="504"');
+		});
+
+		it('defaults a missing <image> width to the root <svg> width', () => {
+			const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="829" height="504">' +
+				'<image x="0" y="0" height="100%" xlink:href="data:image/png;base64,AAAA"/>' +
+				'</svg>';
+			const result = normalizeSvgImageDimensions(svg);
+			expect(result).toContain('width="829"');
+		});
+
+		it('leaves an <image> with both dimensions already set untouched', () => {
+			const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="829" height="504">' +
+				'<image x="0" y="0" width="100" height="100" xlink:href="data:image/png;base64,AAAA"/>' +
+				'</svg>';
+			// No <image> lacked an attribute, so this must be a pure no-op -
+			// not just "the image's own width/height survived", which a
+			// buggy implementation could satisfy while still mutating
+			// something else (attribute order, whitespace, xmlns, ...).
+			expect(normalizeSvgImageDimensions(svg)).toBe(svg);
+		});
+
+		it('is a no-op for SVGs with no <image> element', () => {
+			const svg = '<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10"/></svg>';
+			expect(normalizeSvgImageDimensions(svg)).toBe(svg);
+		});
+
+		it('is applied automatically by sanitizeSvgContent', () => {
+			const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="829" height="504">' +
+				'<image x="0" y="0" width="100%" xlink:href="data:image/png;base64,AAAA"/>' +
+				'</svg>';
+			const result = sanitizeSvgContent(svg);
+			expect(result).toContain('height="504"');
+		});
+
+		it('is applied automatically by sanitizeSvgDataUri', () => {
+			const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="829" height="504">' +
+				'<image x="0" y="0" width="100%" xlink:href="data:image/png;base64,AAAA"/>' +
+				'</svg>';
+			const dataUri = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+			const result = sanitizeSvgDataUri(dataUri);
+			expect(result).not.toBeNull();
+			expect(decodeURIComponent(result!.slice(result!.indexOf(',') + 1))).toContain('height="504"');
 		});
 	});
 });
