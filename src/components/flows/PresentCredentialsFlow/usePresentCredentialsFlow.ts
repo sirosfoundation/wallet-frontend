@@ -27,7 +27,7 @@ import { OIDFlowError } from '@/lib/openid-flow/errors';
 export function usePresentCredentialsFlow() {
 	const [view, setView] = useState<PresentCredentialsFlowView>({ status: 'loading' });
 	const sharingAbort = useRef<AbortController | null>(null);
-	const { vcEntityList } = useContext(CredentialsContext);
+	const { vcEntityList, fetchVcData } = useContext(CredentialsContext);
 	const { t, i18n: { language } } = useTranslation();
 
 	const displayRequestOverviewScreen = useCallback(
@@ -36,11 +36,18 @@ export function usePresentCredentialsFlow() {
 			dcqlQuery: DcqlQuery.Input,
 			conformantCredentials: ConformantCredentials
 		): Promise<PresentCredentialsResult> => {
+			// vcEntityList is null until the credential engine finishes its
+			// first load. A verifier-initiated presentation lands on the
+			// callback route and starts resolving immediately, which can beat
+			// that load - so fetch on demand rather than handing null (or a
+			// misleading empty list) to the resolver.
+			const credentials = vcEntityList ?? (await fetchVcData()) ?? [];
+
 			const request = await resolveCredentialPresentationRequest(
 				verifierInfo,
 				dcqlQuery,
 				conformantCredentials,
-				vcEntityList,
+				credentials,
 				[language, 'en'],
 			);
 
@@ -53,7 +60,7 @@ export function usePresentCredentialsFlow() {
 				});
 			});
 		},
-		[vcEntityList, language],
+		[vcEntityList, fetchVcData, language],
 	);
 
 	const displayProcessingScreen = useCallback((messages: string[] = [t('common.loading')]): AbortSignal => {
