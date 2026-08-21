@@ -1,3 +1,4 @@
+import type { MdocRegistryEntry, SdJwtRegistryEntry } from './types';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { prepareCredentialsForNativeWrapper } from './credentials';
 import {
@@ -101,7 +102,7 @@ describe('prepareCredentialsForNativeWrapper', () => {
 			} as any);
 		});
 
-		it('maps namespaces to prefixed claim paths and uses batchId as id', async () => {
+		it('maps namespaces to fields with namespace and identifier and uses batchId as id', async () => {
 			const credential = makeCredential({ batchId: 42 });
 
 			const [entry] = await prepareCredentialsForNativeWrapper([credential]);
@@ -111,23 +112,31 @@ describe('prepareCredentialsForNativeWrapper', () => {
 				id: '42',
 				docType: 'org.iso.18013.5.1.mDL',
 			});
-			expect(entry.claims).toEqual([
-				{ path: 'org.iso.18013.5.1.family_name', value: 'Doe', display: {} },
-				{ path: 'org.iso.18013.5.1.age_over_18', value: true, display: {} },
+			expect((entry as MdocRegistryEntry).fields).toEqual([
+				{
+					namespace: 'org.iso.18013.5.1',
+					identifier: 'family_name',
+					value: 'Doe',
+					display: {},
+				},
+				{
+					namespace: 'org.iso.18013.5.1',
+					identifier: 'age_over_18',
+					value: true,
+					display: {},
+				},
 			]);
 		});
 
-		it('resolves display labels by element name and by full path', async () => {
+		it('resolves display labels by element name', async () => {
 			const credential = makeCredential({
 				typeMetadataClaims: [
-					// matched by bare element name
 					{
 						path: ['family_name'],
 						display: [{ locale: 'en-US', label: 'Family Name' }],
 					},
-					// matched by full namespaced path
 					{
-						path: ['org.iso.18013.5.1.age_over_18'],
+						path: ['age_over_18'],
 						display: [{ locale: 'en-US', label: 'Over 18' }],
 					},
 				],
@@ -135,14 +144,18 @@ describe('prepareCredentialsForNativeWrapper', () => {
 
 			const [entry] = await prepareCredentialsForNativeWrapper([credential]);
 
-			expect(entry.claims).toEqual([
+			expect('fields' in entry).toBe(true);
+
+			expect((entry as MdocRegistryEntry).fields).toEqual([
 				{
-					path: 'org.iso.18013.5.1.family_name',
+					namespace: 'org.iso.18013.5.1',
+					identifier: 'family_name',
 					value: 'Doe',
 					display: { 'en-US': 'Family Name' },
 				},
 				{
-					path: 'org.iso.18013.5.1.age_over_18',
+					namespace: 'org.iso.18013.5.1',
+					identifier: 'age_over_18',
 					value: true,
 					display: { 'en-US': 'Over 18' },
 				},
@@ -172,7 +185,7 @@ describe('prepareCredentialsForNativeWrapper', () => {
 				id: '7',
 				verifiableCredentialType: 'https://example.com/id-card',
 			});
-			expect(entry.claims).toEqual([
+			expect((entry as SdJwtRegistryEntry).claims).toEqual([
 				{ path: 'given_name', value: 'value:given_name', display: {} },
 				{
 					path: 'address.locality',
@@ -195,7 +208,9 @@ describe('prepareCredentialsForNativeWrapper', () => {
 				makeCredential(),
 			]);
 
-			expect(entry.claims.map((c) => c.path)).toEqual([
+			expect('claims' in entry).toBe(true);
+
+			expect((entry as SdJwtRegistryEntry).claims.map((c) => c.path)).toEqual([
 				'given_name',
 				'address.country',
 			]);
@@ -217,7 +232,7 @@ describe('prepareCredentialsForNativeWrapper', () => {
 
 			const [entry] = await prepareCredentialsForNativeWrapper([credential]);
 
-			expect(entry.claims[0].display).toEqual({
+			expect((entry as SdJwtRegistryEntry).claims[0].display).toEqual({
 				'en-US': 'First name',
 				'sv-SE': 'Förnamn',
 			});
