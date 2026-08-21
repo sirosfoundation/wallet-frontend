@@ -5,6 +5,7 @@ import { renderHook, act } from '@testing-library/react';
 import CredentialsContext, { type CredentialsContextValue, type ExtendedVcEntity } from '@/context/CredentialsContext';
 import { usePresentCredentialsFlow } from './usePresentCredentialsFlow';
 import { resolveCredentialPresentationRequest } from './utils';
+import { OIDFlowError } from '@/lib/openid-flow/errors';
 
 vi.mock('./utils', () => ({
 	resolveCredentialPresentationRequest: vi.fn(async () => ({ verifier: {}, queries: [] })),
@@ -43,16 +44,19 @@ function renderFlow(overrides: Partial<CredentialsContextValue>) {
 /**
  * displayRequestOverviewScreen's promise intentionally stays pending until the
  * user accepts or declines, so it is started but never awaited here — the
- * assertions are about what it hands the resolver before that point.
+ * assertions are about what it hands the resolver before that point. Its
+ * rejection is captured rather than left unhandled, for the failure case.
  */
 async function startOverview(result: ReturnType<typeof renderFlow>) {
+	let rejection: unknown;
 	await act(async () => {
-		void result.result.current.displayRequestOverviewScreen(
+		result.result.current.displayRequestOverviewScreen(
 			{} as never,
 			{ credentials: [] } as never,
 			new Map() as never,
-		);
+		).catch((err) => { rejection = err; });
 	});
+	return () => rejection;
 }
 
 /** The credential list argument passed to resolveCredentialPresentationRequest. */
@@ -86,13 +90,28 @@ describe('usePresentCredentialsFlow / displayRequestOverviewScreen', () => {
 		expect(credentialsArg()).toBe(fetched);
 	});
 
-	it('falls back to an empty list when the fetch yields nothing', async () => {
-		const fetchVcData = vi.fn(async () => null);
+	it('passes an empty wallet straight through', async () => {
+		// [] is a successful load of a wallet holding nothing - distinct from a
+		// failed load, and a legitimate "no matching credential" outcome.
+		const empty: ExtendedVcEntity[] = [];
+		const fetchVcData = vi.fn(async () => empty);
 
 		await startOverview(renderFlow({ vcEntityList: null, fetchVcData }));
 
+		expect(credentialsArg()).toBe(empty);
+	});
+
+	it('reports a failed load instead of presenting it as an empty wallet', async () => {
+		// fetchVcData returns null when the credential engine or wallet state
+		// is unavailable. Defaulting that to [] would let the user submit an
+		// empty selection as though they simply held nothing matching.
+		const fetchVcData = vi.fn(async () => null);
+
+		const rejection = await startOverview(renderFlow({ vcEntityList: null, fetchVcData }));
+
 		expect(fetchVcData).toHaveBeenCalledTimes(1);
-		// Never null: resolveCredentialPresentationRequest calls .filter on this.
-		expect(credentialsArg()).toEqual([]);
+		expect(resolveMock).not.toHaveBeenCalled();
+		expect(rejection()).toBeInstanceOf(OIDFlowError);
+		expect((rejection() as OIDFlowError).code).toBe('CREDENTIALS_UNAVAILABLE');
 	});
 });
