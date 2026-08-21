@@ -13,6 +13,16 @@ describe('sanitizeRedirectUrl', () => {
 		expect(sanitizeRedirectUrl(url)).toBe(url);
 	});
 
+	it('should allow an http URL object', () => {
+		const url = new URL('http://example.com/');
+		expect(sanitizeRedirectUrl(url)).toBe('http://example.com/');
+	});
+
+	it('should allow an https URL object', () => {
+		const url = new URL('https://example.com/');
+		expect(sanitizeRedirectUrl(url)).toBe('https://example.com/');
+	});
+
 	it('should throw an error for ftp URLs', () => {
 		const url = 'ftp://example.com/';
 		expect(() => sanitizeRedirectUrl(url)).toThrowError(
