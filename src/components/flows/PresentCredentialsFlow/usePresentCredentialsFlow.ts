@@ -39,9 +39,21 @@ export function usePresentCredentialsFlow() {
 			// vcEntityList is null until the credential engine finishes its
 			// first load. A verifier-initiated presentation lands on the
 			// callback route and starts resolving immediately, which can beat
-			// that load - so fetch on demand rather than handing null (or a
-			// misleading empty list) to the resolver.
-			const credentials = vcEntityList ?? (await fetchVcData()) ?? [];
+			// that load - so fetch on demand rather than handing null to the
+			// resolver, which would crash on it.
+			//
+			// A null from fetchVcData is a load FAILURE (no credential engine
+			// or wallet state), not an empty wallet - an empty wallet is []
+			// and is allowed through. Defaulting the failure to [] would show
+			// the user an empty selection as though they simply held nothing
+			// matching, hiding the real cause, so surface it instead.
+			const credentials = vcEntityList ?? (await fetchVcData());
+			if (!credentials) {
+				throw new OIDFlowError({
+					code: 'CREDENTIALS_UNAVAILABLE',
+					message: 'Credentials could not be loaded',
+				});
+			}
 
 			const request = await resolveCredentialPresentationRequest(
 				verifierInfo,
