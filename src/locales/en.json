@@ -623,7 +623,7 @@
 		"defaultTenant": "Default",
 		"description": "Select tenant",
 		"label": "Switch Tenant",
-		"selectOtherTenant": "Select other tenant",
+		"selectOtherTenant": "Select another tenant",
 		"selectTenant": "Select tenant",
 		"switchActiveTenant": "Switch active tenant",
 		"switchDescription": "Switching tenants will log you out of your current wallet session",
