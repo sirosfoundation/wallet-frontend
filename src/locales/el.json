@@ -555,8 +555,8 @@
 	},
 	"sidebar": {
 		"navItemLogout": "Αποσύνδεση",
-		"poweredBy": "Powered by <docLinkWalletGithub>$t(common.walletName)</docLinkWalletGithub>",
-		"poweredByAriaLabel": "GitHub repository του $t(common.walletName)",
+		"poweredBy": "Powered by <docLinkWalletGithub>SIROS Foundation</docLinkWalletGithub>",
+		"poweredByAriaLabel": "GitHub repository του SIROS Foundation",
 		"obliviousEnabled": "Ιδιωτικά αιτήματα με Oblivious HTTP ενεργοποιημένο"
 	},
 	"tenantSelector": {

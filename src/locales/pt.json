@@ -536,8 +536,8 @@
 	},
 	"sidebar": {
 		"navItemLogout": "Sair",
-		"poweredBy": "Desenvolvido por <docLinkWalletGithub>$t(common.walletName)</docLinkWalletGithub>",
-		"poweredByAriaLabel": "Repositório GitHub de $t(common.walletName)",
+		"poweredBy": "Desenvolvido por <docLinkWalletGithub>SIROS Foundation</docLinkWalletGithub>",
+		"poweredByAriaLabel": "Repositório GitHub da SIROS Foundation",
 		"obliviousEnabled": "Pedidos privados com Oblivious HTTP ativado"
 	},
 	"tenantSelector": {

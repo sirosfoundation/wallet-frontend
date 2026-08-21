@@ -570,8 +570,8 @@
 	"sidebar": {
 		"navItemLogout": "Kirjaudu ulos",
 		"obliviousEnabled": "Yksityiset pyynnöt Oblivious HTTP:llä käytössä",
-		"poweredBy": "Käyttää <docLinkWalletGithub>$t(common.walletName)</docLinkWalletGithub>",
-		"poweredByAriaLabel": "Sovelluksen $t(common.walletName) GitHub-repositorio"
+		"poweredBy": "Käyttää <docLinkWalletGithub>SIROS Foundation</docLinkWalletGithub>",
+		"poweredByAriaLabel": "SIROS Foundationin GitHub-repositorio"
 	},
 	"syncPopup": {
 		"description": "Näyttää siltä, että olet <strong>muokannut lompakkoasi toisessa istunnossa</strong>. Käytä <strong>passkeytäsi</strong> synkronoidaksesi lompakon.",

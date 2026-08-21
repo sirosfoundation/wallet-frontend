@@ -570,8 +570,8 @@
 	"sidebar": {
 		"navItemLogout": "Logga ut",
 		"obliviousEnabled": "Privata förfrågningar med Oblivious HTTP aktiverat",
-		"poweredBy": "Drivs av <docLinkWalletGithub>$t(common.walletName)</docLinkWalletGithub>",
-		"poweredByAriaLabel": "GitHub-repository för $t(common.walletName)"
+		"poweredBy": "Drivs av <docLinkWalletGithub>SIROS Foundation</docLinkWalletGithub>",
+		"poweredByAriaLabel": "GitHub-repository för SIROS Foundation"
 	},
 	"syncPopup": {
 		"description": "Det verkar som att du har <strong>ändrat din plånbok i en annan session</strong>. Använd din <strong>passkey</strong> för att synkronisera din plånbok.",
