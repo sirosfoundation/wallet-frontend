@@ -9,6 +9,7 @@ import { H1 } from '../../components/Shared/Heading';
 import QueryableList from '../../components/QueryableList/QueryableList';
 import PageDescription from '../../components/Shared/PageDescription';
 import EntityListItem from '@/components/QueryableList/EntityListItem';
+import { sanitizeRedirectUrl } from '@/lib/utils/sanitizeRedirectUrl';
 
 const SendCredentials = () => {
 	const { isOnline } = useContext(StatusContext);
@@ -75,7 +76,7 @@ const SendCredentials = () => {
 			logger.debug('Continue with:', selectedVerifier);
 
 			if (selectedVerifier) {
-				window.location.href = selectedVerifier.url;
+				window.location.href = sanitizeRedirectUrl(selectedVerifier.url);
 			}
 
 			setLoading(false);
