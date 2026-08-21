@@ -11,7 +11,7 @@ import PageDescription from '../../components/Shared/PageDescription';
 import EntityListItem from '@/components/QueryableList/EntityListItem';
 import { sanitizeRedirectUrl } from '@/lib/utils/sanitizeRedirectUrl';
 
-const SendCredentials = () => {
+const ShareCredentials = () => {
 	const { isOnline } = useContext(StatusContext);
 	const { api, keystore } = useContext(SessionContext);
 
@@ -87,8 +87,8 @@ const SendCredentials = () => {
 	return (
 		<>
 			<div className="px-6 sm:px-12 w-full">
-				<H1 heading={t('common.navItemSendCredentials')} />
-				<PageDescription description={t('pageSendCredentials.description')} />
+				<H1 heading={t('common.navItemShareCredentials')} />
+				<PageDescription description={t('pageShareCredentials.description')} />
 
 				{verifiers && (
 					<QueryableList
@@ -105,7 +105,7 @@ const SendCredentials = () => {
 							),
 						}))}
 						queryField="name"
-						translationPrefix="pageSendCredentials"
+						translationPrefix="pageShareCredentials"
 						identifierField="id"
 						onClick={handleVerifierClick}
 					/>
@@ -118,10 +118,10 @@ const SendCredentials = () => {
 					loading={loading}
 					onClose={handleCancel}
 					handleContinue={handleContinue}
-					popupTitle={`${t('pageSendCredentials.popup.title')} ${selectedVerifier?.name}`}
+					popupTitle={`${t('pageShareCredentials.popup.title')} ${selectedVerifier?.name}`}
 					popupMessage={
 						<Trans
-							i18nKey="pageSendCredentials.popup.message"
+							i18nKey="pageShareCredentials.popup.message"
 							values={{ verifierName: selectedVerifier?.name ?? "Unknown" }}
 							components={{ strong: <strong /> }}
 						/>
@@ -132,4 +132,4 @@ const SendCredentials = () => {
 	);
 };
 
-export default SendCredentials;
+export default ShareCredentials;

@@ -31,7 +31,7 @@ const History = React.lazy(() => import('./pages/History/History'));
 const Pending = React.lazy(() => import('./pages/Pending/Pending'));
 const HistoryDetail = React.lazy(() => import('./pages/History/HistoryDetail'));
 const Home = React.lazy(() => import('./pages/Home/Home'));
-const SendCredentials = React.lazy(() => import('./pages/SendCredentials/SendCredentials'));
+const ShareCredentials = React.lazy(() => import('./pages/ShareCredentials/ShareCredentials'));
 const Settings = React.lazy(() => import('./pages/Settings/Settings'));
 const VerificationResult = React.lazy(() => import('./pages/VerificationResult/VerificationResult'));
 const OpenIDFlowCallback = React.lazy(() => import('./pages/OpenIDFlowCallback/OpenIDFlowCallback'));
@@ -114,7 +114,7 @@ function App() {
 							<Route path="history/:transactionId" element={<HistoryDetail />} />
 							<Route path="add" element={<AddCredentials />} />
 							<Route path="add/digital-id" element={<ScanPhysicalID />} />
-							<Route path="send" element={<SendCredentials />} />
+							<Route path="share" element={<ShareCredentials />} />
 							<Route path="verification/result" element={<VerificationResult />} />
 						</Route>
 						{/**

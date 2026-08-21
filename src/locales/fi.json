@@ -30,9 +30,10 @@
 		"navItemCredentials": "Todistukset",
 		"navItemHistory": "Historia",
 		"navItemMore": "Lisää",
-		"navItemSendCredentials": "Lähetä todistuksia",
 		"navItemSendCredentialsSimple": "Lähetä",
 		"navItemSettings": "Asetukset",
+		"navItemShareCredentials": "Jaa todistuksia",
+		"navItemShareCredentialsSimple": "Jaa",
 		"next": "Seuraava",
 		"offline": "Offline",
 		"offlineTitle": "Olet offline. Sinulla ei ole pääsyä tänne juuri nyt.",
@@ -351,7 +352,7 @@
 		"noFound": "Odottavia myöntämispyyntöjä ei löytynyt",
 		"title": "Odottavat myöntämispyynnöt"
 	},
-	"pageSendCredentials": {
+	"pageShareCredentials": {
 		"description": "Etsi ja valitse todentaja, jolle haluat jakaa todistuksia",
 		"noFound": "Vastaavia todentajia ei löytynyt.",
 		"popup": {
@@ -598,7 +599,7 @@
 		"tourStep2": "'Todistukset'-sivu on etusivusi, jossa voit hallita todistuksiasi.",
 		"tourStep3": "'Lisää todistuksia' -sivulla voit vastaanottaa todistuksia tietyltä myöntäjältä",
 		"tourStep4": "Napsauta tätä painiketta skannataksesi QR-koodin todistusten lähettämistä tai vastaanottamista varten.",
-		"tourStep5": "Käytä 'Lähetä todistuksia' -sivua valitaksesi todentajan, jolle haluat jakaa todistuksesi.",
+		"tourStep5": "Käytä 'Jaa todistuksia' -sivua valitaksesi todentajan, jolle haluat jakaa todistuksesi.",
 		"tourStep6": "'Historia'-sivulla voit tarkastella todistusten lähetystietoja, mukaan lukien milloin ja mille todentajille ne lähetettiin.",
 		"tourStep7": "'Asetukset'-sivulla voit hallita passkeyjäsi ja tiliasetuksiasi."
 	},
