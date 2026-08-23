@@ -48,6 +48,12 @@ const BaseDCApiRequestSchema = z.object({
 	nonce: z.string({ required_error: 'Missing required nonce parameter' }).min(1, 'nonce cannot be empty'),
 	dcqlQuery: dcqlQuerySchema,
 	responseMode: DCApiResponseModeSchema,
+	// The verifier's only means of correlating this response back to the
+	// right authorization session - the response arrives via the DC API
+	// callback, a wholly separate channel from the original request, with no
+	// other correlator available. Optional per OpenID4VP, but must be echoed
+	// back verbatim in the response whenever the request supplies it.
+	state: z.string().optional(),
 }).strict();
 
 export type SignedDCAPIRequest = z.infer<typeof SignedDCApiRequestSchema>;

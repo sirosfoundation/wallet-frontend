@@ -243,7 +243,7 @@ describe('DCAPIWalletCompanionMode', () => {
 			);
 		});
 
-		it('posts WC_WALLET_RESPONSE with encrypted response', () => {
+		it('posts WC_WALLET_RESPONSE with encrypted response wrapped in a response envelope', () => {
 			const encryptedResponse = 'eyJhbGciOiJFQ0RILUVT...encrypted...';
 
 			mode.send({
@@ -251,11 +251,34 @@ describe('DCAPIWalletCompanionMode', () => {
 				payload: { response: encryptedResponse },
 			});
 
+			// Must stay wrapped as { response: jwe } - a bare JWE string here
+			// (the old, buggy behavior) leaves the eventual DigitalCredential.data
+			// with no .response property for a verifier/consumer to find the
+			// JWE under, matching neither the native mobile SDKs nor the
+			// OpenID4VP DC API profile's dc_api.jwt shape.
 			expect(mockOpener.postMessage).toHaveBeenCalledWith(
 				{
 					type: 'WC_WALLET_RESPONSE',
 					requestId: 'test-request-123',
-					response: encryptedResponse,
+					response: { response: encryptedResponse },
+				},
+				'https://verifier.example.com'
+			);
+		});
+
+		it('forwards state alongside vp_token in the response envelope', () => {
+			const vpToken = { credential: ['token1'] };
+
+			mode.send({
+				requestId: 'test-request-123',
+				payload: { vp_token: vpToken, state: 'verifier-state-abc' },
+			});
+
+			expect(mockOpener.postMessage).toHaveBeenCalledWith(
+				{
+					type: 'WC_WALLET_RESPONSE',
+					requestId: 'test-request-123',
+					response: { vp_token: vpToken, state: 'verifier-state-abc' },
 				},
 				'https://verifier.example.com'
 			);

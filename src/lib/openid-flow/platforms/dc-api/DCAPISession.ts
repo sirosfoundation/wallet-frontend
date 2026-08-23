@@ -60,9 +60,17 @@ export class DCAPISession {
 	}
 
 	public async sendResponse(vpToken: Record<string, string[]>): Promise<void> {
-		const payload = this.request.responseMode === 'dc_api.jwt'
-			? { response: await this.#encryptResponse(vpToken) }
+		// state (when the request supplied one) must be echoed back verbatim -
+		// it's the verifier's only means of correlating this response to the
+		// right authorization session, since it arrives via the DC API
+		// callback rather than an HTTP POST to a known endpoint.
+		const responseBody: Record<string, unknown> = this.request.state
+			? { vp_token: vpToken, state: this.request.state }
 			: { vp_token: vpToken };
+
+		const payload = this.request.responseMode === 'dc_api.jwt'
+			? { response: await this.#encryptResponse(responseBody) }
+			: responseBody;
 
 		this.mode.send({ requestId: this.requestId, payload });
 		this.close();
@@ -85,7 +93,7 @@ export class DCAPISession {
 		throw new Error('Unable to detect DC API mode, no supported environment detected');
 	}
 
-	async #encryptResponse(vpToken: Record<string, string[]>): Promise<string> {
+	async #encryptResponse(responseBody: Record<string, unknown>): Promise<string> {
 		if (!this.request.clientMetadata?.jwks?.keys?.length) {
 			throw new Error('dc_api.jwt response_mode requires client_metadata.jwks');
 		}
@@ -105,7 +113,7 @@ export class DCAPISession {
 
 		const publicKey = await importJWK(encKey as JWK, alg);
 
-		const jwe = await new EncryptJWT({ vp_token: vpToken })
+		const jwe = await new EncryptJWT(responseBody)
 			.setProtectedHeader({
 				alg,
 				enc,

@@ -57,9 +57,19 @@ export class DCAPIWalletCompanionMode implements DCAPIMode {
 		if (payload.error) {
 			message.error = payload.error;
 		} else if (payload.response) {
-			message.response = payload.response;
+			// dc_api.jwt: payload.response is the bare JWE compact-serialization
+			// string produced by DCAPISession#encryptResponse. It must stay
+			// wrapped in a { response } envelope here - the OpenID4VP DC API
+			// profile and the native mobile SDKs both put the JWE at
+			// data.response, not at data directly. Assigning it unwrapped
+			// (as this used to) meant the final DigitalCredential.data was a
+			// bare JWE string with no .response property to find it under.
+			message.response = { response: payload.response };
 		} else if (payload.vp_token) {
-			message.response = { vp_token: payload.vp_token };
+			// Forward the whole payload (vp_token, and state when the request
+			// supplied one) rather than reconstructing a subset - a verifier
+			// correlating this response via state would otherwise never see it.
+			message.response = payload;
 		}
 
 		window.opener.postMessage(message, this.#verifiedOrigin);

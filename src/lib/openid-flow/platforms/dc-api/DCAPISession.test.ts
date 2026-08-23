@@ -249,6 +249,45 @@ describe('DCAPISession', () => {
 			});
 		});
 
+		it('echoes state in dc_api mode response when the request supplied one', async () => {
+			const url = new URL('https://wallet.example.com/dc');
+			url.searchParams.set('request_id', 'test-request-123');
+			url.searchParams.set('nonce', 'test-nonce');
+			url.searchParams.set('dcql_query', JSON.stringify(validDcqlQuery));
+			url.searchParams.set('response_mode', 'dc_api');
+			url.searchParams.set('state', 'verifier-state-abc');
+
+			const session = new DCAPISession(url);
+			await session.initialize();
+
+			const vpToken = { credential: ['token'] };
+			await session.sendResponse(vpToken);
+
+			expect(mockMode.send).toHaveBeenCalledWith({
+				requestId: 'test-request-123',
+				payload: { vp_token: vpToken, state: 'verifier-state-abc' },
+			});
+		});
+
+		it('omits state from dc_api mode response when the request had none', async () => {
+			const url = new URL('https://wallet.example.com/dc');
+			url.searchParams.set('request_id', 'test-request-123');
+			url.searchParams.set('nonce', 'test-nonce');
+			url.searchParams.set('dcql_query', JSON.stringify(validDcqlQuery));
+			url.searchParams.set('response_mode', 'dc_api');
+
+			const session = new DCAPISession(url);
+			await session.initialize();
+
+			const vpToken = { credential: ['token'] };
+			await session.sendResponse(vpToken);
+
+			expect(mockMode.send).toHaveBeenCalledWith({
+				requestId: 'test-request-123',
+				payload: { vp_token: vpToken },
+			});
+		});
+
 		it('calls mode.close() after sending', async () => {
 			const url = new URL('https://wallet.example.com/dc');
 			url.searchParams.set('request_id', 'test-request-123');
@@ -298,6 +337,46 @@ describe('DCAPISession', () => {
 			// Verify decryption yields original payload
 			const { plaintext } = await compactDecrypt(jwe, privateKey);
 			const decrypted = JSON.parse(new TextDecoder().decode(plaintext));
+			expect(decrypted.vp_token).toEqual(vpToken);
+		});
+
+		it('encrypts state alongside vp_token for dc_api.jwt mode when the request supplied one', async () => {
+			const { publicKey, privateKey } = await generateKeyPair('ECDH-ES');
+			const encJwk = await exportJWK(publicKey);
+			encJwk.use = 'enc';
+			encJwk.kid = 'enc-key-1';
+
+			const { jwt } = await createSignedJwt({
+				nonce: 'test-nonce',
+				dcql_query: validDcqlQuery,
+				client_id: 'https://verifier.example.com',
+				expected_origins: ['https://verifier.example.com'],
+				response_mode: 'dc_api.jwt',
+				state: 'verifier-state-abc',
+				client_metadata: { jwks: { keys: [encJwk] } },
+			});
+
+			const url = new URL('https://wallet.example.com/dc');
+			url.searchParams.set('request_id', 'test-request-123');
+			url.searchParams.set('request', jwt);
+			url.searchParams.set('client_id', 'https://verifier.example.com');
+
+			const session = new DCAPISession(url);
+			await session.initialize();
+
+			const vpToken = { credential: ['token1'] };
+			await session.sendResponse(vpToken);
+
+			const sendCall = mockMode.send.mock.calls[0][0];
+			const jwe = sendCall.payload.response;
+
+			// The verifier's only correlator for this response - it must be
+			// inside the encrypted payload alongside vp_token, not left in the
+			// clear, since the whole point of dc_api.jwt is that the response
+			// body is opaque to anyone but the verifier.
+			const { plaintext } = await compactDecrypt(jwe, privateKey);
+			const decrypted = JSON.parse(new TextDecoder().decode(plaintext));
+			expect(decrypted.state).toBe('verifier-state-abc');
 			expect(decrypted.vp_token).toEqual(vpToken);
 		});
 
