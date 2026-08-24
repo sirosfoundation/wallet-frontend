@@ -375,6 +375,7 @@ const UnlockMainKey = ({
 		async () => {
 			setInProgress(true);
 			try {
+				setError('');
 				await keystore.getPrfKeyFromSession(async () => true);
 				onUnlock();
 			} catch (e) {
