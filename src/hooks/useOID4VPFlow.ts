@@ -21,7 +21,7 @@ import type {
 import type { OIDFlowActiveTransportType, OIDFlowProgressEvent } from '@/lib/openid-flow/types/OIDFlowTypes';
 import { DcqlQuery } from 'dcql';
 import { getLeastUsedCredentialInstance } from '@/lib/services/CredentialBatchHelper';
-import { applySelectiveDisclosure } from '@/lib/credentials/formats/sd-jwt';
+import { applySelectiveDisclosure } from '@/lib/credentials';
 import { OIDFlowError } from '@/lib/openid-flow/errors';
 import { useOIDFlowSignHandler } from './useOIDFlowSignHandler';
 import { DCAPIRequest, DCAPISession } from '@/lib/openid-flow/platforms/dc-api';

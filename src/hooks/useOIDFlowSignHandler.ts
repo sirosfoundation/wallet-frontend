@@ -4,9 +4,12 @@ import { useApi } from '@/api';
 import StatusContext from '@/context/StatusContext';
 import { logger } from '@/logger';
 import { OPENID4VCI_PROOF_TYPE_PRECEDENCE } from '@/config';
-import { applySelectiveDisclosure } from '@/lib/credentials/formats/sd-jwt';
 import { base64url } from 'jose';
-import { buildMdocPresentationDefinition, parseIssuerSignedToMDoc } from '@/lib/credentials/formats/mdoc';
+import {
+	applySelectiveDisclosure,
+	buildMdocPresentationDefinition,
+	parseIssuerSignedToMDoc,
+} from '@/lib/credentials';
 import { detectCredentialFormat, VerifiableCredentialFormat } from 'wallet-common';
 import { MDoc } from '@auth0/mdl';
 import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
