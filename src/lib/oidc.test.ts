@@ -22,6 +22,7 @@ import {
 		buildOIDCConfig,
 		getOIDCFlowMode,
 		handleOIDCCallback,
+		validateIdToken,
 } from './oidc';
 import type { OIDCFlowConfig } from './oidc';
 import type { OIDCProviderConfig } from '../api/types';
@@ -282,5 +283,113 @@ describe('handleOIDCCallback error paths', () => {
 				// Plant the state→purpose mapping but NOT the OIDCState/verifier keys
 				sessionStorage.setItem('oidc_gate_state_knownstate', 'registration');
 				await expect(handleOIDCCallback(config)).rejects.toThrow('Session expired, please try again');
+		});
+});
+
+// ---------------------------------------------------------------------------
+// 6. ID token validation (validateIdToken)
+// ---------------------------------------------------------------------------
+
+describe('validateIdToken', () => {
+		const config: OIDCFlowConfig = {
+				issuer: 'https://idp.example.com',
+				clientId: 'wallet-client',
+				redirectUri: 'https://app.example.com/cb',
+				scopes: 'openid email',
+		};
+		const jwksUri = 'https://idp.example.com/.well-known/jwks.json';
+
+		/** Generate an ES256 key pair and return signing key + JWK for JWKS mock. */
+		async function createSigningFixture() {
+				const { SignJWT, exportJWK, generateKeyPair } = await import('jose');
+				const { privateKey, publicKey } = await generateKeyPair('ES256');
+				const jwk = { ...(await exportJWK(publicKey)), kid: 'test-kid', alg: 'ES256', use: 'sig' };
+				return { SignJWT, privateKey, jwk };
+		}
+
+		/** Create a signed ID token with the given claims merged onto defaults. */
+		async function createToken(
+				fixture: Awaited<ReturnType<typeof createSigningFixture>>,
+				overrides: { nonce?: string; iss?: string; aud?: string | string[]; extra?: Record<string, unknown> } = {}
+		) {
+				const { SignJWT, privateKey } = fixture;
+				const claims = { nonce: overrides.nonce ?? 'test-nonce', ...overrides.extra };
+				return new SignJWT(claims)
+						.setProtectedHeader({ alg: 'ES256', kid: 'test-kid' })
+						.setIssuer(overrides.iss ?? 'https://idp.example.com')
+						.setAudience(overrides.aud ?? 'wallet-client')
+						.setExpirationTime('5m')
+						.setIssuedAt()
+						.sign(privateKey);
+		}
+
+		/** Mock fetch to return a JWKS response containing the given JWK. */
+		function mockJwksFetch(jwk: Record<string, unknown>) {
+				vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+						new Response(JSON.stringify({ keys: [jwk] }), {
+								status: 200,
+								headers: { 'Content-Type': 'application/json' },
+						})
+				);
+		}
+
+		beforeEach(() => {
+				vi.restoreAllMocks();
+		});
+
+		it('throws when JWKS fetch fails', async () => {
+				vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(null, { status: 500 }));
+				await expect(
+						validateIdToken('header.payload.sig', config, 'nonce123', jwksUri)
+				).rejects.toThrow('Failed to fetch JWKS: 500');
+		});
+
+		it('throws when nonce does not match', async () => {
+				const fixture = await createSigningFixture();
+				const token = await createToken(fixture, { nonce: 'actual-nonce' });
+				mockJwksFetch(fixture.jwk);
+				await expect(validateIdToken(token, config, 'wrong-nonce', jwksUri)).rejects.toThrow('ID token nonce mismatch');
+		});
+
+		it('succeeds when signature, issuer, audience, and nonce are all valid', async () => {
+				const fixture = await createSigningFixture();
+				const token = await createToken(fixture, { nonce: 'correct-nonce' });
+				mockJwksFetch(fixture.jwk);
+				await expect(validateIdToken(token, config, 'correct-nonce', jwksUri)).resolves.toBeUndefined();
+		});
+
+		it('throws when token signature is invalid (wrong key)', async () => {
+				const signingFixture = await createSigningFixture();
+				const wrongFixture = await createSigningFixture(); // different key pair
+				const token = await createToken(signingFixture);
+				mockJwksFetch(wrongFixture.jwk); // publish wrong public key
+				await expect(validateIdToken(token, config, 'test-nonce', jwksUri)).rejects.toThrow();
+		});
+
+		it('throws when audience does not match', async () => {
+				const fixture = await createSigningFixture();
+				const token = await createToken(fixture, { aud: 'wrong-client-id' });
+				mockJwksFetch(fixture.jwk);
+				await expect(validateIdToken(token, config, 'test-nonce', jwksUri)).rejects.toThrow();
+		});
+
+		it('throws when multi-audience token has wrong azp', async () => {
+				const fixture = await createSigningFixture();
+				const token = await createToken(fixture, {
+						aud: ['wallet-client', 'other-client'],
+						extra: { azp: 'other-client' },
+				});
+				mockJwksFetch(fixture.jwk);
+				await expect(validateIdToken(token, config, 'test-nonce', jwksUri)).rejects.toThrow('ID token azp claim mismatch');
+		});
+
+		it('accepts multi-audience token when azp matches client_id', async () => {
+				const fixture = await createSigningFixture();
+				const token = await createToken(fixture, {
+						aud: ['wallet-client', 'other-service'],
+						extra: { azp: 'wallet-client' },
+				});
+				mockJwksFetch(fixture.jwk);
+				await expect(validateIdToken(token, config, 'test-nonce', jwksUri)).resolves.toBeUndefined();
 		});
 });
