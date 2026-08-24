@@ -19,7 +19,7 @@ import LoginLayout from '../../components/Auth/LoginLayout';
 import OIDCGateFlowStatus from '../../components/Auth/OIDCGateFlowStatus';
 import checkForUpdates from '../../offlineUpdateSW';
 
-import { Eye, EyeOff, Info, KeyRoundIcon, Wallet, X } from 'lucide-react';
+import { Info, KeyRoundIcon, Wallet, X } from 'lucide-react';
 import { UsbStickDotIcon } from '@/components/Shared/CustomIcons';
 import PolicyLinks from '@/components/Shared/PolicyLinks';
 import PasskeyInfoPopup from '@/components/Popups/PasskeyInfoPopup';
@@ -49,7 +49,6 @@ const FormInputField = ({
 	placeholder,
 	required,
 	value,
-	type,
 }: {
 	ariaLabel?: string,
 	disabled?: boolean,
@@ -58,17 +57,12 @@ const FormInputField = ({
 	placeholder?: string,
 	required?: boolean,
 	value: string,
-	type?: 'password' | 'text',
 }) => {
-	const [show, setShow] = useState(false);
-	const onToggleShow = () => { setShow(!show); };
-	const { t } = useTranslation();
-
 	return (
 		<div className="relative">
 			<input
 				className="w-full pl-10 pr-3 py-2 bg-lm-gray-200 dark:bg-dm-gray-800 border border-lm-gray-400 dark:border-dm-gray-600 dark:text-white rounded-lg dark:inputDarkModeOverride"
-				type={show ? 'text' : type}
+				type="text"
 				name={name}
 				placeholder={placeholder}
 				value={value}
@@ -77,22 +71,6 @@ const FormInputField = ({
 				required={required}
 				disabled={disabled}
 			/>
-
-			{type === 'password' && (
-				<div className="absolute inset-y-0 right-3 flex items-center">
-					<button
-						id={`${show ? 'hide' : 'show'}-password-loginsignup`}
-						type="button"
-						onClick={onToggleShow}
-						className="text-lm-gray-700 hover:text-lm-gray-900 dark:text-dm-gray-300 dark:hover:text-dm-gray-100"
-						aria-label={show ? (t('common.passwordHideAriaLabel')) : (t('common.passwordShowAriaLabel'))}
-						title={show ? (t('common.passwordHideTitle')) : (t('common.passwordShowTitle'))}
-						disabled={disabled}
-					>
-						{show ? <EyeOff /> : <Eye />}
-					</button>
-				</div>
-			)}
 		</div>
 	);
 };
@@ -491,7 +469,6 @@ const WebauthnSignupLogin = ({
 										name="name"
 										onChange={(event) => setName(event.target.value)}
 										placeholder={t('loginSignup.enterPasskeyName')}
-										type="text"
 										value={name}
 										required
 									/>
