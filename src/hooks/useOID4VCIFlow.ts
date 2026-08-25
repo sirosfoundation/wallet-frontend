@@ -7,7 +7,7 @@ import type { OIDFlowActiveTransportType, OIDFlowProgressEvent } from '@/lib/ope
 import { DISPLAY_ISSUANCE_WARNINGS, OPENID4VCI_REDIRECT_URI } from '@/config';
 import SessionContext from '@/context/SessionContext';
 import { notify } from '@/context/notifier';
-import { deriveHolderKidFromCredential } from '@/lib/credentials';
+import { deriveHolderKidFromCredential } from '@/lib/verifiable-credentials';
 import CredentialsContext from '@/context/CredentialsContext';
 import { logger } from '@/logger';
 

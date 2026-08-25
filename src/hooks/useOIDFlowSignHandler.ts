@@ -9,7 +9,7 @@ import {
 	applySelectiveDisclosure,
 	buildMdocPresentationDefinition,
 	parseIssuerSignedToMDoc,
-} from '@/lib/credentials';
+} from '@/lib/verifiable-credentials';
 import { detectCredentialFormat, VerifiableCredentialFormat } from 'wallet-common';
 import { MDoc } from '@auth0/mdl';
 import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
