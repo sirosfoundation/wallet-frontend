@@ -5,9 +5,9 @@ import { CredentialOfferSchema, VerifiableCredentialFormat } from 'wallet-common
 import type { OID4VCIFlowResult } from '@/lib/openid-flow/types/OID4VCITypes';
 import type { OIDFlowActiveTransportType, OIDFlowProgressEvent } from '@/lib/openid-flow/types/OIDFlowTypes';
 import { DISPLAY_ISSUANCE_WARNINGS, OPENID4VCI_REDIRECT_URI } from '@/config';
-import { deriveHolderKidFromCredential } from '@/lib/services/OpenID4VCI/OpenID4VCI';
 import SessionContext from '@/context/SessionContext';
 import { notify } from '@/context/notifier';
+import { deriveHolderKidFromCredential } from '@/lib/verifiable-credentials';
 import CredentialsContext from '@/context/CredentialsContext';
 import { logger } from '@/logger';
 

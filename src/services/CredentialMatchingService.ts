@@ -15,7 +15,7 @@ import { DcqlQuery, DcqlCredential, DcqlQueryResult } from 'dcql';
 import { logger } from '@/logger';
 import * as cbor from 'cbor-x';
 import { fromBase64Url } from "../util";
-import { extractDocTypeFromIssuerAuth } from '@/lib/mdoc/mdoc';
+import { extractDocTypeFromIssuerAuth } from '@/lib/verifiable-credentials';
 
 export interface CredentialMatch {
 	input_descriptor_id: string;
