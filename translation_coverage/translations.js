@@ -1,5 +1,104 @@
 import fs from 'fs';
+import path from 'path';
 
+const SRC_DIR = './src';
+const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx']);
+const SKIP_DIR_NAMES = new Set(['__tests__', 'node_modules']);
+const I18NEXT_PLURAL_SUFFIXES = ['_zero', '_one', '_two', '_few', '_many', '_other', '_plural'];
+
+const STATIC_T_CALL = /\b(?:t|i18n\.t)\(\s*(['"`])([A-Za-z][\w.]*)\1/g;
+const I18N_KEY_ATTR = /i18nKey\s*=\s*(?:\{\s*)?(['"`])([A-Za-z][\w.]*)\1/g;
+const I18N_KEY_TERNARY = /i18nKey\s*=\s*\{[^}]*?(['"`])([A-Za-z][\w.]*)\1[^}]*?(['"`])([A-Za-z][\w.]*)\3/g;
+const MESSAGE_KEY = /messageKey:\s*(['"`])([A-Za-z][\w.]*)\1/g;
+const DYNAMIC_PREFIX = /\b(?:t|i18n\.t|i18n\.exists)\(\s*`([A-Za-z][\w.]*\.)\$\{/g;
+const I18N_TEMPLATE = /`([A-Za-z][\w]*\.(?:[\w.]*))\$\{/g;
+
+function walkSourceFiles(dir) {
+	const files = [];
+	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+		const fullPath = path.join(dir, entry.name);
+		if (entry.isDirectory()) {
+			if (SKIP_DIR_NAMES.has(entry.name)) continue;
+			files.push(...walkSourceFiles(fullPath));
+			continue;
+		}
+		if (!SOURCE_EXTENSIONS.has(path.extname(entry.name))) continue;
+		if (/\.(?:test|spec)\.(?:ts|tsx|js|jsx)$/.test(entry.name)) continue;
+		files.push(fullPath);
+	}
+	return files;
+}
+
+function collectMatches(regex, source, groupIndexes) {
+	const keys = [];
+	regex.lastIndex = 0;
+	for (const match of source.matchAll(regex)) {
+		for (const index of groupIndexes) {
+			if (match[index]) keys.push(match[index]);
+		}
+	}
+	return keys;
+}
+
+function extractReferencedKeys(source) {
+	return {
+		staticKeys: [
+			...collectMatches(STATIC_T_CALL, source, [2]),
+			...collectMatches(I18N_KEY_ATTR, source, [2]),
+			...collectMatches(I18N_KEY_TERNARY, source, [2, 4]),
+			...collectMatches(MESSAGE_KEY, source, [2]),
+		],
+		dynamicPrefixes: [
+			...collectMatches(DYNAMIC_PREFIX, source, [1]),
+			...collectMatches(I18N_TEMPLATE, source, [1]),
+		],
+	};
+}
+
+function keyExists(leafNames, key) {
+	if (leafNames.has(key)) return true;
+	return I18NEXT_PLURAL_SUFFIXES.some((suffix) => leafNames.has(`${key}${suffix}`));
+}
+
+function prefixExists(leafNames, prefix) {
+	const normalized = prefix.endsWith('.') ? prefix : `${prefix}.`;
+	for (const key of leafNames) {
+		if (key.startsWith(normalized)) return true;
+	}
+	return false;
+}
+
+function findKeysMissingFromEnglish(leafNames) {
+	const staticKeys = new Map();
+	const dynamicPrefixes = new Map();
+
+	for (const file of walkSourceFiles(SRC_DIR)) {
+		const source = fs.readFileSync(file, 'utf8');
+		const extracted = extractReferencedKeys(source);
+		const relative = path.relative(SRC_DIR, file);
+
+		for (const key of extracted.staticKeys) {
+			if (!staticKeys.has(key)) staticKeys.set(key, new Set());
+			staticKeys.get(key).add(relative);
+		}
+		for (const prefix of extracted.dynamicPrefixes) {
+			if (!dynamicPrefixes.has(prefix)) dynamicPrefixes.set(prefix, new Set());
+			dynamicPrefixes.get(prefix).add(relative);
+		}
+	}
+
+	const missingKeys = [...staticKeys.entries()]
+		.filter(([key]) => !keyExists(leafNames, key))
+		.map(([key, files]) => `${key}  (${[...files].sort().join(', ')})`)
+		.sort();
+
+	const missingPrefixes = [...dynamicPrefixes.entries()]
+		.filter(([prefix]) => !prefixExists(leafNames, prefix))
+		.map(([prefix, files]) => `${prefix}*  (${[...files].sort().join(', ')})`)
+		.sort();
+
+	return { missingKeys, missingPrefixes };
+}
 
 function constructLeafNames(obj, aggrKey, mySet) {
 	if (typeof obj !== 'object') {
@@ -18,6 +117,7 @@ console.log("Checking files in src/locales...\n");
 const dir = fs.readdirSync('./src/locales');
 const locales = {};
 for (const locale of dir) {
+	if (!locale.endsWith('.json')) continue;
 	try {
 		locales[locale.split(".")[0]] = JSON.parse(fs.readFileSync(`./src/locales/${locale}`));
 	} catch (e) {
@@ -28,6 +128,27 @@ for (const locale of dir) {
 // default locale is en
 const leafNames = new Set();
 constructLeafNames(locales['en'], '', leafNames);
+
+console.log("Checking source for keys missing from en.json...\n");
+const { missingKeys, missingPrefixes } = findKeysMissingFromEnglish(leafNames);
+if (missingKeys.length === 0 && missingPrefixes.length === 0) {
+	console.log("\x1b[32mNo source keys missing from en.json\x1b[0m\n");
+} else {
+	if (missingKeys.length) {
+		console.log("Missing from en.json:");
+		for (const item of missingKeys) {
+			console.log(item);
+		}
+		console.log('');
+	}
+	if (missingPrefixes.length) {
+		console.log("Dynamic prefixes missing from en.json:");
+		for (const item of missingPrefixes) {
+			console.log(item);
+		}
+		console.log('');
+	}
+}
 
 const coverageResults = {};
 
@@ -114,4 +235,9 @@ for (const [lang, percent] of Object.entries(coverageResults)) {
 	const filename = `./translation_coverage/coverage_${lang}.json`
 	fs.writeFileSync(filename, JSON.stringify(langResult, null, "\t") + "\n");
 	console.log(`Saved ${filename}`)
+}
+
+if (missingKeys.length || missingPrefixes.length) {
+	console.error(`\n${missingKeys.length + missingPrefixes.length} source key(s) missing from en.json`);
+	process.exit(1);
 }
