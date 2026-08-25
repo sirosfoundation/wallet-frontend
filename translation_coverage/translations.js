@@ -147,8 +147,8 @@ for (const locale of dir) {
 	if (!locale.endsWith('.json')) continue;
 	try {
 		locales[locale.split(".")[0]] = JSON.parse(fs.readFileSync(`./src/locales/${locale}`));
-	} catch (e) {
-		console.log(`${locale} does not have a <locale>.json name or content is not valid json`)
+	} catch {
+		console.log(`${locale} is not valid JSON`);
 	}
 }
 
