@@ -1,5 +1,5 @@
 import fs from 'fs';
-import path from 'path';
+import path from 'node:path';
 
 const SRC_DIR = './src';
 const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx']);
@@ -11,7 +11,7 @@ const I18N_KEY_ATTR = /i18nKey\s*=\s*(?:\{\s*)?(['"`])([A-Za-z][\w.]*)\1/g;
 const I18N_KEY_TERNARY = /i18nKey\s*=\s*\{[^}]*?(['"`])([A-Za-z][\w.]*)\1[^}]*?(['"`])([A-Za-z][\w.]*)\3/g;
 const MESSAGE_KEY = /messageKey:\s*(['"`])([A-Za-z][\w.]*)\1/g;
 const DYNAMIC_PREFIX = /\b(?:t|i18n\.t|i18n\.exists)\(\s*`([A-Za-z][\w.]*\.)\$\{/g;
-const I18N_TEMPLATE = /`([A-Za-z][\w]*\.(?:[\w.]*))\$\{/g;
+const I18N_TEMPLATE = /`([A-Za-z]\w*\.(?:[\w.]*))\$\{/g;
 
 function walkSourceFiles(dir) {
 	const files = [];
@@ -87,15 +87,17 @@ function findKeysMissingFromEnglish(leafNames) {
 		}
 	}
 
+	const compareStrings = (a, b) => a.localeCompare(b);
+
 	const missingKeys = [...staticKeys.entries()]
 		.filter(([key]) => !keyExists(leafNames, key))
-		.map(([key, files]) => `${key}  (${[...files].sort().join(', ')})`)
-		.sort();
+		.map(([key, files]) => `${key}  (${[...files].sort(compareStrings).join(', ')})`)
+		.sort(compareStrings);
 
 	const missingPrefixes = [...dynamicPrefixes.entries()]
 		.filter(([prefix]) => !prefixExists(leafNames, prefix))
-		.map(([prefix, files]) => `${prefix}*  (${[...files].sort().join(', ')})`)
-		.sort();
+		.map(([prefix, files]) => `${prefix}*  (${[...files].sort(compareStrings).join(', ')})`)
+		.sort(compareStrings);
 
 	return { missingKeys, missingPrefixes };
 }
