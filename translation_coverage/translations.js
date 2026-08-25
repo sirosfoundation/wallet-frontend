@@ -9,8 +9,8 @@ const I18NEXT_PLURAL_SUFFIXES = ['_zero', '_one', '_two', '_few', '_many', '_oth
 const STATIC_T_CALL = /\b(?:t|i18n\.t)\(\s*(['"`])([A-Za-z][\w.]*)\1/g;
 const I18N_KEY_ATTR = /i18nKey\s*=\s*(?:\{\s*)?(['"`])([A-Za-z][\w.]*)\1/g;
 const I18N_KEY_TERNARY = /i18nKey\s*=\s*\{[^}]*?(['"`])([A-Za-z][\w.]*)\1[^}]*?(['"`])([A-Za-z][\w.]*)\3/g;
-const I18N_KEY_PROP = /\w+Key\s*:\s*(['"`])([A-Za-z]\w*(?:\.[A-Za-z]\w*)+)\1/g;
-const T_CONCAT_SUFFIX = /\bt\(\s*[A-Za-z_]\w*\s*\+\s*(['"`])(\.[A-Za-z]\w*(?:\.[A-Za-z]\w*)*)\1/g;
+const I18N_KEY_PROP = /\w+Key\s*:\s*(['"`])([^'"`]+)\1/g;
+const T_CONCAT_SUFFIX = /\bt\(\s*[A-Za-z_]\w*\s*\+\s*(['"`])(\.[^'"`]+)\1/g;
 const TRANSLATION_PREFIX_PROP = /translationPrefix\s*=\s*(?:\{\s*)?(['"`])([A-Za-z]\w*)\1/g;
 const DYNAMIC_PREFIX = /\b(?:t|i18n\.t|i18n\.exists)\(\s*`([A-Za-z][\w.]*\.)\$\{/g;
 const I18N_TEMPLATE = /`([A-Za-z]\w*\.(?:[\w.]*))\$\{/g;
@@ -47,6 +47,18 @@ function addOccurrence(map, key, file) {
 	map.get(key).add(file);
 }
 
+function addAll(map, keys, file) {
+	for (const key of keys) addOccurrence(map, key, file);
+}
+
+function addFiles(map, key, files) {
+	for (const file of files) addOccurrence(map, key, file);
+}
+
+function isI18nKeyPath(key) {
+	return key.split('.').every((part) => /^[A-Za-z]\w*$/.test(part));
+}
+
 function extractReferencedKeys(source) {
 	return {
 		staticKeys: [
@@ -54,14 +66,15 @@ function extractReferencedKeys(source) {
 			...collectMatches(I18N_KEY_ATTR, source, [2]),
 			...collectMatches(I18N_KEY_TERNARY, source, [2, 4]),
 			// t(opt.labelKey) / t(step.messageKey): the key is a *Key string on an object
-			...collectMatches(I18N_KEY_PROP, source, [2]),
+			...collectMatches(I18N_KEY_PROP, source, [2]).filter((key) => key.includes('.') && isI18nKeyPath(key)),
 		],
 		dynamicPrefixes: [
 			...collectMatches(DYNAMIC_PREFIX, source, [1]),
 			...collectMatches(I18N_TEMPLATE, source, [1]),
 		],
 		// t(translationPrefix + ".searchPlaceholder") — suffix here, namespace at call sites
-		concatSuffixes: collectMatches(T_CONCAT_SUFFIX, source, [2]),
+		concatSuffixes: collectMatches(T_CONCAT_SUFFIX, source, [2])
+			.filter((suffix) => suffix.startsWith('.') && isI18nKeyPath(suffix.slice(1))),
 		translationPrefixes: collectMatches(TRANSLATION_PREFIX_PROP, source, [2]),
 	};
 }
@@ -90,25 +103,17 @@ function findKeysMissingFromEnglish(leafNames) {
 		const extracted = extractReferencedKeys(source);
 		const relative = path.relative(SRC_DIR, file);
 
-		for (const key of extracted.staticKeys) {
-			addOccurrence(staticKeys, key, relative);
-		}
-		for (const prefix of extracted.dynamicPrefixes) {
-			addOccurrence(dynamicPrefixes, prefix, relative);
-		}
-		for (const suffix of extracted.concatSuffixes) {
-			addOccurrence(concatSuffixes, suffix, relative);
-		}
-		for (const prefix of extracted.translationPrefixes) {
-			addOccurrence(translationPrefixes, prefix, relative);
-		}
+		addAll(staticKeys, extracted.staticKeys, relative);
+		addAll(dynamicPrefixes, extracted.dynamicPrefixes, relative);
+		addAll(concatSuffixes, extracted.concatSuffixes, relative);
+		addAll(translationPrefixes, extracted.translationPrefixes, relative);
 	}
 
 	for (const [prefix, prefixFiles] of translationPrefixes) {
 		for (const [suffix, suffixFiles] of concatSuffixes) {
 			const key = `${prefix}${suffix}`;
-			for (const file of prefixFiles) addOccurrence(staticKeys, key, file);
-			for (const file of suffixFiles) addOccurrence(staticKeys, key, file);
+			addFiles(staticKeys, key, prefixFiles);
+			addFiles(staticKeys, key, suffixFiles);
 		}
 	}
 
