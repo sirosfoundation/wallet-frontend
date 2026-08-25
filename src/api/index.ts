@@ -254,7 +254,22 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		return authedRequest.del(path, options?.headers ?? {});
 	}, [authedRequest]);
 
-	const syncPrivateData = useCallback(async (
+	/**
+	 * Lock to prevent concurrent syncs that would race on the main-key rotation
+	 * and the private-data etag.
+	 */
+	const syncInFlightRef = useRef<Promise<
+		Result<void,
+			| 'syncFailed'
+			| 'loginKeystoreFailed'
+			| 'passkeyInvalid'
+			| 'passkeyLoginFailedTryAgain'
+			| 'passkeyLoginFailedServerError'
+			| 'x-private-data-etag'
+		>
+	> | null>(null);
+
+	const doSyncPrivateData = useCallback(async (
 		cachedUser: CachedUser | undefined,
 		keystore?: LocalStorageKeystore,
 	): Promise<Result<void,
@@ -323,6 +338,36 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		}
 
 	}, [getPrivateDataEtag, get, navigate, isOnline, post, updatePrivateDataEtag]);
+
+	const syncPrivateData = useCallback((
+		cachedUser: CachedUser | undefined,
+		keystore?: LocalStorageKeystore,
+	): Promise<Result<void,
+		| 'syncFailed'
+		| 'loginKeystoreFailed'
+		| 'passkeyInvalid'
+		| 'passkeyLoginFailedTryAgain'
+		| 'passkeyLoginFailedServerError'
+		| 'x-private-data-etag'
+	>> => {
+		// If a sync is already running, reuse it instead of starting a concurrent
+		// one that would race on the main-key rotation and the private-data etag.
+		if (syncInFlightRef.current) {
+			return syncInFlightRef.current;
+		}
+
+		const run = (async () => {
+			try {
+				return await doSyncPrivateData(cachedUser, keystore);
+			} finally {
+				syncInFlightRef.current = null;
+			}
+		})();
+
+		syncInFlightRef.current = run;
+
+		return run;
+	}, [doSyncPrivateData]);
 
 	const updateShowWelcome = useCallback((showWelcome: boolean): void => {
 		if (sessionState) {
