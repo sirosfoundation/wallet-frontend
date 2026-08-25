@@ -130,14 +130,27 @@ describe("extractIssuerSignedB64", () => {
 		expect(extractIssuerSignedB64(notAMap)).toBe(notAMap);
 	});
 
-	it("returns the input unchanged when a document carries no issuerSigned", () => {
+	// A present-but-unusable `documents` is a malformed DeviceResponse, not a
+	// bare IssuerSigned. Passing it through would defer the failure to a
+	// parser that can no longer explain it, so it throws here instead.
+	it("throws when a document carries no issuerSigned", () => {
 		const envelope = new Map<string, unknown>([
 			["version", "1.0"],
 			["documents", [new Map<string, unknown>([["docType", "org.iso.18013.5.1.mDL"]])]],
 			["status", 0],
 		]);
 		const input = base64url.encode(cborEncode(envelope));
-		expect(extractIssuerSignedB64(input)).toBe(input);
+		expect(() => extractIssuerSignedB64(input)).toThrow(/no `issuerSigned`/);
+	});
+
+	it("throws on an envelope whose documents array is empty", () => {
+		const envelope = new Map<string, unknown>([
+			["version", "1.0"],
+			["documents", []],
+			["status", 0],
+		]);
+		const input = base64url.encode(cborEncode(envelope));
+		expect(() => extractIssuerSignedB64(input)).toThrow(/present but empty/);
 	});
 
 	it("shows why cbor-x's defaults cannot be used here", () => {

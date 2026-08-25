@@ -3,13 +3,6 @@ import { cborDecode, cborEncode, DataItem } from '@auth0/mdl/lib/cbor';
 import { parse } from '@auth0/mdl';
 
 /**
- * Parse a base64url-encoded issuerSigned blob into an MDoc
- * @todo This partially exists in wallet-common, we should look into consolidating this logic.
- *
- * @param raw - Base64url-encoded issuerSigned blob from an OID4VCI proof or similar
- * @returns Parsed MDoc object with version, documents array, and status
- */
-/**
  * Extract the base64url-encoded IssuerSigned structure from a stored mdoc
  * credential, which may be either a full DeviceResponse envelope or a bare
  * IssuerSigned already.
@@ -36,21 +29,34 @@ export function extractIssuerSignedB64(raw: string): string {
 		return raw;
 	}
 
+	// Absent `documents` means this is already a bare IssuerSigned. Present
+	// but unusable means a malformed DeviceResponse, which must not be passed
+	// off as an IssuerSigned - doing so only defers the failure to a parser
+	// that can no longer explain it.
 	const documents = decoded.get('documents');
-	if (!Array.isArray(documents) || documents.length === 0) {
-		// No documents array: this is already a bare IssuerSigned.
+	if (documents === undefined) {
 		return raw;
+	}
+	if (!Array.isArray(documents) || documents.length === 0) {
+		throw new Error('Malformed DeviceResponse: `documents` is present but empty');
 	}
 
 	const first = documents[0];
 	const issuerSigned = first instanceof Map ? first.get('issuerSigned') : undefined;
 	if (!issuerSigned) {
-		return raw;
+		throw new Error('Malformed DeviceResponse: first document has no `issuerSigned`');
 	}
 
 	return base64url.encode(cborEncode(issuerSigned));
 }
 
+/**
+ * Parse a base64url-encoded issuerSigned blob into an MDoc
+ * @todo This partially exists in wallet-common, we should look into consolidating this logic.
+ *
+ * @param raw - Base64url-encoded issuerSigned blob from an OID4VCI proof or similar
+ * @returns Parsed MDoc object with version, documents array, and status
+ */
 export function parseIssuerSignedToMDoc(raw: string) {
 	const credentialBytes = base64url.decode(raw);
 	const issuerSigned = cborDecode(credentialBytes);
