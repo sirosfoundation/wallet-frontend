@@ -175,11 +175,15 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 			</div>
 			<dl>
 				<dt className="font-bold not-first:mt-4">{t('presentCredentialsFlow.overview.requester')}</dt>
-				{[verifier.name, verifier.domain].map((info) => (
-					<dd key={info} className="mt-2">
-						{info}
-					</dd>
-				))}
+				<dd className="mt-2">
+					{verifier.domain
+						?.replace(/^https?:\/\//, '')
+						.replace(/\.fly\.dev\/?$/, '')
+						.replace(/\/$/, '')
+						.replace(/-/g, ' ')
+						.replace(/\b\w/g, (c) => c.toUpperCase())
+						|| verifier.name}
+				</dd>
 				{singlePurpose && (
 					<>
 						<dt className="font-bold not-first:mt-4">{t('presentCredentialsFlow.overview.purpose')}</dt>
@@ -194,95 +198,81 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 					{t('presentCredentialsFlow.overview.requestedInformation')}
 				</h2>
 				<ul>
-					{view.map((entry) => (
-						<li key={entry.id} className="mt-2">
-							<div className="border border-lm-gray-700 dark:border-dm-gray-400 rounded-md p-4 flex flex-col gap-4">
-								<div
-									className="px-3 py-1 rounded-md flex justify-between items-center bg-(--bg-color) text-(--text-color)"
-									style={
-										{
-											'--bg-color':
-												entry.selected?.display.backgroundColor ?? 'var(--color-primary)',
-											'--text-color':
-												entry.selected?.display.textColor ?? '#fff',
-										} as React.CSSProperties
-									}
-								>
-									<h3 className="font-bold" aria-live="polite" aria-atomic="true">{entry.selected.display.name}</h3>
-									{entry.selected?.display.logo ? (
-										<img className="max-h-8 max-w-8" src={entry.selected.display.logo} alt="" />
-									) : (
-										<IdCardIcon size={24} aria-hidden="true" />
-									)}
-								</div>
-								<dl>
-									{/**
-										* The "Masked Identifier" field would be displayed here.
-										*
-										* @todo we should include a generic way to insert fields into
-										*       the overview that is not part of the requested claims
-										*       from the credential.
-										*/}
-									<dt className="font-bold not-first:mt-2 not-first:pt-2 not-first:border-t not-first:border-t-lm-gray-300 dark:not-first:border-t-dm-gray-700">
-										Masked Identifier
-									</dt>
-									<dd>-</dd>
-									{entry.selected?.fields.map((field) => (
-										<Fragment key={field.name+field.value}>
-											<dt className="font-bold not-first:mt-2 not-first:pt-2 not-first:border-t not-first:border-t-lm-gray-300 dark:not-first:border-t-dm-gray-700">
-												{field.name}
-											</dt>
-											{typeof field.value === 'object' ? (
-												<dd className="mt-2 wrap-break-word">
-													<table className="text-sm">
-														<tbody>
-															{Object.entries(field.value).map(([key, value]) => (
-																<tr key={key} className="not-first:mt-1 not-first:pt-1 not-first:border-t not-first:border-t-lm-gray-300 dark:not-first:border-t-dm-gray-700">
-																	<td className="font-bold p-1 pr-2">{key}</td>
-																	<td className="p-1">{String(value)}</td>
-																</tr>
-															))}
-														</tbody>
-													</table>
-												</dd>
-											) : <dd className="mt-2 wrap-break-word">{String(field.value)}</dd>}
+				{view.map((entry) => (
+					<li key={entry.id} className="mt-4 flex flex-col gap-3">
+						<div className="border border-lm-gray-700 dark:border-dm-gray-400 rounded-xl p-5 flex flex-col gap-4">
 
-										</Fragment>
-									))}
-								</dl>
-								{entry.alternatives.length > 0 && (
-									<div className="px-4 pt-4 pb-1 -mx-4 border-t border-t-lm-gray-600 dark:border-t-dm-gray-400">
-										<Button
-											variant="link"
-											linkClassName="flex items-center gap-1"
-											aria-label={t('presentCredentialsFlow.overview.switchCredentialAria', {
-												name: entry.selected?.display.name ?? '',
-												count: entry.total,
-											})}
-											onClick={() =>
-												setSwitchCredentialState({
-													id: entry.id,
-													matches: [
-														entry.selected,
-														...entry.alternatives,
-													],
-												})
-											}
-										>
-											{t('presentCredentialsFlow.overview.switchCredential')}
-											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} className="w-6 h-6" aria-hidden="true" >
-												<rect x="4" y="4" width="19" height="14" rx="2" fill="transparent" className="stroke-black dark:stroke-white" />
-												<rect x="2" y="7" width="19" height="14" rx="2" className="fill-black dark:fill-white" />
-												<text x="11" y="18" textAnchor="middle" fontSize="12" fontWeight="600" className="fill-white dark:fill-black">
-													{entry.total}
-												</text>
-											</svg>
-										</Button>
-									</div>
-								)}
-							</div>
-						</li>
-					))}
+							<dl className="flex flex-col gap-3">
+								{/**
+									* The "Masked Identifier" field would be displayed here.
+									*
+									* @todo we should include a generic way to insert fields into
+									*       the overview that is not part of the requested claims
+									*       from the credential.
+									*/}
+								<div className="flex flex-col gap-0.5">
+									<dt className="text-xs font-semibold uppercase tracking-wide text-lm-gray-500 dark:text-dm-gray-400">
+										Proof
+									</dt>
+									<dd className="text-base font-bold">Age of 18</dd>
+								</div>
+
+								<div className="flex flex-col gap-0.5 pt-3 border-t border-t-lm-gray-300 dark:border-t-dm-gray-700">
+									<dt className="text-xs font-semibold uppercase tracking-wide text-lm-gray-500 dark:text-dm-gray-400">
+										From
+									</dt>
+									<dd className="text-base font-bold">PID</dd>
+								</div>
+							</dl>
+
+							{entry.alternatives.length > 0 && (
+								<div className="px-5 pt-4 pb-1 -mx-5 border-t border-t-lm-gray-600 dark:border-t-dm-gray-400">
+									<Button
+										variant="link"
+										linkClassName="flex items-center gap-2"
+										aria-label={t('presentCredentialsFlow.overview.switchCredentialAria', {
+											name: entry.selected?.display.name ?? '',
+											count: entry.total,
+										})}
+										onClick={() =>
+											setSwitchCredentialState({
+												id: entry.id,
+												matches: [
+													entry.selected,
+													...entry.alternatives,
+												],
+											})
+										}
+									>
+										{t('presentCredentialsFlow.overview.switchCredential')}
+										<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} className="w-6 h-6" aria-hidden="true">
+											<rect x="4" y="4" width="19" height="14" rx="2" fill="transparent" className="stroke-black dark:stroke-white" />
+											<rect x="2" y="7" width="19" height="14" rx="2" className="fill-black dark:fill-white" />
+											<text x="11" y="18" textAnchor="middle" fontSize="12" fontWeight="600" className="fill-white dark:fill-black">
+												{entry.total}
+											</text>
+										</svg>
+									</Button>
+								</div>
+							)}
+						</div>
+
+						<div
+							className="px-5 py-4 rounded-xl flex flex-col gap-1 bg-(--bg-color) text-(--text-color)"
+							style={
+								{
+									'--bg-color':
+										entry.selected?.display.backgroundColor ?? 'var(--color-primary)',
+									'--text-color':
+										entry.selected?.display.textColor ?? '#fff',
+								} as React.CSSProperties
+							}
+						>
+							<h3 className="font-bold text-lg leading-snug">You are fully anonymous!</h3>
+							<p className="text-sm opacity-90">SIROS anonymity guarantee</p>
+						</div>
+					</li>
+				))}
 				</ul>
 			</div>
 			{switchCredentialState && (
@@ -370,11 +360,9 @@ const PresentationCompleteScreen: FC<PresentationCompleteScreenProps> = ({
 			/>
 			<div className="pt-6 space-y-4" role="status">
 				<h1 className="text-2xl font-bold">{t('presentCredentialsFlow.completed.title')}</h1>
-				<p>{t('presentCredentialsFlow.completed.description', { verifierName: result.verifierName })}</p>
-				<hr className="border-lm-gray-300 dark:border-dm-gray-700" />
-				<p>{t('presentCredentialsFlow.completed.redirecting')}</p>
-			</div>
+		</div>
 		</FlowScreen>
+
 	);
 };
 

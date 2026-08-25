@@ -294,6 +294,19 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				throw new OIDFlowError({ code: 'INSUFFICIENT_CREDENTIALS', message: 'No credentials available for selection' });
 			}
 
+			// 🚀 Start background proof generation immediately
+			const firstEntry = conformantCredentialsMap.values().next().value;
+			const firstBatchId = firstEntry?.credentials?.[0];
+			if (firstBatchId) {
+				const firstCred = credentials.find(c => c.batchId === firstBatchId);
+				if (firstCred?.data) {
+					window.dispatchEvent(new CustomEvent('start-background-proof', {
+						detail: { credentialData: firstCred.data }
+					}));
+					console.log("🚀 Dispatched start-background-proof event");
+				}
+			}
+
 			// Show popup → user picks descriptorId → batchId
 			const selectionMap = await options.onCredentialSelection(
 				verifierInfo,

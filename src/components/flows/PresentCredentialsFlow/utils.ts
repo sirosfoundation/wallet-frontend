@@ -58,6 +58,21 @@ export async function resolveCredentialPresentationRequest(
 						name: resolveClaimLabel(claims, f, preferredLanguages),
 						value: getValueByPath(f.path ?? [], parsedCredential.signedClaims),
 					})),
+					pseudonymSeedHex: await (async () => {
+						try {
+								const sc = parsedCredential.signedClaims as any;
+								const seed = sc?.['eu.europa.ec.eudi.pid.1']?.pseudonym_seed ?? sc?.['org.iso.18013.5.1']?.pseudonym_seed;
+								if (!seed) return undefined;
+								const seedBytes = seed instanceof Uint8Array ? seed : new Uint8Array(seed);
+								const verifierContext = new Uint8Array(
+										"766572696669657240636c69656e742e6578616d706c652e636f6d0000000000"
+												.match(/.{1,2}/g)!.map(b => parseInt(b, 16))
+								);
+								const hashInput = new Uint8Array([...seedBytes, ...verifierContext]);
+								const ppidBuffer = await crypto.subtle.digest('SHA-256', hashInput);
+								return btoa(String.fromCharCode(...new Uint8Array(ppidBuffer)));
+						} catch { return undefined; }
+					})(),
 				};
 			}));
 

@@ -24,6 +24,7 @@ import { encode, decode, Tag } from "cbor-x";
 import { cborEncode, cborDecode, DataItem } from "@auth0/mdl/lib/cbor";
 import { COSEKeyToJWK } from "cose-kit";
 import * as jose from "jose";
+import { base64url } from 'jose';
 import SessionContext from "@/context/SessionContext";
 import { useIndexedDb } from "../../hooks/useIndexedDb";
 import { 
@@ -610,164 +611,186 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			zkDocumentsArray: zkDocumentsArray
 		};
 	}
-	const processDcApiRequest = async (url: URL, keystore: any, proofCacheDb: any) => {
-		const session = new DCAPISession(url);
-
+	async function startBackgroundProofGeneration(
+		credentialData: string,
+		keystore: any,
+		proofCacheDb: any,
+		transcriptHex: string,
+		now: string,
+	): Promise<{ proof: Uint8Array; ppid: Uint8Array; ppidHex?: string } | null> {
 		try {
-			await session.initialize();
-			cleanupUrl();
+			const originalMdocHex = base64ToHex(credentialData);
+			// `now` is part of the key: the proof binds the timestamp, so a proof
+			// generated under a different `now` is not reusable.
+			const CACHE_KEY = `${originalMdocHex.slice(0, 32)}_${transcriptHex.slice(0, 16)}_${now}`;
 
-			const result = await handleDCAPIRequest(
-				session.request,
-				session.selectedCredentialIDs,
-				session.verifiedOrigin,
-			);
-
-			if (!result?.success) {
-				throw new OIDFlowError(result.error);
-			}
-
-			const credSelectResult = await handleCredentialSelection(
-				result.verifierInfo,
-				result.dcqlQuery,
-				result.conformantCredentials,
-			);
-
-			if (!credSelectResult?.success) {
-				if (credSelectResult?.error?.code === 'USER_CANCELLED') {
-					session.sendErrorAndClose('user_cancelled');
-					return;
+			// 1. Cache hit → reuse the proof bytes directly
+			try {
+				const cached = await proofCacheDb.read(['proofs'], (tr: any) =>
+					tr.objectStore('proofs').get(CACHE_KEY)
+				);
+				if (cached?.proof) {
+					console.log("✅ Using cached proof:", cached.proof.length, "bytes");
+					return { proof: cached.proof, ppid: cached.ppid, ppidHex: cached.ppidHex };
 				}
-				throw new OIDFlowError(credSelectResult.error);
+			} catch {
+				console.log("No cached proof found");
 			}
-			
+
+			// 2. Sign the mdoc with the device key
+			const rawSignatureHex = await generateDeviceSignature(
+				keystore,
+				originalMdocHex,
+				transcriptHex,
+				"eu.europa.ec.eudi.pid.1",
+				decode,
+			);
+			const signedMdocHex = signMdocWithPlaceholder(originalMdocHex, rawSignatureHex);
+
+			// 3. Pull pseudonym_seed out of the credential
+			const mdocBytes = new Uint8Array(
+				originalMdocHex.match(/.{1,2}/g)!.map((b) => parseInt(b, 16))
+			);
+			const mdoc = decode(mdocBytes);
+			const nsItems = mdoc.documents[0].issuerSigned.nameSpaces;
+			const ns = Object.keys(nsItems)[0];
+			let pseudonymSeed = null;
+			for (const item of nsItems[ns]) {
+				const decoded = decode(item.value);
+				if (decoded.elementIdentifier === 'pseudonym_seed') {
+					pseudonymSeed = decoded.elementValue;
+					break;
+				}
+			}
+
 			const proverService = new MdocProverService();
 			if (!proverService.isInitialized) {
 				await proverService.bootstrap();
 			}
-			const selectedCredential = credSelectResult.selectedCredentials[0];
-			const originalMdocBase64 = selectedCredential.credentialRaw;
-			const originalMdocHex = base64ToHex(originalMdocBase64);
-			
- 			const transcriptHex = "83f6f6846b6578616d706c652e6f7267781c68747470733a2f2f6578616d706c652e6f72672f726573706f6e736570313233343536373839306162636465667066656463626130393837363534333231";
-			const CACHE_KEY = `${selectedCredential.walletCredentialRef}_${transcriptHex.slice(0, 16)}`;
-	
-			// Check IndexedDB cache
-			let cached = null;
+
+			// 4. Generate
+			const proofResult = await proverService.generateProof({
+				mdoc: signedMdocHex,
+				transcript: transcriptHex,
+				now,
+				pseudonymSeed,
+			});
+
+			// 5. Cache the proof bytes
 			try {
-				cached = await proofCacheDb.read(['proofs'], (tr) =>
-					tr.objectStore('proofs').get(CACHE_KEY)
+				await proofCacheDb.write(['proofs'], (tr: any) =>
+					tr.objectStore('proofs').put(
+						{
+							proof: proofResult.proof,
+							ppid: proofResult.ppid,
+							ppidHex: proofResult.ppidHex,
+						},
+						CACHE_KEY,
+					)
 				);
+				console.log("✅ Proof cached:", proofResult.proof.length, "bytes");
 			} catch (e) {
-				console.log("No cached proof found");
+				console.warn("Failed to cache proof:", e);
 			}
-			const now = "2026-09-03T20:41:47Z";//new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
- 
-			let finalVP
-			if (cached) {
-				//setPpidHex(Array.from(cached.ppid).map(b => b.toString(16).padStart(2, '0')).join(''));
-				finalVP = assembleFinalVP_V8(originalMdocHex, cached.proof, cached.ppid, transcriptHex, now) as unknown as { 
-					Transcript: string, 
-					ZKDeviceResponseCBOR: string, 
-					zkDocumentsArray: Uint8Array 
-				};
-			} else {
-				// Sign the mdoc with the device key
-				//const rawSignatureHex = await generate(keystore, originalMdocHex, transcriptHex);
-				const rawSignatureHex = await generateDeviceSignature(
-					keystore,
-					originalMdocHex,
-					transcriptHex,
-					"eu.europa.ec.eudi.pid.1",
-					decode
-				);
 
-				const signedMdocHex = signMdocWithPlaceholder(originalMdocHex, rawSignatureHex);
-
-				const mdocBytes = new Uint8Array(base64ToHex(selectedCredential.credentialRaw).match(/.{1,2}/g).map(b => parseInt(b, 16)));
-				const mdoc = decode(mdocBytes);
-				const nsItems = mdoc.documents[0].issuerSigned.nameSpaces;
-				const ns = Object.keys(nsItems)[0];
-				let pseudonymSeed = null;
-				for (const item of nsItems[ns]) {
-					const decoded = decode(item.value);
-					if (decoded.elementIdentifier === 'pseudonym_seed') {
-						pseudonymSeed = decoded.elementValue;
-						break;
-					}
-				}
-				const payload = {
-					mdoc: signedMdocHex,
-					transcript: transcriptHex,
-					now: now,
-					pseudonymSeed: pseudonymSeed,
-				};
-				//const proofResult = await proverService.generateProof(payload);
-				const proofResult = await proverService.generateProof({
-					mdoc: signedMdocHex,
-					transcript:   transcriptHex,
-					now: now,
-					pseudonymSeed: pseudonymSeed,
-				});
-
-
-			// In handleNextWithProving, after proof generation:
-			const proofUrl = await uploadProof(proofResult.proof);
-			//alert(`✅ Proof uploaded!\nURL: ${proofUrl}\nSize: ${proofResult.proof.length} bytes`);
-			const urlBytes = new TextEncoder().encode(proofUrl);
-
-
-
-				
-			setPpidHex(proofResult.ppidHex);
-			finalVP = assembleFinalVP_V8(originalMdocHex, urlBytes, proofResult.ppid, transcriptHex, now) as unknown as { 
-				Transcript: string, 
-				ZKDeviceResponseCBOR: string, 
-				zkDocumentsArray: Uint8Array 
+			return {
+				proof: proofResult.proof,
+				ppid: proofResult.ppid,
+				ppidHex: proofResult.ppidHex,
 			};
- 
-				// Cache proof and ppid in IndexedDB
-				try {
-					await proofCacheDb.write(['proofs'], (tr) =>
-						tr.objectStore('proofs').put(
-							{ proof: urlBytes, ppid: proofResult.ppid },
-							CACHE_KEY
-						)
-					);
-					console.log("Proof cached in IndexedDB");
-				} catch (e) {
-					console.warn("Failed to cache proof:", e);
-				}
-				displaySendingScreen();
-			}
-			const sendResult = await sendDCAPIResponse(
-				session,
-				credSelectResult.selectedCredentials,
-				finalVP,
-				
-			);
-			logger.debug('DC API response sent:', sendResult);
+		} catch (e) {
+			console.error("Background proof generation failed:", e);
+			return null;
+		}
+	}
+	const processDcApiRequest = async (url: URL, keystore: any, proofCacheDb: any) => {
+		const session = new DCAPISession(url);
+		await session.initialize();
+		cleanupUrl();
 
-			if (sendResult.success) {
-				await displayCompletedScreen({
-					verifierName: result.verifierInfo.name,
-				});
-			}
+		const result = await handleDCAPIRequest(
+			session.request,
+			session.selectedCredentialIDs,
+			session.verifiedOrigin,
+		);
 
-			session.close();
-		} catch (err) {
-			logger.error('Error processing DC API request:', err);
+		if (!result?.success) {
+			throw new OIDFlowError(result.error);
+		}
 
-			displayErrorScreen({
-				title: t('openIdCallback.vpFlowError.title'),
-				description: t('openIdCallback.vpFlowError.description'),
-				err: err instanceof Error ? err : new Error(String(err)),
-				onClose: () => {
-					session.sendErrorAndClose('access_denied');
-				},
+		// Background proof was kicked off by the 'start-background-proof' listener
+		// as soon as credential matching completed — nothing to do here.
+
+		const credSelectResult = await handleCredentialSelection(
+			result.verifierInfo,
+			result.dcqlQuery,
+			result.conformantCredentials,
+		);
+
+		if (!credSelectResult?.success) {
+			session.sendErrorAndClose('user_cancelled');
+			return;
+		}
+
+		displaySendingScreen();
+
+		const transcriptHex = "83f6f6846b6578616d706c652e6f7267781c68747470733a2f2f6578616d706c652e6f72672f726573706f6e736570313233343536373839306162636465667066656463626130393837363534333231";
+
+		const now = "2026-09-03T20:41:47Z";
+
+		// Proof is already generated (or nearly) — just await it
+		const proofData = await backgroundProofRef.current;
+		if (!proofData) {
+			throw new OIDFlowError({
+				code: 'PROOF_GENERATION_FAILED',
+				message: 'Background proof generation failed or was never started',
 			});
 		}
+
+		setPpidHex(proofData.ppidHex);
+
+		const selectedCredential = credSelectResult.selectedCredentials[0];
+		const originalMdocHex = base64ToHex(selectedCredential.credentialRaw);
+
+		const finalVP = assembleFinalVP_V8(
+			originalMdocHex,
+			proofData.proof,
+			proofData.ppid,
+			transcriptHex,
+			now,
+		) as unknown as {
+			Transcript: string;
+			ZKDeviceResponseCBOR: string;
+			zkDocumentsArray: Uint8Array;
+		};
+
+		const combined = buildCombinedDeviceResponse(finalVP.zkDocumentsArray);
+		const credentialRaw = base64url.encode(combined);
+
+		await displayCompletedScreen({
+			verifierName: result.verifierInfo?.name ?? 'Verifier',
+		});
+
+		await session.sendResponse({
+			[selectedCredential.credentialQueryId]: [credentialRaw],
+		});
 	};
+	const backgroundProofRef = useRef<Promise<any> | null>(null);
+	useEffect(() => {
+		const handler = (e: Event) => {
+			const { credentialData } = (e as CustomEvent).detail;
+			console.log("🚀 Starting background proof generation");
+			backgroundProofRef.current = startBackgroundProofGeneration(
+				credentialData,
+				keystore,
+				proofCacheDb,
+				"83f6f6846b6578616d706c652e6f7267781c68747470733a2f2f6578616d706c652e6f72672f726573706f6e736570313233343536373839306162636465667066656463626130393837363534333231",
+				"2026-09-03T20:41:47Z",
+			);
+		};
+		window.addEventListener('start-background-proof', handler);
+		return () => window.removeEventListener('start-background-proof', handler);
+	}, [keystore, proofCacheDb]);
 
 	useEffect(() => {
 		if (flowIsActive.current) return;

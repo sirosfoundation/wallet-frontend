@@ -7,22 +7,7 @@ export type PresentCredentialsVerifier = {
 	logo?: string;
 };
 
-/**
- * A matching credential.
- */
-export type PresentCredentialsMatch = {
-	batchId: number;
-	display: {
-		name: string;
-		backgroundColor?: string;
-		textColor?: string;
-		logo?: string;
-	};
-	fields: Array<{
-		name: string;
-		value: unknown;
-	}>;
-};
+
 /**
  * A single query for credentials, including the requested credential ID
  * and the matching credentials in the wallet.
@@ -33,7 +18,20 @@ export type PresentCredentialsQuery = {
 	id: string;
 	matches: PresentCredentialsMatch[];
 };
-
+export type PresentCredentialsMatch = {
+    batchId: number;
+    display: {
+        name: string;
+        backgroundColor?: string;
+        textColor?: string;
+        logo?: string;
+    };
+    fields: Array<{
+        name: string;
+        value: unknown;
+    }>;
+    pseudonymSeedHex?: string; 
+};
 /**
  * A single credential set, derived from the request's DCQL query.
  */
