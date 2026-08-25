@@ -132,11 +132,11 @@ describe('prepareCredentialsForNativeWrapper', () => {
 			const credential = makeCredential({
 				typeMetadataClaims: [
 					{
-						path: ['family_name'],
+						path: ['org.iso.18013.5.1', 'family_name'],
 						display: [{ locale: 'en-US', label: 'Family Name' }],
 					},
 					{
-						path: ['age_over_18'],
+						path: ['org.iso.18013.5.1', 'age_over_18'],
 						display: [{ locale: 'en-US', label: 'Over 18' }],
 					},
 				],

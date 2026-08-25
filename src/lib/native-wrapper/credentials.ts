@@ -102,7 +102,7 @@ function shapeMdocEntry(
 		for (const [element, value] of Object.entries(elements as object)) {
 			const identifier = element;
 			const displayLabels: Record<string, string> = {};
-			const meta = metadataByPath.get(identifier);
+			const meta = metadataByPath.get([namespace, identifier].join('.'));
 
 			if (meta) {
 				for (const d of meta) {
