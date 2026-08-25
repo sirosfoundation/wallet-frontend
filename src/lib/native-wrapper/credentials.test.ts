@@ -314,4 +314,14 @@ describe('prepareCredentialsForNativeWrapper', () => {
 		expect(result.map((e) => e.id)).toEqual(['1', '3']);
 		expect(result.map((e) => e.format)).toEqual(['sd-jwt', 'mdoc']);
 	});
+
+	it('derives a readable issuer name from an X.500 DN', async () => {
+		const credential = makeCredential({
+			issuerName: 'C=SE, ST=Milky Way, L=Earth, O=SUNET, OU=vc Dev, CN=vc_dev_ca',
+		});
+
+		const [entry] = await prepareCredentialsForNativeWrapper([credential]);
+
+		expect(entry.display.subtitle).toBe('Issued by SUNET');
+	});
 });

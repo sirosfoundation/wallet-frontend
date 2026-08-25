@@ -65,7 +65,9 @@ async function getCredentialDisplayInfo(
 	const title = credentialNameFn
 		? await credentialNameFn(preferredLangs)
 		: getCredentialType(credential.parsedCredential) || 'Credential';
-	const issuerName = credential.parsedCredential?.metadata?.issuer?.name;
+	const issuerName = getReadableIssuerName(
+		credential.parsedCredential?.metadata?.issuer?.name,
+	);
 
 	return {
 		title: title ?? 'Credential',
@@ -163,4 +165,20 @@ function shapeJwtClaims(
 		claims,
 		display,
 	};
+}
+
+/**
+ * Extract a human-readable issuer name.
+ */
+function getReadableIssuerName(raw: string | undefined): string | undefined {
+	if (!raw) return undefined;
+
+	const attributes = raw.split(',').map((part) => part.trim());
+	const findAttribute = (key: string) =>
+		attributes
+			.find((attr) => attr.toUpperCase().startsWith(`${key}=`))
+			?.slice(key.length + 1)
+			.trim();
+
+	return findAttribute('O') || findAttribute('CN') || raw;
 }
