@@ -9,7 +9,9 @@ const I18NEXT_PLURAL_SUFFIXES = ['_zero', '_one', '_two', '_few', '_many', '_oth
 const STATIC_T_CALL = /\b(?:t|i18n\.t)\(\s*(['"`])([A-Za-z][\w.]*)\1/g;
 const I18N_KEY_ATTR = /i18nKey\s*=\s*(?:\{\s*)?(['"`])([A-Za-z][\w.]*)\1/g;
 const I18N_KEY_TERNARY = /i18nKey\s*=\s*\{[^}]*?(['"`])([A-Za-z][\w.]*)\1[^}]*?(['"`])([A-Za-z][\w.]*)\3/g;
-const MESSAGE_KEY = /messageKey:\s*(['"`])([A-Za-z][\w.]*)\1/g;
+const I18N_KEY_PROP = /\w+Key\s*:\s*(['"`])([A-Za-z]\w*(?:\.[A-Za-z]\w*)+)\1/g;
+const T_CONCAT_SUFFIX = /\bt\(\s*[A-Za-z_]\w*\s*\+\s*(['"`])(\.[A-Za-z]\w*(?:\.[A-Za-z]\w*)*)\1/g;
+const TRANSLATION_PREFIX_PROP = /translationPrefix\s*=\s*(?:\{\s*)?(['"`])([A-Za-z]\w*)\1/g;
 const DYNAMIC_PREFIX = /\b(?:t|i18n\.t|i18n\.exists)\(\s*`([A-Za-z][\w.]*\.)\$\{/g;
 const I18N_TEMPLATE = /`([A-Za-z]\w*\.(?:[\w.]*))\$\{/g;
 
@@ -40,18 +42,27 @@ function collectMatches(regex, source, groupIndexes) {
 	return keys;
 }
 
+function addOccurrence(map, key, file) {
+	if (!map.has(key)) map.set(key, new Set());
+	map.get(key).add(file);
+}
+
 function extractReferencedKeys(source) {
 	return {
 		staticKeys: [
 			...collectMatches(STATIC_T_CALL, source, [2]),
 			...collectMatches(I18N_KEY_ATTR, source, [2]),
 			...collectMatches(I18N_KEY_TERNARY, source, [2, 4]),
-			...collectMatches(MESSAGE_KEY, source, [2]),
+			// t(opt.labelKey) / t(step.messageKey): the key is a *Key string on an object
+			...collectMatches(I18N_KEY_PROP, source, [2]),
 		],
 		dynamicPrefixes: [
 			...collectMatches(DYNAMIC_PREFIX, source, [1]),
 			...collectMatches(I18N_TEMPLATE, source, [1]),
 		],
+		// t(translationPrefix + ".searchPlaceholder") — suffix here, namespace at call sites
+		concatSuffixes: collectMatches(T_CONCAT_SUFFIX, source, [2]),
+		translationPrefixes: collectMatches(TRANSLATION_PREFIX_PROP, source, [2]),
 	};
 }
 
@@ -71,6 +82,8 @@ function prefixExists(leafNames, prefix) {
 function findKeysMissingFromEnglish(leafNames) {
 	const staticKeys = new Map();
 	const dynamicPrefixes = new Map();
+	const concatSuffixes = new Map();
+	const translationPrefixes = new Map();
 
 	for (const file of walkSourceFiles(SRC_DIR)) {
 		const source = fs.readFileSync(file, 'utf8');
@@ -78,12 +91,24 @@ function findKeysMissingFromEnglish(leafNames) {
 		const relative = path.relative(SRC_DIR, file);
 
 		for (const key of extracted.staticKeys) {
-			if (!staticKeys.has(key)) staticKeys.set(key, new Set());
-			staticKeys.get(key).add(relative);
+			addOccurrence(staticKeys, key, relative);
 		}
 		for (const prefix of extracted.dynamicPrefixes) {
-			if (!dynamicPrefixes.has(prefix)) dynamicPrefixes.set(prefix, new Set());
-			dynamicPrefixes.get(prefix).add(relative);
+			addOccurrence(dynamicPrefixes, prefix, relative);
+		}
+		for (const suffix of extracted.concatSuffixes) {
+			addOccurrence(concatSuffixes, suffix, relative);
+		}
+		for (const prefix of extracted.translationPrefixes) {
+			addOccurrence(translationPrefixes, prefix, relative);
+		}
+	}
+
+	for (const [prefix, prefixFiles] of translationPrefixes) {
+		for (const [suffix, suffixFiles] of concatSuffixes) {
+			const key = `${prefix}${suffix}`;
+			for (const file of prefixFiles) addOccurrence(staticKeys, key, file);
+			for (const file of suffixFiles) addOccurrence(staticKeys, key, file);
 		}
 	}
 
