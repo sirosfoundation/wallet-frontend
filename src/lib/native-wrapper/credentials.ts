@@ -2,9 +2,10 @@ import { ExtendedVcEntity } from '@/context/CredentialsContext';
 import {
 	CredentialDisplayProperties,
 	CredentialRegistryEntry,
-	ClaimEntry,
+	SdJwtClaim,
 	SdJwtRegistryEntry,
 	MdocRegistryEntry,
+	MdocField,
 } from './types';
 import {
 	shapeCredential,
@@ -64,7 +65,9 @@ async function getCredentialDisplayInfo(
 	const title = credentialNameFn
 		? await credentialNameFn(preferredLangs)
 		: getCredentialType(credential.parsedCredential) || 'Credential';
-	const issuerName = credential.parsedCredential?.metadata?.issuer?.name;
+	const issuerName = getReadableIssuerName(
+		credential.parsedCredential?.metadata?.issuer?.name,
+	);
 
 	return {
 		title: title ?? 'Credential',
@@ -95,13 +98,13 @@ function shapeMdocEntry(
 	metadataByPath: Map<string, { locale: string; label: string }[]>,
 	display: CredentialDisplayProperties,
 ): MdocRegistryEntry {
-	const claims: ClaimEntry[] = [];
+	const fields: MdocField[] = [];
 
-	for (const [ns, elements] of Object.entries(shaped.namespaces)) {
+	for (const [namespace, elements] of Object.entries(shaped.namespaces)) {
 		for (const [element, value] of Object.entries(elements as object)) {
-			const pathKey = `${ns}.${element}`;
+			const identifier = element;
 			const displayLabels: Record<string, string> = {};
-			const meta = metadataByPath.get(element) ?? metadataByPath.get(pathKey);
+			const meta = metadataByPath.get([namespace, identifier].join('.'));
 
 			if (meta) {
 				for (const d of meta) {
@@ -111,7 +114,11 @@ function shapeMdocEntry(
 				}
 			}
 
-			claims.push({ path: pathKey, value, display: displayLabels });
+			if (Object.keys(displayLabels).length < 1) {
+				displayLabels['en'] = humanReadableClaimFromPath(identifier);
+			}
+
+			fields.push({ namespace, identifier, value, display: displayLabels });
 		}
 	}
 
@@ -119,7 +126,7 @@ function shapeMdocEntry(
 		format: 'mdoc',
 		id: String(credential.batchId),
 		docType: shaped.doctype,
-		claims,
+		fields,
 		display,
 	};
 }
@@ -137,7 +144,7 @@ function shapeJwtClaims(
 		return !REGISTRY_RESERVED_CLAIMS.has(rootKey);
 	});
 
-	const claims: ClaimEntry[] = [];
+	const claims: SdJwtClaim[] = [];
 
 	for (const claimPath of availableClaims) {
 		const value = getElementPropValue(signedClaims, claimPath);
@@ -162,4 +169,26 @@ function shapeJwtClaims(
 		claims,
 		display,
 	};
+}
+
+/**
+ * Extract a human-readable issuer name.
+ */
+function getReadableIssuerName(raw: string | undefined): string | undefined {
+	if (!raw) return undefined;
+
+	const attributes = raw.split(',').map((part) => part.trim());
+	const findAttribute = (key: string) =>
+		attributes
+			.find((attr) => attr.toUpperCase().startsWith(`${key}=`))
+			?.slice(key.length + 1)
+			.trim();
+
+	return findAttribute('O') || findAttribute('CN') || raw;
+}
+
+function humanReadableClaimFromPath(path: string): string {
+	const parts = path.split('.');
+	const lastPart = parts.at(-1) ?? path;
+	return lastPart.replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }

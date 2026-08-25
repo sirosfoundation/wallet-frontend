@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
 	extractTenantFromUserHandle,
 	isDefaultTenant,
@@ -97,7 +97,7 @@ describe('tenant utilities', () => {
 		});
 	});
 
-	describe('buildTenantRoutePath', () => {
+	describe('buildTenantRoutePath (single-tenant deployment)', () => {
 		it('should return root path when tenantId is undefined or empty', () => {
 			expect(buildTenantRoutePath(undefined)).toBe('/');
 			expect(buildTenantRoutePath('')).toBe('/');
@@ -107,16 +107,36 @@ describe('tenant utilities', () => {
 			expect(buildTenantRoutePath(undefined, 'settings')).toBe('/settings');
 		});
 
-		it('should use /id/ prefix for all tenants including default', () => {
-			expect(buildTenantRoutePath(DEFAULT_TENANT_ID)).toBe(`/${TENANT_PATH_PREFIX}/default/`);
-			expect(buildTenantRoutePath('acme-corp')).toBe(`/${TENANT_PATH_PREFIX}/acme-corp/`);
-			expect(buildTenantRoutePath('my-tenant')).toBe('/id/my-tenant/');
+		it('should return root paths in single-tenant deployments (BASE_PATH=/)', () => {
+			expect(buildTenantRoutePath(DEFAULT_TENANT_ID)).toBe('/');
+			expect(buildTenantRoutePath('acme-corp')).toBe('/');
 		});
 
-		it('should use /id/ prefix for tenants with subPath', () => {
-			expect(buildTenantRoutePath(DEFAULT_TENANT_ID, 'login')).toBe('/id/default/login');
-			expect(buildTenantRoutePath('acme-corp', 'settings')).toBe('/id/acme-corp/settings');
-			expect(buildTenantRoutePath('acme-corp', '/login')).toBe('/id/acme-corp/login');
+		it('should return root subpaths in single-tenant deployments', () => {
+			expect(buildTenantRoutePath(DEFAULT_TENANT_ID, 'login')).toBe('/login');
+			expect(buildTenantRoutePath('acme-corp', 'settings')).toBe('/settings');
+			expect(buildTenantRoutePath('acme-corp', '/login')).toBe('/login');
+		});
+	});
+
+	describe('buildTenantRoutePath (multi-tenant deployment)', () => {
+		beforeEach(() => {
+			vi.resetModules();
+		});
+		afterEach(() => {
+			vi.resetModules();
+			vi.restoreAllMocks();
+		});
+
+		it('should use /id/ prefix when BASE_PATH is a tenant path', async () => {
+			vi.doMock('@/config', () => ({ BASE_PATH: '/id/default' }));
+			const { buildTenantRoutePath: build, DEFAULT_TENANT_ID: def, TENANT_PATH_PREFIX: prefix } =
+				await import('./tenant');
+
+			expect(build(def)).toBe(`/${prefix}/default/`);
+			expect(build('acme-corp')).toBe('/id/acme-corp/');
+			expect(build('acme-corp', 'settings')).toBe('/id/acme-corp/settings');
+			expect(build('acme-corp', '/login')).toBe('/id/acme-corp/login');
 		});
 	});
 
