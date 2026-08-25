@@ -28,6 +28,9 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	const [tabId] = useSessionStorage<string | null>("tabId", null);
 
 	const loginIsOnlineRef = useRef<boolean | null>(null);
+	const loggingOutRef = useRef(false);
+	const isLoggingOut = useCallback(() => loggingOutRef.current, []);
+	const finishLogout = useCallback(() => { loggingOutRef.current = false; }, []);
 
 	// Use a ref to hold a stable reference to the clearSession function
 	const clearSessionRef = useRef<() => void>();
@@ -35,6 +38,7 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	// Memoize clearSession using useCallback
 	const clearSession = useCallback(async () => {
 		window.history.replaceState({}, '', `${window.location.pathname}`);
+		loggingOutRef.current = true;
 		logger.debug('[Session Context] Clear Session');
 		api.clearSession();
 	}, [api]);
@@ -101,8 +105,10 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 		isLoggedIn: isLoggedIn,
 		keystore,
 		logout,
-		obliviousKeyConfig
-	}), [api, keystore, logout, isLoggedIn, obliviousKeyConfig]);
+		obliviousKeyConfig,
+		isLoggingOut,
+		finishLogout
+	}), [api, keystore, logout, isLoggedIn, obliviousKeyConfig, isLoggingOut, finishLogout]);
 
 	useEffect(() => {
 		if (api && keystore && api.isLoggedIn() === true && keystore.isOpen() === false && ((tabId && globalTabId && tabId !== globalTabId) || (!tabId && globalTabId))) {
