@@ -9,6 +9,48 @@ import { parse } from '@auth0/mdl';
  * @param raw - Base64url-encoded issuerSigned blob from an OID4VCI proof or similar
  * @returns Parsed MDoc object with version, documents array, and status
  */
+/**
+ * Extract the base64url-encoded IssuerSigned structure from a stored mdoc
+ * credential, which may be either a full DeviceResponse envelope or a bare
+ * IssuerSigned already.
+ *
+ * A bare IssuerSigned is returned untouched rather than re-encoded, so the
+ * bytes the issuer signed reach the verifier exactly as issued.
+ *
+ * Decoding here uses mdl's CBOR codec, never cbor-x's defaults. cbor-x
+ * decodes maps to plain JavaScript objects, whose keys can only be strings,
+ * so a decode/encode round-trip rewrites COSE's integer header labels as
+ * decimal strings - issuerAuth's x5chain label 33 becomes "33". Byte strings
+ * survive that round-trip untouched, so the corruption is invisible in the
+ * credential's payload and signature, and the unprotected header carrying
+ * the label is not covered by the COSE signature either. The result reaches
+ * a verifier as a correctly-signed credential that appears to carry no
+ * certificate chain at all.
+ *
+ * @param raw - Base64url-encoded DeviceResponse or IssuerSigned
+ * @returns Base64url-encoded IssuerSigned
+ */
+export function extractIssuerSignedB64(raw: string): string {
+	const decoded = cborDecode(base64url.decode(raw));
+	if (!(decoded instanceof Map)) {
+		return raw;
+	}
+
+	const documents = decoded.get('documents');
+	if (!Array.isArray(documents) || documents.length === 0) {
+		// No documents array: this is already a bare IssuerSigned.
+		return raw;
+	}
+
+	const first = documents[0];
+	const issuerSigned = first instanceof Map ? first.get('issuerSigned') : undefined;
+	if (!issuerSigned) {
+		return raw;
+	}
+
+	return base64url.encode(cborEncode(issuerSigned));
+}
+
 export function parseIssuerSignedToMDoc(raw: string) {
 	const credentialBytes = base64url.decode(raw);
 	const issuerSigned = cborDecode(credentialBytes);

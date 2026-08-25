@@ -8,13 +8,12 @@ import { base64url } from 'jose';
 import {
 	applySelectiveDisclosure,
 	buildMdocPresentationDefinition,
+	extractIssuerSignedB64,
 	parseIssuerSignedToMDoc,
 } from '@/lib/verifiable-credentials';
 import { detectCredentialFormat, VerifiableCredentialFormat } from 'wallet-common';
 import { MDoc } from '@auth0/mdl';
 import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
-import * as cbor from 'cbor-x';
-import { fromBase64Url, toBase64Url } from "../util";
 
 
 interface ProofTypeConfig {
@@ -305,14 +304,20 @@ async function createVpTokenFromMdoc(
 	if (!disclosedClaims?.length) {
 		throw new Error('disclosedClaims required for mdoc presentation');
 	}
-	const deviceResponse = cbor.decode(fromBase64Url(credentialRaw));
-	// `deviceResponse` may be a full DeviceResponse envelope, or a bare
+	// The stored credential may be a full DeviceResponse envelope, or a bare
 	// IssuerSigned structure directly (what real-world/interop issuers, e.g.
 	// geneva2026.mdoc.online, send for mso_mdoc credential responses) - in
 	// the latter case it already *is* the issuerSigned structure.
-	const issuerSigned = deviceResponse.documents?.[0]?.issuerSigned ?? deviceResponse;
-	const issuerSignedBytes = cbor.encode(issuerSigned);
-	const issuerSignedB64 = toBase64Url(issuerSignedBytes);
+	//
+	// Decode with mdl's codec, never cbor-x's defaults. cbor-x decodes maps
+	// to plain objects, whose keys can only be strings, so a decode/encode
+	// round-trip silently rewrites COSE's integer header labels as decimal
+	// strings - issuerAuth's x5chain label 33 becomes "33". Byte strings
+	// survive, so the damage is invisible until a verifier looks for the
+	// certificate chain and reports the credential as having none. The
+	// unprotected header is not covered by the COSE signature, so nothing
+	// upstream of that verifier notices.
+	const issuerSignedB64 = extractIssuerSignedB64(credentialRaw);
 	const mdoc = parseIssuerSignedToMDoc(issuerSignedB64);
 	const presentationDefinition = buildMdocPresentationDefinition(
 		mdoc.documents[0].docType,
