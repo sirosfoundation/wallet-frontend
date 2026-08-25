@@ -122,6 +122,24 @@ describe("extractIssuerSignedB64", () => {
 		expect(unprotectedLabels(out)).not.toContain("33");
 	});
 
+	it("returns the input unchanged when the CBOR is not a map at all", () => {
+		// Defensive: a corrupt or unexpected credential should pass through
+		// rather than throw here, so the failure surfaces in the parser with
+		// the credential in hand instead of inside this helper.
+		const notAMap = base64url.encode(cborEncode(["not", "a", "map"]));
+		expect(extractIssuerSignedB64(notAMap)).toBe(notAMap);
+	});
+
+	it("returns the input unchanged when a document carries no issuerSigned", () => {
+		const envelope = new Map<string, unknown>([
+			["version", "1.0"],
+			["documents", [new Map<string, unknown>([["docType", "org.iso.18013.5.1.mDL"]])]],
+			["status", 0],
+		]);
+		const input = base64url.encode(cborEncode(envelope));
+		expect(extractIssuerSignedB64(input)).toBe(input);
+	});
+
 	it("shows why cbor-x's defaults cannot be used here", () => {
 		// Documents the exact mechanism, so the reason this helper exists is
 		// not lost if someone later simplifies it back to a plain round-trip.
