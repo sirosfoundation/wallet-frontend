@@ -117,13 +117,13 @@ describe('prepareCredentialsForNativeWrapper', () => {
 					namespace: 'org.iso.18013.5.1',
 					identifier: 'family_name',
 					value: 'Doe',
-					display: {},
+					display: { en: 'Family Name' },
 				},
 				{
 					namespace: 'org.iso.18013.5.1',
 					identifier: 'age_over_18',
 					value: true,
-					display: {},
+					display: { en: 'Age Over 18' },
 				},
 			]);
 		});

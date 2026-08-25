@@ -114,6 +114,10 @@ function shapeMdocEntry(
 				}
 			}
 
+			if (Object.keys(displayLabels).length < 1) {
+				displayLabels['en'] = humanReadableClaimFromPath(identifier);
+			}
+
 			fields.push({ namespace, identifier, value, display: displayLabels });
 		}
 	}
@@ -181,4 +185,10 @@ function getReadableIssuerName(raw: string | undefined): string | undefined {
 			.trim();
 
 	return findAttribute('O') || findAttribute('CN') || raw;
+}
+
+function humanReadableClaimFromPath(path: string): string {
+	const parts = path.split('.');
+	const lastPart = parts.at(-1) ?? path;
+	return lastPart.replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
