@@ -92,6 +92,12 @@
 	"expiredRibbon": {
 		"expired": "Utgånget"
 	},
+	"errors": {
+		"walletServiceAuth": {
+			"description": "Plånboken kunde inte autentisera mot plånbokstjänsten. Logga in igen.",
+			"title": "Autentisering mot plånbokstjänsten misslyckades"
+		}
+	},
 	"issuance": {
 		"credentialsHaveErrors": "Fel har hittats vid verifiering av intyget du försöker ta emot.",
 		"error": "Utfärdningsfel",
@@ -145,6 +151,7 @@
 		"loginWithSecurityKey": "Logga in med en Säkerhetsnyckel",
 		"messageOffline": "Du är offline. Vissa funktioner kanske inte är tillgängliga.",
 		"newHereQuestion": "Har du inget plånbokskonto? ",
+		"oidcGateError": "Fel i OIDC-gateway.",
 		"or": "ELLER",
 		"passkeyInvalid": "Okänd passkey, möjligen borttagen av användaren.",
 		"passkeyLoginFailedServerError": "Misslyckades att initiera passkey-inloggning, försök igen senare.",
@@ -155,6 +162,7 @@
 		"passkeySignupKeystoreFailed": "Initiering av plånbokens nyckelarkiv misslyckades, försök igen.",
 		"passkeySignupPrfNotSupported": "Denna webbläsare eller säkerhetsnyckel stöds inte. Se till att din webbläsare stöder WebAuthn PRF-tillägget och att din säkerhetsnyckel, om tillämpligt, stöder tillägget \"hmac-secret\". <docLink>Läs mer här</docLink>.",
 		"passkeySignupPrfNotSupportedAriaLabel": "Läs mer om webbläsare och säkerhetsnycklar som stöds",
+		"passkeySignupPrfRetryFailed": "Skapande av passkey misslyckades efter nytt försök. Försök igen.",
 		"privateDataConflict": "En annan session för detta konto störde inloggningsförsöket. Försök igen.",
 		"reachedLengthLimit": "Längdgränsen överskriden",
 		"signUp": "Registrera",
@@ -221,21 +229,65 @@
 			"title": "Auktoriseringsfel"
 		},
 		"errorCodes": {
+			"ABORTED": {
+				"description": "Förfrågan avbröts.",
+				"title": "Förfrågan avbröts"
+			},
+			"ACCESS_DENIED": {
+				"description": "Presentationsförfrågan avvisades.",
+				"title": "Åtkomst nekad"
+			},
+			"AUTH_FAILED": {
+				"description": "Plånboken kunde inte autentisera mot presentationstjänsten. Försök igen.",
+				"title": "Autentisering misslyckades"
+			},
+			"AUTH_RESPONSE_ERROR": {
+				"description": "Auktoriseringssvaret kunde inte slutföras. Försök igen.",
+				"title": "Auktoriseringssvar misslyckades"
+			},
+			"AUTHORIZATION_FAILED": {
+				"description": "Auktorisering med verifieraren kunde inte slutföras.",
+				"title": "Auktorisering misslyckades"
+			},
 			"AUTHORIZATION_RESPONSE_FAILED": {
 				"description": "Auktoriseringssvaret kunde inte slutföras.",
 				"title": "Auktoriseringssvar misslyckades"
+			},
+			"CONNECTION_LOST": {
+				"description": "Anslutningen avbröts. Försök igen.",
+				"title": "Anslutningen bröts"
 			},
 			"FLOW_ERROR": {
 				"description": "Ett fel inträffade under intygsflödet. Försök igen.",
 				"title": "Flödesfel"
 			},
+			"FLOW_EXPIRED": {
+				"description": "Denna förfrågan har gått ut. Börja om.",
+				"title": "Förfrågan har gått ut"
+			},
+			"HTTP_ERROR": {
+				"description": "Ett nätverksfel uppstod när dina intyg skulle delas. Försök igen.",
+				"title": "Nätverksfel"
+			},
 			"INSUFFICIENT_CREDENTIALS": {
 				"description": "Ett eller flera av de intyg du vill presentera finns inte tillgängliga för val.",
 				"title": "Otillräckliga intyg"
 			},
+			"INVALID_REQUEST": {
+				"description": "Presentationsförfrågan är ogiltig och kan inte behandlas.",
+				"title": "Ogiltig förfrågan"
+			},
+			"NETWORK_TIMEOUT": {
+				"description": "Förfrågan tog för lång tid att slutföra. Försök igen.",
+				"title": "Förfrågan tidsgräns överskreds"
+			},
 			"NONTRUSTED_VERIFIER": {
 				"description": "Verifieraren tillhandahöll inte giltiga data för verifiering.",
 				"title": "Verifieraren är inte betrodd"
+			},
+			"NO_CREDENTIAL_SELECTION_POPUP": {
+				"description": "Plånboken kunde inte öppna skärmen för val av intyg. Försök igen.",
+				"title": "Val av intyg inte tillgängligt"
 			},
 			"NO_DCQL_QUERY_OR_PREMATCHED_CREDENTIALS": {
 				"description": "Presentationsförfrågan är felaktig — ingen fråga eller förmatchade intyg angavs.",
@@ -249,17 +301,65 @@
 				"description": "Ingen transport är tillgänglig för verifierbar presentation.",
 				"title": "Transport ej tillgänglig"
 			},
+			"NO_TRANSPORT_AVAILABLE": {
+				"description": "Ingen transport är tillgänglig för att skicka presentationen.",
+				"title": "Transport ej tillgänglig"
+			},
+			"PREAUTH_ERROR": {
+				"description": "Den förhandsauktoriserade intygsförfrågan kunde inte slutföras. Försök igen.",
+				"title": "Förhandsauktorisering misslyckades"
+			},
+			"PROTOCOL_ERROR": {
+				"description": "Förfrågan kunde inte slutföras på grund av ett protokollfel.",
+				"title": "Protokollfel"
+			},
 			"RESPONSE_ERROR": {
 				"description": "Ett fel inträffade vid sändning av presentationssvaret.",
 				"title": "Svarsfel"
+			},
+			"RETRY_EXHAUSTED": {
+				"description": "Förfrågan misslyckades efter flera försök. Försök igen senare.",
+				"title": "Förfrågan misslyckades"
 			},
 			"SELECTION_ERROR": {
 				"description": "Ett fel inträffade vid val av intyg.",
 				"title": "Valfel"
 			},
+			"SIGNING_FAILED": {
+				"description": "Plånboken kunde inte skapa en signerad presentation. Försök igen.",
+				"title": "Signering misslyckades"
+			},
+			"STORE_ERROR": {
+				"description": "Intyget togs emot men kunde inte lagras. Försök igen.",
+				"title": "Intyget kunde inte lagras"
+			},
+			"UNKNOWN_ERROR": {
+				"description": "Ett oväntat fel uppstod. Försök igen.",
+				"title": "Oväntat fel"
+			},
+			"UNSUPPORTED_CALLBACK": {
+				"description": "Den angivna callback-URL:en stöds inte.",
+				"title": "Callback stöds inte"
+			},
+			"UNSUPPORTED_FLOW_TYPE": {
+				"description": "Denna typ av förfrågan stöds inte.",
+				"title": "Förfrågan stöds inte"
+			},
+			"UNTRUSTED_VERIFIER": {
+				"description": "Verifieraren tillhandahöll inte giltiga data för verifiering.",
+				"title": "Verifieraren är inte betrodd"
+			},
+			"USER_CANCELLED": {
+				"description": "Du avbröt delningen av dina intyg.",
+				"title": "Delning avbruten"
+			},
 			"WALLET_STATE_UNAVAILABLE": {
 				"description": "Plånbokens tillstånd är inte tillgängligt. Logga in igen.",
 				"title": "Plånbok ej tillgänglig"
+			},
+			"WEBSOCKET_ERROR": {
+				"description": "Anslutningen till plånbokstjänsten bröts. Försök igen.",
+				"title": "Anslutningsfel"
 			}
 		},
 		"insufficientCredentials": {
@@ -294,7 +394,14 @@
 			"message": "Du kommer att omdirigeras till <strong>{{issuerName}}</strong> <i>{{issuerDescription}}</i> för att utfärda ett <strong>{{credentialName}}</strong> <i>{{credentialDescription}}</i>.",
 			"title": "Valt:"
 		},
-		"searchPlaceholder": "Sök intyg..."
+		"searchPlaceholder": "Sök intyg...",
+		"scanPhysicalId": {
+			"sectionTitle": "Skanna fysiskt ID",
+			"digitalId": {
+				"title": "Digitalt ID (skannat pass)",
+				"description": "Använd ditt pass för att skapa ett digitalt ID."
+			}
+		}
 	},
 	"pageCredentials": {
 		"addCard": {
@@ -435,6 +542,38 @@
 			"registered": "Registrerad med Wallet Companion",
 			"title": "Wallet Companion (beta)"
 		}
+	},
+	"pageScanPhysicalId": {
+		"title": "Skanna fysiskt ID",
+		"goBackAriaLabel": "Tillbaka",
+		"steps": {
+			"step1": {
+				"title": "Steg 1",
+				"description": "Skanna ditt ansikte för att visa att du är en verklig, levande människa"
+			},
+			"step2": {
+				"title": "Steg 2",
+				"description": "Skanna ditt dokument"
+			},
+			"step3": {
+				"title": "Steg 3",
+				"description": "Lägg telefonen på dokumentet för att läsa NFC-chippet"
+			}
+		},
+		"beforeYouBegin": {
+			"title": "Innan du börjar",
+			"passportReady": "Ha passet redo",
+			"goodLighting": "Bra belysning",
+			"goodInternet": "Bra internetanslutning"
+		},
+		"whyFaceScan": {
+			"title": "Varför ansiktsskanning?",
+			"description": "Vi använder en snabb 3D-ansiktsverifiering för att förhindra bedräglig användning av ditt dokument. Dina biometriska data krypteras och raderas när verifieringen är klar.",
+			"viewOur": "Visa vår ",
+			"privacyPolicy": "integritetspolicy"
+		},
+		"startScan": "Starta skanning",
+		"biometricConsent": "Jag samtycker till biometrisk behandling för identitetsverifiering."
 	},
 	"parsing": {
 		"errorCouldNotParse": "Intyget kunde inte tolkas.",

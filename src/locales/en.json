@@ -92,6 +92,12 @@
 	"expiredRibbon": {
 		"expired": "Expired"
 	},
+	"errors": {
+		"walletServiceAuth": {
+			"description": "The wallet could not authenticate with the wallet service. Please log in again.",
+			"title": "Wallet Service Authentication Failed"
+		}
+	},
 	"issuance": {
 		"credentialsHaveErrors": "Errors have been found while verifying the credential you are trying to receive.",
 		"error": "Issuance Error",
@@ -144,6 +150,7 @@
 		"loginWithSecurityKey": "Log in with a Security Key",
 		"messageOffline": "You are offline. Some features may not be available.",
 		"newHereQuestion": "Don't have a wallet account? ",
+		"oidcGateError": "OIDC gate configuration error. Please contact support.",
 		"or": "OR",
 		"passkeyInvalid": "Unknown passkey, possibly deleted by user.",
 		"passkeyLoginFailedServerError": "Failed to initiate passkey login, please try again later.",
@@ -154,6 +161,7 @@
 		"passkeySignupKeystoreFailed": "Failed to initialize wallet key store, please try again.",
 		"passkeySignupPrfNotSupported": "This browser or security key is not supported. Please make sure that your browser supports the WebAuthn PRF extension and your security key, if any, supports the \"hmac-secret\" extension. <docLink>Learn more here</docLink>.",
 		"passkeySignupPrfNotSupportedAriaLabel": "Learn more about supported browsers or security keys",
+		"passkeySignupPrfRetryFailed": "Passkey creation failed after retrying. Please try again.",
 		"privateDataConflict": "Another session for this account disrupted the login attempt. Please try again.",
 		"reachedLengthLimit": "Length limit exceeded",
 		"signUp": "Sign Up",
@@ -220,21 +228,65 @@
 			"title": "Authorization Error"
 		},
 		"errorCodes": {
+			"ABORTED": {
+				"description": "The request was cancelled.",
+				"title": "Request Cancelled"
+			},
+			"ACCESS_DENIED": {
+				"description": "The presentation request was denied.",
+				"title": "Access Denied"
+			},
+			"AUTH_FAILED": {
+				"description": "The wallet could not authenticate with the presentation service. Please try again.",
+				"title": "Authentication Failed"
+			},
+			"AUTH_RESPONSE_ERROR": {
+				"description": "The authorization response could not be completed. Please try again.",
+				"title": "Authorization Response Failed"
+			},
+			"AUTHORIZATION_FAILED": {
+				"description": "Authorization with the verifier could not be completed.",
+				"title": "Authorization Failed"
+			},
 			"AUTHORIZATION_RESPONSE_FAILED": {
 				"description": "The authorization response could not be completed.",
 				"title": "Authorization Response Failed"
+			},
+			"CONNECTION_LOST": {
+				"description": "The connection was interrupted. Please try again.",
+				"title": "Connection Lost"
 			},
 			"FLOW_ERROR": {
 				"description": "An error occurred during the credential flow. Please try again.",
 				"title": "Flow Error"
 			},
+			"FLOW_EXPIRED": {
+				"description": "This request has expired. Please start again.",
+				"title": "Request Expired"
+			},
+			"HTTP_ERROR": {
+				"description": "A network error occurred while sharing your credentials. Please try again.",
+				"title": "Network Error"
+			},
 			"INSUFFICIENT_CREDENTIALS": {
 				"description": "One or more of the credentials you want to present do not exist for selection.",
 				"title": "Insufficient Credentials"
 			},
+			"INVALID_REQUEST": {
+				"description": "The presentation request is invalid and cannot be processed.",
+				"title": "Invalid Request"
+			},
+			"NETWORK_TIMEOUT": {
+				"description": "The request took too long to complete. Please try again.",
+				"title": "Request Timed Out"
+			},
 			"NONTRUSTED_VERIFIER": {
 				"description": "Verifier did not provide valid data for verification.",
 				"title": "Verifier is not Trusted"
+			},
+			"NO_CREDENTIAL_SELECTION_POPUP": {
+				"description": "The wallet could not open the credential selection screen. Please try again.",
+				"title": "Credential Selection Unavailable"
 			},
 			"NO_DCQL_QUERY_OR_PREMATCHED_CREDENTIALS": {
 				"description": "The presentation request is malformed — no query or pre-matched credentials provided.",
@@ -248,17 +300,65 @@
 				"description": "No transport is available for verifiable presentation.",
 				"title": "Transport Unavailable"
 			},
+			"NO_TRANSPORT_AVAILABLE": {
+				"description": "No transport is available to send the presentation.",
+				"title": "Transport Unavailable"
+			},
+			"PREAUTH_ERROR": {
+				"description": "The pre-authorized credential request could not be completed. Please try again.",
+				"title": "Pre-authorization Failed"
+			},
+			"PROTOCOL_ERROR": {
+				"description": "The request could not be completed due to a protocol error.",
+				"title": "Protocol Error"
+			},
 			"RESPONSE_ERROR": {
 				"description": "An error occurred while sending the presentation response.",
 				"title": "Response Error"
+			},
+			"RETRY_EXHAUSTED": {
+				"description": "The request failed after several retries. Please try again later.",
+				"title": "Request Failed"
 			},
 			"SELECTION_ERROR": {
 				"description": "An error occurred during credential selection.",
 				"title": "Selection Error"
 			},
+			"SIGNING_FAILED": {
+				"description": "The wallet could not create a signed presentation. Please try again.",
+				"title": "Signing Failed"
+			},
+			"STORE_ERROR": {
+				"description": "The credential was received but could not be stored. Please try again.",
+				"title": "Could Not Store Credential"
+			},
+			"UNKNOWN_ERROR": {
+				"description": "An unexpected error occurred. Please try again.",
+				"title": "Unexpected Error"
+			},
+			"UNSUPPORTED_CALLBACK": {
+				"description": "The provided callback URL is not supported.",
+				"title": "Unsupported Callback"
+			},
+			"UNSUPPORTED_FLOW_TYPE": {
+				"description": "This type of request is not supported.",
+				"title": "Unsupported Request"
+			},
+			"UNTRUSTED_VERIFIER": {
+				"description": "Verifier did not provide valid data for verification.",
+				"title": "Verifier is not Trusted"
+			},
+			"USER_CANCELLED": {
+				"description": "You cancelled sharing your credentials.",
+				"title": "Sharing Cancelled"
+			},
 			"WALLET_STATE_UNAVAILABLE": {
 				"description": "Wallet state is not available. Please log in again.",
 				"title": "Wallet Unavailable"
+			},
+			"WEBSOCKET_ERROR": {
+				"description": "The connection to the wallet service was lost. Please try again.",
+				"title": "Connection Error"
 			}
 		},
 		"insufficientCredentials": {

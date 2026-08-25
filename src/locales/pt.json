@@ -76,6 +76,12 @@
 	"expiredRibbon": {
 		"expired": "Expirada"
 	},
+	"errors": {
+		"walletServiceAuth": {
+			"description": "A carteira não conseguiu autenticar-se no serviço da carteira. Por favor, inicie sessão novamente.",
+			"title": "Falha na autenticação do serviço da carteira"
+		}
+	},
 	"issuanceWarningPopup": {
 		"codes": {
 			"FailFetchIssuerMetadata": "Não foi possível obter os metadados do emissor: o credencial poderá ser apresentado com informação limitada",
@@ -121,6 +127,7 @@
 		"loginWithSecurityKey": "Iniciar sessão com uma chave de segurança",
 		"messageOffline": "Está offline. Algumas funcionalidades podem não estar disponíveis",
 		"newHereQuestion": "Não tem uma conta de carteira? ",
+		"oidcGateError": "Erro de configuração do OIDC. Por favor, contacte o suporte.",
 		"or": "OU",
 		"passkeyInvalid": "Chave de acesso desconhecida, possivelmente eliminada pelo utilizador.",
 		"passkeyLoginFailedServerError": "Não foi possível iniciar sessão com chave de acesso. Por favor, tente novamente mais tarde.",
@@ -131,6 +138,7 @@
 		"passkeySignupKeystoreFailed": "Não foi possível iniciar armazenamento de chaves da carteira. Por favor, tente novamente.",
 		"passkeySignupPrfNotSupported": "Este navegador ou a chave de segurança não são suportados. Por favor, assegure-se que o seu navegador suporta a extensão WebAuthn PRF e que a sua chave de segurança, caso exista, suporta a extensão \"hmac-secret\". <docLink>Saiba mais aqui</docLink>.",
 		"passkeySignupPrfNotSupportedAriaLabel": "Saiba mais sobre navegadores suportados ou chaves de segurança.",
+		"passkeySignupPrfRetryFailed": "A criação da chave de acesso falhou após nova tentativa. Por favor, tente novamente.",
 		"privateDataConflict": "Outra sessão associada a esta conta interrompeu a tentativa de início de sessão. Por favor, tente novamente.",
 		"reachedLengthLimit": "Tamanho máximo excedido",
 		"signUp": "Registar",
@@ -172,21 +180,65 @@
 			"title": "Erro de Autorização"
 		},
 		"errorCodes": {
+			"ABORTED": {
+				"description": "O pedido foi cancelado.",
+				"title": "Pedido Cancelado"
+			},
+			"ACCESS_DENIED": {
+				"description": "O pedido de apresentação foi recusado.",
+				"title": "Acesso Negado"
+			},
+			"AUTH_FAILED": {
+				"description": "A carteira não conseguiu autenticar-se no serviço de apresentação. Por favor, tente novamente.",
+				"title": "Falha na Autenticação"
+			},
+			"AUTH_RESPONSE_ERROR": {
+				"description": "A resposta de autorização não pôde ser concluída. Tente novamente.",
+				"title": "Falha na Resposta de Autorização"
+			},
+			"AUTHORIZATION_FAILED": {
+				"description": "A autorização com o verifier não pôde ser concluída.",
+				"title": "Falha na Autorização"
+			},
 			"AUTHORIZATION_RESPONSE_FAILED": {
 				"description": "A resposta de autorização não pôde ser concluída.",
 				"title": "Falha na Resposta de Autorização"
+			},
+			"CONNECTION_LOST": {
+				"description": "A ligação foi interrompida. Tente novamente.",
+				"title": "Ligação Perdida"
 			},
 			"FLOW_ERROR": {
 				"description": "Ocorreu um erro durante o fluxo de credencial. Tente novamente.",
 				"title": "Erro de Fluxo"
 			},
+			"FLOW_EXPIRED": {
+				"description": "Este pedido expirou. Por favor, comece novamente.",
+				"title": "Pedido Expirado"
+			},
+			"HTTP_ERROR": {
+				"description": "Ocorreu um erro de rede ao partilhar as suas credenciais. Tente novamente.",
+				"title": "Erro de Rede"
+			},
 			"INSUFFICIENT_CREDENTIALS": {
 				"description": "Uma ou mais das credenciais que deseja apresentar não estão disponíveis para seleção.",
 				"title": "Credenciais Insuficientes"
 			},
+			"INVALID_REQUEST": {
+				"description": "O pedido de apresentação é inválido e não pode ser processado.",
+				"title": "Pedido Inválido"
+			},
+			"NETWORK_TIMEOUT": {
+				"description": "O pedido demorou demasiado a ser concluído. Tente novamente.",
+				"title": "Pedido Expirou"
+			},
 			"NONTRUSTED_VERIFIER": {
 				"description": "O verifier não forneceu informação válida para verificação.",
 				"title": "Verifier Não Confiável"
+			},
+			"NO_CREDENTIAL_SELECTION_POPUP": {
+				"description": "A carteira não conseguiu abrir o ecrã de seleção de credenciais. Tente novamente.",
+				"title": "Seleção de Credenciais Indisponível"
 			},
 			"NO_DCQL_QUERY_OR_PREMATCHED_CREDENTIALS": {
 				"description": "O pedido de apresentação é inválido — nenhuma consulta ou credenciais pré-correspondidas fornecidas.",
@@ -200,17 +252,65 @@
 				"description": "Nenhum transporte disponível para apresentação verificável.",
 				"title": "Transporte Indisponível"
 			},
+			"NO_TRANSPORT_AVAILABLE": {
+				"description": "Nenhum transporte disponível para enviar a apresentação.",
+				"title": "Transporte Indisponível"
+			},
+			"PREAUTH_ERROR": {
+				"description": "O pedido de credencial pré-autorizado não pôde ser concluído. Tente novamente.",
+				"title": "Falha na Pré-autorização"
+			},
+			"PROTOCOL_ERROR": {
+				"description": "O pedido não pôde ser concluído devido a um erro de protocolo.",
+				"title": "Erro de Protocolo"
+			},
 			"RESPONSE_ERROR": {
 				"description": "Ocorreu um erro ao enviar a resposta de apresentação.",
 				"title": "Erro de Resposta"
+			},
+			"RETRY_EXHAUSTED": {
+				"description": "O pedido falhou após várias tentativas. Tente novamente mais tarde.",
+				"title": "Pedido Falhou"
 			},
 			"SELECTION_ERROR": {
 				"description": "Ocorreu um erro durante a seleção de credenciais.",
 				"title": "Erro de Seleção"
 			},
+			"SIGNING_FAILED": {
+				"description": "A carteira não conseguiu criar uma apresentação assinada. Tente novamente.",
+				"title": "Falha na Assinatura"
+			},
+			"STORE_ERROR": {
+				"description": "A credencial foi recebida mas não pôde ser armazenada. Tente novamente.",
+				"title": "Não Foi Possível Armazenar a Credencial"
+			},
+			"UNKNOWN_ERROR": {
+				"description": "Ocorreu um erro inesperado. Tente novamente.",
+				"title": "Erro Inesperado"
+			},
+			"UNSUPPORTED_CALLBACK": {
+				"description": "O URL de callback fornecido não é suportado.",
+				"title": "Callback Não Suportado"
+			},
+			"UNSUPPORTED_FLOW_TYPE": {
+				"description": "Este tipo de pedido não é suportado.",
+				"title": "Pedido Não Suportado"
+			},
+			"UNTRUSTED_VERIFIER": {
+				"description": "O verifier não forneceu informação válida para verificação.",
+				"title": "Verifier Não Confiável"
+			},
+			"USER_CANCELLED": {
+				"description": "Cancelou a partilha das suas credenciais.",
+				"title": "Partilha Cancelada"
+			},
 			"WALLET_STATE_UNAVAILABLE": {
 				"description": "O estado da carteira não está disponível. Faça login novamente.",
 				"title": "Carteira Indisponível"
+			},
+			"WEBSOCKET_ERROR": {
+				"description": "A ligação ao serviço da carteira foi perdida. Tente novamente.",
+				"title": "Erro de Ligação"
 			}
 		},
 		"insufficientCredentials": {

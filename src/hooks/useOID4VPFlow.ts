@@ -488,12 +488,12 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 			}
 
 			const credentials = await waitForCredentials();
-			const { matches, no_match_reason } = matchCredentials(credentials, request.dcqlQuery);
+			const { matches, no_match_reason, code } = matchCredentials(credentials, request.dcqlQuery);
 
 			if (matches.length === 0) {
 				throw new OIDFlowError({
-					code: no_match_reason || 'NO_MATCHING_CREDENTIALS',
-					message: 'No matching credentials',
+					code: code ?? 'NO_MATCHING_CREDENTIALS',
+					message: no_match_reason || 'No matching credentials',
 				});
 			}
 

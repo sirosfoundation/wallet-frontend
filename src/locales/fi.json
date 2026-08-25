@@ -92,6 +92,12 @@
 	"expiredRibbon": {
 		"expired": "Vanhentunut"
 	},
+	"errors": {
+		"walletServiceAuth": {
+			"description": "Lompakko ei voinut tunnistautua lompakkopalveluun. Kirjaudu sisään uudelleen.",
+			"title": "Lompakkopalvelun todennus epäonnistui"
+		}
+	},
 	"issuance": {
 		"credentialsHaveErrors": "Vastaanotettavan todistuksen vahvistuksessa havaittiin virheitä.",
 		"error": "Myöntämisvirhe",
@@ -145,6 +151,7 @@
 		"loginWithSecurityKey": "Kirjaudu turva-avaimella",
 		"messageOffline": "Olet offline. Jotkin toiminnot eivät ehkä ole käytettävissä.",
 		"newHereQuestion": "Eikö sinulla ole lompakkotiliä? ",
+		"oidcGateError": "OIDC-yhdyskäytävän määritysvirhe. Ota yhteyttä tukeen.",
 		"or": "TAI",
 		"passkeyInvalid": "Tuntematon passkey, käyttäjä on mahdollisesti poistanut sen.",
 		"passkeyLoginFailedServerError": "Passkey-kirjautumisen aloittaminen epäonnistui, yritä myöhemmin uudelleen.",
@@ -155,6 +162,7 @@
 		"passkeySignupKeystoreFailed": "Lompakon avainvaraston alustaminen epäonnistui, yritä uudelleen.",
 		"passkeySignupPrfNotSupported": "Tätä selainta tai turva-avainta ei tueta. Varmista, että selaimesi tukee WebAuthn PRF -laajennusta ja turva-avaimesi, jos käytössä, tukee \"hmac-secret\" -laajennusta. <docLink>Lue lisää täältä</docLink>.",
 		"passkeySignupPrfNotSupportedAriaLabel": "Lue lisää tuetuista selaimista tai turva-avaimista",
+		"passkeySignupPrfRetryFailed": "Passkeyn luominen epäonnistui uudelleenyrityksen jälkeen. Yritä uudelleen.",
 		"privateDataConflict": "Toinen istunto tällä tilillä häiritsi kirjautumisyritystä. Yritä uudelleen.",
 		"reachedLengthLimit": "Pituusraja ylitetty",
 		"signUp": "Rekisteröidy",
@@ -221,21 +229,65 @@
 			"title": "Valtuutusvirhe"
 		},
 		"errorCodes": {
+			"ABORTED": {
+				"description": "Pyyntö peruutettiin.",
+				"title": "Pyyntö peruutettu"
+			},
+			"ACCESS_DENIED": {
+				"description": "Esityspyyntö evättiin.",
+				"title": "Pääsy evätty"
+			},
+			"AUTH_FAILED": {
+				"description": "Lompakko ei voinut tunnistautua esityspalveluun. Yritä uudelleen.",
+				"title": "Todenus epäonnistui"
+			},
+			"AUTH_RESPONSE_ERROR": {
+				"description": "Valtuutusvastausta ei voitu suorittaa loppuun. Yritä uudelleen.",
+				"title": "Valtuutusvastaus epäonnistui"
+			},
+			"AUTHORIZATION_FAILED": {
+				"description": "Valtuutusta todentajan kanssa ei voitu suorittaa loppuun.",
+				"title": "Valtuutus epäonnistui"
+			},
 			"AUTHORIZATION_RESPONSE_FAILED": {
 				"description": "Valtuutusvastausta ei voitu suorittaa loppuun.",
 				"title": "Valtuutusvastaus epäonnistui"
+			},
+			"CONNECTION_LOST": {
+				"description": "Yhteys keskeytyi. Yritä uudelleen.",
+				"title": "Yhteys katkesi"
 			},
 			"FLOW_ERROR": {
 				"description": "Todistusprosessin aikana tapahtui virhe. Yritä uudelleen.",
 				"title": "Prosessivirhe"
 			},
+			"FLOW_EXPIRED": {
+				"description": "Tämä pyyntö on vanhentunut. Aloita uudelleen.",
+				"title": "Pyyntö vanhentunut"
+			},
+			"HTTP_ERROR": {
+				"description": "Verkkovirhe tapahtui todistuksia jaettaessa. Yritä uudelleen.",
+				"title": "Verkkovirhe"
+			},
 			"INSUFFICIENT_CREDENTIALS": {
 				"description": "Yhtä tai useampaa esitettävää todistusta ei ole valittavissa.",
 				"title": "Riittämättömät todistukset"
 			},
+			"INVALID_REQUEST": {
+				"description": "Esityspyyntö on virheellinen eikä sitä voida käsitellä.",
+				"title": "Virheellinen pyyntö"
+			},
+			"NETWORK_TIMEOUT": {
+				"description": "Pyynnön suorittaminen kesti liian kauan. Yritä uudelleen.",
+				"title": "Pyyntö aikakatkaistiin"
+			},
 			"NONTRUSTED_VERIFIER": {
 				"description": "Todentaja ei toimittanut kelvollisia tietoja vahvistusta varten.",
 				"title": "Todentaja ei ole luotettu"
+			},
+			"NO_CREDENTIAL_SELECTION_POPUP": {
+				"description": "Lompakko ei voinut avata todistuksen valintanäyttöä. Yritä uudelleen.",
+				"title": "Todistuksen valinta ei käytettävissä"
 			},
 			"NO_DCQL_QUERY_OR_PREMATCHED_CREDENTIALS": {
 				"description": "Esityspyyntö on virheellinen — kyselyä tai ennalta sovitettuja todistuksia ei annettu.",
@@ -249,17 +301,65 @@
 				"description": "Todennettavaan esitykseen ei ole käytettävissä kuljetustapaa.",
 				"title": "Kuljetus ei käytettävissä"
 			},
+			"NO_TRANSPORT_AVAILABLE": {
+				"description": "Esityksen lähettämiseen ei ole käytettävissä kuljetustapaa.",
+				"title": "Kuljetus ei käytettävissä"
+			},
+			"PREAUTH_ERROR": {
+				"description": "Ennalta valtuutettua todistuspyyntöä ei voitu suorittaa loppuun. Yritä uudelleen.",
+				"title": "Ennakkovaltuutus epäonnistui"
+			},
+			"PROTOCOL_ERROR": {
+				"description": "Pyyntöä ei voitu suorittaa protokollavirheen vuoksi.",
+				"title": "Protokollavirhe"
+			},
 			"RESPONSE_ERROR": {
 				"description": "Esitysvastauksen lähettämisessä tapahtui virhe.",
 				"title": "Vastausvirhe"
+			},
+			"RETRY_EXHAUSTED": {
+				"description": "Pyyntö epäonnistui useiden uudelleenyritysten jälkeen. Yritä myöhemmin uudelleen.",
+				"title": "Pyyntö epäonnistui"
 			},
 			"SELECTION_ERROR": {
 				"description": "Todistuksen valinnassa tapahtui virhe.",
 				"title": "Valintavirhe"
 			},
+			"SIGNING_FAILED": {
+				"description": "Lompakko ei voinut luoda allekirjoitettua esitystä. Yritä uudelleen.",
+				"title": "Allekirjoitus epäonnistui"
+			},
+			"STORE_ERROR": {
+				"description": "Todistus vastaanotettiin, mutta sitä ei voitu tallentaa. Yritä uudelleen.",
+				"title": "Todistusta ei voitu tallentaa"
+			},
+			"UNKNOWN_ERROR": {
+				"description": "Tapahtui odottamaton virhe. Yritä uudelleen.",
+				"title": "Odottamaton virhe"
+			},
+			"UNSUPPORTED_CALLBACK": {
+				"description": "Annettua callback-URL:ää ei tueta.",
+				"title": "Callbackia ei tueta"
+			},
+			"UNSUPPORTED_FLOW_TYPE": {
+				"description": "Tämän tyyppistä pyyntöä ei tueta.",
+				"title": "Pyyntöä ei tueta"
+			},
+			"UNTRUSTED_VERIFIER": {
+				"description": "Todentaja ei toimittanut kelvollisia tietoja vahvistusta varten.",
+				"title": "Todentaja ei ole luotettu"
+			},
+			"USER_CANCELLED": {
+				"description": "Peruutit todistusten jakamisen.",
+				"title": "Jakaminen peruutettu"
+			},
 			"WALLET_STATE_UNAVAILABLE": {
 				"description": "Lompakon tila ei ole käytettävissä. Kirjaudu uudelleen sisään.",
 				"title": "Lompakko ei käytettävissä"
+			},
+			"WEBSOCKET_ERROR": {
+				"description": "Yhteys lompakkopalveluun katkesi. Yritä uudelleen.",
+				"title": "Yhteysvirhe"
 			}
 		},
 		"insufficientCredentials": {
@@ -294,7 +394,14 @@
 			"message": "Sinut ohjataan kohteeseen <strong>{{issuerName}}</strong> <i>{{issuerDescription}}</i> myöntämään <strong>{{credentialName}}</strong> <i>{{credentialDescription}}</i>.",
 			"title": "Valittu:"
 		},
-		"searchPlaceholder": "Etsi todistuksia..."
+		"searchPlaceholder": "Etsi todistuksia...",
+		"scanPhysicalId": {
+			"sectionTitle": "Skannaa fyysinen henkilöllisyystodistus",
+			"digitalId": {
+				"title": "Digitaalinen henkilöllisyystodistus (skannattu passi)",
+				"description": "Käytä passiasi digitaalisen henkilöllisyystodistuksen luomiseen."
+			}
+		}
 	},
 	"pageCredentials": {
 		"addCard": {
@@ -435,6 +542,38 @@
 			"registered": "Rekisteröity Wallet Companioniin",
 			"title": "Wallet Companion (beta)"
 		}
+	},
+	"pageScanPhysicalId": {
+		"title": "Skannaa fyysinen henkilöllisyystodistus",
+		"goBackAriaLabel": "Takaisin",
+		"steps": {
+			"step1": {
+				"title": "Vaihe 1",
+				"description": "Skannaa kasvosi osoittaaksesi, että olet oikea, elävä ihminen"
+			},
+			"step2": {
+				"title": "Vaihe 2",
+				"description": "Skannaa asiakirjasi"
+			},
+			"step3": {
+				"title": "Vaihe 3",
+				"description": "Aseta puhelin asiakirjan päälle NFC-sirun lukemiseksi"
+			}
+		},
+		"beforeYouBegin": {
+			"title": "Ennen kuin aloitat",
+			"passportReady": "Pidä passi valmiina",
+			"goodLighting": "Hyvä valaistus",
+			"goodInternet": "Hyvä internetyhteys"
+		},
+		"whyFaceScan": {
+			"title": "Miksi kasvokuvaus?",
+			"description": "Käytämme nopeaa 3D-kasvotunnistusta estääksemme asiakirjasi väärinkäytön. Biometriset tietosi salataan ja hävitetään tarkistuksen jälkeen.",
+			"viewOur": "Katso ",
+			"privacyPolicy": "tietosuojakäytäntömme"
+		},
+		"startScan": "Aloita skannaus",
+		"biometricConsent": "Suostun biometriseen käsittelyyn henkilöllisyyden varmistamiseksi."
 	},
 	"parsing": {
 		"errorCouldNotParse": "Todistusta ei voitu jäsentää.",
