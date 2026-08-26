@@ -214,7 +214,7 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 									<dt className="text-xs font-semibold uppercase tracking-wide text-lm-gray-500 dark:text-dm-gray-400">
 										Proof
 									</dt>
-									<dd className="text-base font-bold">Age of 18</dd>
+									<dd className="text-base font-bold">Age Over 18</dd>
 								</div>
 
 								<div className="flex flex-col gap-0.5 pt-3 border-t border-t-lm-gray-300 dark:border-t-dm-gray-700">
@@ -268,8 +268,7 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 								} as React.CSSProperties
 							}
 						>
-							<h3 className="font-bold text-lg leading-snug">You are fully anonymous!</h3>
-							<p className="text-sm opacity-90">SIROS anonymity guarantee</p>
+							<h3 className="font-bold text-lg leading-snug">You cannot be tracked across sites</h3>
 						</div>
 					</li>
 				))}

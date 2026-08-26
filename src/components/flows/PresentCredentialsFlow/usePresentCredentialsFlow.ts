@@ -55,18 +55,34 @@ export function usePresentCredentialsFlow() {
 		[vcEntityList, language],
 	);
 
-	const displayProcessingScreen = useCallback((messages: string[] = [t('common.loading')]): AbortSignal => {
+	const PROOF_MESSAGES = [
+		'Working on it',
+		'Generating proof',
+		'Proving away',
+		'Almost there',
+	];
+
+	const displayProcessingScreen = useCallback((messages: string[] = PROOF_MESSAGES): AbortSignal => {
 		const controller = new AbortController();
 		sharingAbort.current = controller;
 		setView({ status: 'sharing', messages, onCancel: () => controller.abort() });
 
 		return controller.signal;
-	}, [t]);
+	}, []);
 
 	const displaySendingScreen = useCallback((): void => {
 		sharingAbort.current = null;
-		setView({ status: 'sharing', messages: [t('presentCredentialsFlow.sharing.sending')], onCancel: undefined, });
-	}, [t]);
+		setView({
+			status: 'sharing',
+			messages: [
+				'Working on it',
+				'Generating proof',
+				'Proving away',
+				'Almost there',
+			],
+			onCancel: undefined,
+		});
+	}, []);
 
 	const displayCompletedScreen = useCallback(async (result: PresentationResult) => {
 		setView({ status: 'shared', result });

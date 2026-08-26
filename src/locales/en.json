@@ -51,21 +51,21 @@
 		"showMore": "Show more",
 		"submit": "Submit",
 		"tryAgain": "Try again",
-		"walletName": "wwWallet"
+		"walletName": "SIROSID"
 	},
 	"presentCredentialsFlow": {
 		"overview": {
-			"title": "Request to Share Data",
+			"title": "Presentation Request",
 			"requester": "Requester",
 			"purpose": "Purpose",
-			"requestedInformation": "Requested Information",
+			"requestedInformation": "",
 			"share": "Share",
 			"decline": "Decline",
 			"switchCredential": "Switch credential",
 			"switchCredentialAria": "Switch credential: {{name}}, {{count}} available"
 		},
 		"sharing": {
-			"sending": "Sending..."
+			"sending": "Generating proof"
 		},
 		"completed": {
 			"title": "Success!",
@@ -606,8 +606,8 @@
 	"sidebar": {
 		"navItemLogout": "Logout",
 		"obliviousEnabled": "Private requests with Oblivious HTTP enabled",
-		"poweredBy": "Powered by <docLinkWalletGithub>wwWallet</docLinkWalletGithub>",
-		"poweredByAriaLabel": "GitHub repository of wwWallet"
+		"poweredBy": "Powered by <docLinkWalletGithub>$t(common.walletName)</docLinkWalletGithub>",
+		"poweredByAriaLabel": "GitHub repository of $t(common.walletName)"
 	},
 	"syncPopup": {
 		"description": "Looks like you've <strong>modified your wallet in another session</strong>. Use your <strong>passkey</strong> to sync your wallet.",

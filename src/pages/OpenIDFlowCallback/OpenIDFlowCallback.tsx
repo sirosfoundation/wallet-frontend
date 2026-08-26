@@ -396,7 +396,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	const {
 		view,
 		displayRequestOverviewScreen,
-		// displayProcessingScreen,
+		displayProcessingScreen,
 		displaySendingScreen,
 		displayCompletedScreen,
 		displayErrorScreen,
@@ -611,7 +611,136 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			zkDocumentsArray: zkDocumentsArray
 		};
 	}
+
+	let sharedProverWorker: Worker | null = null;
+
+	function getProverWorker(): Worker {
+		if (!sharedProverWorker) {
+			sharedProverWorker = new Worker(
+				new URL('@/utils/prover.worker.ts', import.meta.url),
+				{ type: 'module' },
+			);
+		}
+		return sharedProverWorker;
+	}
+
+	function generateProofInWorker(witness: {
+		mdoc: string;
+		transcript: string;
+		now: string;
+		pseudonymSeed: Uint8Array;
+	}): Promise<{ proof: Uint8Array; ppid: Uint8Array; ppidHex: string; durationMs: number }> {
+		const worker = getProverWorker();
+
+		return new Promise((resolve, reject) => {
+			const timer = setTimeout(() => {
+				worker.removeEventListener('message', onMessage);
+				reject(new Error('proof generation timed out'));
+			}, 500000);
+
+			const onMessage = (e: MessageEvent) => {
+				clearTimeout(timer);
+				worker.removeEventListener('message', onMessage);
+				if (e.data.type === 'PROOF_SUCCESS') resolve(e.data.payload);
+				else reject(new Error(e.data.payload));
+			};
+
+			worker.addEventListener('message', onMessage);
+			worker.postMessage({ type: 'GENERATE_PROOF', payload: witness });
+		});
+	}
+
 	async function startBackgroundProofGeneration(
+		credentialData: string,
+		keystore: any,
+		proofCacheDb: any,
+		transcriptHex: string,
+		now: string,
+	): Promise<{ proof: Uint8Array; ppid: Uint8Array; ppidHex?: string } | null> {
+		try {
+			const originalMdocHex = base64ToHex(credentialData);
+			// `now` is part of the key: the proof binds the timestamp, so a proof
+			// generated under a different `now` is not reusable.
+			const CACHE_KEY = `${originalMdocHex.slice(0, 32)}_${transcriptHex.slice(0, 16)}_${now}`;
+
+			// 1. Cache hit → reuse the proof bytes directly
+			try {
+				const cached = await proofCacheDb.read(['proofs'], (tr: any) =>
+					tr.objectStore('proofs').get(CACHE_KEY)
+				);
+				if (cached?.proof) {
+					console.log("✅ Using cached proof:", cached.proof.length, "bytes");
+					return { proof: cached.proof, ppid: cached.ppid, ppidHex: cached.ppidHex };
+				}
+			} catch (e) {
+				console.log("No cached proof found:", e);
+			}
+
+			// 2. Sign the mdoc with the device key
+			const rawSignatureHex = await generateDeviceSignature(
+				keystore,
+				originalMdocHex,
+				transcriptHex,
+				"eu.europa.ec.eudi.pid.1",
+				decode,
+			);
+			const signedMdocHex = signMdocWithPlaceholder(originalMdocHex, rawSignatureHex);
+
+			// 3. Pull pseudonym_seed out of the credential
+			const mdocBytes = new Uint8Array(
+				originalMdocHex.match(/.{1,2}/g)!.map((b) => parseInt(b, 16))
+			);
+			const mdoc = decode(mdocBytes);
+			const nsItems = mdoc.documents[0].issuerSigned.nameSpaces;
+			const ns = Object.keys(nsItems)[0];
+			let pseudonymSeed = null;
+			for (const item of nsItems[ns]) {
+				const decoded = decode(item.value);
+				if (decoded.elementIdentifier === 'pseudonym_seed') {
+					pseudonymSeed = decoded.elementValue;
+					break;
+				}
+			}
+
+			// 4. Generate — in the worker, so the ~70s WASM call doesn't block the
+			//    main thread and freeze the spinner.
+			console.log("🚀 Proof generation started in worker");
+			const proofResult = await generateProofInWorker({
+				mdoc: signedMdocHex,
+				transcript: transcriptHex,
+				now,
+				pseudonymSeed,
+			});
+			console.log(`✅ Proof generated in ${proofResult.durationMs?.toFixed?.(0) ?? '?'}ms`);
+
+			// 5. Cache the proof bytes
+			try {
+				await proofCacheDb.write(['proofs'], (tr: any) =>
+					tr.objectStore('proofs').put(
+						{
+							proof: proofResult.proof,
+							ppid: proofResult.ppid,
+							ppidHex: proofResult.ppidHex,
+						},
+						CACHE_KEY,
+					)
+				);
+				console.log("✅ Proof cached:", proofResult.proof.length, "bytes");
+			} catch (e) {
+				console.warn("Failed to cache proof:", e);
+			}
+
+			return {
+				proof: proofResult.proof,
+				ppid: proofResult.ppid,
+				ppidHex: proofResult.ppidHex,
+			};
+		} catch (e) {
+			console.error("Background proof generation failed:", e);
+			return null;
+		}
+	}
+	async function startBackgroundProofGeneration2(
 		credentialData: string,
 		keystore: any,
 		proofCacheDb: any,
