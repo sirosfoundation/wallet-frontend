@@ -1,3 +1,5 @@
+/* eslint-disable no-script-url -- intentional dangerous-scheme payloads for security tests */
+
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 /**
