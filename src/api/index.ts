@@ -352,7 +352,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 	>> => {
 		// If a sync is already running, reuse it instead of starting a concurrent
 		// one that would race on the main-key rotation and the private-data etag.
-		if (syncInFlightRef.current) {
+		if (syncInFlightRef.current !== null) {
 			return syncInFlightRef.current;
 		}
 
