@@ -609,7 +609,7 @@ const WebauthnSignupLogin = ({
 
 const Auth = () => {
 	const { isOnline, updateOnlineStatus } = useContext(StatusContext);
-	const { isLoggedIn, finishLogout, keystore } = useContext(SessionContext);
+	const { isLoggedIn, keystore } = useContext(SessionContext);
 	const { urlTenantId, effectiveTenantId } = useTenant();
 	const { t } = useTranslation();
 	const location = useLocation();
@@ -637,9 +637,8 @@ const Auth = () => {
 	useEffect(() => {
 		if (!isLoggedIn) return;
 
-		// Always consume any stored target so it can't linger, but only honour it for a
-		// login. A fresh registration shouldn't be dropped into a pre-existing flow —
-		// the new user just continues into their wallet.
+		// Always consume any stored target so it can't linger, but only honour it
+		// for a login.
 		const returnTo = getReturnToUrl();
 		const target = ((isLogin || isLoginCache) ? returnTo : null)
 			?? buildTenantRoutePath(effectiveTenantId, `/${location.search}`);
@@ -650,10 +649,6 @@ const Auth = () => {
 			window.location.href = target;
 		}
 	}, [effectiveTenantId, isLoggedIn, navigate, location.search, urlTenantId, isLogin, isLoginCache]);
-
-	useEffect(() => {
-		finishLogout();
-	}, [finishLogout]);
 
 	const toggleForm = () => {
 		if (isOnline || !isLogin) {

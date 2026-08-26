@@ -1,6 +1,11 @@
 /* eslint-disable no-script-url -- intentional dangerous-scheme payloads for security tests */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import {
+	setReturnToUrl,
+	getReturnToUrl,
+	hasReturnToUrl,
+} from './returnToUrl';
 
 /**
  * Simulate base path.
@@ -12,12 +17,6 @@ vi.mock('@/config', () => ({
 		return mockBasePath;
 	},
 }));
-
-import {
-	setReturnToUrl,
-	getReturnToUrl,
-	hasReturnToUrl,
-} from './returnToUrl';
 
 function roundTrip(raw: string): string | null {
 	setReturnToUrl(raw);

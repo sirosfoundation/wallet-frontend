@@ -6,7 +6,7 @@ import { logger } from '@/logger';
 import { setReturnToUrl } from '@/lib/utils/returnToUrl';
 
 const PrivateRoute = ({ children }: { children?: React.ReactNode }): React.ReactElement => {
-	const { isLoggedIn, isLoggingOut, keystore } = useContext(SessionContext);
+	const { isLoggedIn, consumeSessionCleared, keystore } = useContext(SessionContext);
 	const cachedUsers = keystore.getCachedUsers();
 	const location = useLocation();
 	const [isHardRedirecting, setIsHardRedirecting] = useState(false);
@@ -85,8 +85,8 @@ const PrivateRoute = ({ children }: { children?: React.ReactNode }): React.React
 			? `/${TENANT_PATH_PREFIX}/${urlTenantId}`
 			: '';
 
-		// Remember where the user was headed so login can send them back afterwards.
-		if (!isLoggingOut()) {
+		// Remember where the user was headed so login can send them back afterwards
+		if (!consumeSessionCleared()) {
 			setReturnToUrl(window.location.pathname + window.location.search);
 		}
 

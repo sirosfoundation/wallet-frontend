@@ -34,6 +34,7 @@ function validateReturnToUrl(raw: string | null): string | null {
 
 	const
 		hasBackslash = raw.includes('\\'),
+		// eslint-disable-next-line no-control-regex -- intentionally matching control chars
 		hasControlOrWhitespace = /[\u0000-\u001F\u007F\s]/.test(raw),
 		hasEncodedTraversal = /%2e|%2f|%5c/i.test(path),
 		hasDotDotTraversal = /(^|\/)\.\.(\/|$)/.test(path),
@@ -50,10 +51,11 @@ function validateReturnToUrl(raw: string | null): string | null {
 		isCrossTenant ||
 		isOutsideBasePath
 	) {
-		logger.warn(`Rejecting return-to URL due to security concerns: ${raw}`);
-		logger.debug(`Rejected return-to URL details:`, {
-			raw,
-			path,
+		logger.warn('Rejecting return-to URL due to security concerns', {
+			raw: JSON.stringify(raw)
+		});
+		logger.debug('Rejected return-to URL details:', {
+			path: JSON.stringify(path),
 			hasBackslash,
 			hasControlOrWhitespace,
 			hasEncodedTraversal,
