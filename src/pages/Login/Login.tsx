@@ -25,6 +25,7 @@ import PolicyLinks from '@/components/Shared/PolicyLinks';
 import PasskeyInfoPopup from '@/components/Popups/PasskeyInfoPopup';
 import { usePolicyLinks } from '@/hooks/usePolicyLinks';
 import { logger } from '@/logger';
+import { getReturnToUrl } from '@/lib/utils/returnToUrl';
 
 const FormInputRow = ({
 	IconComponent,
@@ -611,14 +612,20 @@ const Auth = () => {
 	}, [getCachedUsers, setIsLoginCache, urlTenantId]);
 
 	useEffect(() => {
-		if (isLoggedIn) {
-			if (matchesTenantFromUrl(effectiveTenantId, urlTenantId)) {
-				navigate(buildTenantRoutePath(effectiveTenantId, `/${location.search}`), { replace: true });
-			} else {
-				window.location.href = buildTenantRoutePath(effectiveTenantId, `/${location.search}`);
-			}
+		if (!isLoggedIn) return;
+
+		// Always consume any stored target so it can't linger, but only honour it
+		// for a login.
+		const returnTo = getReturnToUrl();
+		const target = ((isLogin || isLoginCache) ? returnTo : null)
+			?? buildTenantRoutePath(effectiveTenantId, `/${location.search}`);
+
+		if (matchesTenantFromUrl(effectiveTenantId, urlTenantId)) {
+			navigate(target, { replace: true });
+		} else {
+			window.location.href = target;
 		}
-	}, [effectiveTenantId, isLoggedIn, navigate, location.search, urlTenantId]);
+	}, [effectiveTenantId, isLoggedIn, navigate, location.search, urlTenantId, isLogin, isLoginCache]);
 
 	const toggleForm = () => {
 		if (isOnline || !isLogin) {
