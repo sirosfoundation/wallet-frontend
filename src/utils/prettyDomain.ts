@@ -1,12 +1,21 @@
-export const prettyDomain = (raw) => {
+export const prettyDomain = (raw: string | undefined) => {
 	if (!raw) return '';
 	let value = raw.trim();
 
-	if (value.startsWith('origin:')) value = value.slice(7);
-	if (value.startsWith('x509_san_dns:')) value = value.slice(13);
+	if (value.startsWith('did:web:')) {
+		const [host] = value.slice(8).split(':');
+		value = decodeURIComponent(host);
+	} else {
+		value = value
+			.replace(/^origin:/, '')
+			.replace(/^x509_san_dns:/, '')
+			.replace(/^san_dns_x509:/, '')
+			.replace(/^did:[^:]+:/, '');
+	}
 
 	try {
-		const url = new URL(value);
+		const hasScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(value);
+		const url = new URL(hasScheme ? value : `https://${value}`);
 		return url.host || value;
 	} catch {
 		return value;

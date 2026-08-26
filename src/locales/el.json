@@ -59,6 +59,16 @@
 			"requester": "Αιτών",
 			"purpose": "Σκοπός",
 			"requestedInformation": "Ζητούμενες πληροφορίες",
+			"_demo": {
+				"proofTitle": "Απόδειξη ηλικίας",
+				"pseudonymTitle": "Ψευδώνυμο",
+				"derivedFrom": "Προέρχεται από {{source}}",
+				"pseudonymBenefits": {
+					"noTracking": "Δεν μπορείτε να παρακολουθηθείτε μεταξύ ιστότοπων",
+					"recognizeAccount": "Ο ιστότοπος μπορεί να αναγνωρίσει τον λογαριασμό σας",
+					"courtReveal": "Μόνο ένα δικαστήριο μπορεί να αποκαλύψει την ταυτότητά σας"
+				}
+			},
 			"share": "Κοινοποίηση",
 			"decline": "Απόρριψη",
 			"switchCredential": "Αλλαγή πιστοποιητικού",

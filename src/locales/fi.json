@@ -59,6 +59,16 @@
 			"requester": "Pyytäjä",
 			"purpose": "Tarkoitus",
 			"requestedInformation": "Pyydetyt tiedot",
+			"_demo": {
+				"proofTitle": "Ikätodiste",
+				"pseudonymTitle": "Pseudonyymi",
+				"derivedFrom": "Johdettu lähteestä {{source}}",
+				"pseudonymBenefits": {
+					"noTracking": "Sinua ei voi seurata sivustojen välillä",
+					"recognizeAccount": "Sivusto voi tunnistaa tilisi",
+					"courtReveal": "Vain tuomioistuin voi paljastaa henkilöllisyytesi"
+				}
+			},
 			"share": "Jaa",
 			"decline": "Hylkää",
 			"switchCredential": "Vaihda todistus",

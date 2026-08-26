@@ -1,5 +1,6 @@
 import {
 	Fragment,
+	useContext,
 	useEffect,
 	useId,
 	useRef,
@@ -9,7 +10,7 @@ import {
 	type ReactElement,
 } from 'react';
 import { Navigate } from 'react-router-dom';
-import { CircleCheckIcon, CircleXIcon, IdCardIcon } from 'lucide-react';
+import { CircleCheckIcon, CircleXIcon, HatGlassesIcon, IdCardIcon, ScrollTextIcon } from 'lucide-react';
 import type {
 	PresentationErrorState,
 	PresentationResult,
@@ -27,8 +28,9 @@ import {
 	type SwitchCredentialPopupState
 } from '@/components/Popups/SwitchCredentialPopup';
 import { useTranslation } from 'react-i18next';
-import { truncateByWords } from '@/utils';
+import { prettyDomain, truncateByWords } from '@/utils';
 import { logger } from '@/logger';
+import SessionContext from '@/context/SessionContext';
 
 type PresentCredentialsFlowProps = {
 	view: PresentCredentialsFlowView;
@@ -176,57 +178,62 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 			<dl>
 				<dt className="font-bold not-first:mt-4">{t('presentCredentialsFlow.overview.requester')}</dt>
 				<dd className="mt-2">
-					{verifier.domain
-						?.replace(/^https?:\/\//, '')
-						.replace(/\.fly\.dev\/?$/, '')
-						.replace(/\/$/, '')
-						.replace(/-/g, ' ')
-						.replace(/\b\w/g, (c) => c.toUpperCase())
-						|| verifier.name}
+					{prettyDomain(verifier.domain)}
 				</dd>
-				{singlePurpose && (
-					<>
-						<dt className="font-bold not-first:mt-4">{t('presentCredentialsFlow.overview.purpose')}</dt>
-						<dd className="mt-2">
-							<Purpose purpose={singlePurpose} />
-						</dd>
-					</>
-				)}
 			</dl>
-			<div className="mt-4">
+			<div className="mt-8">
 				<h2 className="font-bold">
 					{t('presentCredentialsFlow.overview.requestedInformation')}
 				</h2>
 				<ul>
 				{view.map((entry) => (
 					<li key={entry.id} className="mt-4 flex flex-col gap-3">
-						<div className="border border-lm-gray-700 dark:border-dm-gray-400 rounded-xl p-5 flex flex-col gap-4">
-
+						<div className="flex flex-col gap-4">
 							<dl className="flex flex-col gap-3">
-								{/**
-									* The "Masked Identifier" field would be displayed here.
-									*
-									* @todo we should include a generic way to insert fields into
-									*       the overview that is not part of the requested claims
-									*       from the credential.
-									*/}
-								<div className="flex flex-col gap-0.5">
-									<dt className="text-xs font-semibold uppercase tracking-wide text-lm-gray-500 dark:text-dm-gray-400">
-										Proof
-									</dt>
-									<dd className="text-base font-bold">Age Over 18</dd>
-								</div>
-
-								<div className="flex flex-col gap-0.5 pt-3 border-t border-t-lm-gray-300 dark:border-t-dm-gray-700">
-									<dt className="text-xs font-semibold uppercase tracking-wide text-lm-gray-500 dark:text-dm-gray-400">
-										From
-									</dt>
-									<dd className="text-base font-bold">PID</dd>
-								</div>
+								{[
+									{
+										title: t('presentCredentialsFlow.overview._demo.proofTitle'),
+										source: entry.selected?.display.name ?? 'PID',
+										icon: <ScrollTextIcon />,
+									},
+									{
+										title: t('presentCredentialsFlow.overview._demo.pseudonymTitle'),
+										source: entry.selected?.display.name ?? 'PID',
+										icon: <HatGlassesIcon />,
+										properties: [
+											t('presentCredentialsFlow.overview._demo.pseudonymBenefits.noTracking'),
+											t('presentCredentialsFlow.overview._demo.pseudonymBenefits.recognizeAccount'),
+											t('presentCredentialsFlow.overview._demo.pseudonymBenefits.courtReveal'),
+										],
+									}
+								].map(({ title, source, icon, properties }) => (
+									<div className="p-4 border border-lm-gray-700 dark:border-dm-gray-400 rounded-xl">
+										<div className="flex items-center gap-4">
+											<div className="flex items-center gap-2 bg-lm-gray-200 dark:bg-dm-gray-600 text-primary dark:text-white p-3 rounded-lg">
+												{icon}
+											</div>
+											<div>
+												<dt className="font-bold not-first:mt-2 not-first:pt-2">
+													{title}
+												</dt>
+												<dd className="mt-1 wrap-break-word">{t('presentCredentialsFlow.overview._demo.derivedFrom', { source })}</dd>
+											</div>
+										</div>
+										{properties && properties.length > 0 && (
+											<div className="mt-3 pt-3 text-sm border-t border-t-lm-gray-400 dark:border-t-dm-gray-600">
+												<ul className="list-disc list-inside space-y-2">
+													{properties.map((property, index) => (
+														<li key={index}>{property}</li>
+													))}
+												</ul>
+											</div>
+										)}
+									</div>
+								))}
 							</dl>
 
-							{entry.alternatives.length > 0 && (
-								<div className="px-5 pt-4 pb-1 -mx-5 border-t border-t-lm-gray-600 dark:border-t-dm-gray-400">
+							{/* {entry.alternatives.length > 0 && (
+								<div className=" pt-4 pb-1 border-t border-t-lm-gray-600 dark:border-t-dm-gray-400">
 									<Button
 										variant="link"
 										linkClassName="flex items-center gap-2"
@@ -254,21 +261,7 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 										</svg>
 									</Button>
 								</div>
-							)}
-						</div>
-
-						<div
-							className="px-5 py-4 rounded-xl flex flex-col gap-1 bg-(--bg-color) text-(--text-color)"
-							style={
-								{
-									'--bg-color':
-										entry.selected?.display.backgroundColor ?? 'var(--color-primary)',
-									'--text-color':
-										entry.selected?.display.textColor ?? '#fff',
-								} as React.CSSProperties
-							}
-						>
-							<h3 className="font-bold text-lg leading-snug">You cannot be tracked across sites</h3>
+							)} */}
 						</div>
 					</li>
 				))}
@@ -400,12 +393,16 @@ const PresentationErrorScreen: FC<PresentationErrorScreenProps> = ({
 
 // UI components for the flow screens.
 
-const FlowContainer: FC<PropsWithChildren> = ({ children }) => (
-	<div className="relative max-w-[500px] m-auto flex flex-col gap-4 min-h-screen">
-		<Header sticky={false} alwaysVisible />
-		{children}
-	</div>
-);
+const FlowContainer: FC<PropsWithChildren> = ({ children }) => {
+	const { api } = useContext(SessionContext);
+	const { displayName, username } = api.getSession() ?? { displayName: 'Elisa\'s Wallet' };
+	return (
+		<div className="relative max-w-[500px] m-auto flex flex-col gap-4 min-h-screen">
+			<Header sticky={false} alwaysVisible username={displayName || username} />
+			{children}
+		</div>
+	);
+};
 
 const FlowScreen: FC<PropsWithChildren<{ buttons?: ReactElement }>> = ({
 	children,

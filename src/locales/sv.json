@@ -59,6 +59,16 @@
 			"requester": "Begärande part",
 			"purpose": "Syfte",
 			"requestedInformation": "Begärd information",
+			"_demo": {
+				"proofTitle": "Åldersbevis",
+				"pseudonymTitle": "Pseudonym",
+				"derivedFrom": "Härlett från {{source}}",
+				"pseudonymBenefits": {
+					"noTracking": "Du kan inte spåras mellan webbplatser",
+					"recognizeAccount": "Webbplatsen kan känna igen ditt konto",
+					"courtReveal": "Endast en domstol kan avslöja din identitet"
+				}
+			},
 			"share": "Dela",
 			"decline": "Avvisa",
 			"switchCredential": "Byt intyg",

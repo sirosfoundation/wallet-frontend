@@ -59,6 +59,16 @@
 			"requester": "Solicitante",
 			"purpose": "Objetivo",
 			"requestedInformation": "Informação solicitada",
+			"_demo": {
+				"proofTitle": "Prova de idade",
+				"pseudonymTitle": "Pseudónimo",
+				"derivedFrom": "Derivado de {{source}}",
+				"pseudonymBenefits": {
+					"noTracking": "Não pode ser rastreado entre sites",
+					"recognizeAccount": "O site pode reconhecer a sua conta",
+					"courtReveal": "Apenas um tribunal pode revelar a sua identidade"
+				}
+			},
 			"share": "Partilhar",
 			"decline": "Recusar",
 			"switchCredential": "Trocar credencial",
