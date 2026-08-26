@@ -85,16 +85,16 @@ const PrivateRoute = ({ children }: { children?: React.ReactNode }): React.React
 			? `/${TENANT_PATH_PREFIX}/${urlTenantId}`
 			: '';
 
+		if (state && userExistsInCache(state)) {
+			return <Navigate to={`${loginTenantPath}/login-state${window.location.search}`} replace />;
+		}
+
 		// Remember where the user was headed so login can send them back afterwards
 		if (!consumeSessionCleared()) {
 			setReturnToUrl(window.location.pathname + window.location.search);
 		}
 
-		if (state && userExistsInCache(state)) {
-			return <Navigate to={`${loginTenantPath}/login-state${window.location.search}`} replace />;
-		} else {
-			return <Navigate to={`${loginTenantPath}/login`} replace />;
-		}
+		return <Navigate to={`${loginTenantPath}/login`} replace />;
 	}
 
 	return (
