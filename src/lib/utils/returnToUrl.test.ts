@@ -16,6 +16,9 @@ vi.mock('@/config', () => ({
 	get BASE_PATH() {
 		return mockBasePath;
 	},
+	get LOG_LEVEL() {
+		return 'debug';
+	},
 }));
 
 function roundTrip(raw: string): string | null {
