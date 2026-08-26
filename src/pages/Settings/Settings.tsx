@@ -382,11 +382,11 @@ const UnlockMainKey = ({
 				// Using a switch here so the t() argument can be a literal, to ease searching
 				switch (e?.cause?.errorId) {
 					case 'passkeyInvalid':
-						setError(t('passkeyInvalid'));
+						setError(t('loginSignup.passkeyInvalid'));
 						break;
 
 					case 'passkeyLoginFailedTryAgain':
-						setError(t('passkeyLoginFailedTryAgain'));
+						setError(t('loginSignup.passkeyLoginFailedTryAgain'));
 						break;
 
 					default:

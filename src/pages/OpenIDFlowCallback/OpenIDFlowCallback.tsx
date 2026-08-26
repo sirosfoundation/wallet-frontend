@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { jsonToLog, logger } from '@/logger';
 import { OIDFlowError } from '@/lib/openid-flow/errors';
+import { translateOIDFlowError } from '@/lib/openid-flow/utils/translateOIDFlowError';
 import { OIDFlowCallbackURL, OIDFlowProgressEvent } from '@/lib/openid-flow/types/OIDFlowTypes';
 import useErrorDialog from '@/hooks/useErrorDialog';
 import useOID4VCIFlow from '@/hooks/useOID4VCIFlow';
@@ -112,8 +113,7 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		(err: Error) => {
 			logger.error('Error in OID4VCI flow:', err);
 			displayError({
-				title: t('openIdCallback.vciFlowError.title'),
-				description: t('openIdCallback.vciFlowError.description'),
+				...translateOIDFlowError(t, err, 'vciFlowError'),
 				onClose: () => navigateHome(),
 			});
 		},
@@ -255,8 +255,7 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			} catch (error) {
 				logger.error('Error in OID4VCI flow:', error);
 				displayError({
-					title: t('openIdCallback.vciFlowError.title'),
-					description: t('openIdCallback.vciFlowError.description'),
+					...translateOIDFlowError(t, error, 'vciFlowError'),
 					onClose: () => navigateHome(),
 				});
 			}
@@ -311,23 +310,14 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	 */
 	const handleOID4VPError = useCallback((err: Error) => {
 		logger.error("Error in OID4VP flow:", err);
+		const message = translateOIDFlowError(t, err, 'vpFlowError');
 		if (!(err instanceof OIDFlowError)) {
-			displayError({
-				title: t('openIdCallback.vpFlowError.title'),
-				description: t('openIdCallback.vpFlowError.description'),
-			});
+			displayError(message);
 			return;
 		}
 
-		const code = err.code.toUpperCase();
-		const titleKey = `openIdCallback.errorCodes.${code}.title`;
-		const descKey = `openIdCallback.errorCodes.${code}.description`;
-		const translatedTitle = t(titleKey, { defaultValue: '' });
-		const translatedDesc = t(descKey, { defaultValue: '' });
-
 		displayErrorScreen({
-			title: translatedTitle || t('openIdCallback.vpFlowError.title'),
-			description: translatedDesc || t('openIdCallback.vpFlowError.description'),
+			...message,
 			err,
 			onClose: () => {
 				navigateHome();
@@ -476,8 +466,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			logger.error('Error processing DC API request:', err);
 
 			displayErrorScreen({
-				title: t('openIdCallback.vpFlowError.title'),
-				description: t('openIdCallback.vpFlowError.description'),
+				...translateOIDFlowError(t, err, 'vpFlowError'),
 				err: err instanceof Error ? err : new Error(String(err)),
 				onClose: () => {
 					session.sendErrorAndClose('access_denied');
