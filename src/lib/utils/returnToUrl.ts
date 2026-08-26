@@ -46,9 +46,7 @@ function validateReturnToUrl(raw: string | null): string | null {
 		isCrossTenant ||
 		isOutsideBasePath
 	) {
-		logger.warn('Rejecting return-to URL due to security concerns', {
-			raw: JSON.stringify(raw)
-		});
+		logger.warn('Rejecting invalid return-to URL');
 		logger.debug('Rejected return-to URL details:', {
 			path: JSON.stringify(path),
 			hasBackslash,
