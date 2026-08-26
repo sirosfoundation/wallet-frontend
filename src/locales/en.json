@@ -50,29 +50,6 @@
 		"tryAgain": "Try again",
 		"walletName": "SIROS ID (dev)"
 	},
-	"presentCredentialsFlow": {
-		"overview": {
-			"title": "Request to Share Data",
-			"requester": "Requester",
-			"purpose": "Purpose",
-			"requestedInformation": "Requested Information",
-			"share": "Share",
-			"decline": "Decline",
-			"switchCredential": "Switch credential",
-			"switchCredentialAria": "Switch credential: {{name}}, {{count}} available"
-		},
-		"sharing": {
-			"sending": "Sending..."
-		},
-		"completed": {
-			"title": "Success!",
-			"description": "Your data has been shared with {{verifierName}}.",
-			"redirecting": "Redirecting..."
-		},
-		"error": {
-			"close": "Close"
-		}
-	},
 	"credentialInfo": {
 		"legendAriaLabel": "Claim legend",
 		"legendRequested": "Requested by verifier",
@@ -82,12 +59,11 @@
 		"selectAriaLabel": "Select credential {{name}}",
 		"selectedAriaLabel": "This credential is currently selected"
 	},
-	"switchCredentialPopup": {
-		"title": "Switch credential",
-		"description": "Select the credential to use for this request.",
-		"selectedCredential": "Current credential",
-		"alternativeCredentials": "Select another credential",
-		"close": "Close"
+	"errors": {
+		"walletServiceAuth": {
+			"description": "Your session with the wallet service is no longer valid. Please log in again.",
+			"title": "Wallet Service Authentication Error"
+		}
 	},
 	"expiredRibbon": {
 		"expired": "Expired"
@@ -144,6 +120,7 @@
 		"loginWithSecurityKey": "Log in with a Security Key",
 		"messageOffline": "You are offline. Some features may not be available.",
 		"newHereQuestion": "Don't have a wallet account? ",
+		"oidcGateError": "OIDC gate configuration error. Please contact support.",
 		"or": "OR",
 		"passkeyInvalid": "Unknown passkey, possibly deleted by user.",
 		"passkeyLoginFailedServerError": "Failed to initiate passkey login, please try again later.",
@@ -154,6 +131,7 @@
 		"passkeySignupKeystoreFailed": "Failed to initialize wallet key store, please try again.",
 		"passkeySignupPrfNotSupported": "This browser or security key is not supported. Please make sure that your browser supports the WebAuthn PRF extension and your security key, if any, supports the \"hmac-secret\" extension. <docLink>Learn more here</docLink>.",
 		"passkeySignupPrfNotSupportedAriaLabel": "Learn more about supported browsers or security keys",
+		"passkeySignupPrfRetryFailed": "Passkey creation could not be completed, please try again.",
 		"privateDataConflict": "Another session for this account disrupted the login attempt. Please try again.",
 		"reachedLengthLimit": "Length limit exceeded",
 		"signUp": "Sign Up",
@@ -293,14 +271,14 @@
 			"message": "You will be redirected to <strong>{{issuerName}}</strong> <i>{{issuerDescription}}</i> to issue a <strong>{{credentialName}}</strong> <i>{{credentialDescription}}</i>.",
 			"title": "Selected:"
 		},
-		"searchPlaceholder": "Search credential...",
 		"scanPhysicalId": {
-			"sectionTitle": "Scan Physical ID",
 			"digitalId": {
-				"title": "Digital ID (scanned passport)",
-				"description": "Use your passport to create a digital ID."
-			}
-		}
+				"description": "Use your passport to create a digital ID.",
+				"title": "Digital ID (scanned passport)"
+			},
+			"sectionTitle": "Scan Physical ID"
+		},
+		"searchPlaceholder": "Search credential..."
 	},
 	"pageCredentials": {
 		"addCard": {
@@ -342,14 +320,37 @@
 		"noFound": "No pending issuance requests found",
 		"title": "Pending Issuance Requests"
 	},
-	"pageShareCredentials": {
-		"description": "Search and choose a verifier to share credentials with",
-		"noFound": "No matching verifiers found.",
-		"popup": {
-			"message": "You will be redirected to <strong>{{verifierName}}</strong>.",
-			"title": "Selected:"
+	"pageScanPhysicalId": {
+		"beforeYouBegin": {
+			"goodInternet": "Have good internet connection",
+			"goodLighting": "Have good lightning",
+			"passportReady": "Have passport ready",
+			"title": "Before you begin"
 		},
-		"searchPlaceholder": "Search verifiers..."
+		"biometricConsent": "I consent to biometric processing for identity verification.",
+		"goBackAriaLabel": "Go back",
+		"startScan": "Start Scan",
+		"steps": {
+			"step1": {
+				"description": "Scan your face to show you are a real, live human",
+				"title": "Step 1"
+			},
+			"step2": {
+				"description": "Scan your document",
+				"title": "Step 2"
+			},
+			"step3": {
+				"description": "Place your phone on your document to read the NFC-chip",
+				"title": "Step 3"
+			}
+		},
+		"title": "Scan Physical ID",
+		"whyFaceScan": {
+			"description": "We use a quick 3D face verification to prevent fraudulent use of your document. Your biometric data is encrypted and discarded after the verification is complete.",
+			"privacyPolicy": "Privacy Policy",
+			"title": "Why face scan?",
+			"viewOur": "View our "
+		}
 	},
 	"pageSettings": {
 		"addPasskey": "Add passkey:",
@@ -442,37 +443,14 @@
 			"title": "Wallet Companion (beta)"
 		}
 	},
-	"pageScanPhysicalId": {
-		"title": "Scan Physical ID",
-		"goBackAriaLabel": "Go back",
-		"steps": {
-			"step1": {
-				"title": "Step 1",
-				"description": "Scan your face to show you are a real, live human"
-			},
-			"step2": {
-				"title": "Step 2",
-				"description": "Scan your document"
-			},
-			"step3": {
-				"title": "Step 3",
-				"description": "Place your phone on your document to read the NFC-chip"
-			}
+	"pageShareCredentials": {
+		"description": "Search and choose a verifier to share credentials with",
+		"noFound": "No matching verifiers found.",
+		"popup": {
+			"message": "You will be redirected to <strong>{{verifierName}}</strong>.",
+			"title": "Selected:"
 		},
-		"beforeYouBegin": {
-			"title": "Before you begin",
-			"passportReady": "Have passport ready",
-			"goodLighting": "Have good lightning",
-			"goodInternet": "Have good internet connection"
-		},
-		"whyFaceScan": {
-			"title": "Why face scan?",
-			"description": "We use a quick 3D face verification to prevent fraudulent use of your document. Your biometric data is encrypted and discarded after the verification is complete.",
-			"viewOur": "View our ",
-			"privacyPolicy": "Privacy Policy"
-		},
-		"startScan": "Start Scan",
-		"biometricConsent": "I consent to biometric processing for identity verification."
+		"searchPlaceholder": "Search verifiers..."
 	},
 	"parsing": {
 		"errorCouldNotParse": "Credential could not be parsed.",
@@ -497,6 +475,29 @@
 		"subtitle": "Waiting for issuance to complete",
 		"title": "{{count}} pending credential(s)",
 		"view": "View details"
+	},
+	"presentCredentialsFlow": {
+		"completed": {
+			"description": "Your data has been shared with {{verifierName}}.",
+			"redirecting": "Redirecting...",
+			"title": "Success!"
+		},
+		"error": {
+			"close": "Close"
+		},
+		"overview": {
+			"decline": "Decline",
+			"purpose": "Purpose",
+			"requestedInformation": "Requested Information",
+			"requester": "Requester",
+			"share": "Share",
+			"switchCredential": "Switch credential",
+			"switchCredentialAria": "Switch credential: {{name}}, {{count}} available",
+			"title": "Request to Share Data"
+		},
+		"sharing": {
+			"sending": "Sending..."
+		}
 	},
 	"protocolSteps": {
 		"common": {
@@ -589,6 +590,13 @@
 		"obliviousEnabled": "Private requests with Oblivious HTTP enabled",
 		"poweredBy": "Powered by <docLinkWalletGithub>SIROS Foundation</docLinkWalletGithub>",
 		"poweredByAriaLabel": "GitHub repository of SIROS Foundation"
+	},
+	"switchCredentialPopup": {
+		"alternativeCredentials": "Select another credential",
+		"close": "Close",
+		"description": "Select the credential to use for this request.",
+		"selectedCredential": "Current credential",
+		"title": "Switch credential"
 	},
 	"syncPopup": {
 		"description": "Looks like you've <strong>modified your wallet in another session</strong>. Use your <strong>passkey</strong> to sync your wallet.",
