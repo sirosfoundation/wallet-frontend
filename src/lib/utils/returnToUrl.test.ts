@@ -4,7 +4,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
 	setReturnToUrl,
 	getReturnToUrl,
-	hasReturnToUrl,
 } from './returnToUrl';
 
 /**
@@ -24,11 +23,6 @@ vi.mock('@/config', () => ({
 function roundTrip(raw: string): string | null {
 	setReturnToUrl(raw);
 	return getReturnToUrl();
-}
-
-function isAccepted(raw: string): boolean {
-	setReturnToUrl(raw);
-	return hasReturnToUrl();
 }
 
 const credentialOffer = encodeURIComponent(JSON.stringify({
@@ -137,27 +131,6 @@ describe('returnToUrl', () => {
 			'/id/acme/..%2Fother/settings',
 		])('rejects sneaky payload "%j"', (raw) => {
 			expect(roundTrip(raw)).toBeNull();
-		});
-	});
-
-	describe('hasReturnToUrl', () => {
-		it('reports true for a valid stored path', () => {
-			expect(isAccepted('/settings')).toBe(true);
-		});
-
-		it('reports false for a rejected payload', () => {
-			expect(isAccepted('//evil.com')).toBe(false);
-		});
-
-		it('reports false when nothing is stored', () => {
-			sessionStorage.clear();
-			expect(hasReturnToUrl()).toBe(false);
-		});
-
-		it('does not consume the value when only checking', () => {
-			setReturnToUrl('/settings');
-			expect(hasReturnToUrl()).toBe(true);
-			expect(getReturnToUrl()).toBe('/settings');
 		});
 	});
 

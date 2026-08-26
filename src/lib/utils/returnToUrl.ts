@@ -11,13 +11,6 @@ export function setReturnToUrl(url: string): void {
 }
 
 /**
- * Checks if a return-to URL is stored in sessionStorage.
- */
-export function hasReturnToUrl(): boolean {
-	return validateReturnToUrl(sessionStorage.getItem(KEY)) !== null;
-}
-
-/**
  * Retrieves and consumes the stored return-to URL from sessionStorage.
  */
 export function getReturnToUrl(): string | null {
