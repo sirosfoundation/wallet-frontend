@@ -1,7 +1,9 @@
 import { BASE_PATH } from '@/config';
 import { logger } from '@/logger';
+import { TENANT_PATH_PREFIX } from '@/lib/tenant';
 
 const KEY = 'return_to_url';
+const TENANT_PREFIX_RE = new RegExp(`^/${TENANT_PATH_PREFIX}(/|$)`);
 
 /**
  * Stores a URL in sessionStorage to return to after login.
@@ -32,7 +34,7 @@ function validateReturnToUrl(raw: string | null): string | null {
 		hasEncodedTraversal = /%2e|%2f|%5c/i.test(path),
 		hasDotDotTraversal = /(^|\/)\.\.(\/|$)/.test(path),
 		isDifferentOrigin = !/^\/(?!\/)/.test(path),
-		isCrossTenant = BASE_PATH === '/' && /^\/id(\/|$)/.test(path),
+		isCrossTenant = BASE_PATH === '/' && TENANT_PREFIX_RE.test(path),
 		isOutsideBasePath = BASE_PATH !== '/' && !path.startsWith(BASE_PATH);
 
 	if (
