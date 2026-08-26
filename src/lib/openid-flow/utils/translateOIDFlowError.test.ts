@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import i18n from '@/i18n';
-import { OIDFlowError } from './errors';
+import { OIDFlowError } from '../errors';
 import { translateOIDFlowError } from './translateOIDFlowError';
 
 describe('translateOIDFlowError', () => {

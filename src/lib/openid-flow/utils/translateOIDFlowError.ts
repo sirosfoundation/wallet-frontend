@@ -1,5 +1,5 @@
 import type { TFunction } from 'i18next';
-import { OIDFlowError } from './errors';
+import { OIDFlowError } from '../errors';
 
 type FlowErrorFallback = 'vpFlowError' | 'vciFlowError';
 

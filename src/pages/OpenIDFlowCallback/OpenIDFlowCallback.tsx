@@ -3,7 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { jsonToLog, logger } from '@/logger';
 import { OIDFlowError } from '@/lib/openid-flow/errors';
-import { translateOIDFlowError } from '@/lib/openid-flow/translateOIDFlowError';
+import { translateOIDFlowError } from '@/lib/openid-flow/utils/translateOIDFlowError';
 import { OIDFlowCallbackURL, OIDFlowProgressEvent } from '@/lib/openid-flow/types/OIDFlowTypes';
 import useErrorDialog from '@/hooks/useErrorDialog';
 import useOID4VCIFlow from '@/hooks/useOID4VCIFlow';
