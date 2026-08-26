@@ -26,11 +26,28 @@ export function getReturnToUrl(): string | null {
 }
 
 function validateReturnToUrl(raw: string | null): string | null {
+	if (!raw) return null;
+
+	const queryOrHashIndex = raw.search(/[?#]/);
+	const path = queryOrHashIndex === -1 ? raw : raw.slice(0, queryOrHashIndex);
+
+	const
+		hasBackslash = raw.includes('\\'),
+		hasControlOrWhitespace = /[\u0000-\u001F\u007F\s]/.test(raw),
+		hasEncodedTraversal = /%2e|%2f|%5c/i.test(path),
+		hasDotDotTraversal = /(^|\/)\.\.(\/|$)/.test(path),
+		isDifferentOrigin = !/^\/(?!\/)/.test(path),
+		isCrossTenant = BASE_PATH === '/' && /^\/id(\/|$)/.test(path),
+		isOutsideBasePath = BASE_PATH !== '/' && !path.startsWith(BASE_PATH);
+
 	if (
-		!raw ||
-		(raw === '/' && BASE_PATH !== '/') ||
-		(BASE_PATH !== '/' && !raw.startsWith(BASE_PATH)) ||
-		!/^\/(?!\/)/.test(raw)
+		hasBackslash ||
+		hasControlOrWhitespace ||
+		hasEncodedTraversal ||
+		hasDotDotTraversal ||
+		isDifferentOrigin ||
+		isCrossTenant ||
+		isOutsideBasePath
 	) return null;
 
 	return raw;
