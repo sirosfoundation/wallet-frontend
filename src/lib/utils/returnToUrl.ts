@@ -1,4 +1,5 @@
 import { BASE_PATH } from '@/config';
+import { logger } from '@/logger';
 
 const KEY = 'return_to_url';
 
@@ -48,7 +49,21 @@ function validateReturnToUrl(raw: string | null): string | null {
 		isDifferentOrigin ||
 		isCrossTenant ||
 		isOutsideBasePath
-	) return null;
+	) {
+		logger.warn(`Rejecting return-to URL due to security concerns: ${raw}`);
+		logger.debug(`Rejected return-to URL details:`, {
+			raw,
+			path,
+			hasBackslash,
+			hasControlOrWhitespace,
+			hasEncodedTraversal,
+			hasDotDotTraversal,
+			isDifferentOrigin,
+			isCrossTenant,
+			isOutsideBasePath,
+		});
+		return null;
+	}
 
 	return raw;
 }
