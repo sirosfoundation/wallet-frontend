@@ -87,16 +87,16 @@ describe('AuthTokens', () => {
 			expect(token.aud).toBe('wallet-backend');
 		});
 
-		it('requests an anonymous token with anonymous=true and tac=rl', async () => {
+		it('requests an anonymous token for wallet-registry with anonymous=true and tac=rl', async () => {
 			client.requestAccessToken.mockResolvedValue(
-				tokenResponse(makeJwt({ tac: 'rl' })),
+				tokenResponse(makeJwt({ aud: 'wallet-registry', tac: 'rl' })),
 			);
 			const auth = makeAuthTokens();
 
 			await auth.ensureAnonymousToken();
 
 			expect(client.requestAccessToken).toHaveBeenCalledWith(
-				'wallet-backend',
+				'wallet-registry',
 				'default',
 				'rl',
 				true,
