@@ -28,18 +28,6 @@ const cborText = (s: string): Uint8Array => {
 
 const cborBool = (v: boolean): Uint8Array => new Uint8Array([v ? 0xf5 : 0xf4]);
 
-const cborBytes = (bytes: Uint8Array): Uint8Array => {
-    const len = bytes.length;
-    let header: Uint8Array;
-    if (len < 24) header = new Uint8Array([0x40 | len]);
-    else if (len < 256) header = new Uint8Array([0x58, len]);
-    else header = new Uint8Array([0x59, len >> 8, len & 0xff]);
-    const result = new Uint8Array(header.length + bytes.length);
-    result.set(header);
-    result.set(bytes, header.length);
-    return result;
-};
-
 const concat = (...arrays: Uint8Array[]): Uint8Array => {
     const total = arrays.reduce((s, a) => s + a.length, 0);
     const result = new Uint8Array(total);
