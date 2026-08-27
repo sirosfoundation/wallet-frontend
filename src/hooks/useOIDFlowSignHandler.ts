@@ -12,7 +12,6 @@ import { MDoc } from '@auth0/mdl';
 import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
 import { cborDecode } from '@auth0/mdl/lib/cbor';
 import { buildCombinedDeviceResponse } from '@/utils/MdocZkpService';
-import { fromBase64Url } from "../util";
 
 
 interface ProofTypeConfig {
