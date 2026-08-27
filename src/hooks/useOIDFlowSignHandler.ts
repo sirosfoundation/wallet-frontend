@@ -315,10 +315,6 @@ async function createVpTokenFromMdoc(
 	const mdoc = cborDecode(bytes);
 	const docType =  "eu.europa.ec.eudi.pid.1";
 
-	const presentationDefinition = buildMdocPresentationDefinition(
-		docType,
-		disclosedClaims ?? [],
-	);
 	if (responseUri) {
 	} else if (origin) {
 	} else {
