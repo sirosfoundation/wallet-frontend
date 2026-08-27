@@ -10,7 +10,6 @@ import { buildMdocPresentationDefinition } from '@/lib/mdoc/mdoc';
 import { detectCredentialFormat, VerifiableCredentialFormat } from 'wallet-common';
 import { MDoc } from '@auth0/mdl';
 import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
-import { cborDecode } from '@auth0/mdl/lib/cbor';
 import { buildCombinedDeviceResponse } from '@/utils/MdocZkpService';
 
 
