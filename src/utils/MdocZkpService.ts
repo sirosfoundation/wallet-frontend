@@ -9,9 +9,6 @@ const hexToBuf = (hex: string): Uint8Array =>
 const bufToHex = (buf: Uint8Array): string =>
     Array.from(buf).map(b => b.toString(16).padStart(2, '0')).join('');
 
-const uint8ToBase64 = (arr: Uint8Array): string =>
-    btoa(String.fromCharCode(...arr));
-
 const concat = (...arrays: Uint8Array[]): Uint8Array => {
     const total = arrays.reduce((s, a) => s + a.length, 0);
     const result = new Uint8Array(total);
