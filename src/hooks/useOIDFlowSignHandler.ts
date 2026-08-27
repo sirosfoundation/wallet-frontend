@@ -309,9 +309,6 @@ async function createVpTokenFromMdoc(
 		throw new Error('disclosedClaims required for mdoc presentation');
 	}
 
-	//const mdoc = parseIssuerSignedToMDoc(credentialRaw);
-	const data = credentialRaw;
-
 	if (responseUri) {
 	} else if (origin) {
 	} else {
