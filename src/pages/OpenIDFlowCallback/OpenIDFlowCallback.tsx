@@ -396,7 +396,6 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	const {
 		view,
 		displayRequestOverviewScreen,
-		displayProcessingScreen,
 		displaySendingScreen,
 		displayCompletedScreen,
 		displayErrorScreen,
