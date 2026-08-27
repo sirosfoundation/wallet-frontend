@@ -74,6 +74,13 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	]);
 
 	useEffect(() => {
+		if (!isLoggedIn) {
+			setCachedUser(null);
+			setSynced(false);
+		}
+	}, [isLoggedIn]);
+
+	useEffect(() => {
 		if (!getCalculatedWalletState || !cachedUser || !syncPrivateData) {
 			return;
 		}
