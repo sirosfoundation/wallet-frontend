@@ -23,7 +23,6 @@ import { MdocProverService } from '@/utils';
 import { encode, decode, Tag } from "cbor-x";
 import { cborEncode, cborDecode, DataItem } from "@auth0/mdl/lib/cbor";
 import { COSEKeyToJWK } from "cose-kit";
-import * as jose from "jose";
 import { base64url } from 'jose';
 import SessionContext from "@/context/SessionContext";
 import { useIndexedDb } from "../../hooks/useIndexedDb";
