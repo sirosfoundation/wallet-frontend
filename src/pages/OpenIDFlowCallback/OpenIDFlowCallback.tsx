@@ -19,7 +19,6 @@ import { DCAPISession } from '@/lib/openid-flow/platforms/dc-api';
 import { ConformantCredentials, PresentCredentialsFlow, usePresentCredentialsFlow } from '@/components/flows/PresentCredentialsFlow';
 import { DcqlQuery } from 'dcql';
 import { OID4VPVerifierInfo } from '@/lib/openid-flow/types/OID4VPTypes';
-import { MdocProverService } from '@/utils';
 import { decode } from "cbor-x";
 import { cborEncode } from "@auth0/mdl/lib/cbor";
 import { base64url } from 'jose';
