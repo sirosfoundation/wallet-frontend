@@ -436,32 +436,3 @@ const FlowScreen: FC<PropsWithChildren<{ buttons?: ReactElement }>> = ({
 		</>
 	);
 };
-
-const Purpose: FC<{ purpose: string }> = ({ purpose }) => {
-	const { t } = useTranslation();
-	const id = useId();
-	const { text, truncated } = truncateByWords(purpose, 40);
-	const [expanded, setExpanded] = useState(false);
-
-	return (
-		<p>
-			<span id={id}>
-				{expanded ? purpose : text}
-			</span>
-			{truncated && (
-				<>
-					{' '}
-					{expanded && <br />}
-					<Button
-						onClick={() => setExpanded(!expanded)}
-						variant='link'
-						aria-expanded={expanded}
-						aria-controls={id}
-					>
-						{expanded ? t('common.showLess') : t('common.showMore')}
-					</Button>
-				</>
-			)}
-		</p>
-	);
-};
