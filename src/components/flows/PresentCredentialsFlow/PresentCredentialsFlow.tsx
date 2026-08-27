@@ -28,7 +28,7 @@ import {
 	type SwitchCredentialPopupState
 } from '@/components/Popups/SwitchCredentialPopup';
 import { useTranslation } from 'react-i18next';
-import { prettyDomain, truncateByWords } from '@/utils';
+import { prettyDomain } from '@/utils';
 import { logger } from '@/logger';
 import SessionContext from '@/context/SessionContext';
 
