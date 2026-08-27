@@ -70,14 +70,6 @@ const manualArray = (items: Uint8Array[]): Uint8Array => {
     return concat(header, ...items);
 };
 
-const manualTag = (tag: number, content: Uint8Array): Uint8Array => {
-    let header: Uint8Array;
-    if (tag < 24) header = new Uint8Array([0xc0 | tag]);
-    else if (tag < 256) header = new Uint8Array([0xd8, tag]);
-    else header = new Uint8Array([0xd9, tag >> 8, tag & 0xff]);
-    return concat(header, content);
-};
-
 export interface ZkpConfig {
     circuitHash: string;
     version: number;
