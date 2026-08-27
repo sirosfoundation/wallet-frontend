@@ -443,9 +443,14 @@ async function __wbg_load(module, imports) {
 
     function expectedResponseType(type) {
         switch (type) {
-            case 'basic': case 'cors': case 'default': return true;
+            case 'basic':
+            case 'cors':
+            case 'default':
+                return true;
+
+            default:
+                return false;
         }
-        return false;
     }
 }
 
