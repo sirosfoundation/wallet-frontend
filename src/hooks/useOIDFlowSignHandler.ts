@@ -336,8 +336,6 @@ async function createVpTokenFromMdoc(
 		throw new Error('Unexpected error: neither responseUri nor origin provided for mdoc presentation');
 	}
 
-	const versionKey = new Uint8Array([0x67, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e]); // "version"
-
 	const combined = buildCombinedDeviceResponse(finalVP.zkDocumentsArray);
 	return base64url.encode(combined);
 }
