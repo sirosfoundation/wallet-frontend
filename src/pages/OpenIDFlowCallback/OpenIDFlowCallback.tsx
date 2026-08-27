@@ -475,7 +475,6 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		handleCredentialSelection,
 		sendAuthorizationResponse,
 		handleDCAPIRequest,
-		sendDCAPIResponse,
 	} = useOID4VPFlow({
 		onError: handleOID4VPError,
 		onProgress: handleOID4VPProgress,
