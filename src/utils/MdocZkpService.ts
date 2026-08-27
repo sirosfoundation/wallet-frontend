@@ -40,12 +40,6 @@ const cborBytes = (bytes: Uint8Array): Uint8Array => {
     return result;
 };
 
-const cborUint = (n: number): Uint8Array => {
-    if (n < 24) return new Uint8Array([n]);
-    if (n < 256) return new Uint8Array([0x18, n]);
-    return new Uint8Array([0x19, n >> 8, n & 0xff]);
-};
-
 const concat = (...arrays: Uint8Array[]): Uint8Array => {
     const total = arrays.reduce((s, a) => s + a.length, 0);
     const result = new Uint8Array(total);
