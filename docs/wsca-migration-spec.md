@@ -1,8 +1,8 @@
 # Wallet-Frontend WSCA Migration Specification
 
-Version: 0.3 (Draft)  
-Date: 2026-08-27  
-Status: Proposal — two open decisions, see §0
+- Version: 0.3 (Draft)
+- Date: 2026-08-27
+- Status: Proposal — two open decisions, see §0
 
 ## 0. Open Decisions
 
@@ -52,12 +52,12 @@ monolithic private data blob (where key material and credential data are
 co-mingled in a single JWE) to an architecture where:
 
 1. **Key management** is handled by `siros-wscd-manager` compiled to WASM,
-   providing the same `WscdPlugin` interface used by the native SDKs
-   (Kotlin/Swift).
+    providing the same `WscdPlugin` interface used by the native SDKs
+    (Kotlin/Swift).
 2. **Credential and wallet state** remain in an event-sourced encrypted
-   container (the private data blob), but with key material removed.
+    container (the private data blob), but with key material removed.
 3. The two concerns have **independent storage, encryption, and sync
-   lifecycles**.
+    lifecycles**.
 
 ### 1.1 Goals
 
@@ -460,9 +460,9 @@ StateEncryptedContainer {
 export const SCHEMA_VERSION = 4;
 
 /**
- * V4 keypair metadata — no private key material.
- * Private keys live in the WSCA manager (softkey container).
- */
+  * V4 keypair metadata — no private key material.
+  * Private keys live in the WSCA manager (softkey container).
+  */
 export type KeypairMetadata = {
   kid: string;
   pluginId: string;       // "softkey", future: "r2ps", "fido2", "native"
@@ -471,8 +471,8 @@ export type KeypairMetadata = {
 }
 
 /**
- * V4 new_keypair event — records metadata only, no private key.
- */
+  * V4 new_keypair event — records metadata only, no private key.
+  */
 export type WalletSessionEventNewKeypairV4 = {
   type: "new_keypair";
   kid: string;
@@ -482,8 +482,8 @@ export type WalletSessionEventNewKeypairV4 = {
 }
 
 /**
- * V4 wallet state — keypairs replaced with metadata-only records.
- */
+  * V4 wallet state — keypairs replaced with metadata-only records.
+  */
 export type WalletStateV4 = {
   schemaVersion: 4;
   keypairMetadata: KeypairMetadata[];
@@ -500,8 +500,8 @@ Both containers share the same key hierarchy but are independent documents:
 
 ```typescript
 /**
- * The top-level structure stored in IndexedDB and synced to the backend.
- */
+  * The top-level structure stored in IndexedDB and synced to the backend.
+  */
 export type EncryptedWalletData = {
   /** Shared asymmetric key encapsulation (same for both JWEs) */
   mainKey: EphemeralEncapsulationInfo;
@@ -601,50 +601,50 @@ Input:  V3 AsymmetricEncryptedContainer { mainKey, prfKeys, jwe }
 1. Decrypt jwe with mainKey → WalletStateContainerV3
 
 2. Extract keypairs:
-   For each entry in S.keypairs[]:
-     Convert CredentialKeyPair to StoredKey:
-       { kid: kp.keypair.kid,
-         algorithm: kp.keypair.alg,    // "ES256" or "EdDSA"
-         d: kp.keypair.privateKey.d,   // base64url P-256 scalar
-         created_at: Math.floor(Date.now() / 1000) }
+    For each entry in S.keypairs[]:
+      Convert CredentialKeyPair to StoredKey:
+        { kid: kp.keypair.kid,
+          algorithm: kp.keypair.alg,    // "ES256" or "EdDSA"
+          d: kp.keypair.privateKey.d,   // base64url P-256 scalar
+          created_at: Math.floor(Date.now() / 1000) }
 
 3. Create softkey container:
-   softkeyJson = JSON.stringify(storedKeys)
+    softkeyJson = JSON.stringify(storedKeys)
 
 4. Initialize WSCA manager:
-   wscdManager = await WscdManager.create(softkeyJson)
+    wscdManager = await WscdManager.create(softkeyJson)
 
 5. Build V4 state:
-   stateV4 = {
-     schemaVersion: 4,
-     keypairMetadata: S.keypairs.map(kp => ({
-       kid: kp.keypair.kid,
-       pluginId: "softkey",
-       publicKeyJwk: kp.keypair.publicKey,
-       algorithm: kp.keypair.alg,
-     })),
-     credentials: S.credentials,
-     presentations: S.presentations,
-     settings: S.settings,
-     credentialIssuanceSessions: S.credentialIssuanceSessions,
-   }
+    stateV4 = {
+      schemaVersion: 4,
+      keypairMetadata: S.keypairs.map(kp => ({
+        kid: kp.keypair.kid,
+        pluginId: "softkey",
+        publicKeyJwk: kp.keypair.publicKey,
+        algorithm: kp.keypair.alg,
+      })),
+      credentials: S.credentials,
+      presentations: S.presentations,
+      settings: S.settings,
+      credentialIssuanceSessions: S.credentialIssuanceSessions,
+    }
 
 6. Migrate events:
-   For each event in container.events:
-     If event.type === "new_keypair":
-       Strip privateKey from event payload.
-       Replace with { kid, pluginId: "softkey", publicKeyJwk, algorithm }.
-     All other events: preserve as-is.
+    For each event in container.events:
+      If event.type === "new_keypair":
+        Strip privateKey from event payload.
+        Replace with { kid, pluginId: "softkey", publicKeyJwk, algorithm }.
+      All other events: preserve as-is.
 
 7. Generate new mainKey (key rotation on migration):
-   { newMainKey, newMainPublicKeyInfo, newMainPrivateKey } = createAsymmetricMainKey()
+    { newMainKey, newMainPublicKeyInfo, newMainPrivateKey } = createAsymmetricMainKey()
 
 8. Encrypt both containers:
-   keyJwe = CompactEncrypt(softkeyJson, newMainKey, { alg: "A256GCMKW", enc: "A256GCM" })
-   stateJwe = CompactEncrypt(stateV4Container, newMainKey, { alg: "A256GCMKW", enc: "A256GCM" })
+    keyJwe = CompactEncrypt(softkeyJson, newMainKey, { alg: "A256GCMKW", enc: "A256GCM" })
+    stateJwe = CompactEncrypt(stateV4Container, newMainKey, { alg: "A256GCMKW", enc: "A256GCM" })
 
 9. Re-wrap mainKey for all PRF keys and password key:
-   (same re-encapsulation logic as existing updatePrivateData)
+    (same re-encapsulation logic as existing updatePrivateData)
 
 10. Emit V4 envelope:
     { envelopeVersion: 2, mainKey: newMainPublicKeyInfo,
@@ -688,19 +688,19 @@ export class KeystoreAdapter {
   ) {}
 
   /**
-   * Generate keypairs and return public key metadata.
-   * Keys are created in the WSCA manager; metadata recorded in state.
-   */
+    * Generate keypairs and return public key metadata.
+    * Keys are created in the WSCA manager; metadata recorded in state.
+    */
   async generateKeypairs(count?: number): Promise<{
     keypairs: KeypairMetadata[];
     updatedState: WalletStateContainerV4;
   }>;
 
   /**
-   * Generate OID4VCI proof JWTs.
-   * Constructs JWT headers/claims in TypeScript, calls wscdManager.sign()
-   * for the raw ECDSA signature, assembles compact serialization.
-   */
+    * Generate OID4VCI proof JWTs.
+    * Constructs JWT headers/claims in TypeScript, calls wscdManager.sign()
+    * for the raw ECDSA signature, assembles compact serialization.
+    */
   async generateOpenid4vciProofs(
     nonce: string,
     audience: string,
@@ -713,9 +713,9 @@ export class KeystoreAdapter {
   }>;
 
   /**
-   * Sign a VP token (KB-JWT for SD-JWT VP).
-   * Imports nothing — calls wscdManager.sign(kid, ...) directly.
-   */
+    * Sign a VP token (KB-JWT for SD-JWT VP).
+    * Imports nothing — calls wscdManager.sign(kid, ...) directly.
+    */
   async signJwtPresentation(
     kid: string,
     nonce: string,
@@ -724,8 +724,8 @@ export class KeystoreAdapter {
   ): Promise<{ vpjwt: string }>;
 
   /**
-   * Generate mDOC DeviceResponse.
-   */
+    * Generate mDOC DeviceResponse.
+    */
   async generateDeviceResponse(
     kid: string,
     mdocCredential: object,
@@ -736,14 +736,14 @@ export class KeystoreAdapter {
   ): Promise<{ deviceResponseMDoc: object }>;
 
   /**
-   * Get security properties for a key (for KA request).
-   */
+    * Get security properties for a key (for KA request).
+    */
   securityProperties(kid: string): SecurityProperties;
 
   /**
-   * Export the WSCA softkey container (cleartext bytes).
-   * Caller encrypts via JWE.
-   */
+    * Export the WSCA softkey container (cleartext bytes).
+    * Caller encrypts via JWE.
+    */
   exportKeyContainer(): Uint8Array;
 }
 ```
@@ -819,12 +819,12 @@ The softkey container is not event-sourced. It is the authoritative
 source for key existence. On merge conflict:
 
 1. Merge the state events normally (existing V3 merge logic for
-   credentials, presentations, settings, sessions).
+    credentials, presentations, settings, sessions).
 2. The softkey container from the **local** side wins (keys are
-   device-bound in the WSCA model).
+    device-bound in the WSCA model).
 3. Any `keypairMetadata` entries in the merged state that reference
-   keys not present in the local softkey container are removed
-   (orphaned metadata cleanup).
+    keys not present in the local softkey container are removed
+    (orphaned metadata cleanup).
 
 ## 9. IndexedDB Schema
 
@@ -849,13 +849,13 @@ Database: "wallet-frontend", version 4
 Migration from IndexedDB v3 to v4:
 
 1. On `onupgradeneeded(3 → 4)`:
-   - Create new store `walletData`.
-   - Do NOT delete `privateData` store yet (needed for data migration).
+    - Create new store `walletData`.
+    - Do NOT delete `privateData` store yet (needed for data migration).
 2. On first open after upgrade:
-   - Read from `privateData` store.
-   - Run V3→V4 migration (Section 6).
-   - Write to `walletData` store.
-   - Delete record from `privateData` store.
+    - Read from `privateData` store.
+    - Run V3→V4 migration (Section 6).
+    - Write to `walletData` store.
+    - Delete record from `privateData` store.
 
 ## 10. Security Considerations
 
@@ -926,7 +926,7 @@ to document:
 1. The `EncryptedWalletData` envelope format with `envelopeVersion: 2`.
 2. The dual-JWE structure (`stateJwe` + `keyJwe`).
 3. The V4 `WalletStateContainer` schema (no `keypairs[]`, has
-   `keypairMetadata[]`).
+    `keypairMetadata[]`).
 4. The softkey container format (`StoredKey[]` JSON) as normative.
 5. Migration rules from envelope v1 (legacy, single `jwe`) to v2.
 6. The `mainKey` sharing model (both JWEs use the same key).
@@ -978,9 +978,9 @@ document — see §12.3.
 The one item that remains, replacing the two above:
 
 1. **Resolve `S.wscdCredentials`** (§12.2). Either make it normative in
-   `privatedata-spec` and add a wallet-frontend reducer that preserves it,
-   or drop it from the native SDKs in favour of local encrypted storage.
-   Add a conformance vector for whichever is chosen.
+    `privatedata-spec` and add a wallet-frontend reducer that preserves it,
+    or drop it from the native SDKs in favour of local encrypted storage.
+    Add a conformance vector for whichever is chosen.
 
 This is blob-format-neutral — it doesn't change the envelope written to the
 backend — and can ship independently of every other phase. It is **not** a
@@ -1072,9 +1072,9 @@ and `0.8.0` is live.
 2. Implement `WscdManager` TypeScript wrapper.
 3. Implement `KeystoreAdapter` bridging WSCA → protocol operations.
 4. **Write V3-format blobs**: keys managed by WASM but serialized into
-   `S.keypairs[]` in the existing V3 schema. On load, populate the WASM
-   softkey container from `S.keypairs[]`. On save, export softkey
-   container back into `S.keypairs[]`.
+    `S.keypairs[]` in the existing V3 schema. On load, populate the WASM
+    softkey container from `S.keypairs[]`. On save, export softkey
+    container back into `S.keypairs[]`.
 5. `security_properties` sent with KA requests.
 6. Unit tests for `KeystoreAdapter` (mock `WscdManager`).
 7. End-to-end testing — verify blob is readable by native SDKs.
