@@ -1,8 +1,49 @@
 # Wallet-Frontend WSCA Migration Specification
 
-Version: 0.2 (Draft)  
-Date: 2026-07-14  
-Status: Proposal
+Version: 0.3 (Draft)  
+Date: 2026-08-27  
+Status: Proposal — two open decisions, see §0
+
+## 0. Open Decisions
+
+Two questions must be answered before the `wallet-frontend` work in §13
+Phase 2 can start. They are tracked in
+[siros-wscd-manager#66](https://github.com/sirosfoundation/siros-wscd-manager/issues/66),
+which also carries the current implementation status and a task graph.
+
+### D1 — Where does the WASM module run?
+
+This document and the architecture documentation currently specify
+**different execution contexts**, and the difference is not cosmetic:
+
+- **This document**: in-page. `wallet-frontend` takes the
+  `@sirosfoundation/wscd-manager-wasm` dependency and calls `WscdManagerJs`
+  from its own JavaScript.
+- **`docs/docs/wallet/architecture/wsca-wscd.md`**: inside the
+  `wallet-companion` browser extension's background service worker, which the
+  page reaches over extension messaging.
+
+The choice changes the security properties (see §10.1), the capability set,
+the API shape (an extension boundary is async and serialised; an in-page call
+is not), and who can use the feature at all — the extension model means no
+hardware-backed keys for users who have not installed the companion.
+
+**This must be resolved first.** Until it is, §2's architecture diagram
+should be read as describing the in-page option only.
+
+### D2 — Does the V3 → V4 blob split happen at all?
+
+§5.2 already concludes that splitting the *backend API* buys nothing, because
+credential data dominates the blob while the softkey container is a few
+hundred bytes. §12.4 says the V3-compatible Phase 2 "can run indefinitely".
+
+If D1 resolves to in-page, §10.1's isolation rationale does not apply (see
+the correction there), and V4's remaining benefits are narrow: metadata-only
+key events, plus a cross-platform key portability that §6.4 explicitly
+declares a non-goal for state. Phase 3 is the most expensive and highest-risk
+part of this plan — IndexedDB migration, event rewriting, cross-client
+compatibility, and a normative `privatedata-spec` bump. It should be decided
+deliberately rather than treated as implied by Phase 2.
 
 ## 1. Overview
 
@@ -826,16 +867,37 @@ In the V3 model, key material (JWK `d` parameter) appears in:
 - The folded state (`S.keypairs[]`).
 
 In the V4 model, key material:
-- Lives **only** inside the WASM linear memory (in the `SoftkeyPlugin`
+- Lives inside the WASM linear memory (in the `SoftkeyPlugin`
   `HashMap<String, StoredKey>`).
-- Never crosses the WASM boundary as cleartext (only as `export_container()`
-  which the caller immediately encrypts).
+- Is not passed across the WASM boundary by any API other than
+  `export_container()`, which the caller immediately encrypts.
 - Is not present in the TypeScript event stream or state.
-- The WASM module's linear memory is not accessible to JavaScript
-  (barring `SharedArrayBuffer` and explicit exports).
 
-This provides a meaningful security improvement: key material is confined
-to the WASM sandbox during normal operation.
+> **Correction (v0.3).** Version 0.2 of this document additionally claimed
+> that "the WASM module's linear memory is not accessible to JavaScript",
+> and rested the security case for this migration on that claim. **The claim
+> is false for the in-page model.** `wasm-pack build --target web` exports the
+> module's `memory`, so `wasm.memory.buffer` is a plain `ArrayBuffer` that any
+> same-origin script can read. In-page WASM therefore provides **no
+> confidentiality boundary against the page's own JavaScript** — an attacker
+> who can run script in the wallet origin can read key material out of linear
+> memory just as they could read it out of `S.keypairs[]` today.
+>
+> What the in-page model *does* buy is real, but it is narrower than §10.1
+> previously stated:
+> - Key material stops appearing in the event stream and the folded state, so
+>   it is no longer written to IndexedDB or synced to the backend in
+>   cleartext-at-rest form inside the decrypted blob.
+> - The number of places in TypeScript that touch a private key drops to
+>   zero, which shrinks the accidental-logging and accidental-serialisation
+>   surface.
+> - One key-management implementation is shared with the native SDKs.
+>
+> The original isolation property **does** hold in the extension model (D1),
+> where the background service worker is a separate origin and a separate
+> process from page script. If §10.1 is load-bearing for this migration, that
+> argues for the extension; if implementation-sharing is the actual goal,
+> in-page is simpler. This document should not continue to assert both.
 
 ### 10.2 Container Export
 
@@ -879,41 +941,51 @@ Multiple clients share the same backend private data blob:
 |--------|----------|---------------|
 | **wallet-frontend** | WebCrypto + JWE | Reads/writes V3 blob with events. Authoritative. |
 | **Kotlin SDK (JweKeystore)** | Same JWE container | Round-trips blob verbatim (`preservedWalletState`). |
-| **Kotlin SDK (WscdKeystoreAdapter)** | WSCD manager | `exportEncryptedContainer()` throws. Blob not updated. |
+| **Kotlin SDK (WscdKeystoreAdapter)** | WSCD manager | Folds `signer.exportPrivateKeypairs()` into the credentials keystore, then exports. |
 | **Swift SDK (JweKeystore)** | Same JWE container | Same verbatim round-trip as Kotlin. |
-| **Swift SDK (WscdKeystoreAdapter)** | WSCD manager | Returns `{}`. Blob not updated. |
+| **Swift SDK (WscdKeystoreAdapter)** | WSCD manager | Implements `exportEncryptedContainer()`. |
 
 ### 12.2 Key Finding
 
-Native SDKs using `WscdKeystoreAdapter` are already **disconnected from
-the private data blob** — they either throw on export or write empty
-data. The `CredentialPersistence` interface exists in both SDKs but is
-**not wired into `WscdKeystoreAdapter`**, meaning credentials stored
-via the WSCD path are in-memory only and lost on app restart.
+**wallet-frontend is still the only client that meaningfully reads AND
+writes the private data blob today**, but not for the reason v0.2 of this
+document gave. Native SDK `JweKeystore` (legacy path) returns the blob
+verbatim on export — it never overwrites wallet-frontend's data, but also
+never persists its own in-session changes.
 
-This means:
-- **wallet-frontend is the only client that meaningfully reads AND writes
-  the private data blob today.**
-- Native SDK `JweKeystore` (legacy path) returns the blob verbatim on
-  export — it never overwrites wallet-frontend's data, but also never
-  persists its own in-session changes.
-- The blob format can be changed safely once native SDKs have local
-  credential persistence and no longer depend on reading credentials
-  from the blob.
+The surviving cross-client hazard is a different one, and it is a live
+data-loss path rather than a prerequisite: `privatedata-spec` §6.1 documents
+a top-level `S.wscdCredentials` field that the native SDKs MAY write, marks
+it **"not yet normative"**, and notes that wallet-frontend's typed reducers
+**silently drop it** on the next write. A user who moves between a native
+wallet and the web wallet therefore loses that state. This needs closing on
+its own merits, independently of D1, D2 and everything else in this
+document — see §12.3.
 
 ### 12.3 Native SDK Prerequisites (Phase 0)
 
-Before the blob format can change, the native SDKs need fixes:
+> **Correction (v0.3).** Version 0.2 of this document listed two blocking
+> prerequisites — that `WscdKeystoreAdapter.exportEncryptedContainer()`
+> throws in Kotlin and returns `{}` in Swift, and that
+> `CredentialPersistence` is unwired. **Both are now implemented and this
+> section is no longer blocking.** Kotlin folds
+> `signer.exportPrivateKeypairs()` into the credentials keystore via
+> `importKeypairJwk()` before delegating, and adds
+> `exportWscdCredentialsState()`, `exportCredentialRefreshTokens()` and
+> `exportFido2State()`; Swift implements `exportEncryptedContainer()` in
+> `Sources/SirosKeystore/WscdKeystoreAdapter.swift`.
 
-1. **Wire `CredentialPersistence` into `WscdKeystoreAdapter`** (Kotlin +
-   Swift). Credentials must survive app restart via local encrypted
-   storage (`EncryptedSharedPreferences` / Keychain).
-2. **Fix `JweKeystore.buildWalletStateV3()`** to merge in-memory state
-   into the preserved blob instead of returning it verbatim (for the
-   legacy path, if still used).
+The one item that remains, replacing the two above:
 
-These fixes are blob-format-neutral — they don't change what's written
-to the backend. They can ship independently.
+1. **Resolve `S.wscdCredentials`** (§12.2). Either make it normative in
+   `privatedata-spec` and add a wallet-frontend reducer that preserves it,
+   or drop it from the native SDKs in favour of local encrypted storage.
+   Add a conformance vector for whichever is chosen.
+
+This is blob-format-neutral — it doesn't change the envelope written to the
+backend — and can ship independently of every other phase. It is **not** a
+gate on Phase 1 or Phase 2; it is a correctness bug that happens to live in
+the same area.
 
 ### 12.4 Compatibility Strategy
 
@@ -938,25 +1010,61 @@ that can run indefinitely.
 
 ## 13. Implementation Phases
 
+Status as of 2026-08-27 is tracked in
+[siros-wscd-manager#66](https://github.com/sirosfoundation/siros-wscd-manager/issues/66),
+which carries a task graph with IDs and dependencies. Phases 0 and 1 are
+largely complete; the checklists below are marked accordingly.
+
 ### Phase 0: Native SDK Bug Fixes (prerequisite, no blob changes)
+
+**Done** — see the §12.3 correction. What replaces it:
 
 | Task | Repo | Risk |
 |------|------|------|
-| Wire `CredentialPersistence` into `WscdKeystoreAdapter` | siros-sdk-kotlin | None — local storage only |
-| Same | siros-sdk-swift | None |
-| Fix `buildWalletStateV3()` to merge in-memory state | siros-sdk-kotlin | Low — legacy path only |
-| Same | siros-sdk-swift | Low |
+| ~~Wire `CredentialPersistence` into `WscdKeystoreAdapter`~~ | siros-sdk-kotlin / -swift | Done |
+| ~~Fix `buildWalletStateV3()` to merge in-memory state~~ | siros-sdk-kotlin / -swift | Done |
+| Resolve `S.wscdCredentials` reducer gap (§12.2) | privatedata-spec + wallet-frontend | Low — fixes live data loss |
 
 ### Phase 1: WASM Build (siros-wscd-manager)
 
-1. Add `wasm` feature flag and conditional compilation.
-2. Gate `uniffi`, `tokio/rt`, `josekit/openssl`.
-3. Replace `SystemTime::now()` with `web-time`.
-4. Add `wasm-bindgen` exports in `src/wasm.rs` (softkey + FIDO2 + R2PS).
-5. Adapt `r2ps-client` crate for WASM (`fetch()`-based transport,
-   `wasm-bindgen-futures` instead of `block_in_place`).
-6. CI: `wasm-pack build` + `wasm-pack test --headless --chrome`.
-7. Publish `@sirosfoundation/wscd-manager-wasm` on **npmjs.com**.
+Mostly done. `@sirosfoundation/wscd-manager-wasm` is published on npmjs.com
+and `0.8.0` is live.
+
+- [x] Add `wasm` feature flag and conditional compilation.
+      (`wasm = plugin-softkey-pure + plugin-fido2` and the wasm-bindgen stack.)
+- [x] Gate `uniffi`, `tokio/rt`, `josekit/openssl`.
+- [x] Replace `SystemTime::now()` — done via `src/timeutil.rs`, not `web-time`.
+- [x] CI: `wasm-pack test --headless --chrome --no-default-features --features wasm`
+      — a real browser test, not just `cargo check --target wasm32`.
+- [x] Publish `@sirosfoundation/wscd-manager-wasm` on **npmjs.com**.
+- [~] `wasm-bindgen` exports — the module is `src/wasm_ffi.rs`, not
+      `src/wasm.rs`, and it exposes **softkey only**. `WscdManagerJs` has 9
+      methods against 24 in `src/ffi.rs`.
+- [ ] **FIDO2 is not reachable from JavaScript.** `src/wasm_fido2.rs` is a
+      complete browser `Ctap2Transport` over the WebAuthn `previewSign`
+      extension — its wire shape was taken from PR #22's `sign-extension.ts`,
+      so it is known-good against real hardware — but
+      `WscdManagerJs::new()` only ever registers `SoftkeyPlugin` and there is
+      no `registerFido2()` export. The whole hardware path ships in the npm
+      bundle as dead code. *This is the single cheapest high-value fix in the
+      plan* (#66 task W-1).
+- [ ] `generateKey()` / `sign()` hardcode `Algorithm::ES256`; `SoftkeyPlugin`
+      already supports `EdDSA` and §3.7 below specifies both (W-2).
+- [ ] `listKeys()` returns bare `string[]`, not the `KeyInfo[]` of §3.7. The
+      dropped `plugin_id` is exactly what §4.3's
+      `keypairMetadata.pluginId` is populated from, so this blocks Phase 3
+      (W-3).
+- [ ] `AuthCallback` is a stub — `WasmNoopAuth` returns `AuthCancelled` from
+      both methods, so no plugin needing user authentication can work in the
+      browser (W-4).
+- [ ] Adapt `r2ps-client` crate for WASM (`fetch()`-based transport,
+      `wasm-bindgen-futures` instead of `block_in_place`). The `wasm` feature
+      currently omits `plugin-r2ps` entirely, so §3.5 below is unimplemented
+      (W-5).
+- [ ] Lifecycle API (`register_lifecycle`, activate/destroy/rotate) exists in
+      `src/ffi.rs` but not in WASM; issue #148 needs it (W-6).
+- [ ] Ship the hand-written TypeScript wrapper of §3.7 — only the
+      wasm-bindgen-generated `.d.ts` is published today (W-8).
 
 ### Phase 2: wallet-frontend Integration (V3-compatible)
 
@@ -975,7 +1083,11 @@ This phase can ship independently of Phase 0. No blob format changes.
 All three WSCD plugins (softkey, FIDO2 rawSign, R2PS) are available
 to wallet-frontend users through the WASM `WscdManager`.
 
-### Phase 3: Storage Split (V4 envelope) — gate on Phase 0
+### Phase 3: Storage Split (V4 envelope) — gate on D2
+
+Phase 0 is no longer the gate (§12.3). **D2 is** — decide whether this phase
+happens at all before starting it.
+
 
 1. Define `WalletStateSchemaVersion4.ts` types.
 2. Define `EncryptedWalletData` envelope type.
