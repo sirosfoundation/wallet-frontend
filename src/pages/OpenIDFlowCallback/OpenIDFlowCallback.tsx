@@ -420,19 +420,21 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		);
 		logger.debug('Authorization response sent:', sendResult);
 
+		const redirectUri = 'redirectUri' in sendResult
+			? sendResult.redirectUri
+			: undefined;
+
 		if (sendResult.success) {
 			await displayCompletedScreen(
 				{
 					verifierName: result.verifierInfo.name,
 				},
-				!sendResult.redirectUri ? (() => {
-					navigateHome();
-				}) : undefined
+				!redirectUri ? navigateHome : undefined
 			);
 		}
 
-		if ('redirectUri' in sendResult) {
-			window.location.href = sanitizeRedirectUrl(sendResult.redirectUri);
+		if (redirectUri) {
+			window.location.href = sanitizeRedirectUrl(redirectUri);
 		}
 	};
 
