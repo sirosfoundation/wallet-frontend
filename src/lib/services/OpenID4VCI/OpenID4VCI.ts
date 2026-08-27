@@ -3,7 +3,7 @@ import * as jose from 'jose';
 import { generateRandomIdentifier } from '../../utils/generateRandomIdentifier';
 import * as config from '../../../config';
 import { useCallback, useMemo, useEffect, useRef, useState, useContext } from 'react';
-import { useLocation } from "react-router-dom";
+import { useLocation } from "react-router";
 import { usePushedAuthorizationRequest } from './OAuth/PushedAuthorizationRequest';
 import { useOpenID4VCIHelper } from '../OpenID4VCIHelper';
 import { GrantType, TokenRequestError, useTokenRequest } from './OAuth/TokenRequest';
@@ -15,7 +15,7 @@ import { CredentialConfigurationSupported, CredentialOfferSchema } from 'wallet-
 import CredentialsContext from "@/context/CredentialsContext";
 import { WalletStateUtils } from '@/services/WalletStateUtils';
 import { IOpenID4VCIClientStateRepository } from '@/lib/interfaces/IOpenID4VCIClientStateRepository';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { logger } from '@/logger';
 import { useHttpClient } from '@/hooks/useHttpClient';
 

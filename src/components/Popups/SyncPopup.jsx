@@ -6,7 +6,7 @@ import PopupLayout from './PopupLayout';
 import { logger } from '@/logger';
 import SessionContext from '@/context/SessionContext';
 import { useTenant } from '@/context/TenantContext';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router';
 import checkForUpdates from '@/offlineUpdateSW';
 import { UserLock } from 'lucide-react';
 

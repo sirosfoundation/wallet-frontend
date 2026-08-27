@@ -1,6 +1,6 @@
 // External libraries
 import React, { useState, useContext, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router';
 import { useTranslation, Trans } from 'react-i18next';
 import QRCode from "react-qr-code";
 import i18n from '@/i18n';

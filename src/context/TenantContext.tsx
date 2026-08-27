@@ -22,7 +22,7 @@
  */
 
 import React, { createContext, useContext, useEffect, useState, useMemo, useCallback, ReactNode } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'react-router';
 import axios from 'axios';
 import { getStoredTenant, setStoredTenant, clearStoredTenant, buildTenantRoutePath, TENANT_PATH_PREFIX, isMultiTenant, isValidTenantId } from '../lib/tenant';
 import { BACKEND_URL } from '../config';

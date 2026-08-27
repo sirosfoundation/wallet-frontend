@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useContext, Suspense, useRef } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router";
 import StatusContext from "../context/StatusContext";
 import { logger } from "@/logger";
 import SessionContext from "../context/SessionContext";
