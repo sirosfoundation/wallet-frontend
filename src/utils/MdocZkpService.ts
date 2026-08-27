@@ -2,7 +2,7 @@
 
 import { COSEKeyToJWK } from "cose-kit";
 import * as jose from "jose";
-import { cborEncode, cborDecode } from "@auth0/mdl/lib/cbor";
+import { cborDecode } from "@auth0/mdl/lib/cbor";
 const hexToBuf = (hex: string): Uint8Array =>
     new Uint8Array(hex.match(/.{1,2}/g)!.map(b => parseInt(b, 16)));
 
