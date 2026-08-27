@@ -295,7 +295,7 @@ async function createVpTokenFromMdoc(
 	finalVP: { Transcript: string; ZKDeviceResponseCBOR: string; zkDocumentsArray: Uint8Array } | null,
 ): Promise<string> {
 	const { credentialRaw, disclosedClaims } = credentialData;
-	const { nonce, audience, responseUri, origin } = params;
+	const { nonce, responseUri, origin } = params;
 
 	if (!responseUri && !origin) {
 		throw new Error('Missing responseUri or origin for mdoc presentation');
