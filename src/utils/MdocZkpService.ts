@@ -12,20 +12,6 @@ const bufToHex = (buf: Uint8Array): string =>
 const uint8ToBase64 = (arr: Uint8Array): string =>
     btoa(String.fromCharCode(...arr));
 
-// Manual CBOR helpers
-const cborText = (s: string): Uint8Array => {
-    const bytes = new TextEncoder().encode(s);
-    const len = bytes.length;
-    let header: Uint8Array;
-    if (len < 24) header = new Uint8Array([0x60 | len]);
-    else if (len < 256) header = new Uint8Array([0x78, len]);
-    else header = new Uint8Array([0x79, len >> 8, len & 0xff]);
-    const result = new Uint8Array(header.length + bytes.length);
-    result.set(header);
-    result.set(bytes, header.length);
-    return result;
-};
-
 const concat = (...arrays: Uint8Array[]): Uint8Array => {
     const total = arrays.reduce((s, a) => s + a.length, 0);
     const result = new Uint8Array(total);
