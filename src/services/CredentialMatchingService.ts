@@ -131,16 +131,6 @@ const getValue = (obj: any, key: string) => {
 	return obj[key];
 };
 
-function decodeNamespaceItems(rawItems: { value: Uint8Array; tag: number }[]) {
-	const claims: Record<string, unknown> = {};
-	for (const tagged of rawItems) {
-		const item = cborDecode(tagged.value);
-		// item = { digestID, random, elementIdentifier, elementValue }
-		claims[item.elementIdentifier] = item.elementValue;
-	}
-	return claims;
-}
-
 /**
  * Shape an ExtendedVcEntity into a DcqlCredential for the dcql library.
  * Returns null if shaping fails (e.g., unparseable mDOC).
