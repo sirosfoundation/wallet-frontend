@@ -1,7 +1,6 @@
 // MdocProverService.ts
 import init, { initialize_prover, prove_with_ppid_wasm, CircuitVersion } from './pkg/zk_cred_longfellow.js';
 import { decompress as fzstdDecompress } from 'fzstd';
-import { hexToUint8Array } from "../lib/utils/mdocProtocol";
 
 export interface WitnessVector {
   mdoc: string;
