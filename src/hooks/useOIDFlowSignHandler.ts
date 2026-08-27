@@ -6,7 +6,6 @@ import { logger } from '@/logger';
 import { OPENID4VCI_PROOF_TYPE_PRECEDENCE } from '@/config';
 import { applySelectiveDisclosure } from '@/lib/sd-jwt/sd-jwt';
 import { base64url } from 'jose';
-import { buildMdocPresentationDefinition } from '@/lib/mdoc/mdoc';
 import { detectCredentialFormat, VerifiableCredentialFormat } from 'wallet-common';
 import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
 import { buildCombinedDeviceResponse } from '@/utils/MdocZkpService';
