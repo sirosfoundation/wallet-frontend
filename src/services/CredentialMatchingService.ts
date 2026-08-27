@@ -125,12 +125,6 @@ const cborDecode = (data: Uint8Array): any => {
 	return cbor.decode(data);
 };
 
-const getValue = (obj: any, key: string) => {
-	if (!obj) return undefined;
-	if (typeof obj.get === 'function') return obj.get(key);
-	return obj[key];
-};
-
 /**
  * Shape an ExtendedVcEntity into a DcqlCredential for the dcql library.
  * Returns null if shaping fails (e.g., unparseable mDOC).
