@@ -388,7 +388,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	const { displayError } = useErrorDialog();
 	const { t } = useTranslation();
 	const { showTransactionDataConsentPopup } = useContext(OpenID4VPContext);
-	const { keystore, api } = useContext(SessionContext);
+	const { keystore } = useContext(SessionContext);
 
 	const navigateHome = useNavigateHome();
 	const flowIsActive = useRef(false);
