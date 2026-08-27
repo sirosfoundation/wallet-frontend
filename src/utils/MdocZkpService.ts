@@ -78,8 +78,6 @@ const manualTag = (tag: number, content: Uint8Array): Uint8Array => {
     return concat(header, content);
 };
 
-const manualBstr = (content: Uint8Array): Uint8Array => cborBytes(content);
-
 export interface ZkpConfig {
     circuitHash: string;
     version: number;
