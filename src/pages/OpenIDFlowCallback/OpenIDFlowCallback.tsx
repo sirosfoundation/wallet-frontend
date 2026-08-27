@@ -539,20 +539,6 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				.map(char => char.charCodeAt(0).toString(16).padStart(2, '0'))
 				.join('');
 	}
-	
- 
-	// Upload proof and get URL
-	async function uploadProof(proofBytes) {
-		const response = await fetch('https://buckskin-tabby-pursuable.ngrok-free.dev/proof/upload', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/octet-stream' },
-			body: proofBytes,
-		});
-		const { url } = await response.json();
-		console.log("✅ Proof uploaded, URL:", url);
-		return url;
-	}
-
 
 
 	function assembleFinalVP_V8(originalMdocHex, proofUint8, ppid, transcriptHex, Now) {
