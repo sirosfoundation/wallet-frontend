@@ -62,14 +62,6 @@ const manualMap = (pairs: [string, Uint8Array][]): Uint8Array => {
     return concat(header, ...pairs.flatMap(([k, v]) => [cborText(k), v]));
 };
 
-const manualArray = (items: Uint8Array[]): Uint8Array => {
-    const len = items.length;
-    let header: Uint8Array;
-    if (len < 24) header = new Uint8Array([0x80 | len]);
-    else header = new Uint8Array([0x98, len]);
-    return concat(header, ...items);
-};
-
 export interface ZkpConfig {
     circuitHash: string;
     version: number;
