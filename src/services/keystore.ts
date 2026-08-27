@@ -1338,9 +1338,6 @@ async function generateDeviceResponseInternal(
 
 	logger.debug("Building session transcript for OID4VP response");
 
-	const sessionTranscriptBytes2 = await getSessionTranscriptBytesForOID4VP(
-		sessionTranscript
-	);
 	const transcriptHex = "83f6f6846b6578616d706c652e6f7267781c68747470733a2f2f6578616d706c652e6f72672f726573706f6e736570313233343536373839306162636465667066656463626130393837363534333231";
 	const sessionTranscriptBytes = Buffer.from(
 		transcriptHex.match(/.{1,2}/g)!.map(b => parseInt(b, 16))
