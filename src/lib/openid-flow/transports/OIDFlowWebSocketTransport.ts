@@ -19,7 +19,7 @@ import type {
 	OIDFlowResponse,
 	OIDFlowProgressEvent
 } from '../types/OIDFlowTypes';
-import type { OID4VCIFlowParams, OID4VCIFlowResult, OID4VCIIssuerInfo } from '../types/OID4VCITypes';
+import type { OID4VCIFlowParams, OID4VCIFlowResult } from '../types/OID4VCITypes';
 import type { OID4VPFlowParams, OID4VPFlowResult, OID4VPVerifierInfo } from '../types/OID4VPTypes';
 import type { CredentialsMatchedResult } from '@/services/CredentialMatchingService';
 import { logger } from '@/logger';
@@ -401,9 +401,6 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		if (payload?.issuer_metadata) {
 			result.issuerMetadata = payload.issuer_metadata as OID4VCIFlowResult['issuerMetadata'];
 		}
-		if (payload?.issuer_info) {
-			result.issuerInfo = mapIssuerInfo(payload.issuer_info as Record<string, unknown>);
-		}
 		if (payload?.credential_configurations) {
 			result.credentialConfigurations = payload.credential_configurations as OID4VCIFlowResult['credentialConfigurations'];
 		}
@@ -437,13 +434,11 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			result.selectedCredentialConfigurationId = result.credentialOffer.credential_configuration_ids[0];
 		}
 
-		// Credential issuer identifier — from payload, issuer_info, credential_offer, or top-level (flow_complete)
+		// Credential issuer identifier — from payload, credential_offer, or top-level (flow_complete)
 		if (payload?.credential_issuer) {
 			result.credentialIssuerIdentifier = payload.credential_issuer as string;
 		} else if (response.credential_issuer) {
 			result.credentialIssuerIdentifier = response.credential_issuer as string;
-		} else if (result.issuerInfo?.identifier) {
-			result.credentialIssuerIdentifier = result.issuerInfo.identifier;
 		} else if (result.credentialOffer?.credential_issuer) {
 			result.credentialIssuerIdentifier = result.credentialOffer.credential_issuer;
 		}
@@ -557,9 +552,6 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			} else if (typeof creds === 'object') {
 				result.conformantCredentials = new Map(Object.entries(creds));
 			}
-		}
-		if (response.verifier_info) {
-			result.verifierInfo = mapVerifierInfo(response.verifier_info as Record<string, unknown>);
 		}
 		if (response.transaction_data) {
 			result.transactionData = response.transaction_data as OID4VPFlowResult['transactionData'];
@@ -1234,25 +1226,6 @@ function mapVerifierInfo(raw: Record<string, unknown>): OID4VPVerifierInfo {
 		logo: parseLogo(raw.logo),
 		clientIdScheme: raw.client_id_scheme as string | undefined,
 		trustFramework: raw.framework as string | undefined,
-	};
-}
-
-/**
- * Map a raw issuer info object from the backend into the typed frontend
- * representation. Handles the backend's snake_case `trusted_status` field
- * as well as the legacy `trusted` boolean.
- *
- * Returns undefined for identifier if the backend doesn't provide a valid string,
- * rather than defaulting to empty string which could mask wire-format issues.
- */
-function mapIssuerInfo(raw: Record<string, unknown>): OID4VCIIssuerInfo {
-	return {
-		identifier: typeof raw.identifier === 'string' ? raw.identifier : undefined,
-		name: raw.name as string | undefined,
-		logo: parseLogo(raw.logo),
-		trustedStatus: parseTrustStatus(raw.trusted_status, raw.trusted),
-		reason: raw.reason as string | undefined,
-		metadata: raw.metadata as Record<string, unknown> | undefined,
 	};
 }
 
