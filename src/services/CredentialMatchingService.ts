@@ -158,7 +158,6 @@ export function shapeCredential(credential: ExtendedVcEntity): (DcqlCredential &
 			const mdoc = cborDecode(bytes); // full DeviceResponse (or IssuerSigned, depending on stored shape)
 
 			const doc = mdoc.documents[0];
-			const docType = doc.docType; // don't hardcode this — use what's actually in the credential
 			const rawNameSpaces = doc.issuerSigned.nameSpaces; // { [namespaceName]: TaggedItem[] }
 
 			const namespaces: Record<string, Record<string, unknown>> = {};
