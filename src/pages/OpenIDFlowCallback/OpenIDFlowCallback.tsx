@@ -588,8 +588,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			["deviceSigned", manualMap([])],
 			["msoX5chain", cborEncode(certDer)],
 		]);
-	
-		const documentDataTagged2 = manualTag(24, documentDataMap);
+
 		const documentDataTagged = manualTag(24, manualBstr(documentDataMap));
 		const zkDocMap = manualMap([
 			["proof", cborEncode(proofUint8)],
