@@ -26,8 +26,6 @@ const cborText = (s: string): Uint8Array => {
     return result;
 };
 
-const cborBool = (v: boolean): Uint8Array => new Uint8Array([v ? 0xf5 : 0xf4]);
-
 const concat = (...arrays: Uint8Array[]): Uint8Array => {
     const total = arrays.reduce((s, a) => s + a.length, 0);
     const result = new Uint8Array(total);
