@@ -389,7 +389,6 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	const { t } = useTranslation();
 	const { showTransactionDataConsentPopup } = useContext(OpenID4VPContext);
 	const { keystore, api } = useContext(SessionContext);
-	const [ppidHex, setPpidHex] = useState(null);
 
 	const navigateHome = useNavigateHome();
 	const flowIsActive = useRef(false);
@@ -766,8 +765,6 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				message: 'Background proof generation failed or was never started',
 			});
 		}
-
-		setPpidHex(proofData.ppidHex);
 
 		const selectedCredential = credSelectResult.selectedCredentials[0];
 		const originalMdocHex = base64ToHex(selectedCredential.credentialRaw);
