@@ -19,11 +19,8 @@ import { DCAPISession } from '@/lib/openid-flow/platforms/dc-api';
 import { ConformantCredentials, PresentCredentialsFlow, usePresentCredentialsFlow } from '@/components/flows/PresentCredentialsFlow';
 import { DcqlQuery } from 'dcql';
 import { OID4VPVerifierInfo } from '@/lib/openid-flow/types/OID4VPTypes';
-import { MdocProverService } from '@/utils';
-import { encode, decode, Tag } from "cbor-x";
-import { cborEncode, cborDecode, DataItem } from "@auth0/mdl/lib/cbor";
-import { COSEKeyToJWK } from "cose-kit";
-import * as jose from "jose";
+import { decode } from "cbor-x";
+import { cborEncode } from "@auth0/mdl/lib/cbor";
 import { base64url } from 'jose';
 import SessionContext from "@/context/SessionContext";
 import { useIndexedDb } from "../../hooks/useIndexedDb";
@@ -31,7 +28,6 @@ import {
 		generateDeviceSignature,
 		signMdocWithPlaceholder,
 		buildCombinedDeviceResponse,
-		DEFAULT_PID_ZKP_CONFIG
 } from '@/utils/MdocZkpService';
 type OpenIDFlowCallbackProps = {
 	callbackUrl: OIDFlowCallbackURL;
@@ -388,15 +384,13 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	const { displayError } = useErrorDialog();
 	const { t } = useTranslation();
 	const { showTransactionDataConsentPopup } = useContext(OpenID4VPContext);
-	const { keystore, api } = useContext(SessionContext);
-	const [ppidHex, setPpidHex] = useState(null);
+	const { keystore } = useContext(SessionContext);
 
 	const navigateHome = useNavigateHome();
 	const flowIsActive = useRef(false);
 	const {
 		view,
 		displayRequestOverviewScreen,
-		displayProcessingScreen,
 		displaySendingScreen,
 		displayCompletedScreen,
 		displayErrorScreen,
@@ -475,7 +469,6 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		handleCredentialSelection,
 		sendAuthorizationResponse,
 		handleDCAPIRequest,
-		sendDCAPIResponse,
 	} = useOID4VPFlow({
 		onError: handleOID4VPError,
 		onProgress: handleOID4VPProgress,
@@ -541,20 +534,6 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	}
 
 
-	// Upload proof and get URL
-	async function uploadProof(proofBytes) {
-		const response = await fetch('https://buckskin-tabby-pursuable.ngrok-free.dev/proof/upload', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/octet-stream' },
-			body: proofBytes,
-		});
-		const { url } = await response.json();
-		console.log("✅ Proof uploaded, URL:", url);
-		return url;
-	}
-
-
-
 	function assembleFinalVP_V8(originalMdocHex, proofUint8, ppid, transcriptHex, Now) {
 		const hexToBuf = (hex) => new Uint8Array(hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
 		const mdocBytes = hexToBuf(originalMdocHex);
@@ -589,7 +568,6 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			["msoX5chain", cborEncode(certDer)],
 		]);
 
-		const documentDataTagged2 = manualTag(24, documentDataMap);
 		const documentDataTagged = manualTag(24, manualBstr(documentDataMap));
 		const zkDocMap = manualMap([
 			["proof", cborEncode(proofUint8)],
@@ -740,98 +718,6 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			return null;
 		}
 	}
-	async function startBackgroundProofGeneration2(
-		credentialData: string,
-		keystore: any,
-		proofCacheDb: any,
-		transcriptHex: string,
-		now: string,
-	): Promise<{ proof: Uint8Array; ppid: Uint8Array; ppidHex?: string } | null> {
-		try {
-			const originalMdocHex = base64ToHex(credentialData);
-			// `now` is part of the key: the proof binds the timestamp, so a proof
-			// generated under a different `now` is not reusable.
-			const CACHE_KEY = `${originalMdocHex.slice(0, 32)}_${transcriptHex.slice(0, 16)}_${now}`;
-
-			// 1. Cache hit → reuse the proof bytes directly
-			try {
-				const cached = await proofCacheDb.read(['proofs'], (tr: any) =>
-					tr.objectStore('proofs').get(CACHE_KEY)
-				);
-				if (cached?.proof) {
-					console.log("✅ Using cached proof:", cached.proof.length, "bytes");
-					return { proof: cached.proof, ppid: cached.ppid, ppidHex: cached.ppidHex };
-				}
-			} catch {
-				console.log("No cached proof found");
-			}
-
-			// 2. Sign the mdoc with the device key
-			const rawSignatureHex = await generateDeviceSignature(
-				keystore,
-				originalMdocHex,
-				transcriptHex,
-				"eu.europa.ec.eudi.pid.1",
-				decode,
-			);
-			const signedMdocHex = signMdocWithPlaceholder(originalMdocHex, rawSignatureHex);
-
-			// 3. Pull pseudonym_seed out of the credential
-			const mdocBytes = new Uint8Array(
-				originalMdocHex.match(/.{1,2}/g)!.map((b) => parseInt(b, 16))
-			);
-			const mdoc = decode(mdocBytes);
-			const nsItems = mdoc.documents[0].issuerSigned.nameSpaces;
-			const ns = Object.keys(nsItems)[0];
-			let pseudonymSeed = null;
-			for (const item of nsItems[ns]) {
-				const decoded = decode(item.value);
-				if (decoded.elementIdentifier === 'pseudonym_seed') {
-					pseudonymSeed = decoded.elementValue;
-					break;
-				}
-			}
-
-			const proverService = new MdocProverService();
-			if (!proverService.isInitialized) {
-				await proverService.bootstrap();
-			}
-
-			// 4. Generate
-			const proofResult = await proverService.generateProof({
-				mdoc: signedMdocHex,
-				transcript: transcriptHex,
-				now,
-				pseudonymSeed,
-			});
-
-			// 5. Cache the proof bytes
-			try {
-				await proofCacheDb.write(['proofs'], (tr: any) =>
-					tr.objectStore('proofs').put(
-						{
-							proof: proofResult.proof,
-							ppid: proofResult.ppid,
-							ppidHex: proofResult.ppidHex,
-						},
-						CACHE_KEY,
-					)
-				);
-				console.log("✅ Proof cached:", proofResult.proof.length, "bytes");
-			} catch (e) {
-				console.warn("Failed to cache proof:", e);
-			}
-
-			return {
-				proof: proofResult.proof,
-				ppid: proofResult.ppid,
-				ppidHex: proofResult.ppidHex,
-			};
-		} catch (e) {
-			console.error("Background proof generation failed:", e);
-			return null;
-		}
-	}
 	const processDcApiRequest = async (url: URL, keystore: any, proofCacheDb: any) => {
 		const session = new DCAPISession(url);
 		await session.initialize();
@@ -875,8 +761,6 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				message: 'Background proof generation failed or was never started',
 			});
 		}
-
-		setPpidHex(proofData.ppidHex);
 
 		const selectedCredential = credSelectResult.selectedCredentials[0];
 		const originalMdocHex = base64ToHex(selectedCredential.credentialRaw);

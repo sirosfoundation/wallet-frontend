@@ -6,13 +6,9 @@ import { logger } from '@/logger';
 import { OPENID4VCI_PROOF_TYPE_PRECEDENCE } from '@/config';
 import { applySelectiveDisclosure } from '@/lib/sd-jwt/sd-jwt';
 import { base64url } from 'jose';
-import { buildMdocPresentationDefinition } from '@/lib/mdoc/mdoc';
 import { detectCredentialFormat, VerifiableCredentialFormat } from 'wallet-common';
-import { MDoc } from '@auth0/mdl';
 import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
-import { cborDecode } from '@auth0/mdl/lib/cbor';
 import { buildCombinedDeviceResponse } from '@/utils/MdocZkpService';
-import { fromBase64Url } from "../util";
 
 
 interface ProofTypeConfig {
@@ -294,8 +290,8 @@ async function createVpTokenFromMdoc(
 	},
 	finalVP: { Transcript: string; ZKDeviceResponseCBOR: string; zkDocumentsArray: Uint8Array } | null,
 ): Promise<string> {
-	const { credentialRaw, disclosedClaims } = credentialData;
-	const { nonce, audience, responseUri, origin, verifierJwkThumbprint } = params;
+	const { disclosedClaims } = credentialData;
+	const { responseUri, origin } = params;
 
 	if (!responseUri && !origin) {
 		throw new Error('Missing responseUri or origin for mdoc presentation');
@@ -309,38 +305,11 @@ async function createVpTokenFromMdoc(
 		throw new Error('disclosedClaims required for mdoc presentation');
 	}
 
-	//const mdoc = parseIssuerSignedToMDoc(credentialRaw);
-	const data = credentialRaw;
-	const bytes = fromBase64Url(data);
-	const mdoc = cborDecode(bytes);
-	const docType =  "eu.europa.ec.eudi.pid.1";
-
-	const presentationDefinition = buildMdocPresentationDefinition(
-		docType,
-		disclosedClaims ?? [],
-	);
-	let deviceResponseMDoc: MDoc;
 	if (responseUri) {
-		const { deviceResponseMDoc: drm } = await keystore.generateDeviceResponse(
-			mdoc, presentationDefinition, nonce, audience, responseUri,
-			verifierJwkThumbprint ?? null,
-		);
-		deviceResponseMDoc = drm;
 	} else if (origin) {
-		const { deviceResponseMDoc: drm } = await keystore.generateDeviceResponseForDCAPI(
-			mdoc, presentationDefinition, nonce, origin,
-			verifierJwkThumbprint ?? null,
-		);
-		deviceResponseMDoc = drm;
 	} else {
 		throw new Error('Unexpected error: neither responseUri nor origin provided for mdoc presentation');
 	}
-
-	const versionKey = new Uint8Array([0x67, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e]); // "version"
-	const versionVal = new Uint8Array([0x63, 0x31, 0x2e, 0x30]); // "1.0"
-	const statusKey = new Uint8Array([0x66, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73]); // "status"
-	const statusVal = new Uint8Array([0x00]); // 0
-	const zkDocsKey = new Uint8Array([0x6b, 0x7a, 0x6b, 0x44, 0x6f, 0x63, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x73]); // "zkDocuments"
 
 	const combined = buildCombinedDeviceResponse(finalVP.zkDocumentsArray);
 	return base64url.encode(combined);

@@ -2,7 +2,6 @@ import {
 	Fragment,
 	useContext,
 	useEffect,
-	useId,
 	useRef,
 	useState,
 	type FC,
@@ -10,7 +9,7 @@ import {
 	type ReactElement,
 } from 'react';
 import { Navigate } from 'react-router-dom';
-import { CircleCheckIcon, CircleXIcon, HatGlassesIcon, IdCardIcon, ScrollTextIcon } from 'lucide-react';
+import { CircleCheckIcon, CircleXIcon, HatGlassesIcon, ScrollTextIcon } from 'lucide-react';
 import type {
 	PresentationErrorState,
 	PresentationResult,
@@ -28,7 +27,7 @@ import {
 	type SwitchCredentialPopupState
 } from '@/components/Popups/SwitchCredentialPopup';
 import { useTranslation } from 'react-i18next';
-import { prettyDomain, truncateByWords } from '@/utils';
+import { prettyDomain } from '@/utils';
 import { logger } from '@/logger';
 import SessionContext from '@/context/SessionContext';
 
@@ -166,9 +165,6 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 			</Button>
 		</>
 	);
-
-	const singlePurpose =
-		sets.length === 1 && sets[0].purpose != null ? sets[0].purpose : null;
 
 	return (
 		<FlowScreen buttons={buttons}>
@@ -434,34 +430,5 @@ const FlowScreen: FC<PropsWithChildren<{ buttons?: ReactElement }>> = ({
 				</div>
 			)}
 		</>
-	);
-};
-
-const Purpose: FC<{ purpose: string }> = ({ purpose }) => {
-	const { t } = useTranslation();
-	const id = useId();
-	const { text, truncated } = truncateByWords(purpose, 40);
-	const [expanded, setExpanded] = useState(false);
-
-	return (
-		<p>
-			<span id={id}>
-				{expanded ? purpose : text}
-			</span>
-			{truncated && (
-				<>
-					{' '}
-					{expanded && <br />}
-					<Button
-						onClick={() => setExpanded(!expanded)}
-						variant='link'
-						aria-expanded={expanded}
-						aria-controls={id}
-					>
-						{expanded ? t('common.showLess') : t('common.showMore')}
-					</Button>
-				</>
-			)}
-		</p>
 	);
 };

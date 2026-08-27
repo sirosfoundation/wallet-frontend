@@ -404,10 +404,9 @@ if (!('encodeInto' in cachedTextEncoder)) {
 
 let WASM_VECTOR_LEN = 0;
 
-let wasmModule, wasm;
+let wasm;
 function __wbg_finalize_init(instance, module) {
     wasm = instance.exports;
-    wasmModule = module;
     cachedDataViewMemory0 = null;
     cachedUint8ArrayMemory0 = null;
     wasm.__wbindgen_start();
@@ -443,9 +442,14 @@ async function __wbg_load(module, imports) {
 
     function expectedResponseType(type) {
         switch (type) {
-            case 'basic': case 'cors': case 'default': return true;
+            case 'basic':
+            case 'cors':
+            case 'default':
+                return true;
+
+            default:
+                return false;
         }
-        return false;
     }
 }
 

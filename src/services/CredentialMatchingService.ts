@@ -13,9 +13,7 @@
 import { ExtendedVcEntity } from '@/context/CredentialsContext';
 import { DcqlQuery, DcqlCredential, DcqlQueryResult } from 'dcql';
 import { logger } from '@/logger';
-import { parseIssuerSignedToMDoc } from '@/lib/mdoc/mdoc';
 import * as cbor from 'cbor-x';
-import { extractDocTypeFromIssuerAuth } from '@/lib/mdoc/mdoc';
 
 export interface CredentialMatch {
 	input_descriptor_id: string;
@@ -125,22 +123,6 @@ const cborDecode = (data: Uint8Array): any => {
 	return cbor.decode(data);
 };
 
-const getValue = (obj: any, key: string) => {
-	if (!obj) return undefined;
-	if (typeof obj.get === 'function') return obj.get(key);
-	return obj[key];
-};
-
-function decodeNamespaceItems(rawItems: { value: Uint8Array; tag: number }[]) {
-	const claims: Record<string, unknown> = {};
-	for (const tagged of rawItems) {
-		const item = cborDecode(tagged.value);
-		// item = { digestID, random, elementIdentifier, elementValue }
-		claims[item.elementIdentifier] = item.elementValue;
-	}
-	return claims;
-}
-
 /**
  * Shape an ExtendedVcEntity into a DcqlCredential for the dcql library.
  * Returns null if shaping fails (e.g., unparseable mDOC).
@@ -158,7 +140,6 @@ export function shapeCredential(credential: ExtendedVcEntity): (DcqlCredential &
 			const mdoc = cborDecode(bytes); // full DeviceResponse (or IssuerSigned, depending on stored shape)
 
 			const doc = mdoc.documents[0];
-			const docType = doc.docType; // don't hardcode this — use what's actually in the credential
 			const rawNameSpaces = doc.issuerSigned.nameSpaces; // { [namespaceName]: TaggedItem[] }
 
 			const namespaces: Record<string, Record<string, unknown>> = {};
@@ -194,7 +175,6 @@ export function shapeCredential(credential: ExtendedVcEntity): (DcqlCredential &
 			const mdoc = cborDecode(bytes); // full DeviceResponse (or IssuerSigned, depending on stored shape)
 
 			const doc = mdoc.documents[0];
-			const docType = doc.docType; // don't hardcode this — use what's actually in the credential
 			const rawNameSpaces = doc.issuerSigned.nameSpaces; // { [namespaceName]: TaggedItem[] }
 
 			const namespaces: Record<string, Record<string, unknown>> = {};

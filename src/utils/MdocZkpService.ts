@@ -2,49 +2,12 @@
 
 import { COSEKeyToJWK } from "cose-kit";
 import * as jose from "jose";
-import { cborEncode, cborDecode, DataItem } from "@auth0/mdl/lib/cbor";
+import { cborDecode } from "@auth0/mdl/lib/cbor";
 const hexToBuf = (hex: string): Uint8Array =>
 		new Uint8Array(hex.match(/.{1,2}/g)!.map(b => parseInt(b, 16)));
 
 const bufToHex = (buf: Uint8Array): string =>
 		Array.from(buf).map(b => b.toString(16).padStart(2, '0')).join('');
-
-const uint8ToBase64 = (arr: Uint8Array): string =>
-		btoa(String.fromCharCode(...arr));
-
-// Manual CBOR helpers
-const cborText = (s: string): Uint8Array => {
-		const bytes = new TextEncoder().encode(s);
-		const len = bytes.length;
-		let header: Uint8Array;
-		if (len < 24) header = new Uint8Array([0x60 | len]);
-		else if (len < 256) header = new Uint8Array([0x78, len]);
-		else header = new Uint8Array([0x79, len >> 8, len & 0xff]);
-		const result = new Uint8Array(header.length + bytes.length);
-		result.set(header);
-		result.set(bytes, header.length);
-		return result;
-};
-
-const cborBool = (v: boolean): Uint8Array => new Uint8Array([v ? 0xf5 : 0xf4]);
-
-const cborBytes = (bytes: Uint8Array): Uint8Array => {
-		const len = bytes.length;
-		let header: Uint8Array;
-		if (len < 24) header = new Uint8Array([0x40 | len]);
-		else if (len < 256) header = new Uint8Array([0x58, len]);
-		else header = new Uint8Array([0x59, len >> 8, len & 0xff]);
-		const result = new Uint8Array(header.length + bytes.length);
-		result.set(header);
-		result.set(bytes, header.length);
-		return result;
-};
-
-const cborUint = (n: number): Uint8Array => {
-		if (n < 24) return new Uint8Array([n]);
-		if (n < 256) return new Uint8Array([0x18, n]);
-		return new Uint8Array([0x19, n >> 8, n & 0xff]);
-};
 
 const concat = (...arrays: Uint8Array[]): Uint8Array => {
 		const total = arrays.reduce((s, a) => s + a.length, 0);
@@ -53,32 +16,6 @@ const concat = (...arrays: Uint8Array[]): Uint8Array => {
 		for (const a of arrays) { result.set(a, offset); offset += a.length; }
 		return result;
 };
-
-const manualMap = (pairs: [string, Uint8Array][]): Uint8Array => {
-		const len = pairs.length;
-		let header: Uint8Array;
-		if (len < 24) header = new Uint8Array([0xa0 | len]);
-		else header = new Uint8Array([0xb8, len]);
-		return concat(header, ...pairs.flatMap(([k, v]) => [cborText(k), v]));
-};
-
-const manualArray = (items: Uint8Array[]): Uint8Array => {
-		const len = items.length;
-		let header: Uint8Array;
-		if (len < 24) header = new Uint8Array([0x80 | len]);
-		else header = new Uint8Array([0x98, len]);
-		return concat(header, ...items);
-};
-
-const manualTag = (tag: number, content: Uint8Array): Uint8Array => {
-		let header: Uint8Array;
-		if (tag < 24) header = new Uint8Array([0xc0 | tag]);
-		else if (tag < 256) header = new Uint8Array([0xd8, tag]);
-		else header = new Uint8Array([0xd9, tag >> 8, tag & 0xff]);
-		return concat(header, content);
-};
-
-const manualBstr = (content: Uint8Array): Uint8Array => cborBytes(content);
 
 export interface ZkpConfig {
 		circuitHash: string;

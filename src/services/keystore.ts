@@ -1268,36 +1268,6 @@ async function generateDeviceResponseInternal(
 	presentationDefinition: any,
 	sessionTranscript: SessionTranscriptOptions,
 ): Promise<{ deviceResponseMDoc: MDoc }> {
-	const getSessionTranscriptBytesForOID4VP = async (sessionTranscript: SessionTranscriptOptions) => {
-		const decodedThumbprint = sessionTranscript.jwkThumbprint
-			? jose.base64url.decode(sessionTranscript.jwkThumbprint)
-			: null;
-
-		const handoverInfo = [];
-		switch (sessionTranscript.name) {
-			case "OpenID4VPHandover":
-				handoverInfo.push(
-					sessionTranscript.clientId,
-					sessionTranscript.nonce,
-					decodedThumbprint,
-					sessionTranscript.responseUri,
-				);
-				break;
-			case "OpenID4VPDCAPIHandover":
-				handoverInfo.push(
-					sessionTranscript.origin,
-					sessionTranscript.nonce,
-					decodedThumbprint,
-				);
-				break;
-		}
-
-		const handoverInfoHash = new Uint8Array(
-			await crypto.subtle.digest('SHA-256', cborEncode(handoverInfo)),
-		);
-		const handover = [sessionTranscript.name, handoverInfoHash];
-		return cborEncode(DataItem.fromData([null, null, handover]));
-	};
 	console.log("mdocCredential")
 	console.log(mdocCredential)
 	// extract the COSE device public key from mdoc
@@ -1338,9 +1308,6 @@ async function generateDeviceResponseInternal(
 
 	logger.debug("Building session transcript for OID4VP response");
 
-	const sessionTranscriptBytes2 = await getSessionTranscriptBytesForOID4VP(
-		sessionTranscript
-	);
 	const transcriptHex = "83f6f6846b6578616d706c652e6f7267781c68747470733a2f2f6578616d706c652e6f72672f726573706f6e736570313233343536373839306162636465667066656463626130393837363534333231";
 	const sessionTranscriptBytes = Buffer.from(
 		transcriptHex.match(/.{1,2}/g)!.map(b => parseInt(b, 16))
