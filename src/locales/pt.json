@@ -64,9 +64,9 @@
 				"pseudonymTitle": "Pseudónimo",
 				"derivedFrom": "Derivado de {{source}}",
 				"pseudonymBenefits": {
+					"noSharing": "Os seus dados pessoais não serão partilhados",
 					"noTracking": "Não pode ser rastreado entre sites",
-					"recognizeAccount": "O site pode reconhecer a sua conta",
-					"courtReveal": "Apenas um tribunal pode revelar a sua identidade"
+					"recognizeAccount": "O site pode reconhecer a sua conta"
 				}
 			},
 			"share": "Partilhar",
@@ -75,7 +75,18 @@
 			"switchCredentialAria": "Trocar credencial: {{name}}, {{count}} disponíveis"
 		},
 		"sharing": {
-			"sending": "A enviar..."
+			"sending": "A enviar...",
+			"messages": {
+				"workingOnIt": "A trabalhar nisso",
+				"generatingProof": "A gerar prova",
+				"provingAway": "A provar",
+				"almostThere": "Quase lá",
+				"mayTakeAMoment": "Isto pode demorar alguns momentos",
+				"preparingProofEngine": "A preparar o motor de provas",
+				"gatheringData": "A recolher dados",
+				"ensuringPrivacy": "A garantir a privacidade",
+				"sendingInformation": "A enviar informação"
+			}
 		},
 		"completed": {
 			"title": "Sucesso!",

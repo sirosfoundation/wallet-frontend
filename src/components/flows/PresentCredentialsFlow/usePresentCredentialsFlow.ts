@@ -55,34 +55,42 @@ export function usePresentCredentialsFlow() {
 		[vcEntityList, language],
 	);
 
-	const PROOF_MESSAGES = [
-		'Working on it',
-		'Generating proof',
-		'Proving away',
-		'Almost there',
-	];
-
-	const displayProcessingScreen = useCallback((messages: string[] = PROOF_MESSAGES): AbortSignal => {
+	const displayProcessingScreen = useCallback((messages?: string[]): AbortSignal => {
 		const controller = new AbortController();
 		sharingAbort.current = controller;
-		setView({ status: 'sharing', messages, onCancel: () => controller.abort() });
+		setView({
+			status: 'sharing',
+			messages: messages ?? [
+				t('presentCredentialsFlow.sharing.messages.workingOnIt'),
+				t('presentCredentialsFlow.sharing.messages.generatingProof'),
+				t('presentCredentialsFlow.sharing.messages.provingAway'),
+				t('presentCredentialsFlow.sharing.messages.almostThere'),
+			],
+			onCancel: () => controller.abort(),
+		});
 
 		return controller.signal;
-	}, []);
+	}, [t]);
 
 	const displaySendingScreen = useCallback((): void => {
 		sharingAbort.current = null;
 		setView({
 			status: 'sharing',
 			messages: [
-				'Working on it',
-				'Generating proof',
-				'Proving away',
-				'Almost there',
+				t('presentCredentialsFlow.sharing.messages.workingOnIt'),
+				t('presentCredentialsFlow.sharing.messages.generatingProof'),
+				t('presentCredentialsFlow.sharing.messages.provingAway'),
+				t('presentCredentialsFlow.sharing.messages.almostThere'),
+				t('presentCredentialsFlow.sharing.messages.mayTakeAMoment'),
+				t('presentCredentialsFlow.sharing.messages.preparingProofEngine'),
+				t('presentCredentialsFlow.sharing.messages.gatheringData'),
+				t('presentCredentialsFlow.sharing.messages.ensuringPrivacy'),
+				t('presentCredentialsFlow.sharing.messages.generatingProof'),
+				t('presentCredentialsFlow.sharing.messages.sendingInformation'),
 			],
 			onCancel: undefined,
 		});
-	}, []);
+	}, [t]);
 
 	const displayCompletedScreen = useCallback(async (result: PresentationResult) => {
 		setView({ status: 'shared', result });

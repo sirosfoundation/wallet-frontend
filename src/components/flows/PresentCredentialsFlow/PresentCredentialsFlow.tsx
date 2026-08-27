@@ -201,9 +201,9 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 										source: entry.selected?.display.name ?? 'PID',
 										icon: <HatGlassesIcon />,
 										properties: [
+											t('presentCredentialsFlow.overview._demo.pseudonymBenefits.noSharing'),
 											t('presentCredentialsFlow.overview._demo.pseudonymBenefits.noTracking'),
 											t('presentCredentialsFlow.overview._demo.pseudonymBenefits.recognizeAccount'),
-											t('presentCredentialsFlow.overview._demo.pseudonymBenefits.courtReveal'),
 										],
 									}
 								].map(({ title, source, icon, properties }) => (
@@ -302,7 +302,7 @@ const PresentationSharingScreen: FC<PresentationSharingScreenProps> = ({
 		if (items.length <= 1) return;
 		const id = setInterval(
 			() => setIndex((i) => (i + 1) % items.length),
-			1000 * 8,
+			1000 * 2,
 		);
 		return () => clearInterval(id);
 	}, [items.length]);

@@ -64,9 +64,9 @@
 				"pseudonymTitle": "Pseudonyymi",
 				"derivedFrom": "Johdettu lähteestä {{source}}",
 				"pseudonymBenefits": {
+					"noSharing": "Henkilötietojasi ei jaeta",
 					"noTracking": "Sinua ei voi seurata sivustojen välillä",
-					"recognizeAccount": "Sivusto voi tunnistaa tilisi",
-					"courtReveal": "Vain tuomioistuin voi paljastaa henkilöllisyytesi"
+					"recognizeAccount": "Sivusto voi tunnistaa tilisi"
 				}
 			},
 			"share": "Jaa",
@@ -75,7 +75,18 @@
 			"switchCredentialAria": "Vaihda todistus: {{name}}, {{count}} saatavilla"
 		},
 		"sharing": {
-			"sending": "Lähetetään..."
+			"sending": "Lähetetään...",
+			"messages": {
+				"workingOnIt": "Työstetään",
+				"generatingProof": "Luodaan todistetta",
+				"provingAway": "Todistetaan",
+				"almostThere": "Melkein valmis",
+				"mayTakeAMoment": "Tämä voi kestää hetken",
+				"preparingProofEngine": "Valmistellaan todistemoottoria",
+				"gatheringData": "Kerätään tietoja",
+				"ensuringPrivacy": "Varmistetaan yksityisyys",
+				"sendingInformation": "Lähetetään tietoja"
+			}
 		},
 		"completed": {
 			"title": "Onnistui!",

@@ -64,9 +64,9 @@
 				"pseudonymTitle": "Ψευδώνυμο",
 				"derivedFrom": "Προέρχεται από {{source}}",
 				"pseudonymBenefits": {
+					"noSharing": "Τα προσωπικά σας δεδομένα δεν θα κοινοποιηθούν",
 					"noTracking": "Δεν μπορείτε να παρακολουθηθείτε μεταξύ ιστότοπων",
-					"recognizeAccount": "Ο ιστότοπος μπορεί να αναγνωρίσει τον λογαριασμό σας",
-					"courtReveal": "Μόνο ένα δικαστήριο μπορεί να αποκαλύψει την ταυτότητά σας"
+					"recognizeAccount": "Ο ιστότοπος μπορεί να αναγνωρίσει τον λογαριασμό σας"
 				}
 			},
 			"share": "Κοινοποίηση",
@@ -75,7 +75,18 @@
 			"switchCredentialAria": "Αλλαγή πιστοποιητικού: {{name}}, {{count}} διαθέσιμα"
 		},
 		"sharing": {
-			"sending": "Αποστολή..."
+			"sending": "Αποστολή...",
+			"messages": {
+				"workingOnIt": "Το επεξεργαζόμαστε",
+				"generatingProof": "Δημιουργία απόδειξης",
+				"provingAway": "Απόδειξη σε εξέλιξη",
+				"almostThere": "Σχεδόν έτοιμο",
+				"mayTakeAMoment": "Αυτό μπορεί να πάρει λίγη ώρα",
+				"preparingProofEngine": "Προετοιμασία μηχανής απόδειξης",
+				"gatheringData": "Συλλογή δεδομένων",
+				"ensuringPrivacy": "Διασφάλιση απορρήτου",
+				"sendingInformation": "Αποστολή πληροφοριών"
+			}
 		},
 		"completed": {
 			"title": "Επιτυχία!",

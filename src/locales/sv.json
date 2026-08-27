@@ -64,9 +64,9 @@
 				"pseudonymTitle": "Pseudonym",
 				"derivedFrom": "Härlett från {{source}}",
 				"pseudonymBenefits": {
+					"noSharing": "Dina personuppgifter kommer inte att delas",
 					"noTracking": "Du kan inte spåras mellan webbplatser",
-					"recognizeAccount": "Webbplatsen kan känna igen ditt konto",
-					"courtReveal": "Endast en domstol kan avslöja din identitet"
+					"recognizeAccount": "Webbplatsen kan känna igen ditt konto"
 				}
 			},
 			"share": "Dela",
@@ -75,7 +75,18 @@
 			"switchCredentialAria": "Byt intyg: {{name}}, {{count}} tillgängliga"
 		},
 		"sharing": {
-			"sending": "Skickar..."
+			"sending": "Skickar...",
+			"messages": {
+				"workingOnIt": "Jobbar på det",
+				"generatingProof": "Genererar bevis",
+				"provingAway": "Bevisar",
+				"almostThere": "Nästan klar",
+				"mayTakeAMoment": "Detta kan ta en stund",
+				"preparingProofEngine": "Förbereder bevismotor",
+				"gatheringData": "Samlar in data",
+				"ensuringPrivacy": "Säkerställer integritet",
+				"sendingInformation": "Skickar information"
+			}
 		},
 		"completed": {
 			"title": "Lyckades!",

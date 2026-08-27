@@ -55,7 +55,7 @@
 	},
 	"presentCredentialsFlow": {
 		"overview": {
-			"title": "Presentation Request",
+			"title": "Request to Share Data",
 			"requester": "Requester",
 			"purpose": "Purpose",
 			"requestedInformation": "",
@@ -64,9 +64,9 @@
 				"pseudonymTitle": "Pseudonym",
 				"derivedFrom": "Derived from {{source}}",
 				"pseudonymBenefits": {
+					"noSharing": "Your personal data will not be shared",
 					"noTracking": "You can not be tracked across sites",
-					"recognizeAccount": "The site can recognize your account",
-					"courtReveal": "Only a court can reveal your identity"
+					"recognizeAccount": "The site can recognize your account"
 				}
 			},
 			"share": "Share",
@@ -75,7 +75,18 @@
 			"switchCredentialAria": "Switch credential: {{name}}, {{count}} available"
 		},
 		"sharing": {
-			"sending": "Generating proof"
+			"sending": "Generating proof",
+			"messages": {
+				"workingOnIt": "Working on it",
+				"generatingProof": "Generating proof",
+				"provingAway": "Proving away",
+				"almostThere": "Almost there",
+				"mayTakeAMoment": "This may take a few moments",
+				"preparingProofEngine": "Preparing proof engine",
+				"gatheringData": "Gathering data",
+				"ensuringPrivacy": "Ensuring privacy",
+				"sendingInformation": "Sending information"
+			}
 		},
 		"completed": {
 			"title": "Success!",
