@@ -21,7 +21,7 @@ import { DcqlQuery } from 'dcql';
 import { OID4VPVerifierInfo } from '@/lib/openid-flow/types/OID4VPTypes';
 import { MdocProverService } from '@/utils';
 import { encode, decode, Tag } from "cbor-x";
-import { cborEncode, cborDecode, DataItem } from "@auth0/mdl/lib/cbor";
+import { cborEncode, cborDecode } from "@auth0/mdl/lib/cbor";
 import { base64url } from 'jose';
 import SessionContext from "@/context/SessionContext";
 import { useIndexedDb } from "../../hooks/useIndexedDb";
