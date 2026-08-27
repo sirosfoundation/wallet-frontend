@@ -313,7 +313,6 @@ async function createVpTokenFromMdoc(
 	const data = credentialRaw;
 	const bytes = fromBase64Url(data);
 	const mdoc = cborDecode(bytes);
-	const docType =  "eu.europa.ec.eudi.pid.1";
 
 	if (responseUri) {
 	} else if (origin) {
