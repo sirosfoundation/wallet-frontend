@@ -27,11 +27,11 @@ import * as jose from "jose";
 import { base64url } from 'jose';
 import SessionContext from "@/context/SessionContext";
 import { useIndexedDb } from "../../hooks/useIndexedDb";
-import { 
-    generateDeviceSignature, 
-    signMdocWithPlaceholder,
-    buildCombinedDeviceResponse,
-    DEFAULT_PID_ZKP_CONFIG 
+import {
+		generateDeviceSignature,
+		signMdocWithPlaceholder,
+		buildCombinedDeviceResponse,
+		DEFAULT_PID_ZKP_CONFIG
 } from '@/utils/MdocZkpService';
 type OpenIDFlowCallbackProps = {
 	callbackUrl: OIDFlowCallbackURL;
@@ -348,21 +348,21 @@ function manualBstr(contentBytes) {
 
 
 function ensureArrayBuffer(buf: any): Uint8Array<ArrayBuffer> {
-    const u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
-    // Force copy into a fresh ArrayBuffer
-    const copy = new Uint8Array(u8.length);
-    copy.set(u8);
-    return copy as Uint8Array<ArrayBuffer>;
+		const u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+		// Force copy into a fresh ArrayBuffer
+		const copy = new Uint8Array(u8.length);
+		copy.set(u8);
+		return copy as Uint8Array<ArrayBuffer>;
 }
 
 function manualMap(pairs) {
-    const header = minimalMapHeader(pairs.length);
-    const parts = [header];
-    for (const [key, valueBytes] of pairs) {
-        parts.push(ensureArrayBuffer(cborEncode(key)));
-        parts.push(ensureArrayBuffer(valueBytes));
-    }
-    return concatBytes(parts);
+		const header = minimalMapHeader(pairs.length);
+		const parts = [header];
+		for (const [key, valueBytes] of pairs) {
+				parts.push(ensureArrayBuffer(cborEncode(key)));
+				parts.push(ensureArrayBuffer(valueBytes));
+		}
+		return concatBytes(parts);
 }
 
 function manualArray(itemsBytes) {
@@ -539,8 +539,8 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				.map(char => char.charCodeAt(0).toString(16).padStart(2, '0'))
 				.join('');
 	}
-	
- 
+
+
 	// Upload proof and get URL
 	async function uploadProof(proofBytes) {
 		const response = await fetch('https://buckskin-tabby-pursuable.ngrok-free.dev/proof/upload', {
@@ -577,9 +577,9 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		const issuerSignedMap = manualMap([
 			["eu.europa.ec.eudi.pid.1", claimsArray],
 		]);
-	
+
 		const timestampTagged = manualTag(0, cborEncode(Now));
-	
+
 		const documentDataMap = manualMap([
 			["zkSystemId", cborEncode("longfellow-libzk-v1_8_2_4307_2945_bb8e6a26d2700ddad968562d1c4aee83067772fee6f889748a0bc64f2c694ad5")],
 			["docType", cborEncode("eu.europa.ec.eudi.pid.1")],
@@ -588,22 +588,22 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			["deviceSigned", manualMap([])],
 			["msoX5chain", cborEncode(certDer)],
 		]);
-	
+
 		const documentDataTagged2 = manualTag(24, documentDataMap);
 		const documentDataTagged = manualTag(24, manualBstr(documentDataMap));
 		const zkDocMap = manualMap([
 			["proof", cborEncode(proofUint8)],
 			["documentData", documentDataTagged],
 		]);
-	
+
 		const zkDocumentsArray = manualArray([zkDocMap]);
-	
+
 		const outerResponseBytes = manualMap([
 			["version", cborEncode("1.1")],
 			["status", cborEncode(0)],
 			["zkDocuments", zkDocumentsArray],
 		]);
-	
+
 		const handoverBytes = hexToBuf(transcriptHex);
 		return {
 			Transcript: uint8ToBase64(handoverBytes),

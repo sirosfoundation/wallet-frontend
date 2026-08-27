@@ -19,18 +19,18 @@ export type PresentCredentialsQuery = {
 	matches: PresentCredentialsMatch[];
 };
 export type PresentCredentialsMatch = {
-    batchId: number;
-    display: {
-        name: string;
-        backgroundColor?: string;
-        textColor?: string;
-        logo?: string;
-    };
-    fields: Array<{
-        name: string;
-        value: unknown;
-    }>;
-    pseudonymSeedHex?: string; 
+		batchId: number;
+		display: {
+				name: string;
+				backgroundColor?: string;
+				textColor?: string;
+				logo?: string;
+		};
+		fields: Array<{
+				name: string;
+				value: unknown;
+		}>;
+		pseudonymSeedHex?: string;
 };
 /**
  * A single credential set, derived from the request's DCQL query.
