@@ -40,27 +40,27 @@ type OpenIDFlowCallbackProps = {
 type OpenIDFlowCallbackHandler = React.FC<OpenIDFlowCallbackProps>;
 
 /**
-* OpenIDFlowCallback - Transient page that processes OID4VCI/OID4VP callback URLs.
-*
-* Route: /cb/* (wrapped in <PrivateRoute>
-*
-* Renders a spinner while the flow runs, then navigates home on completion or error.
-* The effect fires once when transportReady becomes true (guarded by flowIsActive ref
-* to prevent double-invocation in StrictMode).
-*
-* Auth & sync:
-* - Authentication is enforced by PrivateRoute (see App.jsx) — unauthenticated users
-*   are redirected to login before this component mounts.
-* - Session sync is handled by UriHandlerProvider (see AppProvider.tsx), which wraps
-*   this component. The sync completes before transportReady settles in practice,
-*   but there is no explicit sync gate here. If sync timing becomes an issue,
-*   extract synced state from UriHandlerProvider into a shared context.
-*/
+ * OpenIDFlowCallback - Transient page that processes OID4VCI/OID4VP callback URLs.
+ *
+ * Route: /cb/* (wrapped in <PrivateRoute>
+ *
+ * Renders a spinner while the flow runs, then navigates home on completion or error.
+ * The effect fires once when transportReady becomes true (guarded by flowIsActive ref
+ * to prevent double-invocation in StrictMode).
+ *
+ * Auth & sync:
+ * - Authentication is enforced by PrivateRoute (see App.jsx) — unauthenticated users
+ *   are redirected to login before this component mounts.
+ * - Session sync is handled by UriHandlerProvider (see AppProvider.tsx), which wraps
+ *   this component. The sync completes before transportReady settles in practice,
+ *   but there is no explicit sync gate here. If sync timing becomes an issue,
+ *   extract synced state from UriHandlerProvider into a shared context.
+ */
 const OpenIDFlowCallback: React.FC = () => {
 	const { transportReady } = useOIDFlowTransport();
 	/**
-	* Parse the callback URL on initial load to determine the flow type and relevant parameters.
-	*/
+	 * Parse the callback URL on initial load to determine the flow type and relevant parameters.
+	 */
 	const callbackUrl: OIDFlowCallbackURL = useMemo(() => {
 		const url = new URL(window.location.href);
 
@@ -73,10 +73,10 @@ const OpenIDFlowCallback: React.FC = () => {
 };
 
 /**
-* Based on the callback url, route to the appropriate flow handler component.
-* The handler components are responsible for executing the protocol flow,
-* handling errors, and navigating home on completion.
-*/
+ * Based on the callback url, route to the appropriate flow handler component.
+ * The handler components are responsible for executing the protocol flow,
+ * handling errors, and navigating home on completion.
+ */
 const OpenIDFlowRouter: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	const { buildPath } = useTenant();
 
@@ -104,8 +104,8 @@ const OpenIDFlowRouter: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 }
 
 /**
-* OpenID4VCIFlow - Handles OID4VCI credential offer and authorization code callbacks.
-*/
+ * OpenID4VCIFlow - Handles OID4VCI credential offer and authorization code callbacks.
+ */
 const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	const { displayError } = useErrorDialog();
 	const { t } = useTranslation();
@@ -382,8 +382,8 @@ function manualTag(tagNumber, contentBytes) {
 	throw new Error("tag number too large for this helper");
 }
 /**
-* OpenID4VPFlow - Handles OID4VP presentation request callbacks.
-*/
+ * OpenID4VPFlow - Handles OID4VP presentation request callbacks.
+ */
 const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	const { displayError } = useErrorDialog();
 	const { t } = useTranslation();
@@ -412,8 +412,8 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		}
 	);
 	/**
-	* Handle errors thrown during OID4VP flows.
-	*/
+	 * Handle errors thrown during OID4VP flows.
+	 */
 	const handleOID4VPError = useCallback((err: Error) => {
 		logger.error("Error in OID4VP flow:", err);
 		if (!(err instanceof OIDFlowError)) {
@@ -441,16 +441,16 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	}, [displayError, displayErrorScreen, navigateHome, t]);
 
 	/**
-	* Handle OID4VP flow progress events.
-	* For now, just debug logging.
-	*/
+	 * Handle OID4VP flow progress events.
+	 * For now, just debug logging.
+	 */
 	const handleOID4VPProgress = useCallback((event: OIDFlowProgressEvent) => {
 		logger.debug("OID4VP flow progress:", event);
 	}, []);
 
 	/**
-	* Handle credential selection during OID4VP flows by showing the configured UI and returning the user's selection.
-	*/
+	 * Handle credential selection during OID4VP flows by showing the configured UI and returning the user's selection.
+	 */
 	const handleOID4VPCredentialSelection = useCallback(async (
 		verifierInfo: OID4VPVerifierInfo,
 		dcqlQuery: DcqlQuery.Input,
@@ -955,8 +955,8 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 };
 
 /**
-* OpenIDUnknownFlow - Handles unsupported or error callbacks by showing an error message.
-*/
+ * OpenIDUnknownFlow - Handles unsupported or error callbacks by showing an error message.
+ */
 const OpenIDUnknownFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	const { displayError } = useErrorDialog();
 	const { t } = useTranslation();

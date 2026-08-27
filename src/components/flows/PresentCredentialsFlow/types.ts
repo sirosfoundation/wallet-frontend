@@ -1,6 +1,6 @@
 /**
-* Information about the verifier requesting credentials.
-*/
+ * Information about the verifier requesting credentials.
+ */
 export type PresentCredentialsVerifier = {
 	name: string;
 	domain: string;
@@ -9,11 +9,11 @@ export type PresentCredentialsVerifier = {
 
 
 /**
-* A single query for credentials, including the requested credential ID
-* and the matching credentials in the wallet.
-*
-* Typically this would be used like `PresentCredentialsQuery[]`.
-*/
+ * A single query for credentials, including the requested credential ID
+ * and the matching credentials in the wallet.
+ *
+ * Typically this would be used like `PresentCredentialsQuery[]`.
+ */
 export type PresentCredentialsQuery = {
 	id: string;
 	matches: PresentCredentialsMatch[];
@@ -33,8 +33,8 @@ export type PresentCredentialsMatch = {
 		pseudonymSeedHex?: string;
 };
 /**
-* A single credential set, derived from the request's DCQL query.
-*/
+ * A single credential set, derived from the request's DCQL query.
+ */
 export type PresentCredentialSet = {
 	purpose?: string;
 	required?: boolean;
@@ -42,9 +42,9 @@ export type PresentCredentialSet = {
 };
 
 /**
-* A full request for presenting credentials, including the verifier information,
-* the requested queries, and the credential sets.
-*/
+ * A full request for presenting credentials, including the verifier information,
+ * the requested queries, and the credential sets.
+ */
 export type PresentCredentialsRequest = {
 	verifier: PresentCredentialsVerifier;
 	queries: PresentCredentialsQuery[];
@@ -52,24 +52,24 @@ export type PresentCredentialsRequest = {
 };
 
 /**
-* The user-selected credentials to present.
-*/
+ * The user-selected credentials to present.
+ */
 export type PresentCredentialsResult = Array<{
 	queryId: string;
 	batchId: number;
 }>;
 
 /**
-* The result of a successful presentation flow.
-*/
+ * The result of a successful presentation flow.
+ */
 export type PresentationResult = {
 	verifierName: string;
 	redirectUri?: string;
 };
 
 /**
-* The state of the presentation flow.
-*/
+ * The state of the presentation flow.
+ */
 export type PresentationErrorState = {
 	title: string;
 	description: string;
@@ -78,8 +78,8 @@ export type PresentationErrorState = {
 };
 
 /**
-* A map of conformant credentials, keyed by the credential ID.
-*/
+ * A map of conformant credentials, keyed by the credential ID.
+ */
 export type ConformantCredentials = Map<
 	string,
 	{
@@ -92,18 +92,18 @@ export type ConformantCredentials = Map<
 >;
 
 /**
-* A map of selected credentials, keyed by the credential ID.
-*
-* @deprecated Unused. Selection state is tracked inline in the overview screen as
-* a `Record<queryId, batchId>`; this type is not referenced anywhere.
-*/
+ * A map of selected credentials, keyed by the credential ID.
+ *
+ * @deprecated Unused. Selection state is tracked inline in the overview screen as
+ * a `Record<queryId, batchId>`; this type is not referenced anywhere.
+ */
 export type CredentialSelection = {
 	selected: Map<string, number>;
 };
 
 /**
-* The view state of the Present Credentials Flow.
-*/
+ * The view state of the Present Credentials Flow.
+ */
 export type PresentCredentialsFlowView =
 	| { status: 'loading' }
 	| {
