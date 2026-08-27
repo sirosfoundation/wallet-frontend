@@ -31,7 +31,6 @@ import {
     generateDeviceSignature, 
     signMdocWithPlaceholder,
     buildCombinedDeviceResponse,
-    DEFAULT_PID_ZKP_CONFIG 
 } from '@/utils/MdocZkpService';
 type OpenIDFlowCallbackProps = {
 	callbackUrl: OIDFlowCallbackURL;
