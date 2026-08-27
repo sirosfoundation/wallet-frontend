@@ -167,9 +167,6 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 		</>
 	);
 
-	const singlePurpose =
-		sets.length === 1 && sets[0].purpose != null ? sets[0].purpose : null;
-
 	return (
 		<FlowScreen buttons={buttons}>
 			<div className="mt-4">
