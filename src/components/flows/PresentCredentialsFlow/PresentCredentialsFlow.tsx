@@ -10,7 +10,7 @@ import {
 	type ReactElement,
 } from 'react';
 import { Navigate } from 'react-router-dom';
-import { CircleCheckIcon, CircleXIcon, HatGlassesIcon, IdCardIcon, ScrollTextIcon } from 'lucide-react';
+import { CircleCheckIcon, CircleXIcon, HatGlassesIcon, ScrollTextIcon } from 'lucide-react';
 import type {
 	PresentationErrorState,
 	PresentationResult,
