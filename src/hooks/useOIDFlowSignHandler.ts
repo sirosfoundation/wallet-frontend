@@ -294,7 +294,7 @@ async function createVpTokenFromMdoc(
 	},
 	finalVP: { Transcript: string; ZKDeviceResponseCBOR: string; zkDocumentsArray: Uint8Array } | null,
 ): Promise<string> {
-	const { credentialRaw, disclosedClaims } = credentialData;
+	const { disclosedClaims } = credentialData;
 	const { responseUri, origin } = params;
 
 	if (!responseUri && !origin) {
