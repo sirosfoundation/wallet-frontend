@@ -325,10 +325,6 @@ async function createVpTokenFromMdoc(
 			verifierJwkThumbprint ?? null,
 		);
 	} else if (origin) {
-		const { deviceResponseMDoc: drm } = await keystore.generateDeviceResponseForDCAPI(
-			mdoc, presentationDefinition, nonce, origin,
-			verifierJwkThumbprint ?? null,
-		);
 	} else {
 		throw new Error('Unexpected error: neither responseUri nor origin provided for mdoc presentation');
 	}
