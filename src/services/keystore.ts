@@ -1314,7 +1314,7 @@ async function generateDeviceResponseInternal(
 			deviceSigned: doc.get('deviceSigned'),
 		}))
 	};
-	
+
 	// Now access via dot notation
 	const p: DataItem = cborDecode(mdoc.documents[0].issuerSigned.issuerAuth[2]);
 	const deviceKeyInfo = p.data.get('deviceKeyInfo');
