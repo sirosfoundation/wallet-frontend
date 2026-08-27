@@ -319,19 +319,16 @@ async function createVpTokenFromMdoc(
 		docType,
 		disclosedClaims ?? [],
 	);
-	let deviceResponseMDoc: MDoc;
 	if (responseUri) {
 		const { deviceResponseMDoc: drm } = await keystore.generateDeviceResponse(
 			mdoc, presentationDefinition, nonce, audience, responseUri,
 			verifierJwkThumbprint ?? null,
 		);
-		deviceResponseMDoc = drm;
 	} else if (origin) {
 		const { deviceResponseMDoc: drm } = await keystore.generateDeviceResponseForDCAPI(
 			mdoc, presentationDefinition, nonce, origin,
 			verifierJwkThumbprint ?? null,
 		);
-		deviceResponseMDoc = drm;
 	} else {
 		throw new Error('Unexpected error: neither responseUri nor origin provided for mdoc presentation');
 	}
