@@ -339,7 +339,6 @@ async function createVpTokenFromMdoc(
 	const versionKey = new Uint8Array([0x67, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e]); // "version"
 	const versionVal = new Uint8Array([0x63, 0x31, 0x2e, 0x30]); // "1.0"
 	const statusKey = new Uint8Array([0x66, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73]); // "status"
-	const statusVal = new Uint8Array([0x00]); // 0
 
 	const combined = buildCombinedDeviceResponse(finalVP.zkDocumentsArray);
 	return base64url.encode(combined);
