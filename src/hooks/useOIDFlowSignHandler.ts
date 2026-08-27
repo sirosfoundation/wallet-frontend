@@ -311,7 +311,6 @@ async function createVpTokenFromMdoc(
 
 	//const mdoc = parseIssuerSignedToMDoc(credentialRaw);
 	const data = credentialRaw;
-	const bytes = fromBase64Url(data);
 
 	if (responseUri) {
 	} else if (origin) {
