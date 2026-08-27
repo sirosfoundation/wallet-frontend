@@ -108,5 +108,9 @@ export type PresentCredentialsFlowView =
 			onDecline: () => void;
 	}
 	| { status: 'sharing'; messages?: string[]; onCancel?: () => void }
-	| { status: 'shared'; result: PresentationResult }
+	| {
+			status: 'shared';
+			result: PresentationResult;
+			onClose?: () => void;
+		}
 	| { status: 'error'; state: PresentationErrorState };

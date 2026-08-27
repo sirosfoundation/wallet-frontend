@@ -1,5 +1,4 @@
 import {
-	Fragment,
 	useContext,
 	useEffect,
 	useId,
@@ -321,6 +320,7 @@ const PresentationSharingScreen: FC<PresentationSharingScreenProps> = ({
 
 type PresentationCompleteScreenProps = {
 	result: PresentationResult;
+	onClose?: () => void;
 };
 
 /**
@@ -328,10 +328,18 @@ type PresentationCompleteScreenProps = {
  */
 const PresentationCompleteScreen: FC<PresentationCompleteScreenProps> = ({
 	result,
+	onClose,
 }) => {
 	const { t } = useTranslation();
+	const closable = typeof onClose === 'function';
+	const buttons = closable ? (
+		<Button variant="primary" size="lg" onClick={() => onClose()}>
+			{t('common.close')}
+		</Button>
+	) : undefined;
+
 	return (
-		<FlowScreen>
+		<FlowScreen buttons={buttons}>
 			<CircleCheckIcon
 				size={80}
 				strokeWidth={1}
@@ -342,7 +350,7 @@ const PresentationCompleteScreen: FC<PresentationCompleteScreenProps> = ({
 				<h1 className="text-2xl font-bold">{t('presentCredentialsFlow.completed.title')}</h1>
 				<p>{t('presentCredentialsFlow.completed.description', { verifierName: result.verifierName })}</p>
 				<hr className="border-lm-gray-300 dark:border-dm-gray-700" />
-				<p>{t('presentCredentialsFlow.completed.redirecting')}</p>
+				{!closable && <p>{t('presentCredentialsFlow.completed.redirecting')}</p>}
 			</div>
 		</FlowScreen>
 	);

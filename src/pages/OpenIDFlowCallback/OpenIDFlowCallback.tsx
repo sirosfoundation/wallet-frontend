@@ -421,9 +421,14 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		logger.debug('Authorization response sent:', sendResult);
 
 		if (sendResult.success) {
-			await displayCompletedScreen({
-				verifierName: result.verifierInfo.name,
-			});
+			await displayCompletedScreen(
+				{
+					verifierName: result.verifierInfo.name,
+				},
+				!sendResult.redirectUri ? (() => {
+					navigateHome();
+				}) : undefined
+			);
 		}
 
 		if ('redirectUri' in sendResult) {
