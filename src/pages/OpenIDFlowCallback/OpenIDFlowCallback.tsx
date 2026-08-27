@@ -20,7 +20,7 @@ import { ConformantCredentials, PresentCredentialsFlow, usePresentCredentialsFlo
 import { DcqlQuery } from 'dcql';
 import { OID4VPVerifierInfo } from '@/lib/openid-flow/types/OID4VPTypes';
 import { MdocProverService } from '@/utils';
-import { encode, decode } from "cbor-x";
+import { decode } from "cbor-x";
 import { cborEncode } from "@auth0/mdl/lib/cbor";
 import { base64url } from 'jose';
 import SessionContext from "@/context/SessionContext";
