@@ -99,6 +99,25 @@ describe('returnToUrl', () => {
 		expect(roundTrip(raw)).toBeNull();
 	});
 
+	it.each([
+		'/login',
+		'/login/',
+		'/login-state',
+		'/login-state/',
+		'/oidc/cb',
+		'/oidc/cb/',
+		// Query/hash must not smuggle an auth route back in.
+		'/login?foo=bar',
+		'/login-state#section',
+		'/oidc/cb?code=SplxlOBeZQQYbYS6WxSbIA&state=af0ifjsldkj',
+	])('rejects auth route %j under every tenant', (path) => {
+		mockBasePath = '/';
+		expect(roundTrip(path)).toBeNull();
+
+		mockBasePath = '/id/acme/';
+		expect(roundTrip(`/id/acme${path}`)).toBeNull();
+	});
+
 	describe('default tenant only', () => {
 		beforeEach(() => {
 			mockBasePath = '/';
