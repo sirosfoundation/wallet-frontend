@@ -4,6 +4,11 @@ import { TENANT_PATH_PREFIX } from '@/lib/tenant';
 
 const KEY = 'return_to_url';
 const TENANT_PREFIX_RE = new RegExp(`^/${TENANT_PATH_PREFIX}(/|$)`);
+const DISALLOWED_PATHS: RegExp[] = [
+	/\/login\/?$/,
+	/\/login-state\/?$/,
+	/\/oidc\/cb\/?$/,
+];
 
 /**
  * Stores a URL in sessionStorage to return to after login.
@@ -35,7 +40,8 @@ function validateReturnToUrl(raw: string | null): string | null {
 		hasDotDotTraversal = /(^|\/)\.\.(\/|$)/.test(path),
 		isDifferentOrigin = !/^\/(?!\/)/.test(path),
 		isCrossTenant = BASE_PATH === '/' && TENANT_PREFIX_RE.test(path),
-		isOutsideBasePath = BASE_PATH !== '/' && !path.startsWith(BASE_PATH);
+		isOutsideBasePath = BASE_PATH !== '/' && !path.startsWith(BASE_PATH),
+		isDisallowedPath = DISALLOWED_PATHS.some(re => re.test(path));
 
 	if (
 		hasBackslash ||
@@ -44,7 +50,8 @@ function validateReturnToUrl(raw: string | null): string | null {
 		hasDotDotTraversal ||
 		isDifferentOrigin ||
 		isCrossTenant ||
-		isOutsideBasePath
+		isOutsideBasePath ||
+		isDisallowedPath
 	) {
 		logger.warn('Rejecting invalid return-to URL');
 		logger.debug('Rejected return-to URL details:', {
@@ -56,6 +63,7 @@ function validateReturnToUrl(raw: string | null): string | null {
 			isDifferentOrigin,
 			isCrossTenant,
 			isOutsideBasePath,
+			isDisallowedPath,
 		});
 		return null;
 	}
