@@ -61,7 +61,7 @@ fi
 # Content Security Policy configuration
 CSP="default-src 'self'; \
 script-src 'self'; \
-style-src 'self'; \
+style-src 'self' 'unsafe-inline'; \
 font-src 'self' data:; \
 img-src 'self' data: ${RESOURCE_SCHEME_SRC}; \
 connect-src ${CONNECT_SRC}; \
