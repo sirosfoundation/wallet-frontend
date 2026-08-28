@@ -479,7 +479,10 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	// ===== OID4VP Flow =====
 
 	async startOID4VPFlow(params: OID4VPFlowParams): Promise<OID4VPFlowResult> {
+		console.log("482 params")
+		console.log(params)
 		if (params.requestUriRef && params.clientId && !params.selectedCredentials) {
+			console.log("requested!")
 			// Phase 1: Start flow with authorization request
 			const response = await this.send({
 				type: 'flow_start',
@@ -487,27 +490,37 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				request_uri_ref: params.requestUriRef,
 				client_id: params.clientId,
 			});
+			console.log("response")
+			console.log(response)
 
 			return this.mapOID4VPResponse(response);
 		}
 
 		if (params.selectedCredentials) {
+			console.log("here if credential check")
+			
 			// Cache locally for sign handler
 			for (const c of params.selectedCredentials) {
 				this.vpCredentialCache.set(c.walletCredentialRef, c.credentialRaw);
 			}
-
+			for (const c of params.selectedCredentials) {
+				console.log(`DEBUG caching credentialRaw for ${c.walletCredentialRef}: length=${c.credentialRaw?.length ?? 'undefined'}`)
+				this.vpCredentialCache.set(c.walletCredentialRef, c.credentialRaw);
+			}
+			console.log("c")
 			const response = await this.send({
 				type: 'flow_action',
 				action: 'consent',
 				payload: {
 					selected_credentials: params.selectedCredentials.map(c => ({
 						credential_id: c.walletCredentialRef,
-						credential_query_id: c.credentialQueryId,
+						credential_query_id: "cred_pid",
 						disclosed_claims: c.disclosedClaims ?? [],
 					})),
 				},
 			});
+			console.log("response")
+			console.log(response)
 			return this.mapOID4VPResponse(response);
 		}
 

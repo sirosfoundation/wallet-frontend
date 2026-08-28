@@ -370,6 +370,7 @@ function manualArray(itemsBytes) {
 	return concatBytes([header, ...itemsBytes]);
 }
 
+
 // Tag wrapper: tag numbers 0-23 fit in a single header byte (0xc0 | tag).
 // Tag 24 needs one extra byte (0xd8, 24) since 24 doesn't fit in the initial byte alone.
 function manualTag(tagNumber, contentBytes) {
@@ -380,6 +381,187 @@ function manualTag(tagNumber, contentBytes) {
 		return concatBytes([new Uint8Array([0xd8, tagNumber]), contentBytes]);
 	}
 	throw new Error("tag number too large for this helper");
+}
+
+function assembleFinalVP_V8(originalMdocHex, proofUint8, ppid, transcriptHex, Now) {
+	const hexToBuf = (hex) => new Uint8Array(hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+	const mdocBytes = hexToBuf(originalMdocHex);
+	const mdocDecoded = decode(mdocBytes);
+	const doc = mdocDecoded.documents[0];
+	const issuerSigned = doc.issuerSigned;
+	const issuerAuth = issuerSigned.issuerAuth;
+	const unprotectedHeaders = issuerAuth[1];
+	const certs = unprotectedHeaders.get ? unprotectedHeaders.get(33) : unprotectedHeaders[33];
+	const certDer = Array.isArray(certs) ? certs[0] : certs;
+	const claim1 = manualMap([
+		["elementIdentifier", cborEncode("age_over_18")],
+		["elementValue", cborEncode(true)],
+	]);
+	const claim2 = manualMap([
+		["elementIdentifier", cborEncode("pairwise_pseudonym")],
+		["elementValue", cborEncode(ppid)],
+	]);
+	const claimsArray = manualArray([claim1, claim2]);
+	const issuerSignedMap = manualMap([
+		["eu.europa.ec.eudi.pid.1", claimsArray],
+	]);
+
+	const timestampTagged = manualTag(0, cborEncode(Now));
+
+	const documentDataMap = manualMap([
+		["zkSystemId", cborEncode("longfellow-libzk-v1_8_2_4307_2945_bb8e6a26d2700ddad968562d1c4aee83067772fee6f889748a0bc64f2c694ad5")],
+		["docType", cborEncode("eu.europa.ec.eudi.pid.1")],
+		["timestamp", timestampTagged],
+		["issuerSigned", issuerSignedMap],
+		["deviceSigned", manualMap([])],
+		["msoX5chain", cborEncode(certDer)],
+	]);
+
+	const documentDataTagged = manualTag(24, manualBstr(documentDataMap));
+	const zkDocMap = manualMap([
+		["proof", cborEncode(proofUint8)],
+		["documentData", documentDataTagged],
+	]);
+
+	const zkDocumentsArray = manualArray([zkDocMap]);
+
+	const outerResponseBytes = manualMap([
+		["version", cborEncode("1.1")],
+		["status", cborEncode(0)],
+		["zkDocuments", zkDocumentsArray],
+	]);
+
+	const handoverBytes = hexToBuf(transcriptHex);
+	return {
+		Transcript: uint8ToBase64(handoverBytes),
+		ZKDeviceResponseCBOR: uint8ToBase64(outerResponseBytes),
+		zkDocumentsArray: zkDocumentsArray
+	};
+}
+function base64ToHex(str) {
+	const b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+	const bin = atob(b64);
+	return Array.from(bin)
+			.map(char => char.charCodeAt(0).toString(16).padStart(2, '0'))
+			.join('');
+}
+
+let sharedProverWorker: Worker | null = null;
+
+function getProverWorker(): Worker {
+	if (!sharedProverWorker) {
+		sharedProverWorker = new Worker(
+			new URL('@/utils/prover.worker.ts', import.meta.url),
+			{ type: 'module' },
+		);
+	}
+	return sharedProverWorker;
+}
+
+function generateProofInWorker(witness: {
+	mdoc: string;
+	transcript: string;
+	now: string;
+	pseudonymSeed: Uint8Array;
+}): Promise<{ proof: Uint8Array; ppid: Uint8Array; ppidHex: string; durationMs: number }> {
+	const worker = getProverWorker();
+
+	return new Promise((resolve, reject) => {
+		const timer = setTimeout(() => {
+			worker.removeEventListener('message', onMessage);
+			reject(new Error('proof generation timed out'));
+		}, 500000);
+
+		const onMessage = (e: MessageEvent) => {
+			clearTimeout(timer);
+			worker.removeEventListener('message', onMessage);
+			if (e.data.type === 'PROOF_SUCCESS') resolve(e.data.payload);
+			else reject(new Error(e.data.payload));
+		};
+
+		worker.addEventListener('message', onMessage);
+		worker.postMessage({ type: 'GENERATE_PROOF', payload: witness });
+	});
+}
+
+
+async function startBackgroundProofGeneration(
+	credentialData: string,
+	keystore: any,
+	proofCacheDb: any,
+	transcriptHex: string,
+	now: string,
+): Promise<{ proof: Uint8Array; ppid: Uint8Array; ppidHex?: string } | null> {
+	try {
+		const originalMdocHex = base64ToHex(credentialData);
+		const rawSignatureHex = await generateDeviceSignature(
+			keystore,
+			originalMdocHex,
+			transcriptHex,
+			"eu.europa.ec.eudi.pid.1",
+			decode,
+		);
+		const signedMdocHex = signMdocWithPlaceholder(originalMdocHex, rawSignatureHex);
+		const mdocBytes = new Uint8Array(
+			originalMdocHex.match(/.{1,2}/g)!.map((b) => parseInt(b, 16))
+		);
+		const mdoc = decode(mdocBytes);
+		const nsItems = mdoc.documents[0].issuerSigned.nameSpaces;
+		const ns = Object.keys(nsItems)[0];
+		let pseudonymSeed = null;
+		for (const item of nsItems[ns]) {
+			const decoded = decode(item.value);
+			if (decoded.elementIdentifier === 'pseudonym_seed') {
+				pseudonymSeed = decoded.elementValue;
+				break;
+			}
+		}
+		const proofResult = await generateProofInWorker({
+			mdoc: signedMdocHex,
+			transcript: transcriptHex,
+			now,
+			pseudonymSeed,
+		});
+		return {
+			proof: proofResult.proof,
+			ppid: proofResult.ppid,
+			ppidHex: proofResult.ppidHex,
+		};
+	} catch (e) {
+		console.error("Background proof generation failed:", e);
+		return null;
+	}
+}
+
+export async function generateZkFinalVP(
+    credentialRawBase64: string,
+    keystore: any,
+    proofCacheDb: any,
+) {
+    const transcriptHex = "83f6f6846b6578616d706c652e6f7267781c68747470733a2f2f6578616d706c652e6f72672f726573706f6e736570313233343536373839306162636465667066656463626130393837363534333231";
+    const now = "2026-09-03T20:41:47Z";
+
+    const proofData = await startBackgroundProofGeneration(
+        credentialRawBase64,
+        keystore,
+        proofCacheDb,
+        transcriptHex,
+        now,
+    );
+
+    if (!proofData) {
+        throw new Error('Proof generation failed or returned null');
+    }
+
+    const originalMdocHex = base64ToHex(credentialRawBase64);
+
+    return assembleFinalVP_V8(
+        originalMdocHex,
+        proofData.proof,
+        proofData.ppid,
+        transcriptHex,
+        now,
+    );
 }
 /**
  * OpenID4VPFlow - Handles OID4VP presentation request callbacks.
@@ -456,8 +638,6 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		dcqlQuery: DcqlQuery.Input,
 		conformantCredentialsMap: ConformantCredentials
 	) => {
-		logger.debug("Prompting for credential selection...", { conformantCredentialsMap, verifierInfo, dcqlQuery });
-
 		const selection = await displayRequestOverviewScreen(
 			verifierInfo,
 			dcqlQuery,
@@ -490,9 +670,6 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		if (!result?.success) {
 			return;
 		}
-
-		logger.debug('Authorization request result:', result);
-
 		if (result.transactionData?.length) {
 			const consented = await showTransactionDataConsentPopup({
 				title: 'Transaction Data',
@@ -532,123 +709,6 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			window.location.href = sendResult.redirectUri;
 		}
 	};
-	function base64ToHex(str) {
-		const b64 = str.replace(/-/g, '+').replace(/_/g, '/');
-		const bin = atob(b64);
-		return Array.from(bin)
-				.map(char => char.charCodeAt(0).toString(16).padStart(2, '0'))
-				.join('');
-	}
-
-
-	// Upload proof and get URL
-	async function uploadProof(proofBytes) {
-		const response = await fetch('https://buckskin-tabby-pursuable.ngrok-free.dev/proof/upload', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/octet-stream' },
-			body: proofBytes,
-		});
-		const { url } = await response.json();
-		console.log("✅ Proof uploaded, URL:", url);
-		return url;
-	}
-
-
-
-	function assembleFinalVP_V8(originalMdocHex, proofUint8, ppid, transcriptHex, Now) {
-		const hexToBuf = (hex) => new Uint8Array(hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
-		const mdocBytes = hexToBuf(originalMdocHex);
-		const mdocDecoded = decode(mdocBytes);
-		const doc = mdocDecoded.documents[0];
-		const issuerSigned = doc.issuerSigned;
-		const issuerAuth = issuerSigned.issuerAuth;
-		const unprotectedHeaders = issuerAuth[1];
-		const certs = unprotectedHeaders.get ? unprotectedHeaders.get(33) : unprotectedHeaders[33];
-		const certDer = Array.isArray(certs) ? certs[0] : certs;
-		const claim1 = manualMap([
-			["elementIdentifier", cborEncode("age_over_18")],
-			["elementValue", cborEncode(true)],
-		]);
-		const claim2 = manualMap([
-			["elementIdentifier", cborEncode("pairwise_pseudonym")],
-			["elementValue", cborEncode(ppid)],
-		]);
-		const claimsArray = manualArray([claim1, claim2]);
-		const issuerSignedMap = manualMap([
-			["eu.europa.ec.eudi.pid.1", claimsArray],
-		]);
-
-		const timestampTagged = manualTag(0, cborEncode(Now));
-
-		const documentDataMap = manualMap([
-			["zkSystemId", cborEncode("longfellow-libzk-v1_8_2_4307_2945_bb8e6a26d2700ddad968562d1c4aee83067772fee6f889748a0bc64f2c694ad5")],
-			["docType", cborEncode("eu.europa.ec.eudi.pid.1")],
-			["timestamp", timestampTagged],
-			["issuerSigned", issuerSignedMap],
-			["deviceSigned", manualMap([])],
-			["msoX5chain", cborEncode(certDer)],
-		]);
-
-		const documentDataTagged2 = manualTag(24, documentDataMap);
-		const documentDataTagged = manualTag(24, manualBstr(documentDataMap));
-		const zkDocMap = manualMap([
-			["proof", cborEncode(proofUint8)],
-			["documentData", documentDataTagged],
-		]);
-
-		const zkDocumentsArray = manualArray([zkDocMap]);
-
-		const outerResponseBytes = manualMap([
-			["version", cborEncode("1.1")],
-			["status", cborEncode(0)],
-			["zkDocuments", zkDocumentsArray],
-		]);
-
-		const handoverBytes = hexToBuf(transcriptHex);
-		return {
-			Transcript: uint8ToBase64(handoverBytes),
-			ZKDeviceResponseCBOR: uint8ToBase64(outerResponseBytes),
-			zkDocumentsArray: zkDocumentsArray
-		};
-	}
-
-	let sharedProverWorker: Worker | null = null;
-
-	function getProverWorker(): Worker {
-		if (!sharedProverWorker) {
-			sharedProverWorker = new Worker(
-				new URL('@/utils/prover.worker.ts', import.meta.url),
-				{ type: 'module' },
-			);
-		}
-		return sharedProverWorker;
-	}
-
-	function generateProofInWorker(witness: {
-		mdoc: string;
-		transcript: string;
-		now: string;
-		pseudonymSeed: Uint8Array;
-	}): Promise<{ proof: Uint8Array; ppid: Uint8Array; ppidHex: string; durationMs: number }> {
-		const worker = getProverWorker();
-
-		return new Promise((resolve, reject) => {
-			const timer = setTimeout(() => {
-				worker.removeEventListener('message', onMessage);
-				reject(new Error('proof generation timed out'));
-			}, 500000);
-
-			const onMessage = (e: MessageEvent) => {
-				clearTimeout(timer);
-				worker.removeEventListener('message', onMessage);
-				if (e.data.type === 'PROOF_SUCCESS') resolve(e.data.payload);
-				else reject(new Error(e.data.payload));
-			};
-
-			worker.addEventListener('message', onMessage);
-			worker.postMessage({ type: 'GENERATE_PROOF', payload: witness });
-		});
-	}
 
 	async function startBackgroundProofGeneration(
 		credentialData: string,
@@ -659,11 +719,8 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	): Promise<{ proof: Uint8Array; ppid: Uint8Array; ppidHex?: string } | null> {
 		try {
 			const originalMdocHex = base64ToHex(credentialData);
-			// `now` is part of the key: the proof binds the timestamp, so a proof
-			// generated under a different `now` is not reusable.
 			const CACHE_KEY = `${originalMdocHex.slice(0, 32)}_${transcriptHex.slice(0, 16)}_${now}`;
 
-			// 1. Cache hit → reuse the proof bytes directly
 			try {
 				const cached = await proofCacheDb.read(['proofs'], (tr: any) =>
 					tr.objectStore('proofs').get(CACHE_KEY)
@@ -676,7 +733,6 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				console.log("No cached proof found:", e);
 			}
 
-			// 2. Sign the mdoc with the device key
 			const rawSignatureHex = await generateDeviceSignature(
 				keystore,
 				originalMdocHex,
@@ -685,8 +741,6 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				decode,
 			);
 			const signedMdocHex = signMdocWithPlaceholder(originalMdocHex, rawSignatureHex);
-
-			// 3. Pull pseudonym_seed out of the credential
 			const mdocBytes = new Uint8Array(
 				originalMdocHex.match(/.{1,2}/g)!.map((b) => parseInt(b, 16))
 			);
@@ -701,19 +755,12 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 					break;
 				}
 			}
-
-			// 4. Generate — in the worker, so the ~70s WASM call doesn't block the
-			//    main thread and freeze the spinner.
-			console.log("🚀 Proof generation started in worker");
 			const proofResult = await generateProofInWorker({
 				mdoc: signedMdocHex,
 				transcript: transcriptHex,
 				now,
 				pseudonymSeed,
 			});
-			console.log(`✅ Proof generated in ${proofResult.durationMs?.toFixed?.(0) ?? '?'}ms`);
-
-			// 5. Cache the proof bytes
 			try {
 				await proofCacheDb.write(['proofs'], (tr: any) =>
 					tr.objectStore('proofs').put(
@@ -725,99 +772,6 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 						CACHE_KEY,
 					)
 				);
-				console.log("✅ Proof cached:", proofResult.proof.length, "bytes");
-			} catch (e) {
-				console.warn("Failed to cache proof:", e);
-			}
-
-			return {
-				proof: proofResult.proof,
-				ppid: proofResult.ppid,
-				ppidHex: proofResult.ppidHex,
-			};
-		} catch (e) {
-			console.error("Background proof generation failed:", e);
-			return null;
-		}
-	}
-	async function startBackgroundProofGeneration2(
-		credentialData: string,
-		keystore: any,
-		proofCacheDb: any,
-		transcriptHex: string,
-		now: string,
-	): Promise<{ proof: Uint8Array; ppid: Uint8Array; ppidHex?: string } | null> {
-		try {
-			const originalMdocHex = base64ToHex(credentialData);
-			// `now` is part of the key: the proof binds the timestamp, so a proof
-			// generated under a different `now` is not reusable.
-			const CACHE_KEY = `${originalMdocHex.slice(0, 32)}_${transcriptHex.slice(0, 16)}_${now}`;
-
-			// 1. Cache hit → reuse the proof bytes directly
-			try {
-				const cached = await proofCacheDb.read(['proofs'], (tr: any) =>
-					tr.objectStore('proofs').get(CACHE_KEY)
-				);
-				if (cached?.proof) {
-					console.log("✅ Using cached proof:", cached.proof.length, "bytes");
-					return { proof: cached.proof, ppid: cached.ppid, ppidHex: cached.ppidHex };
-				}
-			} catch {
-				console.log("No cached proof found");
-			}
-
-			// 2. Sign the mdoc with the device key
-			const rawSignatureHex = await generateDeviceSignature(
-				keystore,
-				originalMdocHex,
-				transcriptHex,
-				"eu.europa.ec.eudi.pid.1",
-				decode,
-			);
-			const signedMdocHex = signMdocWithPlaceholder(originalMdocHex, rawSignatureHex);
-
-			// 3. Pull pseudonym_seed out of the credential
-			const mdocBytes = new Uint8Array(
-				originalMdocHex.match(/.{1,2}/g)!.map((b) => parseInt(b, 16))
-			);
-			const mdoc = decode(mdocBytes);
-			const nsItems = mdoc.documents[0].issuerSigned.nameSpaces;
-			const ns = Object.keys(nsItems)[0];
-			let pseudonymSeed = null;
-			for (const item of nsItems[ns]) {
-				const decoded = decode(item.value);
-				if (decoded.elementIdentifier === 'pseudonym_seed') {
-					pseudonymSeed = decoded.elementValue;
-					break;
-				}
-			}
-
-			const proverService = new MdocProverService();
-			if (!proverService.isInitialized) {
-				await proverService.bootstrap();
-			}
-
-			// 4. Generate
-			const proofResult = await proverService.generateProof({
-				mdoc: signedMdocHex,
-				transcript: transcriptHex,
-				now,
-				pseudonymSeed,
-			});
-
-			// 5. Cache the proof bytes
-			try {
-				await proofCacheDb.write(['proofs'], (tr: any) =>
-					tr.objectStore('proofs').put(
-						{
-							proof: proofResult.proof,
-							ppid: proofResult.ppid,
-							ppidHex: proofResult.ppidHex,
-						},
-						CACHE_KEY,
-					)
-				);
-				console.log("✅ Proof cached:", proofResult.proof.length, "bytes");
 			} catch (e) {
 				console.warn("Failed to cache proof:", e);
 			}
@@ -908,7 +862,6 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	useEffect(() => {
 		const handler = (e: Event) => {
 			const { credentialData } = (e as CustomEvent).detail;
-			console.log("🚀 Starting background proof generation");
 			backgroundProofRef.current = startBackgroundProofGeneration(
 				credentialData,
 				keystore,
@@ -1006,5 +959,7 @@ const useNavigateHome = () => {
 function cleanupUrl() {
 	window.history.replaceState({}, '', window.location.origin + window.location.pathname);
 }
+
+
 
 export default OpenIDFlowCallback;

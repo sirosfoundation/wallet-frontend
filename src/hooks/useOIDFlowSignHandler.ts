@@ -13,8 +13,10 @@ import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
 import { cborDecode } from '@auth0/mdl/lib/cbor';
 import { buildCombinedDeviceResponse } from '@/utils/MdocZkpService';
 import { fromBase64Url } from "../util";
+import { cborEncode } from "@auth0/mdl/lib/cbor";  // or your project's actual CBOR import
 
-
+import { generateZkFinalVP } from '../pages/OpenIDFlowCallback/OpenIDFlowCallback';
+///root/vc-sunet/zkp-demo/wallet-frontend/src/pages/OpenIDFlowCallback/OpenIDFlowCallback.tsx
 interface ProofTypeConfig {
 	key_attestations_required?: Record<string, unknown> | null;
 	proof_signing_alg_values_supported: string[];
@@ -69,15 +71,21 @@ export interface OIDFlowSignResponse {
 	vpToken?: string;
 }
 
-export function useOIDFlowSignHandler() {
-	const sessionContext = useContext(SessionContext);
-	const { isOnline } = useContext(StatusContext);
-	const api = useApi(isOnline);
 
-	const keystore = sessionContext?.keystore;
 
-	const signPresentation = useCallback(async (options: OIDFlowSignOptions): Promise<OIDFlowSignResponse> => {
-		const { audience, nonce, credentialsToInclude, responseUri, origin, verifierJwkThumbprint, finalVP } = options;
+
+
+	export function useOIDFlowSignHandler() {
+		const sessionContext = useContext(SessionContext);
+		const { isOnline } = useContext(StatusContext);
+		const api = useApi(isOnline);
+
+		const keystore = sessionContext?.keystore;
+
+		const signPresentation = useCallback(async (options: OIDFlowSignOptions): Promise<OIDFlowSignResponse> => {
+		const { audience, nonce, credentialsToInclude, responseUri, origin, verifierJwkThumbprint } = options;
+		let { finalVP } = options;
+
 		if (!audience || !nonce) {
 			throw new Error('Missing audience or nonce for presentation signing');
 		}
@@ -85,6 +93,19 @@ export function useOIDFlowSignHandler() {
 			throw new Error('No credentials to include in presentation');
 		}
 
+		if (!finalVP) {
+			const cred = credentialsToInclude[0];
+			if (!cred.credentialRaw) {
+				throw new Error(`Credential not in cache: ${cred.credentialId}`);
+			}
+
+			const stubProofCacheDb = {
+				read: async (_stores: string[], _fn: any) => null,
+				write: async (_stores: string[], _fn: any) => {},
+			};
+
+			finalVP = await generateZkFinalVP(cred.credentialRaw, keystore, stubProofCacheDb) as unknown as Uint8Array;
+		}
 		const vpTokenMap: Record<string, string[]> = {};
 		for (const c of credentialsToInclude) {
 			if (!c.credentialRaw) {
@@ -187,11 +208,16 @@ export function useOIDFlowSignHandler() {
 	}, [keystore, api]);
 
 	const handleSignRequest = useCallback(async (request: OIDFlowSignRequest): Promise<OIDFlowSignResponse> => {
+		console.log('DEBUG keystore type check:', {
+			constructorName: keystore?.constructor?.name,
+			hasGetCalculatedWalletState: typeof keystore?.getCalculatedWalletState,
+			keys: keystore ? Object.getOwnPropertyNames(Object.getPrototypeOf(keystore)) : 'keystore is null/undefined',
+		})
 		if (!keystore) {
 			throw new Error('Keystore not available');
 		}
 
-		logger.debug('[WS Sign Handler] Received sign request:', request.action);
+		console.log('[WS Sign Handler] Received sign request:', request.action);
 
 		switch (request.action) {
 			case 'generate_proof':
@@ -219,7 +245,7 @@ async function createVpToken(
 		origin?: string;
 		verifierJwkThumbprint?: string;
 	},
-	finalVP: Uint8Array,
+	finalVP: any,
 ) {
 	const { credentialRaw, disclosedClaims } = credentialData;
 	const { nonce, audience, responseUri, origin, verifierJwkThumbprint } = params;
