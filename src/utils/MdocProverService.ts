@@ -8,6 +8,7 @@ export interface WitnessVector {
 	transcript: string;
 	now: string;
 	pseudonymSeed: Uint8Array;
+	verifierContext: Uint8Array;
 }
 
 export interface ProofResult {
@@ -24,7 +25,7 @@ export class MdocProverService {
 
 	private readonly CIRCUIT_PATH = "/8_2_4307_2945_bb8e6a26d2700ddad968562d1c4aee83067772fee6f889748a0bc64f2c694ad5";
 	private readonly EXPECTED_CIRCUIT_HASH = "bb8e6a26d2700ddad968562d1c4aee83067772fee6f889748a0bc64f2c694ad5";
-
+	//83783168747470733a2f2f687964726f74686563616c2d6361746865792d706c61696e6c792e6e67726f6b2d667265652e646576765964624535586d6166446e7531464643566e62427541f6
 	private readonly VERIFIER_CONTEXT = new Uint8Array([
 		0x76, 0x65, 0x72, 0x69, 0x66, 0x69, 0x65, 0x72,
 		0x40, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x2e,
@@ -135,15 +136,15 @@ export class MdocProverService {
 			return prove_with_ppid_wasm(
 				this.proverInstance,
 				mdocBytes,
-			"eu.europa.ec.eudi.pid.1",
+				"eu.europa.ec.eudi.pid.1",
 				["age_over_18", "pairwise_pseudonym"],
 				transcriptBytes,
 				witness.now,
-				this.VERIFIER_CONTEXT
+				witness.verifierContext,
 			);
 		});
 
-		const ppid = await this.timeStage('computePPID', () => this.computePPID(witness.pseudonymSeed, this.VERIFIER_CONTEXT));
+		const ppid = await this.timeStage('computePPID', () => this.computePPID(witness.pseudonymSeed, witness.verifierContext));
 
 		const durationMs = performance.now() - generateStart;
 

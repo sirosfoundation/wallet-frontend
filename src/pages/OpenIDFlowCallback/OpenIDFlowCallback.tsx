@@ -27,6 +27,7 @@ import * as jose from "jose";
 import { base64url } from 'jose';
 import SessionContext from "@/context/SessionContext";
 import { useIndexedDb } from "../../hooks/useIndexedDb";
+import {getSessionTranscriptBytesForOID4VP} from '@/services/keystore';
 import {
 		generateDeviceSignature,
 		signMdocWithPlaceholder,
@@ -463,6 +464,7 @@ function generateProofInWorker(witness: {
 	transcript: string;
 	now: string;
 	pseudonymSeed: Uint8Array;
+	verifierContext: Uint8Array;
 }): Promise<{ proof: Uint8Array; ppid: Uint8Array; ppidHex: string; durationMs: number }> {
 	const worker = getProverWorker();
 
@@ -491,6 +493,7 @@ async function startBackgroundProofGeneration(
 	proofCacheDb: any,
 	transcriptHex: string,
 	now: string,
+	verifierContext: Uint8Array,
 ): Promise<{ proof: Uint8Array; ppid: Uint8Array; ppidHex?: string } | null> {
 	try {
 		const originalMdocHex = base64ToHex(credentialData);
@@ -521,6 +524,7 @@ async function startBackgroundProofGeneration(
 			transcript: transcriptHex,
 			now,
 			pseudonymSeed,
+			verifierContext,
 		});
 		return {
 			proof: proofResult.proof,
@@ -540,13 +544,19 @@ export async function generateZkFinalVP(
 ) {
     const transcriptHex = "83f6f6846b6578616d706c652e6f7267781c68747470733a2f2f6578616d706c652e6f72672f726573706f6e736570313233343536373839306162636465667066656463626130393837363534333231";
     const now = "2026-09-03T20:41:47Z";
-
+	const VERIFIER_CONTEXT = new Uint8Array([
+		0x76, 0x65, 0x72, 0x69, 0x66, 0x69, 0x65, 0x72,
+		0x40, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x2e,
+		0x65, 0x78, 0x61, 0x6d, 0x70, 0x6c, 0x65, 0x2e,
+		0x63, 0x6f, 0x6d, 0x00, 0x00, 0x00, 0x00, 0x00,
+	]);
     const proofData = await startBackgroundProofGeneration(
         credentialRawBase64,
         keystore,
         proofCacheDb,
         transcriptHex,
         now,
+		VERIFIER_CONTEXT
     );
 
     if (!proofData) {
@@ -716,10 +726,11 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		proofCacheDb: any,
 		transcriptHex: string,
 		now: string,
+		verifierContext: Uint8Array,
 	): Promise<{ proof: Uint8Array; ppid: Uint8Array; ppidHex?: string } | null> {
 		try {
 			const originalMdocHex = base64ToHex(credentialData);
-			const CACHE_KEY = `${originalMdocHex.slice(0, 32)}_${transcriptHex.slice(0, 16)}_${now}`;
+			const CACHE_KEY =transcriptHex;
 
 			try {
 				const cached = await proofCacheDb.read(['proofs'], (tr: any) =>
@@ -760,6 +771,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				transcript: transcriptHex,
 				now,
 				pseudonymSeed,
+				verifierContext,
 			});
 			try {
 				await proofCacheDb.write(['proofs'], (tr: any) =>
@@ -786,10 +798,78 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			return null;
 		}
 	}
+		// src/utils/verifierContext.ts
+	async function deriveVerifierContext(
+		origin: string,
+		ppidContextHex?: string,
+	): Promise<Uint8Array> {
+		const sha256 = async (b: Uint8Array) =>
+			new Uint8Array(await crypto.subtle.digest('SHA-256', b));
+		const enc = new TextEncoder();
+
+		// Matches the verifier: cId = "web-origin:<origin>" for unsigned requests,
+		// then verifier_id = SHA256(cId), which LongfellowZkSystem hashes again.
+		const cId = `web-origin:${origin}`;
+		const verifierId = await sha256(enc.encode(cId));
+		const verifierIdHash = await sha256(verifierId);
+
+		// Absent ppid_context means 32 zero bytes, not an empty array.
+		const ppidContext = ppidContextHex
+			? new Uint8Array(ppidContextHex.match(/.{1,2}/g)!.map((b) => parseInt(b, 16)))
+			: new Uint8Array(32);
+		const ppidContextHash = await sha256(ppidContext);
+
+		const combined = new Uint8Array(64);
+		combined.set(verifierIdHash, 0);
+		combined.set(ppidContextHash, 32);
+		return sha256(combined);
+	}
+
+	// Session-specific proving inputs. Set once the DCAPISession exists, read by
+	// the start-background-proof listener — which fires during credential matching,
+	// before processDcApiRequest reaches the proving step.
+	const sessionParamsRef = useRef<{
+		transcriptHex: string;
+		verifierContext: Uint8Array;
+		now: string;
+	} | null>(null);
 	const processDcApiRequest = async (url: URL, keystore: any, proofCacheDb: any) => {
 		const session = new DCAPISession(url);
 		await session.initialize();
 		cleanupUrl();
+
+		// Derive the session-specific values before anything can need them.
+		// The background proof listener reads these via sessionParamsRef.
+		const thumbprint = await session.verifierJwkThumbprint();
+		const taggedBytes = await getSessionTranscriptBytesForOID4VP({
+			name: 'OpenID4VPDCAPIHandover',
+			origin: session.verifiedOrigin,
+			nonce: session.request.nonce,
+			jwkThumbprint: thumbprint,
+		});
+
+		const fullHex = Array.from(new Uint8Array(taggedBytes))
+			.map((b) => b.toString(16).padStart(2, '0'))
+			.join('');
+
+		// getSessionTranscriptBytesForOID4VP returns Tag(24, bstr(transcript)) because
+		// that is what usingSessionTranscriptBytes wants for the device response.
+		// The prover and the device signature both need the bare array inside it.
+		// d818 = Tag(24), 58 = bstr with a 1-byte length, then the length itself.
+		const transcriptHex = fullHex.startsWith('d81858') ? fullHex.slice(8) : fullHex;
+
+		console.log('TRANSCRIPT:', transcriptHex, '| bytes:', transcriptHex.length / 2);
+
+		// PPID = SHA-256(pseudonym_seed || verifierContext). Deriving the context
+		// from the verifier's origin is what makes the pseudonym pairwise: stable
+		// for this verifier, different for every other one.
+		const verifierContext = await deriveVerifierContext(session.verifiedOrigin);
+		console.log('verifier context:', Array.from(verifierContext).map(b => b.toString(16).padStart(2, '0')).join(''));
+		const now = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+		console.log('TRANSCRIPT for both:', transcriptHex, '| bytes:', transcriptHex.length / 2);
+		sessionParamsRef.current = { transcriptHex, verifierContext, now };
+		console.log('session transcript:', transcriptHex.slice(0, 40), '…');
+		console.log('verifier context  :', Array.from(verifierContext).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 40), '…');
 
 		const result = await handleDCAPIRequest(
 			session.request,
@@ -800,9 +880,6 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		if (!result?.success) {
 			throw new OIDFlowError(result.error);
 		}
-
-		// Background proof was kicked off by the 'start-background-proof' listener
-		// as soon as credential matching completed — nothing to do here.
 
 		const credSelectResult = await handleCredentialSelection(
 			result.verifierInfo,
@@ -817,11 +894,6 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 
 		displaySendingScreen();
 
-		const transcriptHex = "83f6f6846b6578616d706c652e6f7267781c68747470733a2f2f6578616d706c652e6f72672f726573706f6e736570313233343536373839306162636465667066656463626130393837363534333231";
-
-		const now = "2026-09-03T20:41:47Z";
-
-		// Proof is already generated (or nearly) — just await it
 		const proofData = await backgroundProofRef.current;
 		if (!proofData) {
 			throw new OIDFlowError({
@@ -858,16 +930,27 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			[selectedCredential.credentialQueryId]: [credentialRaw],
 		});
 	};
+
 	const backgroundProofRef = useRef<Promise<any> | null>(null);
 	useEffect(() => {
 		const handler = (e: Event) => {
 			const { credentialData } = (e as CustomEvent).detail;
+
+			const params = sessionParamsRef.current;
+			
+			if (!params) {
+				console.warn('background proof skipped: session params not ready');
+				return;
+			}
+
+			console.log('🚀 Starting background proof generation');
 			backgroundProofRef.current = startBackgroundProofGeneration(
 				credentialData,
 				keystore,
 				proofCacheDb,
-				"83f6f6846b6578616d706c652e6f7267781c68747470733a2f2f6578616d706c652e6f72672f726573706f6e736570313233343536373839306162636465667066656463626130393837363534333231",
-				"2026-09-03T20:41:47Z",
+				params.transcriptHex,
+				params.now,
+				params.verifierContext,
 			);
 		};
 		window.addEventListener('start-background-proof', handler);
