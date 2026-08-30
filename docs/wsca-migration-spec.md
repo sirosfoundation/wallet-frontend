@@ -1,8 +1,16 @@
 # Wallet-Frontend WSCA Migration Specification
 
-- Version: 0.3 (Draft)
-- Date: 2026-08-27
-- Status: Proposal — two open decisions, see §0
+- Version: 0.4 (Draft)
+- Date: 2026-08-30
+- Status: Proposal — one open decision (D1), see §0
+
+> **What changed in v0.4.** `privatedata-spec` gained a normative extension
+> mechanism (`S.extensions`, SPEC.md v2.1 §6.1) and a rollout plan, and the
+> native SDKs implement both. That answers §12.3's one remaining open item,
+> corrects §12.2's account of how cross-client state is actually lost,
+> supplies a recommendation for **D2**, and adds a Phase-0 prerequisite this
+> document did not have. Corrections are marked inline in the same style as
+> v0.3's.
 
 ## 0. Open Decisions
 
@@ -32,6 +40,21 @@ hardware-backed keys for users who have not installed the companion.
 should be read as describing the in-page option only.
 
 ### D2 — Does the V3 → V4 blob split happen at all?
+
+> **Recommendation (v0.4): defer it, and fold it into one migration.**
+> `privatedata-spec`'s `docs/ROLLOUT-PLAN.md` §5.1 reaches this from the
+> other direction. If the Automerge alternative
+> (`docs/SPEC-ALTERNATIVE-AUTOMERGE.md`) is ever adopted, its conversion is
+> itself a one-time, non-derivable, per-account migration — two clients
+> converting the same container independently produce documents that
+> *duplicate* rather than reconcile. Doing V3→V4 first would mean two
+> dangerous one-time conversions per account instead of one. This
+> document's key separation survives either way as a **layout** choice:
+> document in one JWE, keys in another. So D2's answer is not "no" but
+> "not on its own schedule".
+>
+> This does not block anything below. Phase 2 already runs on V3
+> indefinitely (§12.4).
 
 §5.2 already concludes that splitting the *backend API* buys nothing, because
 credential data dominates the blob while the softkey container is a few
@@ -920,8 +943,17 @@ WASM module only handles protocol framing, not key material.
 
 ## 11. privatedata-spec Updates
 
-The `privatedata-spec/SPEC.md` (currently v2.0) must be updated to v3.0
-to document:
+> **Correction (v0.4).** `SPEC.md` is now **v2.1**, not v2.0, and it already
+> carries the piece this document most needed: §6.1 `S.extensions`, a
+> normative namespaced mechanism for client-defined state, with §6.2
+> deprecating the ad-hoc top-level fields that preceded it. That landed
+> without the major bump this section assumed, because it does not change
+> the envelope — it only says where client-defined state goes and how a
+> client that does not implement a namespace must carry it. The list below
+> is therefore V4's list, and inherits **D2**'s answer: none of it is
+> needed for Phases 0–2.
+
+Should the V4 split go ahead, `SPEC.md` must be updated to document:
 
 1. The `EncryptedWalletData` envelope format with `envelopeVersion: 2`.
 2. The dual-JWE structure (`stateJwe` + `keyJwe`).
@@ -953,14 +985,46 @@ document gave. Native SDK `JweKeystore` (legacy path) returns the blob
 verbatim on export — it never overwrites wallet-frontend's data, but also
 never persists its own in-session changes.
 
-The surviving cross-client hazard is a different one, and it is a live
-data-loss path rather than a prerequisite: `privatedata-spec` §6.1 documents
-a top-level `S.wscdCredentials` field that the native SDKs MAY write, marks
-it **"not yet normative"**, and notes that wallet-frontend's typed reducers
-**silently drop it** on the next write. A user who moves between a native
-wallet and the web wallet therefore loses that state. This needs closing on
-its own merits, independently of D1, D2 and everything else in this
-document — see §12.3.
+> **Correction (v0.4).** v0.3 said the state is lost because
+> wallet-frontend's "typed reducers silently drop it on the next write".
+> That is not what happens, and the difference decides the fix. Verified
+> against this repository's own code:
+>
+> - **Unknown `S` fields survive a fold.** `foldState` starts from
+>   `container.S` and the reducer spreads `{...state}`, so a field it has
+>   never heard of is carried through untouched.
+> - **They do not survive a merge.** `mergeDivergentHistoriesWithStrategies`
+>   sets `S` to the common-ancestor base state and replays events, so
+>   anything not reconstructible from an event it knows is gone.
+> - **An unrecognised *event type* is worse than dropped.** Merge buckets
+>   events against a literal map of nine known types, so an unknown type
+>   dereferences `undefined` and **throws** — on a `412` conflict, which is
+>   exactly when merge runs.
+>
+> So this is not a missing reducer. It is merge that cannot tolerate content
+> it does not model, and it fails closed (a crash) for one shape and open
+> (silent loss) for the other.
+
+The surviving cross-client hazard is therefore about **merge tolerance**,
+not about any one field. `privatedata-spec` v2.1 §6.1 now specifies
+`S.extensions` — namespaced client-defined state that a client which does
+not implement the namespace MUST carry verbatim — and both native SDKs
+implement it. wallet-frontend cannot honour that rule today, and the rule is
+what makes staggered adoption across four clients safe at all.
+
+The stakes are also higher than v0.3 knew. Two namespaces are live or
+imminent:
+
+| Namespace | Written by | Cost of losing it |
+|---|---|---|
+| `org.siros.wscd` | native SDKs (was `S.wscdCredentials`) | an enrolled authenticator becomes unaddressable |
+| `org.siros.bbs` | siros-sdk-kotlin, today | **the credential is destroyed** |
+
+`org.siros.bbs` holds a blind BBS credential's secret prover blind, which
+**cannot be reconstructed**. A client that drops it does not degrade a
+credential, it makes it permanently unpresentable — and the failure lands on
+whichever client touches the container *last*, not on the one that caused
+it. See §12.3.
 
 ### 12.3 Native SDK Prerequisites (Phase 0)
 
@@ -975,17 +1039,53 @@ document — see §12.3.
 > `exportFido2State()`; Swift implements `exportEncryptedContainer()` in
 > `Sources/SirosKeystore/WscdKeystoreAdapter.swift`.
 
-The one item that remains, replacing the two above:
+> **Update (v0.4).** v0.3's single remaining item was "resolve
+> `S.wscdCredentials`: make it normative, or drop it". It has been resolved
+> the first way, in `privatedata-spec` v2.1 §6.1, and the resolution is
+> broader than one field — so the item below replaces it rather than
+> restating it.
 
-1. **Resolve `S.wscdCredentials`** (§12.2). Either make it normative in
-    `privatedata-spec` and add a wallet-frontend reducer that preserves it,
-    or drop it from the native SDKs in favour of local encrypted storage.
-    Add a conformance vector for whichever is chosen.
+Two items remain, and only the first is new work for this repository.
 
-This is blob-format-neutral — it doesn't change the envelope written to the
-backend — and can ship independently of every other phase. It is **not** a
-gate on Phase 1 or Phase 2; it is a correctness bug that happens to live in
-the same area.
+1. **Make merge carry what it does not model** (§12.2) — the Phase-0 gate
+    this document did not previously have.
+
+    - Bucket unrecognised event types into a passthrough group instead of
+      indexing a fixed map, with a union-and-dedupe default strategy, so an
+      unknown type survives a merge rather than throwing during one.
+    - Preserve unknown `S` fields across **merge**, not only fold.
+    - Surface the null-merge-base case as a user choice rather than
+      dead-ending in `"Invalid event history chain"`.
+
+    Blob-format-neutral, and cheap. It is load-bearing three times over:
+    extensions now, shared accounts next, and any future format migration
+    after that — including V4 or Automerge, both of which need a client that
+    can hold a container it cannot fully interpret.
+
+    **This one *is* a gate.** Not on Phase 1, but on any deployment where a
+    native SDK and wallet-frontend share an account, which is the only
+    configuration the extension mechanism exists for.
+
+2. **Relocate the existing native-SDK extensions** — in the SDKs, not here.
+    `S.credentialRefreshTokens` → `org.siros.oid4vci.refresh` (a straight
+    relocation; it is already keyed per batch). `S.wscdCredentials` →
+    `org.siros.wscd`, re-keyed per `kid`.
+
+    The re-key was blocked until 2026-08-30 and is not blocked now.
+    `siros-wscd-manager`'s `preview_sign` and `softkey` plugins both minted
+    identifiers from a shared counter (`fido-{next_id}`, `sw-{next_id}`),
+    and `preview_sign` persisted `next_id` *inside the exported state* — a
+    mutable counter inside a synchronised container, where merging two
+    values means nothing. Two unsynchronised devices minted the same `kid`
+    for different keys, so a per-`kid` entry would have collided by
+    construction. Fixed in siros-wscd-manager#67: identifiers are now
+    random. The migration is forward-only — existing `fido-0`/`sw-3` keep
+    their identifiers and stay addressable — so no re-enrolment.
+
+    wallet-frontend needs no change for either: it has never modelled these
+    fields. Once item 1 lands, it carries them.
+
+Neither changes the envelope written to the backend.
 
 ### 12.4 Compatibility Strategy
 
@@ -994,12 +1094,13 @@ lets wallet-frontend use the WASM `WscdManager` internally while
 continuing to write V3-format blobs. This avoids cross-client breakage:
 
 ```
-Phase 0:  Fix native SDK credential persistence (no blob changes)
+Phase 0:  Make merge carry unmodelled content (no blob changes)
+          ↑ GATE for any shared native+web account
 Phase 1:  Build WASM module (no blob changes)
 Phase 2:  wallet-frontend uses WASM internally, writes V3 blobs
           ↑ SAFE: all clients see the same V3 format
-Phase 3:  Blob split to V4 envelope (gate on Phase 0 complete)
-          ↑ SAFE: native SDKs no longer depend on blob for credentials
+Phase 3:  Blob split to V4 envelope — gate on D2, see §0
+          ↑ and see D2: probably not on its own schedule
 ```
 
 In Phase 2, the `KeystoreAdapter` generates keys via the WASM
@@ -1015,15 +1116,27 @@ Status as of 2026-08-27 is tracked in
 which carries a task graph with IDs and dependencies. Phases 0 and 1 are
 largely complete; the checklists below are marked accordingly.
 
-### Phase 0: Native SDK Bug Fixes (prerequisite, no blob changes)
+### Phase 0: Carry what you do not model (no blob changes)
 
-**Done** — see the §12.3 correction. What replaces it:
+v0.3's Phase 0 was native-SDK bug fixes, and those are done. v0.4 replaces
+it with the prerequisite that actually gates a shared account (§12.3).
 
 | Task | Repo | Risk |
 |------|------|------|
 | ~~Wire `CredentialPersistence` into `WscdKeystoreAdapter`~~ | siros-sdk-kotlin / -swift | Done |
 | ~~Fix `buildWalletStateV3()` to merge in-memory state~~ | siros-sdk-kotlin / -swift | Done |
-| Resolve `S.wscdCredentials` reducer gap (§12.2) | privatedata-spec + wallet-frontend | Low — fixes live data loss |
+| ~~Resolve `S.wscdCredentials`~~ — answered by SPEC.md v2.1 §6.1 | privatedata-spec | Done |
+| **Bucket unknown event types into a passthrough group** | **wallet-frontend** | Low — today it throws mid-merge |
+| **Preserve unknown `S` fields across merge, not only fold** | **wallet-frontend** | Low — today they are silently lost |
+| **Surface the null-merge-base case as a user choice** | **wallet-frontend** | Low |
+| Relocate `credentialRefreshTokens` → `org.siros.oid4vci.refresh` | siros-sdk-kotlin / -swift | Low — forward-only |
+| Re-key `wscdCredentials` → `org.siros.wscd` per `kid` | siros-sdk-kotlin / -swift | Low — unblocked by siros-wscd-manager#67 |
+| ~~Random `kid` allocation (was a shared counter)~~ | siros-wscd-manager | Done — #67 |
+
+The three wallet-frontend rows are the only work in this repository, and
+they are the cheapest items in the whole plan. Without them a native SDK and
+the web wallet cannot safely share an account — and `org.siros.bbs` state,
+which ships today, is destroyed rather than degraded when it is lost.
 
 ### Phase 1: WASM Build (siros-wscd-manager)
 
@@ -1086,7 +1199,9 @@ to wallet-frontend users through the WASM `WscdManager`.
 ### Phase 3: Storage Split (V4 envelope) — gate on D2
 
 Phase 0 is no longer the gate (§12.3). **D2 is** — decide whether this phase
-happens at all before starting it.
+happens at all before starting it, and see D2's v0.4 recommendation: if it
+happens, it should ride along with one migration rather than being a second
+one.
 
 
 1. Define `WalletStateSchemaVersion4.ts` types.
