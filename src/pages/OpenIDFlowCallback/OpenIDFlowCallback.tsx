@@ -530,6 +530,7 @@ async function startBackgroundProofGeneration(
 			proof: proofResult.proof,
 			ppid: proofResult.ppid,
 			ppidHex: proofResult.ppidHex,
+			now: now,
 		};
 	} catch (e) {
 		console.error("Background proof generation failed:", e);
@@ -570,7 +571,7 @@ export async function generateZkFinalVP(
         proofData.proof,
         proofData.ppid,
         transcriptHex,
-        proofData.now,
+        now,
     );
 }
 /**
