@@ -465,7 +465,7 @@ function generateProofInWorker(witness: {
 	now: string;
 	pseudonymSeed: Uint8Array;
 	verifierContext: Uint8Array;
-}): Promise<{ proof: Uint8Array; ppid: Uint8Array; ppidHex: string; durationMs: number }> {
+}): Promise<{ proof: Uint8Array; ppid: Uint8Array; ppidHex: string; durationMs: number}> {
 	const worker = getProverWorker();
 
 	return new Promise((resolve, reject) => {
@@ -494,7 +494,7 @@ async function startBackgroundProofGeneration(
 	transcriptHex: string,
 	now: string,
 	verifierContext: Uint8Array,
-): Promise<{ proof: Uint8Array; ppid: Uint8Array; ppidHex?: string } | null> {
+): Promise<{ proof: Uint8Array; ppid: Uint8Array; ppidHex?: string, now: string } | null> {
 	try {
 		const originalMdocHex = base64ToHex(credentialData);
 		const rawSignatureHex = await generateDeviceSignature(
@@ -570,7 +570,7 @@ export async function generateZkFinalVP(
         proofData.proof,
         proofData.ppid,
         transcriptHex,
-        now,
+        proofData.now,
     );
 }
 /**
@@ -727,10 +727,10 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		transcriptHex: string,
 		now: string,
 		verifierContext: Uint8Array,
-	): Promise<{ proof: Uint8Array; ppid: Uint8Array; ppidHex?: string } | null> {
+	): Promise<{ proof: Uint8Array; ppid: Uint8Array; ppidHex?: string, now: string} | null> {
 		try {
 			const originalMdocHex = base64ToHex(credentialData);
-			const CACHE_KEY =transcriptHex;
+			/*const CACHE_KEY =transcriptHex;
 
 			try {
 				const cached = await proofCacheDb.read(['proofs'], (tr: any) =>
@@ -738,11 +738,11 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				);
 				if (cached?.proof) {
 					console.log("✅ Using cached proof:", cached.proof.length, "bytes");
-					return { proof: cached.proof, ppid: cached.ppid, ppidHex: cached.ppidHex };
+					return { proof: cached.proof, ppid: cached.ppid, ppidHex: cached.ppidHex, now: cached.now };
 				}
 			} catch (e) {
 				console.log("No cached proof found:", e);
-			}
+			}*/
 
 			const rawSignatureHex = await generateDeviceSignature(
 				keystore,
@@ -773,25 +773,27 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				pseudonymSeed,
 				verifierContext,
 			});
-			try {
+			/*try {
 				await proofCacheDb.write(['proofs'], (tr: any) =>
 					tr.objectStore('proofs').put(
 						{
 							proof: proofResult.proof,
 							ppid: proofResult.ppid,
 							ppidHex: proofResult.ppidHex,
+							now : now,
 						},
 						CACHE_KEY,
 					)
 				);
 			} catch (e) {
 				console.warn("Failed to cache proof:", e);
-			}
+			}*/
 
 			return {
 				proof: proofResult.proof,
 				ppid: proofResult.ppid,
 				ppidHex: proofResult.ppidHex,
+				now: now,
 			};
 		} catch (e) {
 			console.error("Background proof generation failed:", e);
@@ -823,6 +825,25 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		combined.set(verifierIdHash, 0);
 		combined.set(ppidContextHash, 32);
 		return sha256(combined);
+	}
+
+	// Look up a cached proof for this transcript and reuse the timestamp it was
+	// generated under. A proof binds `now`, so reusing the proof means reusing the
+	// timestamp too.
+	async function resolveNow(proofCacheDb: any, transcriptHex: string): Promise<string> {
+		const fresh = () => new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+		try {
+			const cached = await proofCacheDb.read(['proofs'], (tr: any) =>
+				tr.objectStore('proofs').get(`transcript:${transcriptHex.slice(0, 16)}`)
+			);
+			if (cached?.now) {
+				console.log('reusing cached now:', cached.now);
+				return cached.now;
+			}
+		} catch (e) {
+			console.log('no cached now:', e);
+		}
+		return fresh();
 	}
 
 	// Session-specific proving inputs. Set once the DCAPISession exists, read by
@@ -864,8 +885,15 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		// from the verifier's origin is what makes the pseudonym pairwise: stable
 		// for this verifier, different for every other one.
 		const verifierContext = await deriveVerifierContext(session.verifiedOrigin);
+		/*const verifierContext = new Uint8Array([
+			0x22, 0x73, 0x84, 0x7a, 0x26, 0x5c, 0x3a, 0xb6,
+			0x3f, 0x8b, 0xb0, 0x8e, 0xcb, 0x32, 0x8e, 0x8e,
+			0x54, 0xd5, 0x3e, 0xd2, 0x4e, 0x42, 0x70, 0xc8,
+			0x86, 0x09, 0x36, 0x8e, 0x68, 0x05, 0x62, 0x2d,
+		]);*/
 		console.log('verifier context:', Array.from(verifierContext).map(b => b.toString(16).padStart(2, '0')).join(''));
-		const now = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+		const now = await resolveNow(proofCacheDb, transcriptHex);
+
 		console.log('TRANSCRIPT for both:', transcriptHex, '| bytes:', transcriptHex.length / 2);
 		sessionParamsRef.current = { transcriptHex, verifierContext, now };
 		console.log('session transcript:', transcriptHex.slice(0, 40), '…');
