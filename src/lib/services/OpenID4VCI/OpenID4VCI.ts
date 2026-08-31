@@ -4,26 +4,6 @@ import { fromBase64Url } from '@/util';
 import { cborDecode } from '@auth0/mdl/lib/cbor';
 import { COSEKeyToJWK } from "cose-kit";
 
-/**
- * Raw tx_code spec from OID4VCI §4.1.1 (snake_case, matching protocol wire format).
- */
-export interface RawTxCodeSpec {
-	input_mode?: string;
-	length?: number;
-	description?: string;
-}
-
-/**
- * Thrown when the issuer rejects the transaction code (tx_code) during pre-authorized flow.
- * Callers should catch this to re-prompt the user for a new code.
- */
-export class InvalidTxCodeError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = 'InvalidTxCodeError';
-	}
-}
-
 const textDecoder = new TextDecoder();
 
 export const deriveHolderKidFromCredential = async (credential: string, format: string) => {
