@@ -171,6 +171,7 @@ export const TRANSPORT_PREFERENCE: OIDFlowTransportType[] =
 		.filter((t: string) => ['http_proxy', 'websocket', 'direct'].includes(t)) as OIDFlowTransportType[];
 
 /** Derived convenience checks */
+
 export const HTTP_PROXY_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('http_proxy');
 export const WEBSOCKET_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('websocket');
 export const DIRECT_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('direct');

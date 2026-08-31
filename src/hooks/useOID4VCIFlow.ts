@@ -209,8 +209,8 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			// HTTP proxy transport: use existing implementation
 			if (transportType === 'http_proxy') {
 				throw new OIDFlowError({
-					code: 'DEPRECATED_HTTP_PROXY_FLOW',
-					message: 'HTTP proxy transport flow is deprecated. Please use WebSocket transport instead.',
+					code: 'DISCONTINUED_HTTP_PROXY_FLOW',
+					message: 'HTTP proxy transport flow is discontinued. Please use WebSocket transport instead.',
 				});
 			}
 
@@ -280,8 +280,8 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			// HTTP proxy transport: use existing implementation
 			if (transportType === 'http_proxy') {
 				throw new OIDFlowError({
-					code: 'DEPRECATED_HTTP_PROXY_FLOW',
-					message: 'HTTP proxy transport flow is deprecated. Please use WebSocket transport instead.',
+					code: 'DISCONTINUED_HTTP_PROXY_FLOW',
+					message: 'HTTP proxy transport flow is discontinued. Please use WebSocket transport instead.',
 				});
 			}
 
@@ -345,8 +345,8 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			// HTTP proxy transport: use existing implementation
 			if (transportType === 'http_proxy') {
 				throw new OIDFlowError({
-					code: 'DEPRECATED_HTTP_PROXY_FLOW',
-					message: 'HTTP proxy transport flow is deprecated. Please use WebSocket transport instead.',
+					code: 'DISCONTINUED_HTTP_PROXY_FLOW',
+					message: 'HTTP proxy transport flow is discontinued. Please use WebSocket transport instead.',
 				});
 			}
 
