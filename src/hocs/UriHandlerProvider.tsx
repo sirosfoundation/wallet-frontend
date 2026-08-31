@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext, Suspense, useRef } from "react";
+import React, { useEffect, useState, useContext, Suspense } from "react";
 import { useLocation, useNavigate } from "react-router";
 import StatusContext from "../context/StatusContext";
 import { logger } from "@/logger";
@@ -29,7 +29,6 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 
 	const [cachedUser, setCachedUser] = useState<CachedUser | null>(null);
 	const [synced, setSynced] = useState(false);
-	const syncingRef = useRef(false);
 	const [latestIsOnlineStatus, setLatestIsOnlineStatus,] = api.useClearOnClearSession(useSessionStorage('latestIsOnlineStatus', null));
 
 	useEffect(() => {
@@ -74,24 +73,25 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	]);
 
 	useEffect(() => {
+		if (!isLoggedIn) {
+			setCachedUser(null);
+			setSynced(false);
+		}
+	}, [isLoggedIn]);
+
+	useEffect(() => {
 		if (!getCalculatedWalletState || !cachedUser || !syncPrivateData) {
 			return;
 		}
 		const params = new URLSearchParams(location.search);
 		if (synced === false && getCalculatedWalletState() && params.get('sync') !== 'fail') {
-			if (syncingRef.current) return;
-			syncingRef.current = true;
-
+			logger.debug("Actually syncing...");
 			(async () => {
-				logger.debug("Actually syncing...");
-
-				try {
-					const r = await syncPrivateData(cachedUser, keystore);
-
-					if (r.ok) setSynced(true);
-				} finally {
-					syncingRef.current = false;
+				const r = await syncPrivateData(cachedUser, keystore);
+				if (!r.ok) {
+					return;
 				}
+				setSynced(true);
 			})();
 		}
 

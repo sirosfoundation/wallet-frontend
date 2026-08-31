@@ -656,6 +656,18 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 							oidcIdToken,
 						);
 
+						// Seed the private-data etag after signup.
+						// We want to do this here to ensure the private-data etag is set
+						// immediately after signup, avoiding potential race conditions.
+						try {
+							updatePrivateDataEtag(
+								await authedRequest.get('/user/session/private-data')
+							);
+						} catch (e) {
+							logger.error('Failed to seed private-data etag after signup');
+							logger.debug('Error details:', e);
+						}
+
 						// Store the tenant from the response, falling back to 'default' if not provided
 						// This ensures we always have a valid tenant context
 						const tenantToStore = finishResult.tenantId ?? 'default';
@@ -712,7 +724,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			if (errorMsg === 'invite_invalid') return Err('inviteInvalid');
 			return Err('passkeySignupFinishFailedServerError');
 		}
-	}, [authServer, setSession]);
+	}, [authServer, authedRequest, setSession, updatePrivateDataEtag]);
 
 	const addEventListener = useCallback((type: ApiEventType, listener: EventListener, options?: boolean | AddEventListenerOptions): void => {
 		events.addEventListener(type, listener, options);

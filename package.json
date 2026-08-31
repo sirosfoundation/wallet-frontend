@@ -1,6 +1,6 @@
 {
   "name": "wallet-frontend",
-  "version": "0.5.0-1-sirosid.10",
+  "version": "0.5.0-1-sirosid.11",
   "private": true,
   "type": "module",
   "packageManager": "yarn@1.22.22",

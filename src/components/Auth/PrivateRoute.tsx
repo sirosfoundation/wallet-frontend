@@ -92,9 +92,9 @@ const PrivateRoute = ({ children }: { children?: React.ReactNode }): React.React
 		// Remember where the user was headed so login can send them back afterwards
 		if (!consumeSessionCleared()) {
 			setReturnToUrl(
-				window.location.pathname +
-				window.location.search +
-				window.location.hash
+				location.pathname +
+				location.search +
+				location.hash
 			);
 		}
 

@@ -88,8 +88,11 @@ export function usePresentCredentialsFlow() {
 		setView({ status: 'sharing', messages: [t('presentCredentialsFlow.sharing.sending')], onCancel: undefined, });
 	}, [t]);
 
-	const displayCompletedScreen = useCallback(async (result: PresentationResult) => {
-		setView({ status: 'shared', result });
+	const displayCompletedScreen = useCallback(async (
+		result: PresentationResult,
+		onClose?: () => void,
+	) => {
+		setView({ status: 'shared', result, onClose });
 
 		return new Promise((resolve) => {
 			setTimeout(resolve, 1500);
