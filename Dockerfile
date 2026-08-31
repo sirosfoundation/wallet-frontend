@@ -43,9 +43,17 @@ COPY ./nginx/nginx.conf /etc/nginx/conf.d/default.conf
 COPY ./nginx/docker-entrypoint.d/ /docker-entrypoint.d/
 COPY ./utils/create_custom_branding_resources.sh /home/node/app/
 
-COPY --from=builder --chown=nginx:nginx /home/node/app/dist/ ./html/
-COPY --from=builder --chown=nginx:nginx /home/node/app/dist/ ./dist/
-COPY --from=builder --chown=nginx:nginx /home/node/app/config/ ./config/
-COPY --from=builder --chown=nginx:nginx /home/node/app/branding/ ./branding/
+COPY --from=builder --chown=nginx:0 --chmod=0664 /home/node/app/dist/ ./html/
+COPY --from=builder --chown=nginx:0 --chmod=0664 /home/node/app/dist/ ./dist/
+COPY --from=builder --chown=nginx:0 --chmod=0664 /home/node/app/config/ ./config/
+COPY --from=builder --chown=nginx:0 --chmod=0664 /home/node/app/branding/ ./branding/
 
-EXPOSE 80
+RUN touch /var/run/nginx.pid && chown nginx:0 /var/run/nginx.pid && chmod g+rw /var/run/nginx.pid && \
+	chown -R nginx:0 /usr/share/nginx /var/cache/nginx /etc/nginx/conf.d /home/node/app /docker-entrypoint.d && \
+	chmod -R g+rwX /usr/share/nginx /var/cache/nginx /etc/nginx/conf.d /home/node/app /docker-entrypoint.d && \
+	find /usr/share/nginx/html /usr/share/nginx/dist /usr/share/nginx/config /usr/share/nginx/branding -type d -exec chmod 0775 {} + && \
+	find /usr/share/nginx/html /usr/share/nginx/dist /usr/share/nginx/config /usr/share/nginx/branding -type f -exec chmod 0664 {} +
+
+USER nginx
+
+EXPOSE 8080
