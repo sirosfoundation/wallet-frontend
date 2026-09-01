@@ -158,7 +158,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	private reconnectAttempts = 0;
 	private maxReconnectAttempts = 5;
 	private reconnectDelay = 1000;
-	private requestTimeout = 60000; // 60 seconds
+	private requestTimeout = 60000 * 3; // 3 minutes
 
 	private connectionPromise: Promise<void> | null = null;
 
@@ -498,7 +498,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 		if (params.selectedCredentials) {
 			console.log("here if credential check")
-			
+
 			// Cache locally for sign handler
 			for (const c of params.selectedCredentials) {
 				this.vpCredentialCache.set(c.walletCredentialRef, c.credentialRaw);
