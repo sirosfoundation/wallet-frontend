@@ -33,7 +33,7 @@ Our Web Wallet provides a range of features tailored to enhance the credential m
 ## 🔍Prerequisites
 
 - Node.js
-- npm/yarn
+- pnpm
 
 ## 📦Installation
 
@@ -108,13 +108,13 @@ Our Web Wallet provides a range of features tailored to enhance the credential m
 
 - Install dependencies:
     ```bash
-    yarn install
+    pnpm install
     ```
 
 - Start the development server:
 
     ```bash
-    yarn start
+    pnpm start
     ```
 
 ## ✅Pre-commit Hook

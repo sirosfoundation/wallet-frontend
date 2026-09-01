@@ -1,0 +1,15 @@
+allowBuilds:
+  cbor-extract: true
+  esbuild: true
+  sharp: true
+  wallet-common@https://codeload.github.com/sirosfoundation/wallet-common/tar.gz/5730df479a6695730ecddff1039197b176aa43b2: true
+  wallet-common@https://codeload.github.com/sirosfoundation/wallet-common/tar.gz/6cfd2efacdd1c4ff73fa75d5a3e1b0c984f494a5: true
+  wallet-common@https://codeload.github.com/sirosfoundation/wallet-common/tar.gz/1e538ad904f183256e3f45a59c2d78dc2fec2b7e: true
+
+patchedDependencies:
+  cbor-x@1.6.4: patches/cbor-x@1.6.4.patch
+
+engineStrict: true
+minimumReleaseAge: 1440
+minimumReleaseAgeExclude:
+  - '@sirosfoundation/*'
