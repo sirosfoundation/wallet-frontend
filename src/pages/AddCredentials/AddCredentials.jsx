@@ -226,7 +226,7 @@ const AddCredentials = () => {
 						<Trans
 							i18nKey="pageAddCredentials.popup.message"
 							values={{
-								issuerName: getSelectedIssuerDisplay()?.name ?? "Unknown",
+								issuerName: getSelectedIssuerDisplay()?.name ?? selectedCredentialConfiguration?.credentialIssuerIdentifier ?? "Unknown",
 								issuerDescription: getSelectedIssuerDisplay()?.description ? `(${getSelectedIssuerDisplay()?.description})` : "",
 								credentialName: selectedCredentialConfiguration?.credentialDisplay.name ?? "Unknown",
 								credentialDescription: selectedCredentialConfiguration?.credentialDisplay?.description ? `(${selectedCredentialConfiguration?.credentialDisplay?.description})` : "",

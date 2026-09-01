@@ -1,3 +1,7 @@
+<p align="center">A fork of <a href="https://github.com/wwWallet/wallet-frontend" target="_blank" rel="noopener">wwWallet frontend</a></p>
+
+---
+
 <img src="./branding/default/logo/logo_dark.svg" width="80" style="max-width: 100%; float:left; margin-right: 20px;"/>
 
 # wwWallet
@@ -77,7 +81,7 @@ Our Web Wallet provides a range of features tailored to enhance the credential m
   - `WS_URL`: The URL of the websocket service.
   - `WALLET_BACKEND_URL`: The URL of your backend service.
   - `DID_KEY_VERSION`: DID key version format (e.g., `jwk_jcs-pub`).
-  - `DISPLAY_CONSOLE`: Handle console logs (`true` or `false`). If left empty, it will be handled as `true`.
+  - `LOG_LEVEL`: Set the log level of the browser console. Supported options: `"error" | "info" | "warn" | "debug"`. Defaults to `info`.
   - `WEBAUTHN_RPID`: WebAuthn relying party ID (when running locally, set to `localhost`). This must match the `config.webauthn.rp.id` setting in `wallet-backend-server`.
   - `OPENID4VCI_REDIRECT_URI`: Redirect uri after authentication and token request at the authorization server in OID4VCI flow.
   - `OPENID4VCI_PROOF_TYPE_PRECEDENCE`: Proof type precedence for OID4VCI (e.g., `"attestation,jwt"`).

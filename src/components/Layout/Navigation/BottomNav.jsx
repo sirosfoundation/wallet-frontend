@@ -7,7 +7,7 @@ import { useQRScanner } from '../../../hooks/useQRScanner';
 import QRCodeScanner from '../../QRCodeScanner/QRCodeScanner';
 import CredentialsContext from '@/context/CredentialsContext';
 import CounterBadge from '@/components/Shared/CounterBadge';
-import { Bell, PlusCircle, QrCode, Send, UserCircle, Wallet } from 'lucide-react';
+import { Bell, CircleArrowRightIcon, CircleEllipsisIcon, PlusCircle, QrCode, Wallet } from 'lucide-react';
 
 const BottomNav = ({ isOpen, toggle }) => {
 	const { updateAvailable } = useContext(StatusContext);
@@ -22,7 +22,7 @@ const BottomNav = ({ isOpen, toggle }) => {
 		{ icon: <Wallet size={20} />, id: 'credentials', path: buildPath(), alias: buildPath('cb'), label: `${t("common.navItemCredentials")}`, stepClass: 'step-2-small-screen', counter: pendingTransactions?.length ?? undefined, },
 		{ icon: <PlusCircle size={20} />, id: 'add', path: buildPath('add'), label: `${t("common.navItemAddCredentialsSimple")}`, stepClass: 'step-3-small-screen' },
 		{ icon: <QrCode size={20} />, id: 'qr', path: buildPath('qr'), label: ``, stepClass: 'step-4', isQR: true }, // QR button
-		{ icon: <Send size={20} />, id: 'send', path: buildPath('send'), label: `${t("common.navItemSendCredentialsSimple")}`, stepClass: 'step-5-small-screen' },
+		{ icon: <CircleArrowRightIcon size={20} />, id: 'share', path: buildPath('share'), label: `${t("common.navItemShareCredentialsSimple")}`, stepClass: 'step-5-small-screen' },
 	];
 
 	const handleNavigate = (path) => {
@@ -72,14 +72,14 @@ const BottomNav = ({ isOpen, toggle }) => {
 				))}
 				<button
 					id="bottom-nav-item-profile"
-					key={t("common.navItemProfile")}
+					key={t("common.navItemMore")}
 					className={`relative cursor-pointer flex flex-col items-center gap-1 w-[20%] relative ${isOpen ? 'text-lm-gray-900 dark:text-white' : 'text-lm-gray-700 dark:text-dm-gray-300'} transition-colors duration-200`}
 					onClick={toggle}
-					title={t("common.navItemProfile")}
+					title={t("common.navItemMore")}
 				>
-					<UserCircle size={20} />
+					<CircleEllipsisIcon size={20} />
 					<span className="hidden 2xs:block text-xs">
-						{t("common.navItemProfile")}
+						{t("common.navItemMore")}
 					</span>
 					{updateAvailable && (
 						<Bell

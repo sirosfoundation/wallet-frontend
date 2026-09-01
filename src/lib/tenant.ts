@@ -98,6 +98,36 @@ export function isReservedTenantName(name: string): boolean {
 }
 
 /**
+ * Tenant ID validation pattern.
+ *
+ * A valid tenant ID:
+ * - Starts with a lowercase letter
+ * - Contains only lowercase letters, digits, and hyphens
+ * - Ends with a lowercase letter or digit
+ * - Is compatible with hostname segment requirements (RFC 1123)
+ *
+ * The 'default' tenant is valid per this pattern and is intentionally allowed —
+ * it is the system-reserved tenant that must be routable. Reserved name checks
+ * (isReservedTenantName) are separate from format validity.
+ */
+const TENANT_ID_PATTERN = /^[a-z][a-z0-9-]*[a-z0-9]$/;
+
+/**
+ * Check whether a tenant ID is syntactically valid.
+ *
+ * This is a defense-in-depth check on the frontend. The backend always performs
+ * authoritative validation; this function provides early feedback and prevents
+ * obviously malformed IDs from being sent in API requests or stored.
+ *
+ * @param tenantId - The tenant ID string to validate
+ * @returns true if the ID is valid, false otherwise
+ */
+export function isValidTenantId(tenantId: string | undefined): tenantId is string {
+	if (!tenantId) return false;
+	return TENANT_ID_PATTERN.test(tenantId);
+}
+
+/**
  * Build the frontend route path for a given tenant.
  * - Tenants use /id/{tenantId}/ prefix
  *

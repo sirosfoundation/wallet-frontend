@@ -4,14 +4,16 @@ import { useApi } from '@/api';
 import StatusContext from '@/context/StatusContext';
 import { logger } from '@/logger';
 import { OPENID4VCI_PROOF_TYPE_PRECEDENCE } from '@/config';
-import { applySelectiveDisclosure } from '@/lib/sd-jwt/sd-jwt';
 import { base64url } from 'jose';
-import { buildMdocPresentationDefinition, parseIssuerSignedToMDoc } from '@/lib/mdoc/mdoc';
+import {
+	applySelectiveDisclosure,
+	buildMdocPresentationDefinition,
+	extractIssuerSignedB64,
+	parseIssuerSignedToMDoc,
+} from '@/lib/verifiable-credentials';
 import { detectCredentialFormat, VerifiableCredentialFormat } from 'wallet-common';
 import { MDoc } from '@auth0/mdl';
 import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
-import * as cbor from 'cbor-x';
-import { fromBase64Url, toBase64Url } from "../util";
 
 
 interface ProofTypeConfig {
@@ -51,12 +53,19 @@ export interface OIDFlowSignRequest {
 /**
  * Individual proof object for OID4VCI
  */
-export interface ProofObject {
-	proof_type: 'jwt' | 'cwt' | 'attestation';
-	jwt?: string;
-	cwt?: string;
-	attestation?: string;
+interface ProofObjectJwt {
+	proof_type: 'jwt';
+	jwt: string;
 }
+interface ProofObjectCwt {
+	proof_type: 'cwt';
+	cwt: string;
+}
+interface ProofObjectAttestation {
+	proof_type: 'attestation';
+	attestation: string;
+}
+export type ProofObject = ProofObjectJwt | ProofObjectCwt | ProofObjectAttestation;
 
 /**
  * Sign response to send back to server
@@ -302,14 +311,20 @@ async function createVpTokenFromMdoc(
 	if (!disclosedClaims?.length) {
 		throw new Error('disclosedClaims required for mdoc presentation');
 	}
-	const deviceResponse = cbor.decode(fromBase64Url(credentialRaw));
-	// `deviceResponse` may be a full DeviceResponse envelope, or a bare
+	// The stored credential may be a full DeviceResponse envelope, or a bare
 	// IssuerSigned structure directly (what real-world/interop issuers, e.g.
 	// geneva2026.mdoc.online, send for mso_mdoc credential responses) - in
 	// the latter case it already *is* the issuerSigned structure.
-	const issuerSigned = deviceResponse.documents?.[0]?.issuerSigned ?? deviceResponse;
-	const issuerSignedBytes = cbor.encode(issuerSigned);
-	const issuerSignedB64 = toBase64Url(issuerSignedBytes);
+	//
+	// Decode with mdl's codec, never cbor-x's defaults. cbor-x decodes maps
+	// to plain objects, whose keys can only be strings, so a decode/encode
+	// round-trip silently rewrites COSE's integer header labels as decimal
+	// strings - issuerAuth's x5chain label 33 becomes "33". Byte strings
+	// survive, so the damage is invisible until a verifier looks for the
+	// certificate chain and reports the credential as having none. The
+	// unprotected header is not covered by the COSE signature, so nothing
+	// upstream of that verifier notices.
+	const issuerSignedB64 = extractIssuerSignedB64(credentialRaw);
 	const mdoc = parseIssuerSignedToMDoc(issuerSignedB64);
 	const presentationDefinition = buildMdocPresentationDefinition(
 		mdoc.documents[0].docType,

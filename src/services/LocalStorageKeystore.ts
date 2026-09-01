@@ -58,7 +58,6 @@ export interface LocalStorageKeystore {
 	isOpen(): boolean,
 	close(): Promise<void>,
 
-	initPassword(password: string): Promise<[EncryptedContainer, (userHandleB64u: string) => void]>,
 	initPrf(
 		credential: PublicKeyCredential,
 		prfSalt: Uint8Array,
@@ -70,11 +69,6 @@ export interface LocalStorageKeystore {
 		promptForPrfRetry: () => Promise<boolean | AbortSignal>,
 	): Promise<[EncryptedContainer, CommitCallback]>,
 	deletePrf(credentialId: Uint8Array): [EncryptedContainer, CommitCallback],
-	unlockPassword(
-		privateData: EncryptedContainer,
-		password: string,
-		user: UserData,
-	): Promise<[EncryptedContainer, CommitCallback] | null>,
 	unlockPrf(
 		privateData: EncryptedContainer,
 		credential: PublicKeyCredential,
@@ -82,8 +76,7 @@ export interface LocalStorageKeystore {
 		user: CachedUser | UserData,
 	): Promise<[EncryptedContainer, CommitCallback] | null>,
 	getPrfKeyInfo(id: BufferSource): WebauthnPrfEncryptionKeyInfo,
-	getPasswordOrPrfKeyFromSession(
-		promptForPassword: () => Promise<string | null>,
+	getPrfKeyFromSession(
 		promptForPrfRetry: () => Promise<boolean | AbortSignal>,
 	): Promise<[CryptoKey, WrappedKeyInfo]>,
 	upgradePrfKey(prfKeyInfo: WebauthnPrfEncryptionKeyInfo, promptForPrfRetry: () => Promise<boolean | AbortSignal>): Promise<[EncryptedContainer, CommitCallback]>,
@@ -515,29 +508,6 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		[finishUnlock]
 	);
 
-	const unlockPassword = useCallback(
-		async (
-			privateData: EncryptedContainer,
-			password: string,
-			user: UserData,
-		): Promise<[EncryptedContainer, CommitCallback] | null> => {
-			const [unlockResult, newPrivateData] = await keystore.unlockPassword(privateData, password);
-			await finishUnlock(unlockResult, user, null, async () => false);
-			return (
-				newPrivateData
-					?
-					[newPrivateData,
-						async () => {
-							await writePrivateDataOnIdb(newPrivateData, userHandleB64u);
-							setPrivateData(newPrivateData);
-						},
-					]
-					: null
-			);
-		},
-		[finishUnlock, setPrivateData, writePrivateDataOnIdb, userHandleB64u]
-	);
-
 	const initPrf = useCallback(
 		async (
 			credential: PublicKeyCredential,
@@ -550,14 +520,6 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 			return result;
 		},
 		[init]
-	);
-
-	const initPassword = useCallback(
-		async (password: string): Promise<[EncryptedContainer, (userHandleB64u: string) => void]> => {
-			const { mainKey, keyInfo } = await keystore.initPassword(password);
-			return [await init(mainKey, keyInfo, null), setUserHandleB64u];
-		},
-		[init, setUserHandleB64u]
 	);
 
 	const getPrfKeyInfo = useCallback(
@@ -652,27 +614,13 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		[finishUnlock]
 	);
 
-	const getPasswordOrPrfKeyFromSession = useCallback(
+	const getPrfKeyFromSession = useCallback(
 		async (
-			promptForPassword: () => Promise<string | null>,
 			promptForPrfRetry: () => Promise<boolean | AbortSignal>,
 		): Promise<[CryptoKey, WrappedKeyInfo]> => {
 			if (privateData && privateData?.prfKeys?.length > 0) {
 				const [prfKey, prfKeyInfo,] = await keystore.getPrfKey(privateData, null, promptForPrfRetry);
 				return [prfKey, keystore.isPrfKeyV2(prfKeyInfo) ? prfKeyInfo : prfKeyInfo.mainKey];
-
-			} else if (privateData && privateData?.passwordKey) {
-				const password = await promptForPassword();
-				if (password === null) {
-					throw new Error("Password prompt aborted");
-				} else {
-					try {
-						const [passwordKey, passwordKeyInfo] = await keystore.getPasswordKey(privateData, password);
-						return [passwordKey, keystore.isAsymmetricPasswordKeyInfo(passwordKeyInfo) ? passwordKeyInfo : passwordKeyInfo.mainKey];
-					} catch {
-						throw new Error("Failed to unlock key store", { cause: { errorId: "passwordUnlockFailed" } });
-					}
-				}
 
 			} else {
 				throw new Error("Session not initialized");
@@ -954,14 +902,12 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 	return useMemo(() => ({
 		isOpen,
 		close,
-		initPassword,
 		initPrf,
 		addPrf,
 		deletePrf,
-		unlockPassword,
 		unlockPrf,
 		getPrfKeyInfo,
-		getPasswordOrPrfKeyFromSession,
+		getPrfKeyFromSession,
 		upgradePrfKey,
 		getCachedUsers,
 		forgetCachedUser,
@@ -987,14 +933,12 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 	}), [
 		isOpen,
 		close,
-		initPassword,
 		initPrf,
 		addPrf,
 		deletePrf,
-		unlockPassword,
 		unlockPrf,
 		getPrfKeyInfo,
-		getPasswordOrPrfKeyFromSession,
+		getPrfKeyFromSession,
 		upgradePrfKey,
 		getCachedUsers,
 		forgetCachedUser,

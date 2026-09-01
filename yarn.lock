@@ -2363,6 +2363,11 @@
   resolved "https://registry.yarnpkg.com/@sinclair/typebox/-/typebox-0.27.8.tgz#6667fac16c436b5434a387a34dedb013198f6e6e"
   integrity sha512-+Fj43pSMwJs4KRrH/938Uf+uAELIgVBmQzg/q1YG10djyfA3TnrU8N8XzqCh/okZdszqBQTZf96idMfE5lnwTA==
 
+"@sirosfoundation/browser-log@^0.1.0-beta.4":
+  version "0.1.0-beta.4"
+  resolved "https://registry.yarnpkg.com/@sirosfoundation/browser-log/-/browser-log-0.1.0-beta.4.tgz#f7f43588990c23cd5eabd047a9db499c8ea151d8"
+  integrity sha512-trXcS7UhZuM8k6+652rVC5OAUeT8mxKeYIyPOG8uVlJPK+aRBU7scLrMnmNOsVU6QORUbe4cii1nys12EIjR8Q==
+
 "@sirosfoundation/wcc-types@^0.1.0-beta.1":
   version "0.1.0-beta.1"
   resolved "https://registry.yarnpkg.com/@sirosfoundation/wcc-types/-/wcc-types-0.1.0-beta.1.tgz#972c6fdf250e5286990f6e3a05a6c75551f818c6"

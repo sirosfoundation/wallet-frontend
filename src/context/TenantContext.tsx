@@ -24,7 +24,7 @@
 import React, { createContext, useContext, useEffect, useState, useMemo, useCallback, ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import { getStoredTenant, setStoredTenant, clearStoredTenant, buildTenantRoutePath, TENANT_PATH_PREFIX, isMultiTenant } from '../lib/tenant';
+import { getStoredTenant, setStoredTenant, clearStoredTenant, buildTenantRoutePath, TENANT_PATH_PREFIX, isMultiTenant, isValidTenantId } from '../lib/tenant';
 import { BACKEND_URL } from '../config';
 import type { TenantConfig, OIDCProviderConfig } from '../api/types';
 import { logger } from '../logger';
@@ -114,6 +114,16 @@ export function TenantProvider({ children, tenantId: propTenantId }: TenantProvi
 		const tenantToFetch = urlTenantId || effectiveTenantId;
 		if (!tenantToFetch) {
 			setTenantConfig(null);
+			return;
+		}
+
+		// Defense-in-depth: reject obviously malformed tenant IDs before making
+		// any network request. The backend also validates, but this prevents
+		// sending requests with IDs that could not possibly be valid.
+		if (!isValidTenantId(tenantToFetch)) {
+			logger.warn(`[TenantContext] Ignoring invalid tenant ID: "${tenantToFetch}"`);
+			setIsLoadingConfig(false);
+			setConfigError(`Invalid tenant ID: "${tenantToFetch}"`);
 			return;
 		}
 

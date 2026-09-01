@@ -3,9 +3,10 @@ import { Navigate, useParams, useLocation } from 'react-router-dom';
 import SessionContext from '@/context/SessionContext';
 import { getStoredTenant, TENANT_PATH_PREFIX, isMultiTenant, buildTenantRoutePath } from '@/lib/tenant';
 import { logger } from '@/logger';
+import { setReturnToUrl } from '@/lib/utils/returnToUrl';
 
 const PrivateRoute = ({ children }: { children?: React.ReactNode }): React.ReactElement => {
-	const { isLoggedIn, keystore } = useContext(SessionContext);
+	const { isLoggedIn, consumeSessionCleared, keystore } = useContext(SessionContext);
 	const cachedUsers = keystore.getCachedUsers();
 	const location = useLocation();
 	const [isHardRedirecting, setIsHardRedirecting] = useState(false);
@@ -86,9 +87,18 @@ const PrivateRoute = ({ children }: { children?: React.ReactNode }): React.React
 
 		if (state && userExistsInCache(state)) {
 			return <Navigate to={`${loginTenantPath}/login-state${window.location.search}`} replace />;
-		} else {
-			return <Navigate to={`${loginTenantPath}/login${window.location.search}`} replace />;
 		}
+
+		// Remember where the user was headed so login can send them back afterwards
+		if (!consumeSessionCleared()) {
+			setReturnToUrl(
+				location.pathname +
+				location.search +
+				location.hash
+			);
+		}
+
+		return <Navigate to={`${loginTenantPath}/login`} replace />;
 	}
 
 	return (

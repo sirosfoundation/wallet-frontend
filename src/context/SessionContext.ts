@@ -8,6 +8,7 @@ export type SessionContextValue = {
 	isLoggedIn: boolean,
 	keystore: LocalStorageKeystore,
 	logout: () => Promise<void>,
+	consumeSessionCleared: () => boolean,
 	obliviousKeyConfig: HpkeConfig
 };
 
@@ -17,6 +18,7 @@ const SessionContext: React.Context<SessionContextValue> = createContext({
 	keystore: undefined,
 	obliviousKeyConfig: null,
 	logout: async () => { },
+	consumeSessionCleared: () => false,
 });
 
 export default SessionContext;

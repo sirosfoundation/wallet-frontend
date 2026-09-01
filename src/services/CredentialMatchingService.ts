@@ -15,7 +15,7 @@ import { DcqlQuery, DcqlCredential, DcqlQueryResult } from 'dcql';
 import { logger } from '@/logger';
 import * as cbor from 'cbor-x';
 import { fromBase64Url } from "../util";
-import { extractDocTypeFromIssuerAuth } from '@/lib/mdoc/mdoc';
+import { extractDocTypeFromIssuerAuth } from '@/lib/verifiable-credentials';
 
 export interface CredentialMatch {
 	input_descriptor_id: string;
@@ -28,6 +28,7 @@ export interface CredentialMatch {
 export interface CredentialsMatchedResult {
 	matches: CredentialMatch[];
 	no_match_reason?: string;
+	code?: 'NO_MATCHING_CREDENTIALS' | 'INSUFFICIENT_CREDENTIALS';
 }
 
 /**
@@ -89,8 +90,10 @@ export function matchCredentials(
 		}
 	}
 
-	if (matches.length === 0) {
-		return { matches: [], no_match_reason: 'No credentials match DCQL query' };
+	if (!result.can_be_satisfied) {
+		return matches.length > 0
+			? { matches: [], code: 'INSUFFICIENT_CREDENTIALS', no_match_reason: 'Not all required credentials are available' }
+			: { matches: [], code: 'NO_MATCHING_CREDENTIALS', no_match_reason: 'No credentials match DCQL query' };
 	}
 
 	return { matches };

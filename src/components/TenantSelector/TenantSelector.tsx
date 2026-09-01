@@ -1,6 +1,6 @@
 import { cloneElement, ReactElement, useContext, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowRightIcon } from 'lucide-react';
+import { ChevronRightIcon } from 'lucide-react';
 import SessionContext from '@/context/SessionContext';
 import { getKnownTenants, KnownTenant, buildTenantRoutePath } from '@/lib/tenant';
 import { fromBase64Url } from '@/util';
@@ -125,7 +125,7 @@ export default function TenantSelector({
 							title={tenant.id === currentTenantId ? t('tenantSelector.currentlySelected') : undefined}
 						>
 							<TenantMeta knownTenants={knownTenants} tenantId={tenant.id} />
-							<ArrowRightIcon size={20} className="m-0.5 shrink-0" />
+							<ChevronRightIcon size={20} className="m-0.5 shrink-0" />
 						</Button>
 					))}
 				</div>
