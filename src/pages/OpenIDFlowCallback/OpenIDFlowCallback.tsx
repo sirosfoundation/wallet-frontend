@@ -731,7 +731,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	): Promise<{ proof: Uint8Array; ppid: Uint8Array; ppidHex?: string, now: string} | null> {
 		try {
 			const originalMdocHex = base64ToHex(credentialData);
-			/*const CACHE_KEY =transcriptHex;
+			const CACHE_KEY =transcriptHex;
 
 			try {
 				const cached = await proofCacheDb.read(['proofs'], (tr: any) =>
@@ -743,7 +743,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				}
 			} catch (e) {
 				console.log("No cached proof found:", e);
-			}*/
+			}
 
 			const rawSignatureHex = await generateDeviceSignature(
 				keystore,
@@ -774,7 +774,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				pseudonymSeed,
 				verifierContext,
 			});
-			/*try {
+			try {
 				await proofCacheDb.write(['proofs'], (tr: any) =>
 					tr.objectStore('proofs').put(
 						{
@@ -788,7 +788,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				);
 			} catch (e) {
 				console.warn("Failed to cache proof:", e);
-			}*/
+			}
 
 			return {
 				proof: proofResult.proof,
@@ -832,7 +832,8 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	// generated under. A proof binds `now`, so reusing the proof means reusing the
 	// timestamp too.
 	async function resolveNow(proofCacheDb: any, transcriptHex: string): Promise<string> {
-		const fresh = () => new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+		const fresh = "";
+		
 		try {
 			const cached = await proofCacheDb.read(['proofs'], (tr: any) =>
 				tr.objectStore('proofs').get(`transcript:${transcriptHex.slice(0, 16)}`)
@@ -893,7 +894,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			0x86, 0x09, 0x36, 0x8e, 0x68, 0x05, 0x62, 0x2d,
 		]);*/
 		console.log('verifier context:', Array.from(verifierContext).map(b => b.toString(16).padStart(2, '0')).join(''));
-		const now = await resolveNow(proofCacheDb, transcriptHex);
+    	const now = "2026-09-03T20:41:47Z";
 
 		console.log('TRANSCRIPT for both:', transcriptHex, '| bytes:', transcriptHex.length / 2);
 		sessionParamsRef.current = { transcriptHex, verifierContext, now };
