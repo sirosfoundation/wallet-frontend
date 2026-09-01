@@ -4,6 +4,7 @@ import keystoreEvents from "../services/keystoreEvents";
 import CredentialsContext from "@/context/CredentialsContext";
 import { prepareCredentialsForNativeWrapper } from "@/lib/native-wrapper";
 import { logger } from "@/logger";
+import { OPENID4VCI_REDIRECT_URI } from "@/config";
 
 declare global {
 	interface Window {
@@ -11,7 +12,7 @@ declare global {
 	}
 
 	interface NativeWrapper {
-		updateAllCredentials(credentials: string): void;
+		updateAllCredentials(credentials: string, callbackUrl?: string): void;
 		sendDcApiResponse(response: string, error?: string): void;
 		isKeystoreOpen(): Promise<boolean>;
 		startScanPhysicalId?(): void;
@@ -37,8 +38,14 @@ export const NativeWrapperProvider = ({
 			const registryEntries =
 				await prepareCredentialsForNativeWrapper(vcEntityList);
 
-			logger.debug("Updated native wrapper with credentials:", registryEntries);
-			window.nativeWrapper.updateAllCredentials(JSON.stringify(registryEntries));
+			logger.debug("Updated native wrapper with credentials and callback URL", {
+				registryEntries,
+				callbackUrl: OPENID4VCI_REDIRECT_URI,
+			});
+			window.nativeWrapper.updateAllCredentials(
+				JSON.stringify(registryEntries),
+				OPENID4VCI_REDIRECT_URI,
+			);
 		})();
 	}, [vcEntityList]);
 
