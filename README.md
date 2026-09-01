@@ -1,4 +1,4 @@
-<p style="text-align: center;">A fork of <a href="https://github.com/wwWallet/wallet-frontend" target="_blank" rel="noopener">wwWallet frontend</a></p>
+<p align="center">A fork of <a href="https://github.com/wwWallet/wallet-frontend" target="_blank" rel="noopener">wwWallet frontend</a></p>
 
 ---
 
