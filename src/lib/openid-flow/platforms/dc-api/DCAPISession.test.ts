@@ -45,7 +45,9 @@ describe('DCAPISession', () => {
 
 	beforeEach(() => {
 		mockMode = createMockMode();
-		vi.mocked(DCAPIWalletCompanionMode).mockImplementation(() => mockMode as any);
+		vi.mocked(DCAPIWalletCompanionMode).mockImplementation(function () {
+			return mockMode as any;
+		});
 		vi.stubGlobal('opener', {}); // Just needs to be truthy for mode detection
 	});
 
