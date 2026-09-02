@@ -1,5 +1,5 @@
 import React, { useCallback, useContext, useState } from 'react';
-import { useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { useNavigate, useLocation, Navigate } from 'react-router';
 import { Trans, useTranslation } from 'react-i18next';
 import { logger } from '@/logger';
 

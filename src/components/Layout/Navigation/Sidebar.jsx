@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router';
 import useScreenType from '../../../hooks/useScreenType';
 import Logo from '../../Logo/Logo';
 import { useTranslation } from 'react-i18next';

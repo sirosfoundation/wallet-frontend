@@ -1,5 +1,5 @@
 import React, { useContext, useMemo, useEffect, useState } from 'react';
-import { Navigate, useParams, useLocation } from 'react-router-dom';
+import { Navigate, useParams, useLocation } from 'react-router';
 import SessionContext from '@/context/SessionContext';
 import {
 	getStoredTenant,

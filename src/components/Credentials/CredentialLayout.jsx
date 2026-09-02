@@ -1,6 +1,6 @@
 // External libraries
 import React, { useState, useEffect, useContext } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 

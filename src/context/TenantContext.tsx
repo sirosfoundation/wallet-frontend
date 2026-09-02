@@ -21,26 +21,10 @@
  * See go-wallet-backend/docs/adr/011-multi-tenancy.md for full design.
  */
 
-import React, {
-	createContext,
-	useContext,
-	useEffect,
-	useState,
-	useMemo,
-	useCallback,
-	ReactNode,
-} from 'react';
-import { useParams } from 'react-router-dom';
+import React, { createContext, useContext, useEffect, useState, useMemo, useCallback, ReactNode } from 'react';
+import { useParams } from 'react-router';
 import axios from 'axios';
-import {
-	getStoredTenant,
-	setStoredTenant,
-	clearStoredTenant,
-	buildTenantRoutePath,
-	TENANT_PATH_PREFIX,
-	isMultiTenant,
-	isValidTenantId,
-} from '../lib/tenant';
+import { getStoredTenant, setStoredTenant, clearStoredTenant, buildTenantRoutePath, TENANT_PATH_PREFIX, isMultiTenant, isValidTenantId } from '../lib/tenant';
 import { BACKEND_URL } from '../config';
 import type { TenantConfig, OIDCProviderConfig } from '../api/types';
 import { logger } from '../logger';
@@ -163,7 +147,7 @@ export function TenantProvider({ children, tenantId: propTenantId }: TenantProvi
 							// the endpoint uses URL path for tenant identification
 							'X-Tenant-ID': tenantToFetch,
 						},
-					},
+					}
 				);
 				setTenantConfig(response.data);
 			} catch (error) {
@@ -177,7 +161,7 @@ export function TenantProvider({ children, tenantId: propTenantId }: TenantProvi
 						// doesn't serve per-tenant config yet. Fall back to defaults.
 						console.warn(
 							`[TenantContext] Tenant config 404 for "${tenantToFetch}". ` +
-								`Using default config (no OIDC gate).`,
+							`Using default config (no OIDC gate).`
 						);
 						setTenantConfig({ id: tenantToFetch, name: tenantToFetch });
 					} else {
@@ -185,7 +169,7 @@ export function TenantProvider({ children, tenantId: propTenantId }: TenantProvi
 						// rather than blocking the user from logging in.
 						console.error(
 							`[TenantContext] Failed to fetch config for "${tenantToFetch}": ${error.message}. ` +
-								`Falling back to default config.`,
+							`Falling back to default config.`
 						);
 						setTenantConfig({ id: tenantToFetch, name: tenantToFetch });
 					}
@@ -250,46 +234,34 @@ export function TenantProvider({ children, tenantId: propTenantId }: TenantProvi
 		clearStoredTenant();
 	}, []);
 
-	const buildPath = useCallback(
-		(subPath?: string) => {
-			return buildTenantRoutePath(effectiveTenantId, subPath);
-		},
-		[effectiveTenantId],
-	);
+	const buildPath = useCallback((subPath?: string) => {
+		return buildTenantRoutePath(effectiveTenantId, subPath);
+	}, [effectiveTenantId]);
 
-	const value = useMemo<TenantContextValue>(
-		() => ({
-			effectiveTenantId,
-			urlTenantId,
-			isMultiTenant: isMultiTenant(),
-			tenantConfig,
-			isLoadingConfig,
-			configError,
-			requiresOIDCGateForRegistration,
-			requiresOIDCGateForLogin,
-			getRegistrationOIDCProvider,
-			getLoginOIDCProvider,
-			switchTenant,
-			clearTenant,
-			buildPath,
-		}),
-		[
-			effectiveTenantId,
-			urlTenantId,
-			tenantConfig,
-			isLoadingConfig,
-			configError,
-			requiresOIDCGateForRegistration,
-			requiresOIDCGateForLogin,
-			getRegistrationOIDCProvider,
-			getLoginOIDCProvider,
-			switchTenant,
-			clearTenant,
-			buildPath,
-		],
-	);
+	const value = useMemo<TenantContextValue>(() => ({
+		effectiveTenantId,
+		urlTenantId,
+		isMultiTenant: isMultiTenant(),
+		tenantConfig,
+		isLoadingConfig,
+		configError,
+		requiresOIDCGateForRegistration,
+		requiresOIDCGateForLogin,
+		getRegistrationOIDCProvider,
+		getLoginOIDCProvider,
+		switchTenant,
+		clearTenant,
+		buildPath,
+	}), [effectiveTenantId, urlTenantId, tenantConfig, isLoadingConfig, configError,
+		requiresOIDCGateForRegistration, requiresOIDCGateForLogin,
+		getRegistrationOIDCProvider, getLoginOIDCProvider,
+		switchTenant, clearTenant, buildPath]);
 
-	return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;
+	return (
+		<TenantContext.Provider value={value}>
+			{children}
+		</TenantContext.Provider>
+	);
 }
 
 /**
@@ -319,7 +291,7 @@ export function useTenant(): TenantContextValue {
 				logger.warn('switchTenant called outside TenantProvider');
 			},
 			clearTenant: clearStoredTenant,
-			buildPath: (subPath?: string) => (subPath ? `/${subPath}` : '/'),
+			buildPath: (subPath?: string) => subPath ? `/${subPath}` : '/',
 		};
 	}
 	return context;
@@ -332,9 +304,7 @@ export function useTenant(): TenantContextValue {
 export function useRequiredTenant(): string {
 	const { effectiveTenantId } = useTenant();
 	if (!effectiveTenantId) {
-		throw new Error(
-			'Tenant ID is required but not available. Ensure this component is within a tenant-scoped route (/id/:tenantId/*).',
-		);
+		throw new Error('Tenant ID is required but not available. Ensure this component is within a tenant-scoped route (/id/:tenantId/*).');
 	}
 	return effectiveTenantId;
 }

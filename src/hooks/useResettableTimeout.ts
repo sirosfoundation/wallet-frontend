@@ -8,7 +8,7 @@ export type ResetHandle = () => void;
  */
 export function useResettableTimeout(action: () => void, delayMillis: number): ResetHandle {
 	const startTimeRef = useRef<number | null>(null);
-	const timerRef = useRef<NodeJS.Timeout>();
+	const timerRef = useRef<NodeJS.Timeout | null>(null);
 
 	const start = useCallback(() => {
 		const getTime = () => new Date().getTime();

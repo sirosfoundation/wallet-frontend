@@ -1,6 +1,6 @@
 // App.jsx
 import React, { Suspense, useMemo } from 'react';
-import { Routes, Route, Outlet, useLocation } from 'react-router-dom';
+import { Routes, Route, Outlet, useLocation } from 'react-router';
 
 import FadeInContentTransition from './components/Transitions/FadeInContentTransition';
 import Snowfalling from './components/ChristmasAnimation/Snowfalling';
