@@ -43,7 +43,9 @@ export function getSchema(
 	}
 }
 
-export async function createWalletSessionEvent(container: WalletStateContainer): Promise<{
+export async function createWalletSessionEvent(
+	container: WalletStateContainer,
+): Promise<{
 	schemaVersion: number;
 	eventId: number;
 	parentHash: string;
