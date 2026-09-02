@@ -24,9 +24,9 @@ export default defineConfig(async ({ mode, command }) => {
 			tailwindcss(),
 			svgr(),
 			checker({
-				eslint: {
-					lintCommand: 'eslint "./src/**/*.{js,jsx,ts,tsx}"',
-				}
+				biome: {
+					command: 'check',
+				},
 			}),
 			VitePWA({
 				registerType: 'autoUpdate',
