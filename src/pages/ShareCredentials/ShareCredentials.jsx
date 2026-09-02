@@ -28,20 +28,20 @@ const ShareCredentials = () => {
 		}
 		const u = keystore.getCachedUsers().filter((user) => user.userHandleB64u === userHandle)[0];
 		return u;
-	};
+	}
 
 	const syncPrivateData = async () => {
 		const cachedUser = getUser();
 		if (!cachedUser) {
-			throw new Error('Could not get cached user');
+			throw new Error("Could not get cached user");
 		}
 		const result = await api.syncPrivateData(cachedUser, keystore);
-		logger.debug('Result: ', result);
+		logger.debug("Result: ", result)
 		if (!result.ok) {
-			throw new Error('PrivateData needs synchronization');
+			throw new Error("PrivateData needs synchronization");
 		}
 		return {};
-	};
+	}
 
 	useEffect(() => {
 		const fetchVerifiers = async () => {
@@ -70,20 +70,18 @@ const ShareCredentials = () => {
 	};
 
 	const handleContinue = () => {
-		syncPrivateData()
-			.then(() => {
-				setLoading(true);
+		syncPrivateData().then(() => {
+			setLoading(true);
 
-				logger.debug('Continue with:', selectedVerifier);
+			logger.debug('Continue with:', selectedVerifier);
 
-				if (selectedVerifier) {
-					window.location.href = sanitizeRedirectUrl(selectedVerifier.url);
-				}
+			if (selectedVerifier) {
+				window.location.href = sanitizeRedirectUrl(selectedVerifier.url);
+			}
 
-				setLoading(false);
-				setShowRedirectPopup(false);
-			})
-			.catch((err) => logger.error(err));
+			setLoading(false);
+			setShowRedirectPopup(false);
+		}).catch((err) => logger.error(err));
 	};
 
 	return (
@@ -111,6 +109,7 @@ const ShareCredentials = () => {
 						identifierField="id"
 						onClick={handleVerifierClick}
 					/>
+
 				)}
 			</div>
 
@@ -123,7 +122,7 @@ const ShareCredentials = () => {
 					popupMessage={
 						<Trans
 							i18nKey="pageShareCredentials.popup.message"
-							values={{ verifierName: selectedVerifier?.name ?? 'Unknown' }}
+							values={{ verifierName: selectedVerifier?.name ?? "Unknown" }}
 							components={{ strong: <strong /> }}
 						/>
 					}

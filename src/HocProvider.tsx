@@ -4,6 +4,8 @@ import { NativeWrapperProvider } from './hocs/NativeWrapperProvider';
 
 export const HocProvider: React.FC<PropsWithChildren> = ({ children }) => (
 	<UriHandlerProvider>
-		<NativeWrapperProvider>{children}</NativeWrapperProvider>
+		<NativeWrapperProvider>
+			{children}
+		</NativeWrapperProvider>
 	</UriHandlerProvider>
 );

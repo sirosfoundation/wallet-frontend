@@ -28,16 +28,13 @@ export function usePresentCredentialsFlow() {
 	const [view, setView] = useState<PresentCredentialsFlowView>({ status: 'loading' });
 	const sharingAbort = useRef<AbortController | null>(null);
 	const { vcEntityList, fetchVcData } = useContext(CredentialsContext);
-	const {
-		t,
-		i18n: { language },
-	} = useTranslation();
+	const { t, i18n: { language } } = useTranslation();
 
 	const displayRequestOverviewScreen = useCallback(
 		async (
 			verifierInfo: OID4VPVerifierInfo,
 			dcqlQuery: DcqlQuery.Input,
-			conformantCredentials: ConformantCredentials,
+			conformantCredentials: ConformantCredentials
 		): Promise<PresentCredentialsResult> => {
 			// vcEntityList is null until the credential engine finishes its
 			// first load. A verifier-initiated presentation lands on the
@@ -70,8 +67,7 @@ export function usePresentCredentialsFlow() {
 				setView({
 					status: 'request',
 					onAccept: (result) => resolve(result),
-					onDecline: () =>
-						reject(new OIDFlowError({ code: 'USER_CANCELLED', message: 'User cancelled' })),
+					onDecline: () => reject(new OIDFlowError({ code: 'USER_CANCELLED', message: 'User cancelled' })),
 					request,
 				});
 			});
@@ -79,36 +75,29 @@ export function usePresentCredentialsFlow() {
 		[vcEntityList, fetchVcData, language],
 	);
 
-	const displayProcessingScreen = useCallback(
-		(messages: string[] = [t('common.loading')]): AbortSignal => {
-			const controller = new AbortController();
-			sharingAbort.current = controller;
-			setView({ status: 'sharing', messages, onCancel: () => controller.abort() });
+	const displayProcessingScreen = useCallback((messages: string[] = [t('common.loading')]): AbortSignal => {
+		const controller = new AbortController();
+		sharingAbort.current = controller;
+		setView({ status: 'sharing', messages, onCancel: () => controller.abort() });
 
-			return controller.signal;
-		},
-		[t],
-	);
+		return controller.signal;
+	}, [t]);
 
 	const displaySendingScreen = useCallback((): void => {
 		sharingAbort.current = null;
-		setView({
-			status: 'sharing',
-			messages: [t('presentCredentialsFlow.sharing.sending')],
-			onCancel: undefined,
-		});
+		setView({ status: 'sharing', messages: [t('presentCredentialsFlow.sharing.sending')], onCancel: undefined, });
 	}, [t]);
 
-	const displayCompletedScreen = useCallback(
-		async (result: PresentationResult, onClose?: () => void) => {
-			setView({ status: 'shared', result, onClose });
+	const displayCompletedScreen = useCallback(async (
+		result: PresentationResult,
+		onClose?: () => void,
+	) => {
+		setView({ status: 'shared', result, onClose });
 
-			return new Promise((resolve) => {
-				setTimeout(resolve, 1500);
-			});
-		},
-		[],
-	);
+		return new Promise((resolve) => {
+			setTimeout(resolve, 1500);
+		});
+	}, []);
 
 	const displayErrorScreen = useCallback((state: PresentationErrorState) => {
 		setView({ status: 'error', state });

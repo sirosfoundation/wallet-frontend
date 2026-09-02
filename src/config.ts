@@ -1,7 +1,7 @@
 import { type ClientMetaConfig } from '../config';
 import type { OIDFlowTransportType } from '@/lib/openid-flow/types/OIDFlowTypes';
-export type DidKeyVersion = 'p256-pub' | 'jwk_jcs-pub';
-export type LogLevel = 'error' | 'info' | 'warn' | 'debug';
+export type DidKeyVersion = "p256-pub" | "jwk_jcs-pub";
+export type LogLevel = "error" | "info" | "warn" | "debug";
 
 type Config = ClientMetaConfig & Record<string, string | undefined>;
 
@@ -25,7 +25,7 @@ const config: Config = {};
 		}
 	}
 })();
-export const MODE = (import.meta.env.MODE as 'development' | 'production') || 'production';
+export const MODE = import.meta.env.MODE as 'development' | 'production' || 'production';
 export const APP_VERSION = import.meta.env.VITE_APP_VERSION;
 export const BASE_PATH = config.base_path || '/';
 export const BACKEND_URL = config.wallet_backend_url;
@@ -44,37 +44,28 @@ export const ENGINE_URL = config.wallet_engine_url || BACKEND_URL;
  * Converts http(s):// to ws(s):// and appends /api/v2/wallet.
  * Can be overridden with ws_url for custom configurations.
  */
-export const WS_URL =
-	config.ws_url ||
-	(ENGINE_URL
-		? (() => {
-				try {
-					const url = new URL('/api/v2/wallet', ENGINE_URL);
-					if (url.protocol === 'http:') {
-						url.protocol = 'ws:';
-					} else if (url.protocol === 'https:') {
-						url.protocol = 'wss:';
-					}
-					return url.toString();
-				} catch {
-					return undefined;
-				}
-			})()
-		: undefined);
+export const WS_URL = config.ws_url || (ENGINE_URL
+	? (() => {
+		try {
+			const url = new URL('/api/v2/wallet', ENGINE_URL);
+			if (url.protocol === 'http:') {
+				url.protocol = 'ws:';
+			} else if (url.protocol === 'https:') {
+				url.protocol = 'wss:';
+			}
+			return url.toString();
+		} catch {
+			return undefined;
+		}
+	})()
+	: undefined);
 
-export const MULTI_LANGUAGE_DISPLAY: boolean = config.multi_language_display
-	? JSON.parse(config.multi_language_display)
-	: false;
+export const MULTI_LANGUAGE_DISPLAY: boolean = config.multi_language_display ? JSON.parse(config.multi_language_display) : false;
 export const I18N_WALLET_NAME_OVERRIDE: string | undefined = config.i18n_wallet_name_override;
-export const INACTIVE_LOGOUT_MILLIS =
-	(config.inactive_logout_seconds ? parseInt(config.inactive_logout_seconds, 10) : 60 * 15) * 1000;
-export const WEBAUTHN_RPID = config.webauthn_rpid ?? 'localhost';
-export const OPENID4VP_SAN_DNS_CHECK = config.openid4vp_san_dns_check
-	? config.openid4vp_san_dns_check === 'true'
-	: false;
-export const OPENID4VP_SAN_DNS_CHECK_SSL_CERTS = config.openid4vp_san_dns_check_ssl_certs
-	? config.openid4vp_san_dns_check_ssl_certs === 'true'
-	: false;
+export const INACTIVE_LOGOUT_MILLIS = (config.inactive_logout_seconds ? parseInt(config.inactive_logout_seconds, 10) : 60 * 15) * 1000
+export const WEBAUTHN_RPID = config.webauthn_rpid ?? "localhost";
+export const OPENID4VP_SAN_DNS_CHECK = config.openid4vp_san_dns_check ? config.openid4vp_san_dns_check === 'true' : false;
+export const OPENID4VP_SAN_DNS_CHECK_SSL_CERTS = config.openid4vp_san_dns_check_ssl_certs ? config.openid4vp_san_dns_check_ssl_certs === 'true' : false;
 
 /**
  * Delegate trust evaluation to the backend's AuthZEN proxy.
@@ -106,14 +97,14 @@ export const DELEGATE_TRUST_TO_BACKEND: boolean = (() => {
 		if (MODE !== 'development') {
 			console.error(
 				'[SECURITY] DELEGATE_TRUST_TO_BACKEND=false is only allowed in development mode. ' +
-					'Production builds must use backend trust evaluation via AuthZEN. ' +
-					'Forcing DELEGATE_TRUST_TO_BACKEND=true.',
+				'Production builds must use backend trust evaluation via AuthZEN. ' +
+				'Forcing DELEGATE_TRUST_TO_BACKEND=true.'
 			);
 			return true;
 		}
 		console.warn(
 			'[SECURITY WARNING] DELEGATE_TRUST_TO_BACKEND=false: Using local certificate validation. ' +
-				'This bypasses AuthZEN trust evaluation and should NEVER be used in production.',
+			'This bypasses AuthZEN trust evaluation and should NEVER be used in production.'
 		);
 		return false;
 	}
@@ -121,13 +112,8 @@ export const DELEGATE_TRUST_TO_BACKEND: boolean = (() => {
 	return true;
 })();
 
-export const OPENID4VCI_REDIRECT_URI = config.openid4vci_redirect_uri
-	? config.openid4vci_redirect_uri
-	: 'http://localhost:3000/';
-export const CLOCK_TOLERANCE =
-	config.clock_tolerance && !isNaN(parseInt(config.clock_tolerance))
-		? parseInt(config.clock_tolerance)
-		: 60;
+export const OPENID4VCI_REDIRECT_URI = config.openid4vci_redirect_uri ?  config.openid4vci_redirect_uri : "http://localhost:3000/";
+export const CLOCK_TOLERANCE = config.clock_tolerance && !isNaN(parseInt(config.clock_tolerance)) ? parseInt(config.clock_tolerance) : 60;
 export const STATIC_PUBLIC_URL = config.static_public_url || 'https://demo.wwwallet.org';
 export const STATIC_NAME = config.static_name || 'SIROS ID (dev)';
 
@@ -137,8 +123,7 @@ export const STATIC_NAME = config.static_name || 'SIROS ID (dev)';
  * set preserve_presentation_history=true in the deployment config to opt in
  * to keeping history.
  */
-export const PRESERVE_PRESENTATION_HISTORY: boolean =
-	config.preserve_presentation_history === 'true';
+export const PRESERVE_PRESENTATION_HISTORY: boolean = config.preserve_presentation_history === 'true';
 
 /**
  * Shows the "Scan Physical ID" entry point on the Add Credentials page
@@ -148,29 +133,11 @@ export const PRESERVE_PRESENTATION_HISTORY: boolean =
  */
 export const SCAN_PHYSICAL_ID_ENABLED: boolean = config.scan_physical_id_enabled !== 'false';
 export const OPENID4VCI_PROOF_TYPE_PRECEDENCE = config.openid4vci_proof_type_precedence || 'jwt';
-export const FOLD_EVENT_HISTORY_AFTER_SECONDS =
-	config.fold_event_history_after_seconds &&
-	!isNaN(parseInt(config.fold_event_history_after_seconds))
-		? parseInt(config.fold_event_history_after_seconds)
-		: 2592000; // 30 days
-export const DISPLAY_ISSUANCE_WARNINGS: boolean = config.display_issuance_warnings
-	? JSON.parse(config.display_issuance_warnings)
-	: false;
-export const OPENID4VCI_MAX_ACCEPTED_BATCH_SIZE: number =
-	config.openid4vci_max_accepted_batch_size &&
-	!isNaN(parseInt(config.openid4vci_max_accepted_batch_size))
-		? parseInt(config.openid4vci_max_accepted_batch_size)
-		: 10;
-export const OPENID4VCI_TRANSACTION_ID_POLLING_INTERVAL_IN_SECONDS =
-	config.openid4vci_transaction_id_polling_interval_in_seconds &&
-	!isNaN(parseInt(config.openid4vci_transaction_id_polling_interval_in_seconds))
-		? parseInt(config.openid4vci_transaction_id_polling_interval_in_seconds)
-		: 200;
-export const OPENID4VCI_TRANSACTION_ID_LIFETIME_IN_SECONDS =
-	config.openid4vci_transaction_id_lifetime_in_seconds &&
-	!isNaN(parseInt(config.openid4vci_transaction_id_lifetime_in_seconds))
-		? parseInt(config.openid4vci_transaction_id_lifetime_in_seconds)
-		: 2592000;
+export const FOLD_EVENT_HISTORY_AFTER_SECONDS = config.fold_event_history_after_seconds && !isNaN(parseInt(config.fold_event_history_after_seconds)) ? parseInt(config.fold_event_history_after_seconds) : 2592000; // 30 days
+export const DISPLAY_ISSUANCE_WARNINGS: boolean = config.display_issuance_warnings ? JSON.parse(config.display_issuance_warnings) : false;
+export const OPENID4VCI_MAX_ACCEPTED_BATCH_SIZE: number = config.openid4vci_max_accepted_batch_size && !isNaN(parseInt(config.openid4vci_max_accepted_batch_size)) ? parseInt(config.openid4vci_max_accepted_batch_size) : 10;
+export const OPENID4VCI_TRANSACTION_ID_POLLING_INTERVAL_IN_SECONDS = config.openid4vci_transaction_id_polling_interval_in_seconds && !isNaN(parseInt(config.openid4vci_transaction_id_polling_interval_in_seconds)) ? parseInt(config.openid4vci_transaction_id_polling_interval_in_seconds) : 200;
+export const OPENID4VCI_TRANSACTION_ID_LIFETIME_IN_SECONDS = config.openid4vci_transaction_id_lifetime_in_seconds && !isNaN(parseInt(config.openid4vci_transaction_id_lifetime_in_seconds)) ? parseInt(config.openid4vci_transaction_id_lifetime_in_seconds) : 2592000;
 export const OHTTP_KEY_CONFIG = config.ohttp_key_config;
 export const OHTTP_RELAY = config.ohttp_relay;
 export const VCT_REGISTRY_URL: string | undefined = config.vct_registry_url;
@@ -187,27 +154,21 @@ export const POWERED_BY = config.powered_by;
  * Default: http_proxy,websocket enabled for backwards compatibility
  * 'direct' disabled by default (requires ecosystem CORS support)
  */
-export const ALLOWED_TRANSPORTS: OIDFlowTransportType[] = (
-	config.allowed_transports || 'http_proxy,websocket'
-)
-	.split(',')
-	.map((t: string) => t.trim())
-	.filter((t: string) =>
-		['http_proxy', 'websocket', 'direct'].includes(t),
-	) as OIDFlowTransportType[];
+export const ALLOWED_TRANSPORTS: OIDFlowTransportType[] =
+	(config.allowed_transports || 'http_proxy,websocket')
+		.split(',')
+		.map((t: string) => t.trim())
+		.filter((t: string) => ['http_proxy', 'websocket', 'direct'].includes(t)) as OIDFlowTransportType[];
 
 /**
  * Transport preference order (first available wins)
  * Default prefers WebSocket over HTTP proxy over Direct
  */
-export const TRANSPORT_PREFERENCE: OIDFlowTransportType[] = (
-	config.transport_preference || 'websocket,http_proxy,direct'
-)
-	.split(',')
-	.map((t: string) => t.trim())
-	.filter((t: string) =>
-		['http_proxy', 'websocket', 'direct'].includes(t),
-	) as OIDFlowTransportType[];
+export const TRANSPORT_PREFERENCE: OIDFlowTransportType[] =
+	(config.transport_preference || 'websocket,http_proxy,direct')
+		.split(',')
+		.map((t: string) => t.trim())
+		.filter((t: string) => ['http_proxy', 'websocket', 'direct'].includes(t)) as OIDFlowTransportType[];
 
 /** Derived convenience checks */
 export const HTTP_PROXY_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('http_proxy');
@@ -216,4 +177,4 @@ export const DIRECT_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('direct');
 export const BRANDING = {
 	LOGO_LIGHT: config.branding?.logo_light || '/logo_light.svg',
 	LOGO_DARK: config.branding?.logo_dark || '/logo_dark.svg',
-};
+}

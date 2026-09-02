@@ -1,30 +1,15 @@
-import { IMdocAppCommunication } from '../interfaces/IMdocAppCommunication';
-import { DataItem, parse } from '@auth0/mdl';
-import {
-	cborDecode,
-	cborEncode,
-	getCborEncodeDecodeOptions,
-	setCborEncodeDecodeOptions,
-} from '@auth0/mdl/lib/cbor';
+import { IMdocAppCommunication } from "../interfaces/IMdocAppCommunication";
+import { DataItem, parse } from "@auth0/mdl";
+import { cborDecode, cborEncode, getCborEncodeDecodeOptions, setCborEncodeDecodeOptions } from "@auth0/mdl/lib/cbor";
 import { v4 as uuidv4 } from 'uuid';
-import {
-	decryptMessage,
-	hexToUint8Array,
-	uint8ArrayToBase64Url,
-	deriveSharedSecret,
-	getKey,
-	uint8ArraytoHexString,
-	getSessionTranscriptBytes,
-	getDeviceEngagement,
-	encryptUint8Array,
-} from '../utils/mdocProtocol';
-import { base64url } from 'jose';
-import { useCallback, useContext, useMemo, useRef } from 'react';
-import SessionContext from '@/context/SessionContext';
-import { toBase64 } from '@/util';
-import { generateRandomIdentifier } from '../utils/generateRandomIdentifier';
-import { VerifiableCredentialFormat } from 'wallet-common';
-import { WalletStateUtils } from '@/services/WalletStateUtils';
+import { decryptMessage, hexToUint8Array, uint8ArrayToBase64Url, deriveSharedSecret, getKey, uint8ArraytoHexString, getSessionTranscriptBytes, getDeviceEngagement, encryptUint8Array } from "../utils/mdocProtocol";
+import { base64url } from "jose";
+import { useCallback, useContext, useMemo, useRef } from "react";
+import SessionContext from "@/context/SessionContext";
+import { toBase64 } from "@/util";
+import { generateRandomIdentifier } from "../utils/generateRandomIdentifier";
+import { VerifiableCredentialFormat } from "wallet-common";
+import { WalletStateUtils } from "@/services/WalletStateUtils";
 import { logger } from '@/logger';
 
 export function useMdocAppCommunication(): IMdocAppCommunication {
@@ -43,66 +28,58 @@ export function useMdocAppCommunication(): IMdocAppCommunication {
 	const { addPresentations, generateDeviceResponseWithProximity } = keystore;
 
 	const storeVerifiablePresentation = useCallback(
-		async (
-			presentation: string,
-			_presentationSubmission: any,
-			usedCredentialId: number,
-			audience: string,
-		) => {
+		async (presentation: string, _presentationSubmission: any, usedCredentialId: number, audience: string) => {
 			try {
 				const transactionId = WalletStateUtils.getRandomUint32();
-				const [, newPrivateData, keystoreCommit] = await addPresentations(
-					[presentation].map((vpData, _index) => {
-						logger.debug('Presentation: ');
+				const [, newPrivateData, keystoreCommit] = await addPresentations([presentation].map((vpData, _index) => {
+					logger.debug("Presentation: ")
 
-						return {
-							transactionId: transactionId,
-							data: vpData,
-							usedCredentialIds: [usedCredentialId],
-							audience: audience,
-						};
-					}),
-				);
+					return {
+						transactionId: transactionId,
+						data: vpData,
+						usedCredentialIds: [usedCredentialId],
+						audience: audience,
+					}
+				}));
 				await updatePrivateData(newPrivateData);
 				await keystoreCommit();
-				logger.debug('Presentations added');
+				logger.debug("Presentations added")
+
 			} catch (e) {
-				logger.debug('Failed to reach server: Presentation history not stored');
+				logger.debug("Failed to reach server: Presentation history not stored");
 			}
 		},
-		[updatePrivateData, addPresentations],
+		[updatePrivateData, addPresentations]
 	);
 
-	const generateEngagementQR = useCallback(
-		async (vcEntity: any) => {
-			const keyPair = await crypto.subtle.generateKey(
-				{
-					name: 'ECDH',
-					namedCurve: 'P-256', // the named curve for P-256
-				},
-				true, // whether the key is extractable (e.g., can be exported)
-				['deriveKey', 'deriveBits'], // can be used for signing and verification
-			);
-			ephemeralKeyRef.current = keyPair;
 
-			const publicKeyJWK = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
+	const generateEngagementQR = useCallback(async (vcEntity: any) => {
+		const keyPair = await crypto.subtle.generateKey(
+			{
+				name: "ECDH",
+				namedCurve: "P-256", // the named curve for P-256
+			},
+			true, // whether the key is extractable (e.g., can be exported)
+			["deriveKey", "deriveBits"] // can be used for signing and verification
+		);
+		ephemeralKeyRef.current = keyPair;
 
-			// const uuid =  '00179c7a-eec6-4f88-8646-045fda9ac4d8'
+		const publicKeyJWK = await crypto.subtle.exportKey("jwk", keyPair.publicKey);
 
-			const deviceEngagement = getDeviceEngagement(uuid, publicKeyJWK);
+		// const uuid =  '00179c7a-eec6-4f88-8646-045fda9ac4d8'
 
-			const options = getCborEncodeDecodeOptions();
-			options.variableMapSize = true;
-			setCborEncodeDecodeOptions(options);
-			const cbor = cborEncode(deviceEngagement);
+		const deviceEngagement = getDeviceEngagement(uuid, publicKeyJWK);
 
-			deviceEngagementBytesRef.current = DataItem.fromData(deviceEngagement);
-			credentialRef.current = vcEntity;
+		const options = getCborEncodeDecodeOptions();
+		options.variableMapSize = true;
+		setCborEncodeDecodeOptions(options);
+		const cbor = cborEncode(deviceEngagement);
 
-			return `mdoc:${uint8ArrayToBase64Url(cbor)}`;
-		},
-		[uuid],
-	);
+		deviceEngagementBytesRef.current = DataItem.fromData(deviceEngagement);
+		credentialRef.current = vcEntity;
+
+		return `mdoc:${uint8ArrayToBase64Url(cbor)}`;
+	}, [uuid]);
 
 	const startClient = useCallback(async (): Promise<boolean> => {
 		/* @ts-ignore */
@@ -114,10 +91,10 @@ export function useMdocAppCommunication(): IMdocAppCommunication {
 				const client = await window.nativeWrapper.bluetoothCreateClient(uuid);
 				return client;
 			} catch (e) {
-				logger.debug(e);
-				/* @ts-ignore */
-				logger.debug(await nativeWrapper.bluetoothStatus());
-				logger.debug('Could not initialize BLE client');
+					logger.debug(e);
+					/* @ts-ignore */
+					logger.debug(await nativeWrapper.bluetoothStatus());
+					logger.debug("Could not initialize BLE client");
 				return false;
 			}
 		}
@@ -128,7 +105,7 @@ export function useMdocAppCommunication(): IMdocAppCommunication {
 		let aggregatedData = [];
 		/* @ts-ignore */
 		if (window.nativeWrapper) {
-			logger.debug('Created BLE client');
+			logger.debug("Created BLE client");
 			try {
 				let dataReceived = [1];
 				while (dataReceived[0] === 1) {
@@ -138,7 +115,7 @@ export function useMdocAppCommunication(): IMdocAppCommunication {
 					aggregatedData = [...aggregatedData, ...dataReceived.slice(1)];
 				}
 			} catch (e) {
-				logger.debug('Error receiving');
+				logger.debug("Error receiving");
 				logger.debug(e);
 			}
 		}
@@ -149,40 +126,24 @@ export function useMdocAppCommunication(): IMdocAppCommunication {
 		const verifierData = decoded.get('data');
 		const coseKey = cborDecode(new Uint8Array(readerKey.buffer));
 		const verifierJWK = {
-			kty: 'EC',
-			alg: 'ECDH',
-			crv: 'P-256',
+			kty: "EC",
+			alg: "ECDH",
+			crv: "P-256",
 			x: uint8ArrayToBase64Url(coseKey.get(-2)),
-			y: uint8ArrayToBase64Url(coseKey.get(-3)),
-		};
-		const verifierPublicKey = await crypto.subtle.importKey(
-			'jwk',
-			verifierJWK,
-			{ name: 'ECDH', namedCurve: 'P-256' },
-			true,
-			[],
-		);
+			y: uint8ArrayToBase64Url(coseKey.get(-3))
+		}
+		const verifierPublicKey = await crypto.subtle.importKey("jwk", verifierJWK, { name: "ECDH", namedCurve: "P-256" }, true, []);
 		sessionTranscriptBytesRef.current = getSessionTranscriptBytes(
 			deviceEngagementBytesRef.current, // DeviceEngagementBytes
 			decoded.get('eReaderKey'), // EReaderKeyBytes
 		);
 		const zab = await deriveSharedSecret(ephemeralKeyRef.current.privateKey, verifierPublicKey);
-		const salt = await crypto.subtle.digest('SHA-256', sessionTranscriptBytesRef.current);
-		skDeviceRef.current = await getKey(zab, salt, 'SKDevice');
-		const skReader = await getKey(zab, salt, 'SKReader');
+		const salt = await crypto.subtle.digest("SHA-256", sessionTranscriptBytesRef.current);
+		skDeviceRef.current = await getKey(zab, salt, "SKDevice");
+		const skReader = await getKey(zab, salt, "SKReader");
 		const iv = new Uint8Array([
-			0x00,
-			0x00,
-			0x00,
-			0x00,
-			0x00,
-			0x00,
-			0x00,
-			0x00, // identifier
-			0x00,
-			0x00,
-			0x00,
-			0x01, // message counter
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // identifier
+			0x00, 0x00, 0x00, 0x01 // message counter
 		]);
 
 		let decryptedVerifierData;
@@ -194,21 +155,19 @@ export function useMdocAppCommunication(): IMdocAppCommunication {
 		const fieldKeys: string[] = [];
 		if (decryptedVerifierData) {
 			const mdocRequestDecoded = cborDecode(decryptedVerifierData);
-			const fields: Map<string, boolean> = mdocRequestDecoded
-				.get('docRequests')[0]
-				.get('itemsRequest')
-				.data.get('nameSpaces')
-				.get('eu.europa.ec.eudi.pid.1');
+			const fields: Map<string, boolean> = mdocRequestDecoded.get("docRequests")[0].get("itemsRequest").data.get("nameSpaces").get("eu.europa.ec.eudi.pid.1");
 
 			const fieldsPEX = [];
 			fields.forEach((value, key) => {
 				fieldKeys.push(key);
 				fieldsPEX.push({
-					name: key,
-					path: [`$['eu.europa.ec.eudi.pid.1']['${key}']`],
-					intent_to_retain: value,
-				});
-			});
+					"name": key,
+					"path": [
+						`$['eu.europa.ec.eudi.pid.1']['${key}']`
+					],
+					"intent_to_retain": value
+				},)
+			})
 			fieldsPEXRef.current = fieldsPEX;
 		}
 
@@ -217,39 +176,39 @@ export function useMdocAppCommunication(): IMdocAppCommunication {
 
 	const sendMdocResponse = useCallback(async (): Promise<void> => {
 		const fullPEX = {
-			id: 'MdocPID',
-			title: 'MDOC PID',
-			description: 'Placeholder description',
-			input_descriptors: [
+			"id": "MdocPID",
+			"title": "MDOC PID",
+			"description": "Placeholder description",
+			"input_descriptors": [
 				{
-					id: 'eu.europa.ec.eudi.pid.1',
-					format: {
-						mso_mdoc: {
-							alg: ['ES256'],
+					"id": "eu.europa.ec.eudi.pid.1",
+					"format": {
+						"mso_mdoc": {
+							"alg": [
+								"ES256"
+							]
 						},
 					},
-					constraints: {
-						limit_disclosure: 'required',
-						fields: fieldsPEXRef.current,
-					},
-				},
-			],
-		};
+					"constraints": {
+						"limit_disclosure": "required",
+						"fields": fieldsPEXRef.current
+					}
+				}
+			]
+		}
 
 		// const presentationDefinition = fullPEX;
 		const credentialBytes = base64url.decode(credentialRef.current.data);
 		const issuerSigned = cborDecode(credentialBytes);
 		// const descriptor = presentationDefinition.input_descriptors.filter((desc) => desc.id === descriptor_id)[0];
-		const descriptor = { id: 'eu.europa.ec.eudi.pid.1' };
+		const descriptor = { "id": "eu.europa.ec.eudi.pid.1" }
 		const m = {
 			version: '1.0',
-			documents: [
-				new Map([
-					['docType', descriptor.id],
-					['issuerSigned', issuerSigned],
-				]),
-			],
-			status: 0,
+			documents: [new Map([
+				['docType', descriptor.id],
+				['issuerSigned', issuerSigned]
+			])],
+			status: 0
 		};
 		const options = getCborEncodeDecodeOptions();
 		options.variableMapSize = true;
@@ -257,50 +216,32 @@ export function useMdocAppCommunication(): IMdocAppCommunication {
 		const encoded = cborEncode(m);
 		const mdoc = parse(encoded);
 
-		const { deviceResponseMDoc } = await generateDeviceResponseWithProximity(
-			mdoc,
-			fullPEX,
-			sessionTranscriptBytesRef.current,
-		);
+		const { deviceResponseMDoc } = await generateDeviceResponseWithProximity(mdoc, fullPEX, sessionTranscriptBytesRef.current);
 
 		// encrypt mdoc response
 		const ivEncryption = new Uint8Array([
-			0x00,
-			0x00,
-			0x00,
-			0x00,
-			0x00,
-			0x00,
-			0x00,
-			0x01, // identifier
-			0x00,
-			0x00,
-			0x00,
-			0x01, // message counter
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, // identifier
+			0x00, 0x00, 0x00, 0x01 // message counter
 		]);
 
-		const { ciphertext } = await encryptUint8Array(
-			skDeviceRef.current,
-			deviceResponseMDoc.encode(),
-			ivEncryption,
-		);
+		const { ciphertext } = (await encryptUint8Array(skDeviceRef.current, deviceResponseMDoc.encode(), ivEncryption));
 		const encryptedMdoc = ciphertext;
 
 		const sessionData = {
 			data: new Uint8Array(encryptedMdoc),
 			// data: encryptedMdoc,
-			status: 20,
-		};
+			status: 20
+		}
 
 		sessionDataEncodedRef.current = cborEncode(sessionData);
 
 		if (sessionDataEncodedRef.current) {
 			let toSendBytes = Array.from(sessionDataEncodedRef.current);
-			while (toSendBytes.length > assumedChunkSize - 1) {
-				const chunk = [1, ...toSendBytes.slice(0, assumedChunkSize - 1)];
+			while (toSendBytes.length > (assumedChunkSize - 1)) {
+				const chunk = [1, ...toSendBytes.slice(0, (assumedChunkSize - 1))]
 				/* @ts-ignore */
 				await nativeWrapper.bluetoothSendToServer(JSON.stringify(chunk));
-				toSendBytes = toSendBytes.slice(assumedChunkSize - 1);
+				toSendBytes = toSendBytes.slice((assumedChunkSize - 1));
 			}
 			/* @ts-ignore */
 			await nativeWrapper.bluetoothSendToServer(JSON.stringify([0, ...toSendBytes]));
@@ -312,19 +253,13 @@ export function useMdocAppCommunication(): IMdocAppCommunication {
 					{
 						id: fullPEX.input_descriptors[0].id,
 						format: VerifiableCredentialFormat.MSO_MDOC,
-						path: `$`,
-					},
+						path: `$`
+					}
 				],
 			};
 
-			const presentations =
-				'b64:' + toBase64(new TextEncoder().encode(base64url.encode(deviceResponseMDoc.encode())));
-			await storeVerifiablePresentation(
-				presentations,
-				presentationSubmission,
-				credentialRef.current.credentialId,
-				'Proximity Mode',
-			);
+			const presentations = "b64:" + toBase64(new TextEncoder().encode(base64url.encode((deviceResponseMDoc.encode()))));
+			await storeVerifiablePresentation(presentations, presentationSubmission, credentialRef.current.credentialId, "Proximity Mode");
 		}
 
 		/* @ts-ignore */
@@ -332,22 +267,25 @@ export function useMdocAppCommunication(): IMdocAppCommunication {
 		return;
 	}, [generateDeviceResponseWithProximity, storeVerifiablePresentation]);
 
-	const terminateSession = useCallback(async (): Promise<void> => {
-		const sessionData = {
-			data: new Uint8Array([]),
-			status: 20,
-		};
+	const terminateSession = useCallback(
+		async (): Promise<void> => {
+			const sessionData = {
+				data: new Uint8Array([]),
+				status: 20
+			}
 
-		const options = getCborEncodeDecodeOptions();
-		options.variableMapSize = true;
-		setCborEncodeDecodeOptions(options);
-		const sessionDataEncoded = cborEncode(sessionData);
-		/* @ts-ignore */
-		await nativeWrapper.bluetoothSendToServer(JSON.stringify([0, ...sessionDataEncoded]));
+			const options = getCborEncodeDecodeOptions();
+			options.variableMapSize = true;
+			setCborEncodeDecodeOptions(options);
+			const sessionDataEncoded = cborEncode(sessionData);
+			/* @ts-ignore */
+			await nativeWrapper.bluetoothSendToServer(JSON.stringify([0, ...sessionDataEncoded]));
 
-		/* @ts-ignore */
-		await nativeWrapper.bluetoothTerminate();
-	}, []);
+			/* @ts-ignore */
+			await nativeWrapper.bluetoothTerminate();
+		},
+		[],
+	);
 
 	return useMemo(
 		() => ({
@@ -355,8 +293,14 @@ export function useMdocAppCommunication(): IMdocAppCommunication {
 			startClient,
 			getMdocRequest,
 			sendMdocResponse,
-			terminateSession,
+			terminateSession
 		}),
-		[generateEngagementQR, startClient, getMdocRequest, sendMdocResponse, terminateSession],
+		[
+			generateEngagementQR,
+			startClient,
+			getMdocRequest,
+			sendMdocResponse,
+			terminateSession
+		]
 	);
 }

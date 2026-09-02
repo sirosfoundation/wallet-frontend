@@ -32,13 +32,13 @@ const AddCredentials = () => {
 	// point only makes sense when that bridge is actually present (i.e. inside
 	// the wrapper app, not a plain browser/PWA) -- and only when the tenant has
 	// opted into offering it via SCAN_PHYSICAL_ID_ENABLED (see @/config).
-	const isScanAvailable =
-		SCAN_PHYSICAL_ID_ENABLED && typeof window.nativeWrapper?.startScanPhysicalId === 'function';
+	const isScanAvailable = SCAN_PHYSICAL_ID_ENABLED && typeof window.nativeWrapper?.startScanPhysicalId === 'function';
 
 	const { buildPath } = useTenant();
 	const navigate = useNavigate();
 	const { t } = useTranslation();
 	const filterItemByLang = useFilterItemByLang();
+
 
 	useEffect(() => {
 		if (vcEntityList === null) {
@@ -49,19 +49,19 @@ const AddCredentials = () => {
 	useEffect(() => {
 		const fetchRecentCredConfigs = async () => {
 			vcEntityList.forEach(async (vcEntity, key) => {
-				const identifierField = JSON.stringify([
-					vcEntity.credentialConfigurationId,
-					vcEntity.credentialIssuerIdentifier,
-				]);
+				const identifierField = JSON.stringify([vcEntity.credentialConfigurationId, vcEntity.credentialIssuerIdentifier]);
 				setRecent((currentArray) => {
-					const recentRecordExists = currentArray.some((rec) => rec === identifierField);
+					const recentRecordExists = currentArray.some((rec) =>
+						rec === identifierField
+					);
 
 					if (!recentRecordExists) {
 						return [...currentArray, identifierField];
 					}
 					return currentArray;
 				});
-			});
+
+			})
 		};
 
 		if (vcEntityList) {
@@ -75,20 +75,20 @@ const AddCredentials = () => {
 			return issuers.filter((issuer) => issuer.credential_issuer === credentialIssuerIdentifier)[0];
 		}
 		return null;
-	};
+	}
 
 	const getSelectedIssuerDisplay = () => {
 		const selectedIssuer = getSelectedIssuer();
 
 		if (selectedIssuer) {
-			const selectedDisplayBasedOnLang = filterItemByLang(selectedIssuer.display, 'locale');
+			const selectedDisplayBasedOnLang = filterItemByLang(selectedIssuer.display, 'locale')
 			if (selectedDisplayBasedOnLang) {
 				const { name, description } = selectedDisplayBasedOnLang;
 				return { name, description };
 			}
 		}
 		return null;
-	};
+	}
 
 	useEffect(() => {
 		const fetchIssuers = async () => {
@@ -100,15 +100,13 @@ const AddCredentials = () => {
 						if (!issuer.visible) {
 							return;
 						}
-						const metadata = (
-							await getCredentialIssuerMetadata(issuer.credentialIssuerIdentifier, true)
-						).metadata;
+						const metadata = (await getCredentialIssuerMetadata(issuer.credentialIssuerIdentifier, true)).metadata;
 						const configs = metadata.credential_configurations_supported;
 
 						// add issuer
 						setIssuers((currentArray) => {
-							const issuerExists = currentArray.some(
-								(issuerMetadata) => issuerMetadata.credential_issuer === metadata.credential_issuer,
+							const issuerExists = currentArray.some((issuerMetadata) =>
+								issuerMetadata.credential_issuer === metadata.credential_issuer
 							);
 
 							if (!issuerExists) {
@@ -118,60 +116,42 @@ const AddCredentials = () => {
 						});
 
 						Object.keys(configs).forEach((key) => {
-							const credentialConfiguration = buildCredentialConfiguration(
-								key,
-								configs[key],
-								metadata,
-								filterItemByLang,
-							);
+							const credentialConfiguration = buildCredentialConfiguration(key, configs[key], metadata, filterItemByLang);
 							setCredentialConfigurations((currentArray) => {
-								const credentialConfigurationExists = currentArray.some(
-									({
-										credentialConfigurationId,
-										credentialIssuerIdentifier,
-										credentialConfiguration,
-									}) =>
-										credentialConfigurationId === key &&
-										credentialIssuerIdentifier === metadata.credential_issuer,
+								const credentialConfigurationExists = currentArray.some(({ credentialConfigurationId, credentialIssuerIdentifier, credentialConfiguration }) =>
+									credentialConfigurationId === key && credentialIssuerIdentifier === metadata.credential_issuer
 								);
 								if (!credentialConfigurationExists) {
 									return [...currentArray, credentialConfiguration];
 								}
 								return currentArray;
-							});
+							})
 						});
-					} catch (err) {
+					}
+					catch (err) {
 						logger.error(err);
 						return null;
 					}
-				});
+				})
 			} catch (error) {
 				logger.error('Error fetching issuers:', error);
 			}
 		};
 
 		if (filterItemByLang) {
-			logger.debug('Fetching issuers...');
+			logger.debug("Fetching issuers...")
 			fetchIssuers();
 		}
 	}, [api, isOnline, filterItemByLang, getCredentialIssuerMetadata]);
 
-	const handleCredentialConfigurationClick = async (
-		credentialConfigurationIdWithCredentialIssuerIdentifier,
-	) => {
-		const [credentialConfigurationId, credentialIssuerIdentifier] = JSON.parse(
-			credentialConfigurationIdWithCredentialIssuerIdentifier,
-		);
-		const clickedCredentialConfiguration = credentialConfigurations.find(
-			(conf) =>
-				conf.credentialConfigurationId === credentialConfigurationId &&
-				conf.credentialIssuerIdentifier === credentialIssuerIdentifier,
-		);
+	const handleCredentialConfigurationClick = async (credentialConfigurationIdWithCredentialIssuerIdentifier) => {
+		const [credentialConfigurationId, credentialIssuerIdentifier] = JSON.parse(credentialConfigurationIdWithCredentialIssuerIdentifier);
+		const clickedCredentialConfiguration = credentialConfigurations.find((conf) => conf.credentialConfigurationId === credentialConfigurationId && conf.credentialIssuerIdentifier === credentialIssuerIdentifier);
 		if (clickedCredentialConfiguration) {
 			setSelectedCredentialConfiguration(clickedCredentialConfiguration);
 			setShowRedirectPopup(true);
 		}
-	};
+	}
 
 	const handleCancel = () => {
 		setShowRedirectPopup(false);
@@ -180,8 +160,7 @@ const AddCredentials = () => {
 
 	const handleContinue = () => {
 		if (selectedCredentialConfiguration) {
-			const { credentialConfigurationId, credentialIssuerIdentifier } =
-				selectedCredentialConfiguration;
+			const { credentialConfigurationId, credentialIssuerIdentifier } = selectedCredentialConfiguration;
 
 			/**
 			 * Construct a minimal credential offer for the wallet to handle.
@@ -193,7 +172,7 @@ const AddCredentials = () => {
 				// Remove once the stack is equipped to handle missing `grants` in offers.
 				grants: {
 					authorization_code: {},
-				},
+				}
 			};
 			const credentialOfferString = JSON.stringify(credentialOffer);
 			const path = buildPath(`cb?credential_offer=${encodeURIComponent(credentialOfferString)}`);
@@ -215,27 +194,20 @@ const AddCredentials = () => {
 						isOnline={isOnline}
 						list={credentialConfigurations}
 						recent={recent}
-						queryField="credentialConfigurationDisplayName"
-						translationPrefix="pageAddCredentials"
-						identifierField="identifierField"
+						queryField='credentialConfigurationDisplayName'
+						translationPrefix='pageAddCredentials'
+						identifierField='identifierField'
 						onClick={handleCredentialConfigurationClick}
 						extraSection={
-							<div
-								className={`mb-4 ${isScanAvailable ? '' : 'hidden'}`}
-								data-widget="scan-physical-id"
-							>
+							<div className={`mb-4 ${isScanAvailable ? '' : 'hidden'}`} data-widget="scan-physical-id">
 								<H3 heading={t('pageAddCredentials.scanPhysicalId.sectionTitle')} hr />
 								<button
 									className="w-full flex items-center justify-between gap-4 border border-lm-gray-400 dark:border-dm-gray-600 rounded-xl p-4 bg-lm-gray-50 dark:bg-dm-gray-800 hover:brightness-[0.97] dark:hover:brightness-[1.05] transition-all text-left cursor-pointer"
 									onClick={() => navigate(buildPath('add/digital-id'))}
 								>
 									<div>
-										<p className="font-semibold text-lm-gray-900 dark:text-white">
-											{t('pageAddCredentials.scanPhysicalId.digitalId.title')}
-										</p>
-										<p className="text-sm text-lm-gray-700 dark:text-dm-gray-300 mt-0.5">
-											{t('pageAddCredentials.scanPhysicalId.digitalId.description')}
-										</p>
+										<p className="font-semibold text-lm-gray-900 dark:text-white">{t('pageAddCredentials.scanPhysicalId.digitalId.title')}</p>
+										<p className="text-sm text-lm-gray-700 dark:text-dm-gray-300 mt-0.5">{t('pageAddCredentials.scanPhysicalId.digitalId.description')}</p>
 									</div>
 									<Camera size={32} className="text-lm-gray-600 dark:text-dm-gray-300 shrink-0" />
 								</button>
@@ -254,19 +226,10 @@ const AddCredentials = () => {
 						<Trans
 							i18nKey="pageAddCredentials.popup.message"
 							values={{
-								issuerName:
-									getSelectedIssuerDisplay()?.name ??
-									selectedCredentialConfiguration?.credentialIssuerIdentifier ??
-									'Unknown',
-								issuerDescription: getSelectedIssuerDisplay()?.description
-									? `(${getSelectedIssuerDisplay()?.description})`
-									: '',
-								credentialName:
-									selectedCredentialConfiguration?.credentialDisplay.name ?? 'Unknown',
-								credentialDescription: selectedCredentialConfiguration?.credentialDisplay
-									?.description
-									? `(${selectedCredentialConfiguration?.credentialDisplay?.description})`
-									: '',
+								issuerName: getSelectedIssuerDisplay()?.name ?? selectedCredentialConfiguration?.credentialIssuerIdentifier ?? "Unknown",
+								issuerDescription: getSelectedIssuerDisplay()?.description ? `(${getSelectedIssuerDisplay()?.description})` : "",
+								credentialName: selectedCredentialConfiguration?.credentialDisplay.name ?? "Unknown",
+								credentialDescription: selectedCredentialConfiguration?.credentialDisplay?.description ? `(${selectedCredentialConfiguration?.credentialDisplay?.description})` : "",
 							}}
 							components={{ strong: <strong />, italic: <i /> }}
 						/>

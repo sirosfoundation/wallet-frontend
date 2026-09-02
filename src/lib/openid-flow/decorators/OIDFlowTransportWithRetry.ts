@@ -11,7 +11,11 @@ import type { OID4VCIFlowParams, OID4VCIFlowResult } from '../types/OID4VCITypes
 import type { OID4VPFlowParams, OID4VPFlowResult } from '../types/OID4VPTypes';
 import type { OIDFlowRecoverableError, OIDFlowRetryConfig } from '../types/OIDFlowRecovery';
 import { DEFAULT_OID_FLOW_RETRY_CONFIG } from '../types/OIDFlowRecovery';
-import { createOIDFlowError, inferErrorCode, calculateRetryDelay } from '../utils/oidFlowRecovery';
+import {
+	createOIDFlowError,
+	inferErrorCode,
+	calculateRetryDelay,
+} from '../utils/oidFlowRecovery';
 import {
 	OIDFlowStateStore,
 	getOIDFlowStateStore,
@@ -110,15 +114,14 @@ export class OIDFlowTransportWithRetry implements IOIDFlowTransport {
 		// retrying with the same URI could fail or cause double-processing.
 		// Authorization codes (phase 3) are single-use at the authorization server.
 		// Both phases must not be automatically retried; users should start over instead.
-		const allowAutoRetry =
-			!params.credentialOfferUri && !params.credentialOffer && !params.authorizationCode;
+		const allowAutoRetry = !params.credentialOfferUri && !params.credentialOffer && !params.authorizationCode;
 
 		return this.executeWithRetry<OID4VCIFlowResult>(
 			'oid4vci',
 			entryUri,
 			() => this.transport.startOID4VCIFlow(params),
 			this.getOID4VCICheckpoint(params),
-			allowAutoRetry,
+			allowAutoRetry
 		);
 	}
 
@@ -138,7 +141,7 @@ export class OIDFlowTransportWithRetry implements IOIDFlowTransport {
 			'oid4vp',
 			entryUri,
 			() => this.transport.startOID4VPFlow(params),
-			this.getOID4VPCheckpoint(params),
+			this.getOID4VPCheckpoint(params)
 		);
 	}
 
@@ -158,7 +161,7 @@ export class OIDFlowTransportWithRetry implements IOIDFlowTransport {
 				'oid4vci', // Generic flows default to oid4vci protocol
 				entryUri,
 				() => this.transport.request<T>(flowRequest),
-				'initialized',
+				'initialized'
 			);
 		} catch (error) {
 			return {
@@ -233,7 +236,7 @@ export class OIDFlowTransportWithRetry implements IOIDFlowTransport {
 		entryUri: string,
 		operation: () => Promise<T>,
 		checkpoint: OIDFlowCheckpoint,
-		allowAutoRetry: boolean = true,
+		allowAutoRetry: boolean = true
 	): Promise<T> {
 		const flowId = crypto.randomUUID();
 		let state = this.stateManager.create(flowId, protocol, entryUri, { checkpoint });
@@ -255,16 +258,12 @@ export class OIDFlowTransportWithRetry implements IOIDFlowTransport {
 				try {
 					await this.transport.connect();
 				} catch (connectError) {
-					const errorMessage =
-						connectError instanceof Error ? connectError.message : 'Reconnection failed';
+					const errorMessage = connectError instanceof Error ? connectError.message : 'Reconnection failed';
 					const recoverableError = this.classifyError(undefined, errorMessage);
 					state = this.stateManager.recordError(flowId, recoverableError) ?? state;
 					// Use config.maxRetries (not effectiveMaxRetries) so the callback fires
 					// even when allowAutoRetry=false: the UI can still offer manual retry.
-					if (
-						recoverableError.recoverable &&
-						this.stateManager.canRetry(flowId, this.config.maxRetries)
-					) {
+					if (recoverableError.recoverable && this.stateManager.canRetry(flowId, this.config.maxRetries)) {
 						this.emitRecoverable(state);
 					}
 					throw connectError;
@@ -299,10 +298,7 @@ export class OIDFlowTransportWithRetry implements IOIDFlowTransport {
 
 					// Only notify recoverable if manual retry is actually possible
 					// (i.e., hook's canRetry would be true based on current retry count)
-					if (
-						recoverableError.recoverable &&
-						this.stateManager.canRetry(flowId, effectiveMaxRetries)
-					) {
+					if (recoverableError.recoverable && this.stateManager.canRetry(flowId, effectiveMaxRetries)) {
 						this.emitRecoverable(state);
 					}
 				}
@@ -333,10 +329,7 @@ export class OIDFlowTransportWithRetry implements IOIDFlowTransport {
 				state = this.stateManager.recordError(flowId, recoverableError) ?? state;
 
 				// Only notify recoverable if manual retry is actually possible
-				if (
-					recoverableError.recoverable &&
-					this.stateManager.canRetry(flowId, effectiveMaxRetries)
-				) {
+				if (recoverableError.recoverable && this.stateManager.canRetry(flowId, effectiveMaxRetries)) {
 					this.emitRecoverable(state);
 				}
 
@@ -391,11 +384,11 @@ export class OIDFlowTransportWithRetry implements IOIDFlowTransport {
 		flowId: string,
 		attemptNumber: number,
 		error: OIDFlowRecoverableError,
-		nextRetryIn: number,
+		nextRetryIn: number
 	): void {
 		logger.debug(
 			`Flow ${flowId} retry ${attemptNumber}/${this.config.maxRetries} in ${nextRetryIn}ms:`,
-			error.message,
+			error.message
 		);
 
 		if (this.onRetry) {
@@ -421,7 +414,7 @@ export class OIDFlowTransportWithRetry implements IOIDFlowTransport {
 	}
 
 	private sleep(ms: number): Promise<void> {
-		return new Promise((resolve) => setTimeout(resolve, ms));
+		return new Promise(resolve => setTimeout(resolve, ms));
 	}
 }
 
@@ -430,7 +423,7 @@ export class OIDFlowTransportWithRetry implements IOIDFlowTransport {
  */
 export function withRetry(
 	transport: IOIDFlowTransport,
-	options?: OIDFlowTransportWithRetryOptions,
+	options?: OIDFlowTransportWithRetryOptions
 ): OIDFlowTransportWithRetry {
 	return new OIDFlowTransportWithRetry(transport, options);
 }

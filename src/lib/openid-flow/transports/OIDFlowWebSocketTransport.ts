@@ -14,7 +14,11 @@
 
 import { TrustStatus as TrustStatusEnum } from 'wallet-common';
 import type { IOIDFlowTransport } from '../types/IOIDFlowTransport';
-import type { OIDFlowRequest, OIDFlowResponse, OIDFlowProgressEvent } from '../types/OIDFlowTypes';
+import type {
+	OIDFlowRequest,
+	OIDFlowResponse,
+	OIDFlowProgressEvent
+} from '../types/OIDFlowTypes';
 import type { OID4VCIFlowParams, OID4VCIFlowResult } from '../types/OID4VCITypes';
 import type { OID4VPFlowParams, OID4VPFlowResult, OID4VPVerifierInfo } from '../types/OID4VPTypes';
 import type { CredentialsMatchedResult } from '@/services/CredentialMatchingService';
@@ -37,8 +41,8 @@ interface PendingRequest<T = unknown> {
  * WebSocket message from server
  */
 interface ServerMessage {
-	flow_id?: string; // snake_case from backend
-	flowId?: string; // camelCase for backwards compat
+	flow_id?: string;  // snake_case from backend
+	flowId?: string;   // camelCase for backwards compat
 	type: string;
 	[key: string]: unknown;
 }
@@ -93,8 +97,8 @@ export interface ProofObject {
  * Sign response to send back to server
  */
 export interface SignResponse {
-	proofJwt?: string; // single proof (legacy)
-	proofs?: ProofObject[]; // batch proofs
+	proofJwt?: string;       // single proof (legacy)
+	proofs?: ProofObject[];  // batch proofs
 	vpToken?: string;
 }
 
@@ -162,12 +166,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 	private authFailed = false;
 
-	constructor(
-		wsUrl: string,
-		authToken: string,
-		tenantId: string = 'default',
-		trustEvaluators?: TrustEvaluators,
-	) {
+	constructor(wsUrl: string, authToken: string, tenantId: string = 'default', trustEvaluators?: TrustEvaluators) {
 		this.wsUrl = wsUrl;
 		this.authToken = authToken;
 		this.tenantId = tenantId;
@@ -224,7 +223,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 								JSON.stringify({
 									type: 'handshake',
 									app_token: this.authToken,
-								}),
+								})
 							);
 						}
 					} catch (e) {
@@ -327,7 +326,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				protocol: 'oid4vci',
 				credential_offer_uri: params.credentialOfferUri,
 				offer: params.credentialOffer,
-				redirect_uri: params.redirectUri, // Include redirect URI for authorization code flow continuation
+				redirect_uri: params.redirectUri,  // Include redirect URI for authorization code flow continuation
 			});
 
 			return this.mapOID4VCIResponse(response);
@@ -403,15 +402,12 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			result.issuerMetadata = payload.issuer_metadata as OID4VCIFlowResult['issuerMetadata'];
 		}
 		if (payload?.credential_configurations) {
-			result.credentialConfigurations =
-				payload.credential_configurations as OID4VCIFlowResult['credentialConfigurations'];
+			result.credentialConfigurations = payload.credential_configurations as OID4VCIFlowResult['credentialConfigurations'];
 		}
 		if (payload?.selected_credential_configuration_id) {
-			result.selectedCredentialConfigurationId =
-				payload.selected_credential_configuration_id as string;
+			result.selectedCredentialConfigurationId = payload.selected_credential_configuration_id as string;
 		} else if (response.selected_credential_configuration_id) {
-			result.selectedCredentialConfigurationId =
-				response.selected_credential_configuration_id as string;
+			result.selectedCredentialConfigurationId = response.selected_credential_configuration_id as string;
 		}
 
 		// Authorization
@@ -434,12 +430,8 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		}
 
 		// Selected credential configuration ID fallback from credential offer
-		if (
-			!result.selectedCredentialConfigurationId &&
-			result.credentialOffer?.credential_configuration_ids?.length
-		) {
-			result.selectedCredentialConfigurationId =
-				result.credentialOffer.credential_configuration_ids[0];
+		if (!result.selectedCredentialConfigurationId && result.credentialOffer?.credential_configuration_ids?.length) {
+			result.selectedCredentialConfigurationId = result.credentialOffer.credential_configuration_ids[0];
 		}
 
 		// Credential issuer identifier — from payload, credential_offer, or top-level (flow_complete)
@@ -468,11 +460,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		}
 		// Handle credentials array from server
 		if (response?.credentials && Array.isArray(response.credentials)) {
-			result.credentials = response.credentials as Array<{
-				format: string;
-				credential: string;
-				vct?: string;
-			}>;
+				result.credentials = (response.credentials as Array<{format: string; credential: string; vct?: string}>);
 		}
 
 		// Deferred
@@ -508,7 +496,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				type: 'flow_action',
 				action: 'consent',
 				payload: {
-					selected_credentials: params.selectedCredentials.map((c) => ({
+					selected_credentials: params.selectedCredentials.map(c => ({
 						credential_id: c.walletCredentialRef,
 						credential_query_id: c.credentialQueryId,
 						disclosed_claims: c.disclosedClaims ?? [],
@@ -554,8 +542,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 		// Presentation definition phase
 		if (response.presentation_definition) {
-			result.presentationDefinition =
-				response.presentation_definition as OID4VPFlowResult['presentationDefinition'];
+			result.presentationDefinition = response.presentation_definition as OID4VPFlowResult['presentationDefinition'];
 		}
 		if (response.conformant_credentials) {
 			// Convert from object to Map if needed
@@ -716,12 +703,10 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 		if (type === 'error' && !flowId && message.code === 'AUTH_FAILED') {
 			this.authFailed = true;
-			this.emitError(
-				new OIDFlowError({
-					code: message.code as string,
-					message: (message.message as string) ?? 'Authentication failed',
-				}),
-			);
+			this.emitError(new OIDFlowError({
+				code: message.code as string,
+				message: (message.message as string) ?? 'Authentication failed',
+			}));
 			return;
 		}
 
@@ -748,50 +733,37 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	/**
 	 * Handle trust evaluation
 	 */
-	private async handleTrustEvaluationStep(
-		flowId: string,
-		payload: Record<string, unknown>,
-	): Promise<void> {
-		const request = payload.request as
-			| {
-					subject_id: string;
-					subject_type: string;
-					key_material?: { type: string; x5c?: string[]; jwk?: unknown };
-					context?: Record<string, unknown>;
-			  }
-			| undefined;
+	private async handleTrustEvaluationStep(flowId: string, payload: Record<string, unknown>): Promise<void> {
+		const request = payload.request as {
+			subject_id: string;
+			subject_type: string;
+			key_material?: { type: string; x5c?: string[]; jwk?: unknown };
+			context?: Record<string, unknown>;
+		} | undefined;
 
 		if (!request?.subject_id) {
 			logger.error('[WS Transport] Trust evaluation request missing subject_id');
-			this.ws?.send(
-				JSON.stringify({
-					type: 'flow_action',
-					flow_id: flowId,
-					action: 'trust_result',
-					timestamp: new Date().toISOString(),
-					payload: { trusted: false, reason: 'Missing subject_id' },
-				}),
-			);
+			this.ws?.send(JSON.stringify({
+				type: 'flow_action',
+				flow_id: flowId,
+				action: 'trust_result',
+				timestamp: new Date().toISOString(),
+				payload: { trusted: false, reason: 'Missing subject_id' },
+			}));
 			return;
 		}
 
 		try {
-			let result: {
-				trusted: boolean;
-				status?: TrustStatusEnum;
-				metadata?: Record<string, unknown>;
-			} | null = null;
+			let result: { trusted: boolean; status?: TrustStatusEnum; metadata?: Record<string, unknown> } | null = null;
 
 			switch (request.subject_type) {
 				case 'credential_issuer':
 					result = await this.trustEvaluators.evaluateIssuerTrust({
 						issuerId: request.subject_id,
-						keyMaterial: request.key_material
-							? {
-									type: request.key_material.type as 'jwk' | 'x5c',
-									key: request.key_material.x5c ?? request.key_material.jwk,
-								}
-							: undefined,
+						keyMaterial: request.key_material ? {
+							type: request.key_material.type as 'jwk' | 'x5c',
+							key: request.key_material.x5c ?? request.key_material.jwk,
+						} : undefined,
 						context: request.context,
 					});
 					break;
@@ -812,13 +784,13 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 						},
 						keyMaterial: request.key_material
 							? {
-									type: request.key_material.type as 'jwk' | 'x5c' | 'kid',
-									key: request.key_material.x5c ?? request.key_material.jwk,
-								}
+								type: request.key_material.type as 'jwk' | 'x5c' | 'kid',
+								key: request.key_material.x5c ?? request.key_material.jwk
+							}
 							: {
-									type: 'kid' as const,
-									key: '',
-								},
+								type: 'kid' as const,
+								key: ''
+							},
 						responseUri: request.context?.response_uri as string | undefined,
 					});
 					break;
@@ -833,26 +805,18 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			});
 		} catch (error) {
 			logger.error('[WS Transport] Trust evaluation failed:', error);
-			this.sendTrustResult(flowId, {
-				trusted: false,
-				reason: error instanceof Error ? error.message : 'Unknown error',
-			});
+			this.sendTrustResult(flowId, { trusted: false, reason: error instanceof Error ? error.message : 'Unknown error' });
 		}
 	}
 
-	private sendTrustResult(
-		flowId: string,
-		result: { trusted: boolean; framework?: string; reason?: string },
-	): void {
-		this.ws?.send(
-			JSON.stringify({
-				type: 'flow_action',
-				flow_id: flowId,
-				action: 'trust_result',
-				timestamp: new Date().toISOString(),
-				payload: result,
-			}),
-		);
+	private sendTrustResult(flowId: string, result: { trusted: boolean; framework?: string; reason?: string }): void {
+			this.ws?.send(JSON.stringify({
+			type: 'flow_action',
+			flow_id: flowId,
+			action: 'trust_result',
+			timestamp: new Date().toISOString(),
+			payload: result,
+		}));
 	}
 
 	/**
@@ -871,20 +835,17 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				issuer: rawParams.issuer as string | undefined,
 				nonce: rawParams.nonce as string | undefined,
 				proofType: rawParams.proof_type as string | undefined,
-				proofTypesSupported:
-					rawParams.proof_types_supported as SignRequest['params']['proofTypesSupported'],
+				proofTypesSupported: rawParams.proof_types_supported as SignRequest['params']['proofTypesSupported'],
 				count: rawParams.count as number | undefined,
 				responseUri: rawParams.response_uri as string | undefined,
 				verifierJwkThumbprint: rawParams.verifier_jwk_thumbprint as string | undefined,
 				credentialsToInclude: (
-					rawParams.credentials_to_include as
-						| Array<{
-								credential_id: string;
-								credential_query_id?: string;
-								disclosed_claims?: string[];
-						  }>
-						| undefined
-				)?.map((c) => ({
+					rawParams.credentials_to_include as Array<{
+						credential_id: string;
+						credential_query_id?: string;
+						disclosed_claims?: string[];
+					}> | undefined
+				)?.map(c => ({
 					credentialId: c.credential_id,
 					credentialQueryId: c.credential_query_id,
 					disclosedClaims: c.disclosed_claims,
@@ -917,7 +878,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			request.flowId,
 			request.messageId,
 			{},
-			lastError?.message || 'Sign operation failed',
+			lastError?.message || 'Sign operation failed'
 		);
 	}
 
@@ -928,7 +889,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		flowId: string,
 		messageId: string,
 		response: SignResponse,
-		error?: string,
+		error?: string
 	): void {
 		if (!this.isConnected()) {
 			logger.error('Cannot send sign response: WebSocket not connected');
@@ -982,12 +943,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 		if (this.matchHandlers.size === 0) {
 			logger.error('No match handlers registered, cannot respond to match request');
-			this.sendMatchResponse(
-				request.flowId,
-				request.messageId,
-				{ matches: [] },
-				'No match handler available',
-			);
+			this.sendMatchResponse(request.flowId, request.messageId, { matches: [] }, 'No match handler available');
 			return;
 		}
 
@@ -1009,7 +965,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			request.flowId,
 			request.messageId,
 			{ matches: [] },
-			lastError?.message || 'Credential matching failed',
+			lastError?.message || 'Credential matching failed'
 		);
 	}
 
@@ -1020,7 +976,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		flowId: string,
 		messageId: string,
 		response: MatchResponse,
-		error?: string,
+		error?: string
 	): void {
 		if (!this.isConnected()) {
 			logger.error('Cannot send match response: WebSocket not connected');
@@ -1133,7 +1089,9 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				return;
 			}
 
-			const flowId = (message.flow_id as string) || this.currentFlowId || crypto.randomUUID();
+			const flowId = (message.flow_id as string)
+				|| this.currentFlowId
+				|| crypto.randomUUID();
 			const fullMessage = { ...message, flow_id: flowId };
 
 			if (message.type === 'flow_start') {
@@ -1163,7 +1121,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	}
 
 	private emitProgress(event: OIDFlowProgressEvent): void {
-		Array.from(this.progressCallbacks).forEach((callback) => {
+		Array.from(this.progressCallbacks).forEach(callback => {
 			try {
 				callback(event);
 			} catch (e) {
@@ -1173,7 +1131,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	}
 
 	private emitError(error: Error): void {
-		Array.from(this.errorCallbacks).forEach((callback) => {
+		Array.from(this.errorCallbacks).forEach(callback => {
 			try {
 				callback(error);
 			} catch (e) {
@@ -1187,7 +1145,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	 */
 	updateAuthToken(token: string, tenantId?: string): void {
 		this.authToken = token;
-		this.authFailed = false; // new token → allow reconnecting again
+		this.authFailed = false;   // new token → allow reconnecting again
 		if (tenantId !== undefined) {
 			this.tenantId = tenantId;
 		}
@@ -1279,14 +1237,13 @@ function mapVerifierInfo(raw: Record<string, unknown>): OID4VPVerifierInfo {
  * - Legacy wire format: `trusted` boolean → maps true→"trusted", false→"untrusted"
  * - Missing/null → "unknown"
  */
-function parseTrustStatus(trustedStatus: unknown, legacyTrusted?: unknown): TrustStatus {
+function parseTrustStatus(
+	trustedStatus: unknown,
+	legacyTrusted?: unknown,
+): TrustStatus {
 	// New format: string tri-state
 	if (typeof trustedStatus === 'string') {
-		if (
-			trustedStatus === 'trusted' ||
-			trustedStatus === 'untrusted' ||
-			trustedStatus === 'unknown'
-		) {
+		if (trustedStatus === 'trusted' || trustedStatus === 'untrusted' || trustedStatus === 'unknown') {
 			return trustedStatus;
 		}
 	}

@@ -10,7 +10,10 @@ import { useLocation, useNavigate } from 'react-router';
 import checkForUpdates from '@/offlineUpdateSW';
 import { UserLock } from 'lucide-react';
 
-const WebauthnLogin = ({ filteredUser, onClose }) => {
+const WebauthnLogin = ({
+	filteredUser,
+	onClose,
+}) => {
 	const { api, keystore } = useContext(SessionContext);
 	const [error, setError] = useState('');
 	const navigate = useNavigate();
@@ -22,20 +25,15 @@ const WebauthnLogin = ({ filteredUser, onClose }) => {
 	const onLogin = useCallback(
 		async (cachedUser) => {
 			// Pass the tenantId from URL path to ensure proper tenant-scoped login
-			const result = await api.loginWebauthn(
-				keystore,
-				async () => false,
-				[],
-				cachedUser,
-				effectiveTenantId,
-			);
+			const result = await api.loginWebauthn(keystore, async () => false, [], cachedUser, effectiveTenantId);
 			if (result.ok) {
 				const params = new URLSearchParams(window.location.search);
-				params.delete('user');
-				params.delete('sync');
+				params.delete("user");
+				params.delete('sync')
 				navigate(`${window.location.pathname}?${params.toString()}`, { replace: true });
 			} else {
 				const err = result.val;
+
 
 				// Using a switch here so the t() argument can be a literal, to ease searching
 				switch (err) {
@@ -74,12 +72,12 @@ const WebauthnLogin = ({ filteredUser, onClose }) => {
 	return (
 		<>
 			<ul className=" p-2">
-				<div className="flex flex-row gap-4 justify-center mr-2">
+				<div className='flex flex-row gap-4 justify-center mr-2'>
 					<Button
 						id="cancel-login-state"
 						onClick={onClose}
 						disabled={isSubmitting}
-						additionalClassName="w-full"
+						additionalClassName='w-full'
 					>
 						Logout
 					</Button>
@@ -88,10 +86,12 @@ const WebauthnLogin = ({ filteredUser, onClose }) => {
 						onClick={() => onLoginCachedUser(filteredUser)}
 						variant="primary"
 						disabled={isSubmitting}
-						additionalClassName="w-full"
+						additionalClassName='w-full'
 					>
 						<UserLock className="inline text-xl mr-2" />
-						{isSubmitting ? t('loginSignup.submitting') : t('common.continue')}
+						{isSubmitting
+							? t('loginSignup.submitting')
+							: t('common.continue')}
 					</Button>
 				</div>
 			</ul>
@@ -122,11 +122,7 @@ const SyncPopup = ({ message, onClose }) => {
 			try {
 				const decodedState = atob(state);
 				const stateObj = JSON.parse(decodedState);
-				return [
-					cachedUsers.find((user) => user.userHandleB64u === stateObj.userHandleB64u),
-					false,
-					authenticated === 'true',
-				];
+				return [cachedUsers.find(user => user.userHandleB64u === stateObj.userHandleB64u), false, authenticated === 'true'];
 			} catch (error) {
 				logger.error('Error decoding state:', error);
 			}
@@ -147,10 +143,16 @@ const SyncPopup = ({ message, onClose }) => {
 					{t('loginState.title')} {filteredUser.displayName}
 				</p>
 				<p className=" mb-2 mt-2 dark:text-dm-gray-100">
-					<Trans i18nKey={description} components={{ strong: <strong /> }} />
+					<Trans
+						i18nKey={description}
+						components={{ strong: <strong /> }}
+					/>
 				</p>
 			</div>
-			<WebauthnLogin filteredUser={filteredUser} onClose={onClose} />
+			<WebauthnLogin
+				filteredUser={filteredUser}
+				onClose={onClose}
+			/>
 		</PopupLayout>
 	);
 };

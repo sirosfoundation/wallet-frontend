@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react'
 import ExpiredRibbon from './ExpiredRibbon';
-import UsagesRibbon from './UsagesRibbon';
+import UsagesRibbon from "./UsagesRibbon";
 import { logger } from '@/logger';
-import DefaultCred from '../../assets/images/cred.png';
+import DefaultCred from "../../assets/images/cred.png";
 import { CredentialCardSkeleton } from '../Skeletons';
 
 const CredentialImage = ({
@@ -14,7 +14,7 @@ const CredentialImage = ({
 	filter = null,
 	onLoad,
 	borderColor = undefined,
-	fixedRatio = true,
+	fixedRatio = true
 }) => {
 	const [imageSrc, setImageSrc] = useState(undefined);
 
@@ -48,9 +48,7 @@ const CredentialImage = ({
 
 		loadImage();
 
-		return () => {
-			isMounted = false;
-		};
+		return () => { isMounted = false };
 	}, [vcEntity, filter, onLoad]);
 
 	return (
@@ -64,10 +62,12 @@ const CredentialImage = ({
 							className={`w-full h-full w-full h-full object-cover object-top ${className ?? ''}`}
 							onClick={onClick}
 						/>
-						{showRibbon && <ExpiredRibbon vcEntity={vcEntity} borderColor={borderColor} />}
-						{showRibbon && (
+						{showRibbon &&
+							<ExpiredRibbon vcEntity={vcEntity} borderColor={borderColor} />
+						}
+						{showRibbon &&
 							<UsagesRibbon vcEntityInstances={vcEntityInstances} borderColor={borderColor} />
-						)}
+						}
 					</div>
 				</>
 			) : (

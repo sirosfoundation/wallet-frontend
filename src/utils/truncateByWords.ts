@@ -1,7 +1,4 @@
-export function truncateByWords(
-	input: string,
-	maxLength: number,
-): { text: string; truncated: boolean } {
+export function truncateByWords(input: string, maxLength: number): { text: string; truncated: boolean } {
 	const words = input.split(' ');
 	let currentLength = 0;
 	const result = words.reduce((acc, word) => {

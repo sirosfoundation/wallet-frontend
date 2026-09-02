@@ -17,7 +17,12 @@ function PinInput({ isOpen, setIsOpen }) {
 	const [pin, setPin] = useState(['', '', '', '']);
 	const { t } = useTranslation();
 
-	const inputRefs = [useRef(null), useRef(null), useRef(null), useRef(null)];
+	const inputRefs = [
+		useRef(null),
+		useRef(null),
+		useRef(null),
+		useRef(null)
+	];
 	const firstInputRef = inputRefs[0];
 
 	useEffect(() => {
@@ -85,6 +90,7 @@ function PinInput({ isOpen, setIsOpen }) {
 		const newPin = [...pin];
 		newPin[index] = '';
 		setPin(newPin);
+
 	};
 
 	const handleInputPaste = (pastedValue) => {
@@ -123,8 +129,10 @@ function PinInput({ isOpen, setIsOpen }) {
 				{t('PinInputPopup.description')}
 			</p>
 
-			{errMessage && <p className="text-sm text-lm-red dark:text-dm-red">aaa{errMessage}</p>}
-			<div className="mt-2 flex flex-wrap justify-center overflow-y-auto max-h-[50vh]">
+			{errMessage && (
+				<p className='text-sm text-lm-red dark:text-dm-red'>aaa{errMessage}</p>
+			)}
+			<div className='mt-2 flex flex-wrap justify-center overflow-y-auto max-h-[50vh]'>
 				{pin.map((digit, index) => (
 					<input
 						type="text"
@@ -142,10 +150,17 @@ function PinInput({ isOpen, setIsOpen }) {
 			</div>
 
 			<div className="flex justify-end space-x-2 pt-4">
-				<Button id="cancel-pin-input" onClick={handleCancel}>
+				<Button
+					id="cancel-pin-input"
+					onClick={handleCancel}
+				>
 					{t('common.cancel')}
 				</Button>
-				<Button id="submit-pin-input" variant="primary" onClick={handleSubmit}>
+				<Button
+					id="submit-pin-input"
+					variant="primary"
+					onClick={handleSubmit}
+				>
 					{t('common.submit')}
 				</Button>
 			</div>

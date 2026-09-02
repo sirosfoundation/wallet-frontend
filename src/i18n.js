@@ -29,9 +29,7 @@ if (config.I18N_WALLET_NAME_OVERRIDE) {
 const isMultiLanguageEnabled = config.MULTI_LANGUAGE_DISPLAY;
 
 // Only keep the fallback language if multi-language is disabled
-const availableResources = isMultiLanguageEnabled
-	? resources
-	: { [fallbackLng]: resources[fallbackLng] };
+const availableResources = isMultiLanguageEnabled ? resources : { [fallbackLng]: resources[fallbackLng] };
 
 // Helper function to get only the language part and check if it exists
 export const getLanguage = (locale) => {

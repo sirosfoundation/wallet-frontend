@@ -23,17 +23,13 @@ export const KeyMaterialSchema = z.discriminatedUnion('type', [
 ]);
 
 export type ClientMetadata = z.infer<typeof ClientMetadataSchema>;
-export const ClientMetadataSchema = z
-	.object({
-		jwks: z
-			.object({
-				keys: z.array(z.object({}).passthrough()),
-			})
-			.optional(),
-		authorization_encrypted_response_alg: z.string().optional(),
-		authorization_encrypted_response_enc: z.string().optional(),
-	})
-	.passthrough();
+export const ClientMetadataSchema = z.object({
+	jwks: z.object({
+		keys: z.array(z.object({}).passthrough()),
+	}).optional(),
+	authorization_encrypted_response_alg: z.string().optional(),
+	authorization_encrypted_response_enc: z.string().optional(),
+}).passthrough();
 
 export const dcqlQuerySchema = z.custom<DcqlQuery.Input>(
 	(val) => {
@@ -45,29 +41,21 @@ export const dcqlQuerySchema = z.custom<DcqlQuery.Input>(
 			return false;
 		}
 	},
-	{ message: 'Invalid dcql_query' },
+	{ message: 'Invalid dcql_query' }
 );
 
-const BaseDCApiRequestSchema = z
-	.object({
-		nonce: z
-			.string({ required_error: 'Missing required nonce parameter' })
-			.min(1, 'nonce cannot be empty'),
-		dcqlQuery: dcqlQuerySchema,
-		responseMode: DCApiResponseModeSchema,
-	})
-	.strict();
+const BaseDCApiRequestSchema = z.object({
+	nonce: z.string({ required_error: 'Missing required nonce parameter' }).min(1, 'nonce cannot be empty'),
+	dcqlQuery: dcqlQuerySchema,
+	responseMode: DCApiResponseModeSchema,
+}).strict();
 
 export type SignedDCAPIRequest = z.infer<typeof SignedDCApiRequestSchema>;
 export const SignedDCApiRequestSchema = BaseDCApiRequestSchema.extend({
-	clientId: z
-		.string({ required_error: 'Missing client_id in JWT payload' })
-		.min(1, 'client_id cannot be empty'),
+	clientId: z.string({ required_error: 'Missing client_id in JWT payload' }).min(1, 'client_id cannot be empty'),
 	keyMaterial: KeyMaterialSchema,
 	rawJwt: z.string().min(1),
-	expectedOrigins: z
-		.array(z.string(), { required_error: 'Missing expected_origins in signed request' })
-		.min(1, 'expected_origins cannot be empty'),
+	expectedOrigins: z.array(z.string(), { required_error: 'Missing expected_origins in signed request' }).min(1, 'expected_origins cannot be empty'),
 	clientMetadata: ClientMetadataSchema.optional(),
 }).strict();
 

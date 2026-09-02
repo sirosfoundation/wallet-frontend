@@ -1,8 +1,8 @@
-import { describe, expect, it } from 'vitest';
-import * as cbor from 'cbor-x';
-import { base64url } from 'jose';
-import { cborDecode, cborEncode, DataItem } from '@auth0/mdl/lib/cbor';
-import { extractDocTypeFromIssuerAuth, extractIssuerSignedB64 } from './mdoc';
+import { describe, expect, it } from "vitest";
+import * as cbor from "cbor-x";
+import { base64url } from "jose";
+import { cborDecode, cborEncode, DataItem } from "@auth0/mdl/lib/cbor";
+import { extractDocTypeFromIssuerAuth, extractIssuerSignedB64 } from "./mdoc";
 
 /**
  * `extractDocTypeFromIssuerAuth` reads docType from the MSO (MobileSecurityObject)
@@ -23,29 +23,29 @@ function buildIssuerAuth(docType: string): unknown[] {
 	];
 }
 
-describe('extractDocTypeFromIssuerAuth', () => {
-	it('extracts docType from a tag-24-wrapped MSO payload', () => {
-		const issuerAuth = buildIssuerAuth('org.iso.18013.5.1.mDL');
-		expect(extractDocTypeFromIssuerAuth(issuerAuth)).toBe('org.iso.18013.5.1.mDL');
+describe("extractDocTypeFromIssuerAuth", () => {
+	it("extracts docType from a tag-24-wrapped MSO payload", () => {
+		const issuerAuth = buildIssuerAuth("org.iso.18013.5.1.mDL");
+		expect(extractDocTypeFromIssuerAuth(issuerAuth)).toBe("org.iso.18013.5.1.mDL");
 	});
 
-	it('works for any docType, not just mDL', () => {
-		const issuerAuth = buildIssuerAuth('eu.europa.ec.eudi.pid.1');
-		expect(extractDocTypeFromIssuerAuth(issuerAuth)).toBe('eu.europa.ec.eudi.pid.1');
+	it("works for any docType, not just mDL", () => {
+		const issuerAuth = buildIssuerAuth("eu.europa.ec.eudi.pid.1");
+		expect(extractDocTypeFromIssuerAuth(issuerAuth)).toBe("eu.europa.ec.eudi.pid.1");
 	});
 
-	it('also accepts an MSO payload without the tag-24 wrapper', () => {
-		const msoBytes = cbor.encode({ docType: 'org.iso.23220.photoid.1' });
+	it("also accepts an MSO payload without the tag-24 wrapper", () => {
+		const msoBytes = cbor.encode({ docType: "org.iso.23220.photoid.1" });
 		const issuerAuth = [new Uint8Array(0), {}, msoBytes, new Uint8Array(64)];
-		expect(extractDocTypeFromIssuerAuth(issuerAuth)).toBe('org.iso.23220.photoid.1');
+		expect(extractDocTypeFromIssuerAuth(issuerAuth)).toBe("org.iso.23220.photoid.1");
 	});
 
-	it('throws when issuerAuth has no payload', () => {
+	it("throws when issuerAuth has no payload", () => {
 		expect(() => extractDocTypeFromIssuerAuth([new Uint8Array(0), {}])).toThrow();
 	});
 
-	it('throws when the MSO is missing docType', () => {
-		const msoBytes = cbor.encode({ somethingElse: 'value' });
+	it("throws when the MSO is missing docType", () => {
+		const msoBytes = cbor.encode({ somethingElse: "value" });
 		const taggedMsoBytes = cbor.encode(new cbor.Tag(msoBytes, 24));
 		const issuerAuth = [new Uint8Array(0), {}, taggedMsoBytes, new Uint8Array(64)];
 		expect(() => extractDocTypeFromIssuerAuth(issuerAuth)).toThrow();
@@ -64,18 +64,18 @@ describe('extractDocTypeFromIssuerAuth', () => {
  * verifier looking for the certificate chain found none. The unprotected
  * header is not covered by the COSE signature, so nothing upstream noticed.
  */
-describe('extractIssuerSignedB64', () => {
+describe("extractIssuerSignedB64", () => {
 	/** Builds a base64url IssuerSigned whose x5chain label is the integer 33. */
 	function buildIssuerSignedB64(): string {
 		const issuerAuth = [
 			cborEncode(new Map<number, number>([[1, -7]])), // protected: alg ES256
 			new Map<number, Uint8Array[]>([[33, [new Uint8Array([1, 2, 3])]]]), // x5chain
-			cborEncode(DataItem.fromData(new Map([['docType', 'org.iso.18013.5.1.mDL']]))),
+			cborEncode(DataItem.fromData(new Map([["docType", "org.iso.18013.5.1.mDL"]]))),
 			new Uint8Array(64),
 		];
 		const issuerSigned = new Map<string, unknown>([
-			['nameSpaces', new Map()],
-			['issuerAuth', issuerAuth],
+			["nameSpaces", new Map()],
+			["issuerAuth", issuerAuth],
 		]);
 		return base64url.encode(cborEncode(issuerSigned));
 	}
@@ -83,76 +83,71 @@ describe('extractIssuerSignedB64', () => {
 	/** Reads back the label type of issuerAuth's unprotected header key. */
 	function unprotectedLabels(b64: string): unknown[] {
 		const issuerSigned = cborDecode(base64url.decode(b64)) as Map<string, unknown>;
-		const issuerAuth = issuerSigned.get('issuerAuth') as unknown[];
+		const issuerAuth = issuerSigned.get("issuerAuth") as unknown[];
 		const unprotected = issuerAuth[1] as Map<unknown, unknown>;
 		return [...unprotected.keys()];
 	}
 
-	it('returns a bare IssuerSigned untouched, byte for byte', () => {
+	it("returns a bare IssuerSigned untouched, byte for byte", () => {
 		const input = buildIssuerSignedB64();
 		// Identity, not merely equivalence: the bytes the issuer signed reach
 		// the verifier exactly as issued, with no opportunity to alter them.
 		expect(extractIssuerSignedB64(input)).toBe(input);
 	});
 
-	it('keeps the x5chain label an integer for a bare IssuerSigned', () => {
+	it("keeps the x5chain label an integer for a bare IssuerSigned", () => {
 		const out = extractIssuerSignedB64(buildIssuerSignedB64());
 		expect(unprotectedLabels(out)).toEqual([33]);
 	});
 
-	it('keeps the x5chain label an integer when unwrapping a DeviceResponse', () => {
+	it("keeps the x5chain label an integer when unwrapping a DeviceResponse", () => {
 		const issuerSigned = cborDecode(base64url.decode(buildIssuerSignedB64()));
 		const envelope = new Map<string, unknown>([
-			['version', '1.0'],
-			[
-				'documents',
-				[
-					new Map<string, unknown>([
-						['docType', 'org.iso.18013.5.1.mDL'],
-						['issuerSigned', issuerSigned],
-					]),
-				],
-			],
-			['status', 0],
+			["version", "1.0"],
+			["documents", [new Map<string, unknown>([
+				["docType", "org.iso.18013.5.1.mDL"],
+				["issuerSigned", issuerSigned],
+			])]],
+			["status", 0],
 		]);
 
 		const out = extractIssuerSignedB64(base64url.encode(cborEncode(envelope)));
 		expect(unprotectedLabels(out)).toEqual([33]);
 	});
 
-	it('does not produce the string label that broke verification', () => {
+	it("does not produce the string label that broke verification", () => {
 		// The regression this guards: a decimal-string label reaches verifiers
 		// as a credential carrying no certificate chain.
 		const out = extractIssuerSignedB64(buildIssuerSignedB64());
-		expect(unprotectedLabels(out)).not.toContain('33');
+		expect(unprotectedLabels(out)).not.toContain("33");
 	});
 
-	it('returns the input unchanged when the CBOR is not a map at all', () => {
+	it("returns the input unchanged when the CBOR is not a map at all", () => {
 		// Defensive: a corrupt or unexpected credential should pass through
 		// rather than throw here, so the failure surfaces in the parser with
 		// the credential in hand instead of inside this helper.
-		const notAMap = base64url.encode(cborEncode(['not', 'a', 'map']));
+		const notAMap = base64url.encode(cborEncode(["not", "a", "map"]));
 		expect(extractIssuerSignedB64(notAMap)).toBe(notAMap);
 	});
 
 	// A present-but-unusable `documents` is a malformed DeviceResponse, not a
 	// bare IssuerSigned. Passing it through would defer the failure to a
 	// parser that can no longer explain it, so it throws here instead.
-	it('throws when a document carries no issuerSigned', () => {
+	it("throws when a document carries no issuerSigned", () => {
 		const envelope = new Map<string, unknown>([
-			['version', '1.0'],
-			['documents', [new Map<string, unknown>([['docType', 'org.iso.18013.5.1.mDL']])]],
-			['status', 0],
+			["version", "1.0"],
+			["documents", [new Map<string, unknown>([["docType", "org.iso.18013.5.1.mDL"]])]],
+			["status", 0],
 		]);
 		const input = base64url.encode(cborEncode(envelope));
 		expect(() => extractIssuerSignedB64(input)).toThrow(/no `issuerSigned`/);
 	});
 
-	it('throws on an envelope whose documents array is empty', () => {
+	it("throws on an envelope whose documents array is empty", () => {
 		const envelope = new Map<string, unknown>([
-			['version', '1.0'],
-			['documents', []],
-			['status', 0],
+			["version", "1.0"],
+			["documents", []],
+			["status", 0],
 		]);
 		const input = base64url.encode(cborEncode(envelope));
 		expect(() => extractIssuerSignedB64(input)).toThrow(/present but empty/);
@@ -165,9 +160,9 @@ describe('extractIssuerSignedB64', () => {
 		const roundTripped = cbor.encode(cbor.decode(original));
 
 		const issuerSigned = cborDecode(roundTripped) as Map<string, unknown>;
-		const issuerAuth = issuerSigned.get('issuerAuth') as unknown[];
+		const issuerAuth = issuerSigned.get("issuerAuth") as unknown[];
 		const unprotected = issuerAuth[1] as Map<unknown, unknown>;
 
-		expect([...unprotected.keys()]).toEqual(['33']);
+		expect([...unprotected.keys()]).toEqual(["33"]);
 	});
 });

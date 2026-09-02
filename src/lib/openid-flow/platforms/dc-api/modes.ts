@@ -1,4 +1,4 @@
-import { DCAPIMode, DCAPIResponse } from './resources';
+import { DCAPIMode, DCAPIResponse } from "./resources";
 
 export class DCAPIWalletCompanionMode implements DCAPIMode {
 	#verifiedOrigin?: string;
@@ -17,8 +17,7 @@ export class DCAPIWalletCompanionMode implements DCAPIMode {
 					event.source !== window.opener ||
 					event.data?.type !== 'WC_ORIGIN_ACK' ||
 					!event.data?.requestId
-				)
-					return;
+				) return;
 
 				if (event.data.requestId !== requestId) {
 					return reject(new Error('Mismatched requestId in origin handshake response.'));

@@ -24,7 +24,7 @@ export const ErrorDialogContextProvider = ({ children }: ErrorDialogContextProvi
 		}
 		const errorOnClose = error?.onClose;
 		clearError();
-		if (typeof errorOnClose === 'function') {
+		if (typeof errorOnClose === "function") {
 			errorOnClose();
 		}
 	};

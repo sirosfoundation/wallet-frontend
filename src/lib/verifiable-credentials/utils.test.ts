@@ -96,7 +96,8 @@ describe('deriveHolderKidFromCredential', () => {
 });
 
 function buildJwtCredential(payloadObj: Record<string, unknown>): string {
-	const enc = (obj: unknown) => toBase64Url(new TextEncoder().encode(JSON.stringify(obj)));
+	const enc = (obj: unknown) =>
+		toBase64Url(new TextEncoder().encode(JSON.stringify(obj)));
 	return `${enc({ alg: 'ES256', typ: 'JWT' })}.${enc(payloadObj)}.signature`;
 }
 
@@ -104,10 +105,11 @@ async function generateEcKeyMaterial(): Promise<{
 	jwk: jose.JWK;
 	coseKey: Map<number, number | Uint8Array>;
 }> {
-	const keyPair = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, [
-		'sign',
-		'verify',
-	]);
+	const keyPair = await crypto.subtle.generateKey(
+		{ name: 'ECDSA', namedCurve: 'P-256' },
+		true,
+		['sign', 'verify'],
+	);
 	const jwk = (await crypto.subtle.exportKey('jwk', keyPair.publicKey)) as jose.JWK;
 	const coseKey = new Map<number, number | Uint8Array>([
 		[1, 2], // kty: EC2

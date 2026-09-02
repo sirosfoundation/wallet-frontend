@@ -8,7 +8,7 @@ import { CredentialTypeCard } from '../Credentials/CredentialTypeCard';
 export type SwitchCredentialPopupState = {
 	id: string;
 	selected: PresentCredentialsMatch;
-	alternatives: PresentCredentialsMatch[];
+	alternatives: PresentCredentialsMatch[]
 };
 
 type SwitchCredentialPopupProps = {
@@ -45,20 +45,8 @@ export const SwitchCredentialPopup: FC<SwitchCredentialPopupProps> = ({
 					aria-label={t('switchCredentialPopup.close')}
 					onClick={() => setSwitchCredentialState(null)}
 				>
-					<svg
-						className="w-3 h-3"
-						aria-hidden="true"
-						xmlns="http://www.w3.org/2000/svg"
-						fill="none"
-						viewBox="0 0 14 14"
-					>
-						<path
-							stroke="currentColor"
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							strokeWidth="2"
-							d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"
-						/>
+					<svg className="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+						<path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6" />
 					</svg>
 				</Button>
 			</div>
@@ -66,9 +54,7 @@ export const SwitchCredentialPopup: FC<SwitchCredentialPopupProps> = ({
 			<h3 className="mb-2 font-semibold">{t('switchCredentialPopup.selectedCredential')}</h3>
 			<CredentialTypeCard display={selected.display} />
 			<hr className="my-2 border-t border-lm-gray-400 dark:border-dm-gray-600" />
-			<h3 className="mt-4 mb-2 font-semibold">
-				{t('switchCredentialPopup.alternativeCredentials')}
-			</h3>
+			<h3 className="mt-4 mb-2 font-semibold">{t('switchCredentialPopup.alternativeCredentials')}</h3>
 			<ul className="space-y-2">
 				{alternatives.map(({ batchId, display }) => (
 					<li key={batchId}>

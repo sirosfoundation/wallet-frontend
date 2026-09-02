@@ -73,16 +73,18 @@ export function useOIDCGate({ purpose, redirectUri }: UseOIDCGateOptions): UseOI
 	} = useTenant();
 
 	// Determine if this purpose requires a gate
-	const requiresGate =
-		purpose === 'registration' ? requiresOIDCGateForRegistration() : requiresOIDCGateForLogin();
+	const requiresGate = purpose === 'registration'
+		? requiresOIDCGateForRegistration()
+		: requiresOIDCGateForLogin();
 
 	// Get the provider config for this purpose
-	const providerConfig =
-		purpose === 'registration' ? getRegistrationOIDCProvider() : getLoginOIDCProvider();
+	const providerConfig = purpose === 'registration'
+		? getRegistrationOIDCProvider()
+		: getLoginOIDCProvider();
 
 	// State management - initialize to 'loading' if config is being fetched to avoid race conditions
-	const [state, setState] = useState<OIDCGateState>(() =>
-		isLoadingConfig ? { status: 'loading' } : { status: 'idle' },
+	const [state, setState] = useState<OIDCGateState>(
+		() => isLoadingConfig ? { status: 'loading' } : { status: 'idle' }
 	);
 
 	// Check for existing token on mount and config changes
@@ -111,56 +113,53 @@ export function useOIDCGate({ purpose, redirectUri }: UseOIDCGateOptions): UseOI
 	}, [isLoadingConfig, requiresGate, purpose]);
 
 	// Start the OIDC flow
-	const startFlow = useCallback(
-		async (formData?: Record<string, string>) => {
-			if (!providerConfig) {
-				setState({ status: 'error', message: 'OIDC provider not configured' });
-				return;
-			}
+	const startFlow = useCallback(async (formData?: Record<string, string>) => {
+		if (!providerConfig) {
+			setState({ status: 'error', message: 'OIDC provider not configured' });
+			return;
+		}
 
-			setState({ status: 'awaiting-oidc' });
+		setState({ status: 'awaiting-oidc' });
 
-			try {
-				const config: OIDCFlowConfig = buildOIDCConfig(providerConfig, redirectUri);
-				const mode = getOIDCFlowMode();
+		try {
+			const config: OIDCFlowConfig = buildOIDCConfig(providerConfig, redirectUri);
+			const mode = getOIDCFlowMode();
 
-				if (mode === 'native-bridge') {
-					// Native bridge returns immediately with token
-					const result = await startOIDCFlow(config, purpose, { formData });
-					if (result && 'idToken' in result) {
-						setState({
-							status: 'oidc-complete',
-							token: result.idToken,
-							displayName: getDisplayNameFromToken(result.idToken),
-						});
-					}
-				} else {
-					// Browser redirect - this will navigate away
-					// State will be restored on callback page
-					// Preserve the current mode in the return path so the user returns
-					// to the same tab (login vs registration) after OIDC callback
-					const currentUrl = new URL(window.location.href);
-					if (purpose === 'registration' && currentUrl.searchParams.get('mode') !== 'signup') {
-						currentUrl.searchParams.set('mode', 'signup');
-					}
-					const returnPath = currentUrl.pathname + currentUrl.search;
-					await startOIDCFlow(config, purpose, {
-						returnPath,
-						formData,
+			if (mode === 'native-bridge') {
+				// Native bridge returns immediately with token
+				const result = await startOIDCFlow(config, purpose, { formData });
+				if (result && 'idToken' in result) {
+					setState({
+						status: 'oidc-complete',
+						token: result.idToken,
+						displayName: getDisplayNameFromToken(result.idToken),
 					});
-					// If we get here without redirect, something went wrong
-					// (but normally we won't get here as the page will redirect)
 				}
-			} catch (error) {
-				console.error('OIDC flow failed:', error);
-				setState({
-					status: 'error',
-					message: t('oidcGate.errorGeneric'),
+			} else {
+				// Browser redirect - this will navigate away
+				// State will be restored on callback page
+				// Preserve the current mode in the return path so the user returns
+				// to the same tab (login vs registration) after OIDC callback
+				const currentUrl = new URL(window.location.href);
+				if (purpose === 'registration' && currentUrl.searchParams.get('mode') !== 'signup') {
+					currentUrl.searchParams.set('mode', 'signup');
+				}
+				const returnPath = currentUrl.pathname + currentUrl.search;
+				await startOIDCFlow(config, purpose, {
+					returnPath,
+					formData,
 				});
+				// If we get here without redirect, something went wrong
+				// (but normally we won't get here as the page will redirect)
 			}
-		},
-		[providerConfig, purpose, redirectUri, t],
-	);
+		} catch (error) {
+			console.error('OIDC flow failed:', error);
+			setState({
+				status: 'error',
+				message: t('oidcGate.errorGeneric'),
+			});
+		}
+	}, [providerConfig, purpose, redirectUri, t]);
 
 	// Reset state (for retry)
 	const reset = useCallback(() => {

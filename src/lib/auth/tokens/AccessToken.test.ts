@@ -5,7 +5,10 @@ import { AuthError } from '../resources';
 type JwtPayload = Record<string, unknown>;
 
 const base64UrlEncode = (obj: object): string =>
-	btoa(JSON.stringify(obj)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
+	btoa(JSON.stringify(obj))
+		.replaceAll('+', '-')
+		.replaceAll('/', '_')
+		.replaceAll('=', '');
 
 const defaultHeader = { alg: 'ES256', kid: 'test-key-id', typ: 'JWT' };
 
@@ -18,7 +21,10 @@ const defaultPayload = (): JwtPayload => ({
 	exp: Math.floor(Date.now() / 1000) + 60 * 60, // 1 hour from now
 });
 
-const makeJwt = (payloadOverrides: JwtPayload = {}, header: object = defaultHeader): string => {
+const makeJwt = (
+	payloadOverrides: JwtPayload = {},
+	header: object = defaultHeader,
+): string => {
 	const payload = { ...defaultPayload(), ...payloadOverrides };
 	return `${base64UrlEncode(header)}.${base64UrlEncode(payload)}.test-signature`;
 };
@@ -88,19 +94,27 @@ describe('AccessToken', () => {
 		});
 
 		it('throws AuthError when the aud claim is missing', () => {
-			expect(() => new AccessToken(makeJwt({ aud: undefined }))).toThrow(AuthError);
+			expect(() => new AccessToken(makeJwt({ aud: undefined }))).toThrow(
+				AuthError,
+			);
 		});
 
 		it('throws AuthError when the tenant_id claim is missing', () => {
-			expect(() => new AccessToken(makeJwt({ tenant_id: undefined }))).toThrow(AuthError);
+			expect(() => new AccessToken(makeJwt({ tenant_id: undefined }))).toThrow(
+				AuthError,
+			);
 		});
 
 		it('throws AuthError when the exp claim is missing', () => {
-			expect(() => new AccessToken(makeJwt({ exp: undefined }))).toThrow(AuthError);
+			expect(() => new AccessToken(makeJwt({ exp: undefined }))).toThrow(
+				AuthError,
+			);
 		});
 
 		it('throws AuthError for an unknown acr value', () => {
-			expect(() => new AccessToken(makeJwt({ acr: 'urn:siros:acr:unknown' }))).toThrow(AuthError);
+			expect(
+				() => new AccessToken(makeJwt({ acr: 'urn:siros:acr:unknown' })),
+			).toThrow(AuthError);
 		});
 
 		it('throws AuthError with the expected message', () => {

@@ -9,7 +9,9 @@ function SeparatorLine({ children }) {
 			</div>
 			{children && (
 				<>
-					<div className="grow-0 shrink-0 ml-4 mr-4">{children}</div>
+					<div className="grow-0 shrink-0 ml-4 mr-4">
+						{children}
+					</div>
 					<div className="flex flex-col flex-nowrap grow shrink items-stretch justify-between">
 						<div className="grow shrink border-t border-t-solid border-t-gray-300" />
 						<div className="grow shrink" />

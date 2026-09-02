@@ -35,10 +35,9 @@ export default function OIDCGateButton({
 	const { t } = useTranslation();
 
 	const displayName = provider.display_name || 'Identity Provider';
-	const buttonLabel =
-		purpose === 'registration'
-			? t('oidcGate.signUpWith', { provider: displayName })
-			: t('oidcGate.signInWith', { provider: displayName });
+	const buttonLabel = purpose === 'registration'
+		? t('oidcGate.signUpWith', { provider: displayName })
+		: t('oidcGate.signInWith', { provider: displayName });
 
 	return (
 		<Button

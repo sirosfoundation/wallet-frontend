@@ -15,8 +15,8 @@
  * See go-wallet-backend/docs/adr/011-multi-tenancy.md for full design.
  */
 
-import { BASE_PATH } from '@/config';
-import { type CachedUser } from '@/services/LocalStorageKeystore';
+import { BASE_PATH } from "@/config";
+import { type CachedUser } from "@/services/LocalStorageKeystore";
 
 const TENANT_STORAGE_KEY = 'wallet_tenant_id';
 
@@ -86,10 +86,7 @@ export function isDefaultTenant(tenantId: string | undefined): boolean {
 /**
  * Check if a tenant ID matches the URL tenant context.
  */
-export function matchesTenantFromUrl(
-	tenantId: string | undefined,
-	urlTenantId: string | undefined,
-): boolean {
+export function matchesTenantFromUrl(tenantId: string | undefined, urlTenantId: string | undefined): boolean {
 	return tenantId === urlTenantId;
 }
 
@@ -139,7 +136,7 @@ export function isValidTenantId(tenantId: string | undefined): tenantId is strin
  * @returns The frontend route path
  */
 export function buildTenantRoutePath(tenantId: string | undefined, subPath?: string): string {
-	const cleanSubPath = subPath?.startsWith('/') ? subPath.slice(1) : subPath || '';
+	const cleanSubPath = subPath?.startsWith('/') ? subPath.slice(1) : (subPath || '');
 
 	if (!tenantId || !isMultiTenant()) {
 		return cleanSubPath ? `/${cleanSubPath}` : '/';
@@ -166,9 +163,7 @@ export function isMultiTenantActive(): boolean {
  * @param userHandle - The userHandle from WebAuthn (as Uint8Array, ArrayBuffer, or string)
  * @returns The extracted tenant ID, or undefined if not found or format is invalid
  */
-export function extractTenantFromUserHandle(
-	userHandle: ArrayBuffer | Uint8Array | string | null | undefined,
-): string | undefined {
+export function extractTenantFromUserHandle(userHandle: ArrayBuffer | Uint8Array | string | null | undefined): string | undefined {
 	if (!userHandle) {
 		return undefined;
 	}
@@ -260,16 +255,15 @@ export function getKnownTenants(
 		userHandleB64u: string;
 		tenant?: { id: string; displayName?: string };
 	}>,
-	fromBase64Url: (s: string) => Uint8Array,
+	fromBase64Url: (s: string) => Uint8Array
 ): KnownTenant[] {
 	const tenantMap = new Map<string, KnownTenant>();
 
 	for (const user of cachedUsers) {
 		// Prefer stored tenant metadata, fall back to extracting from userHandle
-		const tenantId =
-			user.tenant?.id ??
-			extractTenantFromUserHandle(fromBase64Url(user.userHandleB64u)) ??
-			DEFAULT_TENANT_ID;
+		const tenantId = user.tenant?.id
+			?? extractTenantFromUserHandle(fromBase64Url(user.userHandleB64u))
+			?? DEFAULT_TENANT_ID;
 		const displayName = user.tenant?.displayName;
 
 		const existing = tenantMap.get(tenantId);
@@ -312,10 +306,7 @@ export function getTenantFromUrlPath(): string | null {
  * - If tenantId is undefined (global login): show default tenant users AND legacy users (no tenant info)
  * - If tenantId is defined: show matching users AND legacy users (no tenant info for backwards compatibility)
  */
-export function filterUsersByTenantID(
-	tenantId: string | undefined,
-	users: CachedUser[],
-): CachedUser[] {
+export function filterUsersByTenantID(tenantId: string | undefined, users: CachedUser[]): CachedUser[] {
 	if (!isMultiTenant()) {
 		return users;
 	}

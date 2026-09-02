@@ -1,3 +1,4 @@
+
 type OIDFlowErrorParams = {
 	code: string;
 	message: string;
@@ -11,7 +12,10 @@ type OIDFlowErrorParams = {
  */
 export class OIDFlowError extends Error {
 	public readonly code: string;
-	constructor({ code, message }: OIDFlowErrorParams) {
+	constructor({
+		code,
+		message,
+	}: OIDFlowErrorParams) {
 		super(message);
 		this.code = code;
 		this.name = 'OIDFlowError';

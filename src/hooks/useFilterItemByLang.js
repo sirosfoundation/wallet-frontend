@@ -9,20 +9,17 @@ const useFilterItemByLang = () => {
 	const language = i18n.language;
 	const fallbackLang = i18n.options.fallbackLng;
 
-	const filterItemByLang = useCallback(
-		(arrayOfItems, langFieldName = 'lang') => {
-			if (!Array.isArray(arrayOfItems) || arrayOfItems.length === 0) {
-				return {};
-			}
+	const filterItemByLang = useCallback((arrayOfItems, langFieldName = 'lang') => {
 
-			let item =
-				arrayOfItems.find((a) => getLanguage(a[langFieldName]) === language) ||
-				arrayOfItems.find((a) => getLanguage(a[langFieldName]) === fallbackLang);
+		if (!Array.isArray(arrayOfItems) || arrayOfItems.length === 0) {
+			return {};
+		}
 
-			return item || arrayOfItems[0] || {};
-		},
-		[language, fallbackLang],
-	);
+		let item = arrayOfItems.find(a => getLanguage(a[langFieldName]) === language) ||
+			arrayOfItems.find(a => getLanguage(a[langFieldName]) === fallbackLang);
+
+		return item || arrayOfItems[0] || {};
+	}, [language, fallbackLang]);
 
 	return filterItemByLang;
 };

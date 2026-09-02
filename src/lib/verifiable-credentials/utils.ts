@@ -17,7 +17,9 @@ export async function deriveHolderKidFromCredential(
 				return undefined;
 			}
 			try {
-				const decoded = JSON.parse(new TextDecoder().decode(fromBase64Url(payload)));
+				const decoded = JSON.parse(
+					new TextDecoder().decode(fromBase64Url(payload))
+				);
 				const cnf = decoded.cnf as { jwk?: jose.JWK } | undefined;
 				if (cnf?.jwk) {
 					return jose.calculateJwkThumbprint(cnf.jwk, 'sha256');
@@ -49,8 +51,7 @@ export async function deriveHolderKidFromCredential(
 			} else {
 				msoBinary = new Uint8Array(
 					msoBinaryRaw.buffer,
-					msoBinaryRaw.byteOffset || 0,
-					msoBinaryRaw.byteLength || msoBinaryRaw.length,
+					msoBinaryRaw.byteOffset || 0, msoBinaryRaw.byteLength || msoBinaryRaw.length
 				);
 			}
 			if (msoBinary && msoBinary.length > 0) {
@@ -59,7 +60,10 @@ export async function deriveHolderKidFromCredential(
 					const deviceKeyInfo = msoData.data.get('deviceKeyInfo');
 					const deviceKey = deviceKeyInfo.get('deviceKey');
 					const devicePublicKeyJwk = COSEKeyToJWK(deviceKey);
-					const kid = await jose.calculateJwkThumbprint(devicePublicKeyJwk, 'sha256');
+					const kid = await jose.calculateJwkThumbprint(
+						devicePublicKeyJwk,
+						'sha256',
+					);
 
 					return kid;
 				} catch (e) {

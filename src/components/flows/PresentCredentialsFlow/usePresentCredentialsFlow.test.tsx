@@ -2,10 +2,7 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 
-import CredentialsContext, {
-	type CredentialsContextValue,
-	type ExtendedVcEntity,
-} from '@/context/CredentialsContext';
+import CredentialsContext, { type CredentialsContextValue, type ExtendedVcEntity } from '@/context/CredentialsContext';
 import { usePresentCredentialsFlow } from './usePresentCredentialsFlow';
 import { resolveCredentialPresentationRequest } from './utils';
 import { OIDFlowError } from '@/lib/openid-flow/errors';
@@ -28,9 +25,9 @@ function renderFlow(overrides: Partial<CredentialsContextValue>) {
 		vcEntityList: null,
 		latestCredentials: new Set<number>(),
 		fetchVcData: async () => null,
-		getData: async () => {},
+		getData: async () => { },
 		currentSlide: 1,
-		setCurrentSlide: () => {},
+		setCurrentSlide: () => { },
 		parseCredential: async () => null,
 		credentialEngine: null,
 		pendingTransactions: {},
@@ -53,11 +50,11 @@ function renderFlow(overrides: Partial<CredentialsContextValue>) {
 async function startOverview(result: ReturnType<typeof renderFlow>) {
 	let rejection: unknown;
 	await act(async () => {
-		result.result.current
-			.displayRequestOverviewScreen({} as never, { credentials: [] } as never, new Map() as never)
-			.catch((err) => {
-				rejection = err;
-			});
+		result.result.current.displayRequestOverviewScreen(
+			{} as never,
+			{ credentials: [] } as never,
+			new Map() as never,
+		).catch((err) => { rejection = err; });
 	});
 	return () => rejection;
 }

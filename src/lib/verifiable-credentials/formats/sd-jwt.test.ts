@@ -3,7 +3,10 @@ import * as jose from 'jose';
 import { SDJwt } from '@sd-jwt/core';
 import { validateChain } from '../../utils/pki';
 import { logger } from '@/logger';
-import { verifySdJwtBasedOnTrustAnchors, applySelectiveDisclosure } from './sd-jwt';
+import {
+	verifySdJwtBasedOnTrustAnchors,
+	applySelectiveDisclosure,
+} from './sd-jwt';
 
 vi.mock('../../utils/pki', () => ({
 	fromPemToPKIJSCertificate: vi.fn(() => ({})),
@@ -88,10 +91,10 @@ describe('applySelectiveDisclosure', () => {
 		const present = vi.fn().mockResolvedValue('presented-sd-jwt');
 		mockFromEncode.mockResolvedValue({ present });
 
-		const result = await applySelectiveDisclosure('header.payload.sig~disclosure1~disclosure2~', [
-			'email',
-			'address.street',
-		]);
+		const result = await applySelectiveDisclosure(
+			'header.payload.sig~disclosure1~disclosure2~',
+			['email', 'address.street'],
+		);
 
 		expect(result).toBe('presented-sd-jwt');
 		expect(present).toHaveBeenCalledWith(

@@ -9,49 +9,52 @@ export function parseOIDFlowCallbackUrl(url: URL): OIDFlowCallbackURL {
 		url.protocol === 'openid-credential-offer:' ||
 		url.searchParams.get('credential_offer') ||
 		url.searchParams.get('credential_offer_uri')
-	)
-		return {
-			protocol: 'oid4vci',
-			type: 'credential_offer',
-			url,
-		};
+	) return {
+		protocol: 'oid4vci',
+		type: 'credential_offer',
+		url,
+	};
 
 	// authorization code
-	if (url.searchParams.get('code'))
-		return {
-			protocol: 'oid4vci',
-			type: 'authorization_code',
-			url,
-		};
+	if (url.searchParams.get('code')) return {
+		protocol: 'oid4vci',
+		type: 'authorization_code',
+		url,
+	};
 
 	// DC API authorization request
 	if (
 		url.searchParams.get('request_id') &&
-		(url.searchParams.get('response_mode') === 'dc_api' ||
+		(
+			url.searchParams.get('response_mode') === 'dc_api' ||
 			url.searchParams.get('response_mode') === 'dc_api.jwt' ||
-			url.searchParams.get('request'))
-	)
-		return {
-			protocol: 'oid4vp',
-			type: 'dc_api_request',
-			url,
-		};
+			url.searchParams.get('request')
+		)
+	) return {
+		protocol: 'oid4vp',
+		type: 'dc_api_request',
+		url,
+	};
 
 	// authorization request
-	if (url.searchParams.get('client_id') && url.searchParams.get('request_uri'))
-		return {
-			protocol: 'oid4vp',
-			type: 'presentation_request',
-			url,
-		};
+	if (
+		url.searchParams.get('client_id') &&
+		url.searchParams.get('request_uri')
+	) return {
+		protocol: 'oid4vp',
+		type: 'presentation_request',
+		url,
+	};
 
 	// authorization error
-	if (url.searchParams.get('state') && url.searchParams.get('error'))
-		return {
-			protocol: 'unknown',
-			type: 'authorization_error',
-			url,
-		};
+	if (
+		url.searchParams.get('state') &&
+		url.searchParams.get('error')
+	) return {
+		protocol: 'unknown',
+		type: 'authorization_error',
+		url,
+	};
 
 	// No recognizable parameters
 	return {

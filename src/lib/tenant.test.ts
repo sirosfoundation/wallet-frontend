@@ -17,9 +17,7 @@ describe('tenant utilities', () => {
 		});
 
 		it('should extract tenant from string userHandle', () => {
-			expect(extractTenantFromUserHandle('acme-corp:550e8400-e29b-41d4-a716-446655440000')).toBe(
-				'acme-corp',
-			);
+			expect(extractTenantFromUserHandle('acme-corp:550e8400-e29b-41d4-a716-446655440000')).toBe('acme-corp');
 		});
 
 		it('should extract "default" tenant from userHandle', () => {
@@ -133,11 +131,8 @@ describe('tenant utilities', () => {
 
 		it('should use /id/ prefix when BASE_PATH is a tenant path', async () => {
 			vi.doMock('@/config', () => ({ BASE_PATH: '/id/default' }));
-			const {
-				buildTenantRoutePath: build,
-				DEFAULT_TENANT_ID: def,
-				TENANT_PATH_PREFIX: prefix,
-			} = await import('./tenant');
+			const { buildTenantRoutePath: build, DEFAULT_TENANT_ID: def, TENANT_PATH_PREFIX: prefix } =
+				await import('./tenant');
 
 			expect(build(def)).toBe(`/${prefix}/default/`);
 			expect(build('acme-corp')).toBe('/id/acme-corp/');

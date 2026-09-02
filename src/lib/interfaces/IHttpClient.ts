@@ -1,4 +1,5 @@
-export interface RequestHeaders {}
+export interface RequestHeaders {
+}
 
 export interface ResponseHeaders {
 	'dpop-nonce'?: string;
@@ -6,14 +7,6 @@ export interface ResponseHeaders {
 }
 
 export interface IHttpClient {
-	get(
-		url: string,
-		headers?: RequestHeaders,
-		options?: Record<string, unknown>,
-	): Promise<{ status: number; headers: ResponseHeaders; data: unknown }>;
-	post(
-		url: string,
-		body: any,
-		headers?: RequestHeaders,
-	): Promise<{ status: number; headers: ResponseHeaders; data: unknown }>;
+	get(url: string, headers?: RequestHeaders, options?: Record<string, unknown>): Promise<{ status: number, headers: ResponseHeaders, data: unknown }>;
+	post(url: string, body: any, headers?: RequestHeaders): Promise<{ status: number, headers: ResponseHeaders, data: unknown }>;
 }

@@ -23,8 +23,7 @@ type CallbackState =
 export default function OIDCCallback() {
 	const { t } = useTranslation();
 	const navigate = useNavigate();
-	const { buildPath, getRegistrationOIDCProvider, getLoginOIDCProvider, isLoadingConfig } =
-		useTenant();
+	const { buildPath, getRegistrationOIDCProvider, getLoginOIDCProvider, isLoadingConfig } = useTenant();
 
 	const [state, setState] = useState<CallbackState>({ status: 'processing' });
 
@@ -56,8 +55,9 @@ export default function OIDCCallback() {
 				}
 
 				// Get the appropriate provider config
-				const providerConfig =
-					purpose === 'registration' ? getRegistrationOIDCProvider() : getLoginOIDCProvider();
+				const providerConfig = purpose === 'registration'
+					? getRegistrationOIDCProvider()
+					: getLoginOIDCProvider();
 
 				if (!providerConfig) {
 					throw new Error('OIDC provider not configured');
@@ -75,6 +75,7 @@ export default function OIDCCallback() {
 					const targetPath = result.returnPath || buildPath('/login');
 					navigate(targetPath, { replace: true });
 				}, 1500);
+
 			} catch (error) {
 				console.error('OIDC callback error:', error);
 				setState({
@@ -97,10 +98,7 @@ export default function OIDCCallback() {
 			<div className="relative p-8 sm:px-12 space-y-4 md:space-y-6 lg:space-y-8 bg-white rounded-lg dark:bg-dm-gray-900 border border-lm-gray-400 dark:border-dm-gray-600">
 				{state.status === 'processing' && (
 					<div className="flex flex-col items-center gap-4 py-8">
-						<LoaderCircle
-							className="rounded-full text-brand-base dark:text-white animate-spin"
-							size={48}
-						/>
+						<LoaderCircle className="rounded-full text-brand-base dark:text-white animate-spin" size={48} />
 						<p className="text-lm-gray-700 dark:text-dm-gray-300">
 							{t('oidcGate.callbackProcessing')}
 						</p>
@@ -125,7 +123,11 @@ export default function OIDCCallback() {
 						<p className="text-sm text-lm-gray-600 dark:text-dm-gray-400 text-center">
 							{state.message}
 						</p>
-						<Button id="oidc-callback-retry" onClick={handleRetry} variant="primary">
+						<Button
+							id="oidc-callback-retry"
+							onClick={handleRetry}
+							variant="primary"
+						>
 							{t('common.tryAgain')}
 						</Button>
 					</div>

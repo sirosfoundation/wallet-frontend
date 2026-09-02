@@ -24,7 +24,7 @@ import { H1 } from '@/components/Shared/Heading';
 import Header from '@/components/Layout/Header';
 import {
 	SwitchCredentialPopup,
-	type SwitchCredentialPopupState,
+	type SwitchCredentialPopupState
 } from '@/components/Popups/SwitchCredentialPopup';
 import { useTranslation } from 'react-i18next';
 import { truncateByWords } from '@/utils';
@@ -40,7 +40,9 @@ type PresentCredentialsFlowProps = {
  *
  * Renders the flow for presenting credentials to a verifier.
  */
-export const PresentCredentialsFlow: FC<PresentCredentialsFlowProps> = ({ view }) => {
+export const PresentCredentialsFlow: FC<PresentCredentialsFlowProps> = ({
+	view,
+}) => {
 	return (
 		<FlowContainer>
 			<PresentCredentialsFlowRouter view={view} />
@@ -55,7 +57,9 @@ type PresentCredentialsFlowRouterProps = {
 /**
  * Router for the Present Credentials Flow.
  */
-const PresentCredentialsFlowRouter: FC<PresentCredentialsFlowRouterProps> = ({ view }) => {
+const PresentCredentialsFlowRouter: FC<PresentCredentialsFlowRouterProps> = ({
+	view,
+}) => {
 	switch (view.status) {
 		case 'loading':
 			return <PresentationLoadingScreen />;
@@ -121,11 +125,14 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 		Object.fromEntries(requested.map((q) => [q.id, q.matches[0]?.batchId])),
 	);
 
-	const [switchCredentialState, setSwitchCredentialState] =
-		useState<SwitchCredentialPopupState | null>(null);
+	const [
+		switchCredentialState,
+		setSwitchCredentialState,
+	] = useState<SwitchCredentialPopupState | null>(null);
 
 	const swap = (queryId: string, batchId: number) =>
 		setSelection((prev) => ({ ...prev, [queryId]: batchId }));
+
 
 	// Derived, display-ready. The render map just reads this.
 	const view = requested.map((q) => ({
@@ -143,7 +150,9 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 				onClick={() =>
 					onAccept(
 						view.flatMap((entry) =>
-							entry.selected ? [{ queryId: entry.id, batchId: entry.selected.batchId }] : [],
+							entry.selected
+								? [{ queryId: entry.id, batchId: entry.selected.batchId }]
+								: [],
 						),
 					)
 				}
@@ -157,7 +166,8 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 		</>
 	);
 
-	const singlePurpose = sets.length === 1 && sets[0].purpose != null ? sets[0].purpose : null;
+	const singlePurpose =
+		sets.length === 1 && sets[0].purpose != null ? sets[0].purpose : null;
 
 	return (
 		<FlowScreen buttons={buttons}>
@@ -165,9 +175,7 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 				<H1 heading={t('presentCredentialsFlow.overview.title')} />
 			</div>
 			<dl>
-				<dt className="font-bold not-first:mt-4">
-					{t('presentCredentialsFlow.overview.requester')}
-				</dt>
+				<dt className="font-bold not-first:mt-4">{t('presentCredentialsFlow.overview.requester')}</dt>
 				{[verifier.name, verifier.domain].map((info) => (
 					<dd key={info} className="mt-2">
 						{info}
@@ -175,9 +183,7 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 				))}
 				{singlePurpose && (
 					<>
-						<dt className="font-bold not-first:mt-4">
-							{t('presentCredentialsFlow.overview.purpose')}
-						</dt>
+						<dt className="font-bold not-first:mt-4">{t('presentCredentialsFlow.overview.purpose')}</dt>
 						<dd className="mt-2">
 							<Purpose purpose={singlePurpose} />
 						</dd>
@@ -185,7 +191,9 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 				)}
 			</dl>
 			<div className="mt-4">
-				<h2 className="font-bold">{t('presentCredentialsFlow.overview.requestedInformation')}</h2>
+				<h2 className="font-bold">
+					{t('presentCredentialsFlow.overview.requestedInformation')}
+				</h2>
 				<ul>
 					{view.map((entry) => (
 						<li key={entry.id} className="mt-2">
@@ -196,13 +204,12 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 										{
 											'--bg-color':
 												entry.selected?.display.backgroundColor ?? 'var(--color-primary)',
-											'--text-color': entry.selected?.display.textColor ?? '#fff',
+											'--text-color':
+												entry.selected?.display.textColor ?? '#fff',
 										} as React.CSSProperties
 									}
 								>
-									<h3 className="font-bold" aria-live="polite" aria-atomic="true">
-										{entry.selected.display.name}
-									</h3>
+									<h3 className="font-bold" aria-live="polite" aria-atomic="true">{entry.selected.display.name}</h3>
 									{entry.selected?.display.logo ? (
 										<img className="max-h-8 max-w-8" src={entry.selected.display.logo} alt="" />
 									) : (
@@ -232,38 +239,10 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 											}
 										>
 											{t('presentCredentialsFlow.overview.switchCredential')}
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												viewBox="0 0 24 24"
-												strokeWidth={2}
-												className="w-6 h-6"
-												aria-hidden="true"
-											>
-												<rect
-													x="4"
-													y="4"
-													width="19"
-													height="14"
-													rx="2"
-													fill="transparent"
-													className="stroke-lm-gray-700 dark:stroke-dm-gray-300"
-												/>
-												<rect
-													x="2"
-													y="7"
-													width="19"
-													height="14"
-													rx="2"
-													className="fill-lm-gray-700 dark:fill-dm-gray-300"
-												/>
-												<text
-													x="11"
-													y="18"
-													textAnchor="middle"
-													fontSize="12"
-													fontWeight="600"
-													className="fill-white dark:fill-black"
-												>
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} className="w-6 h-6" aria-hidden="true" >
+												<rect x="4" y="4" width="19" height="14" rx="2" fill="transparent" className="stroke-lm-gray-700 dark:stroke-dm-gray-300" />
+												<rect x="2" y="7" width="19" height="14" rx="2" className="fill-lm-gray-700 dark:fill-dm-gray-300" />
+												<text x="11" y="18" textAnchor="middle" fontSize="12" fontWeight="600" className="fill-white dark:fill-black">
 													{entry.alternatives.length}
 												</text>
 											</svg>
@@ -298,14 +277,20 @@ type PresentationSharingScreenProps = {
 /**
  * Screen that shows the sharing progress of the presentation request.
  */
-const PresentationSharingScreen: FC<PresentationSharingScreenProps> = ({ onCancel, messages }) => {
+const PresentationSharingScreen: FC<PresentationSharingScreenProps> = ({
+	onCancel,
+	messages,
+}) => {
 	const { t } = useTranslation();
 	const items = messages?.length ? messages : [t('common.loading')];
 	const [index, setIndex] = useState(0);
 
 	useEffect(() => {
 		if (items.length <= 1) return;
-		const id = setInterval(() => setIndex((i) => (i + 1) % items.length), 1000 * 8);
+		const id = setInterval(
+			() => setIndex((i) => (i + 1) % items.length),
+			1000 * 8,
+		);
 		return () => clearInterval(id);
 	}, [items.length]);
 
@@ -341,7 +326,10 @@ type PresentationCompleteScreenProps = {
 /**
  * Screen that shows the completion of the presentation request.
  */
-const PresentationCompleteScreen: FC<PresentationCompleteScreenProps> = ({ result, onClose }) => {
+const PresentationCompleteScreen: FC<PresentationCompleteScreenProps> = ({
+	result,
+	onClose,
+}) => {
 	const { t } = useTranslation();
 	const closable = typeof onClose === 'function';
 	const buttons = closable ? (
@@ -360,9 +348,7 @@ const PresentationCompleteScreen: FC<PresentationCompleteScreenProps> = ({ resul
 			/>
 			<div className="pt-6 space-y-4" role="status">
 				<h1 className="text-2xl font-bold">{t('presentCredentialsFlow.completed.title')}</h1>
-				<p>
-					{t('presentCredentialsFlow.completed.description', { verifierName: result.verifierName })}
-				</p>
+				<p>{t('presentCredentialsFlow.completed.description', { verifierName: result.verifierName })}</p>
 				<hr className="border-lm-gray-300 dark:border-dm-gray-700" />
 				{!closable && <p>{t('presentCredentialsFlow.completed.redirecting')}</p>}
 			</div>
@@ -371,13 +357,15 @@ const PresentationCompleteScreen: FC<PresentationCompleteScreenProps> = ({ resul
 };
 
 type PresentationErrorScreenProps = {
-	state: PresentationErrorState;
+	state: PresentationErrorState
 };
 
 /**
  * Screen that shows the error state of the presentation request.
  */
-const PresentationErrorScreen: FC<PresentationErrorScreenProps> = ({ state }) => {
+const PresentationErrorScreen: FC<PresentationErrorScreenProps> = ({
+	state,
+}) => {
 	const { t } = useTranslation();
 	return (
 		<FlowScreen
@@ -414,7 +402,10 @@ const FlowContainer: FC<PropsWithChildren> = ({ children }) => {
 	);
 };
 
-const FlowScreen: FC<PropsWithChildren<{ buttons?: ReactElement }>> = ({ children, buttons }) => {
+const FlowScreen: FC<PropsWithChildren<{ buttons?: ReactElement }>> = ({
+	children,
+	buttons,
+}) => {
 	const ref = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
@@ -423,7 +414,11 @@ const FlowScreen: FC<PropsWithChildren<{ buttons?: ReactElement }>> = ({ childre
 
 	return (
 		<>
-			<div ref={ref} tabIndex={-1} className="max-w-[500px] mx-6 mb-[25vh] focus:outline-none">
+			<div
+				ref={ref}
+				tabIndex={-1}
+				className="max-w-[500px] mx-6 mb-[25vh] focus:outline-none"
+			>
 				{children}
 			</div>
 			{buttons && (
@@ -448,14 +443,16 @@ const Purpose: FC<{ purpose: string }> = ({ purpose }) => {
 
 	return (
 		<p>
-			<span id={id}>{expanded ? purpose : text}</span>
+			<span id={id}>
+				{expanded ? purpose : text}
+			</span>
 			{truncated && (
 				<>
 					{' '}
 					{expanded && <br />}
 					<Button
 						onClick={() => setExpanded(!expanded)}
-						variant="link"
+						variant='link'
 						aria-expanded={expanded}
 						aria-controls={id}
 					>
@@ -488,10 +485,7 @@ const ClaimDetails: FC<{ name: string; value: unknown }> = ({ name, value }) => 
 				<table className="text-sm">
 					<tbody>
 						{Object.entries(value).map(([key, val]) => (
-							<tr
-								key={key}
-								className="not-first:mt-1 not-first:pt-1 not-first:border-t not-first:border-t-lm-gray-300 dark:not-first:border-t-dm-gray-700"
-							>
+							<tr key={key} className="not-first:mt-1 not-first:pt-1 not-first:border-t not-first:border-t-lm-gray-300 dark:not-first:border-t-dm-gray-700">
 								<td className="font-bold p-1 pr-2">{key}</td>
 								<td className="p-1">{String(val)}</td>
 							</tr>
@@ -503,6 +497,7 @@ const ClaimDetails: FC<{ name: string; value: unknown }> = ({ name, value }) => 
 
 		return String(value);
 	})();
+
 
 	return (
 		<>

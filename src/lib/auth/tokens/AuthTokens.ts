@@ -4,10 +4,10 @@ import { AccessToken } from './AccessToken';
 import { AuthServerClient } from '../auth-server/AuthServerClient';
 
 type AuthTokensOptions = {
-	authServerClient: AuthServerClient;
+	authServerClient: AuthServerClient,
 	tenantId: string;
-	storage: Storage;
-};
+	storage: Storage,
+}
 
 type AuthTokensManifest = typeof AuthTokens.MANIFEST;
 
@@ -26,9 +26,7 @@ export class AuthTokens {
 	readonly #tokenStoragePrefix = 'authToken';
 	readonly #tokenStorage = {
 		get: (tokenId: string): string | undefined => {
-			return (
-				this.#tokenStorageBackend.getItem(`${this.#tokenStoragePrefix}:${tokenId}`) ?? undefined
-			);
+			return this.#tokenStorageBackend.getItem(`${this.#tokenStoragePrefix}:${tokenId}`) ?? undefined;
 		},
 		store: (tokenId: string, token: AccessTokenInterface): void => {
 			this.#tokenStorageBackend.setItem(`${this.#tokenStoragePrefix}:${tokenId}`, token.raw);
@@ -37,7 +35,7 @@ export class AuthTokens {
 			this.#tokenStorageBackend.removeItem(`${this.#tokenStoragePrefix}:${tokenId}`);
 			this.#tokens.delete(tokenId);
 		},
-	};
+	}
 
 	/**
 	 * Manifest of available auth tokens.
@@ -45,16 +43,16 @@ export class AuthTokens {
 	 * expects to be able to request from the backend.
 	 */
 	static readonly MANIFEST = {
-		backend: {
+		'backend': {
 			audience: 'wallet-backend',
 			tac: 'rwlid',
 		},
-		anonymous: {
+		'anonymous': {
 			audience: 'wallet-backend',
 			tac: 'rl',
 			anonymous: true,
 		},
-	};
+	}
 
 	constructor({ authServerClient, tenantId, storage }: AuthTokensOptions) {
 		this.#authServerClient = authServerClient;
@@ -87,9 +85,8 @@ export class AuthTokens {
 	 */
 	public registerTokenRejection(name: keyof AuthTokensManifest): boolean {
 		const now = Date.now();
-		const times = (this.#rejectionTimes.get(name) ?? []).filter(
-			(t) => now - t < this.#rejectionWindowMs,
-		);
+		const times = (this.#rejectionTimes.get(name) ?? [])
+			.filter(t => now - t < this.#rejectionWindowMs);
 		times.push(now);
 
 		// Always invalidate the cached token so a retry mints a new one.
@@ -176,10 +173,7 @@ export class AuthTokens {
 	 * This checks both the in-memory cache and local storage for a token with the given name.
 	 * If `checkExpiration` is true, it will also check if the token is expired.
 	 */
-	public tokenExists(
-		name: keyof typeof AuthTokens.MANIFEST,
-		checkExpiration: boolean = true,
-	): boolean {
+	public tokenExists(name: keyof typeof AuthTokens.MANIFEST, checkExpiration: boolean = true): boolean {
 		const existing = this.#tokens.get(name);
 		if (existing && (!checkExpiration || !existing.isExpired())) return true;
 
@@ -220,9 +214,7 @@ export class AuthTokens {
 	 *
 	 * @param name The name of the token to refresh. Must be present in the {@link AuthTokens.MANIFEST}.
 	 */
-	public async forceRefreshToken(
-		name: keyof typeof AuthTokens.MANIFEST,
-	): Promise<AccessTokenInterface> {
+	public async forceRefreshToken(name: keyof typeof AuthTokens.MANIFEST): Promise<AccessTokenInterface> {
 		this.#tokenStorage.clear(name);
 		return this.ensureToken(name);
 	}
@@ -261,10 +253,11 @@ export class AuthTokens {
 			try {
 				this.#tokens.set(name, new AccessToken(jwt));
 			} catch {
-				logger.error(`Failed to parse access token: ${name}`);
+				logger.error(`Failed to parse access token: ${name}`)
 			}
 		}
 	}
+
 
 	#emitTokenRejection(info: TokenRejectionInfo<keyof AuthTokensManifest>): void {
 		for (const listener of this.#rejectionListeners) {

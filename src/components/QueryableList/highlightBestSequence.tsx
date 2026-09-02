@@ -9,6 +9,6 @@ export function highlightBestSequence(text, search) {
 			</span>
 		) : (
 			<span key={i}>{part}</span>
-		),
+		)
 	);
 }

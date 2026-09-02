@@ -1,8 +1,8 @@
-import React, { useState, useContext, useCallback } from 'react';
-import { useOpenID4VP } from '../lib/services/OpenID4VP/OpenID4VP';
-import OpenID4VPContext from './OpenID4VPContext';
-import GenericConsentPopup from '@/components/Popups/GenericConsentPopup';
-import SessionContext from './SessionContext';
+import React, { useState, useContext, useCallback } from "react";
+import { useOpenID4VP } from "../lib/services/OpenID4VP/OpenID4VP";
+import OpenID4VPContext from "./OpenID4VPContext";
+import GenericConsentPopup from "@/components/Popups/GenericConsentPopup";
+import SessionContext from "./SessionContext";
 
 export const OpenID4VPContextProvider = ({ children }: React.PropsWithChildren) => {
 	const { isLoggedIn } = useContext<any>(SessionContext);
@@ -10,22 +10,20 @@ export const OpenID4VPContextProvider = ({ children }: React.PropsWithChildren) 
 	const [popupConsentState, setPopupConsentState] = useState({
 		isOpen: false,
 		options: null,
-		resolve: (value: unknown) => {},
-		reject: () => {},
+		resolve: (value: unknown) => { },
+		reject: () => { },
 	});
 
-	const showPopupConsent = useCallback(
-		(options): Promise<boolean> =>
-			new Promise((resolve, reject) => {
-				setPopupConsentState({
-					isOpen: true,
-					options,
-					resolve,
-					reject,
-				});
-			}),
-		[],
-	);
+	const showPopupConsent = useCallback((options): Promise<boolean> =>
+		new Promise((resolve, reject) => {
+			setPopupConsentState({
+				isOpen: true,
+				options,
+				resolve,
+				reject,
+			});
+		}), []);
+
 
 	const hidePopupConsent = useCallback(() => {
 		setPopupConsentState((prevState) => ({
@@ -34,11 +32,12 @@ export const OpenID4VPContextProvider = ({ children }: React.PropsWithChildren) 
 		}));
 	}, [setPopupConsentState]);
 
+
 	const showTransactionDataConsentPopup = useCallback(
 		async (options: Record<string, unknown>): Promise<boolean> => {
 			return showPopupConsent(options);
 		},
-		[showPopupConsent],
+		[showPopupConsent]
 	);
 
 	const openID4VP = useOpenID4VP({ showTransactionDataConsentPopup });
@@ -48,14 +47,9 @@ export const OpenID4VPContextProvider = ({ children }: React.PropsWithChildren) 
 			{children}
 			{isLoggedIn && (
 				<>
-					<GenericConsentPopup
-						popupConsentState={popupConsentState}
-						setPopupConsentState={setPopupConsentState}
-						showConsentPopup={showPopupConsent}
-						hidePopupConsent={hidePopupConsent}
-					/>
+					<GenericConsentPopup popupConsentState={popupConsentState} setPopupConsentState={setPopupConsentState} showConsentPopup={showPopupConsent} hidePopupConsent={hidePopupConsent} />
 				</>
 			)}
 		</OpenID4VPContext.Provider>
 	);
-};
+}

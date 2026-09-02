@@ -4,7 +4,7 @@
 
 import type {
 	CredentialConfigurationSupported,
-	OpenidCredentialIssuerMetadata,
+	OpenidCredentialIssuerMetadata
 } from 'wallet-common';
 import type { TrustEvaluation } from './TrustTypes';
 

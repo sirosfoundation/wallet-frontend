@@ -12,19 +12,11 @@ import { OIDFlowErrorCodes } from '../types/OIDFlowRecovery';
 const mockStorage: Record<string, string> = {};
 const mockSessionStorage = {
 	getItem: vi.fn((key: string) => mockStorage[key] ?? null),
-	setItem: vi.fn((key: string, value: string) => {
-		mockStorage[key] = value;
-	}),
-	removeItem: vi.fn((key: string) => {
-		delete mockStorage[key];
-	}),
-	get length() {
-		return Object.keys(mockStorage).length;
-	},
+	setItem: vi.fn((key: string, value: string) => { mockStorage[key] = value; }),
+	removeItem: vi.fn((key: string) => { delete mockStorage[key]; }),
+	get length() { return Object.keys(mockStorage).length; },
 	key: vi.fn((index: number) => Object.keys(mockStorage)[index] ?? null),
-	clear: vi.fn(() => {
-		Object.keys(mockStorage).forEach((k) => delete mockStorage[k]);
-	}),
+	clear: vi.fn(() => { Object.keys(mockStorage).forEach(k => delete mockStorage[k]); }),
 };
 
 describe('OIDFlowStateStore', () => {
@@ -32,7 +24,7 @@ describe('OIDFlowStateStore', () => {
 
 	beforeEach(() => {
 		// Clear mock storage
-		Object.keys(mockStorage).forEach((k) => delete mockStorage[k]);
+		Object.keys(mockStorage).forEach(k => delete mockStorage[k]);
 
 		// Mock sessionStorage
 		Object.defineProperty(globalThis, 'sessionStorage', {
@@ -65,7 +57,7 @@ describe('OIDFlowStateStore', () => {
 
 			expect(mockSessionStorage.setItem).toHaveBeenCalledWith(
 				'wallet_flow_state_flow-1',
-				expect.any(String),
+				expect.any(String)
 			);
 		});
 
@@ -246,8 +238,8 @@ describe('OIDFlowStateStore', () => {
 			const active = manager.getActiveFlows();
 
 			expect(active).toHaveLength(2);
-			expect(active.map((f) => f.flowId)).toContain('flow-1');
-			expect(active.map((f) => f.flowId)).toContain('flow-2');
+			expect(active.map(f => f.flowId)).toContain('flow-1');
+			expect(active.map(f => f.flowId)).toContain('flow-2');
 		});
 	});
 

@@ -1,13 +1,4 @@
-import React, {
-	FormEvent,
-	KeyboardEvent,
-	ReactNode,
-	useCallback,
-	useContext,
-	useEffect,
-	useRef,
-	useState,
-} from 'react';
+import React, { FormEvent, KeyboardEvent, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
 import StatusContext from '@/context/StatusContext';
@@ -28,22 +19,7 @@ import Button from '../../components/Buttons/Button';
 import { H1, H2, H3 } from '../../components/Shared/Heading';
 import PageDescription from '../../components/Shared/PageDescription';
 import LanguageSelector from '../../components/LanguageSelector/LanguageSelector';
-import {
-	Bell,
-	ChevronDown,
-	CircleCheckIcon,
-	Edit,
-	FingerprintIcon,
-	Laptop,
-	Lock,
-	LockOpen,
-	Moon,
-	RefreshCcw,
-	Smartphone,
-	SmartphoneNfcIcon,
-	Sun,
-	Trash2,
-} from 'lucide-react';
+import { Bell,  ChevronDown, CircleCheckIcon, Edit, FingerprintIcon, Laptop, Lock, LockOpen, Moon, RefreshCcw, Smartphone, SmartphoneNfcIcon, Sun, Trash2 } from 'lucide-react';
 import { UsbStickDotIcon } from '@/components/Shared/CustomIcons';
 import { APP_VERSION } from '@/config';
 import { logger } from '@/logger';
@@ -52,50 +28,51 @@ import { useWalletCompanion } from '@/context/WalletCompanionContext';
 function useWebauthnCredentialNickname(credential: WebauthnCredential): string {
 	const { t } = useTranslation();
 	if (credential) {
-		return (
-			credential.nickname ||
-			`${t('pageSettings.passkeyItem.unnamed')} ${credential.id.substring(0, 8)}`
-		);
+		return credential.nickname || `${t('pageSettings.passkeyItem.unnamed')} ${credential.id.substring(0, 8)}`;
 	} else {
-		return '';
+		return "";
 	}
 }
 
-type UpgradePrfState =
-	| null
+type UpgradePrfState = (
+	null
 	| {
-			state: 'authenticate';
-			prfKeyInfo: WebauthnPrfEncryptionKeyInfo;
-			webauthnCredential: WebauthnCredential;
-			abortController: AbortController;
-	  }
+		state: "authenticate",
+		prfKeyInfo: WebauthnPrfEncryptionKeyInfo,
+		webauthnCredential: WebauthnCredential,
+		abortController: AbortController,
+	}
 	| {
-			state: 'err';
-			err: any;
-			prfKeyInfo: WebauthnPrfEncryptionKeyInfo;
-			webauthnCredential: WebauthnCredential;
-	  };
+		state: "err",
+		err: any,
+		prfKeyInfo: WebauthnPrfEncryptionKeyInfo,
+		webauthnCredential: WebauthnCredential,
+	}
+);
 
 const Dialog = ({
 	children,
 	open,
 	onCancel,
 }: {
-	children: ReactNode;
-	open: boolean;
-	onCancel: () => void;
+	children: ReactNode,
+	open: boolean,
+	onCancel: () => void,
 }) => {
 	const dialog = useRef<HTMLDialogElement | null>(null);
 
-	useEffect(() => {
-		if (dialog.current) {
-			if (open) {
-				dialog.current.showModal();
-			} else {
-				dialog.current.close();
+	useEffect(
+		() => {
+			if (dialog.current) {
+				if (open) {
+					dialog.current.showModal();
+				} else {
+					dialog.current.close();
+				}
 			}
-		}
-	}, [dialog, open]);
+		},
+		[dialog, open],
+	);
 
 	return (
 		<dialog
@@ -109,17 +86,19 @@ const Dialog = ({
 	);
 };
 
-const WebauthnRegistation = ({ onSuccess }: { onSuccess: () => void }) => {
+const WebauthnRegistation = ({
+	onSuccess,
+}: {
+	onSuccess: () => void,
+}) => {
 	const { isOnline } = useContext(StatusContext);
 	const { api, keystore } = useContext(SessionContext);
 	const [beginData, setBeginData] = useState(null);
 	const [pendingCredential, setPendingCredential] = useState(null);
-	const [nickname, setNickname] = useState('');
+	const [nickname, setNickname] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [needPrfRetry, setNeedPrfRetry] = useState(false);
-	const [resolvePrfRetryPrompt, setResolvePrfRetryPrompt] = useState<
-		null | ((accept: boolean) => void)
-	>(null);
+	const [resolvePrfRetryPrompt, setResolvePrfRetryPrompt] = useState<null | ((accept: boolean) => void)>(null);
 	const [prfRetryAccepted, setPrfRetryAccepted] = useState(false);
 	const { t } = useTranslation();
 	const screenType = useScreenType();
@@ -133,7 +112,7 @@ const WebauthnRegistation = ({ onSuccess }: { onSuccess: () => void }) => {
 			setPendingCredential(null);
 
 			const beginResp = await api.post('/user/session/webauthn/register-begin', {});
-			logger.debug('begin', beginResp);
+			logger.debug("begin", beginResp);
 			const beginData = beginResp.data;
 
 			if (beginData.challengeId) {
@@ -145,19 +124,16 @@ const WebauthnRegistation = ({ onSuccess }: { onSuccess: () => void }) => {
 					publicKey: {
 						...beginData.createOptions.publicKey,
 						hints,
-						authenticatorSelection: withAuthenticatorAttachmentFromHints(
-							beginData.createOptions.publicKey.authenticatorSelection,
-							hints,
-						),
+						authenticatorSelection: withAuthenticatorAttachmentFromHints(beginData.createOptions.publicKey.authenticatorSelection, hints),
 					},
 				};
 
 				try {
 					const credential = await navigator.credentials.create(createOptions);
-					logger.debug('created', credential);
+					logger.debug("created", credential);
 					setPendingCredential(credential);
 				} catch (e) {
-					logger.error('Failed to register', e);
+					logger.error("Failed to register", e);
 					setBeginData(null);
 					setPendingCredential(null);
 				}
@@ -168,7 +144,7 @@ const WebauthnRegistation = ({ onSuccess }: { onSuccess: () => void }) => {
 	);
 
 	const onCancel = () => {
-		logger.debug('onCancel');
+		logger.debug("onCancel");
 		setPendingCredential(null);
 		setBeginData(null);
 		setNeedPrfRetry(false);
@@ -179,7 +155,7 @@ const WebauthnRegistation = ({ onSuccess }: { onSuccess: () => void }) => {
 
 	const onFinish = async (event) => {
 		event.preventDefault();
-		logger.debug('onFinish', event);
+		logger.debug("onFinish", event);
 
 		if (beginData && pendingCredential) {
 			try {
@@ -198,39 +174,39 @@ const WebauthnRegistation = ({ onSuccess }: { onSuccess: () => void }) => {
 				);
 
 				setIsSubmitting(true);
-				api.updatePrivateDataEtag(
-					await api.post('/user/session/webauthn/register-finish', {
-						challengeId: beginData.challengeId,
-						nickname,
-						credential: {
-							type: pendingCredential.type,
-							id: pendingCredential.id,
-							rawId: pendingCredential.rawId,
-							response: {
-								attestationObject: pendingCredential.response.attestationObject,
-								clientDataJSON: pendingCredential.response.clientDataJSON,
-								transports: pendingCredential.response.getTransports(),
-							},
-							authenticatorAttachment: pendingCredential.authenticatorAttachment,
-							clientExtensionResults: pendingCredential.getClientExtensionResults(),
+				api.updatePrivateDataEtag(await api.post('/user/session/webauthn/register-finish', {
+					challengeId: beginData.challengeId,
+					nickname,
+					credential: {
+						type: pendingCredential.type,
+						id: pendingCredential.id,
+						rawId: pendingCredential.rawId,
+						response: {
+							attestationObject: pendingCredential.response.attestationObject,
+							clientDataJSON: pendingCredential.response.clientDataJSON,
+							transports: pendingCredential.response.getTransports(),
 						},
-						privateData: serializePrivateData(newPrivateData),
-					}),
-				);
+						authenticatorAttachment: pendingCredential.authenticatorAttachment,
+						clientExtensionResults: pendingCredential.getClientExtensionResults(),
+					},
+					privateData: serializePrivateData(newPrivateData),
+				}));
 				onSuccess();
-				setNickname('');
+				setNickname("");
 				await keystoreCommit();
+
 			} catch (e) {
-				logger.error('Failed to finish registration', e);
+				logger.error("Failed to finish registration", e);
 				if (e?.cause === 'x-private-data-etag') {
 					// TODO: Show this error to the user
-					throw new Error('Private data version conflict', { cause: e });
+					throw new Error("Private data version conflict", { cause: e });
 				}
+
 			} finally {
 				onCancel();
 			}
 		} else {
-			logger.error('Invalid state:', beginData, pendingCredential);
+			logger.error("Invalid state:", beginData, pendingCredential);
 		}
 	};
 
@@ -239,68 +215,74 @@ const WebauthnRegistation = ({ onSuccess }: { onSuccess: () => void }) => {
 	return (
 		<div className="flex flex-row flex-wrap items-baseline gap-2">
 			<span className="grow">{t('pageSettings.addPasskey')}</span>
-			{[
-				{ hint: 'client-device', btnLabel: t('common.platformPasskey'), Icon: FingerprintIcon },
-				{ hint: 'security-key', btnLabel: t('common.externalPasskey'), Icon: UsbStickDotIcon },
-				{ hint: 'hybrid', btnLabel: t('common.hybridPasskey'), Icon: SmartphoneNfcIcon },
-			].map(({ Icon, hint, btnLabel }) => (
-				<Button
-					key={hint}
-					id={`add-passkey-settings-${hint}`}
-					onClick={() => onBegin(hint)}
-					variant="outline"
-					disabled={registrationInProgress || !isOnline}
-					ariaLabel={
-						!isOnline
-							? t('common.offlineTitle')
-							: screenType !== 'desktop'
-								? t('pageSettings.addPasskey')
-								: ''
-					}
-					title={
-						!isOnline
-							? t('common.offlineTitle')
-							: screenType !== 'desktop'
-								? t('pageSettings.addPasskeyTitle')
-								: ''
-					}
-				>
-					<div className="flex items-center">
-						<Icon size={18} />
-						<span className="hidden md:block ml-2">{btnLabel}</span>
-					</div>
-				</Button>
-			))}
+			{
+				[
+					{ hint: "client-device", btnLabel: t('common.platformPasskey'), Icon: FingerprintIcon },
+					{ hint: "security-key", btnLabel: t('common.externalPasskey'), Icon: UsbStickDotIcon },
+					{ hint: "hybrid", btnLabel: t('common.hybridPasskey'), Icon: SmartphoneNfcIcon },
+				].map(({ Icon, hint, btnLabel }) => (
+					<Button
+						key={hint}
+						id={`add-passkey-settings-${hint}`}
+						onClick={() => onBegin(hint)}
+						variant="outline"
+						disabled={registrationInProgress || !isOnline}
+						ariaLabel={(
+							!isOnline
+								? t("common.offlineTitle")
+								: (screenType !== 'desktop' ? t('pageSettings.addPasskey') : "")
+						)}
+						title={(
+							!isOnline
+								? t("common.offlineTitle")
+								: (screenType !== 'desktop' ? t('pageSettings.addPasskeyTitle') : "")
+						)}
+					>
+						<div className="flex items-center">
+							<Icon size={18} />
+							<span className='hidden md:block ml-2'>
+								{btnLabel}
+							</span>
+						</div>
+					</Button>
+				))
+			}
 
-			<Dialog open={stateChooseNickname} onCancel={onCancel}>
+			<Dialog
+				open={stateChooseNickname}
+				onCancel={onCancel}
+			>
 				<form method="dialog" onSubmit={onFinish}>
-					{pendingCredential ? (
-						<>
-							<H2
-								heading={t('registerPasskey.messageSuccess')}
-								hr={false}
-								flexJustifyContent="center"
-							/>
-							<p className="mb-2 dark:text-white">{t('registerPasskey.giveNickname')}</p>
-							<input
-								type="text"
-								className="my-4 w-full px-3 py-2 bg-lm-gray-200 dark:bg-dm-gray-800 border border-lm-gray-600 dark:border-dm-gray-400 dark:text-white rounded-lg dark:inputDarkModeOverride"
-								aria-label={t('registerPasskey.nicknameAriaLabel')}
-								autoFocus={true}
-								disabled={isSubmitting}
-								onChange={(event) => setNickname(event.target.value)}
-								placeholder={t('registerPasskey.nicknamePlaceholder')}
-								value={nickname}
-							/>
-						</>
-					) : (
-						<>
-							<p className="dark:text-white">{t('registerPasskey.messageInteract')}</p>
-						</>
-					)}
+					{pendingCredential
+						? (
+							<>
+								<H2 heading={t('registerPasskey.messageSuccess')} hr={false} flexJustifyContent='center' />
+								<p className="mb-2 dark:text-white">{t('registerPasskey.giveNickname')}</p>
+								<input
+									type="text"
+									className="my-4 w-full px-3 py-2 bg-lm-gray-200 dark:bg-dm-gray-800 border border-lm-gray-600 dark:border-dm-gray-400 dark:text-white rounded-lg dark:inputDarkModeOverride"
+									aria-label={t('registerPasskey.nicknameAriaLabel')}
+									autoFocus={true}
+									disabled={isSubmitting}
+									onChange={(event) => setNickname(event.target.value)}
+									placeholder={t('registerPasskey.nicknamePlaceholder')}
+									value={nickname}
+								/>
+							</>
+						)
+						: (
+							<>
+								<p className='dark:text-white'>{t('registerPasskey.messageInteract')}</p>
+							</>
+						)
+					}
 
 					<div className="pt-2 flex justify-center gap-2">
-						<Button id="cancel-add-passkey-settings" onClick={onCancel} disabled={isSubmitting}>
+						<Button
+							id="cancel-add-passkey-settings"
+							onClick={onCancel}
+							disabled={isSubmitting}
+						>
 							{t('common.cancel')}
 						</Button>
 
@@ -315,6 +297,7 @@ const WebauthnRegistation = ({ onSuccess }: { onSuccess: () => void }) => {
 							</Button>
 						)}
 					</div>
+
 				</form>
 			</Dialog>
 
@@ -322,12 +305,15 @@ const WebauthnRegistation = ({ onSuccess }: { onSuccess: () => void }) => {
 				open={needPrfRetry && !prfRetryAccepted}
 				onCancel={() => resolvePrfRetryPrompt(false)}
 			>
-				<H2 heading={t('registerPasskey.messageDone')} flexJustifyContent="center" hr={false} />
-				<p className="dark:text-white">{t('registerPasskey.passkeyCreated')}</p>
-				<p className="dark:text-white">{t('registerPasskey.authOnceMore')}</p>
+				<H2 heading={t('registerPasskey.messageDone')} flexJustifyContent='center' hr={false}/>
+				<p className='dark:text-white'>{t('registerPasskey.passkeyCreated')}</p>
+				<p className='dark:text-white'>{t('registerPasskey.authOnceMore')}</p>
 
-				<div className="flex justify-center gap-2">
-					<Button id="cancel-prf-passkey-settings" onClick={() => resolvePrfRetryPrompt(false)}>
+				<div className='flex justify-center gap-2'>
+					<Button
+						id="cancel-prf-passkey-settings"
+						onClick={() => resolvePrfRetryPrompt(false)}
+					>
 						{t('common.cancel')}
 					</Button>
 
@@ -340,12 +326,20 @@ const WebauthnRegistation = ({ onSuccess }: { onSuccess: () => void }) => {
 						{t('common.continue')}
 					</Button>
 				</div>
+
 			</Dialog>
 
-			<Dialog open={prfRetryAccepted} onCancel={onCancel}>
-				<p className="dark:text-white">{t('registerPasskey.messageInteractNewPasskey')}</p>
-				<div className="flex justify-center">
-					<Button id="cancel-in-progress-prf-settings" onClick={onCancel}>
+			<Dialog
+				open={prfRetryAccepted}
+				onCancel={onCancel}
+			>
+				<p className='dark:text-white'>{t('registerPasskey.messageInteractNewPasskey')}</p>
+				<div className='flex justify-center'>
+					<Button
+						id="cancel-in-progress-prf-settings"
+
+						onClick={onCancel}
+					>
 						{t('common.cancel')}
 					</Button>
 				</div>
@@ -359,9 +353,9 @@ const UnlockMainKey = ({
 	onUnlock,
 	unlocked,
 }: {
-	onLock: () => void;
-	onUnlock: () => void;
-	unlocked: boolean;
+	onLock: () => void,
+	onUnlock: () => void,
+	unlocked: boolean,
 }) => {
 	const { isOnline } = useContext(StatusContext);
 	const { keystore } = useContext(SessionContext);
@@ -370,34 +364,40 @@ const UnlockMainKey = ({
 	const { t } = useTranslation();
 	const screenType = useScreenType();
 
-	useEffect(() => {
-		setError('');
-	}, []);
+	useEffect(
+		() => {
+			setError("");
+		},
+		[],
+	);
 
-	const onBeginUnlock = useCallback(async () => {
-		setInProgress(true);
-		try {
-			setError('');
-			await keystore.getPrfKeyFromSession(async () => true);
-			onUnlock();
-		} catch (e) {
-			// Using a switch here so the t() argument can be a literal, to ease searching
-			switch (e?.cause?.errorId) {
-				case 'passkeyInvalid':
-					setError(t('loginSignup.passkeyInvalid'));
-					break;
+	const onBeginUnlock = useCallback(
+		async () => {
+			setInProgress(true);
+			try {
+				setError('');
+				await keystore.getPrfKeyFromSession(async () => true);
+				onUnlock();
+			} catch (e) {
+				// Using a switch here so the t() argument can be a literal, to ease searching
+				switch (e?.cause?.errorId) {
+					case 'passkeyInvalid':
+						setError(t('loginSignup.passkeyInvalid'));
+						break;
 
-				case 'passkeyLoginFailedTryAgain':
-					setError(t('loginSignup.passkeyLoginFailedTryAgain'));
-					break;
+					case 'passkeyLoginFailedTryAgain':
+						setError(t('loginSignup.passkeyLoginFailedTryAgain'));
+						break;
 
-				default:
-					throw e;
+					default:
+						throw e;
+				}
+			} finally {
+				setInProgress(false);
 			}
-		} finally {
-			setInProgress(false);
-		}
-	}, [keystore, onUnlock, t]);
+		},
+		[keystore, onUnlock, t],
+	);
 
 	return (
 		<>
@@ -406,36 +406,31 @@ const UnlockMainKey = ({
 				onClick={unlocked ? onLock : onBeginUnlock}
 				variant="primary"
 				disabled={inProgress || (!unlocked && !isOnline)}
-				ariaLabel={
-					!unlocked && !isOnline
-						? t('common.offlineTitle')
-						: screenType !== 'desktop' &&
-							(unlocked ? t('pageSettings.lockSensitive') : t('pageSettings.unlockSensitive'))
-				}
-				title={
-					!unlocked && !isOnline
-						? t('common.offlineTitle')
-						: screenType !== 'desktop' &&
-							(unlocked
-								? t('pageSettings.lockSensitiveTitle')
-								: t('pageSettings.unlockSensitiveTitle'))
-				}
+				ariaLabel={!unlocked && !isOnline ? t("common.offlineTitle") : screenType !== 'desktop' && (unlocked ? t('pageSettings.lockSensitive') : t('pageSettings.unlockSensitive'))}
+				title={!unlocked && !isOnline ? t("common.offlineTitle") : screenType !== 'desktop' && (unlocked ? t('pageSettings.lockSensitiveTitle') : t('pageSettings.unlockSensitiveTitle'))}
 			>
 				<div className="flex items-center">
-					{unlocked ? (
-						<>
+					{unlocked
+						? <>
 							<LockOpen size={18} />
-							<span className="hidden md:block ml-2">{t('pageSettings.lockSensitive')}</span>
+							<span className='hidden md:block ml-2'>
+								{t('pageSettings.lockSensitive')}
+							</span>
 						</>
-					) : (
-						<>
+						: <>
 							<Lock size={18} />
-							<span className="hidden md:block ml-2">{t('pageSettings.unlockSensitive')}</span>
+							<span className='hidden md:block ml-2'>
+								{t('pageSettings.unlockSensitive')}
+							</span>
 						</>
-					)}
+					}
 				</div>
 			</Button>
-			{error && <p className="text-lm-red dark:text-dm-red mt-2">{error}</p>}
+			{error &&
+				<p className="text-lm-red dark:text-dm-red mt-2">
+					{error}
+				</p>
+			}
 		</>
 	);
 };
@@ -447,11 +442,11 @@ const WebauthnCredentialItem = ({
 	onRename,
 	onUpgradePrfKey,
 }: {
-	credential: WebauthnCredential;
-	prfKeyInfo: WebauthnPrfEncryptionKeyInfo;
-	onDelete?: false | (() => Promise<void>);
-	onRename: (credential: WebauthnCredential, nickname: string | null) => Promise<boolean>;
-	onUpgradePrfKey: (prfKeyInfo: WebauthnPrfEncryptionKeyInfo) => void;
+	credential: WebauthnCredential,
+	prfKeyInfo: WebauthnPrfEncryptionKeyInfo,
+	onDelete?: false | (() => Promise<void>),
+	onRename: (credential: WebauthnCredential, nickname: string | null) => Promise<boolean>,
+	onUpgradePrfKey: (prfKeyInfo: WebauthnPrfEncryptionKeyInfo) => void,
 }) => {
 	const { isOnline } = useContext(StatusContext);
 	const [nickname, setNickname] = useState(credential.nickname || '');
@@ -474,14 +469,17 @@ const WebauthnCredentialItem = ({
 		}
 	};
 
-	const onCancelEditing = useCallback(() => {
-		setNickname(credential.nickname || '');
-		setEditing(false);
-	}, [credential.nickname]);
+	const onCancelEditing = useCallback(
+		() => {
+			setNickname(credential.nickname || '');
+			setEditing(false);
+		},
+		[credential.nickname],
+	);
 
 	const onKeyUp = useCallback(
 		(event: KeyboardEvent<HTMLInputElement>) => {
-			if (event.key === 'Escape') {
+			if (event.key === "Escape") {
 				onCancelEditing();
 			}
 		},
@@ -509,108 +507,112 @@ const WebauthnCredentialItem = ({
 			onSubmit={onSubmit}
 		>
 			<div className="grow">
-				{editing ? (
-					<>
-						<div className="flex items-center gap-2">
-							<p className="font-semibold dark:text-white">
-								{t('pageSettings.passkeyItem.nickname')}:&nbsp;
+				{editing
+					? (
+						<>
+							<div className="flex items-center gap-2">
+								<p className="font-semibold dark:text-white">
+									{t('pageSettings.passkeyItem.nickname')}:&nbsp;
+								</p>
+								<input
+									className="w-36 px-3 py-2 bg-lm-gray-200 dark:bg-dm-gray-800 border border-lm-gray-600 dark:border-dm-gray-400 dark:text-white rounded-lg dark:inputDarkModeOverride"
+
+									type="text"
+									placeholder={t('pageSettings.passkeyItem.nicknameInput')}
+									value={nickname}
+									onChange={(event) => setNickname(event.target.value)}
+									aria-label={t('pageSettings.passkeyItem.nicknameInputAriaLabel', { passkeyLabel: currentLabel })}
+									onKeyUp={onKeyUp}
+									disabled={submitting}
+								/>
+							</div>
+						</>
+					)
+					: (
+						<div className="flex items-center">
+							<p>
+								<span className="font-semibold dark:text-white">
+									{t('pageSettings.passkeyItem.nickname')}:&nbsp;
+								</span>
+								<span className="italic">
+									{currentLabel}
+								</span>
 							</p>
-							<input
-								className="w-36 px-3 py-2 bg-lm-gray-200 dark:bg-dm-gray-800 border border-lm-gray-600 dark:border-dm-gray-400 dark:text-white rounded-lg dark:inputDarkModeOverride"
-								type="text"
-								placeholder={t('pageSettings.passkeyItem.nicknameInput')}
-								value={nickname}
-								onChange={(event) => setNickname(event.target.value)}
-								aria-label={t('pageSettings.passkeyItem.nicknameInputAriaLabel', {
-									passkeyLabel: currentLabel,
-								})}
-								onKeyUp={onKeyUp}
-								disabled={submitting}
-							/>
 						</div>
-					</>
-				) : (
-					<div className="flex items-center">
-						<p>
-							<span className="font-semibold dark:text-white">
-								{t('pageSettings.passkeyItem.nickname')}:&nbsp;
-							</span>
-							<span className="italic">{currentLabel}</span>
-						</p>
-					</div>
-				)}
-				<p className="dark:text-white">
-					<span className="font-semibold">{t('pageSettings.passkeyItem.created')}:&nbsp;</span>
+					)
+				}
+				<p className='dark:text-white'>
+					<span className="font-semibold">
+						{t('pageSettings.passkeyItem.created')}:&nbsp;
+					</span>
 					{formatDate(credential.createTime)}
 				</p>
-				<p className="dark:text-white">
-					<span className="font-semibold">{t('pageSettings.passkeyItem.lastUsed')}:&nbsp;</span>
-					{formatDate(credential.lastUseTime)}
-				</p>
-				<p className="dark:text-white flex gap-3 items-center">
-					<span className="font-semibold">{t('pageSettings.passkeyItem.canEncrypt')}:&nbsp;</span>
-					{credential.prfCapable
-						? t('pageSettings.passkeyItem.canEncryptYes')
-						: t('pageSettings.passkeyItem.canEncryptNo')}
-					{needsPrfUpgrade && (
-						<span className="py-1 px-2 rounded bg-lm-orange dark:bg-dm-orange text-lm-gray-900 font-bold">
-							{t('pageSettings.passkeyItem.needsPrfUpgrade')}
-						</span>
-					)}
+				<p className='dark:text-white'>
+					<span className="font-semibold">
+						{t('pageSettings.passkeyItem.lastUsed')}:&nbsp;
+					</span>
+					{formatDate(credential.lastUseTime)}</p>
+				<p className='dark:text-white flex gap-3 items-center'>
+					<span className="font-semibold">
+						{t('pageSettings.passkeyItem.canEncrypt')}:&nbsp;
+					</span>
+					{credential.prfCapable ? t('pageSettings.passkeyItem.canEncryptYes') : t('pageSettings.passkeyItem.canEncryptNo')}
+					{needsPrfUpgrade
+						&& <span className="py-1 px-2 rounded bg-lm-orange dark:bg-dm-orange text-lm-gray-900 font-bold">{t('pageSettings.passkeyItem.needsPrfUpgrade')}</span>
+					}
 				</p>
 			</div>
 
 			<div className="items-start	flex gap-2">
-				{needsPrfUpgrade && (
+				{needsPrfUpgrade
+					&&
 					<Button
 						id="upgrade-prf-settings"
 						variant="outline"
 						type="button"
 						onClick={() => onUpgradePrfKey(prfKeyInfo)}
-						aria-label={t('pageSettings.passkeyItem.prfUpgradeAriaLabel', {
-							passkeyLabel: currentLabel,
-						})}
+						aria-label={t('pageSettings.passkeyItem.prfUpgradeAriaLabel', { passkeyLabel: currentLabel })}
 					>
 						<RefreshCcw size={18} /> {t('pageSettings.passkeyItem.prfUpgrade')}
 					</Button>
-				)}
+				}
 
-				{editing ? (
-					<div className="flex gap-2">
+				{editing
+					? (
+
+						<div className='flex gap-2'>
+							<Button
+								id="cancel-editing-settings"
+								onClick={onCancelEditing}
+								disabled={submitting}
+								ariaLabel={t('pageSettings.passkeyItem.cancelChangesAriaLabel', { passkeyLabel: currentLabel })}
+							>
+								{t('common.cancel')}
+							</Button>
+							<Button
+								id="save-editing-settings"
+								type="submit"
+								disabled={submitting}
+								variant="primary"
+							>
+								{t('common.save')}
+							</Button>
+						</div>
+					)
+					: (
 						<Button
-							id="cancel-editing-settings"
-							onClick={onCancelEditing}
-							disabled={submitting}
-							ariaLabel={t('pageSettings.passkeyItem.cancelChangesAriaLabel', {
-								passkeyLabel: currentLabel,
-							})}
-						>
-							{t('common.cancel')}
-						</Button>
-						<Button
-							id="save-editing-settings"
-							type="submit"
-							disabled={submitting}
+							id="rename-passkey"
+							onClick={() => setEditing(true)}
 							variant="primary"
+							disabled={!isOnline}
+							aria-label={t('pageSettings.passkeyItem.renameAriaLabel', { passkeyLabel: currentLabel })}
+							title={!isOnline ? t("common.offlineTitle") : ""}
 						>
-							{t('common.save')}
+							<Edit size={18} className="mr-2" />
+							{t('pageSettings.passkeyItem.rename')}
 						</Button>
-					</div>
-				) : (
-					<Button
-						id="rename-passkey"
-						onClick={() => setEditing(true)}
-						variant="primary"
-						disabled={!isOnline}
-						aria-label={t('pageSettings.passkeyItem.renameAriaLabel', {
-							passkeyLabel: currentLabel,
-						})}
-						title={!isOnline ? t('common.offlineTitle') : ''}
-					>
-						<Edit size={18} className="mr-2" />
-						{t('pageSettings.passkeyItem.rename')}
-					</Button>
-				)}
+					)
+				}
 
 				{onDelete && (
 					<Button
@@ -618,17 +620,9 @@ const WebauthnCredentialItem = ({
 						onClick={openDeleteConfirmation}
 						variant="delete"
 						disabled={!isOnline}
-						aria-label={t('pageSettings.passkeyItem.deleteAriaLabel', {
-							passkeyLabel: currentLabel,
-						})}
-						title={
-							!isOnline
-								? t('common.offlineTitle')
-								: t('pageSettings.passkeyItem.deleteButtonTitleUnlocked', {
-										passkeyLabel: currentLabel,
-									})
-						}
-						additionalClassName="ml-2 py-3"
+						aria-label={t('pageSettings.passkeyItem.deleteAriaLabel', { passkeyLabel: currentLabel })}
+						title={!isOnline ? t("common.offlineTitle") : t("pageSettings.passkeyItem.deleteButtonTitleUnlocked", { passkeyLabel: currentLabel })}
+						additionalClassName='ml-2 py-3'
 					>
 						<Trash2 size={18} />
 					</Button>
@@ -678,17 +672,17 @@ const Settings = () => {
 		try {
 			await api.del('/user/session');
 			const userHandleB64u = keystore.getUserHandleB64u();
-			const cachedUser = keystore
-				.getCachedUsers()
+			const cachedUser = keystore.getCachedUsers()
 				.find((cachedUser) => cachedUser.userHandleB64u === userHandleB64u);
 			if (cachedUser) {
 				keystore.forgetCachedUser(cachedUser);
 			}
 			await logout();
-		} catch (err) {
-			logger.debug('Error = ', err);
 		}
-	};
+		catch (err) {
+			logger.debug('Error = ', err)
+		}
+	}
 
 	const handleDelete = async () => {
 		if (unlocked) {
@@ -701,59 +695,61 @@ const Settings = () => {
 		}
 	};
 
-	const refreshData = useCallback(async () => {
-		keystore; // eslint-disable-line @typescript-eslint/no-unused-expressions -- Silence react-hooks/exhaustive-deps
-		try {
-			const response = await api.get('/user/session/account-info');
-			const s = keystore.getCalculatedWalletState();
-			const userData = {
-				...response.data,
-				settings: s.settings,
-			};
-			logger.debug(userData);
-			setUserData(userData);
-			dispatchEvent(new CustomEvent('settingsChanged'));
-		} catch (error) {
-			logger.error('Failed to fetch data', error);
-		}
-	}, [
-		api,
-		keystore, // To react if credentials are modified in a different tab
-		setUserData,
-	]);
+	const refreshData = useCallback(
+		async () => {
+			keystore; // eslint-disable-line @typescript-eslint/no-unused-expressions -- Silence react-hooks/exhaustive-deps
+			try {
+				const response = await api.get('/user/session/account-info');
+				const s = keystore.getCalculatedWalletState();
+				const userData = {
+					...response.data,
+					settings: s.settings,
+				};
+				logger.debug(userData);
+				setUserData(userData);
+				dispatchEvent(new CustomEvent("settingsChanged"));
+			} catch (error) {
+				logger.error('Failed to fetch data', error);
+			}
+		},
+		[
+			api,
+			keystore, // To react if credentials are modified in a different tab
+			setUserData,
+		],
+	);
 
-	useEffect(() => {
-		refreshData();
-	}, [refreshData]);
+	useEffect(
+		() => {
+			refreshData();
+		},
+		[refreshData],
+	);
 
 	const deleteWebauthnCredential = async (credential: WebauthnCredential) => {
 		const [newPrivateData, keystoreCommit] = keystore.deletePrf(credential.credentialId);
 		try {
-			const deleteResp = api.updatePrivateDataEtag(
-				await api.post(`/user/session/webauthn/credential/${credential.id}/delete`, {
-					privateData: serializePrivateData(newPrivateData),
-				}),
-			);
+			const deleteResp = api.updatePrivateDataEtag(await api.post(`/user/session/webauthn/credential/${credential.id}/delete`, {
+				privateData: serializePrivateData(newPrivateData),
+			}));
 			if (deleteResp.status === 204) {
 				await keystoreCommit();
 			} else {
-				logger.error('Failed to delete WebAuthn credential', deleteResp.status, deleteResp);
+				logger.error("Failed to delete WebAuthn credential", deleteResp.status, deleteResp);
 			}
 			await refreshData();
+
 		} catch (e) {
-			logger.error('Failed to delete WebAuthn credential', e);
+			logger.error("Failed to delete WebAuthn credential", e);
 			if (e?.cause === 'x-private-data-etag') {
 				// TODO: Show this error to the user
-				throw new Error('Private data version conflict', { cause: e });
+				throw new Error("Private data version conflict", { cause: e });
 			}
 			throw e;
 		}
 	};
 
-	const onRenameWebauthnCredential = async (
-		credential: WebauthnCredential,
-		nickname: string,
-	): Promise<boolean> => {
+	const onRenameWebauthnCredential = async (credential: WebauthnCredential, nickname: string): Promise<boolean> => {
 		const deleteResp = await api.post(`/user/session/webauthn/credential/${credential.id}/rename`, {
 			nickname,
 		});
@@ -761,7 +757,7 @@ const Settings = () => {
 		if (deleteResp.status === 204) {
 			return true;
 		} else {
-			logger.error('Failed to rename WebAuthn credential', deleteResp.status, deleteResp);
+			logger.error("Failed to rename WebAuthn credential", deleteResp.status, deleteResp);
 			return false;
 		}
 	};
@@ -772,14 +768,14 @@ const Settings = () => {
 				prfKeyInfo,
 				async () => {
 					const abortController = new AbortController();
-					setUpgradePrfState({
-						state: 'authenticate',
-						prfKeyInfo,
-						webauthnCredential: userData.webauthnCredentials.find(
-							(cred) => toBase64Url(cred.credentialId) === toBase64Url(prfKeyInfo.credentialId),
-						),
-						abortController,
-					});
+					setUpgradePrfState(
+						{
+							state: "authenticate",
+							prfKeyInfo,
+							webauthnCredential: userData.webauthnCredentials.find(cred => toBase64Url(cred.credentialId) === toBase64Url(prfKeyInfo.credentialId)),
+							abortController,
+						}
+					);
 					return abortController.signal;
 				},
 			);
@@ -788,40 +784,34 @@ const Settings = () => {
 				await api.updatePrivateData(newPrivateData);
 				await keystoreCommit();
 			} catch (e) {
-				logger.error('Failed to upgrade PRF key', e, e.status);
+				logger.error("Failed to upgrade PRF key", e, e.status);
 			}
 		} catch (e) {
-			logger.error('Failed to upgrade PRF key', e);
+			logger.error("Failed to upgrade PRF key", e);
 			if (e?.cause === 'x-private-data-etag') {
 				// TODO: Show this error to the user
-				throw new Error('Private data version conflict', { cause: e });
+				throw new Error("Private data version conflict", { cause: e });
 			}
 
-			logger.error('Failed to upgrade PRF key', e);
-			setUpgradePrfState((state) => ({
-				state: 'err',
-				err: e,
-				prfKeyInfo,
-				webauthnCredential: state?.webauthnCredential,
-			}));
+			logger.error("Failed to upgrade PRF key", e);
+			setUpgradePrfState(state => ({ state: "err", err: e, prfKeyInfo, webauthnCredential: state?.webauthnCredential }));
 		}
 	};
 
 	const onCancelUpgradePrfKey = () => {
-		if (upgradePrfState?.state === 'authenticate') {
+		if (upgradePrfState?.state === "authenticate") {
 			upgradePrfState.abortController.abort();
 		}
 		setUpgradePrfState(null);
 	};
 
 	const loggedInPasskey = userData?.webauthnCredentials.find(
-		(cred) => toBase64Url(cred.credentialId) === loggedInPasskeyCredentialId,
-	);
+		cred => toBase64Url(cred.credentialId) === loggedInPasskeyCredentialId);
 
 	const handleTokenMaxAgeChange = async (newMaxAge: string) => {
 		try {
 			if (isNaN(parseInt(newMaxAge))) {
-				throw new Error('Update token max age: newMaxAge is not a number');
+				throw new Error("Update token max age: newMaxAge is not a number");
 			}
 			const [, newPrivateData, keystoreCommit] = await keystore.alterSettings({
 				...getCalculatedWalletState().settings,
@@ -844,7 +834,7 @@ const Settings = () => {
 	const handleObliviousChange = async (useOblivious: string) => {
 		try {
 			if (!['true', 'false'].includes(useOblivious)) {
-				throw new Error('Update useOblivious: invalid value');
+				throw new Error("Update useOblivious: invalid value");
 			}
 			const [, newPrivateData, keystoreCommit] = await keystore.alterSettings({
 				...getCalculatedWalletState().settings,
@@ -862,7 +852,7 @@ const Settings = () => {
 		} catch (error) {
 			logger.error('Failed to update settings', error);
 		}
-	};
+	}
 
 	return (
 		<>
@@ -876,18 +866,16 @@ const Settings = () => {
 							<H2 heading={t('pageSettings.title.language')} />
 							<div className="relative inline-block min-w-36">
 								<div className="relative">
-									<LanguageSelector
-										className="h-10 pl-3 pr-10 bg-lm-gray-200 dark:bg-dm-gray-800 border border-lm-gray-600 dark:border-dm-gray-400 dark:text-white rounded-lg dark:inputDarkModeOverride appearance-none"
-										showName={true}
-									/>
+									<LanguageSelector className="h-10 pl-3 pr-10 bg-lm-gray-200 dark:bg-dm-gray-800 border border-lm-gray-600 dark:border-dm-gray-400 dark:text-white rounded-lg dark:inputDarkModeOverride appearance-none" showName={true} />
 								</div>
 							</div>
 						</div>
 						<div className="my-2 py-2">
 							<H2 heading={t('pageSettings.appearance.title')} />
-							<div className="pt-4">
-								<H3 heading={t('pageSettings.appearance.colorScheme.title')}></H3>
-								<p className="mb-2 dark:text-white">
+							<div className='pt-4'>
+								<H3 heading={t('pageSettings.appearance.colorScheme.title')}>
+								</H3>
+								<p className='mb-2 dark:text-white'>
 									{t('pageSettings.appearance.colorScheme.description')}
 								</p>
 							</div>
@@ -896,8 +884,7 @@ const Settings = () => {
 									<span className="absolute top-[50%] left-3 transform -translate-y-[50%] pointer-events-none">
 										{settings.colorScheme === 'light' && <Sun size={18} />}
 										{settings.colorScheme === 'dark' && <Moon size={18} />}
-										{settings.colorScheme === 'system' &&
-											(screenType === 'desktop' ? <Laptop size={18} /> : <Smartphone size={18} />)}
+										{settings.colorScheme === 'system' && (screenType === 'desktop' ? <Laptop size={18} /> : <Smartphone size={18} />)}
 									</span>
 									<select
 										className="h-10 pl-10 pr-10 bg-lm-gray-200 dark:bg-dm-gray-800 border border-lm-gray-600 dark:border-dm-gray-400 dark:text-white rounded-lg dark:inputDarkModeOverride appearance-none"
@@ -907,8 +894,12 @@ const Settings = () => {
 										<option value="system">
 											{t('pageSettings.appearance.colorScheme.system')}
 										</option>
-										<option value="light">{t('pageSettings.appearance.colorScheme.light')}</option>
-										<option value="dark">{t('pageSettings.appearance.colorScheme.dark')}</option>
+										<option value="light">
+											{t('pageSettings.appearance.colorScheme.light')}
+										</option>
+										<option value="dark">
+											{t('pageSettings.appearance.colorScheme.dark')}
+										</option>
 									</select>
 									<span className="absolute right-2 top-[50%] transform -translate-y-[50%] pointer-events-none">
 										<ChevronDown size={18} />
@@ -930,8 +921,10 @@ const Settings = () => {
 						</div>
 						<div className="my-2 py-2">
 							<H2 heading={t('pageSettings.title.rememberIssuer')} />
-							<p className="mb-2 dark:text-white">{t('pageSettings.rememberIssuer.description')}</p>
-							<div className="flex gap-2 items-center">
+							<p className='mb-2 dark:text-white'>
+								{t('pageSettings.rememberIssuer.description')}
+							</p>
+							<div className='flex gap-2 items-center'>
 								<div className="relative inline-block min-w-36">
 									<div className="relative">
 										<select
@@ -941,30 +934,28 @@ const Settings = () => {
 										>
 											<option value="0">{t('pageSettings.rememberIssuer.options.none')}</option>
 											<option value="3600">{t('pageSettings.rememberIssuer.options.hour')}</option>
-											<option value={`${24 * 3600}`}>
-												{t('pageSettings.rememberIssuer.options.day')}
-											</option>
-											<option value={`${7 * 24 * 3600}`}>
-												{t('pageSettings.rememberIssuer.options.week')}
-											</option>
-											<option value={`${30 * 24 * 3600}`}>
-												{t('pageSettings.rememberIssuer.options.month')}
-											</option>
+											<option value={`${24 * 3600}`}>{t('pageSettings.rememberIssuer.options.day')}</option>
+											<option value={`${7 * 24 * 3600}`}>{t('pageSettings.rememberIssuer.options.week')}</option>
+											<option value={`${30 * 24 * 3600}`}>{t('pageSettings.rememberIssuer.options.month')}</option>
 										</select>
 										<span className="absolute top-1/2 right-2 transform -translate-y-[43%] pointer-events-none">
-											<ChevronDown size={18} className="dark:text-white" />
+											<ChevronDown size={18} className='dark:text-white' />
 										</span>
 									</div>
 								</div>
 								{successMessage && (
-									<div className="text-md text-lm-green dark:text-dm-green">{successMessage}</div>
+									<div className="text-md text-lm-green dark:text-dm-green">
+										{successMessage}
+									</div>
 								)}
 							</div>
 						</div>
 						<div className="my-2 py-2">
 							<H2 heading={t('pageSettings.oblivious.title')} />
-							<p className="mb-2 dark:text-white">{t('pageSettings.oblivious.description')}</p>
-							<div className="flex gap-2 items-center">
+							<p className='mb-2 dark:text-white'>
+								{t('pageSettings.oblivious.description')}
+							</p>
+							<div className='flex gap-2 items-center'>
 								<div className="relative inline-block min-w-36">
 									<div className="relative">
 										<select
@@ -972,13 +963,13 @@ const Settings = () => {
 											defaultValue={userData.settings.useOblivious}
 											onChange={(e) => handleObliviousChange(e.target.value)}
 											disabled={!isOnline}
-											title={!isOnline ? t('common.offlineTitle') : undefined}
+											title={!isOnline ? t("common.offlineTitle") : undefined}
 										>
 											<option value="false">{t('pageSettings.oblivious.disabled')}</option>
 											<option value="true">{t('pageSettings.oblivious.gunet')}</option>
 										</select>
 										<span className="absolute top-1/2 right-2 transform -translate-y-[43%] pointer-events-none">
-											<ChevronDown size={18} className="dark:text-white" />
+											<ChevronDown size={18} className='dark:text-white' />
 										</span>
 									</div>
 								</div>
@@ -992,13 +983,13 @@ const Settings = () => {
 						{walletCompanion && (
 							<div className="my-2 py-2">
 								<H2 heading={t('pageSettings.walletCompanion.title')} />
-								<div className="space-y-2">
-									<p className=" dark:text-white">
+								<div className='space-y-2'>
+									<p className=' dark:text-white'>
 										{t('pageSettings.walletCompanion.description')}
 									</p>
 
 									{walletCompanion.isRegistered ? (
-										<p className="text-lm-green dark:text-dm-green">
+										<p className='text-lm-green dark:text-dm-green'>
 											<CircleCheckIcon size={18} className="inline mr-1" />
 											{t('pageSettings.walletCompanion.registered')}
 										</p>
@@ -1007,25 +998,26 @@ const Settings = () => {
 											{t('pageSettings.walletCompanion.register')}
 										</Button>
 									)}
-									<p className="text-sm dark:text-white">
-										{t('pageSettings.walletCompanion.detected', {
-											version: walletCompanion.api.version,
-										})}
+									<p className='text-sm dark:text-white'>
+										{t('pageSettings.walletCompanion.detected', { version: walletCompanion.api.version })}
 									</p>
 								</div>
 							</div>
 						)}
 						<div className="mt-2 mb-2 py-2">
-							<H2 heading={t('pageSettings.title.manageAcount')}></H2>
-							<div className="mb-2">
+							<H2 heading={t('pageSettings.title.manageAcount')}>
+							</H2>
+							<div className='mb-2'>
 								<div className="pt-4">
-									<H3 heading={t('pageSettings.title.manageOtherPasskeys')}></H3>
+									<H3 heading={t('pageSettings.title.manageOtherPasskeys')}>
+									</H3>
 									<WebauthnRegistation onSuccess={() => refreshData()} />
 									<ul className="mt-4">
+
 										{userData.webauthnCredentials
-											.filter((cred) => !loggedInPasskey || cred.id !== loggedInPasskey.id)
+											.filter(cred => !loggedInPasskey || cred.id !== loggedInPasskey.id)
 											.sort(compareBy((cred: WebauthnCredential) => new Date(cred.createTime)))
-											.map((cred) => (
+											.map(cred => (
 												<WebauthnCredentialItem
 													key={cred.id}
 													credential={cred}
@@ -1035,11 +1027,10 @@ const Settings = () => {
 													onUpgradePrfKey={onUpgradePrfKey}
 												/>
 											))}
-										{userData.webauthnCredentials.filter(
-											(cred) => !loggedInPasskey || cred.id !== loggedInPasskey.id,
-										).length === 0 && (
-											<p className="dark:text-white">{t('pageSettings.noOtherPasskeys')}</p>
-										)}
+										{userData.webauthnCredentials
+											.filter(cred => !loggedInPasskey || cred.id !== loggedInPasskey.id).length === 0 && (
+												<p className='dark:text-white'>{t('pageSettings.noOtherPasskeys')}</p>
+											)}
 									</ul>
 								</div>
 
@@ -1051,7 +1042,7 @@ const Settings = () => {
 											onUnlock={() => setUnlocked(true)}
 										/>
 									</H3>
-									<p className="mb-2 dark:text-white">
+									<p className='mb-2 dark:text-white'>
 										{t('pageSettings.deleteAccount.description')}
 									</p>
 									<Button
@@ -1059,22 +1050,17 @@ const Settings = () => {
 										onClick={openDeleteConfirmation}
 										variant="delete"
 										disabled={!unlocked || !isOnline}
-										title={
-											unlocked && !isOnline
-												? t('common.offlineTitle')
-												: !unlocked
-													? t('pageSettings.deleteAccount.deleteButtonTitleLocked')
-													: ''
-										}
+										title={unlocked && !isOnline ? t("common.offlineTitle") : !unlocked ? t("pageSettings.deleteAccount.deleteButtonTitleLocked") : ""}
 									>
 										<Trash2 size={18} />
 										{t('pageSettings.deleteAccount.buttonText')}
 									</Button>
 								</div>
 							</div>
+
 						</div>
 						<div className="my-2 py-2">
-							<div className="relative">
+							<div className='relative'>
 								<H2 heading={t('pageSettings.title.appVersion')} />
 								{updateAvailable && (
 									<Bell
@@ -1084,30 +1070,28 @@ const Settings = () => {
 								)}
 							</div>
 							{updateAvailable ? (
-								<p className="mb-2 dark:text-white">
+								<p className='mb-2 dark:text-white'>
 									<Trans
 										i18nKey="pageSettings.appVersion.descriptionOldVersion"
 										values={{ react_app_version: APP_VERSION }}
 										components={{
-											reloadButton: (
+											reloadButton:
 												<button
 													id="reload-update-version"
-													className="text-primary dark:text-brand-light underline"
+													className='text-primary dark:text-brand-light underline'
 													onClick={() => window.location.reload()}
-												/>
-											),
+												/>,
 											strong: <strong />,
 											br: <br />,
 										}}
 									/>
 								</p>
 							) : (
-								<p className="mb-2 dark:text-white">
-									{t('pageSettings.appVersion.descriptionLatestVersion', {
-										react_app_version: APP_VERSION,
-									})}
+								<p className='mb-2 dark:text-white'>
+									{t('pageSettings.appVersion.descriptionLatestVersion', { react_app_version: APP_VERSION })}
 								</p>
 							)}
+
 						</div>
 					</>
 				)}
@@ -1124,46 +1108,46 @@ const Settings = () => {
 					loading={loading}
 				/>
 
-				<Dialog open={upgradePrfState !== null} onCancel={onCancelUpgradePrfKey}>
-					{upgradePrfState?.state === 'authenticate' ? (
-						<>
-							<H2
-								heading={t('pageSettings.upgradePrfKey.title')}
-								hr={false}
-								flexJustifyContent="center"
-							></H2>
-							<p className="mb-2">
-								{t('pageSettings.upgradePrfKey.description', {
-									passkeyLabel: upgradePrfPasskeyLabel,
-								})}
+				<Dialog
+					open={upgradePrfState !== null}
+					onCancel={onCancelUpgradePrfKey}
+				>
+					{upgradePrfState?.state === "authenticate"
+						? <>
+							<H2 heading={t('pageSettings.upgradePrfKey.title')} hr={false} flexJustifyContent='center'></H2>
+							<p className='mb-2'>
+								{t('pageSettings.upgradePrfKey.description', { passkeyLabel: upgradePrfPasskeyLabel })}
 							</p>
-							<div className="flex gap-2 justify-center align-center">
-								<Button onClick={onCancelUpgradePrfKey}>{t('common.cancel')}</Button>
+							<div className='flex gap-2 justify-center align-center'>
+								<Button
+									onClick={onCancelUpgradePrfKey}
+									>
+										{t('common.cancel')}
+								</Button>
 							</div>
 						</>
-					) : (
-						<>
-							<H2
-								heading={t('pageSettings.upgradePrfKey.title')}
-								hr={false}
-								flexJustifyContent="center"
-							></H2>
+						: <>
+							<H2 heading={t('pageSettings.upgradePrfKey.title')} hr={false} flexJustifyContent='center'></H2>
 							<Trans
 								i18nKey="pageSettings.upgradePrfKey.error"
 								values={{ passkeyLabel: upgradePrfPasskeyLabel }}
-								components={{ p: <p className="mb-2" /> }}
+								components={{ p: <p className='mb-2' /> }}
 							/>
-							<div className="flex gap-2 justify-center align-center">
-								<Button onClick={onCancelUpgradePrfKey}>{t('common.cancel')}</Button>
+							<div className='flex gap-2 justify-center align-center'>
 								<Button
-									variant="primary"
+									onClick={onCancelUpgradePrfKey}
+									>
+									{t('common.cancel')}
+								</Button>
+								<Button
+									variant='primary'
 									onClick={() => onUpgradePrfKey(upgradePrfState.prfKeyInfo)}
-								>
+									>
 									{t('common.tryAgain')}
 								</Button>
 							</div>
 						</>
-					)}
+					}
 				</Dialog>
 			</div>
 		</>

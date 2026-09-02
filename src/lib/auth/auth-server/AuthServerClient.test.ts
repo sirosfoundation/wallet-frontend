@@ -12,7 +12,7 @@ const request = vi.mocked(axios.request);
 
 const BASE_URL = 'https://backend.example.com';
 
-const okData = <T>(data: T) => ({ data }) as never;
+const okData = <T,>(data: T) => ({ data }) as never;
 
 const loginBeginData = { challengeId: 'chal-1', getOptions: { publicKey: {} } };
 const loginFinishData = {
@@ -77,7 +77,12 @@ describe('AuthServerClient', () => {
 		it('posts the token request with the expected body and header', async () => {
 			request.mockResolvedValue(okData(tokenData));
 
-			const res = await client.requestAccessToken('wallet-backend', 'default', 'rl', true);
+			const res = await client.requestAccessToken(
+				'wallet-backend',
+				'default',
+				'rl',
+				true,
+			);
 
 			expect(request).toHaveBeenCalledTimes(1);
 			const [cfg] = request.mock.calls[0];
@@ -131,9 +136,9 @@ describe('AuthServerClient', () => {
 		it('throws on an invalid token response', async () => {
 			request.mockResolvedValue(okData({ nope: true }));
 
-			await expect(client.requestAccessToken('wallet-backend', 'default')).rejects.toThrow(
-				'Invalid token endpoint response',
-			);
+			await expect(
+				client.requestAccessToken('wallet-backend', 'default'),
+			).rejects.toThrow('Invalid token endpoint response');
 		});
 	});
 
@@ -168,7 +173,9 @@ describe('AuthServerClient', () => {
 		it('throws on an invalid response', async () => {
 			request.mockResolvedValue(okData({ challengeId: 123 }));
 
-			await expect(client.loginBegin('acme')).rejects.toThrow('Invalid login begin response');
+			await expect(client.loginBegin('acme')).rejects.toThrow(
+				'Invalid login begin response',
+			);
 		});
 	});
 
@@ -176,7 +183,11 @@ describe('AuthServerClient', () => {
 		it('posts the challenge and credential and returns parsed data', async () => {
 			request.mockResolvedValue(okData(loginFinishData));
 
-			const res = await client.loginFinish('chal-1', fakeAssertionCredential(), 'default');
+			const res = await client.loginFinish(
+				'chal-1',
+				fakeAssertionCredential(),
+				'default',
+			);
 
 			const [cfg] = request.mock.calls[0];
 			expect(cfg?.url).toBe(`${BASE_URL}/auth/passkey/login/finish`);

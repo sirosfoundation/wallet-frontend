@@ -65,12 +65,7 @@ export function parseIssuerSignedToMDoc(raw: string) {
 	const docType = cborDecode(payload).data.get('docType');
 	const envelope = {
 		version: '1.0',
-		documents: [
-			new Map([
-				['docType', docType],
-				['issuerSigned', issuerSigned],
-			]),
-		],
+		documents: [new Map([['docType', docType], ['issuerSigned', issuerSigned]])],
 		status: 0,
 	};
 	return parse(cborEncode(envelope));
@@ -111,7 +106,7 @@ export function extractDocTypeFromIssuerAuth(issuerAuth: unknown[]): string {
  * @returns Presentation definition object for requesting an MDoc presentation with the specified claims disclosed
  */
 export function buildMdocPresentationDefinition(docType: string, disclosedClaims: string[]) {
-	const fields = disclosedClaims.map((claim) => {
+	const fields = disclosedClaims.map(claim => {
 		const lastDot = claim.lastIndexOf('.');
 		return {
 			path: [`$['${claim.substring(0, lastDot)}']['${claim.substring(lastDot + 1)}']`],
@@ -121,19 +116,17 @@ export function buildMdocPresentationDefinition(docType: string, disclosedClaims
 
 	return {
 		id: 'mdoc-request',
-		input_descriptors: [
-			{
-				id: docType,
-				format: {
-					mso_mdoc: {
-						alg: ['ES256', 'ES384', 'EdDSA'],
-					},
-				},
-				constraints: {
-					limit_disclosure: 'required',
-					fields,
+		input_descriptors: [{
+			id: docType,
+			format: {
+				mso_mdoc: {
+					alg: ['ES256', 'ES384', 'EdDSA'],
 				},
 			},
-		],
+			constraints: {
+				limit_disclosure: 'required',
+				fields,
+			},
+		}],
 	};
 }

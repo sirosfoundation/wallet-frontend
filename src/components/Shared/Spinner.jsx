@@ -3,13 +3,14 @@ import Logo from '../Logo/Logo';
 import { LoaderCircle } from 'lucide-react';
 
 const Spinner = ({ size = 'large', standalone = false }) => {
+
 	const sizes = {
-		large: {
+		'large': {
 			container: 'h-32 w-32',
 			image: 'w-32',
 			opacity: 'opacity-100',
 		},
-		small: {
+		'small': {
 			container: 'h-20 w-20',
 			image: 'w-18',
 			opacity: 'opacity-75',
@@ -20,26 +21,17 @@ const Spinner = ({ size = 'large', standalone = false }) => {
 
 	const spinner = (
 		<div className={`relative ${currentSize.container}`} role="status">
-			<LoaderCircle
-				strokeWidth={1}
-				className={`absolute rounded-full ${currentSize.container} text-brand-base dark:text-white animate-spin ${currentSize.opacity}`}
-			/>
-			<div
-				className={`absolute inset-0 scale-60 flex items-center justify-center ${currentSize.opacity}`}
-			>
-				<Logo clickable={false} alt="Loading..." imgClassName={`${currentSize.image}`} />
+			<LoaderCircle strokeWidth={1} className={`absolute rounded-full ${currentSize.container} text-brand-base dark:text-white animate-spin ${currentSize.opacity}`} />
+			<div className={`absolute inset-0 scale-60 flex items-center justify-center ${currentSize.opacity}`}>
+				<Logo clickable={false}  alt="Loading..." imgClassName={`${currentSize.image}`} />
 			</div>
 		</div>
-	);
+	)
 
 	if (standalone) return spinner;
 
 	return (
-		<div
-			className="flex justify-center items-center h-dvh w-dvw bg-lm-gray-200 dark:bg-dm-gray-900"
-			role="status"
-			aria-live="polite"
-		>
+		<div className="flex justify-center items-center h-dvh w-dvw bg-lm-gray-200 dark:bg-dm-gray-900" role="status" aria-live="polite">
 			{spinner}
 		</div>
 	);

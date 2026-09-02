@@ -22,7 +22,7 @@ export async function resolveCredentialPresentationRequest(
 	dcqlQuery: DcqlQuery.Input,
 	conformantCredentials: ConformantCredentials,
 	vcEntityList: ExtendedVcEntity[],
-	preferredLanguages: string[],
+	preferredLanguages: string[]
 ): Promise<PresentCredentialsRequest> {
 	const verifier: PresentCredentialsVerifier = {
 		name: verifierInfo.name,
@@ -30,77 +30,69 @@ export async function resolveCredentialPresentationRequest(
 		logo: verifierInfo.logo,
 	};
 
-	const queries: PresentCredentialsQuery[] = await Promise.all(
-		dcqlQuery.credentials.map(async (query) => {
-			const id = query.id;
+	const queries: PresentCredentialsQuery[] = await Promise.all(dcqlQuery.credentials.map(async (query) => {
+		const id = query.id;
 
-			const conformant = conformantCredentials.get(id);
+		const conformant = conformantCredentials.get(id);
 
-			const seen = new Set<string>();
-			const requestedFields = (conformant?.requestedFields ?? []).filter((f) => {
-				const key = JSON.stringify(normalizePath(f.path ?? []));
-				if (seen.has(key)) return false;
-				seen.add(key);
-				return true;
-			});
+		const seen = new Set<string>();
+		const requestedFields = (conformant?.requestedFields ?? []).filter((f) => {
+			const key = JSON.stringify(normalizePath(f.path ?? []));
+			if (seen.has(key)) return false;
+			seen.add(key);
+			return true;
+		});
 
-			const matches = await Promise.all(
-				vcEntityList
-					.filter((vcEntity) => {
-						if (!conformant) return false;
+		const matches = await Promise.all(vcEntityList
+			.filter((vcEntity) => {
+				if (!conformant) return false;
 
-						return conformant.credentials.includes(vcEntity.batchId);
-					})
-					.map(async (vcEntity) => {
-						const { parsedCredential } = vcEntity;
-						const { name, rendering } = parsedCredential.metadata.credential;
-						const claims = parsedCredential.metadata.credential.TypeMetadata?.claims ?? [];
+				return conformant.credentials.includes(vcEntity.batchId);
+			})
+			.map(async (vcEntity) => {
+				const { parsedCredential } = vcEntity;
+				const { name, rendering } = parsedCredential.metadata.credential;
+				const claims = parsedCredential.metadata.credential.TypeMetadata?.claims ?? [];
 
-						let display = {
-							name: `Credential ${vcEntity.batchId}`,
-							issuer: undefined as string | undefined,
-							backgroundColor: undefined as string | undefined,
-							textColor: undefined as string | undefined,
-							logo: undefined as string | undefined,
-						};
-						try {
-							const [resolvedName, branding] = await Promise.all([
-								name(preferredLanguages),
-								rendering(preferredLanguages),
-							]);
-							display = {
-								name: resolvedName ?? display.name,
-								backgroundColor: branding.backgroundColor,
-								textColor: branding.textColor,
-								logo: branding.logo,
-								issuer:
-									parsedCredential.metadata.issuer.name ?? parsedCredential.metadata.issuer.id,
-							};
-						} catch (e) {
-							logger.warn('Credential metadata failed; using fallback display', {
-								batchId: vcEntity.batchId,
-								e,
-							});
-						}
+				let display = {
+					name: `Credential ${vcEntity.batchId}`,
+					issuer: undefined as string | undefined,
+					backgroundColor: undefined as string | undefined,
+					textColor: undefined as string | undefined,
+					logo: undefined as string | undefined,
+				};
+				try {
+					const [resolvedName, branding] = await Promise.all([
+						name(preferredLanguages),
+						rendering(preferredLanguages),
+					]);
+					display = {
+						name: resolvedName ?? display.name,
+						backgroundColor: branding.backgroundColor,
+						textColor: branding.textColor,
+						logo: branding.logo,
+						issuer: parsedCredential.metadata.issuer.name ?? parsedCredential.metadata.issuer.id
+					};
+				} catch (e) {
+					logger.warn('Credential metadata failed; using fallback display', { batchId: vcEntity.batchId, e });
+				}
 
-						return {
-							batchId: vcEntity.batchId,
-							display,
-							fields: requestedFields.map((f) => ({
-								path: JSON.stringify(normalizePath(f.path ?? [])),
-								name: resolveClaimLabel(claims, f, preferredLanguages),
-								value: getValueByPath(normalizePath(f.path ?? []), parsedCredential.signedClaims),
-							})),
-						};
-					}),
-			);
+				return {
+					batchId: vcEntity.batchId,
+					display,
+					fields: requestedFields.map((f) => ({
+						path: JSON.stringify(normalizePath(f.path ?? [])),
+						name: resolveClaimLabel(claims, f, preferredLanguages),
+						value: getValueByPath(normalizePath(f.path ?? []), parsedCredential.signedClaims),
+					})),
+				};
+			}));
 
-			return {
-				id,
-				matches,
-			};
-		}),
-	);
+		return {
+			id,
+			matches,
+		};
+	}));
 
 	const sets: PresentCredentialSet[] = dcqlQuery.credential_sets?.length
 		? dcqlQuery.credential_sets.map((set) => ({
@@ -108,12 +100,10 @@ export async function resolveCredentialPresentationRequest(
 				required: set.required,
 				options: set.options,
 			}))
-		: [
-				{
-					required: true,
-					options: [dcqlQuery.credentials.map((c) => c.id)],
-				},
-			];
+		: [{
+				required: true,
+				options: [dcqlQuery.credentials.map((c) => c.id)],
+			}];
 
 	return {
 		verifier,
@@ -121,6 +111,8 @@ export async function resolveCredentialPresentationRequest(
 		sets,
 	};
 }
+
+
 
 /**
  * Get a value from an object by a path array, where null segments indicate
@@ -132,10 +124,7 @@ export async function resolveCredentialPresentationRequest(
  * // [1, 2]
  * ```
  */
-export function getValueByPath(
-	path: Array<string | number | null>,
-	obj: Record<string, unknown>,
-): any {
+export function getValueByPath(path: Array<string | number | null>, obj: Record<string, unknown>): any {
 	if (!Array.isArray(path) || path.length === 0) return undefined;
 
 	const traverse = (segments: Array<string | number | null>, current: unknown): unknown => {
@@ -143,9 +132,7 @@ export function getValueByPath(
 		const [head, ...tail] = segments;
 
 		if (head === null && typeof current === 'object' && current !== null) {
-			return Object.values(current)
-				.map((item) => traverse(tail, item))
-				.filter((v) => v !== undefined);
+			return Object.values(current).map(item => traverse(tail, item)).filter(v => v !== undefined);
 		}
 
 		if (head !== null && current && typeof current === 'object' && head in current) {
@@ -173,10 +160,7 @@ export function getValueByPath(
  * the field name or path if no label is found.
  */
 export function resolveClaimLabel(
-	claims: Array<{
-		path: Array<string | number | null>;
-		display?: Array<{ locale: string; label: string }>;
-	}>,
+	claims: Array<{ path: Array<string | number | null>; display?: Array<{ locale: string; label: string }> }>,
 	field: { name?: string; path?: string[] },
 	preferredLanguages: string[],
 ): string {
@@ -185,7 +169,8 @@ export function resolveClaimLabel(
 	const label =
 		preferredLanguages
 			.map((locale) => claim?.display?.find((d) => d.locale === locale)?.label)
-			.find((l) => l != null) ?? claim?.display?.[0]?.label;
+			.find((l) => l != null)
+		?? claim?.display?.[0]?.label;
 
 	return label ?? field.name ?? field.path?.filter(Boolean).join(' › ') ?? 'Unknown';
 }

@@ -12,7 +12,7 @@ export class AccessToken implements AccessTokenInterface {
 
 	constructor(jwt: string) {
 		const { success, data: payload } = AccessTokenPayloadSchema.safeParse(
-			AccessToken.#parseJwt(jwt),
+			AccessToken.#parseJwt(jwt)
 		);
 
 		if (!success) {

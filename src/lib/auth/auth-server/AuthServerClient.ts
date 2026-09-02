@@ -32,7 +32,10 @@ export class AuthServerClient {
 		this.#baseUrl = baseUrl;
 	}
 
-	async loginBegin(tenantId: string, oidcIdToken?: string): Promise<LoginBeginResponse> {
+	async loginBegin(
+		tenantId: string,
+		oidcIdToken?: string,
+	): Promise<LoginBeginResponse> {
 		const headers: Record<string, string> = {
 			'X-Token-Mode': 'session',
 			'X-Tenant-ID': tenantId,
@@ -41,7 +44,11 @@ export class AuthServerClient {
 			headers['Authorization'] = `Bearer ${oidcIdToken}`;
 		}
 
-		const res = await this.#post(this.#endpointLoginBegin, {}, headers);
+		const res = await this.#post(
+			this.#endpointLoginBegin,
+			{},
+			headers,
+		);
 
 		const { success, data } = LoginBeginResponseSchema.safeParse(res.data);
 		if (!success) {
@@ -109,7 +116,11 @@ export class AuthServerClient {
 			headers['Authorization'] = `Bearer ${oidcIdToken}`;
 		}
 
-		const res = await this.#post(this.#endpointRegisterBegin, { tenantId, inviteCode }, headers);
+		const res = await this.#post(
+			this.#endpointRegisterBegin,
+			{ tenantId, inviteCode },
+			headers,
+		);
 
 		const { success, data } = RegisterBeginResponseSchema.safeParse(res.data);
 		if (!success) {
@@ -166,12 +177,7 @@ export class AuthServerClient {
 		return data;
 	}
 
-	async requestAccessToken(
-		aud: string,
-		tenantId: string,
-		tac?: string,
-		anonymous?: boolean,
-	): Promise<TokenResponse> {
+	async requestAccessToken(aud: string, tenantId: string, tac?: string, anonymous?: boolean): Promise<TokenResponse> {
 		const key = `${tenantId}::${aud}::${tac ?? ''}::${anonymous ?? false}`;
 		if (this.#pendingTokenRequests.has(key)) {
 			return this.#pendingTokenRequests.get(key)!;
@@ -223,7 +229,10 @@ export class AuthServerClient {
 		return this.#request('POST', path, headers, body);
 	}
 
-	async #delete(path: string, headers: Record<string, string> = {}): Promise<AxiosResponse> {
+	async #delete(
+		path: string,
+		headers: Record<string, string> = {},
+	): Promise<AxiosResponse> {
 		return this.#request('DELETE', path, headers);
 	}
 

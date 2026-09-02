@@ -8,6 +8,7 @@ type EntityListItemProps = {
 };
 
 const DisplayNode = ({ primaryData, secondaryData, searchQuery }: EntityListItemProps) => {
+
 	const primaryLogoSrc = useRemoteImage(primaryData?.logo?.uri);
 	const secondaryImageSrc = useRemoteImage(secondaryData?.logo?.uri);
 
@@ -17,13 +18,13 @@ const DisplayNode = ({ primaryData, secondaryData, searchQuery }: EntityListItem
 
 	const logoStyle = shouldUseCustomStyle
 		? {
-				backgroundColor: primaryData.background_color,
-				color: primaryData.text_color,
-			}
+			backgroundColor: primaryData.background_color,
+			color: primaryData.text_color,
+		}
 		: {
-				backgroundColor: '#939393',
-				color: 'white',
-			};
+			backgroundColor: '#939393',
+			color: 'white',
+		};
 
 	const issuerHasBackgroundColor = !!secondaryData?.background_color;
 	const issuerLogoStyle = issuerHasBackgroundColor
@@ -47,7 +48,10 @@ const DisplayNode = ({ primaryData, secondaryData, searchQuery }: EntityListItem
 						<p className="font-bold">{primaryData.name?.charAt(0)}</p>
 					)}
 				</div>
-				<span className="line-clamp-2 max-w-full" title={primaryData.name}>
+				<span
+					className="line-clamp-2 max-w-full"
+					title={primaryData.name}
+				>
 					{highlightBestSequence(primaryData.name, searchQuery)}
 				</span>
 			</span>

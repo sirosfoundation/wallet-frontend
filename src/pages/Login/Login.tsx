@@ -8,11 +8,7 @@ import { calculateByteSize, coerce } from '../../util';
 import StatusContext from '@/context/StatusContext';
 import SessionContext from '@/context/SessionContext';
 import { useTenant } from '../../context/TenantContext';
-import {
-	buildTenantRoutePath,
-	filterUsersByTenantID,
-	matchesTenantFromUrl,
-} from '../../lib/tenant';
+import { buildTenantRoutePath, filterUsersByTenantID, matchesTenantFromUrl } from '../../lib/tenant';
 import { useOIDCGate } from '../../hooks/useOIDCGate';
 
 import Button, { Variant } from '../../components/Buttons/Button';
@@ -31,16 +27,15 @@ import { usePolicyLinks } from '@/hooks/usePolicyLinks';
 import { logger } from '@/logger';
 import { getReturnToUrl } from '@/lib/utils/returnToUrl';
 
-const FormInputRow = ({ IconComponent, children, label, name }) => (
+const FormInputRow = ({
+	IconComponent,
+	children,
+	label,
+	name,
+}) => (
 	<div className="mb-4 relative">
-		<label
-			className="block text-lm-gray-800 dark:text-dm-gray-200 text-sm font-bold mb-2"
-			htmlFor={name}
-		>
-			<IconComponent
-				size={20}
-				className="absolute left-3 top-10 z-10 text-lm-gray-700 dark:text-dm-gray-300"
-			/>
+		<label className="block text-lm-gray-800 dark:text-dm-gray-200 text-sm font-bold mb-2" htmlFor={name}>
+			<IconComponent size={20} className="absolute left-3 top-10 z-10 text-lm-gray-700 dark:text-dm-gray-300" />
 			{label}
 		</label>
 		{children}
@@ -56,13 +51,13 @@ const FormInputField = ({
 	required,
 	value,
 }: {
-	ariaLabel?: string;
-	disabled?: boolean;
-	name: string;
-	onChange: ChangeEventHandler<HTMLInputElement>;
-	placeholder?: string;
-	required?: boolean;
-	value: string;
+	ariaLabel?: string,
+	disabled?: boolean,
+	name: string,
+	onChange: ChangeEventHandler<HTMLInputElement>,
+	placeholder?: string,
+	required?: boolean,
+	value: string,
 }) => {
 	return (
 		<div className="relative">
@@ -89,12 +84,12 @@ const WebauthnSignupLogin = ({
 	error,
 	setError,
 }: {
-	isLogin: boolean;
-	isSubmitting: boolean;
-	setIsSubmitting: (isSubmitting: boolean) => void;
-	isLoginCache: boolean;
-	error: React.ReactNode;
-	setError: (error: React.ReactNode) => void;
+	isLogin: boolean,
+	isSubmitting: boolean,
+	setIsSubmitting: (isSubmitting: boolean) => void,
+	isLoginCache: boolean,
+	error: React.ReactNode,
+	setError: (error: React.ReactNode) => void,
 }) => {
 	const { isOnline, updateOnlineStatus } = useContext(StatusContext);
 	const { api, keystore } = useContext(SessionContext);
@@ -110,10 +105,9 @@ const WebauthnSignupLogin = ({
 	const activeGate = isLogin ? loginGate : registrationGate;
 
 	const [inProgress, setInProgress] = useState(false);
-	const [name, setName] = useState('');
+	const [name, setName] = useState("");
 	const [needPrfRetry, setNeedPrfRetry] = useState(false);
-	const [resolvePrfRetryPrompt, setResolvePrfRetryPrompt] =
-		useState<(accept: boolean) => void>(null);
+	const [resolvePrfRetryPrompt, setResolvePrfRetryPrompt] = useState<(accept: boolean) => void>(null);
 	const [prfRetryAccepted, setPrfRetryAccepted] = useState(false);
 
 	const { hasPolicyLinks } = usePolicyLinks();
@@ -125,9 +119,12 @@ const WebauthnSignupLogin = ({
 
 	const cachedUsers = filterUsersByTenantID(urlTenantId, keystore.getCachedUsers());
 
-	useEffect(() => {
-		setError('');
-	}, [isLogin, setError]);
+	useEffect(
+		() => {
+			setError("");
+		},
+		[isLogin, setError],
+	);
 
 	const promptForPrfRetry = async (): Promise<boolean> => {
 		setNeedPrfRetry(true);
@@ -142,18 +139,12 @@ const WebauthnSignupLogin = ({
 
 	const onLogin = useCallback(
 		async (webauthnHints: string[], cachedUser?: CachedUser) => {
-			const result = await api.loginWebauthn(
-				keystore,
-				promptForPrfRetry,
-				webauthnHints,
-				cachedUser,
-				urlTenantId,
-				activeGate.idToken || undefined,
-			);
+			const result = await api.loginWebauthn(keystore, promptForPrfRetry, webauthnHints, cachedUser, urlTenantId, activeGate.idToken || undefined);
 			if (result.ok) {
 				// Success - no action needed, session will be set by API
 			} else {
 				const err = result.val;
+
 
 				// Using a switch here so the t() argument can be a literal, to ease searching
 				switch (err) {
@@ -210,6 +201,7 @@ const WebauthnSignupLogin = ({
 			activeGate.idToken || undefined,
 		);
 		if (result.ok) {
+
 		} else if (result.err) {
 			// Using a switch here so the t() argument can be a literal, to ease searching
 			switch (result.val) {
@@ -249,22 +241,20 @@ const WebauthnSignupLogin = ({
 						<Trans
 							i18nKey="loginSignup.passkeySignupPrfNotSupported"
 							components={{
-								docLink: (
-									<a
-										href="https://github.com/wwWallet/wallet-frontend#prf-compatibility"
-										target="blank_"
-										className="font-medium text-lm-gray-900 hover:underline dark:text-dm-gray-100"
-										aria-label={t('loginSignup.passkeySignupPrfNotSupportedAriaLabel')}
-									/>
-								),
+								docLink: <a
+									href="https://github.com/wwWallet/wallet-frontend#prf-compatibility" target='blank_'
+									className="font-medium text-lm-gray-900 hover:underline dark:text-dm-gray-100"
+									aria-label={t('loginSignup.passkeySignupPrfNotSupportedAriaLabel')}
+								/>
 							}}
-						/>,
+						/>
 					);
 					break;
 
 				default:
 					if (result.val?.errorId === 'prfRetryFailed') {
 						setRetrySignupFrom(result.val?.retryFrom);
+
 					} else {
 						setError(t('loginSignup.passkeySignupPrfRetryFailed'));
 						throw result;
@@ -283,6 +273,7 @@ const WebauthnSignupLogin = ({
 
 		if (isLogin) {
 			await onLogin([webauthnHint]);
+
 		} else {
 			await onSignup(name, [webauthnHint]);
 		}
@@ -309,7 +300,7 @@ const WebauthnSignupLogin = ({
 	};
 
 	const onCancel = () => {
-		logger.debug('onCancel');
+		logger.debug("onCancel");
 		setInProgress(false);
 		setNeedPrfRetry(false);
 		setPrfRetryAccepted(false);
@@ -338,7 +329,7 @@ const WebauthnSignupLogin = ({
 	// (providerConfig may be null while config loads, so don't render OIDCGateFlowStatus yet)
 	if (isOIDCGateLoading) {
 		return (
-			<div className="mb-4">
+			<div className='mb-4'>
 				<div className="text-center py-4">
 					<p className="dark:text-white">{t('common.loading')}</p>
 				</div>
@@ -349,7 +340,7 @@ const WebauthnSignupLogin = ({
 	// If OIDC gate is required but no provider is configured, show error
 	if (showOIDCGate && !activeGate.providerConfig) {
 		return (
-			<div className="mb-4">
+			<div className='mb-4'>
 				<div className="text-lm-red dark:text-dm-red pt-2">
 					{t('loginSignup.oidcGateError', 'OIDC gate configuration error. Please contact support.')}
 				</div>
@@ -372,7 +363,7 @@ const WebauthnSignupLogin = ({
 	// If OIDC gate is required and not complete, show the gate UI
 	if (showOIDCGate && activeGate.providerConfig) {
 		return (
-			<div className="mb-4">
+			<div className='mb-4'>
 				{oidcGateStatusElement}
 				{error && <div className="text-lm-red dark:text-dm-red pt-2 mt-4">{error}</div>}
 			</div>
@@ -380,123 +371,139 @@ const WebauthnSignupLogin = ({
 	}
 
 	return (
-		<form className="mb-4" onSubmit={onSubmit}>
+		<form className='mb-4' onSubmit={onSubmit}>
 			{/* Show verified badge if gate was completed */}
 			{activeGate.isGateComplete && activeGate.state.status === 'oidc-complete' && (
-				<div className="mb-4">{oidcGateStatusElement}</div>
+				<div className="mb-4">
+					{oidcGateStatusElement}
+				</div>
 			)}
-			{inProgress || retrySignupFrom ? (
-				needPrfRetry ? (
-					<div className="text-center">
-						{prfRetryAccepted ? (
-							<p className="dark:text-white pb-3">{t('registerPasskey.messageInteract')}</p>
-						) : (
-							<>
-								<h3 className="text-2xl mt-4 mb-2 font-bold text-lm-gray-900 dark:text-white">
-									{t('registerPasskey.messageDone')}
-								</h3>
-								<p className="dark:text-white pb-3">
-									{isLogin ? t('loginSignup.authOnceMoreLogin') : t('registerPasskey.authOnceMore')}
-								</p>
-							</>
-						)}
-						<div className="flex justify-center gap-4">
-							<Button id="cancel-prf-loginsignup" onClick={() => resolvePrfRetryPrompt(false)}>
-								{t('common.cancel')}
-							</Button>
-							<Button
-								id="continue-prf-loginsignup"
-								onClick={() => resolvePrfRetryPrompt(true)}
-								variant="primary"
-								disabled={prfRetryAccepted}
-							>
-								{t('common.continue')}
-							</Button>
-						</div>
-					</div>
-				) : retrySignupFrom && !inProgress ? (
-					<div className="text-center">
-						<p className="dark:text-white pb-3">
-							<Trans i18nKey="registerPasskey.messageErrorTryAgain" components={{ br: <br /> }} />
-						</p>
-						<div className="flex justify-center gap-4">
-							<Button id="cancel-prf-loginsignup" onClick={onCancel}>
-								{t('common.cancel')}
-							</Button>
-							<Button id="try-again-prf-loginsignup" type="submit" variant="secondary">
-								{t('common.tryAgain')}
-							</Button>
-						</div>
-					</div>
-				) : (
-					<>
-						<p className="dark:text-white pb-3">{t('registerPasskey.messageInteract')}</p>
-						<Button
-							id="cancel-in-progress-prf-loginsignup"
-							onClick={onCancel}
-							additionalClassName="w-full"
-						>
-							{t('common.cancel')}
-						</Button>
-					</>
-				)
-			) : (
-				<>
-					{!isLogin && (
-						<>
-							<FormInputRow
-								label={t('loginSignup.choosePasskeyUsername')}
-								name="name"
-								IconComponent={Wallet}
-							>
-								<FormInputField
-									ariaLabel="Passkey name"
-									name="name"
-									onChange={(event) => setName(event.target.value)}
-									placeholder={t('loginSignup.enterPasskeyName')}
-									value={name}
-									required
-								/>
-								<div
-									className={`flex flex-row flex-nowrap text-lm-gray-500 text-sm italic ${nameByteLimitReached ? 'text-lm-red' : ''} ${nameByteLimitApproaching ? 'h-auto mt-1' : 'h-0 mt-0'} transition-all`}
-								>
-									<div
-										className={`text-lm-red dark:text-dm-red grow ${nameByteLimitReached ? 'opacity-100' : 'opacity-0 select-none'} transition-opacity`}
-										aria-hidden={!nameByteLimitReached}
+			{inProgress || retrySignupFrom
+				? (
+					needPrfRetry
+						? (
+							<div className="text-center">
+								{
+									prfRetryAccepted
+										? (
+											<p className="dark:text-white pb-3">{t('registerPasskey.messageInteract')}</p>
+										)
+										: (
+											<>
+												<h3 className="text-2xl mt-4 mb-2 font-bold text-lm-gray-900 dark:text-white">{t('registerPasskey.messageDone')}</h3>
+												<p className="dark:text-white pb-3">
+													{isLogin
+														? t('loginSignup.authOnceMoreLogin')
+														: t('registerPasskey.authOnceMore')
+													}
+												</p>
+											</>
+										)
+								}
+								<div className='flex justify-center gap-4'>
+									<Button
+										id="cancel-prf-loginsignup"
+										onClick={() => resolvePrfRetryPrompt(false)}
 									>
-										{t('loginSignup.reachedLengthLimit')}
-									</div>
-									<div
-										className={`text-right ${nameByteLimitApproaching ? 'opacity-100' : 'opacity-0 select-none'} transition-opacity`}
-										aria-hidden={!nameByteLimitApproaching}
+										{t('common.cancel')}
+									</Button>
+									<Button
+										id="continue-prf-loginsignup"
+										onClick={() => resolvePrfRetryPrompt(true)}
+										variant="primary"
+										disabled={prfRetryAccepted}
 									>
-										{nameByteLength + `/64`}
-									</div>
+										{t('common.continue')}
+									</Button>
 								</div>
-							</FormInputRow>
-							{hasPolicyLinks && (
-								<label className="mb-4 text-sm relative block pl-6">
-									<input
-										className="absolute top-1 left-0 w-4 h-4 accent-primary cursor-pointer"
-										type="checkbox"
+							</div>
+						)
+						: (
+							retrySignupFrom && !inProgress
+								? (
+									<div className="text-center">
+										<p className="dark:text-white pb-3">
+											<Trans
+												i18nKey="registerPasskey.messageErrorTryAgain"
+												components={{ br: <br /> }}
+											/>
+										</p>
+										<div className='flex justify-center gap-4'>
+
+											<Button
+												id="cancel-prf-loginsignup"
+												onClick={onCancel}
+											>
+												{t('common.cancel')}
+											</Button>
+											<Button
+												id="try-again-prf-loginsignup"
+												type="submit"
+												variant="secondary"
+											>
+												{t('common.tryAgain')}
+											</Button>
+										</div>
+									</div>
+								)
+								: (
+									<>
+										<p className="dark:text-white pb-3">{t('registerPasskey.messageInteract')}</p>
+										<Button
+											id="cancel-in-progress-prf-loginsignup"
+											onClick={onCancel}
+											additionalClassName='w-full'
+										>
+											{t('common.cancel')}
+										</Button>
+									</>
+								)
+						)
+				)
+				: (
+					<>
+						{!isLogin && (
+							<>
+								<FormInputRow label={t('loginSignup.choosePasskeyUsername')} name="name" IconComponent={Wallet}>
+									<FormInputField
+										ariaLabel="Passkey name"
+										name="name"
+										onChange={(event) => setName(event.target.value)}
+										placeholder={t('loginSignup.enterPasskeyName')}
+										value={name}
 										required
 									/>
-									<span>
-										<Trans
-											i18nKey="loginSignup.acceptPolicies"
-											components={{ policyLinks: <PolicyLinks /> }}
-										/>
-									</span>
-								</label>
-							)}
-						</>
-					)}
+									<div className={`flex flex-row flex-nowrap text-lm-gray-500 text-sm italic ${nameByteLimitReached ? 'text-lm-red' : ''} ${nameByteLimitApproaching ? 'h-auto mt-1' : 'h-0 mt-0'} transition-all`}>
+										<div
+											className={`text-lm-red dark:text-dm-red grow ${nameByteLimitReached ? 'opacity-100' : 'opacity-0 select-none'} transition-opacity`}
+											aria-hidden={!nameByteLimitReached}
+										>
+											{t('loginSignup.reachedLengthLimit')}
+										</div>
+										<div
+											className={`text-right ${nameByteLimitApproaching ? 'opacity-100' : 'opacity-0 select-none'} transition-opacity`}
+											aria-hidden={!nameByteLimitApproaching}
+										>
+											{nameByteLength + `/64`}
+										</div>
+									</div>
+								</FormInputRow>
+								{hasPolicyLinks && (
+									<label className="mb-4 text-sm relative block pl-6">
+										<input className="absolute top-1 left-0 w-4 h-4 accent-primary cursor-pointer" type="checkbox" required />
+										<span>
+											<Trans
+												i18nKey="loginSignup.acceptPolicies"
+												components={{ policyLinks: <PolicyLinks /> }}
+											/>
+										</span>
+									</label>
+								)}
+							</>)}
 
-					{isLoginCache && (
-						<ul className="overflow-y-auto overflow-x-hidden max-h-32 px-2 custom-scrollbar flex flex-col gap-2">
-							{cachedUsers
-								.filter((cachedUser) => cachedUser?.prfKeys?.length > 0)
-								.map((cachedUser, index) => (
+						{isLoginCache && (
+							<ul className="overflow-y-auto overflow-x-hidden max-h-32 px-2 custom-scrollbar flex flex-col gap-2">
+								{cachedUsers.filter(cachedUser => cachedUser?.prfKeys?.length > 0).map((cachedUser, index) => (
 									<li
 										key={cachedUser.userHandleB64u}
 										className="w-full flex flex-row items-center gap-2"
@@ -513,7 +520,10 @@ const WebauthnSignupLogin = ({
 												title={t('loginSignup.loginAsUser', { name: cachedUser.displayName })}
 											>
 												<span className="truncate">
-													{isSubmitting ? t('loginSignup.submitting') : cachedUser.displayName}
+													{isSubmitting
+														? t('loginSignup.submitting')
+														: cachedUser.displayName
+													}
 												</span>
 											</Button>
 										</div>
@@ -524,9 +534,7 @@ const WebauthnSignupLogin = ({
 												square={true}
 												size="xl"
 												disabled={isSubmitting}
-												ariaLabel={t('loginSignup.forgetCachedUser', {
-													name: cachedUser.displayName,
-												})}
+												ariaLabel={t('loginSignup.forgetCachedUser', { name: cachedUser.displayName })}
 												title={t('loginSignup.forgetCachedUser', { name: cachedUser.displayName })}
 											>
 												<X size={20} className="text-xl" />
@@ -534,52 +542,44 @@ const WebauthnSignupLogin = ({
 										</div>
 									</li>
 								))}
-						</ul>
-					)}
+							</ul>
+						)}
 
-					{!isLoginCache &&
-						[
-							{
-								btnLabel: isLogin
-									? t('loginSignup.loginWithPasskey')
-									: t('loginSignup.signUpWithPasskey'),
-								Icon: KeyRoundIcon,
-								variant: coerce<Variant>('primary'),
-							},
-							{
-								btnLabel: isLogin
-									? t('loginSignup.loginWithSecurityKey')
-									: t('loginSignup.signUpWithSecurityKey'),
-								Icon: UsbStickDotIcon,
-								variant: coerce<Variant>('outline'),
-								hint: 'security-key',
-							},
-						].map(({ Icon, btnLabel, variant, hint }) => (
-							<div key={btnLabel} className="mt-2 relative w-full flex flex-col justify-center">
-								<Button
-									id={`${isSubmitting ? 'submitting' : isLogin ? 'loginPasskey' : 'loginSignup.signUpPasskey'}-${hint}-submit-loginsignup`}
-									type="submit"
-									variant={variant}
-									size="lg"
-									textSize="md"
-									additionalClassName={`items-center justify-center relative passkey-button-${hint}`}
-									title={!isLogin && !isOnline && t('common.offlineTitle')}
-									value={hint}
-								>
-									<div className="flex flex-col">
-										<div className="flex flex-row items-center justify-center w-full">
-											<Icon size={20} className="inline text-xl mr-2 shrink-0" />
+						{!isLoginCache && (
+							[
+								{ btnLabel: isLogin ? t('loginSignup.loginWithPasskey') : t('loginSignup.signUpWithPasskey'), Icon: KeyRoundIcon, variant: coerce<Variant>("primary") },
+								{ btnLabel: isLogin ? t('loginSignup.loginWithSecurityKey') : t('loginSignup.signUpWithSecurityKey'), Icon: UsbStickDotIcon, variant: coerce<Variant>("outline"), hint: "security-key", },
+							].map(({ Icon, btnLabel, variant, hint }) => (
+								<div key={btnLabel} className='mt-2 relative w-full flex flex-col justify-center'>
+									<Button
+										id={`${isSubmitting ? 'submitting' : isLogin ? 'loginPasskey' : 'loginSignup.signUpPasskey'}-${hint}-submit-loginsignup`}
+										type="submit"
+										variant={variant}
+										size="lg"
+										textSize="md"
+										additionalClassName={`items-center justify-center relative passkey-button-${hint}`}
+										title={!isLogin && !isOnline && t("common.offlineTitle")}
+										value={hint}
+									>
+										<div className="flex flex-col">
+											<div className="flex flex-row items-center justify-center w-full">
+												<Icon size={20} className="inline text-xl mr-2 shrink-0" />
 
-											{isSubmitting ? t('loginSignup.submitting') : btnLabel}
+												{isSubmitting
+													? t('loginSignup.submitting')
+													: btnLabel
+												}
+											</div>
 										</div>
-									</div>
-								</Button>
-							</div>
-						))}
+									</Button>
+								</div>
+							))
+						)}
 
-					{error && <div className="text-lm-red dark:text-dm-red pt-2">{error}</div>}
-				</>
-			)}
+						{error && <div className="text-lm-red dark:text-dm-red pt-2">{error}</div>}
+					</>
+				)
+			}
 		</form>
 	);
 };
@@ -604,7 +604,7 @@ const Auth = () => {
 
 	const { getCachedUsers } = keystore;
 	const [isLoginCache, setIsLoginCache] = useState(
-		filterUsersByTenantID(urlTenantId, getCachedUsers()).length > 0,
+		filterUsersByTenantID(urlTenantId, getCachedUsers()).length > 0
 	);
 
 	useEffect(() => {
@@ -617,64 +617,47 @@ const Auth = () => {
 		// Always consume any stored target so it can't linger, but only honour it
 		// for a login.
 		const returnTo = getReturnToUrl();
-		const target =
-			(isLogin || isLoginCache ? returnTo : null) ??
-			buildTenantRoutePath(effectiveTenantId, `/${location.search}`);
+		const target = ((isLogin || isLoginCache) ? returnTo : null)
+			?? buildTenantRoutePath(effectiveTenantId, `/${location.search}`);
 
 		if (matchesTenantFromUrl(effectiveTenantId, urlTenantId)) {
 			navigate(target, { replace: true });
 		} else {
 			window.location.href = target;
 		}
-	}, [
-		effectiveTenantId,
-		isLoggedIn,
-		navigate,
-		location.search,
-		urlTenantId,
-		isLogin,
-		isLoginCache,
-	]);
+	}, [effectiveTenantId, isLoggedIn, navigate, location.search, urlTenantId, isLogin, isLoginCache]);
 
 	const toggleForm = () => {
 		if (isOnline || !isLogin) {
 			setIsLogin(!isLogin);
 			checkForUpdates();
 			updateOnlineStatus();
-		}
-	};
+		};
+	}
 
 	const useOtherAccount = () => {
 		setIsLoginCache(false);
 		setWebauthnError('');
 		checkForUpdates();
 		updateOnlineStatus();
-	};
+	}
 
 	return (
-		<LoginLayout
-			heading={
-				<Trans
-					i18nKey={
-						isLoginCache || isLogin ? 'loginSignup.loginMessage' : 'loginSignup.welcomeMessage'
-					}
-					components={{
-						highlight: <span className="text-primary dark:text-brand-light" />,
-					}}
-				/>
-			}
-		>
+		<LoginLayout heading={
+			<Trans
+				i18nKey={(isLoginCache || isLogin) ? 'loginSignup.loginMessage' : 'loginSignup.welcomeMessage'}
+				components={{
+					highlight: <span className="text-primary dark:text-brand-light" />
+				}}
+			/>
+		}>
 			<div className="relative p-8 sm:px-12 space-y-4 md:space-y-6 lg:space-y-8 bg-white rounded-lg dark:bg-dm-gray-900 border border-lm-gray-400 dark:border-dm-gray-600">
 				<h1 className="pt-4 text-xl font-bold leading-tight tracking-tight text-dm-gray-900 md:text-2xl text-center dark:text-white">
-					{isLoginCache
-						? t('loginSignup.loginCache')
-						: isLogin
-							? t('loginSignup.loginTitle')
-							: t('loginSignup.signUp')}
+					{isLoginCache ? t('loginSignup.loginCache') : isLogin ? t('loginSignup.loginTitle') : t('loginSignup.signUp')}
 				</h1>
 
-				<div className="absolute top-5 right-5">
-					<LanguageSelector className="min-w-12 text-sm text-lm-gray-900 dark:text-white cursor-pointer bg-white dark:bg-dm-gray-900 appearance-none" />
+				<div className='absolute top-5 right-5'>
+					<LanguageSelector className='min-w-12 text-sm text-lm-gray-900 dark:text-white cursor-pointer bg-white dark:bg-dm-gray-900 appearance-none' />
 				</div>
 
 				{isOnline === false && (
@@ -692,12 +675,10 @@ const Auth = () => {
 					error={webauthnError}
 					setError={setWebauthnError}
 				/>
-				<div className="space-y-2">
+				<div className='space-y-2'>
 					{!isLoginCache ? (
 						<p className="text-sm font-light text-lm-gray-900 dark:text-dm-gray-100">
-							{isLogin
-								? t('loginSignup.newHereQuestion')
-								: t('loginSignup.alreadyHaveAccountQuestion')}
+							{isLogin ? t('loginSignup.newHereQuestion') : t('loginSignup.alreadyHaveAccountQuestion')}
 							<Button
 								id={`${isLogin ? 'signUp' : 'loginSignup.login'}-switch-loginsignup`}
 								variant="link"
@@ -722,7 +703,7 @@ const Auth = () => {
 					<TenantSelector
 						currentTenantId={urlTenantId || 'default'}
 						isAuthenticated={false}
-						button={<Button variant="link" linkClassName="text-sm" />}
+						button={<Button variant="link" linkClassName='text-sm' />}
 					/>
 				</div>
 			</div>

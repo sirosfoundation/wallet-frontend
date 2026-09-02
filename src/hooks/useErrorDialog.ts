@@ -5,7 +5,9 @@ export default function useErrorDialog(): ErrorDialogContextParams {
 	const errorDialog = useContext(ErrorDialogContext);
 
 	if (!errorDialog) {
-		throw new Error('useErrorDialog must be used within a <ErrorDialogContextProvider>');
+		throw new Error(
+			'useErrorDialog must be used within a <ErrorDialogContextProvider>'
+		);
 	}
 
 	return errorDialog;

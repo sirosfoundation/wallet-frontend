@@ -1,7 +1,10 @@
 /* eslint-disable no-script-url -- intentional dangerous-scheme payloads for security tests */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { setReturnToUrl, getReturnToUrl } from './returnToUrl';
+import {
+	setReturnToUrl,
+	getReturnToUrl,
+} from './returnToUrl';
 
 /**
  * Simulate base path.
@@ -22,17 +25,15 @@ function roundTrip(raw: string): string | null {
 	return getReturnToUrl();
 }
 
-const credentialOffer = encodeURIComponent(
-	JSON.stringify({
-		credential_issuer: 'https://issuer.example.com',
-		credential_configuration_ids: ['eu.europa.ec.eudi.pid_vc_sd_jwt'],
-		grants: {
-			'urn:ietf:params:oauth:grant-type:pre-authorized_code': {
-				'pre-authorized_code': 'adhjhdjajkdkhjhdj',
-			},
+const credentialOffer = encodeURIComponent(JSON.stringify({
+	credential_issuer: 'https://issuer.example.com',
+	credential_configuration_ids: ['eu.europa.ec.eudi.pid_vc_sd_jwt'],
+	grants: {
+		'urn:ietf:params:oauth:grant-type:pre-authorized_code': {
+			'pre-authorized_code': 'adhjhdjajkdkhjhdj',
 		},
-	}),
-);
+	},
+}));
 
 const credentialOfferUri = encodeURIComponent('https://issuer.example.com/offer/123');
 
@@ -42,13 +43,11 @@ const jwt = [
 	'MEUCIQDx1Hn0aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789ab',
 ].join('.');
 
-const presentationSubmission = encodeURIComponent(
-	JSON.stringify({
-		id: 'submission-1',
-		definition_id: 'pid-request',
-		descriptor_map: [{ id: 'pid', format: 'vc+sd-jwt', path: '$' }],
-	}),
-);
+const presentationSubmission = encodeURIComponent(JSON.stringify({
+	id: 'submission-1',
+	definition_id: 'pid-request',
+	descriptor_map: [{ id: 'pid', format: 'vc+sd-jwt', path: '$' }],
+}));
 
 describe('returnToUrl', () => {
 	beforeEach(() => {
@@ -125,12 +124,12 @@ describe('returnToUrl', () => {
 		});
 
 		// A custom tenant's namespace is off-limits from the default tenant.
-		it.each(['/id/acme/settings', '/id/../id/evil/settings'])(
-			'rejects cross-tenant path %j',
-			(raw) => {
-				expect(roundTrip(raw)).toBeNull();
-			},
-		);
+		it.each([
+			'/id/acme/settings',
+			'/id/../id/evil/settings',
+		])('rejects cross-tenant path %j', (raw) => {
+			expect(roundTrip(raw)).toBeNull();
+		});
 	});
 
 	describe('custom tenant only', () => {

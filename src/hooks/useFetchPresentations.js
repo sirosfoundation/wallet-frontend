@@ -5,7 +5,7 @@ import { logger } from '../logger';
 // Context
 import CredentialsContext from '@/context/CredentialsContext';
 
-import { CredentialVerificationError } from 'wallet-common';
+import { CredentialVerificationError } from "wallet-common";
 
 const useFetchPresentations = (keystore, batchId = null, transactionId = null) => {
 	const [history, setHistory] = useState({});
@@ -22,21 +22,21 @@ const useFetchPresentations = (keystore, batchId = null, transactionId = null) =
 				}
 
 				const allCredentials = (await keystore.getAllCredentials()) || [];
-				const credentialById = new Map(allCredentials.map((c) => [String(c.credentialId), c]));
+				const credentialById = new Map(
+					allCredentials.map(c => [String(c.credentialId), c])
+				);
 
 				if (batchId) {
-					const instances = allCredentials.filter(
-						(credential) => credential.batchId === parseInt(batchId),
-					);
+					const instances = allCredentials.filter((credential) => credential.batchId === parseInt(batchId));
 					const credentialsIds = instances.map((instance) => instance.credentialId);
 
-					const transactionIds = presentations
-						.filter((p) =>
-							credentialsIds.reduce((acc, val) => acc || p.usedCredentialIds.includes(val), false),
-						)
-						.map((p) => p.transactionId);
+					const transactionIds = presentations.filter((p) =>
+						credentialsIds.reduce((acc, val) => acc || p.usedCredentialIds.includes(val), false)
+					).map(p => p.transactionId);
 
-					presentations = presentations.filter((p) => transactionIds.includes(p.transactionId));
+					presentations = presentations.filter((p) =>
+						transactionIds.includes(p.transactionId)
+					);
 
 					if (presentations.length === 0) {
 						setHistory([]);
@@ -52,38 +52,31 @@ const useFetchPresentations = (keystore, batchId = null, transactionId = null) =
 					}
 				}
 
-				const presentationsTransformed = await Promise.all(
-					presentations
-						.sort(reverse(compareBy((presentation) => presentation.presentationTimestampSeconds)))
-						.map(async (presentation) => {
-							const firstUsedId = String(presentation.usedCredentialIds?.[0] ?? '');
-							const firstVC = credentialById.get(firstUsedId);
+				const presentationsTransformed = await Promise.all(presentations
+					.sort(reverse(compareBy(presentation => presentation.presentationTimestampSeconds)))
+					.map(async (presentation) => {
 
-							const parsedCredential = await parseCredential({
-								...presentation,
-								credentialConfigurationId: firstVC?.credentialConfigurationId ?? null,
-								credentialIssuerIdentifier: firstVC?.credentialIssuerIdentifier ?? null,
-							});
+						const firstUsedId = String(presentation.usedCredentialIds?.[0] ?? "");
+						const firstVC = credentialById.get(firstUsedId);
 
-							const result = await credentialEngine.credentialVerifyingEngine.verify({
-								rawCredential: presentation.data,
-								opts: {},
-							});
+						const parsedCredential = await parseCredential({
+							...presentation,
+							credentialConfigurationId: firstVC?.credentialConfigurationId ?? null,
+							credentialIssuerIdentifier: firstVC?.credentialIssuerIdentifier ?? null,
+						});
 
-							return {
-								presentation,
-								parsedCredential,
-								result,
-								isExpired:
-									result.success === false &&
-									result.error === CredentialVerificationError.ExpiredCredential,
-							};
-						}),
+						const result = await credentialEngine.credentialVerifyingEngine.verify({ rawCredential: presentation.data, opts: {} });
+
+						return {
+							presentation,
+							parsedCredential,
+							result,
+							isExpired: result.success === false && result.error === CredentialVerificationError.ExpiredCredential,
+						}
+					})
 				);
 				const presentationsGroupedByTransactionId = presentationsTransformed.reduce((acc, p) => {
-					acc[p.presentation.transactionId] = acc[p.presentation.transactionId]
-						? [...acc[p.presentation.transactionId], p]
-						: [p];
+					acc[p.presentation.transactionId] = acc[p.presentation.transactionId] ? [...acc[p.presentation.transactionId], p] : [p];
 					return acc;
 				}, {});
 				setHistory(presentationsGroupedByTransactionId);

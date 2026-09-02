@@ -18,6 +18,7 @@ const QRButton = ({ openQRScanner, isSmallScreen }) => {
 					<QrCode size={20} className="text-inherit" />
 				</Button>
 			</div>
+
 		);
 	}
 

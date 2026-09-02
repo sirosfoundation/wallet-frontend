@@ -1,15 +1,16 @@
-import { useContext, useCallback, useMemo, useRef, useEffect, useState } from 'react';
-import SessionContext from '@/context/SessionContext';
-import { CurrentSchema } from '@/services/WalletStateSchema';
-import { WalletStateUtils } from '@/services/WalletStateUtils';
-import { IOpenID4VCIClientStateRepository } from '../interfaces/IOpenID4VCIClientStateRepository';
-import { CLOCK_TOLERANCE, OPENID4VCI_TRANSACTION_ID_LIFETIME_IN_SECONDS } from '@/config';
-import { last } from '@/util';
+import { useContext, useCallback, useMemo, useRef, useEffect, useState } from "react";
+import SessionContext from "@/context/SessionContext";
+import { CurrentSchema } from "@/services/WalletStateSchema";
+import { WalletStateUtils } from "@/services/WalletStateUtils";
+import { IOpenID4VCIClientStateRepository } from "../interfaces/IOpenID4VCIClientStateRepository";
+import { CLOCK_TOLERANCE, OPENID4VCI_TRANSACTION_ID_LIFETIME_IN_SECONDS } from "@/config";
+import { last } from "@/util";
 import { logger } from '@/logger';
 
 type WalletStateCredentialIssuanceSession = CurrentSchema.WalletStateCredentialIssuanceSession;
 
 export function useOpenID4VCIClientStateRepository(): IOpenID4VCIClientStateRepository {
+
 	const { api, keystore } = useContext(SessionContext);
 
 	const { getCalculatedWalletState, saveCredentialIssuanceSessions } = keystore;
@@ -50,15 +51,16 @@ export function useOpenID4VCIClientStateRepository(): IOpenID4VCIClientStateRepo
 	}, [loadSessions]);
 
 	const isInitialized = useCallback(() => {
-		return initialized;
+		return (initialized);
 	}, [initialized]);
+
 
 	const cleanupExpired = useCallback(async (): Promise<number[]> => {
 		if (!sessions.current) {
 			return;
 		}
 		const rememberIssuerForSeconds = await getRememberIssuerAge();
-		logger.debug('Remember issuer for seconds =', rememberIssuerForSeconds);
+		logger.debug("Remember issuer for seconds =", rememberIssuerForSeconds)
 
 		if (rememberIssuerForSeconds == null) {
 			return;
@@ -67,16 +69,11 @@ export function useOpenID4VCIClientStateRepository(): IOpenID4VCIClientStateRepo
 		const deletedSessions = [];
 		for (const [k, v] of sessions.current) {
 			if (v.created && typeof v.created === 'number') {
-				if (
-					v?.credentialEndpoint?.transactionId &&
-					now - v.created > OPENID4VCI_TRANSACTION_ID_LIFETIME_IN_SECONDS + CLOCK_TOLERANCE
-				) {
+				if (v?.credentialEndpoint?.transactionId && now - v.created > OPENID4VCI_TRANSACTION_ID_LIFETIME_IN_SECONDS + CLOCK_TOLERANCE) {
 					sessions.current.delete(k);
 					deletedSessions.push(k);
-				} else if (
-					!v?.credentialEndpoint?.transactionId &&
-					now - v.created > rememberIssuerForSeconds + CLOCK_TOLERANCE
-				) {
+				}
+				else if (!v?.credentialEndpoint?.transactionId && now - v.created > rememberIssuerForSeconds + CLOCK_TOLERANCE) {
 					sessions.current.delete(k);
 					deletedSessions.push(k);
 				}
@@ -94,32 +91,26 @@ export function useOpenID4VCIClientStateRepository(): IOpenID4VCIClientStateRepo
 			return;
 		}
 		const deletedSessions = await cleanupExpired();
-		const [, newPrivateData, keystoreCommit] = await saveCredentialIssuanceSessions(
-			Array.from(sessions.current.values()),
-			deletedSessions,
-		);
+		const [, newPrivateData, keystoreCommit] = await saveCredentialIssuanceSessions(Array.from(sessions.current.values()), deletedSessions);
 		await api.updatePrivateData(newPrivateData);
 		await keystoreCommit();
-		logger.debug('CHANGES WRITTEN');
+		logger.debug("CHANGES WRITTEN")
 	}, [getCalculatedWalletState, saveCredentialIssuanceSessions, api, cleanupExpired]);
 
-	const getByCredentialIssuerIdentifierAndCredentialConfigurationId = useCallback(
-		async (
-			credentialIssuer: string,
-			credentialConfigurationId: string,
-		): Promise<WalletStateCredentialIssuanceSession | null> => {
-			if (!sessions.current) {
-				return null;
-			}
-			const r = Array.from(sessions.current.values()).filter(
-				(S) =>
-					S.credentialConfigurationId === credentialConfigurationId &&
-					S.credentialIssuerIdentifier === credentialIssuer,
-			);
-			const res = last(r);
-			return res ? res : null;
-		},
-		[],
+
+
+	const getByCredentialIssuerIdentifierAndCredentialConfigurationId = useCallback(async (
+		credentialIssuer: string,
+		credentialConfigurationId: string
+	): Promise<WalletStateCredentialIssuanceSession | null> => {
+		if (!sessions.current) {
+			return null;
+		}
+		const r = Array.from(sessions.current.values()).filter((S) => S.credentialConfigurationId === credentialConfigurationId && S.credentialIssuerIdentifier === credentialIssuer);
+		const res = last(r);
+		return res ? res : null;
+	},
+		[]
 	);
 
 	const getByState = useCallback(
@@ -131,7 +122,7 @@ export function useOpenID4VCIClientStateRepository(): IOpenID4VCIClientStateRepo
 			const res = last(r);
 			return res ? res : null;
 		},
-		[],
+		[]
 	);
 
 	const create = useCallback(
@@ -141,7 +132,7 @@ export function useOpenID4VCIClientStateRepository(): IOpenID4VCIClientStateRepo
 			}
 			const existingState = await getByCredentialIssuerIdentifierAndCredentialConfigurationId(
 				state.credentialIssuerIdentifier,
-				state.credentialConfigurationId,
+				state.credentialConfigurationId
 			);
 
 			if (existingState) {
@@ -150,7 +141,7 @@ export function useOpenID4VCIClientStateRepository(): IOpenID4VCIClientStateRepo
 			const sessionId = WalletStateUtils.getRandomUint32();
 			sessions.current.set(sessionId, { ...state });
 		},
-		[getByCredentialIssuerIdentifierAndCredentialConfigurationId],
+		[getByCredentialIssuerIdentifierAndCredentialConfigurationId]
 	);
 
 	const updateState = useCallback(
@@ -164,23 +155,21 @@ export function useOpenID4VCIClientStateRepository(): IOpenID4VCIClientStateRepo
 			}
 			sessions.current.set(fetched.sessionId, newState);
 		},
-		[getByState],
+		[getByState]
 	);
 
-	const getAllStatesWithNonEmptyTransactionId = useCallback(async (): Promise<
-		WalletStateCredentialIssuanceSession[]
-	> => {
-		if (!sessions.current) {
-			return [];
+	const getAllStatesWithNonEmptyTransactionId = useCallback(
+		async (): Promise<WalletStateCredentialIssuanceSession[]> => {
+			if (!sessions.current) {
+				return [];
+			}
+			const pendingTransactions = Array.from(sessions.current.values())
+				.filter((session: WalletStateCredentialIssuanceSession) =>
+					session.credentialEndpoint && session.credentialEndpoint.transactionId !== undefined && typeof session.credentialEndpoint.transactionId === 'string'
+				);
+			return pendingTransactions;
 		}
-		const pendingTransactions = Array.from(sessions.current.values()).filter(
-			(session: WalletStateCredentialIssuanceSession) =>
-				session.credentialEndpoint &&
-				session.credentialEndpoint.transactionId !== undefined &&
-				typeof session.credentialEndpoint.transactionId === 'string',
-		);
-		return pendingTransactions;
-	}, []);
+		, []);
 
 	return useMemo(() => {
 		return {
@@ -192,7 +181,7 @@ export function useOpenID4VCIClientStateRepository(): IOpenID4VCIClientStateRepo
 			updateState,
 			commitStateChanges,
 			getAllStatesWithNonEmptyTransactionId,
-		};
+		}
 	}, [
 		isInitialized,
 		getByCredentialIssuerIdentifierAndCredentialConfigurationId,

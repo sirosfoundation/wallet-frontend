@@ -13,19 +13,10 @@ export type OIDFlowCallbackURLType<P extends string, T extends string> = {
 };
 
 export type OIDFlowCredentialOfferCallback = OIDFlowCallbackURLType<'oid4vci', 'credential_offer'>;
-export type OIDFlowAuthorizationCodeCallback = OIDFlowCallbackURLType<
-	'oid4vci',
-	'authorization_code'
->;
-export type OIDFlowPresentationRequestCallback = OIDFlowCallbackURLType<
-	'oid4vp',
-	'presentation_request'
->;
+export type OIDFlowAuthorizationCodeCallback = OIDFlowCallbackURLType<'oid4vci', 'authorization_code'>;
+export type OIDFlowPresentationRequestCallback = OIDFlowCallbackURLType<'oid4vp', 'presentation_request'>;
 export type OIDFlowDCAPIRequestCallback = OIDFlowCallbackURLType<'oid4vp', 'dc_api_request'>;
-export type OIDFlowAuthorizationErrorCallback = OIDFlowCallbackURLType<
-	'unknown',
-	'authorization_error'
->;
+export type OIDFlowAuthorizationErrorCallback = OIDFlowCallbackURLType<'unknown', 'authorization_error'>;
 export type OIDFlowUnknownCallback = OIDFlowCallbackURLType<'unknown', 'unknown'>;
 export type OIDFlowNoCallback = OIDFlowCallbackURLType<'none', 'none'>;
 
@@ -41,6 +32,7 @@ export type OIDFlowCallbackURL =
 	| OIDFlowAuthorizationErrorCallback
 	| OIDFlowUnknownCallback
 	| OIDFlowNoCallback;
+
 
 /**
  * Transport type enumeration

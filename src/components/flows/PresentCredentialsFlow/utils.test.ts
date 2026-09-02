@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { getValueByPath, resolveClaimLabel } from './utils';
 
+
 describe('getValueByPath', () => {
 	it('reads a simple nested value', () => {
 		expect(getValueByPath(['a', 'b'], { a: { b: 1 } })).toBe(1);
@@ -68,19 +69,21 @@ describe('resolveClaimLabel', () => {
 	});
 
 	it('falls back to the first display when no preferred locale matches', () => {
-		expect(resolveClaimLabel(claims, { path: ['family_name'] }, ['fr-FR'])).toBe('Last name');
+		expect(
+			resolveClaimLabel(claims, { path: ['family_name'] }, ['fr-FR']),
+		).toBe('Last name');
 	});
 
 	it('falls back to field.name when the claim has no display', () => {
-		expect(resolveClaimLabel(claims, { name: 'Custom', path: ['no_display'] }, ['en-US'])).toBe(
-			'Custom',
-		);
+		expect(
+			resolveClaimLabel(claims, { name: 'Custom', path: ['no_display'] }, ['en-US']),
+		).toBe('Custom');
 	});
 
 	it('falls back to a joined path when no claim matches and no name is given', () => {
-		expect(resolveClaimLabel(claims, { path: ['address', 'locality'] }, ['en-US'])).toBe(
-			'address › locality',
-		);
+		expect(
+			resolveClaimLabel(claims, { path: ['address', 'locality'] }, ['en-US']),
+		).toBe('address › locality');
 	});
 
 	it('returns "Unknown" when nothing resolves', () => {
@@ -91,6 +94,8 @@ describe('resolveClaimLabel', () => {
 		const withNull = [
 			{ path: ['nationalities', null], display: [{ locale: 'en-US', label: 'Nationality' }] },
 		];
-		expect(resolveClaimLabel(withNull, { path: ['nationalities'] }, ['en-US'])).toBe('Nationality');
+		expect(
+			resolveClaimLabel(withNull, { path: ['nationalities'] }, ['en-US']),
+		).toBe('Nationality');
 	});
 });

@@ -25,7 +25,7 @@ function HistoryListView({ batchId = null, title = '', limit = null, history = {
 
 	// normalize in case history is [] (some callers return [] on empty)
 	const groups = useMemo(() => {
-		const normalized = history && !Array.isArray(history) ? history : {};
+		const normalized = (history && !Array.isArray(history)) ? history : {};
 		return Object.values(normalized);
 	}, [history]);
 
@@ -51,8 +51,10 @@ function HistoryListView({ batchId = null, title = '', limit = null, history = {
 		() =>
 			groups
 				.slice()
-				.sort(reverse(compareBy((item) => item[0].presentation.presentationTimestampSeconds))),
-		[groups],
+				.sort(
+					reverse(compareBy(item => item[0].presentation.presentationTimestampSeconds))
+				),
+		[groups]
 	);
 
 	return (
@@ -60,13 +62,13 @@ function HistoryListView({ batchId = null, title = '', limit = null, history = {
 			<div className="py-2 w-full">
 				{title && groups.length > 0 && <H3 heading={title} />}
 				<div className="space-y-2">
-					{(limit ? sorted.slice(0, limit) : sorted).map((item) => (
+					{(limit ? sorted.slice(0, limit) : sorted).map(item => (
 						<Button
-							variant="outline"
+							variant='outline'
 							id={`credential-history-item-${item[0].presentation.transactionId}`}
 							key={item[0].presentation.transactionId}
 							onClick={() => handleHistoryItemClick(item)}
-							additionalClassName="w-full"
+							additionalClassName='w-full'
 						>
 							<div className="w-full text-left">
 								<div className="font-bold">{prettyDomain(item[0].presentation.audience)}</div>

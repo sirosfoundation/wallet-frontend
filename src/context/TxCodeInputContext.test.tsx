@@ -1,7 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import React from 'react';
-import { TxCodeInputProvider, useTxCodeInput, useTxCodeInputSafe } from './TxCodeInputContext';
+import {
+	TxCodeInputProvider,
+	useTxCodeInput,
+	useTxCodeInputSafe,
+} from './TxCodeInputContext';
 
 describe('TxCodeInputContext', () => {
 	describe('useTxCodeInput', () => {

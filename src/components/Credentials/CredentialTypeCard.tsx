@@ -15,7 +15,7 @@ export type CredentialTypeCardProps = {
 	onClick?: () => void;
 	chevron?: boolean;
 	compact?: boolean;
-};
+}
 
 export const CredentialTypeCard: FC<CredentialTypeCardProps> = ({
 	display,
@@ -24,7 +24,8 @@ export const CredentialTypeCard: FC<CredentialTypeCardProps> = ({
 	compact = false,
 }) => {
 	const { t } = useTranslation();
-	const isClickable = !!onClick,
+	const
+		isClickable = !!onClick,
 		showChevron = !!onClick && chevron;
 
 	const Element = isClickable ? 'button' : 'div';
@@ -40,19 +41,14 @@ export const CredentialTypeCard: FC<CredentialTypeCardProps> = ({
 				[button]:cursor-pointer
 				[button]:hover:brightness-[0.85]
 				[button]:dark:hover:brightness-[1.15]
-				${
-					isClickable &&
-					`
+				${isClickable && `
 					shadow-xs text-lm-gray-900 dark:text-white
 					bg-lm-gray-200 dark:bg-dm-gray-800
 					border border-lm-gray-700 dark:border-dm-gray-400
-				`
-				}
+				`}
 			`}
 			onClick={onClick}
-			aria-label={
-				isClickable ? t('credentialTypeCard.selectAriaLabel', { name: display[0].name }) : undefined
-			}
+			aria-label={isClickable ? t('credentialTypeCard.selectAriaLabel', { name: display[0].name }) : undefined}
 		>
 			<div className="flex flex-col justify-start items-start gap-2 w-full min-w-0">
 				{display.map(({ name, issuer, logo, backgroundColor, textColor }) => (
@@ -67,7 +63,11 @@ export const CredentialTypeCard: FC<CredentialTypeCardProps> = ({
 								style={!logo ? { backgroundColor, color: textColor } : undefined}
 							>
 								{logo ? (
-									<img src={logo} alt="" className="max-h-full max-w-full align-middle inline" />
+									<img
+										src={logo}
+										alt=""
+										className="max-h-full max-w-full align-middle inline"
+									/>
 								) : (
 									<p className="font-bold">{name.charAt(0)}</p>
 								)}
@@ -84,7 +84,11 @@ export const CredentialTypeCard: FC<CredentialTypeCardProps> = ({
 							>
 								{name}
 								{compact && logo && (
-									<img src={logo} alt="" className="max-h-8 max-w-8 align-middle inline" />
+									<img
+										src={logo}
+										alt=""
+										className="max-h-8 max-w-8 align-middle inline"
+									/>
 								)}
 							</span>
 							{!compact && issuer && (
