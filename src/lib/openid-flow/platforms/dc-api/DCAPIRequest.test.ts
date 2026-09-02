@@ -1,6 +1,7 @@
+import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SignJWT, generateKeyPair, exportJWK, importJWK } from 'jose';
-import * as x509 from '@peculiar/x509';
+import { X509CertificateGenerator } from '@peculiar/x509';
 import { DCAPIRequest } from './DCAPIRequest';
 import { logger } from '@/logger';
 
@@ -464,7 +465,7 @@ async function createX5cSignedJwt(payload: Record<string, unknown>) {
 		'verify',
 	]);
 
-	const cert = await x509.X509CertificateGenerator.createSelfSigned({
+	const cert = await X509CertificateGenerator.createSelfSigned({
 		serialNumber: '01',
 		name: 'CN=Test',
 		notBefore: new Date(),
