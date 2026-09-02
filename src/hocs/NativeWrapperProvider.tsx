@@ -5,17 +5,11 @@ import CredentialsContext from "@/context/CredentialsContext";
 import { prepareCredentialsForNativeWrapper } from "@/lib/native-wrapper";
 import { logger } from "@/logger";
 import { OPENID4VCI_REDIRECT_URI } from "@/config";
+import { NativeWrapper } from "@/lib/native-wrapper/types";
 
 declare global {
 	interface Window {
 		nativeWrapper?: NativeWrapper;
-	}
-
-	interface NativeWrapper {
-		updateAllCredentials(credentials: string, callbackUrl?: string): void;
-		sendDcApiResponse(response: string, error?: string): void;
-		isKeystoreOpen(): Promise<boolean>;
-		startScanPhysicalId?(): void;
 	}
 }
 

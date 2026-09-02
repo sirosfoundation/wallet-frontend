@@ -47,3 +47,10 @@ export interface MdocRegistryEntry {
 }
 
 export type CredentialRegistryEntry = SdJwtRegistryEntry | MdocRegistryEntry;
+
+export interface NativeWrapper {
+	updateAllCredentials(credentials: string, callbackUrl?: string): void;
+	sendDcApiResponse(response: string, error?: string): void;
+	isKeystoreOpen(): Promise<boolean>;
+	startScanPhysicalId?(): void;
+}
