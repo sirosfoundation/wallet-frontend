@@ -1,3 +1,7 @@
+<p align="center">A fork of <a href="https://github.com/wwWallet/wallet-frontend" target="_blank" rel="noopener">wwWallet frontend</a></p>
+
+---
+
 <img src="./branding/default/logo/logo_dark.svg" width="80" style="max-width: 100%; float:left; margin-right: 20px;"/>
 
 # wwWallet
@@ -33,7 +37,7 @@ Our Web Wallet provides a range of features tailored to enhance the credential m
 ## 🔍Prerequisites
 
 - Node.js
-- npm/yarn
+- pnpm
 
 ## 📦Installation
 
@@ -108,13 +112,13 @@ Our Web Wallet provides a range of features tailored to enhance the credential m
 
 - Install dependencies:
     ```bash
-    yarn install
+    pnpm install
     ```
 
 - Start the development server:
 
     ```bash
-    yarn start
+    pnpm start
     ```
 
 ## ✅Pre-commit Hook

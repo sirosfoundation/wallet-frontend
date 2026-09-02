@@ -4,15 +4,18 @@ RUN apt-get update -y && apt-get install -y git fontconfig && rm -rf /var/lib/ap
 
 WORKDIR /home/node/app
 
+RUN corepack enable
+
 # Install dependencies first so rebuild of these layers is only needed when dependencies change
-COPY package.json yarn.lock ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY patches ./patches
-RUN --mount=type=cache,target=/usr/local/share/.cache yarn cache clean -f && yarn install --frozen-lockfile || yarn install --frozen-lockfile --network-concurrency 1
+RUN --mount=type=cache,target=/pnpm-store \
+	pnpm install --frozen-lockfile --store-dir=/pnpm-store
 
 FROM builder-base AS test
 
 COPY . .
-RUN npm run test
+RUN pnpm test
 
 
 FROM builder-base AS builder
@@ -21,7 +24,7 @@ FROM builder-base AS builder
 COPY --from=test /home/node/app/package.json /dev/null
 
 COPY . .
-RUN --mount=type=secret,id=wallet_frontend_envfile,dst=/home/node/app/.env,required=false NODE_OPTIONS=--max-old-space-size=2048 yarn build
+RUN --mount=type=secret,id=wallet_frontend_envfile,dst=/home/node/app/.env,required=false NODE_OPTIONS=--max-old-space-size=2048 pnpm build
 
 
 FROM nginx:1.31.0-alpine3.23 AS deploy
