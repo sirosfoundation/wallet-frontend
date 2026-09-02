@@ -9,6 +9,7 @@ package_lock.json
 
 .env*
 !.env.template
+!.changeset/.env.example
 
 # Logs
 logs
