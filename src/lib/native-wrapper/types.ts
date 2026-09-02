@@ -21,7 +21,7 @@ export type SdJwtClaim = {
  * SD-JWT credential entry for OpenId4VpRegistry
  */
 export interface SdJwtRegistryEntry {
-	format: "sd-jwt";
+	format: 'sd-jwt';
 	id: string;
 	verifiableCredentialType: string;
 	claims: SdJwtClaim[];
@@ -39,7 +39,7 @@ export type MdocField = {
  * mDOC credential entry for OpenId4VpRegistry
  */
 export interface MdocRegistryEntry {
-	format: "mdoc";
+	format: 'mdoc';
 	id: string;
 	docType: string;
 	fields: MdocField[];

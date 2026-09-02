@@ -1,11 +1,11 @@
-import React, { useContext, useEffect } from "react";
-import { useLocalStorageKeystore } from "../services/LocalStorageKeystore";
-import keystoreEvents from "../services/keystoreEvents";
-import CredentialsContext from "@/context/CredentialsContext";
-import { prepareCredentialsForNativeWrapper } from "@/lib/native-wrapper";
-import { logger } from "@/logger";
-import { OPENID4VCI_REDIRECT_URI } from "@/config";
-import { NativeWrapper } from "@/lib/native-wrapper/types";
+import React, { useContext, useEffect } from 'react';
+import { useLocalStorageKeystore } from '../services/LocalStorageKeystore';
+import keystoreEvents from '../services/keystoreEvents';
+import CredentialsContext from '@/context/CredentialsContext';
+import { prepareCredentialsForNativeWrapper } from '@/lib/native-wrapper';
+import { logger } from '@/logger';
+import { OPENID4VCI_REDIRECT_URI } from '@/config';
+import { NativeWrapper } from '@/lib/native-wrapper/types';
 
 declare global {
 	interface Window {
@@ -32,7 +32,7 @@ export const NativeWrapperProvider = ({
 			const registryEntries =
 				await prepareCredentialsForNativeWrapper(vcEntityList);
 
-			logger.debug("Updated native wrapper with credentials and callback URL", {
+			logger.debug('Updated native wrapper with credentials and callback URL', {
 				registryEntries,
 				callbackUrl: OPENID4VCI_REDIRECT_URI,
 			});
