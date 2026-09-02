@@ -54,7 +54,6 @@ ssl_keys/*
 variables.vars
 
 public/
-pnpm-lock.yaml
 config/.cache/
 .wallet-common-dist/
 package-lock.json

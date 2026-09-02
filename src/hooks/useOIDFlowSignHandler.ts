@@ -53,12 +53,19 @@ export interface OIDFlowSignRequest {
 /**
  * Individual proof object for OID4VCI
  */
-export interface ProofObject {
-	proof_type: 'jwt' | 'cwt' | 'attestation';
-	jwt?: string;
-	cwt?: string;
-	attestation?: string;
+interface ProofObjectJwt {
+	proof_type: 'jwt';
+	jwt: string;
 }
+interface ProofObjectCwt {
+	proof_type: 'cwt';
+	cwt: string;
+}
+interface ProofObjectAttestation {
+	proof_type: 'attestation';
+	attestation: string;
+}
+export type ProofObject = ProofObjectJwt | ProofObjectCwt | ProofObjectAttestation;
 
 /**
  * Sign response to send back to server
