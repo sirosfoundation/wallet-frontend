@@ -1,9 +1,7 @@
 import { CredentialConfigurationSupported } from 'wallet-common';
 
 export interface IOpenID4VCI {
-	handleCredentialOffer(
-		credentialOfferURL: string,
-	): Promise<{
+	handleCredentialOffer(credentialOfferURL: string): Promise<{
 		credentialIssuer: string;
 		selectedCredentialConfigurationId: string;
 		issuer_state?: string;

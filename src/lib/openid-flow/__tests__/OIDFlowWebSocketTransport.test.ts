@@ -873,16 +873,12 @@ describe('OIDFlowWebSocketTransport', () => {
 			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
-			const handler1 = vi
-				.fn()
-				.mockResolvedValue({
-					matches: [{ input_descriptor_id: 'id-1', credential_id: 'c1', format: 'jwt' }],
-				});
-			const handler2 = vi
-				.fn()
-				.mockResolvedValue({
-					matches: [{ input_descriptor_id: 'id-2', credential_id: 'c2', format: 'jwt' }],
-				});
+			const handler1 = vi.fn().mockResolvedValue({
+				matches: [{ input_descriptor_id: 'id-1', credential_id: 'c1', format: 'jwt' }],
+			});
+			const handler2 = vi.fn().mockResolvedValue({
+				matches: [{ input_descriptor_id: 'id-2', credential_id: 'c2', format: 'jwt' }],
+			});
 
 			transport.onMatchRequest(handler1);
 			transport.onMatchRequest(handler2);
