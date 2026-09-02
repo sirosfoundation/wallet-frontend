@@ -60,6 +60,7 @@
   },
   "devDependencies": {
     "@babel/plugin-proposal-private-property-in-object": "^7.21.0",
+    "@biomejs/biome": "^2.5.11",
     "@peculiar/x509": "^2.0.0",
     "@sd-jwt/core": "^0.10.0",
     "@tailwindcss/vite": "^4.1.17",
@@ -82,7 +83,7 @@
     "jsdom": "^28.0.0",
     "reflect-metadata": "^0.2.2",
     "vite": "^6.1.0",
-    "vite-plugin-checker": "^0.11.0",
+    "vite-plugin-checker": "^0.14.5",
     "vite-plugin-svgr": "^4.3.0",
     "vitest": "^1.5.0"
   },
@@ -91,7 +92,9 @@
     "start-docker": "npx vite --no-open",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "eslint . --ext .js,.jsx,.ts,.tsx --max-warnings=0",
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "check": "biome check .",
     "test": "VITE_CJS_IGNORE_WARNING=true vitest run",
     "test-start": "VITE_CJS_IGNORE_WARNING=true vitest",
     "test:coverage": "VITE_CJS_IGNORE_WARNING=true vitest run --coverage",
