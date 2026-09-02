@@ -8,7 +8,7 @@ import {
 	type PropsWithChildren,
 	type ReactElement,
 } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate } from 'react-router';
 import { CircleCheckIcon, CircleXIcon, IdCardIcon } from 'lucide-react';
 import type {
 	PresentationErrorState,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useMemo, useRef } from "react";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { Err, Ok, Result } from 'ts-results';
 
 import * as config from "../config";
@@ -346,7 +346,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 			queryParams.append('user', userHandleB64u);
 			queryParams.append('sync', 'fail');
 			navigate(`${window.location.pathname}?${queryParams.toString()}`, { replace: true });
-			return null;
+			throw err instanceof Error ? err : new Error(String(err));
 		}
 	}, [assertKeystoreOpen, navigate, userHandleB64u]);
 
@@ -490,8 +490,12 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		// initialize calculated wallet state
 		if (mainKey && privateData && calculatedWalletState === null) {
 			(async () => {
-				const [, , newCalculatedWalletState] = await openPrivateData();
-				setCalculatedWalletState(newCalculatedWalletState);
+				try {
+					const [, , newCalculatedWalletState] = await openPrivateData();
+					setCalculatedWalletState(newCalculatedWalletState);
+				} catch (err) {
+					logger.error("Failed to initialize wallet state after unlock", err);
+				}
 			})();
 		}
 	}, [mainKey, privateData, calculatedWalletState, openPrivateData]);
