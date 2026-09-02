@@ -14,11 +14,11 @@ import type { IOIDFlowTransport } from '@/lib/openid-flow/types/IOIDFlowTranspor
 import { nullOIDFlowTransport } from '@/lib/openid-flow/types/IOIDFlowTransport';
 import { OIDFlowHttpProxyTransport } from '@/lib/openid-flow/transports/OIDFlowHttpProxyTransport';
 import { OIDFlowWebSocketTransport } from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
-import type { SignRequestHandler, MatchRequestHandler } from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
-import {
-	Capabilities,
-	getEngineCapabilities,
-} from '@/lib/services/CapabilitiesService';
+import type {
+	SignRequestHandler,
+	MatchRequestHandler,
+} from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
+import { Capabilities, getEngineCapabilities } from '@/lib/services/CapabilitiesService';
 import {
 	WS_URL,
 	HTTP_PROXY_TRANSPORT_ALLOWED,
@@ -27,9 +27,15 @@ import {
 	TRANSPORT_PREFERENCE,
 	BACKEND_URL,
 } from '@/config';
-import type { OIDFlowActiveTransportType, OIDFlowTransportType } from '@/lib/openid-flow/types/OIDFlowTypes';
+import type {
+	OIDFlowActiveTransportType,
+	OIDFlowTransportType,
+} from '@/lib/openid-flow/types/OIDFlowTypes';
 import { logger } from '@/logger';
-import { createIssuerTrustEvaluator, createVerifierTrustEvaluator } from '@/lib/services/TrustEvaluator';
+import {
+	createIssuerTrustEvaluator,
+	createVerifierTrustEvaluator,
+} from '@/lib/services/TrustEvaluator';
 import { TrustEvaluators } from '@/lib/openid-flow';
 import { useHttpClient } from '@/hooks/useHttpClient';
 import SessionContext from './SessionContext';
@@ -89,9 +95,7 @@ interface OIDFlowTransportProviderProps {
 /**
  * Provider component for the transport context
  */
-export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> = ({
-	children,
-}) => {
+export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> = ({ children }) => {
 	const { api } = useContext(SessionContext);
 	const httpClient = useHttpClient();
 
@@ -111,7 +115,9 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 				if (active) setAuthToken(null);
 			}
 		})();
-		return () => { active = false; };
+		return () => {
+			active = false;
+		};
 	}, [api.authTokens]);
 
 	const [isConnected, setIsConnected] = useState(false);
@@ -131,10 +137,18 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		// 2. Wait for any transport mid-connection
 		if (pendingTransports.size > 0) return false;
 		// 3. If WebSocket is expected, wait for it to connect or fail
-		const wsExpected = WEBSOCKET_TRANSPORT_ALLOWED && wsCapabilityAvailable && !!WS_URL && !!authToken;
+		const wsExpected =
+			WEBSOCKET_TRANSPORT_ALLOWED && wsCapabilityAvailable && !!WS_URL && !!authToken;
 		if (wsExpected && !isConnected && !lastError) return false;
 		return true;
-	}, [capabilitiesLoaded, pendingTransports, wsCapabilityAvailable, authToken, isConnected, lastError]);
+	}, [
+		capabilitiesLoaded,
+		pendingTransports,
+		wsCapabilityAvailable,
+		authToken,
+		isConnected,
+		lastError,
+	]);
 
 	const trustEvaluators = useMemo((): TrustEvaluators => {
 		const evaluateIssuerTrust = createIssuerTrustEvaluator({
@@ -152,8 +166,8 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		});
 
 		return {
-		evaluateIssuerTrust,
-		evaluateVerifierTrust,
+			evaluateIssuerTrust,
+			evaluateVerifierTrust,
 		};
 	}, [tenantId, authToken, httpClient]);
 
@@ -217,7 +231,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		setWsTransport(ws);
 
 		// Mark this transport as pending connection
-		setPendingTransports(prev => new Set(prev).add('websocket'));
+		setPendingTransports((prev) => new Set(prev).add('websocket'));
 
 		const connectTimeout = setTimeout(() => {
 			if (cancelled) return;
@@ -229,7 +243,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 			setIsConnected(false);
 			setLastError(new Error('WebSocket connection timed out'));
 
-			setPendingTransports(prev => {
+			setPendingTransports((prev) => {
 				const next = new Set(prev);
 				next.delete('websocket');
 				return next;
@@ -253,7 +267,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 			} finally {
 				if (cancelled) return;
 				clearTimeout(connectTimeout);
-				setPendingTransports(prev => {
+				setPendingTransports((prev) => {
 					const next = new Set(prev);
 					next.delete('websocket');
 					return next;
@@ -269,7 +283,9 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 			if (error instanceof OIDFlowError && error.code === 'AUTH_FAILED') {
 				const shouldRetry = api.authTokens.registerBackendTokenRejection();
 				if (!shouldRetry) {
-					logger.error('Engine auth still failing after refresh; giving up (global handler notified)');
+					logger.error(
+						'Engine auth still failing after refresh; giving up (global handler notified)',
+					);
 					return;
 				}
 
@@ -284,13 +300,20 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 			unsubscribeError();
 			ws.disconnect();
 			// Clean up pending state for this transport on unmount/re-run
-			setPendingTransports(prev => {
+			setPendingTransports((prev) => {
 				const next = new Set(prev);
 				next.delete('websocket');
 				return next;
 			});
 		};
-	}, [authToken, tenantId, capabilitiesLoaded, wsCapabilityAvailable, trustEvaluators, api.authTokens]);
+	}, [
+		authToken,
+		tenantId,
+		capabilitiesLoaded,
+		wsCapabilityAvailable,
+		trustEvaluators,
+		api.authTokens,
+	]);
 
 	// Update auth token and tenant ID on WebSocket when they change
 	useEffect(() => {
@@ -407,43 +430,64 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 	}, []);
 
 	// Register sign handler on WebSocket transport
-	const registerSignHandler = useCallback((handler: SignRequestHandler): (() => void) => {
-		if (wsTransport) {
-			return wsTransport.onSignRequest(handler);
-		}
-		// Return no-op unsubscribe if no WebSocket transport
-		return () => {};
-	}, [wsTransport]);
+	const registerSignHandler = useCallback(
+		(handler: SignRequestHandler): (() => void) => {
+			if (wsTransport) {
+				return wsTransport.onSignRequest(handler);
+			}
+			// Return no-op unsubscribe if no WebSocket transport
+			return () => {};
+		},
+		[wsTransport],
+	);
 
 	// Register match handler on WebSocket transport for client-side credential matching
-	const registerMatchHandler = useCallback((handler: MatchRequestHandler): (() => void) => {
-		if (wsTransport) {
-			return wsTransport.onMatchRequest(handler);
-		}
-		// Return no-op unsubscribe if no WebSocket transport
-		return () => {};
-	}, [wsTransport]);
+	const registerMatchHandler = useCallback(
+		(handler: MatchRequestHandler): (() => void) => {
+			if (wsTransport) {
+				return wsTransport.onMatchRequest(handler);
+			}
+			// Return no-op unsubscribe if no WebSocket transport
+			return () => {};
+		},
+		[wsTransport],
+	);
 
-	const value = useMemo(() => ({
-		transport,
-		transportType,
-		isConnected: transportType === 'websocket' ? isConnected : transportType === 'http_proxy',
-		reconnect,
-		availableTransports,
-		lastError,
-		clearError,
-		capabilitiesLoaded,
-		engineCapabilities,
-		registerSignHandler,
-		registerMatchHandler,
-		transportReady,
-		trustEvaluators,
-	}), [transport, transportType, isConnected, reconnect, availableTransports, lastError, clearError, capabilitiesLoaded, engineCapabilities, registerSignHandler, registerMatchHandler, transportReady, trustEvaluators]);
+	const value = useMemo(
+		() => ({
+			transport,
+			transportType,
+			isConnected: transportType === 'websocket' ? isConnected : transportType === 'http_proxy',
+			reconnect,
+			availableTransports,
+			lastError,
+			clearError,
+			capabilitiesLoaded,
+			engineCapabilities,
+			registerSignHandler,
+			registerMatchHandler,
+			transportReady,
+			trustEvaluators,
+		}),
+		[
+			transport,
+			transportType,
+			isConnected,
+			reconnect,
+			availableTransports,
+			lastError,
+			clearError,
+			capabilitiesLoaded,
+			engineCapabilities,
+			registerSignHandler,
+			registerMatchHandler,
+			transportReady,
+			trustEvaluators,
+		],
+	);
 
 	return (
-		<OIDFlowTransportContext.Provider value={value}>
-			{children}
-		</OIDFlowTransportContext.Provider>
+		<OIDFlowTransportContext.Provider value={value}>{children}</OIDFlowTransportContext.Provider>
 	);
 };
 

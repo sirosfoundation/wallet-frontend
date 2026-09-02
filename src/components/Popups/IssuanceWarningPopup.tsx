@@ -10,15 +10,9 @@ export interface IssuanceWarning {
 
 type WarningSeverity = 'critical' | 'warning' | 'info';
 
-const CRITICAL_CODES = new Set([
-	'JwtVcIssuerMismatch',
-	'JwtVcIssuerFail',
-]);
+const CRITICAL_CODES = new Set(['JwtVcIssuerMismatch', 'JwtVcIssuerFail']);
 
-const WARNING_CODES = new Set([
-	'IntegrityMissing',
-	'IntegrityFail',
-]);
+const WARNING_CODES = new Set(['IntegrityMissing', 'IntegrityFail']);
 
 function getSeverity(code: string): WarningSeverity {
 	if (CRITICAL_CODES.has(code)) return 'critical';
@@ -89,14 +83,8 @@ const IssuanceWarningPopup: React.FC<IssuanceWarningPopupProps> = ({
 					const Icon = config.icon;
 
 					return (
-						<li
-							key={index}
-							className={`flex items-start gap-2 p-2 rounded-md ${config.bgClass}`}
-						>
-							<Icon
-								size={16}
-								className={`mt-0.5 shrink-0 ${config.iconClass}`}
-							/>
+						<li key={index} className={`flex items-start gap-2 p-2 rounded-md ${config.bgClass}`}>
+							<Icon size={16} className={`mt-0.5 shrink-0 ${config.iconClass}`} />
 							<span className="text-sm font-medium text-lm-gray-900 dark:text-dm-gray-100">
 								{t(`issuanceWarningPopup.codes.${warning.code}`, warning.code)}
 							</span>
@@ -108,11 +96,7 @@ const IssuanceWarningPopup: React.FC<IssuanceWarningPopupProps> = ({
 				<Button id="cancel-issuance-warning" onClick={onCancel}>
 					{t('common.reject')}
 				</Button>
-				<Button
-					id="confirm-issuance-warning"
-					variant="primary"
-					onClick={onConfirm}
-				>
+				<Button id="confirm-issuance-warning" variant="primary" onClick={onConfirm}>
 					{t('common.accept')}
 				</Button>
 			</div>

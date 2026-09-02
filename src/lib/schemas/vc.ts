@@ -1,15 +1,15 @@
-import { VerifiableCredentialFormat } from "wallet-common";
+import { VerifiableCredentialFormat } from 'wallet-common';
 
 export enum VerifiablePresentationFormat {
-	VP_JWT = "vp_jwt"
+	VP_JWT = 'vp_jwt',
 }
 
 export type VerifiableCredential = {
 	credential: object | string;
-	format: VerifiableCredentialFormat
-}
+	format: VerifiableCredentialFormat;
+};
 
 export type VerifiablePresentation = {
 	presentation: object | string;
 	format: VerifiablePresentationFormat;
-}
+};

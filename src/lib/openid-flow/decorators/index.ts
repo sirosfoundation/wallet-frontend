@@ -1,4 +1,4 @@
-import type { IOIDFlowTransport } from "../types";
+import type { IOIDFlowTransport } from '../types';
 
 export class OIDFlowTransportDecorator<T extends IOIDFlowTransport> {
 	private transport: IOIDFlowTransport;
@@ -13,7 +13,7 @@ export class OIDFlowTransportDecorator<T extends IOIDFlowTransport> {
 
 	with<D extends IOIDFlowTransport, O>(
 		Decorator: new (t: IOIDFlowTransport, options?: O) => D,
-		options?: O
+		options?: O,
 	): OIDFlowTransportDecorator<T & D> {
 		this.transport = new Decorator(this.transport, options);
 		return this as unknown as OIDFlowTransportDecorator<T & D>;

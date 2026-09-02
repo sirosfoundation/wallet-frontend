@@ -195,7 +195,7 @@ describe('OIDFlowWebSocketTransport', () => {
 
 			const flowPromise = transport.startOID4VCIFlow({
 				holderBinding,
-				credentialConfigurationId: 'UniversityDegree'
+				credentialConfigurationId: 'UniversityDegree',
 			});
 
 			await vi.waitFor(() => {
@@ -284,9 +284,7 @@ describe('OIDFlowWebSocketTransport', () => {
 			await transport.connect();
 
 			// Empty params should throw
-			await expect(transport.startOID4VCIFlow({})).rejects.toThrow(
-				'Invalid OID4VCI flow params'
-			);
+			await expect(transport.startOID4VCIFlow({})).rejects.toThrow('Invalid OID4VCI flow params');
 		});
 
 		it('should handle deferred credential issuance with transaction_id', async () => {
@@ -405,9 +403,7 @@ describe('OIDFlowWebSocketTransport', () => {
 			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
-			await expect(transport.startOID4VPFlow({})).rejects.toThrow(
-				'Invalid OID4VP flow params'
-			);
+			await expect(transport.startOID4VPFlow({})).rejects.toThrow('Invalid OID4VP flow params');
 		});
 	});
 
@@ -529,7 +525,7 @@ describe('OIDFlowWebSocketTransport', () => {
 
 			// Don't connect - try to start flow
 			await expect(
-				transport.startOID4VCIFlow({ credentialOfferUri: 'test://...' })
+				transport.startOID4VCIFlow({ credentialOfferUri: 'test://...' }),
 			).rejects.toThrow('WebSocket not connected');
 		});
 
@@ -539,7 +535,7 @@ describe('OIDFlowWebSocketTransport', () => {
 
 			// Start a flow but don't respond
 			const flowPromise = transport.startOID4VCIFlow({
-				credentialOfferUri: 'test://...'
+				credentialOfferUri: 'test://...',
 			});
 
 			// Wait for message to be sent
@@ -565,7 +561,7 @@ describe('OIDFlowWebSocketTransport', () => {
 
 			// Register a sign handler
 			const signHandler = vi.fn().mockResolvedValue({
-				proofJwt: 'eyJ...proof...'
+				proofJwt: 'eyJ...proof...',
 			});
 			transport.onSignRequest(signHandler);
 
@@ -604,7 +600,7 @@ describe('OIDFlowWebSocketTransport', () => {
 			});
 
 			// Wait a bit for async processing to complete
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			// Wait for sign_response to be sent
 			await vi.waitFor(() => {
@@ -613,7 +609,7 @@ describe('OIDFlowWebSocketTransport', () => {
 
 			// Verify sign_response was sent
 			const signResponseMsg = mockWs.sentMessages.find(
-				m => JSON.parse(m).type === 'sign_response'
+				(m) => JSON.parse(m).type === 'sign_response',
 			);
 			expect(signResponseMsg).toBeDefined();
 			const parsed = JSON.parse(signResponseMsg!);
@@ -629,7 +625,7 @@ describe('OIDFlowWebSocketTransport', () => {
 
 			// Register a sign handler
 			const signHandler = vi.fn().mockResolvedValue({
-				vpToken: 'eyJ...vp-token...'
+				vpToken: 'eyJ...vp-token...',
 			});
 			transport.onSignRequest(signHandler);
 
@@ -643,7 +639,7 @@ describe('OIDFlowWebSocketTransport', () => {
 					audience: 'https://verifier.example.com',
 					nonce: 'nonce-789',
 					credentialsToInclude: [
-						{ credentialId: 'cred-1', disclosedClaims: ['given_name', 'family_name'] }
+						{ credentialId: 'cred-1', disclosedClaims: ['given_name', 'family_name'] },
 					],
 				},
 			});
@@ -654,7 +650,7 @@ describe('OIDFlowWebSocketTransport', () => {
 			});
 
 			// Wait a bit for async processing to complete
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			// Wait for sign_response to be sent
 			await vi.waitFor(() => {
@@ -663,7 +659,7 @@ describe('OIDFlowWebSocketTransport', () => {
 
 			// Verify sign_response has vp_token
 			const signResponseMsg = mockWs.sentMessages.find(
-				m => JSON.parse(m).type === 'sign_response'
+				(m) => JSON.parse(m).type === 'sign_response',
 			);
 			expect(signResponseMsg).toBeDefined();
 			const parsed = JSON.parse(signResponseMsg!);
@@ -718,7 +714,7 @@ describe('OIDFlowWebSocketTransport', () => {
 			});
 
 			// Give time for potential async handling
-			await new Promise(resolve => setTimeout(resolve, 50));
+			await new Promise((resolve) => setTimeout(resolve, 50));
 
 			// Handler should not be called after unsubscribe
 			expect(signHandler).not.toHaveBeenCalled();
@@ -743,7 +739,7 @@ describe('OIDFlowWebSocketTransport', () => {
 			});
 
 			// Wait a bit for async processing to complete
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			// Wait for error sign_response
 			await vi.waitFor(() => {
@@ -751,7 +747,7 @@ describe('OIDFlowWebSocketTransport', () => {
 			});
 
 			const signResponseMsg = mockWs.sentMessages.find(
-				m => JSON.parse(m).type === 'sign_response'
+				(m) => JSON.parse(m).type === 'sign_response',
 			);
 			expect(signResponseMsg).toBeDefined();
 			const parsed = JSON.parse(signResponseMsg!);
@@ -766,9 +762,7 @@ describe('OIDFlowWebSocketTransport', () => {
 			await transport.connect();
 
 			const matchHandler = vi.fn().mockResolvedValue({
-				matches: [
-					{ input_descriptor_id: 'id-1', credential_id: 'cred-1', format: 'vc+sd-jwt' }
-				],
+				matches: [{ input_descriptor_id: 'id-1', credential_id: 'cred-1', format: 'vc+sd-jwt' }],
 			});
 			transport.onMatchRequest(matchHandler);
 
@@ -786,13 +780,15 @@ describe('OIDFlowWebSocketTransport', () => {
 				expect(matchHandler).toHaveBeenCalled();
 			});
 
-			expect(matchHandler).toHaveBeenCalledWith(expect.objectContaining({
-				flowId: 'flow-1',
-				messageId: 'msg-1',
-				dcqlQuery: expect.objectContaining({
-					credentials: [{ id: 'id-1', format: 'vc+sd-jwt', claims: [] }],
+			expect(matchHandler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					flowId: 'flow-1',
+					messageId: 'msg-1',
+					dcqlQuery: expect.objectContaining({
+						credentials: [{ id: 'id-1', format: 'vc+sd-jwt', claims: [] }],
+					}),
 				}),
-			}));
+			);
 		});
 
 		it('should send match_response with matches from handler', async () => {
@@ -802,7 +798,12 @@ describe('OIDFlowWebSocketTransport', () => {
 
 			const matchHandler = vi.fn().mockResolvedValue({
 				matches: [
-					{ input_descriptor_id: 'id-1', credential_id: 'cred-1', format: 'vc+sd-jwt', vct: 'Photo' },
+					{
+						input_descriptor_id: 'id-1',
+						credential_id: 'cred-1',
+						format: 'vc+sd-jwt',
+						vct: 'Photo',
+					},
 					{ input_descriptor_id: 'id-2', credential_id: 'cred-2', format: 'jwt_vp_json' },
 				],
 			});
@@ -820,15 +821,15 @@ describe('OIDFlowWebSocketTransport', () => {
 
 			// Wait for match_response to be sent
 			await vi.waitFor(() => {
-				const matchResponse = mockWs.sentMessages.find(m => {
+				const matchResponse = mockWs.sentMessages.find((m) => {
 					const parsed = JSON.parse(m);
 					return parsed.type === 'match_response';
 				});
 				expect(matchResponse).toBeDefined();
 			});
 
-			const matchResponseMsg = mockWs.sentMessages.find(m =>
-				JSON.parse(m).type === 'match_response'
+			const matchResponseMsg = mockWs.sentMessages.find(
+				(m) => JSON.parse(m).type === 'match_response',
 			);
 			const parsed = JSON.parse(matchResponseMsg!);
 			expect(parsed.flow_id).toBe('flow-1');
@@ -857,13 +858,11 @@ describe('OIDFlowWebSocketTransport', () => {
 			});
 
 			await vi.waitFor(() => {
-				expect(mockWs.sentMessages.some(m =>
-					JSON.parse(m).type === 'match_response'
-				)).toBe(true);
+				expect(mockWs.sentMessages.some((m) => JSON.parse(m).type === 'match_response')).toBe(true);
 			});
 
-			const matchResponse = mockWs.sentMessages.find(m =>
-				JSON.parse(m).type === 'match_response'
+			const matchResponse = mockWs.sentMessages.find(
+				(m) => JSON.parse(m).type === 'match_response',
 			);
 			const parsed = JSON.parse(matchResponse!);
 			expect(parsed.matches).toEqual([]);
@@ -874,8 +873,16 @@ describe('OIDFlowWebSocketTransport', () => {
 			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
-			const handler1 = vi.fn().mockResolvedValue({ matches: [{ input_descriptor_id: 'id-1', credential_id: 'c1', format: 'jwt' }] });
-			const handler2 = vi.fn().mockResolvedValue({ matches: [{ input_descriptor_id: 'id-2', credential_id: 'c2', format: 'jwt' }] });
+			const handler1 = vi
+				.fn()
+				.mockResolvedValue({
+					matches: [{ input_descriptor_id: 'id-1', credential_id: 'c1', format: 'jwt' }],
+				});
+			const handler2 = vi
+				.fn()
+				.mockResolvedValue({
+					matches: [{ input_descriptor_id: 'id-2', credential_id: 'c2', format: 'jwt' }],
+				});
 
 			transport.onMatchRequest(handler1);
 			transport.onMatchRequest(handler2);
@@ -914,7 +921,7 @@ describe('OIDFlowWebSocketTransport', () => {
 			});
 
 			// Give time for potential async handling
-			await new Promise(resolve => setTimeout(resolve, 50));
+			await new Promise((resolve) => setTimeout(resolve, 50));
 
 			// Handler should not be called after unsubscribe
 			expect(matchHandler).not.toHaveBeenCalled();
@@ -944,13 +951,13 @@ describe('OIDFlowWebSocketTransport', () => {
 
 			await vi.waitFor(() => {
 				const matchResponseMsg = mockWs.sentMessages.find(
-					m => JSON.parse(m).type === 'match_response'
+					(m) => JSON.parse(m).type === 'match_response',
 				);
 				expect(matchResponseMsg).toBeDefined();
 			});
 
 			const matchResponseMsg = mockWs.sentMessages.find(
-				m => JSON.parse(m).type === 'match_response'
+				(m) => JSON.parse(m).type === 'match_response',
 			);
 			const parsed = JSON.parse(matchResponseMsg!);
 			expect(parsed.error).toBeDefined();
@@ -995,13 +1002,13 @@ describe('OIDFlowWebSocketTransport', () => {
 			// Wait for error match_response
 			await vi.waitFor(() => {
 				const matchResponseMsg = mockWs.sentMessages.find(
-					m => JSON.parse(m).type === 'match_response'
+					(m) => JSON.parse(m).type === 'match_response',
 				);
 				expect(matchResponseMsg).toBeDefined();
 			});
 
 			const matchResponseMsg = mockWs.sentMessages.find(
-				m => JSON.parse(m).type === 'match_response'
+				(m) => JSON.parse(m).type === 'match_response',
 			);
 			const parsed = JSON.parse(matchResponseMsg!);
 			expect(parsed.error).toBeDefined();
@@ -1018,9 +1025,7 @@ describe('OIDFlowWebSocketTransport', () => {
 				flowId: 'flow-123',
 				action: 'credentials_matched',
 				payload: {
-					matches: [
-						{ input_descriptor_id: 'id-1', credential_id: 'cred-1', format: 'vc+sd-jwt' }
-					],
+					matches: [{ input_descriptor_id: 'id-1', credential_id: 'cred-1', format: 'vc+sd-jwt' }],
 				},
 			});
 

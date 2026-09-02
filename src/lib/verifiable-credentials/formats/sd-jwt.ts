@@ -1,12 +1,17 @@
 import { SDJwt } from '@sd-jwt/core';
 import * as jose from 'jose';
-import { fromPemToPKIJSCertificate, toPem, validateChain, getPublicKeyFromB64Cert } from '../../utils/pki';
+import {
+	fromPemToPKIJSCertificate,
+	toPem,
+	validateChain,
+	getPublicKeyFromB64Cert,
+} from '../../utils/pki';
 import { logger } from '@/logger';
 
 export async function verifySdJwtBasedOnTrustAnchors(credential: string) {
 	let cred = credential.split('~')[0];
 
-	const { x5c } = JSON.parse(new TextDecoder().decode(jose.base64url.decode(cred.split('.')[0])))
+	const { x5c } = JSON.parse(new TextDecoder().decode(jose.base64url.decode(cred.split('.')[0])));
 	const chain = x5c.map((c) => {
 		const cert = fromPemToPKIJSCertificate(toPem(c));
 		return cert;
@@ -38,7 +43,10 @@ export async function verifySdJwtBasedOnTrustAnchors(credential: string) {
  * @param requestedClaims - Dot-separated claim paths, e.g. ["email", "address.street"]
  * @returns SD-JWT string with only the requested disclosures
  */
-export async function applySelectiveDisclosure(rawCredential: string, requestedClaims: string[]): Promise<string> {
+export async function applySelectiveDisclosure(
+	rawCredential: string,
+	requestedClaims: string[],
+): Promise<string> {
 	const hasDisclosures = rawCredential.split('~').length - 1 > 1;
 	if (!hasDisclosures) {
 		return rawCredential;
@@ -83,8 +91,6 @@ function claimPathsToFrame(claimPaths: string[]): Record<string, unknown> {
 
 /** SHA-256 hasher compatible with @sd-jwt/core */
 async function sha256Hasher(data: string | ArrayBuffer, alg: string): Promise<Uint8Array> {
-	const bytes = typeof data === 'string'
-		? new TextEncoder().encode(data)
-		: new Uint8Array(data);
+	const bytes = typeof data === 'string' ? new TextEncoder().encode(data) : new Uint8Array(data);
 	return new Uint8Array(await crypto.subtle.digest(alg, bytes));
 }

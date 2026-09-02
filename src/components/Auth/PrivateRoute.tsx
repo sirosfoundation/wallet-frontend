@@ -1,7 +1,12 @@
 import React, { useContext, useMemo, useEffect, useState } from 'react';
 import { Navigate, useParams, useLocation } from 'react-router-dom';
 import SessionContext from '@/context/SessionContext';
-import { getStoredTenant, TENANT_PATH_PREFIX, isMultiTenant, buildTenantRoutePath } from '@/lib/tenant';
+import {
+	getStoredTenant,
+	TENANT_PATH_PREFIX,
+	isMultiTenant,
+	buildTenantRoutePath,
+} from '@/lib/tenant';
 import { logger } from '@/logger';
 import { setReturnToUrl } from '@/lib/utils/returnToUrl';
 
@@ -24,7 +29,7 @@ const PrivateRoute = ({ children }: { children?: React.ReactNode }): React.React
 		if (!state) return false;
 		try {
 			const decodedState = JSON.parse(atob(state));
-			return cachedUsers.some(user => user.userHandleB64u === decodedState.userHandleB64u);
+			return cachedUsers.some((user) => user.userHandleB64u === decodedState.userHandleB64u);
 		} catch (error) {
 			logger.error('Error decoding state:', error);
 			return false;
@@ -81,9 +86,8 @@ const PrivateRoute = ({ children }: { children?: React.ReactNode }): React.React
 	// Handle unauthenticated users first
 	if (!isLoggedIn) {
 		// For unauthenticated users, preserve the tenant from URL if present
-		const loginTenantPath = urlTenantId && isMultiTenant()
-			? `/${TENANT_PATH_PREFIX}/${urlTenantId}`
-			: '';
+		const loginTenantPath =
+			urlTenantId && isMultiTenant() ? `/${TENANT_PATH_PREFIX}/${urlTenantId}` : '';
 
 		if (state && userExistsInCache(state)) {
 			return <Navigate to={`${loginTenantPath}/login-state${window.location.search}`} replace />;
@@ -91,21 +95,13 @@ const PrivateRoute = ({ children }: { children?: React.ReactNode }): React.React
 
 		// Remember where the user was headed so login can send them back afterwards
 		if (!consumeSessionCleared()) {
-			setReturnToUrl(
-				location.pathname +
-				location.search +
-				location.hash
-			);
+			setReturnToUrl(location.pathname + location.search + location.hash);
 		}
 
 		return <Navigate to={`${loginTenantPath}/login`} replace />;
 	}
 
-	return (
-		<>
-			{children}
-		</>
-	);
+	return <>{children}</>;
 };
 
 export default PrivateRoute;

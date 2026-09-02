@@ -1,44 +1,33 @@
 import React from 'react';
 
-export type Variant = (
-	'primary'
+export type Variant =
+	| 'primary'
 	| 'secondary'
 	| 'delete'
 	| 'invisible'
 	| 'outline'
 	| 'link'
 	| 'custom'
-	| 'default'
-);
+	| 'default';
 
-type Size = (
-	'sm'
-	| 'md'
-	| 'lg'
-	| 'xl'
-	| '2xl'
-);
+type Size = 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 
-type TextSize = (
-	'sm'
-	| 'md'
-	| 'lg'
-);
+type TextSize = 'sm' | 'md' | 'lg';
 
 export type Props = {
-	id?: string,
-	type?: 'button' | 'reset' | 'submit',
-	children?: React.ReactNode,
-	onClick?: React.MouseEventHandler<HTMLButtonElement>,
-	variant?: Variant,
-	size?: Size,
-	square?: boolean,
-	textSize?: TextSize,
-	additionalClassName?: string,
-	disabled?: boolean,
-	ariaLabel?: string,
-	title?: string,
-	linkClassName?: string,
+	id?: string;
+	type?: 'button' | 'reset' | 'submit';
+	children?: React.ReactNode;
+	onClick?: React.MouseEventHandler<HTMLButtonElement>;
+	variant?: Variant;
+	size?: Size;
+	square?: boolean;
+	textSize?: TextSize;
+	additionalClassName?: string;
+	disabled?: boolean;
+	ariaLabel?: string;
+	title?: string;
+	linkClassName?: string;
 	value?: string;
 };
 
@@ -58,7 +47,6 @@ const Button = ({
 	linkClassName = 'text-lm-gray-900 dark:text-dm-gray-100',
 	value,
 }: Props) => {
-
 	const getVariantClassName = () => {
 		let sizeClasses = '';
 		if (size === 'sm') {
@@ -84,7 +72,9 @@ const Button = ({
 			textSizeClasses = 'text-lg';
 		}
 
-		const disabledClasses = !disabled ? 'hover:cursor-pointer hover:brightness-[0.85] dark:hover:brightness-[1.15]' : 'grayscale opacity-75 cursor-not-allowed';
+		const disabledClasses = !disabled
+			? 'hover:cursor-pointer hover:brightness-[0.85] dark:hover:brightness-[1.15]'
+			: 'grayscale opacity-75 cursor-not-allowed';
 		const commonClasses = `rounded-lg shadow-xs text-center font-medium flex flex-row flex-nowrap items-center justify-center gap-2 border transition-color duration-150 ${textSizeClasses} ${disabledClasses}`;
 
 		switch (variant) {

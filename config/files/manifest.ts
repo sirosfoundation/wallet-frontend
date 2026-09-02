@@ -9,7 +9,12 @@ import { pathWithBase } from '../utils/paths';
 /**
  * Generates a web app manifest and icons, and injects them into the build output.
  */
-export default async function brandingManifest(destDir: string, config: EnvConfigMap, tagsToInject?: Map<string, Tag>, brandingHash?: string) {
+export default async function brandingManifest(
+	destDir: string,
+	config: EnvConfigMap,
+	tagsToInject?: Map<string, Tag>,
+	brandingHash?: string,
+) {
 	const sourceDir = resolve('branding');
 
 	const icons = await generateAllIcons({
@@ -38,13 +43,13 @@ export default async function brandingManifest(destDir: string, config: EnvConfi
 		props: {
 			rel: 'manifest',
 			href: pathWithBase(config.BASE_PATH, `manifest.json?v=${brandingHash}`),
-		}
+		},
 	});
 	tagsToInject?.set('apple-touch-icon', {
 		tag: 'link',
 		props: {
 			rel: 'apple-touch-icon',
-			href: pathWithBase(config.BASE_PATH, `icons/apple-touch-icon.png?v=${brandingHash}`)
+			href: pathWithBase(config.BASE_PATH, `icons/apple-touch-icon.png?v=${brandingHash}`),
 		},
 	});
 	tagsToInject?.set('favicon', {
@@ -74,50 +79,54 @@ export type GenerateManifestOptions = {
 /**
  * Generates a web app manifest based on provided options, including cache-busting for icons and screenshots.
  */
-async function generateManifest({ hash, name, icons }: GenerateManifestOptions): Promise<Partial<ManifestOptions>> {
+async function generateManifest({
+	hash,
+	name,
+	icons,
+}: GenerateManifestOptions): Promise<Partial<ManifestOptions>> {
 	const hashSuffix = hash ? `?v=${hash}` : '';
 
 	return {
-		'short_name': name || 'SIROS ID (dev)',
-		'name': name || 'SIROS ID (dev)',
-		'icons': icons,
-		'screenshots': [
+		short_name: name || 'SIROS ID (dev)',
+		name: name || 'SIROS ID (dev)',
+		icons: icons,
+		screenshots: [
 			{
-				'src': `screenshots/screen_mobile_1.png${hashSuffix}`,
-				'sizes': '828x1792',
-				'type': 'image/png',
-				'form_factor': 'narrow',
-				'label': 'Home screen showing navigation and a credential'
+				src: `screenshots/screen_mobile_1.png${hashSuffix}`,
+				sizes: '828x1792',
+				type: 'image/png',
+				form_factor: 'narrow',
+				label: 'Home screen showing navigation and a credential',
 			},
 			{
-				'src': `screenshots/screen_mobile_2.png${hashSuffix}`,
-				'sizes': '828x1792',
-				'type': 'image/png',
-				'form_factor': 'narrow',
-				'label': 'Credential selection view'
+				src: `screenshots/screen_mobile_2.png${hashSuffix}`,
+				sizes: '828x1792',
+				type: 'image/png',
+				form_factor: 'narrow',
+				label: 'Credential selection view',
 			},
 			{
-				'src': `screenshots/screen_tablet_1.png${hashSuffix}`,
-				'sizes': '2160x1620',
-				'type': 'image/png',
-				'form_factor': 'wide',
-				'label': 'Home screen showing navigation and a credential'
+				src: `screenshots/screen_tablet_1.png${hashSuffix}`,
+				sizes: '2160x1620',
+				type: 'image/png',
+				form_factor: 'wide',
+				label: 'Home screen showing navigation and a credential',
 			},
 			{
-				'src': `screenshots/screen_tablet_2.png${hashSuffix}`,
-				'sizes': '2160x1620',
-				'type': 'image/png',
-				'form_factor': 'wide',
-				'label': 'Credential selection view'
-			}
+				src: `screenshots/screen_tablet_2.png${hashSuffix}`,
+				sizes: '2160x1620',
+				type: 'image/png',
+				form_factor: 'wide',
+				label: 'Credential selection view',
+			},
 		],
-		'start_url': '/',
-		'display': 'standalone',
-		'theme_color': '#111827',
-		'description': `${name || 'SIROS ID (dev)'} enables secure storage and management of verifiable credentials.`,
-		'background_color': '#ffffff',
-		'scope': '/',
-		'dir': 'ltr',
-		'lang': 'en'
+		start_url: '/',
+		display: 'standalone',
+		theme_color: '#111827',
+		description: `${name || 'SIROS ID (dev)'} enables secure storage and management of verifiable credentials.`,
+		background_color: '#ffffff',
+		scope: '/',
+		dir: 'ltr',
+		lang: 'en',
 	};
 }

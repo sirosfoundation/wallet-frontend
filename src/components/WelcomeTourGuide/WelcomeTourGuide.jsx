@@ -8,7 +8,6 @@ import SessionContext from '@/context/SessionContext';
 import WelcomeModal from './WecomeModal';
 import Button from '../Buttons/Button';
 
-
 const TourGuide = ({ toggleMenu, isOpen }) => {
 	const [isTourOpen, setIsTourOpen] = useState(false);
 	const [isModalOpen, setIsModalOpen] = useState(true);
@@ -19,7 +18,6 @@ const TourGuide = ({ toggleMenu, isOpen }) => {
 	const screenType = useScreenType();
 
 	useEffect(() => {
-
 		const getStepSelectorSmallScreen = (stepName) => {
 			if (screenType !== 'desktop') {
 				return stepName + '-small-screen';
@@ -30,50 +28,49 @@ const TourGuide = ({ toggleMenu, isOpen }) => {
 		const commonSteps = [
 			{
 				selector: '.step-1',
-				content: <p className='text-lm-gray-900'>{t("tourGuide.tourStep1")}</p>,
+				content: <p className="text-lm-gray-900">{t('tourGuide.tourStep1')}</p>,
 				disableInteraction: true,
 			},
 			{
 				selector: getStepSelectorSmallScreen('.step-2'),
-				content: <p className='text-lm-gray-900'>{t("tourGuide.tourStep2")}</p>,
+				content: <p className="text-lm-gray-900">{t('tourGuide.tourStep2')}</p>,
 			},
 			{
 				selector: getStepSelectorSmallScreen('.step-3'),
-				content: <p className='text-lm-gray-900'>{t("tourGuide.tourStep3")}</p>,
+				content: <p className="text-lm-gray-900">{t('tourGuide.tourStep3')}</p>,
 			},
-			...(screenType !== 'desktop' ? [{
-				selector: '.step-4',
-				content: <p className='text-lm-gray-900'>{t("tourGuide.tourStep4")}</p>,
-			}] : []),
+			...(screenType !== 'desktop'
+				? [
+						{
+							selector: '.step-4',
+							content: <p className="text-lm-gray-900">{t('tourGuide.tourStep4')}</p>,
+						},
+					]
+				: []),
 			{
 				selector: getStepSelectorSmallScreen('.step-5'),
-				content: <p className='text-lm-gray-900'>{t("tourGuide.tourStep5")}</p>,
+				content: <p className="text-lm-gray-900">{t('tourGuide.tourStep5')}</p>,
 			},
 			{
 				selector: '.step-6',
-				content: <p className='text-lm-gray-900'>{t("tourGuide.tourStep6")}</p>,
+				content: <p className="text-lm-gray-900">{t('tourGuide.tourStep6')}</p>,
 			},
 			{
 				selector: '.step-7',
-				content: <p className='text-lm-gray-900'>{t("tourGuide.tourStep7")}</p>,
+				content: <p className="text-lm-gray-900">{t('tourGuide.tourStep7')}</p>,
 			},
 			{
 				content: () => (
 					<>
-						<p className='mt-2 text-lm-gray-900'>{t("tourGuide.tourComplete")}</p>
-						<div className='flex justify-center mt-2'>
-							<Button
-								id="close-tour"
-								variant="primary"
-								onClick={() => setIsTourOpen(false)}
-							>
-								{t("tourGuide.closeTourButton")}
+						<p className="mt-2 text-lm-gray-900">{t('tourGuide.tourComplete')}</p>
+						<div className="flex justify-center mt-2">
+							<Button id="close-tour" variant="primary" onClick={() => setIsTourOpen(false)}>
+								{t('tourGuide.closeTourButton')}
 							</Button>
 						</div>
 					</>
-				)
-			}
-
+				),
+			},
 		];
 
 		const updatedSteps = commonSteps.map((step, index) => {
@@ -87,7 +84,7 @@ const TourGuide = ({ toggleMenu, isOpen }) => {
 							toggleMenu();
 						}
 					}
-				}
+				},
 			};
 		});
 
@@ -106,11 +103,14 @@ const TourGuide = ({ toggleMenu, isOpen }) => {
 	};
 
 	const renderModal = () => {
-
 		if (authenticationType === 'signup' && showWelcome) {
 			return (
 				<div>
-					<WelcomeModal isOpen={isModalOpen} onStartTour={startTour} onClose={closeModalAndDisable} />
+					<WelcomeModal
+						isOpen={isModalOpen}
+						onStartTour={startTour}
+						onClose={closeModalAndDisable}
+					/>
 				</div>
 			);
 		} else {

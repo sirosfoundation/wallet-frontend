@@ -24,8 +24,8 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	const [obliviousKeyConfig, setObliviousKeyConfig] = useState<HpkeConfig>(null);
 
 	// A unique id for each logged in tab
-	const [globalTabId] = useLocalStorage<string | null>("globalTabId", null);
-	const [tabId] = useSessionStorage<string | null>("tabId", null);
+	const [globalTabId] = useLocalStorage<string | null>('globalTabId', null);
+	const [tabId] = useSessionStorage<string | null>('tabId', null);
 
 	const loginIsOnlineRef = useRef<boolean | null>(null);
 	const sessionClearedRef = useRef(false);
@@ -87,7 +87,7 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	useEffect(() => {
 		const S = getCalculatedWalletState();
 		if (S) {
-			if (S.settings['useOblivious'] === "true") {
+			if (S.settings['useOblivious'] === 'true') {
 				// To use oblivious, keys must be fetched.
 				// Delay setWalletStateLoaded till then.
 				async function fetchKeyConfigAndUpdate() {
@@ -103,17 +103,26 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 		}
 	}, [getCalculatedWalletState]);
 
-	const value: SessionContextValue = useMemo(() => ({
-		api,
-		isLoggedIn: isLoggedIn,
-		keystore,
-		logout,
-		obliviousKeyConfig,
-		consumeSessionCleared
-	}), [api, keystore, logout, isLoggedIn, obliviousKeyConfig, consumeSessionCleared]);
+	const value: SessionContextValue = useMemo(
+		() => ({
+			api,
+			isLoggedIn: isLoggedIn,
+			keystore,
+			logout,
+			obliviousKeyConfig,
+			consumeSessionCleared,
+		}),
+		[api, keystore, logout, isLoggedIn, obliviousKeyConfig, consumeSessionCleared],
+	);
 
 	useEffect(() => {
-		if (api && keystore && api.isLoggedIn() === true && keystore.isOpen() === false && ((tabId && globalTabId && tabId !== globalTabId) || (!tabId && globalTabId))) {
+		if (
+			api &&
+			keystore &&
+			api.isLoggedIn() === true &&
+			keystore.isOpen() === false &&
+			((tabId && globalTabId && tabId !== globalTabId) || (!tabId && globalTabId))
+		) {
 			clearSession();
 		}
 	}, [globalTabId, tabId, clearSession, api, keystore]);
@@ -130,12 +139,8 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 		}
 	}, [isLoggedIn, isOnline, logout]);
 
-	if ((api.isLoggedIn() === true && (keystore.isOpen() === false || !walletStateLoaded))) {
-		return <></>
+	if (api.isLoggedIn() === true && (keystore.isOpen() === false || !walletStateLoaded)) {
+		return <></>;
 	}
-	return (
-		<SessionContext.Provider value={value}>
-			{children}
-		</SessionContext.Provider>
-	);
+	return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 };

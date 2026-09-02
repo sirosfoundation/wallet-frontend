@@ -15,7 +15,6 @@ import { detectCredentialFormat, VerifiableCredentialFormat } from 'wallet-commo
 import { MDoc } from '@auth0/mdl';
 import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
 
-
 interface ProofTypeConfig {
 	key_attestations_required?: Record<string, unknown> | null;
 	proof_signing_alg_values_supported: string[];
@@ -43,7 +42,7 @@ export type OIDFlowSignOptions = {
 		credentialRaw?: string;
 	}>;
 	verifierJwkThumbprint?: string;
-}
+};
 
 export interface OIDFlowSignRequest {
 	action: 'generate_proof' | 'sign_presentation';
@@ -71,8 +70,8 @@ export type ProofObject = ProofObjectJwt | ProofObjectCwt | ProofObjectAttestati
  * Sign response to send back to server
  */
 export interface OIDFlowSignResponse {
-	proofJwt?: string;       // single proof (legacy)
-	proofs?: ProofObject[];  // batch proofs
+	proofJwt?: string; // single proof (legacy)
+	proofs?: ProofObject[]; // batch proofs
 	vpToken?: string;
 }
 
@@ -83,131 +82,143 @@ export function useOIDFlowSignHandler() {
 
 	const keystore = sessionContext?.keystore;
 
-	const signPresentation = useCallback(async (options: OIDFlowSignOptions): Promise<OIDFlowSignResponse> => {
-		const { audience, nonce, credentialsToInclude, responseUri, origin, verifierJwkThumbprint } = options;
-		if (!audience || !nonce) {
-			throw new Error('Missing audience or nonce for presentation signing');
-		}
-		if (!credentialsToInclude?.length) {
-			throw new Error('No credentials to include in presentation');
-		}
-
-		const vpTokenMap: Record<string, string[]> = {};
-		for (const c of credentialsToInclude) {
-			if (!c.credentialRaw) {
-				throw new Error(`Credential not in cache: ${c.credentialId}`);
+	const signPresentation = useCallback(
+		async (options: OIDFlowSignOptions): Promise<OIDFlowSignResponse> => {
+			const { audience, nonce, credentialsToInclude, responseUri, origin, verifierJwkThumbprint } =
+				options;
+			if (!audience || !nonce) {
+				throw new Error('Missing audience or nonce for presentation signing');
+			}
+			if (!credentialsToInclude?.length) {
+				throw new Error('No credentials to include in presentation');
 			}
 
-			if (!c.credentialQueryId) {
-				throw new Error(`Missing credentialQueryId for credential: ${c.credentialId}`);
-			}
-
-			const vpToken = await createVpToken(
-				keystore,
-				{
-					credentialRaw: c.credentialRaw,
-					disclosedClaims: c.disclosedClaims,
-				},
-				{
-					nonce,
-					audience,
-					responseUri,
-					origin,
-					verifierJwkThumbprint,
+			const vpTokenMap: Record<string, string[]> = {};
+			for (const c of credentialsToInclude) {
+				if (!c.credentialRaw) {
+					throw new Error(`Credential not in cache: ${c.credentialId}`);
 				}
+
+				if (!c.credentialQueryId) {
+					throw new Error(`Missing credentialQueryId for credential: ${c.credentialId}`);
+				}
+
+				const vpToken = await createVpToken(
+					keystore,
+					{
+						credentialRaw: c.credentialRaw,
+						disclosedClaims: c.disclosedClaims,
+					},
+					{
+						nonce,
+						audience,
+						responseUri,
+						origin,
+						verifierJwkThumbprint,
+					},
+				);
+
+				vpTokenMap[c.credentialQueryId] = [vpToken];
+			}
+
+			logger.debug(
+				`[WS Sign Handler] Signed VP token(s) for ${Object.keys(vpTokenMap).length} query/queries`,
 			);
 
-			vpTokenMap[c.credentialQueryId] = [vpToken];
-		}
+			return {
+				vpToken: JSON.stringify(vpTokenMap),
+			};
+		},
+		[keystore],
+	);
 
-		logger.debug(`[WS Sign Handler] Signed VP token(s) for ${Object.keys(vpTokenMap).length} query/queries`);
-
-		return {
-			vpToken: JSON.stringify(vpTokenMap)
-		};
-	}, [keystore]);
-
-	const generateProof = useCallback(async (options: OIDFlowSignOptions): Promise<OIDFlowSignResponse> => {
-		const { audience, nonce, proofTypesSupported, issuer, count = 1 } = options;
-		if (!audience) {
-			throw new Error('Missing audience for proof generation');
-		}
-		if (!proofTypesSupported) {
-			throw new Error('Missing proofTypesSupported for proof generation');
-		}
-
-		// Select proof type
-		const proofType = OPENID4VCI_PROOF_TYPE_PRECEDENCE
-			.split(',')
-			.find(type => proofTypesSupported[type]) as 'jwt' | 'attestation' | undefined;
-
-		if (proofType === 'attestation') {
-			const [{ keypairs }, newPrivateData, keystoreCommit] =
-				await keystore.generateKeypairs(count);
-
-			// Persist key changes
-			await api.updatePrivateData(newPrivateData);
-			await keystoreCommit();
-
-			const response = await api.post('/wallet-provider/key-attestation/generate', {
-				jwks: keypairs.map(kp => kp.publicKey),
-				openid4vci: { nonce },
-			});
-
-			const keyAttestation = response.data?.key_attestation;
-			if (!keyAttestation || typeof keyAttestation !== 'string') {
-				throw new Error('Failed to get key attestation from wallet backend');
+	const generateProof = useCallback(
+		async (options: OIDFlowSignOptions): Promise<OIDFlowSignResponse> => {
+			const { audience, nonce, proofTypesSupported, issuer, count = 1 } = options;
+			if (!audience) {
+				throw new Error('Missing audience for proof generation');
+			}
+			if (!proofTypesSupported) {
+				throw new Error('Missing proofTypesSupported for proof generation');
 			}
 
-			const proofs: ProofObject[] = [{ proof_type: 'attestation', attestation: keyAttestation }];
+			// Select proof type
+			const proofType = OPENID4VCI_PROOF_TYPE_PRECEDENCE.split(',').find(
+				(type) => proofTypesSupported[type],
+			) as 'jwt' | 'attestation' | undefined;
 
-			logger.debug(`[WS Sign Handler] Generated attestation proof for ${count} key(s)`);
-			return { proofs };
-		}
+			if (proofType === 'attestation') {
+				const [{ keypairs }, newPrivateData, keystoreCommit] =
+					await keystore.generateKeypairs(count);
 
-		if (proofType === 'jwt') {
-			// Generate multiple proofs based on count
-			const requests = Array.from({ length: count }, () => ({
-				nonce,
-				audience,
-				issuer,
-			}));
+				// Persist key changes
+				await api.updatePrivateData(newPrivateData);
+				await keystoreCommit();
 
-			const [{ proof_jwts }, newPrivateData, keystoreCommit] =
-				await keystore.generateOpenid4vciProofs(requests);
+				const response = await api.post('/wallet-provider/key-attestation/generate', {
+					jwks: keypairs.map((kp) => kp.publicKey),
+					openid4vci: { nonce },
+				});
 
-			// Persist key changes
-			await api.updatePrivateData(newPrivateData);
-			await keystoreCommit();
+				const keyAttestation = response.data?.key_attestation;
+				if (!keyAttestation || typeof keyAttestation !== 'string') {
+					throw new Error('Failed to get key attestation from wallet backend');
+				}
 
-			const proofs: ProofObject[] = proof_jwts.map(jwt => ({
-				proof_type: proofType,
-				jwt,
-			}));
+				const proofs: ProofObject[] = [{ proof_type: 'attestation', attestation: keyAttestation }];
 
-			logger.debug(`[WS Sign Handler] Generated ${proofs.length} proof(s)`);
-			return { proofs };
-		}
+				logger.debug(`[WS Sign Handler] Generated attestation proof for ${count} key(s)`);
+				return { proofs };
+			}
 
-		throw new Error(`Unsupported proof type requested: ${proofType}`);
-	}, [keystore, api]);
+			if (proofType === 'jwt') {
+				// Generate multiple proofs based on count
+				const requests = Array.from({ length: count }, () => ({
+					nonce,
+					audience,
+					issuer,
+				}));
 
-	const handleSignRequest = useCallback(async (request: OIDFlowSignRequest): Promise<OIDFlowSignResponse> => {
-		if (!keystore) {
-			throw new Error('Keystore not available');
-		}
+				const [{ proof_jwts }, newPrivateData, keystoreCommit] =
+					await keystore.generateOpenid4vciProofs(requests);
 
-		logger.debug('[WS Sign Handler] Received sign request:', request.action);
+				// Persist key changes
+				await api.updatePrivateData(newPrivateData);
+				await keystoreCommit();
 
-		switch (request.action) {
-			case 'generate_proof':
-				return await generateProof(request.params);
-			case 'sign_presentation':
-				return await signPresentation(request.params);
-			default:
-				throw new Error(`Unknown sign action: ${request.action}`);
-		}
-	}, [keystore, generateProof, signPresentation]);
+				const proofs: ProofObject[] = proof_jwts.map((jwt) => ({
+					proof_type: proofType,
+					jwt,
+				}));
+
+				logger.debug(`[WS Sign Handler] Generated ${proofs.length} proof(s)`);
+				return { proofs };
+			}
+
+			throw new Error(`Unsupported proof type requested: ${proofType}`);
+		},
+		[keystore, api],
+	);
+
+	const handleSignRequest = useCallback(
+		async (request: OIDFlowSignRequest): Promise<OIDFlowSignResponse> => {
+			if (!keystore) {
+				throw new Error('Keystore not available');
+			}
+
+			logger.debug('[WS Sign Handler] Received sign request:', request.action);
+
+			switch (request.action) {
+				case 'generate_proof':
+					return await generateProof(request.params);
+				case 'sign_presentation':
+					return await signPresentation(request.params);
+				default:
+					throw new Error(`Unknown sign action: ${request.action}`);
+			}
+		},
+		[keystore, generateProof, signPresentation],
+	);
 
 	return { handleSignRequest, signPresentation, generateProof };
 }
@@ -224,44 +235,44 @@ async function createVpToken(
 		responseUri?: string;
 		origin?: string;
 		verifierJwkThumbprint?: string;
-	}
+	},
 ) {
 	const { credentialRaw, disclosedClaims } = credentialData;
 	const { nonce, audience, responseUri, origin, verifierJwkThumbprint } = params;
 
 	switch (detectCredentialFormat(credentialRaw)) {
-			case VerifiableCredentialFormat.DC_SDJWT:
-			case VerifiableCredentialFormat.VC_SDJWT:
-			case VerifiableCredentialFormat.JWT_VC_JSON:
-				return await createVpTokenFromSdJwt(
-					keystore,
-					{
-						credentialRaw,
-						disclosedClaims: disclosedClaims ?? [],
-					},
-					{
-						nonce,
-						audience,
-					}
-				);
-			case VerifiableCredentialFormat.MSO_MDOC:
-				return await createVpTokenFromMdoc(
-					keystore,
-					{
-						credentialRaw,
-						disclosedClaims: disclosedClaims ?? [],
-					},
-					{
-						nonce,
-						audience,
-						responseUri,
-						origin,
-						verifierJwkThumbprint,
-					}
-				);
-			default:
-				throw new Error('Unsupported credential format for presentation signing');
-		}
+		case VerifiableCredentialFormat.DC_SDJWT:
+		case VerifiableCredentialFormat.VC_SDJWT:
+		case VerifiableCredentialFormat.JWT_VC_JSON:
+			return await createVpTokenFromSdJwt(
+				keystore,
+				{
+					credentialRaw,
+					disclosedClaims: disclosedClaims ?? [],
+				},
+				{
+					nonce,
+					audience,
+				},
+			);
+		case VerifiableCredentialFormat.MSO_MDOC:
+			return await createVpTokenFromMdoc(
+				keystore,
+				{
+					credentialRaw,
+					disclosedClaims: disclosedClaims ?? [],
+				},
+				{
+					nonce,
+					audience,
+					responseUri,
+					origin,
+					verifierJwkThumbprint,
+				},
+			);
+		default:
+			throw new Error('Unsupported credential format for presentation signing');
+	}
 }
 
 async function createVpTokenFromSdJwt(
@@ -273,7 +284,7 @@ async function createVpTokenFromSdJwt(
 	params: {
 		nonce: string;
 		audience: string;
-	}
+	},
 ): Promise<string> {
 	const { credentialRaw, disclosedClaims } = credentialData;
 	const { nonce, audience } = params;
@@ -295,7 +306,7 @@ async function createVpTokenFromMdoc(
 		responseUri?: string;
 		origin?: string;
 		verifierJwkThumbprint?: string;
-	}
+	},
 ): Promise<string> {
 	const { credentialRaw, disclosedClaims } = credentialData;
 	const { nonce, audience, responseUri, origin, verifierJwkThumbprint } = params;
@@ -305,7 +316,9 @@ async function createVpTokenFromMdoc(
 	}
 
 	if (responseUri && origin) {
-		throw new Error('Both responseUri and origin provided for mdoc presentation, only one should be provided');
+		throw new Error(
+			'Both responseUri and origin provided for mdoc presentation, only one should be provided',
+		);
 	}
 
 	if (!disclosedClaims?.length) {
@@ -333,18 +346,27 @@ async function createVpTokenFromMdoc(
 	let deviceResponseMDoc: MDoc;
 	if (responseUri) {
 		const { deviceResponseMDoc: drm } = await keystore.generateDeviceResponse(
-			mdoc, presentationDefinition, nonce, audience, responseUri,
+			mdoc,
+			presentationDefinition,
+			nonce,
+			audience,
+			responseUri,
 			verifierJwkThumbprint ?? null,
 		);
 		deviceResponseMDoc = drm;
 	} else if (origin) {
 		const { deviceResponseMDoc: drm } = await keystore.generateDeviceResponseForDCAPI(
-			mdoc, presentationDefinition, nonce, origin,
+			mdoc,
+			presentationDefinition,
+			nonce,
+			origin,
 			verifierJwkThumbprint ?? null,
 		);
 		deviceResponseMDoc = drm;
 	} else {
-		throw new Error('Unexpected error: neither responseUri nor origin provided for mdoc presentation');
+		throw new Error(
+			'Unexpected error: neither responseUri nor origin provided for mdoc presentation',
+		);
 	}
 
 	return base64url.encode(new Uint8Array(deviceResponseMDoc.encode()));

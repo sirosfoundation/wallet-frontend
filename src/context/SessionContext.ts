@@ -4,12 +4,12 @@ import type { LocalStorageKeystore } from '../services/LocalStorageKeystore';
 import { HpkeConfig } from '@/lib/utils/ohttpHelpers';
 
 export type SessionContextValue = {
-	api: BackendApi,
-	isLoggedIn: boolean,
-	keystore: LocalStorageKeystore,
-	logout: () => Promise<void>,
-	consumeSessionCleared: () => boolean,
-	obliviousKeyConfig: HpkeConfig
+	api: BackendApi;
+	isLoggedIn: boolean;
+	keystore: LocalStorageKeystore;
+	logout: () => Promise<void>;
+	consumeSessionCleared: () => boolean;
+	obliviousKeyConfig: HpkeConfig;
 };
 
 const SessionContext: React.Context<SessionContextValue> = createContext({
@@ -17,7 +17,7 @@ const SessionContext: React.Context<SessionContextValue> = createContext({
 	isLoggedIn: false,
 	keystore: undefined,
 	obliviousKeyConfig: null,
-	logout: async () => { },
+	logout: async () => {},
 	consumeSessionCleared: () => false,
 });
 

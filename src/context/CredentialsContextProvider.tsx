@@ -1,9 +1,14 @@
 import React, { useState, useCallback, useContext, useRef, useEffect, useMemo } from 'react';
 import SessionContext from './SessionContext';
-import { initializeCredentialEngine } from "../lib/initializeCredentialEngine";
-import { AuthZENClient, AuthZENClientConfig, CredentialVerificationError, ParsedCredential } from "wallet-common";
-import CredentialsContext, { ExtendedVcEntity, Instance } from "./CredentialsContext";
-import { useOpenID4VCIHelper } from "@/lib/services/OpenID4VCIHelper";
+import { initializeCredentialEngine } from '../lib/initializeCredentialEngine';
+import {
+	AuthZENClient,
+	AuthZENClientConfig,
+	CredentialVerificationError,
+	ParsedCredential,
+} from 'wallet-common';
+import CredentialsContext, { ExtendedVcEntity, Instance } from './CredentialsContext';
+import { useOpenID4VCIHelper } from '@/lib/services/OpenID4VCIHelper';
 import { CurrentSchema } from '@/services/WalletStateSchema';
 import { logger } from '../logger';
 import { BACKEND_URL } from '@/config';
@@ -13,7 +18,6 @@ import Spinner from '@/components/Shared/Spinner';
 
 type WalletStateCredential = CurrentSchema.WalletStateCredential;
 
-
 export const CredentialsContextProvider = ({ children }: React.PropsWithChildren) => {
 	const { api, keystore, isLoggedIn } = useContext(SessionContext);
 	const [vcEntityList, setVcEntityList] = useState<ExtendedVcEntity[] | null>(null);
@@ -21,7 +25,7 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 	const [currentSlide, setCurrentSlide] = useState<number>(1);
 	const httpClient = useHttpClient();
 	const helper = useOpenID4VCIHelper();
-	const credentialNumber = useRef<number | null>(null)
+	const credentialNumber = useRef<number | null>(null);
 	const { getCalculatedWalletState } = keystore;
 	const [credentialEngine, setCredentialEngine] = useState<any | null>(null);
 	// const engineRef = useRef<any>(null);
@@ -47,147 +51,161 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 		if (!S) return;
 
 		const sessionsWithTx = S.credentialIssuanceSessions.filter(
-			(session) => session.credentialEndpoint?.transactionId
+			(session) => session.credentialEndpoint?.transactionId,
 		);
 		setPendingTransactions(sessionsWithTx);
 	}, [getCalculatedWalletState]);
 
-	const initializeEngine = useCallback(async (useCache: boolean) => {
-		const trustedCertificates: string[] = [];
+	const initializeEngine = useCallback(
+		async (useCache: boolean) => {
+			const trustedCertificates: string[] = [];
 
-		const engine = await initializeCredentialEngine(
-			httpClient,
-			helper,
-			() => getExternalEntity("/issuer/all", undefined, useCache).then(res => res.data),
-			trustedCertificates,
-			useCache,
-			(issuerIdentifier: string) => {
-				logger.debug(`[CredentialsContext] Issuer metadata resolved for: ${issuerIdentifier}`);
-			},
-			authzenClient,
-		);
-		setCredentialEngine(engine);
-	}, [httpClient, helper, getExternalEntity, authzenClient]);
+			const engine = await initializeCredentialEngine(
+				httpClient,
+				helper,
+				() => getExternalEntity('/issuer/all', undefined, useCache).then((res) => res.data),
+				trustedCertificates,
+				useCache,
+				(issuerIdentifier: string) => {
+					logger.debug(`[CredentialsContext] Issuer metadata resolved for: ${issuerIdentifier}`);
+				},
+				authzenClient,
+			);
+			setCredentialEngine(engine);
+		},
+		[httpClient, helper, getExternalEntity, authzenClient],
+	);
 
 	useEffect(() => {
 		if (httpClient && helper) {
 			if (prevIsLoggedIn.current === false && isLoggedIn === true) {
-				logger.debug("[CredentialsContext] Detected login transition, initializing without cache");
+				logger.debug('[CredentialsContext] Detected login transition, initializing without cache');
 				initializeEngine(false);
 			} else if (isLoggedIn) {
-				logger.debug("[CredentialsContext] Initializing on first load with cache");
+				logger.debug('[CredentialsContext] Initializing on first load with cache');
 				initializeEngine(true);
 			}
 		}
 		prevIsLoggedIn.current = isLoggedIn;
 	}, [isLoggedIn, httpClient, helper, initializeEngine]);
 
+	const parseCredential = useCallback(
+		async (vcEntity: WalletStateCredential): Promise<ParsedCredential | null> => {
+			const engine = credentialEngine;
+			if (!engine) return null;
+			try {
+				const { data, credentialIssuerIdentifier, credentialConfigurationId } = vcEntity;
 
-	const parseCredential = useCallback(async (vcEntity: WalletStateCredential): Promise<ParsedCredential | null> => {
-		const engine = credentialEngine;
-		if (!engine) return null;
-		try {
-
-			const {
-				data,
-				credentialIssuerIdentifier,
-				credentialConfigurationId,
-			} = vcEntity;
-
-			const result = await credentialEngine.credentialParsingEngine.parse({
-				rawCredential: data,
-				credentialIssuer: {
-					credentialIssuerIdentifier: credentialIssuerIdentifier,
-					credentialConfigurationId: credentialConfigurationId,
-				},
-			});
-			if (result.success) {
-				return result.value;
+				const result = await credentialEngine.credentialParsingEngine.parse({
+					rawCredential: data,
+					credentialIssuer: {
+						credentialIssuerIdentifier: credentialIssuerIdentifier,
+						credentialConfigurationId: credentialConfigurationId,
+					},
+				});
+				if (result.success) {
+					return result.value;
+				}
+				return null;
+			} catch (err) {
+				logger.error(err);
+				return null;
 			}
-			return null;
-		}
-		catch (err) {
-			logger.error(err);
-			return null;
-		}
+		},
+		[credentialEngine],
+	);
 
-	}, [credentialEngine]);
+	const fetchVcData = useCallback(
+		async (batchId?: number): Promise<ExtendedVcEntity[] | null> => {
+			const engine = credentialEngine;
+			if (!engine) return null;
 
-	const fetchVcData = useCallback(async (batchId?: number): Promise<ExtendedVcEntity[] | null> => {
-		const engine = credentialEngine;
-		if (!engine) return null;
-
-		const S = getCalculatedWalletState();
-		if (!S) {
-			return null;
-		}
-		const { credentials } = S;
-		if (!credentials) {
-			return null;
-		}
-
-		const { presentations } = S;
-		if (!presentations) {
-			return null;
-		}
-		// Create a map of instances grouped by credentialIdentifier
-		const instancesMap = credentials.reduce((acc: any, vcEntity: WalletStateCredential) => {
-			if (!acc[vcEntity.batchId]) {
-				acc[vcEntity.batchId] = [];
+			const S = getCalculatedWalletState();
+			if (!S) {
+				return null;
+			}
+			const { credentials } = S;
+			if (!credentials) {
+				return null;
 			}
 
-			acc[vcEntity.batchId].push({
-				instanceId: vcEntity.instanceId,
-				sigCount: presentations.filter(x => x.usedCredentialIds.includes(vcEntity.credentialId)).length,
-			});
-			return acc;
-		}, {});
+			const { presentations } = S;
+			if (!presentations) {
+				return null;
+			}
+			// Create a map of instances grouped by credentialIdentifier
+			const instancesMap = credentials.reduce((acc: any, vcEntity: WalletStateCredential) => {
+				if (!acc[vcEntity.batchId]) {
+					acc[vcEntity.batchId] = [];
+				}
 
-		const { credentialVerifyingEngine } = engine;
-		// Filter and map the fetched list in one go
-		let filteredVcEntityList = await Promise.all(
-			credentials
-				.filter((credential) => {
-					// Apply filtering by batchId if provided
-					if (batchId && credential.batchId !== batchId) {
-						return false;
-					}
-					// Include only the first instance (instanceId === 0)
-					return credential.instanceId === 0;
-				})
-				.map(async (credential) => {
-					// Parse the credential to get parsedCredential
-					const parsedCredential = await parseCredential(credential);
-					if (parsedCredential === null) { // filter out the non parsable credentials
-						return null;
-					}
-					const result = await credentialVerifyingEngine.verify({ rawCredential: credential.data, opts: {} });
+				acc[vcEntity.batchId].push({
+					instanceId: vcEntity.instanceId,
+					sigCount: presentations.filter((x) => x.usedCredentialIds.includes(vcEntity.credentialId))
+						.length,
+				});
+				return acc;
+			}, {});
 
-					// Attach the instances array from the map and add parsedCredential
-					return {
-						...credential,
-						instances: instancesMap[credential.batchId],
-						parsedCredential,
-						isExpired: result.success === false && result.error === CredentialVerificationError.ExpiredCredential,
-						sigCount: instancesMap[credential.batchId].reduce((acc: number, curr: Instance) =>
-							acc + curr.sigCount
-							, 0),
-					};
-				})
-		);
-		filteredVcEntityList = filteredVcEntityList.filter((vcEntity) => vcEntity !== null);
+			const { credentialVerifyingEngine } = engine;
+			// Filter and map the fetched list in one go
+			let filteredVcEntityList = await Promise.all(
+				credentials
+					.filter((credential) => {
+						// Apply filtering by batchId if provided
+						if (batchId && credential.batchId !== batchId) {
+							return false;
+						}
+						// Include only the first instance (instanceId === 0)
+						return credential.instanceId === 0;
+					})
+					.map(async (credential) => {
+						// Parse the credential to get parsedCredential
+						const parsedCredential = await parseCredential(credential);
+						if (parsedCredential === null) {
+							// filter out the non parsable credentials
+							return null;
+						}
+						const result = await credentialVerifyingEngine.verify({
+							rawCredential: credential.data,
+							opts: {},
+						});
 
-		// Sorting by id
-		filteredVcEntityList.reverse();
-		return filteredVcEntityList;
-	}, [getCalculatedWalletState, parseCredential, credentialEngine]);
+						// Attach the instances array from the map and add parsedCredential
+						return {
+							...credential,
+							instances: instancesMap[credential.batchId],
+							parsedCredential,
+							isExpired:
+								result.success === false &&
+								result.error === CredentialVerificationError.ExpiredCredential,
+							sigCount: instancesMap[credential.batchId].reduce(
+								(acc: number, curr: Instance) => acc + curr.sigCount,
+								0,
+							),
+						};
+					}),
+			);
+			filteredVcEntityList = filteredVcEntityList.filter((vcEntity) => vcEntity !== null);
 
+			// Sorting by id
+			filteredVcEntityList.reverse();
+			return filteredVcEntityList;
+		},
+		[getCalculatedWalletState, parseCredential, credentialEngine],
+	);
 
 	const getData = useCallback(async () => {
 		try {
 			const storedCredentials = await fetchVcData();
-			if (storedCredentials != null && (credentialNumber.current !== null && storedCredentials.length > credentialNumber.current)) {
-				setLatestCredentials(storedCredentials.length > 0 ? new Set([storedCredentials[0].batchId]) : new Set());
+			if (
+				storedCredentials != null &&
+				credentialNumber.current !== null &&
+				storedCredentials.length > credentialNumber.current
+			) {
+				setLatestCredentials(
+					storedCredentials.length > 0 ? new Set([storedCredentials[0].batchId]) : new Set(),
+				);
 				setTimeout(() => {
 					setLatestCredentials(new Set());
 				}, 2000);
@@ -203,7 +221,6 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 				return prev;
 			});
 			credentialNumber.current = storedCredentials?.length;
-
 		} catch (error) {
 			logger.error('Failed to fetch data', error);
 		}
@@ -213,18 +230,27 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 		if (!getCalculatedWalletState || !credentialEngine || !isLoggedIn) {
 			return;
 		}
-		logger.debug("Triggerring getData()")
+		logger.debug('Triggerring getData()');
 		getData();
 	}, [getData, getCalculatedWalletState, credentialEngine, isLoggedIn]);
 
 	if (isLoggedIn && !credentialEngine) {
+		return <Spinner />;
+	} else {
 		return (
-			<Spinner />
-		);
-	}
-	else {
-		return (
-			<CredentialsContext.Provider value={{ vcEntityList, latestCredentials, fetchVcData, getData, currentSlide, setCurrentSlide, parseCredential, credentialEngine, pendingTransactions }}>
+			<CredentialsContext.Provider
+				value={{
+					vcEntityList,
+					latestCredentials,
+					fetchVcData,
+					getData,
+					currentSlide,
+					setCurrentSlide,
+					parseCredential,
+					credentialEngine,
+					pendingTransactions,
+				}}
+			>
 				{children}
 			</CredentialsContext.Provider>
 		);

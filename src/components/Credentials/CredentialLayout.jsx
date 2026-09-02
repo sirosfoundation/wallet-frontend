@@ -24,14 +24,13 @@ const UsageStats = ({ zeroSigCount, sigTotal, screenType, t }) => {
 	if (zeroSigCount === null || sigTotal === null) return null;
 
 	const usageClass =
-		zeroSigCount === 0
-			? 'text-lm-orange dark:text-dm-orange'
-			: 'text-lm-green dark:text-dm-green';
+		zeroSigCount === 0 ? 'text-lm-orange dark:text-dm-orange' : 'text-lm-green dark:text-dm-green';
 
 	return (
 		<div
-			className={`flex items-center text-lm-gray-800 dark:text-dm-gray-200 ${screenType === 'mobile' ? 'text-sm' : 'text-md'
-				}`}
+			className={`flex items-center text-lm-gray-800 dark:text-dm-gray-200 ${
+				screenType === 'mobile' ? 'text-sm' : 'text-md'
+			}`}
 		>
 			<GalleryHorizontalEnd size={18} className="mr-1" />
 			<p className="font-base">
@@ -42,14 +41,19 @@ const UsageStats = ({ zeroSigCount, sigTotal, screenType, t }) => {
 	);
 };
 
-const CredentialLayout = ({ children, title = null, displayCredentialInfo = null, fixedRatioImage = true }) => {
+const CredentialLayout = ({
+	children,
+	title = null,
+	displayCredentialInfo = null,
+	fixedRatioImage = true,
+}) => {
 	const { batchId } = useParams();
 	const screenType = useScreenType();
 	const [showFullscreenImgPopup, setShowFullscreenImgPopup] = useState(false);
 	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const { buildPath } = useTenant();
-	const [zeroSigCount, setZeroSigCount] = useState(null)
+	const [zeroSigCount, setZeroSigCount] = useState(null);
 	const [sigTotal, setSigTotal] = useState(null);
 
 	const { vcEntityList, fetchVcData } = useContext(CredentialsContext);
@@ -57,7 +61,7 @@ const CredentialLayout = ({ children, title = null, displayCredentialInfo = null
 
 	useEffect(() => {
 		if (vcEntity) {
-			setZeroSigCount(vcEntity.instances.filter(instance => instance.sigCount === 0).length || 0);
+			setZeroSigCount(vcEntity.instances.filter((instance) => instance.sigCount === 0).length || 0);
 			setSigTotal(vcEntity.instances.length);
 		}
 	}, [vcEntity]);
@@ -65,23 +69,25 @@ const CredentialLayout = ({ children, title = null, displayCredentialInfo = null
 	const credentialName = useCredentialName(
 		vcEntity?.parsedCredential?.metadata?.credential?.name,
 		vcEntity?.batchId,
-		[i18n.language]
+		[i18n.language],
 	);
 
 	const CredentialImageButton = ({
 		showRibbon,
-		className = "w-full object-cover",
+		className = 'w-full object-cover',
 		onClick = () => setShowFullscreenImgPopup(true),
 		ariaLabel,
 		title,
-		fixedRatioImage = false
+		fixedRatioImage = false,
 	}) => (
 		<button
 			id="show-full-screen-credential"
 			className="relative rounded-xl xm:rounded-lg w-full overflow-hidden transition-shadow shadow-md hover:shadow-lg cursor-pointer"
 			onClick={onClick}
 			aria-label={ariaLabel ?? credentialName}
-			title={title ?? t('pageCredentials.credentialFullScreenTitle', { friendlyName: credentialName })}
+			title={
+				title ?? t('pageCredentials.credentialFullScreenTitle', { friendlyName: credentialName })
+			}
 		>
 			<CredentialImage
 				vcEntity={vcEntity}
@@ -99,40 +105,50 @@ const CredentialLayout = ({ children, title = null, displayCredentialInfo = null
 			<div className="w-full lg:w-1/2 flex flex-col gap-4">
 				<CredentialImageButton showRibbon fixedRatioImage={false} />
 				{zeroSigCount !== null && sigTotal && (
-					<UsageStats zeroSigCount={zeroSigCount} sigTotal={sigTotal} screenType={screenType} t={t} />
-
+					<UsageStats
+						zeroSigCount={zeroSigCount}
+						sigTotal={sigTotal}
+						screenType={screenType}
+						t={t}
+					/>
 				)}
 
 				{/* Show displayCredentialInfo inline when stacked */}
-				<div className="block lg:hidden">
-					{displayCredentialInfo}
-				</div>
+				<div className="block lg:hidden">{displayCredentialInfo}</div>
 
 				{children}
 			</div>
 
 			{/* RIGHT COLUMN (only on wide layout) */}
-			<div className="hidden lg:block w-full lg:w-1/2">
-				{displayCredentialInfo}
-			</div>
+			<div className="hidden lg:block w-full lg:w-1/2">{displayCredentialInfo}</div>
 		</div>
 	);
 
 	const MobileLayout = () => (
 		<div className="w-full flex flex-col">
 			<div className={`flex flex-row items-center gap-5 mt-2 mb-4 px-2`}>
-				<div className='flex flex-col gap-4 w-4/5 xm:w-4/12'>
+				<div className="flex flex-col gap-4 w-4/5 xm:w-4/12">
 					<CredentialImageButton showRibbon={false} fixedRatioImage={fixedRatioImage} />
 					{screenType !== 'mobile' && zeroSigCount !== null && sigTotal && (
-						<UsageStats zeroSigCount={zeroSigCount} sigTotal={sigTotal} screenType={screenType} t={t} />
-
+						<UsageStats
+							zeroSigCount={zeroSigCount}
+							sigTotal={sigTotal}
+							screenType={screenType}
+							t={t}
+						/>
 					)}
 				</div>
 				{screenType === 'mobile' && (
-					<div className='flex flex-start flex-col gap-1'>
-						<p className='text-xl font-bold text-lm-gray-900 dark:text-dm-gray-100'>{credentialName}</p>
-						<UsageStats zeroSigCount={zeroSigCount} sigTotal={sigTotal} screenType={screenType} t={t} />
-
+					<div className="flex flex-start flex-col gap-1">
+						<p className="text-xl font-bold text-lm-gray-900 dark:text-dm-gray-100">
+							{credentialName}
+						</p>
+						<UsageStats
+							zeroSigCount={zeroSigCount}
+							sigTotal={sigTotal}
+							screenType={screenType}
+							t={t}
+						/>
 					</div>
 				)}
 			</div>
@@ -145,10 +161,7 @@ const CredentialLayout = ({ children, title = null, displayCredentialInfo = null
 					<p>{t('pageCredentials.details.expired')}</p>
 				</div>
 			)}
-			<div className="mb-2">
-				{displayCredentialInfo}
-
-			</div>
+			<div className="mb-2">{displayCredentialInfo}</div>
 			{children}
 		</div>
 	);
@@ -161,12 +174,13 @@ const CredentialLayout = ({ children, title = null, displayCredentialInfo = null
 					heading={<Link to={buildPath()}>{t('common.navItemCredentials')}</Link>}
 					flexJustifyContent="start"
 					textColorClass="text-lm-gray-700 dark:text-dm-gray-300 hover:underline"
-				>					<ArrowRight size={20} className="mx-2 text-2xl mb-2 text-inherit" />
-
+				>
+					{' '}
+					<ArrowRight size={20} className="mx-2 text-2xl mb-2 text-inherit" />
 					<H1 heading={credentialName} hr={false} />
 				</H1>
 			) : (
-				<div className='flex'>
+				<div className="flex">
 					<button
 						id="go-previous"
 						onClick={() => navigate(-1)}
@@ -180,8 +194,10 @@ const CredentialLayout = ({ children, title = null, displayCredentialInfo = null
 			)}
 			<PageDescription description={t('pageCredentials.details.description')} />
 
-			<div className={`w-full flex flex-col ${displayCredentialInfo && screenType === 'desktop' ? 'lg:flex-row gap-4' : ''} mt-0 lg:mt-5 px-2`}>
-				{ (screenType === 'desktop' || !fixedRatioImage) ? <DesktopLayout /> : <MobileLayout />}
+			<div
+				className={`w-full flex flex-col ${displayCredentialInfo && screenType === 'desktop' ? 'lg:flex-row gap-4' : ''} mt-0 lg:mt-5 px-2`}
+			>
+				{screenType === 'desktop' || !fixedRatioImage ? <DesktopLayout /> : <MobileLayout />}
 			</div>
 			{/* Fullscreen credential Popup*/}
 			{showFullscreenImgPopup && (
@@ -189,11 +205,15 @@ const CredentialLayout = ({ children, title = null, displayCredentialInfo = null
 					isOpen={showFullscreenImgPopup}
 					onClose={() => setShowFullscreenImgPopup(false)}
 					content={
-						<CredentialImage vcEntity={vcEntity} className={"max-w-full max-h-full rounded-xl"} showRibbon={false} fixedRatio={false} />
+						<CredentialImage
+							vcEntity={vcEntity}
+							className={'max-w-full max-h-full rounded-xl'}
+							showRibbon={false}
+							fixedRatio={false}
+						/>
 					}
 				/>
 			)}
-
 		</div>
 	);
 };

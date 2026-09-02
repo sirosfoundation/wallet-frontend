@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from "react";
-import SearchInput from "../Inputs/SearchInput";
-import Button from "../Buttons/Button";
-import { useTranslation } from "react-i18next";
-import { getElementPropValue, sanitizeId } from "../../util";
-import { H3 } from "../Shared/Heading";
-import { highlightBestSequence } from "./highlightBestSequence";
+import React, { useEffect, useState } from 'react';
+import SearchInput from '../Inputs/SearchInput';
+import Button from '../Buttons/Button';
+import { useTranslation } from 'react-i18next';
+import { getElementPropValue, sanitizeId } from '../../util';
+import { H3 } from '../Shared/Heading';
+import { highlightBestSequence } from './highlightBestSequence';
 
 type QueryableListProps<T> = {
 	list: T[];
@@ -30,7 +30,7 @@ const QueryableList = <T extends object>({
 	extraSection,
 }: QueryableListProps<T>) => {
 	const { t } = useTranslation();
-	const [searchQuery, setSearchQuery] = useState<string>("");
+	const [searchQuery, setSearchQuery] = useState<string>('');
 	const [filteredList, setFilteredList] = useState<T[]>(list);
 	const [recentList, setRecentList] = useState<string[]>(recent);
 	const [recentCredentialConfigurations, setRecentCredentialConfigurations] = useState([]);
@@ -39,8 +39,7 @@ const QueryableList = <T extends object>({
 		setSearchQuery(inputQuery);
 
 		const filtered = list.filter((el) => {
-			const friendlyName =
-				(getElementPropValue(el, queryField) as string) ?? "Unknown";
+			const friendlyName = (getElementPropValue(el, queryField) as string) ?? 'Unknown';
 			const query = inputQuery.toLowerCase().trimStart();
 			return friendlyName.toLowerCase().includes(query);
 		});
@@ -58,10 +57,10 @@ const QueryableList = <T extends object>({
 
 	useEffect(() => {
 		const recentConfigs = recentList
-			.map(recentItem =>
-				filteredList.find(config =>
-					getElementPropValue(config, identifierField as string) === recentItem
-				)
+			.map((recentItem) =>
+				filteredList.find(
+					(config) => getElementPropValue(config, identifierField as string) === recentItem,
+				),
 			)
 			.filter(Boolean) // This ensures undefined entries are removed
 			.slice(0, 3); // This limits the array to the first two entries
@@ -73,41 +72,43 @@ const QueryableList = <T extends object>({
 		<>
 			<div className="my-4">
 				<SearchInput
-					placeholder={t(translationPrefix + ".searchPlaceholder")}
+					placeholder={t(translationPrefix + '.searchPlaceholder')}
 					searchCallback={handleSearch}
 				/>
 				<div className="my-2">
-					{recentCredentialConfigurations.length > 0 && recentList.length > 0 && !searchQuery && <H3 heading={t("queryableList.recent")} />}
-					<div
-						className="mb-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2"
-					>
-						{!searchQuery && recentCredentialConfigurations.map((el) => (
-							<Button
-								id={`querylist-recent-${sanitizeId(getElementPropValue(el, identifierField as string) as string)}`}
-								variant="outline"
-								additionalClassName="wrap-break-word w-full text-left"
-								key={getElementPropValue(el, identifierField as string)}
-								{...(onClick &&
-									identifierField && {
-									onClick: () =>
-										onClick(getElementPropValue(el, identifierField as string)),
-								})}
-								disabled={!isOnline}
-								title={!isOnline ? t("common.offlineTitle") : ""}
-							>
-								{"displayNode" in el && typeof el.displayNode === "function"
-									? el.displayNode("") // 👈 no highlight for recent
-									: getElementPropValue(el, queryField) ?? "Unknown"}
-							</Button>
-						))}
+					{recentCredentialConfigurations.length > 0 && recentList.length > 0 && !searchQuery && (
+						<H3 heading={t('queryableList.recent')} />
+					)}
+					<div className="mb-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+						{!searchQuery &&
+							recentCredentialConfigurations.map((el) => (
+								<Button
+									id={`querylist-recent-${sanitizeId(getElementPropValue(el, identifierField as string) as string)}`}
+									variant="outline"
+									additionalClassName="wrap-break-word w-full text-left"
+									key={getElementPropValue(el, identifierField as string)}
+									{...(onClick &&
+										identifierField && {
+											onClick: () => onClick(getElementPropValue(el, identifierField as string)),
+										})}
+									disabled={!isOnline}
+									title={!isOnline ? t('common.offlineTitle') : ''}
+								>
+									{'displayNode' in el && typeof el.displayNode === 'function'
+										? el.displayNode('') // 👈 no highlight for recent
+										: (getElementPropValue(el, queryField) ?? 'Unknown')}
+								</Button>
+							))}
 					</div>
 				</div>
 			</div>
 			{!searchQuery && extraSection}
-			{recentCredentialConfigurations.length > 0 && recentList.length > 0 && !searchQuery && <H3 heading={t("queryableList.all")} />}
+			{recentCredentialConfigurations.length > 0 && recentList.length > 0 && !searchQuery && (
+				<H3 heading={t('queryableList.all')} />
+			)}
 			{filteredList.length === 0 ? (
 				<p className="text-lm-gray-800 dark:text-dm-gray-200 mt-4">
-					{t(translationPrefix + ".noFound")}
+					{t(translationPrefix + '.noFound')}
 				</p>
 			) : (
 				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -119,18 +120,17 @@ const QueryableList = <T extends object>({
 							key={getElementPropValue(el, identifierField as string)}
 							{...(onClick &&
 								identifierField && {
-								onClick: () =>
-									onClick(getElementPropValue(el, identifierField as string)),
-							})}
+									onClick: () => onClick(getElementPropValue(el, identifierField as string)),
+								})}
 							disabled={!isOnline}
-							title={!isOnline ? t("common.offlineTitle") : ""}
+							title={!isOnline ? t('common.offlineTitle') : ''}
 						>
-							{"displayNode" in el && typeof el.displayNode === "function"
+							{'displayNode' in el && typeof el.displayNode === 'function'
 								? el.displayNode(searchQuery)
 								: highlightBestSequence(
-									getElementPropValue(el, queryField) ?? "Unknown",
-									searchQuery
-								)}
+										getElementPropValue(el, queryField) ?? 'Unknown',
+										searchQuery,
+									)}
 						</Button>
 					))}
 				</div>

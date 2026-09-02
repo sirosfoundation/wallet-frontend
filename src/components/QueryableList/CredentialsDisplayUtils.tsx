@@ -13,7 +13,7 @@ export function buildCredentialConfiguration(
 	key: string,
 	config: any,
 	metadata: any,
-	filterItemByLang: (items: any[], langKey: string) => any
+	filterItemByLang: (items: any[], langKey: string) => any,
 ): {
 	identifierField: string;
 	credentialConfigurationDisplayName: string;
@@ -32,9 +32,7 @@ export function buildCredentialConfiguration(
 
 	const issuerDisplayLang = filterItemByLang(metadata.display, 'locale');
 	const issuerDisplay = {
-		name:
-			issuerDisplayLang?.name ??
-			new URL(metadata.credential_issuer).host,
+		name: issuerDisplayLang?.name ?? new URL(metadata.credential_issuer).host,
 		logo: issuerDisplayLang?.logo ?? null,
 		background_color: issuerDisplayLang?.background_color,
 		text_color: issuerDisplayLang?.text_color,

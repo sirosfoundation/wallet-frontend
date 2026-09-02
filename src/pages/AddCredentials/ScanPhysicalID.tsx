@@ -2,7 +2,17 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { TFunction } from 'i18next';
-import { ArrowLeft, ScanFace, ScanSearch, Nfc, IdCard, Sun, Signal, ShieldCheck, LucideIcon } from 'lucide-react';
+import {
+	ArrowLeft,
+	ScanFace,
+	ScanSearch,
+	Nfc,
+	IdCard,
+	Sun,
+	Signal,
+	ShieldCheck,
+	LucideIcon,
+} from 'lucide-react';
 import { H1 } from '@/components/Shared/Heading';
 import Button from '@/components/Buttons/Button';
 import { useTenant } from '@/context/TenantContext';
@@ -25,7 +35,8 @@ const ScanPhysicalID = () => {
 	const { buildPath } = useTenant();
 	const { t } = useTranslation();
 	const [hasConsented, setHasConsented] = useState(false);
-	const isNativeScanAvailable = SCAN_PHYSICAL_ID_ENABLED && typeof window.nativeWrapper?.startScanPhysicalId === 'function';
+	const isNativeScanAvailable =
+		SCAN_PHYSICAL_ID_ENABLED && typeof window.nativeWrapper?.startScanPhysicalId === 'function';
 
 	// Defense in depth: this route is only reachable from AddCredentials' entry
 	// point, which already hides itself when the feature is disabled -- but a
@@ -42,20 +53,31 @@ const ScanPhysicalID = () => {
 	}
 
 	const steps = [
-		{ icon: ScanFace,   title: t('pageScanPhysicalId.steps.step1.title'), description: t('pageScanPhysicalId.steps.step1.description') },
-		{ icon: ScanSearch, title: t('pageScanPhysicalId.steps.step2.title'), description: t('pageScanPhysicalId.steps.step2.description') },
-		{ icon: Nfc,        title: t('pageScanPhysicalId.steps.step3.title'), description: t('pageScanPhysicalId.steps.step3.description') },
+		{
+			icon: ScanFace,
+			title: t('pageScanPhysicalId.steps.step1.title'),
+			description: t('pageScanPhysicalId.steps.step1.description'),
+		},
+		{
+			icon: ScanSearch,
+			title: t('pageScanPhysicalId.steps.step2.title'),
+			description: t('pageScanPhysicalId.steps.step2.description'),
+		},
+		{
+			icon: Nfc,
+			title: t('pageScanPhysicalId.steps.step3.title'),
+			description: t('pageScanPhysicalId.steps.step3.description'),
+		},
 	];
 
 	const prerequisites = [
 		{ icon: IdCard, label: t('pageScanPhysicalId.beforeYouBegin.passportReady') },
-		{ icon: Sun,    label: t('pageScanPhysicalId.beforeYouBegin.goodLighting') },
+		{ icon: Sun, label: t('pageScanPhysicalId.beforeYouBegin.goodLighting') },
 		{ icon: Signal, label: t('pageScanPhysicalId.beforeYouBegin.goodInternet') },
 	];
 
 	return (
 		<div className="px-6 sm:px-12 w-full pb-8">
-
 			{/* Header */}
 			<div className="flex items-center mb-2">
 				<button
@@ -71,10 +93,8 @@ const ScanPhysicalID = () => {
 
 			{/* Cards: stacked on mobile, 2-column on desktop */}
 			<div className="flex flex-col md:grid md:grid-cols-2 md:gap-4">
-
 				{/* Left column */}
 				<div className="flex flex-col gap-4">
-
 					{/* Steps */}
 					<div className="border border-lm-gray-400 dark:border-dm-gray-600 rounded-xl p-4 bg-lm-gray-50 dark:bg-dm-gray-800">
 						{steps.map(({ icon: Icon, title, description }, i) => (
@@ -95,12 +115,10 @@ const ScanPhysicalID = () => {
 					<div className="hidden md:block border border-lm-gray-400 dark:border-dm-gray-600 rounded-xl p-4 bg-lm-gray-50 dark:bg-dm-gray-800">
 						<WhyFaceScan t={t} />
 					</div>
-
 				</div>
 
 				{/* Right column */}
 				<div className="flex flex-col gap-4 mt-4 md:mt-0">
-
 					{/* Before you begin */}
 					<div className="border border-lm-gray-400 dark:border-dm-gray-600 rounded-xl p-4 bg-lm-gray-50 dark:bg-dm-gray-800">
 						<p className="font-semibold mb-4 text-lm-gray-900 dark:text-dm-gray-100">
@@ -128,7 +146,6 @@ const ScanPhysicalID = () => {
 							<StartScanButton t={t} disabled={!hasConsented || !isNativeScanAvailable} />
 						</div>
 					</div>
-
 				</div>
 			</div>
 
@@ -139,7 +156,6 @@ const ScanPhysicalID = () => {
 					<StartScanButton t={t} disabled={!hasConsented || !isNativeScanAvailable} />
 				</div>
 			</div>
-
 		</div>
 	);
 };
@@ -155,7 +171,12 @@ const WhyFaceScan = ({ t }: { t: TFunction }) => (
 			</p>
 			<p className="text-sm text-lm-gray-700 dark:text-dm-gray-300">
 				{t('pageScanPhysicalId.whyFaceScan.viewOur')}
-				<a href="https://siros.org/policies/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+				<a
+					href="https://siros.org/policies/privacy-policy"
+					target="_blank"
+					rel="noopener noreferrer"
+					className="text-primary underline"
+				>
 					{t('pageScanPhysicalId.whyFaceScan.privacyPolicy')}
 				</a>
 			</p>
@@ -166,7 +187,15 @@ const WhyFaceScan = ({ t }: { t: TFunction }) => (
 	</div>
 );
 
-const ConsentCheckbox = ({ t, checked, onChange }: { t: TFunction, checked: boolean, onChange: (checked: boolean) => void }) => (
+const ConsentCheckbox = ({
+	t,
+	checked,
+	onChange,
+}: {
+	t: TFunction;
+	checked: boolean;
+	onChange: (checked: boolean) => void;
+}) => (
 	<label className="mb-4 text-sm relative flex items-start gap-2 cursor-pointer text-lm-gray-900 dark:text-dm-gray-100">
 		<input
 			className="mt-0.5 w-4 h-4 accent-primary cursor-pointer shrink-0"
@@ -178,7 +207,7 @@ const ConsentCheckbox = ({ t, checked, onChange }: { t: TFunction, checked: bool
 	</label>
 );
 
-const StartScanButton = ({ t, disabled }: { t: TFunction, disabled: boolean }) => (
+const StartScanButton = ({ t, disabled }: { t: TFunction; disabled: boolean }) => (
 	<Button
 		variant="primary"
 		additionalClassName="w-full"

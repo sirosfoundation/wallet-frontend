@@ -4,7 +4,7 @@ import { TransformKeysToLowercase } from './utils/resources';
 /**
  * Vite-specific environment variables.
  * These can't or shouldn't be set at runtime.
-*/
+ */
 export const ViteEnvConfigSchema = z.object({
 	HOST: z.string().optional(),
 	PORT: z.string().optional(),
@@ -69,19 +69,20 @@ export type WellKnownEnvConfig = z.infer<typeof WellKnownEnvConfigSchema>;
 /**
  * The full environment configuration map.
  */
-export const EnvConfigMapSchema = ViteEnvConfigSchema
-	.merge(ClientEnvConfigSchema)
-	.merge(WellKnownEnvConfigSchema);
+export const EnvConfigMapSchema =
+	ViteEnvConfigSchema.merge(ClientEnvConfigSchema).merge(WellKnownEnvConfigSchema);
 export type EnvConfigMap = z.infer<typeof EnvConfigMapSchema>;
 
 /**
  * Client configuration meta tags that will be injected into the HTML.
  */
 export const ClientMetaConfigSchema = transformSchemaKeysToLowercase(ClientEnvConfigSchema).extend({
-	branding: z.object({
-		logo_light: z.string().optional(),
-		logo_dark: z.string().optional(),
-	}).optional(),
+	branding: z
+		.object({
+			logo_light: z.string().optional(),
+			logo_dark: z.string().optional(),
+		})
+		.optional(),
 });
 export type ClientMetaConfig = z.infer<typeof ClientMetaConfigSchema>;
 
@@ -90,9 +91,7 @@ export type ClientMetaConfig = z.infer<typeof ClientMetaConfigSchema>;
  */
 export function getMetaConfigFromEnvConfig(config: EnvConfigMap): ClientMetaConfig {
 	return ClientMetaConfigSchema.parse(
-		Object.fromEntries(
-			Object.entries(config).map(([key, value]) => [key.toLowerCase(), value])
-		)
+		Object.fromEntries(Object.entries(config).map(([key, value]) => [key.toLowerCase(), value])),
 	);
 }
 
@@ -101,7 +100,7 @@ export function getMetaConfigFromEnvConfig(config: EnvConfigMap): ClientMetaConf
  * Returns a properly typed Zod schema.
  */
 function transformSchemaKeysToLowercase<T extends z.ZodRawShape>(
-	schema: z.ZodObject<T>
+	schema: z.ZodObject<T>,
 ): z.ZodObject<{ [K in keyof TransformKeysToLowercase<T>]: z.ZodOptional<z.ZodString> }> {
 	const shape: Record<string, z.ZodTypeAny> = {};
 	for (const [key, value] of Object.entries(schema.shape)) {

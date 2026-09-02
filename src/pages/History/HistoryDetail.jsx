@@ -25,7 +25,7 @@ const HistoryDetail = () => {
 	const [selectedHistoryItem, setSelectedHistoryItem] = useState([]);
 	const { t } = useTranslation();
 
-	logger.debug('history', history)
+	logger.debug('history', history);
 
 	useEffect(() => {
 		if (transactionId && history && Object.keys(history).length > 0) {
@@ -36,7 +36,7 @@ const HistoryDetail = () => {
 	return (
 		<>
 			<div className="px-6 sm:px-12 w-full">
-				<div className='flex'>
+				<div className="flex">
 					<button
 						id="go-previous"
 						onClick={() => navigate(-1)}

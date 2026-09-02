@@ -69,7 +69,11 @@ describe('HttpClient', () => {
 			mockGetItem.mockResolvedValue(cachedData);
 
 			const client = new HttpClient(true, null);
-			const response = await client.get('http://backend.localhost/api/test', {}, { useCache: true });
+			const response = await client.get(
+				'http://backend.localhost/api/test',
+				{},
+				{ useCache: true },
+			);
 
 			expect(response.status).toBe(200);
 			expect(response.data).toEqual({ foo: 'bar' });
@@ -89,7 +93,11 @@ describe('HttpClient', () => {
 			});
 
 			const client = new HttpClient(true, null);
-			const response = await client.get('http://backend.localhost/api/test', {}, { useCache: true });
+			const response = await client.get(
+				'http://backend.localhost/api/test',
+				{},
+				{ useCache: true },
+			);
 
 			expect(response.data).toEqual({ new: 'data' });
 			expect(mockAxiosRequest).toHaveBeenCalled();
@@ -104,7 +112,11 @@ describe('HttpClient', () => {
 			});
 
 			const client = new HttpClient(true, null);
-			const response = await client.get('http://backend.localhost/api/test', {}, { useCache: true });
+			const response = await client.get(
+				'http://backend.localhost/api/test',
+				{},
+				{ useCache: true },
+			);
 
 			expect(response.data).toEqual({ fresh: 'data' });
 			expect(mockAxiosRequest).toHaveBeenCalled();
@@ -221,7 +233,11 @@ describe('HttpClient', () => {
 			mockAxiosRequest.mockRejectedValue(new Error('Network error'));
 
 			const client = new HttpClient(true, null);
-			const response = await client.get('http://backend.localhost/api/test', {}, { useCache: true });
+			const response = await client.get(
+				'http://backend.localhost/api/test',
+				{},
+				{ useCache: true },
+			);
 
 			expect(response.data).toEqual({ fallback: 'data' });
 		});
@@ -230,7 +246,11 @@ describe('HttpClient', () => {
 			mockGetItem.mockResolvedValue(null);
 			mockAxiosRequest.mockRejectedValue(new Error('Network error'));
 			const client = new HttpClient(true, null);
-			const response = await client.get('http://backend.localhost/api/test', {}, { useCache: true });
+			const response = await client.get(
+				'http://backend.localhost/api/test',
+				{},
+				{ useCache: true },
+			);
 			expect(response.status).toBe(500);
 		});
 	});
@@ -264,7 +284,12 @@ describe('HttpClient', () => {
 			mockGetItem.mockResolvedValue(cachedData);
 
 			const client = new HttpClient(true, null);
-			const response = await client.post('http://backend.localhost/api/resolve', body, {}, { useCache: true });
+			const response = await client.post(
+				'http://backend.localhost/api/resolve',
+				body,
+				{},
+				{ useCache: true },
+			);
 
 			expect(response.data).toEqual({ cached: 'post' });
 			expect(mockAxiosRequest).not.toHaveBeenCalled();
@@ -376,7 +401,11 @@ describe('HttpClient', () => {
 			mockGetItem.mockResolvedValue(cachedData);
 
 			const client = new HttpClient(null, null); // unknown online status
-			const response = await client.get('http://backend.localhost/api/test', {}, { useCache: true });
+			const response = await client.get(
+				'http://backend.localhost/api/test',
+				{},
+				{ useCache: true },
+			);
 
 			// When isOnline is null, should return cache even if expired
 			expect(response.data).toEqual({ unknown: 'state' });

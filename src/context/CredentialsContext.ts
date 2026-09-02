@@ -14,14 +14,14 @@ type CredentialEngine = {
 export type Instance = {
 	instanceId: number;
 	sigCount: number;
-}
+};
 
 export type ExtendedVcEntity = WalletStateCredential & {
 	parsedCredential: ParsedCredential;
 	isExpired: boolean;
 	instances: Instance[];
 	sigCount: number; // calculate usage by parsing all presentation history
-}
+};
 
 export type CredentialsContextValue = {
 	/**
@@ -50,9 +50,9 @@ const defaultContextValue: CredentialsContextValue = {
 	vcEntityList: [],
 	latestCredentials: new Set<number>(),
 	fetchVcData: async () => [],
-	getData: async () => { },
+	getData: async () => {},
 	currentSlide: 1,
-	setCurrentSlide: () => { },
+	setCurrentSlide: () => {},
 	parseCredential: async () => null,
 	credentialEngine: null,
 	pendingTransactions: null,

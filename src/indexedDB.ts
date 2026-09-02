@@ -28,18 +28,15 @@ const stores = {
 	}),
 };
 
-
 /** Paths to exclude from IndexedDB cache logic */
-export const EXCLUDED_INDEXEDDB_PATHS = new Set([
-	'/user/session/private-data',
-]);
+export const EXCLUDED_INDEXEDDB_PATHS = new Set(['/user/session/private-data']);
 
 const storeNameMapping: { [key: string]: string } = {
-	'users': 'users',
+	users: 'users',
 	'/issuer/all': 'externalEntities',
 	'/verifier/all': 'externalEntities',
 	'/user/session/account-info': 'accountInfo',
-	'/helper/iaca-list': 'externalEntities'
+	'/helper/iaca-list': 'externalEntities',
 };
 
 function getMappedStoreName(storeName: string): string {
@@ -123,16 +120,16 @@ function deleteStore(dbName: string, storeName: string) {
 }
 
 async function migrateDataSource() {
-	if (await storeExists("AppDataSource", "vc")) {
-		await deleteStore("AppDataSource", "vc");
+	if (await storeExists('AppDataSource', 'vc')) {
+		await deleteStore('AppDataSource', 'vc');
 	}
 
-	if (await storeExists("AppDataSource", "vp")) {
-		await deleteStore("AppDataSource", "vp");
+	if (await storeExists('AppDataSource', 'vp')) {
+		await deleteStore('AppDataSource', 'vp');
 	}
 
-	if (await storeExists("AppDataSource", "proxyCache")) {
-		await deleteStore("AppDataSource", "proxyCache");
+	if (await storeExists('AppDataSource', 'proxyCache')) {
+		await deleteStore('AppDataSource', 'proxyCache');
 	}
 }
 
@@ -186,7 +183,12 @@ async function migrateDataSource() {
 // 	await UserHandleToUserID.dropInstance();
 // }
 
-export async function addItem(storeName: string, key: any, value: any, forceMappedStoreName?: string): Promise<void> {
+export async function addItem(
+	storeName: string,
+	key: any,
+	value: any,
+	forceMappedStoreName?: string,
+): Promise<void> {
 	try {
 		const mappedStoreName = forceMappedStoreName ?? getMappedStoreName(storeName);
 		await stores[mappedStoreName].setItem(key, value);
@@ -195,7 +197,11 @@ export async function addItem(storeName: string, key: any, value: any, forceMapp
 	}
 }
 
-export async function getItem(storeName: string, key: any, forceMappedStoreName?: string): Promise<any> {
+export async function getItem(
+	storeName: string,
+	key: any,
+	forceMappedStoreName?: string,
+): Promise<any> {
 	try {
 		const mappedStoreName = forceMappedStoreName ?? getMappedStoreName(storeName);
 		const value = await stores[mappedStoreName].getItem(key);
@@ -221,7 +227,11 @@ export async function getAllItems(storeName: string): Promise<any[]> {
 	}
 }
 
-export async function removeItem(storeName: string, key: any, forceMappedStoreName?: string): Promise<void> {
+export async function removeItem(
+	storeName: string,
+	key: any,
+	forceMappedStoreName?: string,
+): Promise<void> {
 	try {
 		const mappedStoreName = forceMappedStoreName ?? getMappedStoreName(storeName);
 		await stores[mappedStoreName].removeItem(key);

@@ -70,7 +70,7 @@ export class OIDFlowDirectTransport implements IOIDFlowTransport {
 	async startOID4VCIFlow(_params: OID4VCIFlowParams): Promise<OID4VCIFlowResult> {
 		throw new Error(
 			'DirectTransport not implemented: OID4VCI direct browser requests ' +
-			'require ecosystem-wide CORS support. Use WebSocket or HTTP proxy transport.'
+				'require ecosystem-wide CORS support. Use WebSocket or HTTP proxy transport.',
 		);
 	}
 
@@ -79,7 +79,7 @@ export class OIDFlowDirectTransport implements IOIDFlowTransport {
 	async startOID4VPFlow(_params: OID4VPFlowParams): Promise<OID4VPFlowResult> {
 		throw new Error(
 			'DirectTransport not implemented: OID4VP direct browser requests ' +
-			'require ecosystem-wide CORS support. Use WebSocket or HTTP proxy transport.'
+				'require ecosystem-wide CORS support. Use WebSocket or HTTP proxy transport.',
 		);
 	}
 
@@ -88,7 +88,7 @@ export class OIDFlowDirectTransport implements IOIDFlowTransport {
 	async request<T>(_flowRequest: OIDFlowRequest): Promise<OIDFlowResponse<T>> {
 		throw new Error(
 			'DirectTransport not implemented: Direct browser requests ' +
-			'require ecosystem-wide CORS support. Use WebSocket or HTTP proxy transport.'
+				'require ecosystem-wide CORS support. Use WebSocket or HTTP proxy transport.',
 		);
 	}
 
@@ -141,9 +141,8 @@ export class OIDFlowDirectTransport implements IOIDFlowTransport {
 
 			// Check if our origin is allowed
 			const currentOrigin = window.location.origin;
-			const isAllowed = allowOrigin === '*' ||
-				allowOrigin === currentOrigin ||
-				allowOrigin.includes(currentOrigin);
+			const isAllowed =
+				allowOrigin === '*' || allowOrigin === currentOrigin || allowOrigin.includes(currentOrigin);
 
 			if (!isAllowed) {
 				return {
@@ -154,7 +153,7 @@ export class OIDFlowDirectTransport implements IOIDFlowTransport {
 			}
 
 			// Verify required methods are allowed
-			const methods = allowMethods?.split(',').map(m => m.trim().toUpperCase()) ?? [];
+			const methods = allowMethods?.split(',').map((m) => m.trim().toUpperCase()) ?? [];
 			if (!methods.includes('POST') && !methods.includes('*')) {
 				return {
 					supported: false,

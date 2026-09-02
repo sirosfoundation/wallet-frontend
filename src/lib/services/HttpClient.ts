@@ -51,10 +51,7 @@ export default class HttpClient {
 	#obliviousKeyConfig: HpkeConfig | null;
 	#inFlightRequests = new Map<string, Promise<RawResponse>>();
 
-	constructor(
-		isOnline: boolean | null = true,
-		obliviousKeyConfig: HpkeConfig | null = null,
-	) {
+	constructor(isOnline: boolean | null = true, obliviousKeyConfig: HpkeConfig | null = null) {
 		this.#isOnline = isOnline;
 		this.#obliviousKeyConfig = obliviousKeyConfig;
 	}
@@ -112,8 +109,7 @@ export default class HttpClient {
 	): Promise<RawResponse> {
 		const { useCache = false } = options || {};
 		const now = Math.floor(Date.now() / 1000);
-		const isBinaryRequest =
-			/\.(png|jpe?g|gif|webp|bmp|tiff?|ico)(\?.*)?(#.*)?$/i.test(url);
+		const isBinaryRequest = /\.(png|jpe?g|gif|webp|bmp|tiff?|ico)(\?.*)?(#.*)?$/i.test(url);
 
 		const cacheKey = [
 			isBinaryRequest ? 'blob' : 'data',
@@ -129,7 +125,7 @@ export default class HttpClient {
 			return {
 				status: 504,
 				headers: {},
-				data: 'No cached response available and offline'
+				data: 'No cached response available and offline',
 			};
 		}
 
@@ -169,8 +165,7 @@ export default class HttpClient {
 	): Promise<RawResponse> {
 		try {
 			const tenantId = getTenantFromUrlPath() || 'default';
-			const targetIsBackend =
-				new URL(url).origin === new URL(BACKEND_URL).origin;
+			const targetIsBackend = new URL(url).origin === new URL(BACKEND_URL).origin;
 
 			const requestMethod =
 				this.#obliviousKeyConfig !== null
@@ -200,8 +195,7 @@ export default class HttpClient {
 
 			if (isBinaryRequest) {
 				const contentType =
-					(responseHeaders['content-type'] as string) ||
-					'application/octet-stream';
+					(responseHeaders['content-type'] as string) || 'application/octet-stream';
 				const blob = new Blob([new Uint8Array(rawData as ArrayBuffer)], {
 					type: contentType,
 				});
@@ -222,7 +216,7 @@ export default class HttpClient {
 				return {
 					status,
 					headers: responseHeaders,
-					data: blobUrl
+					data: blobUrl,
 				};
 			}
 
@@ -231,7 +225,7 @@ export default class HttpClient {
 					data: {
 						status,
 						headers: responseHeaders,
-						data: rawData
+						data: rawData,
 					},
 					expiry: now + maxAge,
 				});
@@ -273,19 +267,15 @@ export default class HttpClient {
 		try {
 			logger.debug('Using oblivious');
 
-			const ohttpResponse = await encryptedHttpRequest(
-				OHTTP_RELAY,
-				this.#obliviousKeyConfig!,
-				{
-					method,
-					headers: {
-						...headers,
-						...(targetIsBackend && { 'X-Tenant-ID': tenantId }),
-					},
-					url,
-					...(body && { body }),
+			const ohttpResponse = await encryptedHttpRequest(OHTTP_RELAY, this.#obliviousKeyConfig!, {
+				method,
+				headers: {
+					...headers,
+					...(targetIsBackend && { 'X-Tenant-ID': tenantId }),
 				},
-			);
+				url,
+				...(body && { body }),
+			});
 
 			const status = ohttpResponse.status;
 			const responseHeaders = ohttpResponse.headers || {};
@@ -294,9 +284,7 @@ export default class HttpClient {
 			if (isBinaryRequest) {
 				data = ohttpResponse.body;
 			} else {
-				const contentType = responseHeaders['content-type'] as
-					| string
-					| undefined;
+				const contentType = responseHeaders['content-type'] as string | undefined;
 				if (contentType?.trim().startsWith('application/json')) {
 					data = JSON.parse(new TextDecoder().decode(ohttpResponse.body));
 				} else {
@@ -307,15 +295,10 @@ export default class HttpClient {
 			return {
 				status,
 				headers: responseHeaders,
-				data
+				data,
 			};
 		} catch (err: any) {
-			throw new HttpClientError(
-				method,
-				500,
-				{},
-				err.message || `${method} request failed`,
-			);
+			throw new HttpClientError(method, 500, {}, err.message || `${method} request failed`);
 		}
 	}
 
@@ -441,12 +424,7 @@ class HttpClientError extends Error {
 	headers: Record<string, unknown>;
 	responseData: unknown;
 
-	constructor(
-		method: string,
-		status: number,
-		headers: Record<string, unknown>,
-		data: unknown,
-	) {
+	constructor(method: string, status: number, headers: Record<string, unknown>, data: unknown) {
 		super(`${method} request failed`);
 		this.status = status;
 		this.headers = headers;

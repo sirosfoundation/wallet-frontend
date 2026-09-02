@@ -7,7 +7,6 @@ import { useTenant } from '@/context/TenantContext';
 import { matchesTenantFromUrl } from '@/lib/tenant';
 import { BASE_PATH } from '@/config';
 
-
 const NotFound = () => {
 	const navigate = useNavigate();
 	const { t } = useTranslation();
@@ -26,7 +25,7 @@ const NotFound = () => {
 	return (
 		<section>
 			<div className="flex flex-col items-center justify-center px-6 py-8 mx-auto min-h-dvh">
-				<Logo aClassName='mb-6' imgClassName='w-20' />
+				<Logo aClassName="mb-6" imgClassName="w-20" />
 				<h1 className="text-xl mb-8 font-bold leading-tight tracking-tight text-lm-gray-900 md:text-2xl text-center dark:text-dm-gray-100">
 					{t('common.walletName')}
 				</h1>
@@ -36,14 +35,12 @@ const NotFound = () => {
 							{t('notFound.title')}
 						</h1>
 
-						<p className='text-center'>
-							{t('notFound.message')}
-						</p>
+						<p className="text-center">{t('notFound.message')}</p>
 						<Button
 							id="navigate-home"
 							onClick={handleBackToHome}
 							variant="primary"
-							additionalClassName='w-full'
+							additionalClassName="w-full"
 						>
 							{t('notFound.homeButton')}
 						</Button>

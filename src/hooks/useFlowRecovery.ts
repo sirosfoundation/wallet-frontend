@@ -97,16 +97,14 @@ const initialState: FlowRecoveryState = {
  */
 export function useFlowRecovery(
 	retryOperation?: () => Promise<void>,
-	options: UseFlowRecoveryOptions = {}
+	options: UseFlowRecoveryOptions = {},
 ): UseFlowRecoveryReturn {
 	const [state, setState] = useState<FlowRecoveryState>({
 		...initialState,
 		maxRetries: options.retryConfig?.maxRetries ?? DEFAULT_OID_FLOW_RETRY_CONFIG.maxRetries,
 	});
 
-	const stateManagerRef = useRef<OIDFlowStateStore>(
-		options.stateManager ?? getOIDFlowStateStore()
-	);
+	const stateManagerRef = useRef<OIDFlowStateStore>(options.stateManager ?? getOIDFlowStateStore());
 	const retryConfigRef = useRef<OIDFlowRetryConfig>({
 		...DEFAULT_OID_FLOW_RETRY_CONFIG,
 		...options.retryConfig,
@@ -131,48 +129,55 @@ export function useFlowRecovery(
 	/**
 	 * Set error and enter recovery state
 	 */
-	const setError = useCallback((flowId: string, error: OIDFlowRecoverableError) => {
-		const stateManager = stateManagerRef.current;
-		const flowState = stateManager.recordError(flowId, error);
+	const setError = useCallback(
+		(flowId: string, error: OIDFlowRecoverableError) => {
+			const stateManager = stateManagerRef.current;
+			const flowState = stateManager.recordError(flowId, error);
 
-		if (!flowState) {
-			logger.warn('setError: flow not found', flowId);
-			return;
-		}
+			if (!flowState) {
+				logger.warn('setError: flow not found', flowId);
+				return;
+			}
 
-		const canRetry = error.recoverable && flowState.retryCount < retryConfigRef.current.maxRetries;
+			const canRetry =
+				error.recoverable && flowState.retryCount < retryConfigRef.current.maxRetries;
 
-		setState(prev => ({
-			...prev,
-			isRecovering: true,
-			retryAttempt: flowState.retryCount,
-			canRetry,
-			error,
-			flowState,
-			nextRetryIn: null,
-			isRetrying: false,
-		}));
+			setState((prev) => ({
+				...prev,
+				isRecovering: true,
+				retryAttempt: flowState.retryCount,
+				canRetry,
+				error,
+				flowState,
+				nextRetryIn: null,
+				isRetrying: false,
+			}));
 
-		// Call onFailed when no more retries are possible (either non-recoverable or retries exhausted)
-		if (!canRetry) {
-			options.onFailed?.(flowId, error);
-		}
-	}, [options]);
+			// Call onFailed when no more retries are possible (either non-recoverable or retries exhausted)
+			if (!canRetry) {
+				options.onFailed?.(flowId, error);
+			}
+		},
+		[options],
+	);
 
 	/**
 	 * Mark a flow as recovered
 	 */
-	const markRecovered = useCallback((flowId: string) => {
-		const stateManager = stateManagerRef.current;
-		stateManager.complete(flowId);
+	const markRecovered = useCallback(
+		(flowId: string) => {
+			const stateManager = stateManagerRef.current;
+			stateManager.complete(flowId);
 
-		setState({
-			...initialState,
-			maxRetries: retryConfigRef.current.maxRetries,
-		});
+			setState({
+				...initialState,
+				maxRetries: retryConfigRef.current.maxRetries,
+			});
 
-		options.onRecovered?.(flowId);
-	}, [options]);
+			options.onRecovered?.(flowId);
+		},
+		[options],
+	);
 
 	/**
 	 * Trigger a manual retry
@@ -193,7 +198,7 @@ export function useFlowRecovery(
 			return;
 		}
 
-		setState(prev => ({
+		setState((prev) => ({
 			...prev,
 			isRetrying: true,
 			nextRetryIn: null,
@@ -273,10 +278,7 @@ export function useFlowRecovery(
 /**
  * Simple hook for retry countdown display
  */
-export function useRetryCountdown(
-	nextRetryIn: number | null,
-	onComplete?: () => void
-): number {
+export function useRetryCountdown(nextRetryIn: number | null, onComplete?: () => void): number {
 	const [remaining, setRemaining] = useState(nextRetryIn ?? 0);
 
 	useEffect(() => {
@@ -288,7 +290,7 @@ export function useRetryCountdown(
 		setRemaining(nextRetryIn);
 
 		const interval = setInterval(() => {
-			setRemaining(prev => {
+			setRemaining((prev) => {
 				const next = prev - 1000;
 				if (next <= 0) {
 					clearInterval(interval);

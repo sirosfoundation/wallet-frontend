@@ -10,6 +10,6 @@ export const useQRScanner = () => {
 	return {
 		isQRScannerOpen,
 		openQRScanner,
-		closeQRScanner
+		closeQRScanner,
 	};
 };

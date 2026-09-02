@@ -29,7 +29,7 @@ describe('QueryableList extraSection', () => {
 				translationPrefix="pageAddCredentials"
 				identifierField="id"
 				extraSection={<div data-testid="extra">Scan Physical ID entry</div>}
-			/>
+			/>,
 		);
 
 		expect(screen.getByTestId('extra')).toBeInTheDocument();
@@ -44,7 +44,7 @@ describe('QueryableList extraSection', () => {
 				translationPrefix="pageAddCredentials"
 				identifierField="id"
 				extraSection={<div data-testid="extra">Scan Physical ID entry</div>}
-			/>
+			/>,
 		);
 
 		expect(screen.getByTestId('extra')).toBeInTheDocument();
@@ -64,7 +64,7 @@ describe('QueryableList extraSection', () => {
 				isOnline={true}
 				translationPrefix="pageAddCredentials"
 				identifierField="id"
-			/>
+			/>,
 		);
 
 		expect(screen.queryByTestId('extra')).not.toBeInTheDocument();

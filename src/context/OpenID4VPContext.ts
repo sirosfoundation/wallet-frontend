@@ -1,5 +1,5 @@
-import React, { createContext } from "react";
-import { IOpenID4VP } from "../lib/interfaces/IOpenID4VP";
+import React, { createContext } from 'react';
+import { IOpenID4VP } from '../lib/interfaces/IOpenID4VP';
 
 export type OpenID4VPContextValue = {
 	openID4VP: IOpenID4VP;

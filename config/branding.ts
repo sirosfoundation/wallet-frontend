@@ -1,10 +1,10 @@
-import fs from "node:fs";
-import { copyFile, mkdir, readdir, writeFile } from "node:fs/promises";
-import path from "node:path";
-import crypto from "node:crypto";
-import sharp from "sharp";
-import { z } from "zod";
-import convert, { RGB } from "color-convert";
+import fs from 'node:fs';
+import { copyFile, mkdir, readdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import sharp from 'sharp';
+import { z } from 'zod';
+import convert, { RGB } from 'color-convert';
 
 // ============================================
 // TYPES
@@ -27,7 +27,7 @@ export type BrandingFile = {
 	 * Whether this file is the custom branding file.
 	 */
 	readonly isCustom: boolean;
-}
+};
 
 export type LogoFiles = Record<`logo_${'light' | 'dark'}`, BrandingFile>;
 
@@ -42,8 +42,8 @@ export type LogoFiles = Record<`logo_${'light' | 'dark'}`, BrandingFile>;
  * @param filePath Relative file path within branding directory.
  */
 export function findBrandingFile(baseDir: string, filePath: string): BrandingFile | null {
-	const defaultFilePath = path.join(baseDir, "default", filePath);
-	const customFilePath = path.join(baseDir, "custom", filePath);
+	const defaultFilePath = path.join(baseDir, 'default', filePath);
+	const customFilePath = path.join(baseDir, 'custom', filePath);
 
 	const hasDefault = fs.existsSync(defaultFilePath);
 	const hasCustom = fs.existsSync(customFilePath);
@@ -60,7 +60,7 @@ export function findBrandingFile(baseDir: string, filePath: string): BrandingFil
 		filename,
 		isDefault: hasDefault && !hasCustom,
 		isCustom: hasCustom,
-	}
+	};
 }
 
 /**
@@ -68,7 +68,9 @@ export function findBrandingFile(baseDir: string, filePath: string): BrandingFil
  */
 function deprecated_findBrandingFile(filePathInput: string): BrandingFile | null {
 	const customFilePath = path.join(
-		path.dirname(filePathInput), "custom", path.basename(filePathInput)
+		path.dirname(filePathInput),
+		'custom',
+		path.basename(filePathInput),
 	);
 
 	const hasDefault = fs.existsSync(filePathInput);
@@ -81,14 +83,16 @@ function deprecated_findBrandingFile(filePathInput: string): BrandingFile | null
 	const pathname = hasCustom ? customFilePath : filePathInput;
 	const filename = path.basename(pathname);
 
-	console.warn(`Deprecation Warning: Branding file found at: ${pathname}. This is no longer supported.`);
+	console.warn(
+		`Deprecation Warning: Branding file found at: ${pathname}. This is no longer supported.`,
+	);
 
 	return {
 		pathname,
 		filename,
 		isDefault: hasDefault && !hasCustom,
 		isCustom: hasCustom,
-	}
+	};
 }
 
 /**
@@ -98,8 +102,8 @@ function deprecated_findBrandingFile(filePathInput: string): BrandingFile | null
  * @param name Logo name (e.g., "logo_light" or "logo_dark").
  */
 export function findLogoFile(baseDir: string, name: string): BrandingFile | null {
-	const svgFile = findBrandingFile(baseDir, path.join("logo", `${name}.svg`));
-	const pngFile = findBrandingFile(baseDir, path.join("logo", `${name}.png`));
+	const svgFile = findBrandingFile(baseDir, path.join('logo', `${name}.svg`));
+	const pngFile = findBrandingFile(baseDir, path.join('logo', `${name}.png`));
 
 	if (svgFile?.isCustom) return svgFile;
 	if (pngFile?.isCustom) return pngFile;
@@ -127,13 +131,13 @@ export function findLogoFile(baseDir: string, name: string): BrandingFile | null
 export function findLogoFiles(sourceDir: string): LogoFiles {
 	const files: Partial<LogoFiles> = {};
 
-	for (const logoId of ["logo_light", "logo_dark"] as const) {
+	for (const logoId of ['logo_light', 'logo_dark'] as const) {
 		const logoFile = findLogoFile(sourceDir, logoId);
 		if (!logoFile) {
 			throw new Error(`${logoId} not found in ${sourceDir}`);
 		}
 
-		files[logoId] = logoFile
+		files[logoId] = logoFile;
 	}
 
 	return files as LogoFiles;
@@ -150,7 +154,7 @@ export function findLogoFiles(sourceDir: string): LogoFiles {
  * @param brandingDir Branding source directory.
  */
 export function getBrandingHash(brandingDir: string): string {
-	const hash = crypto.createHash("sha256");
+	const hash = crypto.createHash('sha256');
 
 	function walk(dir: string) {
 		const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -170,7 +174,7 @@ export function getBrandingHash(brandingDir: string): string {
 	walk(brandingDir);
 
 	// 10 chars is enough to avoid collisions and keep URLs short
-	return hash.digest("hex").slice(0, 10);
+	return hash.digest('hex').slice(0, 10);
 }
 
 // ============================================
@@ -185,8 +189,8 @@ export function getBrandingHash(brandingDir: string): string {
  * @throws if not found.
  */
 export function findScreenshotFile(sourceDir: string, filename: string): string {
-	const customFile = path.join(sourceDir, "custom", "screenshots", filename);
-	const defaultFile = path.join(sourceDir, "default", "screenshots", filename);
+	const customFile = path.join(sourceDir, 'custom', 'screenshots', filename);
+	const defaultFile = path.join(sourceDir, 'default', 'screenshots', filename);
 
 	if (fs.existsSync(customFile)) return customFile;
 	if (fs.existsSync(defaultFile)) return defaultFile;
@@ -199,13 +203,13 @@ export function findScreenshotFile(sourceDir: string, filename: string): string 
  */
 export async function copyScreenshots(sourceDir: string, publicDir: string): Promise<void> {
 	const files = [
-		"screen_mobile_1.png",
-		"screen_mobile_2.png",
-		"screen_tablet_1.png",
-		"screen_tablet_2.png",
+		'screen_mobile_1.png',
+		'screen_mobile_2.png',
+		'screen_tablet_1.png',
+		'screen_tablet_2.png',
 	];
 
-	const screenshotsDir = path.join(publicDir, "screenshots");
+	const screenshotsDir = path.join(publicDir, 'screenshots');
 	fs.mkdirSync(screenshotsDir, { recursive: true });
 
 	for (const file of files) {
@@ -244,14 +248,19 @@ export type GenerateAllIconsOptions = {
 	 * @see getBrandingHash
 	 */
 	brandingHash?: string;
-}
+};
 
 export type Icons = Array<{
 	sizes?: string;
 	src: string;
 	type?: string;
-	purpose?: 'monochrome' | 'maskable' | 'any' | (string & {}) | ('monochrome' | 'maskable' | 'any')[];
-}>
+	purpose?:
+		| 'monochrome'
+		| 'maskable'
+		| 'any'
+		| (string & {})
+		| ('monochrome' | 'maskable' | 'any')[];
+}>;
 
 /**
  * Generates all icons (favicon, apple touch icon, manifest icons).
@@ -269,33 +278,33 @@ export async function generateAllIcons({
 }: GenerateAllIconsOptions): Promise<Icons> {
 	const hashSuffix = brandingHash ? `?v=${brandingHash}` : '';
 
-	const favicon = findBrandingFile(sourceDir, path.join("favicon.ico"))
-		|| deprecated_findBrandingFile(path.join(sourceDir, "favicon.ico"));
+	const favicon =
+		findBrandingFile(sourceDir, path.join('favicon.ico')) ||
+		deprecated_findBrandingFile(path.join(sourceDir, 'favicon.ico'));
 
 	if (!favicon) {
-		throw new Error("favicon not found");
+		throw new Error('favicon not found');
 	}
 
-	const {
-		logo_light: logoLight,
-		logo_dark: logoDark,
-	} = findLogoFiles(sourceDir);
+	const { logo_light: logoLight, logo_dark: logoDark } = findLogoFiles(sourceDir);
 
 	// Full scale logos
 	if (copySource !== false) {
 		await Promise.all([
 			copyFile(logoLight.pathname, path.join(publicDir, logoLight.filename)),
 			copyFile(logoDark.pathname, path.join(publicDir, logoDark.filename)),
-			copyFile(favicon.pathname, path.join(publicDir, path.basename(favicon.filename))).catch(() => {
-				console.warn(`No file ${favicon} was found, skipping...`);
-			}),
+			copyFile(favicon.pathname, path.join(publicDir, path.basename(favicon.filename))).catch(
+				() => {
+					console.warn(`No file ${favicon} was found, skipping...`);
+				},
+			),
 		]);
 	}
 
 	const iconsDir = path.join(publicDir, 'icons');
 
 	fs.mkdirSync(iconsDir, {
-		recursive: true
+		recursive: true,
 	});
 
 	// Apple touch icon
@@ -305,7 +314,7 @@ export async function generateAllIcons({
 
 		await sharp(logoLight.pathname)
 			.resize(ICON_SIZE - PADDING * 2, ICON_SIZE - PADDING * 2, {
-				fit: "contain",
+				fit: 'contain',
 			})
 			.flatten({ background: { r: 255, g: 255, b: 255, alpha: 1 } })
 			.extend({
@@ -335,7 +344,6 @@ export async function generateAllIcons({
 
 		// ---------- NO PURPOSE - CIRCLE WHITE BACKGROUND ----------
 		if (size === 192 || size === 512) {
-
 			const bg = await sharp({
 				create: {
 					width: size,
@@ -357,7 +365,7 @@ export async function generateAllIcons({
 				.toBuffer();
 
 			const logo = await sharp(manifestLogoPathname)
-				.resize(logoSize, logoSize, { fit: "contain" })
+				.resize(logoSize, logoSize, { fit: 'contain' })
 				.png()
 				.toBuffer();
 
@@ -369,7 +377,7 @@ export async function generateAllIcons({
 			icons.push({
 				src: `icons/${noPurposeFile}${hashSuffix}`,
 				sizes: sizeStr,
-				type: "image/png",
+				type: 'image/png',
 			});
 
 			// ---------- MASKABLE - FULL WHITE BACKGROUND ----------
@@ -384,7 +392,7 @@ export async function generateAllIcons({
 				.composite([
 					{
 						input: await sharp(manifestLogoPathname)
-							.resize(logoSize, logoSize, { fit: "contain" })
+							.resize(logoSize, logoSize, { fit: 'contain' })
 							.png()
 							.toBuffer(),
 						left: logoOffset,
@@ -397,8 +405,8 @@ export async function generateAllIcons({
 			icons.push({
 				src: `icons/${maskableFile}${hashSuffix}`,
 				sizes: sizeStr,
-				type: "image/png",
-				purpose: "maskable",
+				type: 'image/png',
+				purpose: 'maskable',
 			});
 
 			continue;
@@ -406,14 +414,14 @@ export async function generateAllIcons({
 
 		// ---------- SMALL ICONS - NO PURPOSE ----------
 		await sharp(manifestLogoPathname)
-			.resize(size, size, { fit: "contain" })
+			.resize(size, size, { fit: 'contain' })
 			.png()
 			.toFile(path.join(iconsDir, noPurposeFile));
 
 		icons.push({
 			src: `icons/${noPurposeFile}${hashSuffix}`,
 			sizes: sizeStr,
-			type: "image/png",
+			type: 'image/png',
 		});
 	}
 
@@ -425,13 +433,15 @@ export async function generateAllIcons({
 // ============================================
 
 const themeSchema = z.object({
-	brand: z.object({
-		color: z.string(),
-		colorLight: z.string(),
-		colorLighter: z.string(),
-		colorDark: z.string(),
-		colorDarker: z.string(),
-	}).strict(),
+	brand: z
+		.object({
+			color: z.string(),
+			colorLight: z.string(),
+			colorLighter: z.string(),
+			colorDark: z.string(),
+			colorDarker: z.string(),
+		})
+		.strict(),
 });
 
 export type ThemeConfig = z.infer<typeof themeSchema>;
@@ -440,7 +450,7 @@ export function allThemeConfigPaths(sourceDir: string): Record<string, string> {
 	return {
 		customPath: path.join(sourceDir, 'custom', 'theme.json'),
 		defaultPath: path.join(sourceDir, 'default', 'theme.json'),
-	}
+	};
 }
 
 export function getThemeFile(path: string): ThemeConfig {
@@ -455,7 +465,7 @@ export type GenerateThemeOptions = {
 	 * Source branding directory.
 	 */
 	sourceDir: string;
-}
+};
 
 /**
  * Generates CSS theme variables from theme.json.
@@ -474,12 +484,7 @@ export function generateThemeCSS({ sourceDir }: GenerateThemeOptions): string {
 		return `:root {}`;
 	}
 
-	console.log(
-		`Using theme config: ${path.relative(
-			process.cwd(),
-			configPath
-		)}`
-	);
+	console.log(`Using theme config: ${path.relative(process.cwd(), configPath)}`);
 
 	const theme = getThemeFile(configPath);
 
@@ -519,20 +524,22 @@ ${rootVars.join('\n')}
  * @throws if the color is invalid.
  */
 export function parseColorToRgb(input: string): RGB | null {
-	const rgb = /^rgba?\(\s*(?<r>25[0-5]|2[0-4]\d|1\d{1,2}|\d\d?)\s*,\s*(?<g>25[0-5]|2[0-4]\d|1\d{1,2}|\d\d?)\s*,\s*(?<b>25[0-5]|2[0-4]\d|1\d{1,2}|\d\d?)\s*,?\s*(?<alpha>[01\.]\.?\d?)?\s*\)$/i.exec(input);
+	const rgb =
+		/^rgba?\(\s*(?<r>25[0-5]|2[0-4]\d|1\d{1,2}|\d\d?)\s*,\s*(?<g>25[0-5]|2[0-4]\d|1\d{1,2}|\d\d?)\s*,\s*(?<b>25[0-5]|2[0-4]\d|1\d{1,2}|\d\d?)\s*,?\s*(?<alpha>[01\.]\.?\d?)?\s*\)$/i.exec(
+			input,
+		);
 	const hex = /^\B#([a-fA-F0-9]{6}|[a-fA-F0-9]{3})\b/i.exec(input);
-	const hsl = /^hsla?\(\s*(?<h>[-+]?\d{1,3}(?:\.\d+)?)(deg|grad|rad|turn)?\s*(?:,\s*|\s+)\s*(?<s>[-+]?\d{1,3}(?:\.\d+)?)%\s*(?:,\s*|\s+)\s*(?<l>[-+]?\d{1,3}(?:\.\d+)?)%\s*(?:,\s*|\s+)?(?:\s*\/?\s*(?<alpha>[-+]?[\d.]+%?)\s*)?\)$/i.exec(input);
+	const hsl =
+		/^hsla?\(\s*(?<h>[-+]?\d{1,3}(?:\.\d+)?)(deg|grad|rad|turn)?\s*(?:,\s*|\s+)\s*(?<s>[-+]?\d{1,3}(?:\.\d+)?)%\s*(?:,\s*|\s+)\s*(?<l>[-+]?\d{1,3}(?:\.\d+)?)%\s*(?:,\s*|\s+)?(?:\s*\/?\s*(?<alpha>[-+]?[\d.]+%?)\s*)?\)$/i.exec(
+			input,
+		);
 
 	if (rgb) {
 		if (!rgb.groups) {
-			throw new Error("Invalid RGB color");
+			throw new Error('Invalid RGB color');
 		}
 
-		return [
-			parseInt(rgb.groups.r),
-			parseInt(rgb.groups.g),
-			parseInt(rgb.groups.b),
-		];
+		return [parseInt(rgb.groups.r), parseInt(rgb.groups.g), parseInt(rgb.groups.b)];
 	}
 
 	if (hex) {
@@ -541,14 +548,10 @@ export function parseColorToRgb(input: string): RGB | null {
 
 	if (hsl) {
 		if (!hsl.groups) {
-			throw new Error("Invalid HSL color");
+			throw new Error('Invalid HSL color');
 		}
 
-		return convert.hsl.rgb(
-			parseInt(hsl.groups.h),
-			parseInt(hsl.groups.s),
-			parseInt(hsl.groups.l),
-		);
+		return convert.hsl.rgb(parseInt(hsl.groups.h), parseInt(hsl.groups.s), parseInt(hsl.groups.l));
 	}
 
 	return null;
@@ -569,7 +572,7 @@ export function getOptimalForegroundColor(rgb: RGB): string {
 			correctedRgb[index] = normalizedComponent / 12.92;
 		}
 
-		correctedRgb[index] =  Math.pow((normalizedComponent + 0.055) / 1.055, 2.4);
+		correctedRgb[index] = Math.pow((normalizedComponent + 0.055) / 1.055, 2.4);
 	}
 
 	const [red, green, blue] = correctedRgb;
@@ -578,7 +581,7 @@ export function getOptimalForegroundColor(rgb: RGB): string {
 	const contrastRatioForBlack = (relativeLuminance + 0.05) / 0.05;
 	const contrastRatioForWhite = 1.05 / (relativeLuminance + 0.05);
 
-	return contrastRatioForBlack > contrastRatioForWhite ? "hsl(220 20% 5.7%)" : "hsl(0 0% 100%)";
+	return contrastRatioForBlack > contrastRatioForWhite ? 'hsl(220 20% 5.7%)' : 'hsl(0 0% 100%)';
 }
 
 // ============================================
@@ -587,7 +590,7 @@ export function getOptimalForegroundColor(rgb: RGB): string {
 
 type MetadataImageOptions = {
 	title: string;
-}
+};
 
 /**
  * Generates a metadata image based on branding and theme.
@@ -614,7 +617,7 @@ export class MetadataImage {
 </fontconfig>
 `;
 
-	private static fontsConfDirName = "fonts";
+	private static fontsConfDirName = 'fonts';
 
 	public static getFontsConfigDir(baseDir: string): string {
 		const fontsConfDir = path.resolve(baseDir, this.fontsConfDirName);
@@ -632,8 +635,8 @@ export class MetadataImage {
 		try {
 			const dir = await readdir(fontsConfDir);
 
-			if (!dir.includes("fonts.conf")) return false;
-			if (dir.filter((name) => name.endsWith(".ttf")).length < 1) return false;
+			if (!dir.includes('fonts.conf')) return false;
+			if (dir.filter((name) => name.endsWith('.ttf')).length < 1) return false;
 
 			return true;
 		} catch (e) {
@@ -649,9 +652,7 @@ export class MetadataImage {
 
 		await mkdir(fontsConfDir, { recursive: true });
 
-		const fontUrls = [
-			"https://cdn.jsdelivr.net/fontsource/fonts/inter@5.2.8/latin-600-normal.ttf",
-		];
+		const fontUrls = ['https://cdn.jsdelivr.net/fontsource/fonts/inter@5.2.8/latin-600-normal.ttf'];
 
 		for (const fontUrl of fontUrls) {
 			const res = await fetch(fontUrl);
@@ -665,7 +666,7 @@ export class MetadataImage {
 			console.log(`Font written: ${path.join(fontsConfDir, path.basename(fontUrl))}`);
 		}
 
-		await writeFile(path.join(fontsConfDir, "fonts.conf"), MetadataImage.FONTCONFIG_XML);
+		await writeFile(path.join(fontsConfDir, 'fonts.conf'), MetadataImage.FONTCONFIG_XML);
 	}
 
 	/**
@@ -673,21 +674,23 @@ export class MetadataImage {
 	 *
 	 * @throws if logo or theme files are missing or invalid.
 	 */
-	public static async generateMetadataImage({ title }: MetadataImageOptions): Promise<{ type: string; source: Buffer; }> {
-		const sourceDir = path.resolve("branding");
+	public static async generateMetadataImage({
+		title,
+	}: MetadataImageOptions): Promise<{ type: string; source: Buffer }> {
+		const sourceDir = path.resolve('branding');
 
-		const logoFile = findLogoFile(sourceDir, "logo_dark");
+		const logoFile = findLogoFile(sourceDir, 'logo_dark');
 		if (!logoFile) {
-			throw new Error("Logo not found");
+			throw new Error('Logo not found');
 		}
 
 		if (!title) {
-			throw new Error("No titleset");
+			throw new Error('No titleset');
 		}
 
-		const themeFile = findBrandingFile(sourceDir, "theme.json");
+		const themeFile = findBrandingFile(sourceDir, 'theme.json');
 		if (!themeFile) {
-			throw new Error("theme.json not found");
+			throw new Error('theme.json not found');
 		}
 
 		const theme = getThemeFile(themeFile.pathname);
@@ -696,28 +699,25 @@ export class MetadataImage {
 
 		const backgroundColorRgb = parseColorToRgb(backgroundColor);
 		if (!backgroundColorRgb) {
-			throw new Error("Invalid brand color");
+			throw new Error('Invalid brand color');
 		}
 
 		const textColor = getOptimalForegroundColor(backgroundColorRgb);
 
-		const logoB64 = (
-			await sharp(logoFile.pathname).png().toBuffer()
-		).toString("base64");
+		const logoB64 = (await sharp(logoFile.pathname).png().toBuffer()).toString('base64');
 
-		const svg = this.createSvgTemplate(
-			title,
-			`image/png;base64,${logoB64}`,
-			{ background: backgroundColor, text: textColor }
-		);
+		const svg = this.createSvgTemplate(title, `image/png;base64,${logoB64}`, {
+			background: backgroundColor,
+			text: textColor,
+		});
 
 		const svgBuffer = Buffer.from(svg);
-		const pngBuffer = await sharp(svgBuffer).png().toBuffer()
+		const pngBuffer = await sharp(svgBuffer).png().toBuffer();
 
 		return {
-			type: "image/png",
+			type: 'image/png',
 			source: pngBuffer,
-		}
+		};
 	}
 
 	private static wrapTextToLines(text: string, maxLineLength: number): string[] {
@@ -730,32 +730,35 @@ export class MetadataImage {
 				break;
 			}
 
-			const lastSpace = remainingText.lastIndexOf(" ", maxLineLength);
+			const lastSpace = remainingText.lastIndexOf(' ', maxLineLength);
 			const splitIndex = lastSpace === -1 ? maxLineLength : lastSpace;
 
 			lines.push(remainingText.substring(0, splitIndex));
-			remainingText = remainingText.substring(
-				splitIndex + (lastSpace === -1 ? 0 : 1)
-			);
+			remainingText = remainingText.substring(splitIndex + (lastSpace === -1 ? 0 : 1));
 		}
 
 		return lines;
 	}
 
-	private static createSvgTemplate(title: string, logoB64: string, colors: { background: string; text: string }): string {
+	private static createSvgTemplate(
+		title: string,
+		logoB64: string,
+		colors: { background: string; text: string },
+	): string {
 		// Calculate title layout
 		const lines = this.wrapTextToLines(title, this.MAX_TITLE_LENGTH);
-		const fontSize = title.length <= this.SHORT_TITLE_THRESHOLD ? this.LARGE_FONT_SIZE : this.BASE_FONT_SIZE;
-		const lineHeight = (fontSize * 0.8) + this.LINE_MARGIN;
-		const titleHeight = (lines.length * lineHeight) - this.LINE_MARGIN;
+		const fontSize =
+			title.length <= this.SHORT_TITLE_THRESHOLD ? this.LARGE_FONT_SIZE : this.BASE_FONT_SIZE;
+		const lineHeight = fontSize * 0.8 + this.LINE_MARGIN;
+		const titleHeight = lines.length * lineHeight - this.LINE_MARGIN;
 
 		// Build title tspans
 		const tspans = lines
-			.map((line, index) => `<tspan x="0" ${index > 0 ? `dy="${lineHeight}"` : ""}>${line}</tspan>`)
-			.join("");
+			.map((line, index) => `<tspan x="0" ${index > 0 ? `dy="${lineHeight}"` : ''}>${line}</tspan>`)
+			.join('');
 
 		// Calculate logo position
-		const logoY = (this.IMAGE_HEIGHT / 2) - (this.LOGO_SIZE / 2);
+		const logoY = this.IMAGE_HEIGHT / 2 - this.LOGO_SIZE / 2;
 		const logoX = this.IMAGE_WIDTH - this.MARGIN - this.LOGO_SIZE;
 
 		return `

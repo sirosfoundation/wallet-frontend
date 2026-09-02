@@ -18,16 +18,15 @@ const CredentialDetails = () => {
 	const { t } = useTranslation();
 
 	const { vcEntityList, fetchVcData } = useContext(CredentialsContext);
-	const vcEntity  = useVcEntity(fetchVcData, vcEntityList, batchId);
+	const vcEntity = useVcEntity(fetchVcData, vcEntityList, batchId);
 
 	return (
 		<>
 			<CredentialLayout title={t('pageCredentials.datasetTitle')}>
 				{vcEntity && (
-					<CredentialJson parsedCredential={vcEntity?.parsedCredential} textAreaRows='18'/>
+					<CredentialJson parsedCredential={vcEntity?.parsedCredential} textAreaRows="18" />
 				)}
 			</CredentialLayout>
-
 		</>
 	);
 };

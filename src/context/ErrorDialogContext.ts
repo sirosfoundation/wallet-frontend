@@ -7,7 +7,7 @@ export type ErrorDialogState = {
 	err?: Error;
 	onClose?: () => void;
 	fatal?: boolean;
-}
+};
 
 export type DisplayErrorFunction = (error: ErrorDialogState) => void;
 export type ClearErrorFunction = () => void;

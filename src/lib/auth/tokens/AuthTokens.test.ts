@@ -5,10 +5,7 @@ import { AuthServerClient } from '../auth-server/AuthServerClient';
 type JwtPayload = Record<string, unknown>;
 
 const base64UrlEncode = (obj: object): string =>
-	btoa(JSON.stringify(obj))
-		.replaceAll('+', '-')
-		.replaceAll('/', '_')
-		.replaceAll('=', '');
+	btoa(JSON.stringify(obj)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
 
 const makeJwt = (overrides: JwtPayload = {}): string => {
 	const payload = {
@@ -88,9 +85,7 @@ describe('AuthTokens', () => {
 		});
 
 		it('requests an anonymous token with anonymous=true and tac=rl', async () => {
-			client.requestAccessToken.mockResolvedValue(
-				tokenResponse(makeJwt({ tac: 'rl' })),
-			);
+			client.requestAccessToken.mockResolvedValue(tokenResponse(makeJwt({ tac: 'rl' })));
 			const auth = makeAuthTokens();
 
 			await auth.ensureAnonymousToken();
@@ -126,9 +121,7 @@ describe('AuthTokens', () => {
 
 		it('re-requests when the cached token is expired', async () => {
 			client.requestAccessToken
-				.mockResolvedValueOnce(
-					tokenResponse(makeJwt({ exp: Math.floor(Date.now() / 1000) - 10 })),
-				)
+				.mockResolvedValueOnce(tokenResponse(makeJwt({ exp: Math.floor(Date.now() / 1000) - 10 })))
 				.mockResolvedValueOnce(tokenResponse(makeJwt()));
 			const auth = makeAuthTokens();
 

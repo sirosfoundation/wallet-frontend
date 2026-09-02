@@ -13,7 +13,7 @@ import {
 	SignedDCAPIRequest,
 	SignedDCApiRequestSchema,
 	UnsignedDCAPIRequest,
-	UnsignedDCApiRequestSchema
+	UnsignedDCApiRequestSchema,
 } from './resources';
 import { logger } from '@/logger';
 import { getPublicKeyFromB64Cert } from '@/lib/utils/pki';
@@ -27,7 +27,7 @@ const SUPPORTED_ALGS = new Set([
 	'RS512',
 	'PS256',
 	'PS384',
-	'PS512'
+	'PS512',
 ]);
 
 export class DCAPIRequest {
@@ -47,35 +47,25 @@ export class DCAPIRequest {
 	}
 
 	get clientId() {
-		return this.isSigned
-			? (this.data as SignedDCAPIRequest).clientId
-			: undefined;
+		return this.isSigned ? (this.data as SignedDCAPIRequest).clientId : undefined;
 	}
 
 	get expectedOrigins() {
-		return this.isSigned
-			? (this.data as SignedDCAPIRequest).expectedOrigins
-			: undefined;
+		return this.isSigned ? (this.data as SignedDCAPIRequest).expectedOrigins : undefined;
 	}
 
 	get clientMetadata() {
-		return this.isSigned
-			? (this.data as SignedDCAPIRequest).clientMetadata
-			: undefined;
+		return this.isSigned ? (this.data as SignedDCAPIRequest).clientMetadata : undefined;
 	}
 
 	get keyMaterial() {
-		return this.isSigned
-			? (this.data as SignedDCAPIRequest).keyMaterial
-			: undefined;
+		return this.isSigned ? (this.data as SignedDCAPIRequest).keyMaterial : undefined;
 	}
 
 	public constructor(url: URL) {
 		const requestJwt = url.searchParams.get('request');
 
-		this.data = requestJwt
-			? this.#parseJwt(requestJwt, url)
-			: this.#parsePlainParams(url);
+		this.data = requestJwt ? this.#parseJwt(requestJwt, url) : this.#parsePlainParams(url);
 		this.isSigned = 'rawJwt' in this.data;
 	}
 
@@ -108,7 +98,9 @@ export class DCAPIRequest {
 
 		if ('transaction_data' in payload) {
 			// TODO: implement transaction_data support.
-			logger.warn('transaction_data parameter in JWT payload is not yet supported and will be ignored');
+			logger.warn(
+				'transaction_data parameter in JWT payload is not yet supported and will be ignored',
+			);
 		}
 
 		const keyMaterial = this.#extractKeyMaterial(header);
@@ -128,7 +120,9 @@ export class DCAPIRequest {
 		});
 		if (!success) {
 			logger.error('Invalid DC API JWT request:', error);
-			throw new Error('Invalid DC API JWT request: ' + error.errors.map(e => e.message).join(', '));
+			throw new Error(
+				'Invalid DC API JWT request: ' + error.errors.map((e) => e.message).join(', '),
+			);
 		}
 
 		if (urlClientId !== data.clientId) {
@@ -141,7 +135,9 @@ export class DCAPIRequest {
 	#parsePlainParams(url: URL): UnsignedDCAPIRequest {
 		if ('transaction_data' in url.searchParams) {
 			// TODO: implement transaction_data support.
-			logger.warn('transaction_data parameter in query string is not yet supported and will be ignored');
+			logger.warn(
+				'transaction_data parameter in query string is not yet supported and will be ignored',
+			);
 		}
 
 		const dcqlQueryParam = (() => {
@@ -160,7 +156,9 @@ export class DCAPIRequest {
 
 		if (!success) {
 			logger.error('Invalid DC API request parameters:', error);
-			throw new Error('Invalid DC API request parameters: ' + error.errors.map(e => e.message).join(', '));
+			throw new Error(
+				'Invalid DC API request parameters: ' + error.errors.map((e) => e.message).join(', '),
+			);
 		}
 
 		return data;
@@ -229,7 +227,9 @@ export class DCAPIRequest {
 			logger.debug('[DCAPIRequest] JWT signature valid');
 		} catch (err) {
 			logger.error('[DCAPIRequest] JWT signature verification failed:', err);
-			throw new Error(`JWT signature verification failed: ${err instanceof Error ? err.message : String(err)}`);
+			throw new Error(
+				`JWT signature verification failed: ${err instanceof Error ? err.message : String(err)}`,
+			);
 		}
 	}
 

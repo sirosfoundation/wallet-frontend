@@ -14,11 +14,7 @@
 
 import type { IOIDFlowTransport } from '../types/IOIDFlowTransport';
 import type { IHttpClient } from '../../interfaces/IHttpClient';
-import type {
-	OIDFlowRequest,
-	OIDFlowResponse,
-	OIDFlowProgressEvent
-} from '../types/OIDFlowTypes';
+import type { OIDFlowRequest, OIDFlowResponse, OIDFlowProgressEvent } from '../types/OIDFlowTypes';
 import type { OID4VCIFlowParams, OID4VCIFlowResult } from '../types/OID4VCITypes';
 import type { OID4VPFlowParams, OID4VPFlowResult } from '../types/OID4VPTypes';
 import { logger } from '@/logger';
@@ -62,7 +58,7 @@ export class OIDFlowHttpProxyTransport implements IOIDFlowTransport {
 		// OpenID4VCI hook directly instead of calling this method
 		throw new Error(
 			'HTTP transport does not implement OID4VCI flow directly. ' +
-			'Use the existing useOpenID4VCI hook via the hybrid flow hook.'
+				'Use the existing useOpenID4VCI hook via the hybrid flow hook.',
 		);
 	}
 
@@ -72,7 +68,7 @@ export class OIDFlowHttpProxyTransport implements IOIDFlowTransport {
 		// HTTP transport delegates to existing hooks for full flow implementation
 		throw new Error(
 			'HTTP transport does not implement OID4VP flow directly. ' +
-			'Use the existing useOpenID4VP hook via the hybrid flow hook.'
+				'Use the existing useOpenID4VP hook via the hybrid flow hook.',
 		);
 	}
 
@@ -108,10 +104,13 @@ export class OIDFlowHttpProxyTransport implements IOIDFlowTransport {
 			return {
 				success: response.status >= 200 && response.status < 300,
 				data: response.data as T,
-				error: response.status >= 400 ? {
-					code: `HTTP_${response.status}`,
-					message: `HTTP request failed with status ${response.status}`,
-				} : undefined,
+				error:
+					response.status >= 400
+						? {
+								code: `HTTP_${response.status}`,
+								message: `HTTP request failed with status ${response.status}`,
+							}
+						: undefined,
 			};
 		} catch (error) {
 			const message = error instanceof Error ? error.message : 'Unknown error';
@@ -143,7 +142,7 @@ export class OIDFlowHttpProxyTransport implements IOIDFlowTransport {
 	// ===== Internal Helpers =====
 
 	private emitError(error: Error): void {
-		Array.from(this.errorCallbacks).forEach(callback => {
+		Array.from(this.errorCallbacks).forEach((callback) => {
 			try {
 				callback(error);
 			} catch (e) {

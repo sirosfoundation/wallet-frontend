@@ -14,22 +14,13 @@ const RedirectPopup = ({ loading, onClose, handleContinue, popupTitle, popupMess
 				{popupTitle}
 			</h2>
 			<hr className="mb-2 border-t border-lm-gray-400 dark:border-dm-gray-600" />
-			<p className="mb-2 mt-4 text-lm-gray-900 dark:text-dm-gray-100">
-				{popupMessage}
-			</p>
+			<p className="mb-2 mt-4 text-lm-gray-900 dark:text-dm-gray-100">{popupMessage}</p>
 
 			<div className="flex justify-end space-x-2 pt-4">
-				<Button
-					id="cancel-redirect-popup"
-					onClick={onClose}
-				>
+				<Button id="cancel-redirect-popup" onClick={onClose}>
 					{t('common.cancel')}
 				</Button>
-				<Button
-					id="continue-redirect-popup"
-					variant="primary"
-					onClick={() => handleContinue()}
-				>
+				<Button id="continue-redirect-popup" variant="primary" onClick={() => handleContinue()}>
 					{t('common.continue')}
 				</Button>
 			</div>

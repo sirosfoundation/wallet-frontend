@@ -9,19 +9,22 @@ import { Asterisk, Send } from 'lucide-react';
 const Legend = ({ showRequired, showRequested, t }) => {
 	if (!showRequired && !showRequested) return null;
 	return (
-		<div
-			className="mb-2 flex justify-end"
-			aria-label={t('credentialInfo.legendAriaLabel')}
-		>
-			<div className='flex flex-col py-px px-2 items-end w-auto text-[11px] italic text-lm-gray-800 dark:text-dm-gray-200 border border-lm-gray-400 rounded-xs dark:border-dm-gray-600'>
+		<div className="mb-2 flex justify-end" aria-label={t('credentialInfo.legendAriaLabel')}>
+			<div className="flex flex-col py-px px-2 items-end w-auto text-[11px] italic text-lm-gray-800 dark:text-dm-gray-200 border border-lm-gray-400 rounded-xs dark:border-dm-gray-600">
 				{showRequired && (
-					<span className="inline-flex items-center gap-1" title={t('credentialInfo.legendRequired')}>
+					<span
+						className="inline-flex items-center gap-1"
+						title={t('credentialInfo.legendRequired')}
+					>
 						<span>{t('credentialInfo.legendRequired')}</span>
 						<Asterisk className="text-primary dark:text-white" aria-hidden="true" />
 					</span>
 				)}
 				{showRequested && (
-					<span className="inline-flex items-center gap-1" title={t('credentialInfo.legendRequested')}>
+					<span
+						className="inline-flex items-center gap-1"
+						title={t('credentialInfo.legendRequested')}
+					>
 						<span>{t('credentialInfo.legendRequested')}</span>
 						<Send size={14} className="text-primary dark:text-white" aria-hidden="true" />
 					</span>
@@ -33,9 +36,10 @@ const Legend = ({ showRequired, showRequested, t }) => {
 
 const getLabelAndDescriptionByLang = (displayArray, lang, fallbackLang) => {
 	const match =
-		displayArray.find(d => getLanguage(d.locale) === lang) ||
-		displayArray.find(d => getLanguage(d.locale) === fallbackLang) ||
-		displayArray[0] || {};
+		displayArray.find((d) => getLanguage(d.locale) === lang) ||
+		displayArray.find((d) => getLanguage(d.locale) === fallbackLang) ||
+		displayArray[0] ||
+		{};
 
 	return {
 		label: match.label || '',
@@ -51,7 +55,9 @@ const getValueByPath = (path, obj) => {
 		const [head, ...tail] = segments;
 
 		if (head === null && typeof current === 'object' && current !== null) {
-			return Object.values(current).map(item => traverse(tail, item)).filter(v => v !== undefined);
+			return Object.values(current)
+				.map((item) => traverse(tail, item))
+				.filter((v) => v !== undefined);
 		}
 
 		if (current && typeof current === 'object' && head in current) {
@@ -84,11 +90,14 @@ const addToNestedObject = (target, path, display, value, required) => {
 			current[key].value = value;
 			current[key].required = required;
 		} else {
-			if (typeof current[key].value !== 'object' || current[key].value === null || React.isValidElement(current[key].value)) {
+			if (
+				typeof current[key].value !== 'object' ||
+				current[key].value === null ||
+				React.isValidElement(current[key].value)
+			) {
 				current[key].value = {};
 			}
 			current = current[key].value;
-
 		}
 	}
 };
@@ -96,7 +105,7 @@ const addToNestedObject = (target, path, display, value, required) => {
 const expandDisplayClaims = (claims, signedClaims) => {
 	const expanded = [];
 
-	claims.forEach(claim => {
+	claims.forEach((claim) => {
 		if (!Array.isArray(claim.path)) return;
 
 		if (!claim.path.includes(null)) {
@@ -104,7 +113,7 @@ const expandDisplayClaims = (claims, signedClaims) => {
 			return;
 		}
 
-		const nullIndex = claim.path.findIndex(p => p === null);
+		const nullIndex = claim.path.findIndex((p) => p === null);
 		const basePath = claim.path.slice(0, nullIndex);
 		const restPath = claim.path.slice(nullIndex + 1);
 		const target = getValueByPath(basePath, signedClaims);
@@ -123,18 +132,12 @@ const expandDisplayClaims = (claims, signedClaims) => {
 const isDisplayClaim = (claim) => {
 	if (!Array.isArray(claim.path)) return false;
 	if (!Array.isArray(claim.display)) return false;
-	return claim.display.some(d => d.locale && d.label);
+	return claim.display.some((d) => d.locale && d.label);
 };
 
 const formatClaimValue = (value) => {
-
 	const renderImg = (src) => (
-		<img
-			src={src}
-			alt=""
-			aria-hidden="true"
-			className="max-h-10 max-w-full rounded-sm border"
-		/>
+		<img src={src} alt="" aria-hidden="true" className="max-h-10 max-w-full rounded-sm border" />
 	);
 
 	const renderJson = (v) => (
@@ -166,14 +169,12 @@ const formatClaimValue = (value) => {
 		typeof value === 'object' &&
 		value !== null &&
 		Object.keys(value).length > 0 &&
-		Object.keys(value).every(k => !isNaN(Number(k))) &&
-		Object.values(value).every(v => typeof v === 'number')
+		Object.keys(value).every((k) => !isNaN(Number(k))) &&
+		Object.values(value).every((v) => typeof v === 'number')
 	) {
 		try {
 			const uint8Array = new Uint8Array(Object.values(value));
-			const base64 = btoa(
-				String.fromCharCode.apply(null, Array.from(uint8Array))
-			);
+			const base64 = btoa(String.fromCharCode.apply(null, Array.from(uint8Array)));
 			const src = `data:image/jpeg;base64,${base64}`;
 			return renderImg(src);
 		} catch {
@@ -189,10 +190,18 @@ const formatClaimValue = (value) => {
 	return formatDate(value, 'date');
 };
 
-const CredentialInfo = ({ parsedCredential, mainClassName = "text-sm lg:text-base w-full", fallbackClaims, requested }) => {
+const CredentialInfo = ({
+	parsedCredential,
+	mainClassName = 'text-sm lg:text-base w-full',
+	fallbackClaims,
+	requested,
+}) => {
 	const { t, i18n } = useTranslation();
 	const screenType = useScreenType();
-	const { language, options: { fallbackLng } } = i18n;
+	const {
+		language,
+		options: { fallbackLng },
+	} = i18n;
 
 	const requestedFields = requested?.fields ?? null;
 	const requestedDisplay = requested?.display ?? undefined;
@@ -201,35 +210,38 @@ const CredentialInfo = ({ parsedCredential, mainClassName = "text-sm lg:text-bas
 	const claims = parsedCredential?.metadata?.credential?.TypeMetadata?.claims;
 
 	// Define custom claims to display from signedClaims if claims is missing
-	const customClaims = fallbackClaims ? fallbackClaims :
-		[
-			{ path: ['given_name'], display: [{ locale: 'en', label: 'Given Name' }] },
-			{ path: ['family_name'], display: [{ locale: 'en', label: 'Family Name' }] },
-			{ path: ['birth_date'], display: [{ locale: 'en', label: 'Birth Date' }] },
-			{ path: ['document_number'], display: [{ locale: 'en', label: 'Document Number' }] },
-			{ path: ['issuance_date'], display: [{ locale: 'en', label: 'Issuance Date' }] },
-			{ path: ['expiry_date'], display: [{ locale: 'en', label: 'Expiry Date' }] },
-		];
+	const customClaims = fallbackClaims
+		? fallbackClaims
+		: [
+				{ path: ['given_name'], display: [{ locale: 'en', label: 'Given Name' }] },
+				{ path: ['family_name'], display: [{ locale: 'en', label: 'Family Name' }] },
+				{ path: ['birth_date'], display: [{ locale: 'en', label: 'Birth Date' }] },
+				{ path: ['document_number'], display: [{ locale: 'en', label: 'Document Number' }] },
+				{ path: ['issuance_date'], display: [{ locale: 'en', label: 'Issuance Date' }] },
+				{ path: ['expiry_date'], display: [{ locale: 'en', label: 'Expiry Date' }] },
+			];
 
-	const existingCustomClaims = customClaims.filter(field => getValueByPath(field.path, signedClaims) !== undefined);
+	const existingCustomClaims = customClaims.filter(
+		(field) => getValueByPath(field.path, signedClaims) !== undefined,
+	);
 
 	const displayClaims = claims && Array.isArray(claims) ? claims : existingCustomClaims;
 
 	const filteredClaims = Array.isArray(displayClaims)
-		? displayClaims.filter(c => {
-			// Always keep if it is a display claim
-			if (isDisplayClaim(c)) return true;
+		? displayClaims.filter((c) => {
+				// Always keep if it is a display claim
+				if (isDisplayClaim(c)) return true;
 
-			// If requestedFields exists, also keep if the path is in requestedFields
-			if (requestedFields) {
-				const joined = Array.isArray(c.path) ? c.path.join('.') : '';
-				return requestedFields.some(field =>
-					(Array.isArray(field) ? field.join('.') : field) === joined
-				);
-			}
+				// If requestedFields exists, also keep if the path is in requestedFields
+				if (requestedFields) {
+					const joined = Array.isArray(c.path) ? c.path.join('.') : '';
+					return requestedFields.some(
+						(field) => (Array.isArray(field) ? field.join('.') : field) === joined,
+					);
+				}
 
-			return false;
-		})
+				return false;
+			})
 		: [];
 
 	const nestedClaims = {};
@@ -239,26 +251,24 @@ const CredentialInfo = ({ parsedCredential, mainClassName = "text-sm lg:text-bas
 	// Ensure parents come before children to prevent overwrite issues
 	expandedDisplayClaims.sort((a, b) => a.path.length - b.path.length);
 
-	const isWildcardRequest = requestedFields?.some(p =>
-		Array.isArray(p) && p.length === 1 && p[0] === null
+	const isWildcardRequest = requestedFields?.some(
+		(p) => Array.isArray(p) && p.length === 1 && p[0] === null,
 	);
 
 	const requestedFieldSet = isWildcardRequest
 		? null // null means all fields are requested
-		: new Set(
-			requestedFields?.map(p => Array.isArray(p) ? p.join('.') : p)
-		);
+		: new Set(requestedFields?.map((p) => (Array.isArray(p) ? p.join('.') : p)));
 
-	const pathKey = (path) => Array.isArray(path) ? path.join('.') : '';
+	const pathKey = (path) => (Array.isArray(path) ? path.join('.') : '');
 
 	const pathToClaimIdx = new Map(
-		expandedDisplayClaims.map((claim, idx) => [pathKey(claim.path), idx])
+		expandedDisplayClaims.map((claim, idx) => [pathKey(claim.path), idx]),
 	);
 
 	const syntheticClaims = [];
 
 	if (requestedFieldSet && requestedFields) {
-		requestedFields.forEach(field => {
+		requestedFields.forEach((field) => {
 			const pathArr = Array.isArray(field) ? field : [field];
 			const joined = pathKey(pathArr);
 			const value = getValueByPath(pathArr, signedClaims);
@@ -267,16 +277,16 @@ const CredentialInfo = ({ parsedCredential, mainClassName = "text-sm lg:text-bas
 
 			if (claimIdx !== undefined) {
 				const claim = expandedDisplayClaims[claimIdx];
-				if (!claim.display || !claim.display.some(d => d.label)) {
+				if (!claim.display || !claim.display.some((d) => d.label)) {
 					expandedDisplayClaims[claimIdx] = {
 						...claim,
-						display: [{ locale: 'en', label: joined, description: '' }]
+						display: [{ locale: 'en', label: joined, description: '' }],
 					};
 				}
 			} else if (value !== undefined) {
 				syntheticClaims.push({
 					path: pathArr,
-					display: [{ locale: 'en', label: joined, description: '' }]
+					display: [{ locale: 'en', label: joined, description: '' }],
 				});
 			}
 		});
@@ -285,33 +295,38 @@ const CredentialInfo = ({ parsedCredential, mainClassName = "text-sm lg:text-bas
 	const claimsWithDisplay = [...expandedDisplayClaims, ...syntheticClaims];
 
 	const visibleClaims =
-		requestedDisplay === "hide" && requestedFieldSet
-			? claimsWithDisplay.filter(claim => {
-				const joinedPath = claim.path?.join('.');
-				if (!joinedPath) return false;
+		requestedDisplay === 'hide' && requestedFieldSet
+			? claimsWithDisplay.filter((claim) => {
+					const joinedPath = claim.path?.join('.');
+					if (!joinedPath) return false;
 
-				if (claim.required === true) return true;
+					if (claim.required === true) return true;
 
-				// Show if the claim is:
-				// - explicitly requested
-				// - a parent of a requested field
-				// - a child of a requested field
-				return Array.from(requestedFieldSet).some(req =>
-					joinedPath === req ||
-					joinedPath.startsWith(req + '.') ||
-					req.startsWith(joinedPath + '.')
-				);
-			})
+					// Show if the claim is:
+					// - explicitly requested
+					// - a parent of a requested field
+					// - a child of a requested field
+					return Array.from(requestedFieldSet).some(
+						(req) =>
+							joinedPath === req ||
+							joinedPath.startsWith(req + '.') ||
+							req.startsWith(joinedPath + '.'),
+					);
+				})
 			: claimsWithDisplay;
 
-	visibleClaims.forEach(claim => {
+	visibleClaims.forEach((claim) => {
 		if (!Array.isArray(claim.path)) return;
 		if (!Array.isArray(claim.display)) return;
 
 		const rawValue = getValueByPath(claim.path, signedClaims);
 		if (rawValue === undefined) return;
 
-		const { label, description } = getLabelAndDescriptionByLang(claim.display || [], language, fallbackLng);
+		const { label, description } = getLabelAndDescriptionByLang(
+			claim.display || [],
+			language,
+			fallbackLng,
+		);
 		const display = { label, description };
 
 		const formattedValue = formatClaimValue(rawValue);
@@ -321,10 +336,12 @@ const CredentialInfo = ({ parsedCredential, mainClassName = "text-sm lg:text-bas
 
 	const requestedPaths = useMemo(() => {
 		if (!requestedFields) return new Set();
-		const isWildcard = requestedFields.some(p => Array.isArray(p) && p.length === 1 && p[0] === null);
-		return isWildcard ? null : new Set(
-			requestedFields.map(path => Array.isArray(path) ? path.join('.') : path)
+		const isWildcard = requestedFields.some(
+			(p) => Array.isArray(p) && p.length === 1 && p[0] === null,
 		);
+		return isWildcard
+			? null
+			: new Set(requestedFields.map((path) => (Array.isArray(path) ? path.join('.') : path)));
 	}, [requestedFields]);
 
 	// Helper: is a path requested?
@@ -336,7 +353,8 @@ const CredentialInfo = ({ parsedCredential, mainClassName = "text-sm lg:text-bas
 				joinedPath === req ||
 				joinedPath.startsWith(req + '.') ||
 				req.startsWith(joinedPath + '.')
-			) return true;
+			)
+				return true;
 		}
 		return false;
 	};
@@ -361,9 +379,14 @@ const CredentialInfo = ({ parsedCredential, mainClassName = "text-sm lg:text-bas
 			const label = node.display?.label || null;
 			const value = node.value;
 			const fullPath = [...currentPath, key].join('.');
-			const isRequested = !requestedPaths || Array.from(requestedPaths).some(requested =>
-				requested === fullPath || requested.startsWith(fullPath + '.') || fullPath.startsWith(requested + '.')
-			);
+			const isRequested =
+				!requestedPaths ||
+				Array.from(requestedPaths).some(
+					(requested) =>
+						requested === fullPath ||
+						requested.startsWith(fullPath + '.') ||
+						fullPath.startsWith(requested + '.'),
+				);
 
 			const isRequired = requestedFields && node.required;
 			if (!node.display) {
@@ -386,10 +409,11 @@ const CredentialInfo = ({ parsedCredential, mainClassName = "text-sm lg:text-bas
 				return (
 					<div
 						key={fullPath}
-						className={`flex flex-row sm:items-start sm:gap-2 px-2 py-1 rounded ${(isRequested || isRequired) && requestedDisplay === "highlight"
-							? `bg-lm-gray-300 shadow ${screenType === 'desktop' ? 'dark:bg-dm-gray-700' : 'dark:bg-dm-gray-800'}`
-							: ''
-							}`}
+						className={`flex flex-row sm:items-start sm:gap-2 px-2 py-1 rounded ${
+							(isRequested || isRequired) && requestedDisplay === 'highlight'
+								? `bg-lm-gray-300 shadow ${screenType === 'desktop' ? 'dark:bg-dm-gray-700' : 'dark:bg-dm-gray-800'}`
+								: ''
+						}`}
 					>
 						<div
 							className={
@@ -407,11 +431,9 @@ const CredentialInfo = ({ parsedCredential, mainClassName = "text-sm lg:text-bas
 						>
 							{value}
 							{(isRequested || isRequired) && (
-								<div className='flex'>
+								<div className="flex">
 									{isRequired && (
-										<Asterisk
-											className="text-lm-gray-900 dark:text-dm-gray-100 flex-shrin"
-										/>
+										<Asterisk className="text-lm-gray-900 dark:text-dm-gray-100 flex-shrin" />
 									)}
 									{isRequested && (
 										<Send

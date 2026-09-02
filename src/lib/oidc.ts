@@ -79,7 +79,9 @@ function storeOIDCState(purpose: OIDCGatePurpose, state: OIDCState, verifier: st
 	sessionStorage.setItem(getStorageKey(purpose, VERIFIER_KEY_SUFFIX), verifier);
 }
 
-function retrieveOIDCState(purpose: OIDCGatePurpose): { state: OIDCState; verifier: string } | null {
+function retrieveOIDCState(
+	purpose: OIDCGatePurpose,
+): { state: OIDCState; verifier: string } | null {
 	const stateKey = getStorageKey(purpose, STATE_KEY_SUFFIX);
 	const verifierKey = getStorageKey(purpose, VERIFIER_KEY_SUFFIX);
 
@@ -162,7 +164,7 @@ export async function validateIdToken(
 	idToken: string,
 	config: OIDCFlowConfig,
 	expectedNonce: string,
-	jwksUri: string
+	jwksUri: string,
 ): Promise<void> {
 	const issuer = config.issuer.replace(/\/$/, '');
 
@@ -225,10 +227,7 @@ export function getDisplayNameFromToken(idToken: string): string | null {
 // 5. Configuration & discovery
 // ---------------------------------------------------------------------------
 
-export function buildOIDCConfig(
-	provider: OIDCProviderConfig,
-	redirectUri: string
-): OIDCFlowConfig {
+export function buildOIDCConfig(provider: OIDCProviderConfig, redirectUri: string): OIDCFlowConfig {
 	return {
 		issuer: provider.issuer,
 		clientId: provider.client_id,
@@ -271,7 +270,7 @@ async function discoverOIDCEndpoints(issuer: string): Promise<{
 
 async function startNativeBridgeFlow(
 	config: OIDCFlowConfig,
-	purpose: OIDCGatePurpose
+	purpose: OIDCGatePurpose,
 ): Promise<{ idToken: string }> {
 	if (!window.NativeOIDCBridge) {
 		throw new Error('Native OIDC bridge not available');
@@ -291,7 +290,7 @@ async function startBrowserRedirectFlow(
 	config: OIDCFlowConfig,
 	purpose: OIDCGatePurpose,
 	returnPath: string,
-	formData?: Record<string, string>
+	formData?: Record<string, string>,
 ): Promise<void> {
 	const endpoints = await discoverOIDCEndpoints(config.issuer);
 
@@ -329,7 +328,7 @@ export async function startOIDCFlow(
 	options?: {
 		returnPath?: string;
 		formData?: Record<string, string>;
-	}
+	},
 ): Promise<{ idToken: string } | void> {
 	const mode = getOIDCFlowMode();
 
@@ -345,9 +344,7 @@ export async function startOIDCFlow(
  * Handle OIDC callback (browser redirect mode only).
  * Should be called on the callback page (/oidc/cb or /id/:tenantId/oidc/cb).
  */
-export async function handleOIDCCallback(
-	config: OIDCFlowConfig
-): Promise<{
+export async function handleOIDCCallback(config: OIDCFlowConfig): Promise<{
 	idToken: string;
 	purpose: OIDCGatePurpose;
 	returnPath: string;

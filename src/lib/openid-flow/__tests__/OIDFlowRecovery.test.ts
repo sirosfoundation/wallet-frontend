@@ -1,8 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-	OIDFlowErrorCodes,
-	DEFAULT_OID_FLOW_RETRY_CONFIG,
-} from '../types/OIDFlowRecovery';
+import { OIDFlowErrorCodes, DEFAULT_OID_FLOW_RETRY_CONFIG } from '../types/OIDFlowRecovery';
 import {
 	getErrorCategory,
 	isRecoverableError,
@@ -75,7 +72,10 @@ describe('FlowRecovery', () => {
 		});
 
 		it('should create non-recoverable error for fatal codes', () => {
-			const error = createOIDFlowError(OIDFlowErrorCodes.INVALID_CREDENTIAL, 'Credential validation failed');
+			const error = createOIDFlowError(
+				OIDFlowErrorCodes.INVALID_CREDENTIAL,
+				'Credential validation failed',
+			);
 
 			expect(error.code).toBe(OIDFlowErrorCodes.INVALID_CREDENTIAL);
 			expect(error.category).toBe('fatal');
@@ -93,8 +93,9 @@ describe('FlowRecovery', () => {
 
 	describe('inferErrorCode', () => {
 		it('should return provided code if known', () => {
-			expect(inferErrorCode('Some message', OIDFlowErrorCodes.NETWORK_TIMEOUT))
-				.toBe(OIDFlowErrorCodes.NETWORK_TIMEOUT);
+			expect(inferErrorCode('Some message', OIDFlowErrorCodes.NETWORK_TIMEOUT)).toBe(
+				OIDFlowErrorCodes.NETWORK_TIMEOUT,
+			);
 		});
 
 		it('should infer timeout errors', () => {

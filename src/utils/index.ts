@@ -1,2 +1,2 @@
-export { truncateByWords } from "./truncateByWords";
-export { prettyDomain } from "./prettyDomain";
+export { truncateByWords } from './truncateByWords';
+export { prettyDomain } from './prettyDomain';

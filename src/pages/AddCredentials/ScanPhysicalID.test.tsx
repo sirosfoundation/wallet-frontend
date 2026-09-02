@@ -53,11 +53,15 @@ describe('ScanPhysicalID', () => {
 		expect(screen.getByText('Scan Physical ID')).toBeInTheDocument();
 
 		expect(screen.getByText('Step 1')).toBeInTheDocument();
-		expect(screen.getByText('Scan your face to show you are a real, live human')).toBeInTheDocument();
+		expect(
+			screen.getByText('Scan your face to show you are a real, live human'),
+		).toBeInTheDocument();
 		expect(screen.getByText('Step 2')).toBeInTheDocument();
 		expect(screen.getByText('Scan your document')).toBeInTheDocument();
 		expect(screen.getByText('Step 3')).toBeInTheDocument();
-		expect(screen.getByText('Place your phone on your document to read the NFC-chip')).toBeInTheDocument();
+		expect(
+			screen.getByText('Place your phone on your document to read the NFC-chip'),
+		).toBeInTheDocument();
 
 		expect(screen.getByText('Before you begin')).toBeInTheDocument();
 		expect(screen.getByText('Have passport ready')).toBeInTheDocument();

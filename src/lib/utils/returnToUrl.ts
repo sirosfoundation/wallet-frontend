@@ -4,11 +4,7 @@ import { TENANT_PATH_PREFIX } from '@/lib/tenant';
 
 const KEY = 'return_to_url';
 const TENANT_PREFIX_RE = new RegExp(`^/${TENANT_PATH_PREFIX}(/|$)`);
-const DISALLOWED_PATHS: RegExp[] = [
-	/\/login\/?$/,
-	/\/login-state\/?$/,
-	/\/oidc\/cb\/?$/,
-];
+const DISALLOWED_PATHS: RegExp[] = [/\/login\/?$/, /\/login-state\/?$/, /\/oidc\/cb\/?$/];
 
 /**
  * Stores a URL in sessionStorage to return to after login.
@@ -32,8 +28,7 @@ function validateReturnToUrl(raw: string | null): string | null {
 	const queryOrHashIndex = raw.search(/[?#]/);
 	const path = queryOrHashIndex === -1 ? raw : raw.slice(0, queryOrHashIndex);
 
-	const
-		hasBackslash = raw.includes('\\'),
+	const hasBackslash = raw.includes('\\'),
 		// eslint-disable-next-line no-control-regex -- intentionally matching control chars
 		hasControlOrWhitespace = /[\u0000-\u001F\u007F\s]/.test(raw),
 		hasEncodedTraversal = /%2e|%2f|%5c/i.test(path),
@@ -41,7 +36,7 @@ function validateReturnToUrl(raw: string | null): string | null {
 		isDifferentOrigin = !/^\/(?!\/)/.test(path),
 		isCrossTenant = BASE_PATH === '/' && TENANT_PREFIX_RE.test(path),
 		isOutsideBasePath = BASE_PATH !== '/' && !path.startsWith(BASE_PATH),
-		isDisallowedPath = DISALLOWED_PATHS.some(re => re.test(path));
+		isDisallowedPath = DISALLOWED_PATHS.some((re) => re.test(path));
 
 	if (
 		hasBackslash ||

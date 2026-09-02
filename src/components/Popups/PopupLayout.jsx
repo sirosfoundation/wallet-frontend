@@ -4,8 +4,16 @@ import Modal from 'react-modal';
 import Spinner from '../Shared/Spinner';
 import Header from '../Layout/Header';
 
-const PopupLayout = ({ isOpen, onClose, loading = false, fullScreen = false, children, padding = 'p-4', shouldCloseOnOverlayClick = true, ariaLabelledBy = undefined }) => {
-
+const PopupLayout = ({
+	isOpen,
+	onClose,
+	loading = false,
+	fullScreen = false,
+	children,
+	padding = 'p-4',
+	shouldCloseOnOverlayClick = true,
+	ariaLabelledBy = undefined,
+}) => {
 	if (!isOpen) return null;
 
 	if (loading) {
@@ -29,10 +37,11 @@ const PopupLayout = ({ isOpen, onClose, loading = false, fullScreen = false, chi
 			bodyOpenClassName="overflow-hidden"
 			shouldCloseOnOverlayClick={shouldCloseOnOverlayClick}
 		>
-
 			<div className={`${fullScreen && 'h-full'}`}>
-				{fullScreen && <Header toggleSidebar={() => { }} />}
-				<div className={`${padding} ${fullScreen && 'px-6 pt-6 pb-20 flex flex-col justify-between'}`}>
+				{fullScreen && <Header toggleSidebar={() => {}} />}
+				<div
+					className={`${padding} ${fullScreen && 'px-6 pt-6 pb-20 flex flex-col justify-between'}`}
+				>
 					{children}
 				</div>
 			</div>

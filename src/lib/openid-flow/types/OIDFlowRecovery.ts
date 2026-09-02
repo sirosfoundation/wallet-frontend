@@ -67,7 +67,7 @@ export const OIDFlowErrorCodes = {
 	UNKNOWN_ERROR: 'UNKNOWN_ERROR',
 } as const;
 
-export type OIDFlowErrorCode = typeof OIDFlowErrorCodes[keyof typeof OIDFlowErrorCodes];
+export type OIDFlowErrorCode = (typeof OIDFlowErrorCodes)[keyof typeof OIDFlowErrorCodes];
 
 /**
  * Retry configuration

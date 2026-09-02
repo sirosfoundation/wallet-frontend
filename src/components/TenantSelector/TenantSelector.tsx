@@ -12,7 +12,7 @@ type TenantSelectorProps = {
 	currentTenantId?: string;
 	isAuthenticated: boolean;
 	button?: ReactElement;
-}
+};
 
 /**
  * TenantSelector - Dropdown component for switching between known tenants.
@@ -50,7 +50,7 @@ export default function TenantSelector({
 			return;
 		}
 
-		const tenant = knownTenants.find(t => t.id === tenantId);
+		const tenant = knownTenants.find((t) => t.id === tenantId);
 		if (!tenant) {
 			return;
 		}
@@ -67,7 +67,7 @@ export default function TenantSelector({
 	};
 
 	// Nothing to switch to
-	if (!knownTenants.some(t => t.id !== currentTenantId)) {
+	if (!knownTenants.some((t) => t.id !== currentTenantId)) {
 		return;
 	}
 
@@ -83,8 +83,16 @@ export default function TenantSelector({
 		<>
 			{buttonElement}
 			<PopupLayout padding="p-4 md:p-8" isOpen={isOpen} onClose={handleClose}>
-				<div className="flex items-start justify-between mb-4" role="dialog" aria-modal="true" aria-labelledby="switch-tenant-title">
-					<h2 id="switch-tenant-title" className="flex items-center text-lg font-bold text-lm-gray-900 dark:text-dm-gray-50 pr-6">
+				<div
+					className="flex items-start justify-between mb-4"
+					role="dialog"
+					aria-modal="true"
+					aria-labelledby="switch-tenant-title"
+				>
+					<h2
+						id="switch-tenant-title"
+						className="flex items-center text-lg font-bold text-lm-gray-900 dark:text-dm-gray-50 pr-6"
+					>
 						{t('tenantSelector.switchActiveTenant')}
 					</h2>
 					<button
@@ -94,18 +102,26 @@ export default function TenantSelector({
 						onClick={handleClose}
 						aria-label={t('tenantSelector.closePopup')}
 					>
-						<svg className="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
-							<path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6" />
+						<svg
+							className="w-3 h-3"
+							aria-hidden="true"
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 14 14"
+						>
+							<path
+								stroke="currentColor"
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								strokeWidth="2"
+								d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"
+							/>
 						</svg>
 					</button>
 				</div>
-				{isAuthenticated && (
-					<p className="mb-6 text-sm">
-						{t('tenantSelector.switchDescription')}
-					</p>
-				)}
+				{isAuthenticated && <p className="mb-6 text-sm">{t('tenantSelector.switchDescription')}</p>}
 				<div>
-					{knownTenants.some(t => t.id === currentTenantId) && (
+					{knownTenants.some((t) => t.id === currentTenantId) && (
 						<>
 							<h3 className="mb-2 font-semibold">{t('tenantSelector.currentTenantHeading')}</h3>
 							<div className="p-2 w-full mb-2 flex justify-between gap-3">
@@ -114,20 +130,28 @@ export default function TenantSelector({
 							<hr className="my-2 border-t border-lm-gray-400 dark:border-dm-gray-600" />
 						</>
 					)}
-					<h3 className="mt-4 mb-2 font-semibold">{knownTenants.some(t => t.id === currentTenantId) ? t('tenantSelector.selectOtherTenant') : t('tenantSelector.selectTenant')}</h3>
-					{knownTenants.filter((tenant) => tenant.id !== currentTenantId).map((tenant) => (
-						<Button
-							key={tenant.id}
-							variant='outline'
-							square
-							additionalClassName="w-full mb-2 flex justify-between gap-3"
-							onClick={() => handleSelectTenant(tenant.id)}
-							title={tenant.id === currentTenantId ? t('tenantSelector.currentlySelected') : undefined}
-						>
-							<TenantMeta knownTenants={knownTenants} tenantId={tenant.id} />
-							<ChevronRightIcon size={20} className="m-0.5 shrink-0" />
-						</Button>
-					))}
+					<h3 className="mt-4 mb-2 font-semibold">
+						{knownTenants.some((t) => t.id === currentTenantId)
+							? t('tenantSelector.selectOtherTenant')
+							: t('tenantSelector.selectTenant')}
+					</h3>
+					{knownTenants
+						.filter((tenant) => tenant.id !== currentTenantId)
+						.map((tenant) => (
+							<Button
+								key={tenant.id}
+								variant="outline"
+								square
+								additionalClassName="w-full mb-2 flex justify-between gap-3"
+								onClick={() => handleSelectTenant(tenant.id)}
+								title={
+									tenant.id === currentTenantId ? t('tenantSelector.currentlySelected') : undefined
+								}
+							>
+								<TenantMeta knownTenants={knownTenants} tenantId={tenant.id} />
+								<ChevronRightIcon size={20} className="m-0.5 shrink-0" />
+							</Button>
+						))}
 				</div>
 			</PopupLayout>
 		</>

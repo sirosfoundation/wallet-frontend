@@ -99,11 +99,7 @@ export function TxCodeInputProvider({ children }: { children: React.ReactNode })
 		handleCancel,
 	};
 
-	return (
-		<TxCodeInputContext.Provider value={value}>
-			{children}
-		</TxCodeInputContext.Provider>
-	);
+	return <TxCodeInputContext.Provider value={value}>{children}</TxCodeInputContext.Provider>;
 }
 
 export default TxCodeInputContext;

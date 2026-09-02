@@ -1,12 +1,20 @@
-import { useState, useRef, useEffect } from "react";
-import { useTranslation } from "react-i18next";
-import Button from "../Buttons/Button";
-import { GalleryHorizontal, GalleryVertical, Rows2 } from "lucide-react";
+import { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import Button from '../Buttons/Button';
+import { GalleryHorizontal, GalleryVertical, Rows2 } from 'lucide-react';
 
 const viewOptions = [
-	{ value: "horizontal-slider", Icon: GalleryHorizontal, labelKey: "viewSelect.options.horizontalSlider" },
-	{ value: "vertical-slider", Icon: GalleryVertical, labelKey: "viewSelect.options.verticalSlider" },
-	{ value: "list", Icon: Rows2, labelKey: "viewSelect.options.list" },
+	{
+		value: 'horizontal-slider',
+		Icon: GalleryHorizontal,
+		labelKey: 'viewSelect.options.horizontalSlider',
+	},
+	{
+		value: 'vertical-slider',
+		Icon: GalleryVertical,
+		labelKey: 'viewSelect.options.verticalSlider',
+	},
+	{ value: 'list', Icon: Rows2, labelKey: 'viewSelect.options.list' },
 ];
 
 export default function ViewSelect({ value, onChange }) {
@@ -19,16 +27,13 @@ export default function ViewSelect({ value, onChange }) {
 	useEffect(() => {
 		if (!open) return;
 		const handler = (e) => {
-			if (
-				triggerRef.current?.contains(e.target) ||
-				menuRef.current?.contains(e.target)
-			) {
+			if (triggerRef.current?.contains(e.target) || menuRef.current?.contains(e.target)) {
 				return;
 			}
 			setOpen(false);
 		};
-		document.addEventListener("mousedown", handler);
-		return () => document.removeEventListener("mousedown", handler);
+		document.addEventListener('mousedown', handler);
+		return () => document.removeEventListener('mousedown', handler);
 	}, [open]);
 
 	const selected = viewOptions.find((o) => o.value === value) ?? viewOptions[0];
@@ -45,17 +50,17 @@ export default function ViewSelect({ value, onChange }) {
 				onClick={() => setOpen((o) => !o)}
 				aria-haspopup="menu"
 				aria-expanded={open}
-				aria-label={t("viewSelect.aria.toggle")}
+				aria-label={t('viewSelect.aria.toggle')}
 			>
 				<SelectedIcon className="w-5 h-5" />
-				{t("viewSelect.view")}
+				{t('viewSelect.view')}
 			</Button>
 
 			{open && (
 				<div
 					ref={menuRef}
 					role="menu"
-					aria-label={t("viewSelect.aria.menuLabel")}
+					aria-label={t('viewSelect.aria.menuLabel')}
 					className="absolute right-0 mt-2 min-w-48 border border-lm-gray-400 dark:border-dm-gray-600 bg-lm-gray-100 dark:bg-dm-gray-900 rounded-lg shadow-lg z-50"
 				>
 					{viewOptions.map((opt) => {
@@ -68,9 +73,12 @@ export default function ViewSelect({ value, onChange }) {
 								key={opt.value}
 								role="menuitemradio"
 								aria-checked={isActive}
-								aria-label={t("viewSelect.aria.option", { label })}
-								className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg text-left ${isActive ? "bg-primary  text-white font-semibold" : "hover:bg-lm-gray-400 dark:hover:bg-dm-gray-600"
-									}`}
+								aria-label={t('viewSelect.aria.option', { label })}
+								className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg text-left ${
+									isActive
+										? 'bg-primary  text-white font-semibold'
+										: 'hover:bg-lm-gray-400 dark:hover:bg-dm-gray-600'
+								}`}
 								onClick={() => {
 									onChange(opt.value);
 									setOpen(false);

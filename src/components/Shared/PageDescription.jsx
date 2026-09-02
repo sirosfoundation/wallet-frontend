@@ -11,6 +11,6 @@ const PageDescription = ({ description }) => {
 			)}
 		</>
 	);
-}
+};
 
 export default PageDescription;

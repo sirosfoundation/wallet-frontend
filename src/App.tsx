@@ -14,15 +14,16 @@ import { HocProvider } from './HocProvider';
 
 const lazyWithDelay = (importFunction, delay = 1000) => {
 	return React.lazy(() =>
-		Promise.all([
-			importFunction(),
-			new Promise((resolve) => setTimeout(resolve, delay)),
-		]).then(([module]) => module)
+		Promise.all([importFunction(), new Promise((resolve) => setTimeout(resolve, delay))]).then(
+			([module]) => module,
+		),
 	);
 };
 
 const PrivateRoute = React.lazy(() => import('./components/Auth/PrivateRoute'));
-const NotificationOfflineWarning = React.lazy(() => import('./components/Notifications/NotificationOfflineWarning'));
+const NotificationOfflineWarning = React.lazy(
+	() => import('./components/Notifications/NotificationOfflineWarning'),
+);
 const AddCredentials = React.lazy(() => import('./pages/AddCredentials/AddCredentials'));
 const ScanPhysicalID = React.lazy(() => import('./pages/AddCredentials/ScanPhysicalID'));
 const Credential = React.lazy(() => import('./pages/Home/Credential'));
@@ -33,8 +34,12 @@ const HistoryDetail = React.lazy(() => import('./pages/History/HistoryDetail'));
 const Home = React.lazy(() => import('./pages/Home/Home'));
 const ShareCredentials = React.lazy(() => import('./pages/ShareCredentials/ShareCredentials'));
 const Settings = React.lazy(() => import('./pages/Settings/Settings'));
-const VerificationResult = React.lazy(() => import('./pages/VerificationResult/VerificationResult'));
-const OpenIDFlowCallback = React.lazy(() => import('./pages/OpenIDFlowCallback/OpenIDFlowCallback'));
+const VerificationResult = React.lazy(
+	() => import('./pages/VerificationResult/VerificationResult'),
+);
+const OpenIDFlowCallback = React.lazy(
+	() => import('./pages/OpenIDFlowCallback/OpenIDFlowCallback'),
+);
 
 const Layout = lazyWithDelay(() => import('./components/Layout/Layout'), 400);
 const Login = lazyWithDelay(() => import('./pages/Login/Login'), 400);
@@ -46,7 +51,7 @@ const ProtectedRouteWrapper = ({ layout = true }) => {
 	const location = useLocation();
 
 	const content = (
-		<Suspense fallback={<Spinner size='small' />}>
+		<Suspense fallback={<Spinner size="small" />}>
 			<FadeInContentTransition appear reanimateKey={location.pathname}>
 				<NotificationOfflineWarning />
 				<Outlet />
@@ -54,11 +59,7 @@ const ProtectedRouteWrapper = ({ layout = true }) => {
 		</Suspense>
 	);
 
-	return (
-		<PrivateRoute>
-			{layout ? <Layout>{content}</Layout> : content}
-		</PrivateRoute>
-	);
+	return <PrivateRoute>{layout ? <Layout>{content}</Layout> : content}</PrivateRoute>;
 };
 
 const PublicRouteWrapper = () => {
@@ -68,24 +69,20 @@ const PublicRouteWrapper = () => {
 			<Outlet />
 		</FadeInContentTransition>
 	);
-}
+};
 
 function App() {
 	const multiTenant = useMemo(() => isMultiTenant(), []);
-	const routeWrapper = useMemo(
-		() => {
-			const wrapper = <HocProvider><Outlet /></HocProvider>;
+	const routeWrapper = useMemo(() => {
+		const wrapper = (
+			<HocProvider>
+				<Outlet />
+			</HocProvider>
+		);
 
-			return multiTenant
-				? <TenantProvider>{wrapper}</TenantProvider>
-				: wrapper;
-		},
-		[multiTenant],
-	);
-	const basePath = useMemo(
-		() => multiTenant ? '/id/:tenantId/*' : '/*',
-		[multiTenant]
-	);
+		return multiTenant ? <TenantProvider>{wrapper}</TenantProvider> : wrapper;
+	}, [multiTenant]);
+	const basePath = useMemo(() => (multiTenant ? '/id/:tenantId/*' : '/*'), [multiTenant]);
 
 	return (
 		<>
@@ -120,7 +117,7 @@ function App() {
 						{/**
 						 * Public routes, used for login and OIDC gate callback.
 						 */}
-						<Route element={<PublicRouteWrapper/>}>
+						<Route element={<PublicRouteWrapper />}>
 							<Route path="login" element={<Login />} />
 							<Route path="login-state" element={<LoginState />} />
 							<Route path="oidc/cb" element={<OIDCCallback />} />

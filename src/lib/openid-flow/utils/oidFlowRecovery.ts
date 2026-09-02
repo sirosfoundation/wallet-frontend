@@ -66,7 +66,7 @@ export function isRecoverableError(code: string): boolean {
 export function createOIDFlowError(
 	code: string,
 	message: string,
-	originalError?: unknown
+	originalError?: unknown,
 ): OIDFlowRecoverableError {
 	const category = getErrorCategory(code);
 	return {
@@ -74,7 +74,8 @@ export function createOIDFlowError(
 		message,
 		category,
 		recoverable: category === 'transient',
-		retryDelayMs: category === 'transient' ? DEFAULT_OID_FLOW_RETRY_CONFIG.initialDelayMs : undefined,
+		retryDelayMs:
+			category === 'transient' ? DEFAULT_OID_FLOW_RETRY_CONFIG.initialDelayMs : undefined,
 		maxRetries: category === 'transient' ? DEFAULT_OID_FLOW_RETRY_CONFIG.maxRetries : undefined,
 		originalError,
 		timestamp: Date.now(),
@@ -93,10 +94,7 @@ export function inferErrorCode(message: string, code?: string): OIDFlowErrorCode
 	// Infer from message content
 	const lowerMessage = message.toLowerCase();
 
-	if (
-		lowerMessage.includes('timeout') ||
-		lowerMessage.includes('timed out')
-	) {
+	if (lowerMessage.includes('timeout') || lowerMessage.includes('timed out')) {
 		if (lowerMessage.includes('sign')) {
 			return OIDFlowErrorCodes.SIGN_TIMEOUT;
 		}
@@ -123,10 +121,7 @@ export function inferErrorCode(message: string, code?: string): OIDFlowErrorCode
 		return OIDFlowErrorCodes.SERVER_OVERLOAD;
 	}
 
-	if (
-		lowerMessage.includes('untrusted') ||
-		lowerMessage.includes('trust')
-	) {
+	if (lowerMessage.includes('untrusted') || lowerMessage.includes('trust')) {
 		if (lowerMessage.includes('issuer')) {
 			return OIDFlowErrorCodes.UNTRUSTED_ISSUER;
 		}
@@ -135,31 +130,19 @@ export function inferErrorCode(message: string, code?: string): OIDFlowErrorCode
 		}
 	}
 
-	if (
-		lowerMessage.includes('invalid credential') ||
-		lowerMessage.includes('credential invalid')
-	) {
+	if (lowerMessage.includes('invalid credential') || lowerMessage.includes('credential invalid')) {
 		return OIDFlowErrorCodes.INVALID_CREDENTIAL;
 	}
 
-	if (
-		lowerMessage.includes('declined') ||
-		lowerMessage.includes('rejected by user')
-	) {
+	if (lowerMessage.includes('declined') || lowerMessage.includes('rejected by user')) {
 		return OIDFlowErrorCodes.USER_DECLINED;
 	}
 
-	if (
-		lowerMessage.includes('cancel') ||
-		lowerMessage.includes('abort')
-	) {
+	if (lowerMessage.includes('cancel') || lowerMessage.includes('abort')) {
 		return OIDFlowErrorCodes.USER_CANCELLED;
 	}
 
-	if (
-		lowerMessage.includes('expired') ||
-		lowerMessage.includes('flow expired')
-	) {
+	if (lowerMessage.includes('expired') || lowerMessage.includes('flow expired')) {
 		return OIDFlowErrorCodes.FLOW_EXPIRED;
 	}
 
@@ -179,7 +162,7 @@ export function inferErrorCode(message: string, code?: string): OIDFlowErrorCode
  */
 export function calculateRetryDelay(
 	attemptNumber: number,
-	config: Partial<OIDFlowRetryConfig> = {}
+	config: Partial<OIDFlowRetryConfig> = {},
 ): number {
 	const resolved = { ...DEFAULT_OID_FLOW_RETRY_CONFIG, ...config };
 	const delay = resolved.initialDelayMs * Math.pow(resolved.backoffMultiplier, attemptNumber - 1);
@@ -192,7 +175,7 @@ export function calculateRetryDelay(
 export function shouldRetry(
 	error: OIDFlowRecoverableError,
 	attemptNumber: number,
-	maxRetries = DEFAULT_OID_FLOW_RETRY_CONFIG.maxRetries
+	maxRetries = DEFAULT_OID_FLOW_RETRY_CONFIG.maxRetries,
 ): boolean {
 	if (!error.recoverable) {
 		return false;

@@ -11,9 +11,7 @@ interface LogoProps {
 }
 
 function getLogoUrl(type: string): string {
-	return type === 'light' || type === ''
-		? BRANDING.LOGO_LIGHT
-		: BRANDING.LOGO_DARK;
+	return type === 'light' || type === '' ? BRANDING.LOGO_LIGHT : BRANDING.LOGO_DARK;
 }
 
 const Logo: React.FC<LogoProps> = ({
@@ -32,12 +30,9 @@ const Logo: React.FC<LogoProps> = ({
 		const html = document.documentElement;
 		const observer = new MutationObserver((mutations) => {
 			for (const mutation of mutations) {
-				if (
-					mutation.type === 'attributes' &&
-					mutation.attributeName === 'data-theme'
-				) {
+				if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
 					setLogoUrl(getLogoUrl(html.getAttribute('data-theme')));
-					}
+				}
 			}
 		});
 
@@ -46,13 +41,14 @@ const Logo: React.FC<LogoProps> = ({
 		return () => observer.disconnect();
 	}, [type]);
 
-	const img = <img src={logoUrl} alt={alt || t('common.walletName')} className={imgClassName} />
+	const img = <img src={logoUrl} alt={alt || t('common.walletName')} className={imgClassName} />;
 
-	if (clickable) return (
-		<a href={BASE_PATH} className={aClassName} aria-label={t('common.walletName')}>
-			{img}
-		</a>
-	);
+	if (clickable)
+		return (
+			<a href={BASE_PATH} className={aClassName} aria-label={t('common.walletName')}>
+				{img}
+			</a>
+		);
 
 	return img;
 };

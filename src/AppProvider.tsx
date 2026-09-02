@@ -37,9 +37,7 @@ const AppProvider: React.FC<RootProviderProps> = ({ children }) => {
 											<TxCodeInputProvider>
 												<NotificationProvider>
 													<WalletCompanionProvider>
-														<AppSettingsProvider>
-															{children}
-														</AppSettingsProvider>
+														<AppSettingsProvider>{children}</AppSettingsProvider>
 													</WalletCompanionProvider>
 												</NotificationProvider>
 											</TxCodeInputProvider>

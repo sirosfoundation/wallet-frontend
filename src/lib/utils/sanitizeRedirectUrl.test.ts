@@ -26,14 +26,14 @@ describe('sanitizeRedirectUrl', () => {
 	it('should throw an error for ftp URLs', () => {
 		const url = 'ftp://example.com/';
 		expect(() => sanitizeRedirectUrl(url)).toThrowError(
-			'Prohibited URL scheme "ftp" in redirect URL "ftp://example.com/"'
+			'Prohibited URL scheme "ftp" in redirect URL "ftp://example.com/"',
 		);
 	});
 
 	it('should throw an error for javascript URLs', () => {
 		const url = 'javascript:alert("XSS")';
 		expect(() => sanitizeRedirectUrl(url)).toThrowError(
-			'Prohibited URL scheme "javascript" in redirect URL "javascript:alert("XSS")"'
+			'Prohibited URL scheme "javascript" in redirect URL "javascript:alert("XSS")"',
 		);
 	});
 
@@ -54,15 +54,14 @@ describe('sanitizeRedirectUrl', () => {
 		['DaTa:text/html,x', 'data'],
 	])('should block sneaky payload %j (scheme %s)', (payload, scheme) => {
 		expect(() => sanitizeRedirectUrl(payload)).toThrowError(
-			new RegExp(`Prohibited URL scheme "${scheme}"`)
+			new RegExp(`Prohibited URL scheme "${scheme}"`),
 		);
 	});
 
-	it.each([
-		'//evil.com',
-		'java\u0000script:x',
-		'not a url',
-	])('throws generic parse error for %j', (payload) => {
-		expect(() => sanitizeRedirectUrl(payload)).toThrowError(/Invalid URL/);
-	});
+	it.each(['//evil.com', 'java\u0000script:x', 'not a url'])(
+		'throws generic parse error for %j',
+		(payload) => {
+			expect(() => sanitizeRedirectUrl(payload)).toThrowError(/Invalid URL/);
+		},
+	);
 });

@@ -19,12 +19,16 @@ const JsonViewer = ({ name, value, depth = 0 }) => {
 	if (isArray(value)) {
 		return (
 			<div className={`${indentClass}`}>
-				<span className="cursor-pointer text-lm-gray-900 dark:text-dm-gray-100" onClick={toggleExpanded}>
+				<span
+					className="cursor-pointer text-lm-gray-900 dark:text-dm-gray-100"
+					onClick={toggleExpanded}
+				>
 					{expanded ? '▼' : '▶'} {name && `"${name}"`}: [Array({value.length})]
 				</span>
-				{expanded && value.map((item, idx) => (
-					<JsonViewer key={idx} name={String(idx)} value={item} depth={depth + 1} />
-				))}
+				{expanded &&
+					value.map((item, idx) => (
+						<JsonViewer key={idx} name={String(idx)} value={item} depth={depth + 1} />
+					))}
 			</div>
 		);
 	}
@@ -33,12 +37,16 @@ const JsonViewer = ({ name, value, depth = 0 }) => {
 		const keys = Object.keys(value);
 		return (
 			<div className={`${indentClass}`}>
-				<span className="cursor-pointer text-lm-gray-900 dark:text-dm-gray-100" onClick={toggleExpanded}>
-					{expanded ? '▼' : '▶'} {name && `"${name}"`}: {"{"}Object({keys.length}){"}"}
+				<span
+					className="cursor-pointer text-lm-gray-900 dark:text-dm-gray-100"
+					onClick={toggleExpanded}
+				>
+					{expanded ? '▼' : '▶'} {name && `"${name}"`}: {'{'}Object({keys.length}){'}'}
 				</span>
-				{expanded && keys.map((key) => (
-					<JsonViewer key={key} name={key} value={value[key]} depth={depth + 1} />
-				))}
+				{expanded &&
+					keys.map((key) => (
+						<JsonViewer key={key} name={key} value={value[key]} depth={depth + 1} />
+					))}
 			</div>
 		);
 	}
@@ -48,9 +56,10 @@ const JsonViewer = ({ name, value, depth = 0 }) => {
 
 	if (typeof value === 'string') {
 		const shouldTruncate = value.length > MAX_STRING_LENGTH;
-		displayValue = showFullString || !shouldTruncate
-			? `"${value}"`
-			: `"${value.slice(0, MAX_STRING_LENGTH)}..."`;
+		displayValue =
+			showFullString || !shouldTruncate
+				? `"${value}"`
+				: `"${value.slice(0, MAX_STRING_LENGTH)}..."`;
 
 		return (
 			<div className={`${indentClass} break-all`}>

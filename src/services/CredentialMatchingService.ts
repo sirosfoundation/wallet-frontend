@@ -14,7 +14,7 @@ import { ExtendedVcEntity } from '@/context/CredentialsContext';
 import { DcqlQuery, DcqlCredential, DcqlQueryResult } from 'dcql';
 import { logger } from '@/logger';
 import * as cbor from 'cbor-x';
-import { fromBase64Url } from "../util";
+import { fromBase64Url } from '../util';
 import { extractDocTypeFromIssuerAuth } from '@/lib/verifiable-credentials';
 
 export interface CredentialMatch {
@@ -36,7 +36,7 @@ export interface CredentialsMatchedResult {
  */
 export function matchCredentials(
 	credentials: ExtendedVcEntity[],
-	dcqlQuery: DcqlQuery.Input
+	dcqlQuery: DcqlQuery.Input,
 ): CredentialsMatchedResult {
 	// 1. Shape all credentials
 	const shaped: (DcqlCredential & { _batchId?: number })[] = [];
@@ -63,7 +63,10 @@ export function matchCredentials(
 		result = DcqlQuery.query(parsedQuery, shaped);
 	} catch (e) {
 		logger.error('DCQL query failed:', e);
-		return { matches: [], no_match_reason: `DCQL query error: ${e instanceof Error ? e.message : String(e)}` };
+		return {
+			matches: [],
+			no_match_reason: `DCQL query error: ${e instanceof Error ? e.message : String(e)}`,
+		};
 	}
 
 	// 3. Map results back to CredentialMatch format
@@ -92,8 +95,16 @@ export function matchCredentials(
 
 	if (!result.can_be_satisfied) {
 		return matches.length > 0
-			? { matches: [], code: 'INSUFFICIENT_CREDENTIALS', no_match_reason: 'Not all required credentials are available' }
-			: { matches: [], code: 'NO_MATCHING_CREDENTIALS', no_match_reason: 'No credentials match DCQL query' };
+			? {
+					matches: [],
+					code: 'INSUFFICIENT_CREDENTIALS',
+					no_match_reason: 'Not all required credentials are available',
+				}
+			: {
+					matches: [],
+					code: 'NO_MATCHING_CREDENTIALS',
+					no_match_reason: 'No credentials match DCQL query',
+				};
 	}
 
 	return { matches };
@@ -106,7 +117,9 @@ export function matchCredentials(
  * Exported for direct unit testing of the mso_mdoc envelope-shape handling,
  * without needing to build a full DcqlQuery to exercise it via matchCredentials.
  */
-export function shapeCredential(credential: ExtendedVcEntity): (DcqlCredential & { _batchId?: number }) | null {
+export function shapeCredential(
+	credential: ExtendedVcEntity,
+): (DcqlCredential & { _batchId?: number }) | null {
 	const format = credential.format || 'vc+sd-jwt';
 
 	if (format === 'mso_mdoc') {
@@ -130,7 +143,9 @@ export function shapeCredential(credential: ExtendedVcEntity): (DcqlCredential &
 				docType = extractDocTypeFromIssuerAuth(mdoc.issuerAuth);
 				rawNameSpaces = mdoc.nameSpaces;
 			} else {
-				throw new Error('mdoc credential envelope missing documents[] (and not a bare IssuerSigned structure either)');
+				throw new Error(
+					'mdoc credential envelope missing documents[] (and not a bare IssuerSigned structure either)',
+				);
 			}
 
 			const namespaces: Record<string, Record<string, unknown>> = {};
@@ -155,7 +170,6 @@ export function shapeCredential(credential: ExtendedVcEntity): (DcqlCredential &
 			return null;
 		}
 	}
-
 
 	// SD-JWT (vc+sd-jwt or dc+sd-jwt)
 	const signedClaims = credential.parsedCredential?.signedClaims;
@@ -185,11 +199,7 @@ function extractAvailableClaims(credential: ExtendedVcEntity): string[] {
 /**
  * Recursively extract claim paths from a claims object, ignoring certain reserved keys.
  */
-function extractClaimPaths(
-	obj: Record<string, unknown>,
-	prefix: string,
-	paths: string[]
-): void {
+function extractClaimPaths(obj: Record<string, unknown>, prefix: string, paths: string[]): void {
 	for (const [key, value] of Object.entries(obj)) {
 		const path = prefix ? `${prefix}.${key}` : key;
 		if (key.startsWith('_') || key === 'iss' || key === 'iat' || key === 'exp') {

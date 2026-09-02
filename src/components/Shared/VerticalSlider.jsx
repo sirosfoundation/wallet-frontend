@@ -62,11 +62,11 @@ const VerticalSlider = ({
 						>
 							<div
 								className={[
-									"w-full rounded-xl p-2 transition-all duration-300",
-									isFar ? "pointer-events-none" : "pointer-events-auto",
-									isActive ? "opacity-100" : "opacity-90",
-									isActive ? "" : "filter-[brightness(0.9)]",
-								].join(" ")}
+									'w-full rounded-xl p-2 transition-all duration-300',
+									isFar ? 'pointer-events-none' : 'pointer-events-auto',
+									isActive ? 'opacity-100' : 'opacity-90',
+									isActive ? '' : 'filter-[brightness(0.9)]',
+								].join(' ')}
 							>
 								{renderSlideContent(item, i)}
 							</div>

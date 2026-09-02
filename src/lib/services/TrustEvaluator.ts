@@ -115,7 +115,9 @@ export interface VerifierTrustResult {
  * Verifier trust evaluator function type.
  * @todo consider moving to wallet-common.
  */
-export type VerifierTrustEvaluator = (params: VerifierTrustEvaluationParams) => Promise<VerifierTrustResult>;
+export type VerifierTrustEvaluator = (
+	params: VerifierTrustEvaluationParams,
+) => Promise<VerifierTrustResult>;
 
 /**
  * Create an OpenID4VP trust evaluator using the AuthZEN client.
@@ -260,7 +262,9 @@ export interface IssuerTrustResult {
  * Issuer trust evaluator function type.
  * @todo consider moving to wallet-common.
  */
-export type IssuerTrustEvaluator = (params: IssuerTrustEvaluationParams) => Promise<IssuerTrustResult>;
+export type IssuerTrustEvaluator = (
+	params: IssuerTrustEvaluationParams,
+) => Promise<IssuerTrustResult>;
 
 /**
  * Create an issuer trust evaluator using the AuthZEN client.

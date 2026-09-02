@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
-import * as cbor from "cbor-x";
-import { shapeCredential } from "./CredentialMatchingService";
-import { ExtendedVcEntity } from "@/context/CredentialsContext";
-import { toBase64Url } from "../util";
+import { describe, expect, it } from 'vitest';
+import * as cbor from 'cbor-x';
+import { shapeCredential } from './CredentialMatchingService';
+import { ExtendedVcEntity } from '@/context/CredentialsContext';
+import { toBase64Url } from '../util';
 
 /**
  * `shapeCredential` (mso_mdoc branch) must handle both stored-credential
@@ -33,27 +33,32 @@ function buildItem(elementIdentifier: string, elementValue: string) {
 
 function buildNameSpaces(namespace: string) {
 	return {
-		[namespace]: [buildItem("given_name", "Jane"), buildItem("family_name", "Doe")],
+		[namespace]: [buildItem('given_name', 'Jane'), buildItem('family_name', 'Doe')],
 	};
 }
 
 function mockMdocCredential(bytes: Uint8Array): ExtendedVcEntity {
 	return {
-		format: "mso_mdoc",
+		format: 'mso_mdoc',
 		data: toBase64Url(bytes),
 		batchId: 1,
 	} as unknown as ExtendedVcEntity;
 }
 
-describe("shapeCredential (mso_mdoc)", () => {
-	it("shapes a full DeviceResponse-shaped envelope", () => {
-		const docType = "org.iso.18013.5.1.mDL";
-		const namespace = "org.iso.18013.5.1";
+describe('shapeCredential (mso_mdoc)', () => {
+	it('shapes a full DeviceResponse-shaped envelope', () => {
+		const docType = 'org.iso.18013.5.1.mDL';
+		const namespace = 'org.iso.18013.5.1';
 		const envelope = {
-			documents: [{
-				docType,
-				issuerSigned: { nameSpaces: buildNameSpaces(namespace), issuerAuth: buildIssuerAuth(docType) },
-			}],
+			documents: [
+				{
+					docType,
+					issuerSigned: {
+						nameSpaces: buildNameSpaces(namespace),
+						issuerAuth: buildIssuerAuth(docType),
+					},
+				},
+			],
 			status: 0,
 		};
 
@@ -61,12 +66,12 @@ describe("shapeCredential (mso_mdoc)", () => {
 
 		expect(shaped).not.toBeNull();
 		expect((shaped as any).doctype).toBe(docType);
-		expect((shaped as any).namespaces[namespace].given_name).toBe("Jane");
+		expect((shaped as any).namespaces[namespace].given_name).toBe('Jane');
 	});
 
-	it("shapes a bare IssuerSigned structure, deriving docType from the MSO", () => {
-		const docType = "eu.europa.ec.eudi.pid.1";
-		const namespace = "eu.europa.ec.eudi.pid.1";
+	it('shapes a bare IssuerSigned structure, deriving docType from the MSO', () => {
+		const docType = 'eu.europa.ec.eudi.pid.1';
+		const namespace = 'eu.europa.ec.eudi.pid.1';
 		const bareIssuerSigned = {
 			nameSpaces: buildNameSpaces(namespace),
 			issuerAuth: buildIssuerAuth(docType),
@@ -76,11 +81,11 @@ describe("shapeCredential (mso_mdoc)", () => {
 
 		expect(shaped).not.toBeNull();
 		expect((shaped as any).doctype).toBe(docType);
-		expect((shaped as any).namespaces[namespace].family_name).toBe("Doe");
+		expect((shaped as any).namespaces[namespace].family_name).toBe('Doe');
 	});
 
-	it("returns null (not throws) for an unparseable mdoc", () => {
-		const garbage = cbor.encode({ somethingElse: "value" });
+	it('returns null (not throws) for an unparseable mdoc', () => {
+		const garbage = cbor.encode({ somethingElse: 'value' });
 		expect(shapeCredential(mockMdocCredential(garbage))).toBeNull();
 	});
 });

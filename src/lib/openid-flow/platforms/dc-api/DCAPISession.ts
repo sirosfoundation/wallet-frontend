@@ -1,9 +1,4 @@
-import {
-	calculateJwkThumbprint,
-	EncryptJWT,
-	importJWK,
-	JWK,
-} from 'jose';
+import { calculateJwkThumbprint, EncryptJWT, importJWK, JWK } from 'jose';
 import { DCAPIRequest } from './DCAPIRequest';
 import { DCAPIMode } from './resources';
 import { DCAPIWalletCompanionMode } from './modes';
@@ -37,10 +32,7 @@ export class DCAPISession {
 			throw new Error('Signed request missing required expected_origins');
 		}
 
-		await this.mode.originHandshake(
-			this.requestId,
-			this.request.expectedOrigins,
-		);
+		await this.mode.originHandshake(this.requestId, this.request.expectedOrigins);
 	}
 
 	get verifiedOrigin(): string {
@@ -52,7 +44,7 @@ export class DCAPISession {
 		if (!this.request.clientMetadata) return null;
 
 		const encKey = this.request.clientMetadata?.jwks?.keys?.find(
-			(k: Record<string, unknown>) => k.use === 'enc'
+			(k: Record<string, unknown>) => k.use === 'enc',
 		);
 		if (!encKey) return null;
 
@@ -60,9 +52,10 @@ export class DCAPISession {
 	}
 
 	public async sendResponse(vpToken: Record<string, string[]>): Promise<void> {
-		const payload = this.request.responseMode === 'dc_api.jwt'
-			? { response: await this.#encryptResponse(vpToken) }
-			: { vp_token: vpToken };
+		const payload =
+			this.request.responseMode === 'dc_api.jwt'
+				? { response: await this.#encryptResponse(vpToken) }
+				: { vp_token: vpToken };
 
 		this.mode.send({ requestId: this.requestId, payload });
 		this.close();
@@ -92,15 +85,16 @@ export class DCAPISession {
 
 		// Find encryption key (use='enc')
 		const encKey = this.request.clientMetadata.jwks.keys.find(
-			(k: Record<string, unknown>) => k.use === 'enc'
+			(k: Record<string, unknown>) => k.use === 'enc',
 		);
 		if (!encKey) {
 			throw new Error('No encryption key found in client_metadata.jwks');
 		}
 
-		const alg = (encKey.alg as string)
-			|| this.request.clientMetadata.authorization_encrypted_response_alg
-			|| 'ECDH-ES';
+		const alg =
+			(encKey.alg as string) ||
+			this.request.clientMetadata.authorization_encrypted_response_alg ||
+			'ECDH-ES';
 		const enc = this.request.clientMetadata.authorization_encrypted_response_enc || 'A128GCM';
 
 		const publicKey = await importJWK(encKey as JWK, alg);
