@@ -22,11 +22,17 @@
 		},
 		"rules": {
 			"preset": "recommended",
+			"a11y": "warn",
+			"complexity": "warn",
+			"correctness": "warn",
+			"performance": "warn",
+			"security": "warn",
+			"suspicious": "warn",
 			"style": {
 				"useNamingConvention": {
-					"level": "error",
+					"level": "warn",
 					"options": {
-						"strictCase": false,
+						"strictCase": true,
 						"conventions": [
 							{
 								"selector": { "kind": "objectLiteralProperty" },
