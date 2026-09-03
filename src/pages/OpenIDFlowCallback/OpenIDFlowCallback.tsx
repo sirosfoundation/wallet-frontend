@@ -544,7 +544,7 @@ export async function generateZkFinalVP(
     proofCacheDb: any,
 ) {
     const transcriptHex = "83f6f6846b6578616d706c652e6f7267781c68747470733a2f2f6578616d706c652e6f72672f726573706f6e736570313233343536373839306162636465667066656463626130393837363534333231";
-    const now = "2026-09-03T20:41:47Z";
+    const now = proofCacheDb.now;
 	const VERIFIER_CONTEXT = new Uint8Array([
 		0x76, 0x65, 0x72, 0x69, 0x66, 0x69, 0x65, 0x72,
 		0x40, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x2e,
@@ -832,11 +832,11 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	// generated under. A proof binds `now`, so reusing the proof means reusing the
 	// timestamp too.
 	async function resolveNow(proofCacheDb: any, transcriptHex: string): Promise<string> {
-		const fresh = "";
-		
+		const fresh = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+
 		try {
 			const cached = await proofCacheDb.read(['proofs'], (tr: any) =>
-				tr.objectStore('proofs').get(`transcript:${transcriptHex.slice(0, 16)}`)
+				tr.objectStore('proofs').get(transcriptHex) // match CACHE_KEY exactly
 			);
 			if (cached?.now) {
 				console.log('reusing cached now:', cached.now);
@@ -845,7 +845,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		} catch (e) {
 			console.log('no cached now:', e);
 		}
-		return fresh();
+		return fresh;
 	}
 
 	// Session-specific proving inputs. Set once the DCAPISession exists, read by
@@ -854,7 +854,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	const sessionParamsRef = useRef<{
 		transcriptHex: string;
 		verifierContext: Uint8Array;
-		now: string;
+		now: any;
 	} | null>(null);
 	const processDcApiRequest = async (url: URL, keystore: any, proofCacheDb: any) => {
 		const session = new DCAPISession(url);
@@ -894,8 +894,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			0x86, 0x09, 0x36, 0x8e, 0x68, 0x05, 0x62, 0x2d,
 		]);*/
 		console.log('verifier context:', Array.from(verifierContext).map(b => b.toString(16).padStart(2, '0')).join(''));
-    	const now = "2026-09-03T20:41:47Z";
-
+		const now = await resolveNow(proofCacheDb, transcriptHex);
 		console.log('TRANSCRIPT for both:', transcriptHex, '| bytes:', transcriptHex.length / 2);
 		sessionParamsRef.current = { transcriptHex, verifierContext, now };
 		console.log('session transcript:', transcriptHex.slice(0, 40), '…');
