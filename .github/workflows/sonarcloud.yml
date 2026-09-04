@@ -27,13 +27,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'yarn'
+          cache: 'pnpm'
 
+      # TODO: add back --ignore-scripts when wallet-common is merged into this repo.
       - name: Install dependencies
-        run: yarn install --frozen-lockfile --ignore-scripts
+        run: pnpm install --frozen-lockfile
 
       - name: Run tests with coverage
-        run: yarn test:coverage
+        run: pnpm test:coverage
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@713881670b6b3676cda39549040e2d88c70d582e # v8.2.0
@@ -44,3 +45,4 @@ jobs:
             -Dsonar.organization=${{ github.repository_owner }}
             -Dsonar.projectKey=${{ github.repository_owner }}_${{ github.event.repository.name }}
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+            -Dsonar.coverage.exclusions=translation_coverage/**

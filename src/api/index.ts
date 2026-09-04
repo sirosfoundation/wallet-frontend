@@ -8,7 +8,7 @@ import { EncryptedContainer, makeAssertionPrfExtensionInputs, parsePrivateData, 
 import { CachedUser, LocalStorageKeystore } from '../services/LocalStorageKeystore';
 import { UserId, Verifier } from './types';
 import { useEffect, useCallback, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { UseStorageHandle, useClearStorages, useLocalStorage, useSessionStorage } from '../hooks/useStorage';
 import { addItem, getItem, EXCLUDED_INDEXEDDB_PATHS } from '../indexedDB';
 import { loginWebAuthnBeginOffline } from './LocalAuthentication';
@@ -17,7 +17,6 @@ import { getTenantFromUrlPath, setStoredTenant, clearStoredTenant } from '../lib
 import { clearOIDCState } from '../lib/oidc';
 import { AuthTokens } from '@/lib/auth';
 import { useAuthServerClient } from '@/hooks/useAuthServerClient';
-import { useTenant } from '@/context/TenantContext';
 
 const walletBackendUrl = config.BACKEND_URL;
 
@@ -119,7 +118,7 @@ export interface BackendApi {
 export function useApi(isOnlineProp: boolean = true): BackendApi {
 	const isOnline = useMemo(() => isOnlineProp === null ? true : isOnlineProp, [isOnlineProp]);
 	const authServer = useAuthServerClient();
-	const { urlTenantId: tenantId } = useTenant();
+	const tenantId = getTenantFromUrlPath() ?? 'default';
 	const [userHandle,] = useSessionStorage<string | null>("userHandle", null);
 	const [cachedUsers] = useLocalStorage<CachedUser[] | null>("cachedUsers", null);
 	const [sessionState, setSessionState, clearSessionState] = useSessionStorage<SessionState | null>("sessionState", null);
@@ -154,7 +153,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 
 	// Define clearSession early so it can be used by token refresh config
 	const clearSession = useCallback((): void => {
-		authServer.logout().catch((e) => logger.error('Failed to clear server session', e));
+		authServer.logout(tenantId ?? 'default').catch((e) => logger.error('Failed to clear server session', e));
 		clearSessionStorage();
 		authTokens.clear();
 		removePrivateDataEtag();
@@ -162,7 +161,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		clearOIDCState('registration'); // Clear OIDC gate tokens on logout
 		clearOIDCState('login');
 		events.dispatchEvent(new CustomEvent<ClearSessionEvent>(CLEAR_SESSION_EVENT));
-	}, [authServer, authTokens, clearSessionStorage, removePrivateDataEtag]);
+	}, [authServer, authTokens, clearSessionStorage, removePrivateDataEtag, tenantId]);
 
 	// Stable ref for clearSession to avoid stale closures in token refresh
 	const clearSessionRef = useRef<() => void>(clearSession);
@@ -657,6 +656,18 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 							oidcIdToken,
 						);
 
+						// Seed the private-data etag after signup.
+						// We want to do this here to ensure the private-data etag is set
+						// immediately after signup, avoiding potential race conditions.
+						try {
+							updatePrivateDataEtag(
+								await authedRequest.get('/user/session/private-data')
+							);
+						} catch (e) {
+							logger.error('Failed to seed private-data etag after signup');
+							logger.debug('Error details:', e);
+						}
+
 						// Store the tenant from the response, falling back to 'default' if not provided
 						// This ensures we always have a valid tenant context
 						const tenantToStore = finishResult.tenantId ?? 'default';
@@ -713,7 +724,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			if (errorMsg === 'invite_invalid') return Err('inviteInvalid');
 			return Err('passkeySignupFinishFailedServerError');
 		}
-	}, [authServer, setSession]);
+	}, [authServer, authedRequest, setSession, updatePrivateDataEtag]);
 
 	const addEventListener = useCallback((type: ApiEventType, listener: EventListener, options?: boolean | AddEventListenerOptions): void => {
 		events.addEventListener(type, listener, options);

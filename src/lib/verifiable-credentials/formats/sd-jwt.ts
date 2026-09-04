@@ -1,6 +1,6 @@
 import { SDJwt } from '@sd-jwt/core';
 import * as jose from 'jose';
-import { fromPemToPKIJSCertificate, toPem, validateChain, getPublicKeyFromB64Cert } from '../utils/pki';
+import { fromPemToPKIJSCertificate, toPem, validateChain, getPublicKeyFromB64Cert } from '../../utils/pki';
 import { logger } from '@/logger';
 
 export async function verifySdJwtBasedOnTrustAnchors(credential: string) {

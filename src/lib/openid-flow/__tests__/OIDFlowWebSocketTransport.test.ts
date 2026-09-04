@@ -376,7 +376,7 @@ describe('OIDFlowWebSocketTransport', () => {
 				flow_id: sentMessage.flow_id,
 				type: 'flow_complete',
 				presentation_definition: { id: 'test-pd', input_descriptors: [] },
-				verifier_info: { name: 'Test Verifier' },
+				payload: { verifier: { name: 'Test Verifier' } },
 			});
 
 			const result = await flowPromise;

@@ -1,0 +1,1 @@
+export { prepareCredentialsForNativeWrapper } from './credentials';

@@ -3,7 +3,7 @@ import * as jose from 'jose';
 import { generateRandomIdentifier } from '../../utils/generateRandomIdentifier';
 import * as config from '../../../config';
 import { useCallback, useMemo, useEffect, useRef, useState, useContext } from 'react';
-import { useLocation } from "react-router-dom";
+import { useLocation } from "react-router";
 import { usePushedAuthorizationRequest } from './OAuth/PushedAuthorizationRequest';
 import { useOpenID4VCIHelper } from '../OpenID4VCIHelper';
 import { GrantType, TokenRequestError, useTokenRequest } from './OAuth/TokenRequest';
@@ -11,17 +11,13 @@ import { useCredentialRequest } from './CredentialRequest';
 import { CurrentSchema } from '@/services/WalletStateSchema';
 import SessionContext from '@/context/SessionContext';
 import { useTenant } from '@/context/TenantContext';
-import { CredentialConfigurationSupported, CredentialOfferSchema, VerifiableCredentialFormat } from 'wallet-common';
+import { CredentialConfigurationSupported, CredentialOfferSchema } from 'wallet-common';
 import CredentialsContext from "@/context/CredentialsContext";
 import { WalletStateUtils } from '@/services/WalletStateUtils';
-import { fromBase64Url } from '@/util';
-import { cborDecode } from '@auth0/mdl/lib/cbor';
-import { COSEKeyToJWK } from "cose-kit";
 import { IOpenID4VCIClientStateRepository } from '@/lib/interfaces/IOpenID4VCIClientStateRepository';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { logger } from '@/logger';
 import { useHttpClient } from '@/hooks/useHttpClient';
-import { parseIssuerSignedToMDoc } from '@/lib/mdoc/mdoc';
 
 /**
  * Raw tx_code spec from OID4VCI §4.1.1 (snake_case, matching protocol wire format).
@@ -48,65 +44,6 @@ type WalletStateCredentialIssuanceSession = CurrentSchema.WalletStateCredentialI
 const redirectUri = config.OPENID4VCI_REDIRECT_URI as string;
 const openid4vciProofTypePrecedence = config.OPENID4VCI_PROOF_TYPE_PRECEDENCE.split(',') as string[];
 
-const textDecoder = new TextDecoder();
-
-export const deriveHolderKidFromCredential = async (credential: string, format: string) => {
-	switch (format) {
-		case VerifiableCredentialFormat.VC_SDJWT:
-		case VerifiableCredentialFormat.DC_SDJWT:
-		case VerifiableCredentialFormat.JWT_VC_JSON: {
-			const payload = credential.split('.')[1];
-			if (!payload) {
-				return undefined;
-			}
-			try {
-				const decoded = JSON.parse(textDecoder.decode(fromBase64Url(payload)));
-				const cnf = decoded.cnf as { jwk?: jose.JWK } | undefined;
-				if (cnf?.jwk) {
-					return jose.calculateJwkThumbprint(cnf.jwk, "sha256");
-				}
-			} catch {
-				return undefined;
-			}
-			return undefined;
-		}
-		case VerifiableCredentialFormat.MSO_MDOC: {
-			const credentialBytes = fromBase64Url(credential);
-			const mdoc = cborDecode(credentialBytes);
-			const fullMdocDocument = mdoc.get("documents");
-			const msoBinaryRaw = (() => {
-				if (fullMdocDocument) {
-					const issuerSigned = fullMdocDocument[0].get('issuerSigned');
-					const issuerAuth = issuerSigned.get('issuerAuth');
-					return issuerAuth[2];
-				}
-
-				const issuerAuth = mdoc.get('issuerAuth');
-				return issuerAuth[2];
-			})();
-			let msoBinary;
-			if (msoBinaryRaw instanceof Uint8Array) {
-				msoBinary = msoBinaryRaw;
-			} else if (msoBinaryRaw instanceof ArrayBuffer) {
-				msoBinary = new Uint8Array(msoBinaryRaw);
-			} else {
-				msoBinary = new Uint8Array(msoBinaryRaw.buffer, msoBinaryRaw.byteOffset || 0, msoBinaryRaw.byteLength || msoBinaryRaw.length);
-			}
-			if (msoBinary && msoBinary.length > 0) {
-				try {
-					const msoData = cborDecode(msoBinary);
-					const deviceKeyInfo = msoData.data.get('deviceKeyInfo');
-					const deviceKey = deviceKeyInfo.get('deviceKey');
-					const devicePublicKeyJwk = COSEKeyToJWK(deviceKey);
-					const kid = await jose.calculateJwkThumbprint(devicePublicKeyJwk, "sha256");
-					return kid;
-				} catch (e) {
-					console.log("Failed to decode MSO:", e);
-				}
-			}
-		}
-	}
-}
 
 export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopup, openID4VCIClientStateRepository }: { errorCallback: (title: string, message: string) => void, showPopupConsent: (options: Record<string, unknown>) => Promise<boolean>, showMessagePopup: (message: { title: string, description: string }) => void, openID4VCIClientStateRepository: IOpenID4VCIClientStateRepository }): IOpenID4VCI {
 	const { search } = useLocation();

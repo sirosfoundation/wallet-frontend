@@ -13,7 +13,9 @@
 import { ExtendedVcEntity } from '@/context/CredentialsContext';
 import { DcqlQuery, DcqlCredential, DcqlQueryResult } from 'dcql';
 import { logger } from '@/logger';
-import { parseIssuerSignedToMDoc } from '@/lib/mdoc/mdoc';
+import * as cbor from 'cbor-x';
+import { fromBase64Url } from "../util";
+import { extractDocTypeFromIssuerAuth } from '@/lib/verifiable-credentials';
 
 export interface CredentialMatch {
 	input_descriptor_id: string;
@@ -26,6 +28,7 @@ export interface CredentialMatch {
 export interface CredentialsMatchedResult {
 	matches: CredentialMatch[];
 	no_match_reason?: string;
+	code?: 'NO_MATCHING_CREDENTIALS' | 'INSUFFICIENT_CREDENTIALS';
 }
 
 /**
@@ -87,34 +90,62 @@ export function matchCredentials(
 		}
 	}
 
-	if (matches.length === 0) {
-		return { matches: [], no_match_reason: 'No credentials match DCQL query' };
+	if (!result.can_be_satisfied) {
+		return matches.length > 0
+			? { matches: [], code: 'INSUFFICIENT_CREDENTIALS', no_match_reason: 'Not all required credentials are available' }
+			: { matches: [], code: 'NO_MATCHING_CREDENTIALS', no_match_reason: 'No credentials match DCQL query' };
 	}
 
 	return { matches };
 }
 
-
 /**
  * Shape an ExtendedVcEntity into a DcqlCredential for the dcql library.
  * Returns null if shaping fails (e.g., unparseable mDOC).
+ *
+ * Exported for direct unit testing of the mso_mdoc envelope-shape handling,
+ * without needing to build a full DcqlQuery to exercise it via matchCredentials.
  */
-function shapeCredential(credential: ExtendedVcEntity): (DcqlCredential & { _batchId?: number }) | null {
+export function shapeCredential(credential: ExtendedVcEntity): (DcqlCredential & { _batchId?: number }) | null {
 	const format = credential.format || 'vc+sd-jwt';
 
 	if (format === 'mso_mdoc') {
 		try {
-			const mdoc = parseIssuerSignedToMDoc(credential.data);
-			const [document] = mdoc.documents;
+			const data = credential.data;
+			const bytes = fromBase64Url(data);
+			const mdoc = cbor.decode(bytes); // full DeviceResponse, or a bare IssuerSigned structure
 
-			const namespaces: Record<string, any> = {};
-			for (const nsName of document.issuerSignedNameSpaces) {
-				namespaces[nsName] = document.getIssuerNameSpace(nsName);
+			let docType: string;
+			let rawNameSpaces: Record<string, any[]>;
+			if (mdoc.documents?.[0]) {
+				const doc = mdoc.documents[0];
+				docType = doc.docType;
+				rawNameSpaces = doc.issuerSigned.nameSpaces; // { [namespaceName]: TaggedItem[] }
+			} else if (mdoc.nameSpaces && mdoc.issuerAuth) {
+				// Bare IssuerSigned structure (no documents[] envelope) - what
+				// real-world/interop issuers (e.g. geneva2026.mdoc.online) send for
+				// mso_mdoc credential responses. IssuerSigned has no docType field of
+				// its own; it has to be read from the MSO embedded in issuerAuth's
+				// COSE_Sign1 payload instead.
+				docType = extractDocTypeFromIssuerAuth(mdoc.issuerAuth);
+				rawNameSpaces = mdoc.nameSpaces;
+			} else {
+				throw new Error('mdoc credential envelope missing documents[] (and not a bare IssuerSigned structure either)');
 			}
 
+			const namespaces: Record<string, Record<string, unknown>> = {};
+
+			for (const [nsName, items] of Object.entries(rawNameSpaces as Record<string, any[]>)) {
+				const claims: Record<string, unknown> = {};
+				for (const taggedItem of items) {
+					const item = cbor.decode(taggedItem.value);
+					claims[item.elementIdentifier] = item.elementValue;
+				}
+				namespaces[nsName] = claims;
+			}
 			return {
 				credential_format: 'mso_mdoc',
-				doctype: document.docType,
+				doctype: docType,
 				namespaces,
 				cryptographic_holder_binding: true,
 				_batchId: credential.batchId,
@@ -124,6 +155,7 @@ function shapeCredential(credential: ExtendedVcEntity): (DcqlCredential & { _bat
 			return null;
 		}
 	}
+
 
 	// SD-JWT (vc+sd-jwt or dc+sd-jwt)
 	const signedClaims = credential.parsedCredential?.signedClaims;
@@ -143,7 +175,7 @@ function shapeCredential(credential: ExtendedVcEntity): (DcqlCredential & { _bat
 /**
  * Extract available claims from a credential for disclosure selection.
  */
-function extractAvailableClaims(credential: ExtendedVcEntity): string[] {
+export function extractAvailableClaims(credential: ExtendedVcEntity): string[] {
 	const claims: string[] = [];
 	const vcClaims = credential.parsedCredential?.signedClaims || {};
 	extractClaimPaths(vcClaims, '', claims);

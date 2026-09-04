@@ -20,6 +20,7 @@
 		"accept": "Accept",
 		"and": "and",
 		"cancel": "Cancel",
+		"close": "Close",
 		"continue": "Continue",
 		"delete": "Delete",
 		"externalPasskey": "Passkey on a security key",
@@ -29,18 +30,15 @@
 		"navItemAddCredentialsSimple": "Add",
 		"navItemCredentials": "Credentials",
 		"navItemHistory": "History",
-		"navItemProfile": "Profile",
-		"navItemSendCredentials": "Send Credentials",
+		"navItemMore": "More",
 		"navItemSendCredentialsSimple": "Send",
 		"navItemSettings": "Settings",
+		"navItemShareCredentials": "Share Credentials",
+		"navItemShareCredentialsSimple": "Share",
 		"next": "Next",
 		"offline": "Offline",
 		"offlineTitle": "You are offline. You don't have access here right now.",
 		"online": "Online",
-		"passwordHideAriaLabel": "Hide password",
-		"passwordHideTitle": "Click to hide password",
-		"passwordShowAriaLabel": "Show password",
-		"passwordShowTitle": "Click to show password",
 		"platformPasskey": "Passkey on this device",
 		"previous": "Previous",
 		"privateDataConflict": "Your session is out of sync with the server. Please log out, then log in and try again.",
@@ -51,15 +49,55 @@
 		"showMore": "Show more",
 		"submit": "Submit",
 		"tryAgain": "Try again",
-		"walletName": "wwWallet"
+		"walletName": "SIROS ID (dev)"
+	},
+	"presentCredentialsFlow": {
+		"overview": {
+			"title": "Request to Share Data",
+			"requester": "Requester",
+			"purpose": "Purpose",
+			"requestedInformation": "Requested Information",
+			"share": "Share",
+			"decline": "Decline",
+			"switchCredential": "Switch credential",
+			"switchCredentialAria": "Switch credential: {{name}}, {{count}} available"
+		},
+		"sharing": {
+			"sending": "Sending..."
+		},
+		"completed": {
+			"title": "Success!",
+			"description": "Your data has been shared with {{verifierName}}.",
+			"redirecting": "Redirecting..."
+		},
+		"error": {
+			"close": "Close"
+		}
 	},
 	"credentialInfo": {
 		"legendAriaLabel": "Claim legend",
 		"legendRequested": "Requested by verifier",
 		"legendRequired": "Required"
 	},
+	"credentialTypeCard": {
+		"selectAriaLabel": "Select credential {{name}}",
+		"selectedAriaLabel": "This credential is currently selected"
+	},
+	"switchCredentialPopup": {
+		"title": "Switch credential",
+		"description": "Select the credential to use for this request.",
+		"selectedCredential": "Current credential",
+		"alternativeCredentials": "Select another credential",
+		"close": "Close"
+	},
 	"expiredRibbon": {
 		"expired": "Expired"
+	},
+	"errors": {
+		"walletServiceAuth": {
+			"description": "The wallet could not authenticate with the wallet service. Please log in again.",
+			"title": "Wallet Service Authentication Failed"
+		}
 	},
 	"issuance": {
 		"credentialsHaveErrors": "Errors have been found while verifying the credential you are trying to receive.",
@@ -93,17 +131,12 @@
 		"acceptPolicies": "I accept the <policyLinks/>.",
 		"alreadyHaveAccountQuestion": "Already have a wallet account? ",
 		"authOnceMoreLogin": "To finish unlocking the wallet, please authenticate with your passkey once more.",
-		"capitalLetter": "At least one capital letter",
 		"choosePasskeyPlatform": "Select your preferred passkey type",
 		"choosePasskeyUsername": "Wallet Nickname",
-		"confirmPasswordLabel": "Confirm Password",
 		"enterPasskeyName": "Jane Doe's Wallet",
-		"enterPassword": "Enter your password",
 		"enterUsername": "Enter your username",
-		"enterconfirmPasswordLabel": "Enter your confirm password",
 		"fillInFieldsError": "Please fill in all required fields",
 		"forgetCachedUser": "Click to Forget Cached User {{name}}",
-		"incorrectCredentialsError": "Incorrect username or password",
 		"inviteInvalid": "The invite code is invalid or has expired.",
 		"inviteRequired": "An invite code is required to register with this tenant.",
 		"login": "Login",
@@ -118,7 +151,7 @@
 		"loginWithSecurityKey": "Log in with a Security Key",
 		"messageOffline": "You are offline. Some features may not be available.",
 		"newHereQuestion": "Don't have a wallet account? ",
-		"number": "At least one number",
+		"oidcGateError": "OIDC gate configuration error. Please contact support.",
 		"or": "OR",
 		"passkeyInvalid": "Unknown passkey, possibly deleted by user.",
 		"passkeyLoginFailedServerError": "Failed to initiate passkey login, please try again later.",
@@ -129,23 +162,17 @@
 		"passkeySignupKeystoreFailed": "Failed to initialize wallet key store, please try again.",
 		"passkeySignupPrfNotSupported": "This browser or security key is not supported. Please make sure that your browser supports the WebAuthn PRF extension and your security key, if any, supports the \"hmac-secret\" extension. <docLink>Learn more here</docLink>.",
 		"passkeySignupPrfNotSupportedAriaLabel": "Learn more about supported browsers or security keys",
-		"passwordLabel": "Password",
-		"passwordLength": "Minimum length: 8 characters",
-		"passwordUnlockFailed": "Failed to unlock wallet with password",
-		"passwordsNotMatchError": "Passwords do not match",
+		"passkeySignupPrfRetryFailed": "Passkey creation failed after retrying. Please try again.",
 		"privateDataConflict": "Another session for this account disrupted the login attempt. Please try again.",
 		"reachedLengthLimit": "Length limit exceeded",
 		"signUp": "Sign Up",
 		"signUpSubmit": "Sign Up",
 		"signUpWithPasskey": "Create account with a Passkey",
 		"signUpWithSecurityKey": "Use a Security Key",
-		"specialCharacter": "At least one special character",
-		"strength": "Strength",
 		"submitting": "Submitting...",
 		"useOtherAccount": "Use other Account",
 		"usernameExistsError": "Failed to create user account, username already exists",
 		"usernameLabel": "Username",
-		"weakPasswordError": "Weak password",
 		"welcomeMessage": "Welcome to <highlight>$t(common.walletName)</highlight>"
 	},
 	"loginState": {
@@ -202,21 +229,65 @@
 			"title": "Authorization Error"
 		},
 		"errorCodes": {
+			"ABORTED": {
+				"description": "The request was cancelled.",
+				"title": "Request Cancelled"
+			},
+			"ACCESS_DENIED": {
+				"description": "The presentation request was denied.",
+				"title": "Access Denied"
+			},
+			"AUTH_FAILED": {
+				"description": "The wallet could not authenticate with the presentation service. Please try again.",
+				"title": "Authentication Failed"
+			},
+			"AUTH_RESPONSE_ERROR": {
+				"description": "The authorization response could not be completed. Please try again.",
+				"title": "Authorization Response Failed"
+			},
+			"AUTHORIZATION_FAILED": {
+				"description": "Authorization with the verifier could not be completed.",
+				"title": "Authorization Failed"
+			},
 			"AUTHORIZATION_RESPONSE_FAILED": {
 				"description": "The authorization response could not be completed.",
 				"title": "Authorization Response Failed"
+			},
+			"CONNECTION_LOST": {
+				"description": "The connection was interrupted. Please try again.",
+				"title": "Connection Lost"
 			},
 			"FLOW_ERROR": {
 				"description": "An error occurred during the credential flow. Please try again.",
 				"title": "Flow Error"
 			},
+			"FLOW_EXPIRED": {
+				"description": "This request has expired. Please start again.",
+				"title": "Request Expired"
+			},
+			"HTTP_ERROR": {
+				"description": "A network error occurred while sharing your credentials. Please try again.",
+				"title": "Network Error"
+			},
 			"INSUFFICIENT_CREDENTIALS": {
 				"description": "One or more of the credentials you want to present do not exist for selection.",
 				"title": "Insufficient Credentials"
 			},
+			"INVALID_REQUEST": {
+				"description": "The presentation request is invalid and cannot be processed.",
+				"title": "Invalid Request"
+			},
+			"NETWORK_TIMEOUT": {
+				"description": "The request took too long to complete. Please try again.",
+				"title": "Request Timed Out"
+			},
 			"NONTRUSTED_VERIFIER": {
 				"description": "Verifier did not provide valid data for verification.",
 				"title": "Verifier is not Trusted"
+			},
+			"NO_CREDENTIAL_SELECTION_POPUP": {
+				"description": "The wallet could not open the credential selection screen. Please try again.",
+				"title": "Credential Selection Unavailable"
 			},
 			"NO_DCQL_QUERY_OR_PREMATCHED_CREDENTIALS": {
 				"description": "The presentation request is malformed — no query or pre-matched credentials provided.",
@@ -230,17 +301,65 @@
 				"description": "No transport is available for verifiable presentation.",
 				"title": "Transport Unavailable"
 			},
+			"NO_TRANSPORT_AVAILABLE": {
+				"description": "No transport is available to send the presentation.",
+				"title": "Transport Unavailable"
+			},
+			"PREAUTH_ERROR": {
+				"description": "The pre-authorized credential request could not be completed. Please try again.",
+				"title": "Pre-authorization Failed"
+			},
+			"PROTOCOL_ERROR": {
+				"description": "The request could not be completed due to a protocol error.",
+				"title": "Protocol Error"
+			},
 			"RESPONSE_ERROR": {
 				"description": "An error occurred while sending the presentation response.",
 				"title": "Response Error"
+			},
+			"RETRY_EXHAUSTED": {
+				"description": "The request failed after several retries. Please try again later.",
+				"title": "Request Failed"
 			},
 			"SELECTION_ERROR": {
 				"description": "An error occurred during credential selection.",
 				"title": "Selection Error"
 			},
+			"SIGNING_FAILED": {
+				"description": "The wallet could not create a signed presentation. Please try again.",
+				"title": "Signing Failed"
+			},
+			"STORE_ERROR": {
+				"description": "The credential was received but could not be stored. Please try again.",
+				"title": "Could Not Store Credential"
+			},
+			"UNKNOWN_ERROR": {
+				"description": "An unexpected error occurred. Please try again.",
+				"title": "Unexpected Error"
+			},
+			"UNSUPPORTED_CALLBACK": {
+				"description": "The provided callback URL is not supported.",
+				"title": "Unsupported Callback"
+			},
+			"UNSUPPORTED_FLOW_TYPE": {
+				"description": "This type of request is not supported.",
+				"title": "Unsupported Request"
+			},
+			"UNTRUSTED_VERIFIER": {
+				"description": "Verifier did not provide valid data for verification.",
+				"title": "Verifier is not Trusted"
+			},
+			"USER_CANCELLED": {
+				"description": "You cancelled sharing your credentials.",
+				"title": "Sharing Cancelled"
+			},
 			"WALLET_STATE_UNAVAILABLE": {
 				"description": "Wallet state is not available. Please log in again.",
 				"title": "Wallet Unavailable"
+			},
+			"WEBSOCKET_ERROR": {
+				"description": "The connection to the wallet service was lost. Please try again.",
+				"title": "Connection Error"
 			}
 		},
 		"insufficientCredentials": {
@@ -324,7 +443,7 @@
 		"noFound": "No pending issuance requests found",
 		"title": "Pending Issuance Requests"
 	},
-	"pageSendCredentials": {
+	"pageShareCredentials": {
 		"description": "Search and choose a verifier to share credentials with",
 		"noFound": "No matching verifiers found.",
 		"popup": {
@@ -408,12 +527,6 @@
 			"manageAcount": "Manage Account",
 			"manageOtherPasskeys": "Manage other Passkeys",
 			"rememberIssuer": "Remember Issuer"
-		},
-		"unlockPassword": {
-			"description": "Please enter your password to unlock the wallet.",
-			"passwordInputAriaLabel": "Password",
-			"passwordInputPlaceholder": "Password",
-			"title": "Enter password"
 		},
 		"unlockSensitive": "Unlock sensitive actions",
 		"unlockSensitiveTitle": "Click to unlock sensitive actions",
@@ -575,8 +688,8 @@
 	"sidebar": {
 		"navItemLogout": "Logout",
 		"obliviousEnabled": "Private requests with Oblivious HTTP enabled",
-		"poweredBy": "Powered by <docLinkWalletGithub>wwWallet</docLinkWalletGithub>",
-		"poweredByAriaLabel": "GitHub repository of wwWallet"
+		"poweredBy": "Powered by <docLinkWalletGithub>SIROS Foundation</docLinkWalletGithub>",
+		"poweredByAriaLabel": "GitHub repository of SIROS Foundation"
 	},
 	"syncPopup": {
 		"description": "Looks like you've <strong>modified your wallet in another session</strong>. Use your <strong>passkey</strong> to sync your wallet.",
@@ -589,7 +702,7 @@
 		"defaultTenant": "Default",
 		"description": "Select tenant",
 		"label": "Switch Tenant",
-		"selectOtherTenant": "Select other tenant",
+		"selectOtherTenant": "Select another tenant",
 		"selectTenant": "Select tenant",
 		"switchActiveTenant": "Switch active tenant",
 		"switchDescription": "Switching tenants will log you out of your current wallet session",
@@ -603,7 +716,7 @@
 		"tourStep2": "The 'Credentials' page is your Home page, where you can manage your credentials.",
 		"tourStep3": "The 'Add Credentials' page allows you to receive credentials from a specific Issuer",
 		"tourStep4": "Click this button to scan a QR code for sending or receiving credentials.",
-		"tourStep5": "Use the 'Send Credentials' page to select a verifier for sharing your credentials.",
+		"tourStep5": "Use the 'Share Credentials' page to select a verifier for sharing your credentials.",
 		"tourStep6": "On the 'History' page, you can view details of credential transmissions, including when and to which verifiers they were sent.",
 		"tourStep7": "In the 'Settings' page you can manage your passkeys and account settings."
 	},

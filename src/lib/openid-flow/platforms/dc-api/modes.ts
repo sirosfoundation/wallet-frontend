@@ -1,4 +1,4 @@
-import { DCAPIMode, DCAPIResponse } from "./resources";
+import { DCAPIEnvelope, DCAPIMode, DCAPIRequestProtocol, DCAPIRequestProtocolSchema, DCAPIResponse } from './resources';
 
 export class DCAPIWalletCompanionMode implements DCAPIMode {
 	#verifiedOrigin?: string;
@@ -8,7 +8,11 @@ export class DCAPIWalletCompanionMode implements DCAPIMode {
 		return this.#verifiedOrigin;
 	}
 
-	async originHandshake(requestId: string, expectedOrigins?: string[]): Promise<string> {
+	async initialize(envelope: DCAPIEnvelope): Promise<void> {
+		// no-op for now
+	}
+
+	async originHandshake(envelope: DCAPIEnvelope, expectedOrigins?: string[]): Promise<string> {
 		return new Promise((resolve, reject) => {
 			const timeout = setTimeout(() => reject(new Error('Origin handshake timeout')), 5000);
 
@@ -19,7 +23,7 @@ export class DCAPIWalletCompanionMode implements DCAPIMode {
 					!event.data?.requestId
 				) return;
 
-				if (event.data.requestId !== requestId) {
+				if (event.data.requestId !== envelope.requestId) {
 					return reject(new Error('Mismatched requestId in origin handshake response.'));
 				}
 
@@ -39,7 +43,7 @@ export class DCAPIWalletCompanionMode implements DCAPIMode {
 			// We don't know the opener's origin yet - that's what we're discovering.
 			// The probe contains only a request ID; the opener's origin is captured from
 			// the ACK response and validated against expectedOrigins before any credentials are sent.
-			window.opener.postMessage({ type: 'WC_ORIGIN_CHECK', requestId }, '*');
+			window.opener.postMessage({ type: 'WC_ORIGIN_CHECK', requestId: envelope.requestId }, '*');
 		});
 	}
 
@@ -47,20 +51,8 @@ export class DCAPIWalletCompanionMode implements DCAPIMode {
 		if (!window.opener) throw new Error('No opener window');
 		if (!this.#verifiedOrigin) throw new Error('Origin not verified');
 
-		const { requestId, payload } = response;
-
-		const message: Record<string, unknown> = {
-			type: 'WC_WALLET_RESPONSE',
-			requestId,
-		};
-
-		if (payload.error) {
-			message.error = payload.error;
-		} else if (payload.response) {
-			message.response = payload.response;
-		} else if (payload.vp_token) {
-			message.response = { vp_token: payload.vp_token };
-		}
+		const message = responseToMessage(response);
+		message.type = 'WC_WALLET_RESPONSE';
 
 		window.opener.postMessage(message, this.#verifiedOrigin);
 	}
@@ -68,4 +60,100 @@ export class DCAPIWalletCompanionMode implements DCAPIMode {
 	close(): void {
 		window.close();
 	}
+}
+
+export class DCAPINativeMode implements DCAPIMode {
+	#verifiedOrigin?: string;
+	#requestProtocol?: DCAPIRequestProtocol;
+
+	get verifiedOrigin(): string {
+		if (!this.#verifiedOrigin) throw new Error('Origin not verified');
+		return this.#verifiedOrigin;
+	}
+
+	async initialize(envelope: DCAPIEnvelope): Promise<void> {
+		this.#ensureRequestProtocol(envelope.requestProtocol);
+	}
+
+	async originHandshake(envelope: DCAPIEnvelope, expectedOrigins?: string[]): Promise<string> {
+		if (!window.nativeWrapper) throw new Error('No native wrapper available');
+
+		const requestOrigin = envelope.requestOrigin;
+
+		if (!requestOrigin) {
+			throw new Error('Missing request_origin parameter in DC API request');
+		}
+
+		if (expectedOrigins && !expectedOrigins.includes(requestOrigin)) {
+			throw new Error(`Origin ${requestOrigin} not in expected_origins`);
+		}
+
+		this.#verifiedOrigin = requestOrigin;
+		return requestOrigin;
+	}
+
+	public send(response: DCAPIResponse): void {
+		if (!window.nativeWrapper) throw new Error('No native wrapper available');
+
+		const protocol = this.#requestProtocol;
+		if (!protocol) {
+			throw new Error('Request protocol not set in DCAPINativeMode');
+		}
+
+		// Right now we don't care about returning the requestId in the response,
+		// since the native wrapper doesn't check it.
+		const { payload } = response;
+
+		const data = (() => {
+			const res: Record<string, unknown> = {};
+
+			if (payload.response) {
+				res.response = payload.response;
+			} else if (payload.vp_token) {
+				res.vp_token = payload.vp_token;
+			}
+
+			return res;
+		})();
+
+		const errorString = payload.error ? JSON.stringify(payload.error) : undefined;
+
+		const responseString = JSON.stringify({
+			protocol,
+			data,
+		});
+
+		window.nativeWrapper.sendDcApiResponse(responseString, errorString);
+	}
+
+	public close(): void {
+		// no-op: closing is handled by the native wrapper in the
+		// sendDcApiResponse() method.
+	}
+
+	#ensureRequestProtocol(expected?: DCAPIRequestProtocol): void {
+		if (!expected) {
+			throw new Error('Missing request_protocol parameter in DC API request');
+		}
+
+		this.#requestProtocol = expected;
+	}
+}
+
+function responseToMessage(response: DCAPIResponse): Record<string, unknown> {
+	const { requestId, payload } = response;
+
+	const message: Record<string, unknown> = {
+		requestId,
+	};
+
+	if (payload.error) {
+		message.error = payload.error;
+	} else if (payload.response) {
+		message.response = payload.response;
+	} else if (payload.vp_token) {
+		message.response = { vp_token: payload.vp_token };
+	}
+
+	return message;
 }

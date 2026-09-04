@@ -59,9 +59,11 @@ fi
 
 # -------------------------------------------------------------------------------------------------
 # Content Security Policy configuration
+# TODO: We should restrict unsafe-inline, it's not a long-term solution:
+#	      https://github.com/sirosfoundation/wallet-frontend/issues/251
 CSP="default-src 'self'; \
 script-src 'self'; \
-style-src 'self'; \
+style-src 'self' 'unsafe-inline'; \
 font-src 'self' data:; \
 img-src 'self' data: ${RESOURCE_SCHEME_SRC}; \
 connect-src ${CONNECT_SRC}; \

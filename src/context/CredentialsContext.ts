@@ -24,9 +24,20 @@ export type ExtendedVcEntity = WalletStateCredential & {
 }
 
 export type CredentialsContextValue = {
-	vcEntityList: ExtendedVcEntity[];
+	/**
+	 * Loaded credentials, or null while they are still being fetched.
+	 *
+	 * Nullable on purpose: CredentialsContextProvider initialises this to null
+	 * and only populates it once the credential engine has parsed the wallet's
+	 * store. This type previously claimed ExtendedVcEntity[], which let
+	 * consumers call array methods on it with no complaint from the compiler -
+	 * the presentation flow did exactly that and crashed with "Cannot read
+	 * properties of null (reading 'filter')" whenever a verifier-initiated
+	 * request arrived before the first load finished.
+	 */
+	vcEntityList: ExtendedVcEntity[] | null;
 	latestCredentials: Set<number>;
-	fetchVcData: (credentialId?: number) => Promise<ExtendedVcEntity[]>;
+	fetchVcData: (credentialId?: number) => Promise<ExtendedVcEntity[] | null>;
 	getData: (shouldPoll?: boolean) => Promise<void>;
 	currentSlide: number;
 	setCurrentSlide: (slide: number) => void;

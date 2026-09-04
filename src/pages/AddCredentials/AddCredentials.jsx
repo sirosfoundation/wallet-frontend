@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { Camera } from 'lucide-react';
 import { logger } from '@/logger';
 import { SCAN_PHYSICAL_ID_ENABLED } from '@/config';
@@ -226,7 +226,7 @@ const AddCredentials = () => {
 						<Trans
 							i18nKey="pageAddCredentials.popup.message"
 							values={{
-								issuerName: getSelectedIssuerDisplay()?.name ?? "Unknown",
+								issuerName: getSelectedIssuerDisplay()?.name ?? selectedCredentialConfiguration?.credentialIssuerIdentifier ?? "Unknown",
 								issuerDescription: getSelectedIssuerDisplay()?.description ? `(${getSelectedIssuerDisplay()?.description})` : "",
 								credentialName: selectedCredentialConfiguration?.credentialDisplay.name ?? "Unknown",
 								credentialDescription: selectedCredentialConfiguration?.credentialDisplay?.description ? `(${selectedCredentialConfiguration?.credentialDisplay?.description})` : "",

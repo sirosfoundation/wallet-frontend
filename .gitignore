@@ -9,6 +9,7 @@ package_lock.json
 
 .env*
 !.env.template
+!.changeset/.env.example
 
 # Logs
 logs
@@ -54,7 +55,6 @@ ssl_keys/*
 variables.vars
 
 public/
-pnpm-lock.yaml
 config/.cache/
 .wallet-common-dist/
 package-lock.json

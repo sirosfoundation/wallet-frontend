@@ -5,11 +5,11 @@ export function coerce<T>(value: T): T {
 }
 
 
-export function toU8(b: BufferSource) {
+export function toU8(b: BufferSource): Uint8Array {
 	if (b instanceof ArrayBuffer) {
 		return new Uint8Array(b);
 	} else {
-		return new Uint8Array(b.buffer);
+		return new Uint8Array(b.buffer, b.byteOffset, b.byteLength);
 	}
 }
 
@@ -274,3 +274,16 @@ export function sanitizeId(value: string | number): string {
 	const str = String(value);
 	return str.replace(/[^a-zA-Z0-9-_]/g, "");
 }
+
+/**
+ * Normalize a path string or array into an array of segments.
+ */
+export function normalizePath(path: string | string[]): string[] {
+	if (Array.isArray(path)) return path;
+
+	if (typeof path === 'string' && path.startsWith('$.')) {
+		return path.slice(2).split('.');
+	}
+
+	return [path];
+};

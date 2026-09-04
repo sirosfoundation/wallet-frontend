@@ -9,6 +9,7 @@ import { deriveHolderKidFromCredential } from '@/lib/services/OpenID4VCI/OpenID4
 import { generateFlowAttestation } from '@/lib/services/OpenID4VCI/WIA';
 import SessionContext from '@/context/SessionContext';
 import { notify } from '@/context/notifier';
+import { deriveHolderKidFromCredential } from '@/lib/verifiable-credentials';
 import CredentialsContext from '@/context/CredentialsContext';
 import { logger } from '@/logger';
 
