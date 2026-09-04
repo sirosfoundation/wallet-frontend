@@ -175,7 +175,7 @@ export function shapeCredential(credential: ExtendedVcEntity): (DcqlCredential &
 /**
  * Extract available claims from a credential for disclosure selection.
  */
-function extractAvailableClaims(credential: ExtendedVcEntity): string[] {
+export function extractAvailableClaims(credential: ExtendedVcEntity): string[] {
 	const claims: string[] = [];
 	const vcClaims = credential.parsedCredential?.signedClaims || {};
 	extractClaimPaths(vcClaims, '', claims);

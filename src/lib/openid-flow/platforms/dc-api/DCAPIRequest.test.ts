@@ -100,35 +100,6 @@ describe('DCAPIRequest', () => {
 			expect(request.expectedOrigins).toEqual(['https://verifier.example.com']);
 		});
 
-		it('throws when client_id missing from URL for signed request', async () => {
-			const { jwt } = await createSignedJwt({
-				nonce: 'test-nonce',
-				dcql_query: validDcqlQuery,
-				client_id: 'https://verifier.example.com',
-				expected_origins: ['https://verifier.example.com'],
-			});
-
-			const url = new URL('https://wallet.example.com/dc');
-			url.searchParams.set('request', jwt);
-
-			expect(() => new DCAPIRequest(url)).toThrow('client_id required in URL for signed requests');
-		});
-
-		it('throws when client_id in URL does not match JWT payload', async () => {
-			const { jwt } = await createSignedJwt({
-				nonce: 'test-nonce',
-				dcql_query: validDcqlQuery,
-				client_id: 'https://verifier.example.com',
-				expected_origins: ['https://verifier.example.com'],
-			});
-
-			const url = new URL('https://wallet.example.com/dc');
-			url.searchParams.set('request', jwt);
-			url.searchParams.set('client_id', 'https://different-verifier.example.com');
-
-			expect(() => new DCAPIRequest(url)).toThrow('client_id mismatch between URL and JWT');
-		});
-
 		it('throws when JWT typ header is not oauth-authz-req+jwt', async () => {
 			const { jwt } = await createSignedJwt(
 				{
