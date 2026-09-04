@@ -27,4 +27,9 @@ export interface WalletStateOperations<S extends WalletState, E extends WalletSe
 		historyB: E[],
 		lastCommonAncestorHashFromEventHistory: string,
 	): Promise<E[]>;
+	mergeState?(baseState: WalletState, ...sources: WalletState[]): WalletState;
+	mergeWithoutCommonBase?(
+		container1: WalletStateContainerGeneric,
+		container2: WalletStateContainerGeneric,
+	): WalletStateContainerGeneric;
 }
