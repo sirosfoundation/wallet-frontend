@@ -146,6 +146,17 @@ export const SHOW_PWA_INSTALL_PROMPT = config.show_pwa_install_prompt === 'true'
 export const WALLET_COMPANION_INTEGRATION = config.wallet_companion_integration === 'true';
 export const POWERED_BY = config.powered_by;
 
+/**
+ * When true, the wallet requests a Wallet Instance Attestation (WIA) from
+ * go-wallet-backend for each OID4VCI flow and presents it to the credential
+ * issuer's authorization server (OAuth-Client-Attestation / -PoP headers on
+ * the token request — not PAR; see the scoping note on requestWIA's
+ * call sites in OpenID4VCI.ts for why). Defaults to false — opt-in until
+ * an issuer actually requires or benefits from it. See
+ * security/wia-strategy.md ("Tier 3: backend_attested").
+ */
+export const WIA_ENABLED: boolean = config.wia_enabled === 'true';
+
 // ===== Transport Configuration =====
 
 /**

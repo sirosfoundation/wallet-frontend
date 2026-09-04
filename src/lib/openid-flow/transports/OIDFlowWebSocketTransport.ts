@@ -64,7 +64,7 @@ interface ProofTypesSupported {
 export interface SignRequest {
 	flowId: string;
 	messageId: string;
-	action: 'generate_proof' | 'sign_presentation';
+	action: 'generate_proof' | 'sign_presentation' | 'request_attestation';
 	params: {
 		audience?: string;
 		nonce?: string;
@@ -100,6 +100,8 @@ export interface SignResponse {
 	proofJwt?: string;       // single proof (legacy)
 	proofs?: ProofObject[];  // batch proofs
 	vpToken?: string;
+	clientAttestation?: string;
+	clientAttestationPoP?: string;
 }
 
 /**
@@ -327,6 +329,12 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				credential_offer_uri: params.credentialOfferUri,
 				offer: params.credentialOffer,
 				redirect_uri: params.redirectUri,  // Include redirect URI for authorization code flow continuation
+				// Wire names match go-wallet-backend's FlowStartMessage exactly
+				// (internal/engine/messages.go) - see OID4VCITypes.ts for why
+				// these are generated transport-agnostically, once, upstream
+				// of this WebSocket-specific encoding.
+				client_attestation: params.clientAttestation,
+				client_attestation_pop: params.clientAttestationPoP,
 			});
 
 			return this.mapOID4VCIResponse(response);
@@ -829,7 +837,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		const request: SignRequest = {
 			flowId,
 			messageId: (message.message_id as string) || (message.messageId as string) || '',
-			action: message.action as 'generate_proof' | 'sign_presentation',
+			action: message.action as 'generate_proof' | 'sign_presentation' | 'request_attestation',
 			params: {
 				audience: rawParams.audience as string | undefined,
 				issuer: rawParams.issuer as string | undefined,
@@ -909,6 +917,8 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			if (response.proofJwt) msg.proof_jwt = response.proofJwt;
 			if (response.proofs) msg.proofs = response.proofs;
 			if (response.vpToken) msg.vp_token = response.vpToken;
+			if (response.clientAttestation) msg.client_attestation = response.clientAttestation;
+			if (response.clientAttestationPoP) msg.client_attestation_pop = response.clientAttestationPoP;
 		}
 
 		try {

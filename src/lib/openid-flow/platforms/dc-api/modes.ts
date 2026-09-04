@@ -1,4 +1,4 @@
-import { DCAPIEnvelope, DCAPIMode, DCAPIRequestProtocol, DCAPIRequestProtocolSchema, DCAPIResponse } from './resources';
+import { DCAPIEnvelope, DCAPIMode, DCAPIRequestProtocol, DCAPIResponse } from './resources';
 
 export class DCAPIWalletCompanionMode implements DCAPIMode {
 	#verifiedOrigin?: string;

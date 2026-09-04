@@ -54,6 +54,7 @@ export const ClientEnvConfigSchema = z.object({
 	WALLET_COMPANION_INTEGRATION: z.string().optional(),
 	PRESERVE_PRESENTATION_HISTORY: z.string().optional(),
 	SCAN_PHYSICAL_ID_ENABLED: z.string().optional(),
+	WIA_ENABLED: z.string().optional(),
 });
 export type ClientEnvConfig = z.infer<typeof ClientEnvConfigSchema>;
 
