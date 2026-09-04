@@ -4,9 +4,7 @@ import OpenID4VCIContext from '@/context/OpenID4VCIContext';
 import { CredentialOfferSchema, VerifiableCredentialFormat } from 'wallet-common';
 import type { OID4VCIFlowResult } from '@/lib/openid-flow/types/OID4VCITypes';
 import type { OIDFlowActiveTransportType, OIDFlowProgressEvent } from '@/lib/openid-flow/types/OIDFlowTypes';
-import { DISPLAY_ISSUANCE_WARNINGS, ENGINE_URL, OPENID4VCI_REDIRECT_URI, WIA_ENABLED } from '@/config';
-import { deriveHolderKidFromCredential } from '@/lib/services/OpenID4VCI/OpenID4VCI';
-import { generateFlowAttestation } from '@/lib/services/OpenID4VCI/WIA';
+import { DISPLAY_ISSUANCE_WARNINGS, OPENID4VCI_REDIRECT_URI } from '@/config';
 import SessionContext from '@/context/SessionContext';
 import { notify } from '@/context/notifier';
 import { deriveHolderKidFromCredential } from '@/lib/verifiable-credentials';
@@ -168,41 +166,6 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 					throw new Error('WebSocket transport should not have both credential_offer_uri and credential_offer parameters');
 				}
 
-				// Wallet attestation (OAuth-Client-Attestation): generated here,
-				// transport-agnostically, rather than inside a specific
-				// transport implementation - see OID4VCITypes.ts and
-				// WIA.ts's generateFlowAttestation. Every transport that talks
-				// to a credential issuer needs the same two values; only the
-				// wire encoding differs per transport.
-				//
-				// client_id must be OPENID4VCI_REDIRECT_URI, matching
-				// go-wallet-backend's actual default (internal/engine/oid4vci.go:
-				// h.clientID = h.redirectURI, itself set from this same
-				// redirect_uri sent below) for an unregistered client (OID4VCI
-				// §7.1 convention - same value OpenID4VCIHelper.ts's client_id
-				// fallback uses). go-wallet-backend's WIA generation sets the
-				// attestation's sub to exactly whatever client_id is supplied
-				// here (pkg/service/wia.go), so it must match what the engine
-				// ends up using as req.ClientID in the PAR/token request, or
-				// the issuer's subject-match check rejects the attestation.
-				//
-				// The per-request PoP's audience is separate: it's sent to the
-				// credential issuer's own PAR/token endpoint, so it must be
-				// the credential issuer's URL, not client_id.
-				// openID4VCI.handleCredentialOffer is reused here purely for
-				// its existing inline-vs-URI offer parsing (already handles
-				// both cases); it performs no side effects.
-				let clientAttestation: string | undefined;
-				let clientAttestationPoP: string | undefined;
-				if (WIA_ENABLED && openID4VCI) {
-					const parsedOffer = await openID4VCI.handleCredentialOffer(credentialOfferUrl.toString());
-					const attestation = await generateFlowAttestation(
-						api.post, WIA_ENABLED, OPENID4VCI_REDIRECT_URI, parsedOffer.credentialIssuer, ENGINE_URL,
-					);
-					clientAttestation = attestation.clientAttestation;
-					clientAttestationPoP = attestation.clientAttestationPoP;
-				}
-
 				// Subscribe to progress events for this flow
 				const unsubscribeProgress = onProgress
 					? transport.onProgress(onProgress)
@@ -216,8 +179,6 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 						credentialOfferUri,
 						credentialOffer,
 						redirectUri: OPENID4VCI_REDIRECT_URI,
-						clientAttestation,
-						clientAttestationPoP,
 					});
 
 					assertNotAborted();
