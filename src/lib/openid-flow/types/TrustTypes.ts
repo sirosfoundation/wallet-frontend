@@ -13,6 +13,7 @@
  */
 
 import { IssuerTrustEvaluator, VerifierTrustEvaluator } from '@/lib/services/TrustEvaluator';
+import { IssuerEntitlementChecker } from '@/lib/services/IssuerEntitlement';
 
 /**
  * Trust evaluation status from the backend PDP.
@@ -46,4 +47,14 @@ export interface TrustEvaluation {
 export interface TrustEvaluators {
 	evaluateIssuerTrust: IssuerTrustEvaluator;
 	evaluateVerifierTrust: VerifierTrustEvaluator;
+
+	/**
+	 * Checks whether an issuer is registered to issue what it is offering
+	 * (ARF v3.0.0 section 6.6.2.3) — a different question from whether it is
+	 * trusted, and answered by a different backend endpoint.
+	 *
+	 * Optional: a transport without one simply does not perform the check,
+	 * which is reported as "not checked" rather than as a pass.
+	 */
+	checkIssuerEntitlement?: IssuerEntitlementChecker;
 }

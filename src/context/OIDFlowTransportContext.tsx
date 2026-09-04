@@ -30,6 +30,7 @@ import {
 import type { OIDFlowActiveTransportType, OIDFlowTransportType } from '@/lib/openid-flow/types/OIDFlowTypes';
 import { logger } from '@/logger';
 import { createIssuerTrustEvaluator, createVerifierTrustEvaluator } from '@/lib/services/TrustEvaluator';
+import { createIssuerEntitlementChecker } from '@/lib/services/IssuerEntitlement';
 import { TrustEvaluators } from '@/lib/openid-flow';
 import { useHttpClient } from '@/hooks/useHttpClient';
 import SessionContext from './SessionContext';
@@ -151,9 +152,20 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 			tenantId,
 		});
 
+		// Whether the issuer is registered to issue what it offers is a
+		// separate question from whether it is trusted, and is answered by
+		// /v1/resolve rather than /v1/evaluate.
+		const checkIssuerEntitlement = createIssuerEntitlementChecker({
+			httpClient: httpClient,
+			backendUrl: BACKEND_URL,
+			getAuthToken: () => authToken ?? '',
+			tenantId,
+		});
+
 		return {
 		evaluateIssuerTrust,
 		evaluateVerifierTrust,
+		checkIssuerEntitlement,
 		};
 	}, [tenantId, authToken, httpClient]);
 
