@@ -4,7 +4,6 @@ import { useApi } from '@/api';
 import StatusContext from '@/context/StatusContext';
 import { logger } from '@/logger';
 import { OPENID4VCI_PROOF_TYPE_PRECEDENCE, WIA_ENABLED, BACKEND_URL } from '@/config';
-import { generateFlowAttestation } from '@/lib/services/OpenID4VCI/WIA';
 import { base64url } from 'jose';
 import {
 	applySelectiveDisclosure,
@@ -15,6 +14,7 @@ import {
 import { detectCredentialFormat, VerifiableCredentialFormat } from 'wallet-common';
 import { MDoc } from '@auth0/mdl';
 import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
+import { generateFlowAttestation } from '@/lib/services/WIA';
 
 
 interface ProofTypeConfig {

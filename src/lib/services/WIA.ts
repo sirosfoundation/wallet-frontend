@@ -1,6 +1,6 @@
-import { exportJWK, generateKeyPair, JWK, KeyLike, SignJWT } from "jose";
-import { generateRandomIdentifier } from "../../utils/generateRandomIdentifier";
-import { logger } from "@/logger";
+import { exportJWK, generateKeyPair, JWK, KeyLike, SignJWT } from 'jose';
+import { generateRandomIdentifier } from '../utils/generateRandomIdentifier';
+import { logger } from '@/logger';
 
 export interface WIAKeyPair {
 	privateKey: KeyLike | Uint8Array;
@@ -33,17 +33,17 @@ export async function requestWIA(
 	walletProviderURI: string,
 ): Promise<string | undefined> {
 	try {
-		const challengeResponse = await post("/wallet-provider/wia/challenge", {});
+		const challengeResponse = await post('/wallet-provider/wia/challenge', {});
 		const { challenge } = challengeResponse.data;
-		if (!challenge || typeof challenge !== "string") {
-			logger.debug("Cannot parse challenge from wallet-backend-server WIA challenge response");
+		if (!challenge || typeof challenge !== 'string') {
+			logger.debug('Cannot parse challenge from wallet-backend-server WIA challenge response');
 			return undefined;
 		}
 
 		const pop = await new SignJWT({ nonce: challenge })
 			.setProtectedHeader({
-				alg: "ES256",
-				typ: "oauth-client-attestation-pop+jwt",
+				alg: 'ES256',
+				typ: 'oauth-client-attestation-pop+jwt',
 				jwk: dpopKeyPair.publicKeyJwk,
 			})
 			.setIssuer(clientId)
@@ -59,18 +59,18 @@ export async function requestWIA(
 			// (WIA.test.ts mocks the backend entirely).
 			.setAudience(walletProviderURI)
 			.setIssuedAt()
-			.setExpirationTime("5m")
+			.setExpirationTime('5m')
 			.setJti(generateRandomIdentifier(8))
 			.sign(dpopKeyPair.privateKey);
 
-		const generateResponse = await post("/wallet-provider/wia/generate", {
+		const generateResponse = await post('/wallet-provider/wia/generate', {
 			pop,
 			challenge,
 			client_id: clientId,
 		});
 		const wia = generateResponse.data?.wallet_instance_attestation;
-		if (!wia || typeof wia !== "string") {
-			logger.debug("Cannot parse wallet_instance_attestation from wallet-backend-server WIA generate response");
+		if (!wia || typeof wia !== 'string') {
+			logger.debug('Cannot parse wallet_instance_attestation from wallet-backend-server WIA generate response');
 			return undefined;
 		}
 		return wia;
@@ -100,13 +100,13 @@ export async function buildClientAttestationPop(
 ): Promise<string> {
 	return await new SignJWT({})
 		.setProtectedHeader({
-			alg: "ES256",
-			typ: "oauth-client-attestation-pop+jwt",
+			alg: 'ES256',
+			typ: 'oauth-client-attestation-pop+jwt',
 		})
 		.setIssuer(clientId)
 		.setAudience(authorizationServerIssuer)
 		.setIssuedAt()
-		.setExpirationTime("5m")
+		.setExpirationTime('5m')
 		.setJti(generateRandomIdentifier(8))
 		.sign(dpopKeyPair.privateKey);
 }
@@ -169,8 +169,8 @@ export async function attachWalletAttestationHeaders(
 		const pop = await buildClientAttestationPop(walletAttestation.keyPair, clientId, authorizationServerIssuer);
 		return {
 			...headers,
-			"oauth-client-attestation": walletAttestation.wia,
-			"oauth-client-attestation-pop": pop,
+			'oauth-client-attestation': walletAttestation.wia,
+			'oauth-client-attestation-pop': pop,
 		};
 	}
 	catch (err) {
@@ -230,4 +230,3 @@ export async function generateFlowAttestation(
 		return {};
 	}
 }
-
