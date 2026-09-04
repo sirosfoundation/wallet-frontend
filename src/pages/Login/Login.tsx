@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState, useCallback, ChangeEventHandler } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router';
 import { Trans, useTranslation } from 'react-i18next';
 
 import type { CachedUser } from '../../services/LocalStorageKeystore';

@@ -59,7 +59,7 @@ const Dialog = ({
 	open: boolean,
 	onCancel: () => void,
 }) => {
-	const dialog = useRef<HTMLDialogElement>();
+	const dialog = useRef<HTMLDialogElement | null>(null);
 
 	useEffect(
 		() => {

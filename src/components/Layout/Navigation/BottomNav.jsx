@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import StatusContext from '@/context/StatusContext';
 import { useTenant } from '@/context/TenantContext';

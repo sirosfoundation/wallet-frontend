@@ -19,10 +19,6 @@ export default defineConfig({
 			// TODO: Re-enable once wallet-common handles ESM deps properly
 			'**/CredentialInfo.test.jsx',
 		],
-		environmentMatchGlobs: [
-			['**/services/*.test.ts', 'node'],
-			['**', 'happy-dom']
-		],
 		typecheck: {
 			enabled: true,
 		},
@@ -36,5 +32,24 @@ export default defineConfig({
 				'src/**/*.d.ts',
 			],
 		},
+		projects: [
+			{
+				extends: true,
+				test: {
+					name: 'node',
+					include: ['**/services/*.test.ts'],
+					environment: 'node',
+				},
+			},
+			{
+				extends: true,
+				test: {
+					name: 'dom',
+					include: ['**/*.test.{ts,tsx,js,jsx}'],
+					exclude: ['**/services/*.test.ts'],
+					environment: 'happy-dom',
+				},
+			},
+		],
 	},
 });

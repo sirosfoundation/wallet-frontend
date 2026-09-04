@@ -1,6 +1,6 @@
 // components/History/HistoryList.jsx
 import React, { useState, useContext, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import useScreenType from '../../hooks/useScreenType';
 import { H3 } from '../Shared/Heading';
 import HistoryDetailPopup from '../Popups/HistoryDetailPopup';

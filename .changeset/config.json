@@ -1,0 +1,22 @@
+{
+	"$schema": "https://unpkg.com/@changesets/config@2.3.0/schema.json",
+	"changelog": [
+		"@changesets/changelog-github",
+		{
+			"repo": "sirosfoundation/wallet-frontend",
+			"template": "- {summary} by {authors} in {pull}"
+		}
+	],
+	"commit": ["@changesets/cli/commit", { "skipCI": false }],
+	"fixed": [],
+	"linked": [],
+	"access": "public",
+	"baseBranch": "release/sirosid",
+	"updateInternalDependencies": "patch",
+	"ignore": [],
+	"tagFormat": "v${version}",
+	"privatePackages": {
+		"version": true,
+		"tag": true
+	}
+}
