@@ -363,7 +363,6 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 			credentialRequest,
 			tokenRequestBuilder,
 			getRememberIssuerAge,
-			api,
 		]
 	);
 
@@ -477,7 +476,7 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 
 		const reqRes = await credentialRequest(tokenResponse, flowState);
 		return reqRes ?? {};
-	}, [tokenRequestBuilder, credentialRequest, openID4VCIHelper, api]);
+	}, [tokenRequestBuilder, credentialRequest, openID4VCIHelper]);
 
 	/**
  *

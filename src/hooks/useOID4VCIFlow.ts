@@ -269,7 +269,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		} finally {
 			setIsLoading(false);
 		}
-	}, [transportType, transport, openID4VCI, onProgress, onError, validateCredentialOffer, assertNotAborted, api]);
+	}, [transportType, transport, openID4VCI, onProgress, onError, validateCredentialOffer, assertNotAborted]);
 
 	/**
 	 * Handle authorization response (after OAuth redirect)
