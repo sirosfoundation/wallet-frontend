@@ -1065,3 +1065,103 @@ describe('OIDFlowWebSocketTransport', () => {
 		});
 	});
 });
+
+/**
+ * Issuer entitlement (ARF v3.0.0 section 6.6.2.3).
+ *
+ * Being trusted and being registered to issue a particular attestation type
+ * are different questions, and an issuer can pass the first while failing the
+ * second. These pin what the transport reports back to the engine in each case,
+ * because a decision that is computed and then ignored is the failure that
+ * matters here.
+ */
+describe('OIDFlowWebSocketTransport issuer entitlement', () => {
+	const wsUrl = 'wss://test.example.com/api/v2/wallet';
+	const authToken = 'test-auth-token';
+	const flowId = 'flow-1';
+
+	const trustedIssuer = {
+		evaluateIssuerTrust: async () => ({ trusted: true, status: 'trusted' as const }),
+		evaluateVerifierTrust: async () => ({ trusted: false, status: 'unknown' as const }),
+	};
+
+	const request = {
+		subject_id: 'https://issuer.example.com',
+		subject_type: 'credential_issuer',
+		context: { credential_types: ['eu.europa.ec.eudi.pid.1'] },
+	};
+
+	/** Connects a transport and returns it with the trust result it sends back. */
+	async function runTrustStep(
+		checkIssuerEntitlement?: (p: { issuerId: string; credentialTypes?: string[] }) => Promise<unknown>,
+	) {
+		const transport = new OIDFlowWebSocketTransport(wsUrl, authToken, 'default', {
+			...trustedIssuer,
+			...(checkIssuerEntitlement ? { checkIssuerEntitlement } : {}),
+		} as never);
+		await transport.connect();
+
+		const ws = mockWebSocketInstances[0];
+		const before = ws.sentMessages.length;
+		await (transport as unknown as {
+			handleTrustEvaluationStep(id: string, payload: Record<string, unknown>): Promise<void>;
+		}).handleTrustEvaluationStep(flowId, { request });
+
+		const sent = ws.sentMessages.slice(before).map((m) => JSON.parse(m));
+		return sent.find((m) => m.action === 'trust_result');
+	}
+
+	it('refuses an issuer that is not registered for what it offers', async () => {
+		const result = await runTrustStep(async () => ({
+			allowed: false,
+			mode: 'fail',
+			evaluated: true,
+			entitlements: [],
+			findings: [{
+				code: 'attestation_type_not_registered',
+				message: 'provider is not registered to issue dc+sd-jwt',
+			}],
+		}));
+
+		expect(result?.payload.trusted).toBe(false);
+		// The reason has to reach the engine: "not trusted" with no explanation
+		// leaves nobody able to tell a misconfigured issuer from an unregistered one.
+		expect(result?.payload.reason).toContain('attestation_type_not_registered');
+	});
+
+	it('passes the offered credential types to the check', async () => {
+		const seen: { issuerId: string; credentialTypes?: string[] }[] = [];
+		await runTrustStep(async (p) => {
+			seen.push(p);
+			return { allowed: true, mode: 'warn', evaluated: true, findings: [], entitlements: [] };
+		});
+
+		expect(seen).toHaveLength(1);
+		expect(seen[0].issuerId).toBe('https://issuer.example.com');
+		expect(seen[0].credentialTypes).toEqual(['eu.europa.ec.eudi.pid.1']);
+	});
+
+	it('allows a trusted issuer whose findings are only warnings', async () => {
+		const result = await runTrustStep(async () => ({
+			allowed: true,
+			mode: 'warn',
+			evaluated: true,
+			entitlements: [],
+			findings: [{ code: 'no_registration_certificate', message: 'none present' }],
+		}));
+
+		expect(result?.payload.trusted).toBe(true);
+	});
+
+	it('allows a trusted issuer when the entitlement check could not run', async () => {
+		// null means "not checked". A backend that could not answer must not
+		// turn every issuer into an untrusted one.
+		const result = await runTrustStep(async () => null);
+		expect(result?.payload.trusted).toBe(true);
+	});
+
+	it('allows a trusted issuer when no checker is wired at all', async () => {
+		const result = await runTrustStep(undefined);
+		expect(result?.payload.trusted).toBe(true);
+	});
+});

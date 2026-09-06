@@ -45,4 +45,6 @@ jobs:
             -Dsonar.organization=${{ github.repository_owner }}
             -Dsonar.projectKey=${{ github.repository_owner }}_${{ github.event.repository.name }}
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-            -Dsonar.coverage.exclusions=translation_coverage/**
+            -Dsonar.tests=src
+            -Dsonar.test.inclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx,**/__tests__/**
+            -Dsonar.coverage.exclusions=translation_coverage/**,**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx,**/__tests__/**

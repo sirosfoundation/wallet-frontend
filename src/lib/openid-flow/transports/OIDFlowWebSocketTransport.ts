@@ -24,6 +24,7 @@ import type { OID4VPFlowParams, OID4VPFlowResult, OID4VPVerifierInfo } from '../
 import type { CredentialsMatchedResult } from '@/services/CredentialMatchingService';
 import { logger } from '@/logger';
 import { TrustEvaluators, TrustStatus } from '../types';
+import { describeEntitlementFindings, isEntitlementRefused } from '@/lib/services/IssuerEntitlement';
 import { DcqlQuery } from 'dcql';
 import { OIDFlowError } from '../errors';
 
@@ -757,7 +758,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			let result: { trusted: boolean; status?: TrustStatusEnum; metadata?: Record<string, unknown> } | null = null;
 
 			switch (request.subject_type) {
-				case 'credential_issuer':
+				case 'credential_issuer': {
 					result = await this.trustEvaluators.evaluateIssuerTrust({
 						issuerId: request.subject_id,
 						keyMaterial: request.key_material ? {
@@ -766,7 +767,39 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 						} : undefined,
 						context: request.context,
 					});
+
+					// ARF v3.0.0 section 6.6.2.3: being trusted and being
+					// registered to issue this particular attestation type are
+					// different questions, and an issuer can pass the first
+					// while failing the second. The engine already tells us
+					// which types are on offer.
+					const entitlement = await this.trustEvaluators.checkIssuerEntitlement?.({
+						issuerId: request.subject_id,
+						credentialTypes: Array.isArray(request.context?.credential_types)
+							? (request.context.credential_types as unknown[]).filter(
+								(v): v is string => typeof v === 'string',
+							)
+							: undefined,
+					}) ?? null;
+
+					if (isEntitlementRefused(entitlement)) {
+						const reason = describeEntitlementFindings(entitlement!);
+						logger.warn('[WS Transport] Issuer refused on entitlement:', request.subject_id, reason);
+						this.sendTrustResult(flowId, { trusted: false, reason });
+						return;
+					}
+					if (entitlement && entitlement.findings.length > 0) {
+						// Warn mode: reported, not enforced. Still worth a log -
+						// this is what a deployment looks at before switching
+						// the backend to fail mode.
+						logger.warn(
+							'[WS Transport] Issuer has entitlement findings (mode=' + entitlement.mode + '):',
+							request.subject_id,
+							describeEntitlementFindings(entitlement),
+						);
+					}
 					break;
+				}
 				case 'credential_verifier':
 					const scheme = (request.context?.client_id_scheme as string) || 'x509_san_dns';
 					const clientId = request.subject_id;

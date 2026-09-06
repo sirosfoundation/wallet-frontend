@@ -22,6 +22,10 @@ import {
 } from 'wallet-common';
 import type { HttpClient } from 'wallet-common';
 import { logger } from '@/logger';
+import {
+	createIssuerEntitlementChecker,
+	type IssuerEntitlementChecker,
+} from './IssuerEntitlement';
 
 /**
  * Configuration for creating a trust evaluator.
@@ -405,5 +409,30 @@ export function createDIDResolver(config: TrustEvaluatorConfig): DIDResolver {
 				? { ...response.context.trust_metadata }
 				: undefined,
 		};
+	};
+}
+
+/**
+ * Build the full set of trust evaluators a transport needs from one config.
+ *
+ * Lives here rather than inline in the React context so it can be tested
+ * without rendering a provider, and so that adding an evaluator is a change to
+ * this module rather than to the wiring.
+ *
+ * Note the two questions this returns answers for are genuinely different:
+ * `evaluateIssuerTrust` asks whether an issuer is known and trusted (via
+ * `/v1/evaluate`), while `checkIssuerEntitlement` asks whether it is registered
+ * to issue the specific thing it is offering (via `/v1/resolve`). An issuer can
+ * pass the first and fail the second.
+ */
+export function createTrustEvaluators(config: TrustEvaluatorConfig): {
+	evaluateIssuerTrust: IssuerTrustEvaluator;
+	evaluateVerifierTrust: VerifierTrustEvaluator;
+	checkIssuerEntitlement: IssuerEntitlementChecker;
+} {
+	return {
+		evaluateIssuerTrust: createIssuerTrustEvaluator(config),
+		evaluateVerifierTrust: createVerifierTrustEvaluator(config),
+		checkIssuerEntitlement: createIssuerEntitlementChecker(config),
 	};
 }

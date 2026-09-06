@@ -29,7 +29,7 @@ import {
 } from '@/config';
 import type { OIDFlowActiveTransportType, OIDFlowTransportType } from '@/lib/openid-flow/types/OIDFlowTypes';
 import { logger } from '@/logger';
-import { createIssuerTrustEvaluator, createVerifierTrustEvaluator } from '@/lib/services/TrustEvaluator';
+import { createTrustEvaluators } from '@/lib/services/TrustEvaluator';
 import { TrustEvaluators } from '@/lib/openid-flow';
 import { useHttpClient } from '@/hooks/useHttpClient';
 import SessionContext from './SessionContext';
@@ -136,26 +136,16 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		return true;
 	}, [capabilitiesLoaded, pendingTransports, wsCapabilityAvailable, authToken, isConnected, lastError]);
 
-	const trustEvaluators = useMemo((): TrustEvaluators => {
-		const evaluateIssuerTrust = createIssuerTrustEvaluator({
-			httpClient: httpClient,
-			backendUrl: BACKEND_URL,
-			getAuthToken: () => authToken ?? '',
-			tenantId,
-		});
-
-		const evaluateVerifierTrust = createVerifierTrustEvaluator({
-			httpClient: httpClient,
-			backendUrl: BACKEND_URL,
-			getAuthToken: () => authToken ?? '',
-			tenantId,
-		});
-
-		return {
-		evaluateIssuerTrust,
-		evaluateVerifierTrust,
-		};
-	}, [tenantId, authToken, httpClient]);
+	const trustEvaluators = useMemo(
+		(): TrustEvaluators =>
+			createTrustEvaluators({
+				httpClient: httpClient,
+				backendUrl: BACKEND_URL,
+				getAuthToken: () => authToken ?? '',
+				tenantId,
+			}),
+		[tenantId, authToken, httpClient],
+	);
 
 	// Fetch engine capabilities on mount
 	useEffect(() => {
