@@ -5,6 +5,7 @@ import { CredentialOfferSchema, VerifiableCredentialFormat } from 'wallet-common
 import type { OID4VCIFlowResult } from '@/lib/openid-flow/types/OID4VCITypes';
 import type { OIDFlowActiveTransportType, OIDFlowProgressEvent } from '@/lib/openid-flow/types/OIDFlowTypes';
 import { DISPLAY_ISSUANCE_WARNINGS, OPENID4VCI_REDIRECT_URI } from '@/config';
+import { declaredVct, integrityFailure, issuedTypeMismatch } from '@/lib/services/IssuedCredentialChecks';
 import SessionContext from '@/context/SessionContext';
 import { notify } from '@/context/notifier';
 import { deriveHolderKidFromCredential } from '@/lib/verifiable-credentials';
@@ -508,6 +509,19 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			if (parseResult.success === false) {
 					throw new Error(`Credential parsing failed: ${parseResult.error}`);
 			}
+
+			// ARF v3.0.0 section 6.6.2.3 and the issuer's own vct#integrity pin.
+			// Both are refusals rather than warnings: everything earlier in this
+			// flow was decided about the type the issuer advertised, and these
+			// are the only two things that look at what actually arrived.
+			const typeMismatch = issuedTypeMismatch(
+				credentials[0]?.vct,
+				declaredVct(parseResult.value.metadata?.credential),
+			);
+			if (typeMismatch) throw new Error(typeMismatch);
+
+			const integrityProblem = integrityFailure(parseResult.value.warnings);
+			if (integrityProblem) throw new Error(integrityProblem);
 
 			if (parseResult.value.warnings?.length > 0) {
 				if (DISPLAY_ISSUANCE_WARNINGS && onIssuanceWarnings) {
