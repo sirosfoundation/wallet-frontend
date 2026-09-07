@@ -147,13 +147,17 @@ export const WALLET_COMPANION_INTEGRATION = config.wallet_companion_integration 
 export const POWERED_BY = config.powered_by;
 
 /**
- * When true, the wallet requests a Wallet Instance Attestation (WIA) from
- * go-wallet-backend for each OID4VCI flow and presents it to the credential
- * issuer's authorization server (OAuth-Client-Attestation / -PoP headers on
- * the token request — not PAR; see the scoping note on requestWIA's
- * call sites in OpenID4VCI.ts for why). Defaults to false — opt-in until
- * an issuer actually requires or benefits from it. See
- * security/wia-strategy.md ("Tier 3: backend_attested").
+ * When true, the wallet answers go-wallet-backend's `request_attestation`
+ * sign request during an OID4VCI flow with a Wallet Instance Attestation
+ * (WIA) + PoP, which the engine forwards to the credential issuer's
+ * authorization server as OAuth-Client-Attestation / -PoP headers on the
+ * PAR/token request. Defaults to false — opt-in until an issuer actually
+ * requires or benefits from it.
+ *
+ * Tier 3 (backend_attested, informative): best-effort, never blocks issuance.
+ * See docs/WALLET_ATTESTATION.md for the flow, and
+ * docs/WIA_SPEC_COMPLIANCE_PLAN.md for the known limitations (cnf ≠ DPoP key,
+ * one PoP reused across PAR + token) and the plan to close them.
  */
 export const WIA_ENABLED: boolean = config.wia_enabled === 'true';
 
