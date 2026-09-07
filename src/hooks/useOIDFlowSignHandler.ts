@@ -3,7 +3,7 @@ import SessionContext from '@/context/SessionContext';
 import { useApi } from '@/api';
 import StatusContext from '@/context/StatusContext';
 import { logger } from '@/logger';
-import { OPENID4VCI_PROOF_TYPE_PRECEDENCE } from '@/config';
+import { OPENID4VCI_PROOF_TYPE_PRECEDENCE, WIA_ENABLED, BACKEND_URL } from '@/config';
 import { base64url } from 'jose';
 import {
 	applySelectiveDisclosure,
@@ -14,6 +14,7 @@ import {
 import { detectCredentialFormat, VerifiableCredentialFormat } from 'wallet-common';
 import { MDoc } from '@auth0/mdl';
 import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
+import { generateFlowAttestation } from '@/lib/services/WIA';
 
 
 interface ProofTypeConfig {
@@ -46,7 +47,7 @@ export type OIDFlowSignOptions = {
 }
 
 export interface OIDFlowSignRequest {
-	action: 'generate_proof' | 'sign_presentation';
+	action: 'generate_proof' | 'sign_presentation' | 'request_attestation';
 	params: OIDFlowSignOptions;
 }
 
@@ -74,6 +75,8 @@ export interface OIDFlowSignResponse {
 	proofJwt?: string;       // single proof (legacy)
 	proofs?: ProofObject[];  // batch proofs
 	vpToken?: string;
+	clientAttestation?: string;
+	clientAttestationPoP?: string;
 }
 
 export function useOIDFlowSignHandler() {
@@ -192,14 +195,47 @@ export function useOIDFlowSignHandler() {
 		throw new Error(`Unsupported proof type requested: ${proofType}`);
 	}, [keystore, api]);
 
-	const handleSignRequest = useCallback(async (request: OIDFlowSignRequest): Promise<OIDFlowSignResponse> => {
-		if (!keystore) {
-			throw new Error('Keystore not available');
-		}
+	const generateClientAttestation = useCallback(async (
+		options: OIDFlowSignOptions,
+	): Promise<OIDFlowSignResponse> => {
+		// Engine-driven Wallet Instance Attestation (Tier 3). The backend sends
+		// a `request_attestation` sign_request once it has resolved the issuer's
+		// authorization server, so the wallet never parses the credential offer
+		// itself (avoids a CORS-bound fetch from the browser).
+		//
+		// KNOWN LIMITATIONS (documented, not fixed):
+		//
+		// - the engine requests the
+		//   attestation once and replays the same WIA + PoP on both the PAR and
+		//   token requests (and any DPoP-nonce retry). An AS that enforces a
+		//   single-use PoP `jti` would reject the second use.
+		//
+		// - the WIA `cnf` key is a fresh
+		//   key minted inside generateFlowAttestation, NOT the DPoP key the engine
+		//   binds the token to (that key is engine-side over WebSocket). So
+		//   `cnf` != DPoP key, and strict EC TS03 §2.2.1.1 key binding is not
+		//   satisfied on this transport.
+		const { audience, issuer } = options;
 
+		if (!audience || !issuer) return {};
+
+		return await generateFlowAttestation(
+			api.post,
+			WIA_ENABLED,
+			issuer,
+			audience,
+			BACKEND_URL,
+		);
+	}, [api]);
+
+	const handleSignRequest = useCallback(async (request: OIDFlowSignRequest): Promise<OIDFlowSignResponse> => {
 		logger.debug('[WS Sign Handler] Received sign request:', request.action);
 
+		if (!keystore) throw new Error('Keystore not available');
+
 		switch (request.action) {
+			case 'request_attestation':
+				return await generateClientAttestation(request.params);
 			case 'generate_proof':
 				return await generateProof(request.params);
 			case 'sign_presentation':
@@ -207,7 +243,7 @@ export function useOIDFlowSignHandler() {
 			default:
 				throw new Error(`Unknown sign action: ${request.action}`);
 		}
-	}, [keystore, generateProof, signPresentation]);
+	}, [keystore, generateProof, signPresentation, generateClientAttestation]);
 
 	return { handleSignRequest, signPresentation, generateProof };
 }

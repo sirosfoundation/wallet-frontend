@@ -329,6 +329,25 @@ describe("The current WalletStateSchema version", () => {
 		assert.deepEqual(mergedR, mergedL);
 	});
 
+	it("persists and folds the dpop field on a credential issuance session.", async () => {
+		let container: CurrentSchema.WalletStateContainer = CurrentSchema.WalletStateOperations.initialWalletStateContainer();
+		const dpop = {
+			dpopJti: "jti0",
+			dpopPrivateKeyJwk: { kty: "EC", crv: "P-256", x: "x", y: "y", d: "d" },
+			dpopPublicKeyJwk: { kty: "EC", crv: "P-256", x: "x", y: "y" },
+			dpopAlg: "ES256",
+		};
+		container = await addSaveCredentialIssuanceSessionEvent(
+			container, 0, "iss0", "", "", "",
+			undefined, dpop,
+		);
+
+		const folded = await foldOldEventsIntoBaseState(container, -1);
+
+		assert.equal(folded.S.credentialIssuanceSessions.length, 1);
+		assert.deepEqual(folded.S.credentialIssuanceSessions[0].dpop, dpop);
+	});
+
 	it("mergeEventHistories de-duplicates save_credential_issuance_session events by eventId.", async () => {
 		let container: CurrentSchema.WalletStateContainer = CurrentSchema.WalletStateOperations.initialWalletStateContainer();
 		container = await addSaveCredentialIssuanceSessionEvent(container, 0, "iss0", "", "", "");

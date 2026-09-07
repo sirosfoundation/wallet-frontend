@@ -362,7 +362,7 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 			openID4VCIHelper,
 			credentialRequest,
 			tokenRequestBuilder,
-			getRememberIssuerAge
+			getRememberIssuerAge,
 		]
 	);
 
@@ -422,6 +422,7 @@ export function useOpenID4VCI({ errorCallback, showPopupConsent, showMessagePopu
 		let dpopPrivateKeyJwk: jose.JWK | null = null;
 		let dpopPublicKeyJwk: jose.JWK | null = null;
 		const jti = generateRandomIdentifier(18);
+
 		if (authzServerMetadata.authzServerMetadata.dpop_signing_alg_values_supported && authzServerMetadata.authzServerMetadata.dpop_signing_alg_values_supported.includes('ES256')) {
 			const { privateKey, publicKey } = await jose.generateKeyPair('ES256', { extractable: true }); // keypair for dpop if used
 			[dpopPrivateKeyJwk, dpopPublicKeyJwk] = await Promise.all([

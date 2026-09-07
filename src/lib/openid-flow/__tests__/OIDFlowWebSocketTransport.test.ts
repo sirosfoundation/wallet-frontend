@@ -184,6 +184,36 @@ describe('OIDFlowWebSocketTransport', () => {
 			expect(result.issuerMetadata).toEqual({ issuer: 'https://issuer.example.com' });
 		});
 
+		it('forwards wallet attestation as client_attestation/client_attestation_pop wire fields', async () => {
+			// Field names must match go-wallet-backend's FlowStartMessage exactly
+			// (internal/engine/messages.go) - this is the only WebSocket-specific
+			// encoding step; WIA/PoP generation itself happens once upstream in
+			// useOID4VCIFlow.ts, transport-agnostically (see OID4VCITypes.ts).
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+
+			const flowPromise = transport.startOID4VCIFlow({
+				credentialOfferUri: 'openid-credential-offer://?credential_offer=...',
+				clientAttestation: 'signed.wia.jwt',
+				clientAttestationPoP: 'signed.pop.jwt',
+			});
+
+			await vi.waitFor(() => {
+				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(1);
+			});
+
+			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[1]);
+			expect(sentMessage.client_attestation).toBe('signed.wia.jwt');
+			expect(sentMessage.client_attestation_pop).toBe('signed.pop.jwt');
+
+			mockWebSocketInstances[0].simulateMessage({
+				flow_id: sentMessage.flow_id,
+				type: 'flow_complete',
+				payload: { issuer_metadata: { issuer: 'https://issuer.example.com' } },
+			});
+			await flowPromise;
+		});
+
 		it('should send flow_action message with holder binding', async () => {
 			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();

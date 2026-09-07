@@ -60,7 +60,10 @@ export function usePushedAuthorizationRequest() {
 	}, [httpClient]);
 
 	const sendPushedAuthorizationRequest = useCallback(
-		async (asMeta: OpenidAuthorizationServerMetadata, params: Record<string,string>) => {
+		async (
+			asMeta: OpenidAuthorizationServerMetadata,
+			params: Record<string,string>,
+		) => {
 			const endpoint = asMeta.pushed_authorization_request_endpoint;
 			if (!endpoint) {
 				throw new Error('AS metadata missing pushed_authorization_request_endpoint');
