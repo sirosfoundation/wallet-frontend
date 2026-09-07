@@ -64,34 +64,6 @@ export function findBrandingFile(baseDir: string, filePath: string): BrandingFil
 }
 
 /**
- * @deprecated Use `findBrandingFile` instead.
- */
-function deprecated_findBrandingFile(filePathInput: string): BrandingFile | null {
-	const customFilePath = path.join(
-		path.dirname(filePathInput), "custom", path.basename(filePathInput)
-	);
-
-	const hasDefault = fs.existsSync(filePathInput);
-	const hasCustom = fs.existsSync(customFilePath);
-
-	if (!hasDefault && !hasCustom) {
-		return null;
-	}
-
-	const pathname = hasCustom ? customFilePath : filePathInput;
-	const filename = path.basename(pathname);
-
-	console.warn(`Deprecation Warning: Branding file found at: ${pathname}. This is no longer supported.`);
-
-	return {
-		pathname,
-		filename,
-		isDefault: hasDefault && !hasCustom,
-		isCustom: hasCustom,
-	}
-}
-
-/**
  * Finds a logo file (svg or png), preferring custom over default, svg over png.
  *
  * @param baseDir Branding source directory.
@@ -105,15 +77,6 @@ export function findLogoFile(baseDir: string, name: string): BrandingFile | null
 	if (pngFile?.isCustom) return pngFile;
 	if (svgFile?.isDefault) return svgFile;
 	if (pngFile?.isDefault) return pngFile;
-
-	// To be deprecated
-	const deprecatedPathSvgFile = deprecated_findBrandingFile(path.join(baseDir, `${name}.svg`));
-	const deprecatedPathPngFile = deprecated_findBrandingFile(path.join(baseDir, `${name}.png`));
-
-	if (deprecatedPathSvgFile?.isCustom) return deprecatedPathSvgFile;
-	if (deprecatedPathPngFile?.isCustom) return deprecatedPathPngFile;
-	if (deprecatedPathSvgFile?.isDefault) return deprecatedPathSvgFile;
-	if (deprecatedPathPngFile?.isDefault) return deprecatedPathPngFile;
 
 	return null;
 }
@@ -269,8 +232,7 @@ export async function generateAllIcons({
 }: GenerateAllIconsOptions): Promise<Icons> {
 	const hashSuffix = brandingHash ? `?v=${brandingHash}` : '';
 
-	const favicon = findBrandingFile(sourceDir, path.join("favicon.ico"))
-		|| deprecated_findBrandingFile(path.join(sourceDir, "favicon.ico"));
+	const favicon = findBrandingFile(sourceDir, path.join("favicon.ico"));
 
 	if (!favicon) {
 		throw new Error("favicon not found");
