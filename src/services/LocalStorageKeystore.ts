@@ -93,6 +93,7 @@ export interface LocalStorageKeystore {
 	updateCachedUserTenant(userHandleB64u: string, tenant: { id: string; displayName?: string }): void,
 	getUserHandleB64u(): string | null,
 	signJwtPresentation(nonce: string, audience: string, verifiableCredentials: any[], transactionDataResponseParams?: { transaction_data_hashes: string[], transaction_data_hashes_alg: string[] }): Promise<{ vpjwt: string }>,
+	signVcdm2Presentation(nonce: string, audience: string, verifiableCredentials: unknown[], transactionDataResponseParams?: { transaction_data_hashes: string[], transaction_data_hashes_alg: string[] }): Promise<{ vpjwt: string }>,
 	generateOpenid4vciProofs(requests: { nonce: string, audience: string, issuer: string }[]): Promise<[
 		{ proof_jwts: string[] },
 		AsymmetricEncryptedContainer,
@@ -713,6 +714,13 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		[openPrivateData]
 	);
 
+	const signVcdm2Presentation = useCallback(
+		async (nonce: string, audience: string, verifiableCredentials: unknown[], transactionDataResponseParams?: { transaction_data_hashes: string[], transaction_data_hashes_alg: string[] }): Promise<{ vpjwt: string }> => (
+			await keystore.signVcdm2Presentation(await openPrivateData(), nonce, audience, verifiableCredentials, transactionDataResponseParams)
+		),
+		[openPrivateData]
+	);
+
 	const generateDeviceResponse = useCallback(
 		async (mdocCredential: MDoc, presentationDefinition: any, nonce: string, clientId: string, responseUri: string, verifierJwkThumbprint: string | null): Promise<{ deviceResponseMDoc: MDoc }> => (
 			await keystore.generateDeviceResponse(await openPrivateData(), mdocCredential, presentationDefinition, nonce, clientId, responseUri, verifierJwkThumbprint)
@@ -969,6 +977,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		updateCachedUserTenant,
 		getUserHandleB64u,
 		signJwtPresentation,
+		signVcdm2Presentation,
 		generateOpenid4vciProofs,
 		generateKeypairs,
 		generateDeviceResponse,
@@ -1002,6 +1011,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		updateCachedUserTenant,
 		getUserHandleB64u,
 		signJwtPresentation,
+		signVcdm2Presentation,
 		generateOpenid4vciProofs,
 		generateKeypairs,
 		generateDeviceResponse,

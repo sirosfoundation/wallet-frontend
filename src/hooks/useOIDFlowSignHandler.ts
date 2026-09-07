@@ -250,6 +250,13 @@ async function createVpToken(
 						verifierJwkThumbprint,
 					}
 				);
+			case VerifiableCredentialFormat.VCDM2_JOSE:
+			case VerifiableCredentialFormat.LDP_VC:
+				return await createVpTokenFromVcdm2(
+					keystore,
+					{ credentialRaw },
+					{ nonce, audience }
+				);
 			default:
 				throw new Error('Unsupported credential format for presentation signing');
 		}
@@ -271,6 +278,39 @@ async function createVpTokenFromSdJwt(
 
 	const credential = await applySelectiveDisclosure(credentialRaw, disclosedClaims);
 	const { vpjwt } = await keystore.signJwtPresentation(nonce, audience, [credential]);
+	return vpjwt;
+}
+
+/**
+ * Present a W3C VCDM 2.0 credential.
+ *
+ * There is no selective disclosure here: neither an enveloped credential nor a
+ * plain Data Integrity proof supports it, so the whole credential is
+ * presented. (`ecdsa-sd-2023` is the format's selective-disclosure mechanism,
+ * and is not supported.) Any `disclosedClaims` the caller passes are therefore
+ * deliberately ignored rather than silently appearing to filter anything.
+ */
+async function createVpTokenFromVcdm2(
+	keystore: LocalStorageKeystore,
+	credentialData: {
+		credentialRaw: string;
+	},
+	params: {
+		nonce: string;
+		audience: string;
+	}
+): Promise<string> {
+	const { credentialRaw } = credentialData;
+	const { nonce, audience } = params;
+
+	// A Data Integrity credential is stored as JSON text but must be
+	// presented as an object, so that it embeds in the presentation rather
+	// than being double-encoded as a string.
+	const credential = detectCredentialFormat(credentialRaw) === VerifiableCredentialFormat.LDP_VC
+		? JSON.parse(credentialRaw)
+		: credentialRaw;
+
+	const { vpjwt } = await keystore.signVcdm2Presentation(nonce, audience, [credential]);
 	return vpjwt;
 }
 
