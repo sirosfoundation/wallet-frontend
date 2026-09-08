@@ -257,13 +257,17 @@ describe("useOIDFlowSignHandler — VCDM 2.0 presentation", () => {
 
 /**
  * DIIP v5 carries VCDM 2.0 inside an SD-JWT: a VCDM 2.0 body with no `vct`
- * and a trailing tilde. It is still an SD-JWT, so it presents through the
- * key-binding mechanism rather than a VCDM 2.0 presentation envelope.
+ * and a trailing tilde.
+ *
+ * `vc+sd-jwt` is VC-JOSE-COSE's media type for a VCDM 2.0 credential secured
+ * as an SD-JWT; an IETF SD-JWT VC is `dc+sd-jwt`. So a verifier requesting
+ * `vc+sd-jwt` expects a VCDM 2.0 VerifiablePresentation, not a bare SD-JWT
+ * with a key-binding JWT.
  */
 describe("useOIDFlowSignHandler — VCDM 2.0 carried in an SD-JWT", () => {
 	const vcdm2SdJwt = `${enc({ alg: "ES256", typ: "vc+sd-jwt" })}.${enc(vcdm2Credential)}.sig~`;
 
-	it("presents it through the SD-JWT signer, not the VCDM 2.0 envelope", async () => {
+	it("presents it as a VCDM 2.0 presentation, not through the SD-JWT signer", async () => {
 		const keystore = makeKeystore();
 		const { result } = renderSignHandler(keystore);
 
@@ -272,8 +276,39 @@ describe("useOIDFlowSignHandler — VCDM 2.0 carried in an SD-JWT", () => {
 			credentialsToInclude: [{ credentialId: "c1", credentialQueryId: "q1", credentialRaw: vcdm2SdJwt }],
 		});
 
+		expect(keystore.signVcdm2Presentation).toHaveBeenCalledTimes(1);
+		expect(keystore.signJwtPresentation).not.toHaveBeenCalled();
+		expect(JSON.parse(response.vpToken!)).toEqual({ q1: ["vcdm2-vp-token"] });
+	});
+
+	it("hands over the raw SD-JWT unchanged, so it can be enveloped", async () => {
+		const keystore = makeKeystore();
+		const { result } = renderSignHandler(keystore);
+
+		await result.current.signPresentation({
+			...baseParams,
+			credentialsToInclude: [{ credentialId: "c2", credentialQueryId: "q2", credentialRaw: vcdm2SdJwt }],
+		});
+
+		// The compact SD-JWT goes through as a string: wallet-common wraps it
+		// as an EnvelopedVerifiableCredential naming `application/vc+sd-jwt`.
+		const [, , credentials] = keystore.signVcdm2Presentation.mock.calls[0];
+		expect(credentials).toEqual([vcdm2SdJwt]);
+	});
+
+	it("still routes a dc+sd-jwt credential to the SD-JWT signer", async () => {
+		// The other side of the line: an IETF SD-JWT VC keeps its key-binding
+		// presentation, which is what its own spec defines.
+		const keystore = makeKeystore();
+		const { result } = renderSignHandler(keystore);
+		const sdJwtVc = `${enc({ alg: "ES256", typ: "dc+sd-jwt" })}.${enc({ vct: "urn:eduid" })}.sig~`;
+
+		await result.current.signPresentation({
+			...baseParams,
+			credentialsToInclude: [{ credentialId: "c3", credentialQueryId: "q3", credentialRaw: sdJwtVc }],
+		});
+
 		expect(keystore.signJwtPresentation).toHaveBeenCalledTimes(1);
 		expect(keystore.signVcdm2Presentation).not.toHaveBeenCalled();
-		expect(JSON.parse(response.vpToken!)).toEqual({ q1: ["sdjwt-vp-token"] });
 	});
 });

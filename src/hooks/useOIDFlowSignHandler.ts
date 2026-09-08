@@ -224,12 +224,6 @@ async function createVpToken(
 			case VerifiableCredentialFormat.DC_SDJWT:
 			case VerifiableCredentialFormat.VC_SDJWT:
 			case VerifiableCredentialFormat.JWT_VC_JSON:
-			// A VCDM 2.0 credential carried in an SD-JWT is still an SD-JWT:
-			// it presents through the ordinary key-binding JWT mechanism,
-			// which is what a verifier requesting `vc+sd-jwt` expects. The
-			// VCDM 2.0 presentation envelope in wallet-common remains
-			// available for verifiers that want a VP instead.
-			case VerifiableCredentialFormat.VCDM2_SDJWT:
 				return await createVpTokenFromSdJwt(
 					keystore,
 					{
@@ -256,6 +250,15 @@ async function createVpToken(
 						verifierJwkThumbprint,
 					}
 				);
+			// `vc+sd-jwt` is VC-JOSE-COSE's media type for a VCDM 2.0 credential
+			// secured as an SD-JWT — not for an IETF SD-JWT VC, which is
+			// `dc+sd-jwt`. A verifier asking for `vc+sd-jwt` is therefore
+			// asking for a VCDM 2.0 credential and expects it inside a VCDM 2.0
+			// VerifiablePresentation, not a bare SD-JWT with a key-binding JWT.
+			// Nothing is lost by not using KB-JWT here: DIIP v5 discloses every
+			// claim, so there are no disclosures to withhold, and holder
+			// binding comes from the holder-signed presentation envelope.
+			case VerifiableCredentialFormat.VCDM2_SDJWT:
 			case VerifiableCredentialFormat.VCDM2_JOSE:
 			case VerifiableCredentialFormat.LDP_VC:
 				return await createVpTokenFromVcdm2(
