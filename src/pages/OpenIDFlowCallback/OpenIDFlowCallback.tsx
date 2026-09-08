@@ -544,7 +544,7 @@ export async function generateZkFinalVP(
     proofCacheDb: any,
 ) {
     const transcriptHex = "83f6f6846b6578616d706c652e6f7267781c68747470733a2f2f6578616d706c652e6f72672f726573706f6e736570313233343536373839306162636465667066656463626130393837363534333231";
-    const now = proofCacheDb.now;
+	const now = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 	const VERIFIER_CONTEXT = new Uint8Array([
 		0x76, 0x65, 0x72, 0x69, 0x66, 0x69, 0x65, 0x72,
 		0x40, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x2e,
@@ -565,7 +565,6 @@ export async function generateZkFinalVP(
     }
 
     const originalMdocHex = base64ToHex(credentialRawBase64);
-
     return assembleFinalVP_V8(
         originalMdocHex,
         proofData.proof,
@@ -854,7 +853,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	const sessionParamsRef = useRef<{
 		transcriptHex: string;
 		verifierContext: Uint8Array;
-		now: any;
+		now: string;
 	} | null>(null);
 	const processDcApiRequest = async (url: URL, keystore: any, proofCacheDb: any) => {
 		const session = new DCAPISession(url);
@@ -935,7 +934,6 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 
 		const selectedCredential = credSelectResult.selectedCredentials[0];
 		const originalMdocHex = base64ToHex(selectedCredential.credentialRaw);
-
 		const finalVP = assembleFinalVP_V8(
 			originalMdocHex,
 			proofData.proof,
