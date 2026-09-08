@@ -224,6 +224,12 @@ async function createVpToken(
 			case VerifiableCredentialFormat.DC_SDJWT:
 			case VerifiableCredentialFormat.VC_SDJWT:
 			case VerifiableCredentialFormat.JWT_VC_JSON:
+			// A VCDM 2.0 credential carried in an SD-JWT is still an SD-JWT:
+			// it presents through the ordinary key-binding JWT mechanism,
+			// which is what a verifier requesting `vc+sd-jwt` expects. The
+			// VCDM 2.0 presentation envelope in wallet-common remains
+			// available for verifiers that want a VP instead.
+			case VerifiableCredentialFormat.VCDM2_SDJWT:
 				return await createVpTokenFromSdJwt(
 					keystore,
 					{
