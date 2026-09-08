@@ -43,10 +43,14 @@ const ldpVcdm2 = JSON.stringify({
 	},
 });
 
+type PresentationArgs = [nonce: string, audience: string, credentials: unknown[], transactionData?: unknown];
+
 function makeKeystore() {
 	return {
-		signVcdm2Presentation: vi.fn(async () => ({ vpjwt: "vcdm2-vp-token" })),
-		signJwtPresentation: vi.fn(async () => ({ vpjwt: "sdjwt-vp-token" })),
+		// Parameters are declared so the recorded calls stay typed, which is
+		// what lets the assertions below inspect the arguments.
+		signVcdm2Presentation: vi.fn(async (..._args: PresentationArgs) => ({ vpjwt: "vcdm2-vp-token" })),
+		signJwtPresentation: vi.fn(async (..._args: PresentationArgs) => ({ vpjwt: "sdjwt-vp-token" })),
 		generateDeviceResponse: vi.fn(),
 	};
 }
@@ -248,5 +252,28 @@ describe("useOIDFlowSignHandler — VCDM 2.0 presentation", () => {
 
 		await expect(result.current.handleSignRequest({ action: "something_else" as any, params: {} }))
 			.rejects.toThrow(/Unknown sign action/);
+	});
+});
+
+/**
+ * DIIP v5 carries VCDM 2.0 inside an SD-JWT: a VCDM 2.0 body with no `vct`
+ * and a trailing tilde. It is still an SD-JWT, so it presents through the
+ * key-binding mechanism rather than a VCDM 2.0 presentation envelope.
+ */
+describe("useOIDFlowSignHandler — VCDM 2.0 carried in an SD-JWT", () => {
+	const vcdm2SdJwt = `${enc({ alg: "ES256", typ: "vc+sd-jwt" })}.${enc(vcdm2Credential)}.sig~`;
+
+	it("presents it through the SD-JWT signer, not the VCDM 2.0 envelope", async () => {
+		const keystore = makeKeystore();
+		const { result } = renderSignHandler(keystore);
+
+		const response = await result.current.signPresentation({
+			...baseParams,
+			credentialsToInclude: [{ credentialId: "c1", credentialQueryId: "q1", credentialRaw: vcdm2SdJwt }],
+		});
+
+		expect(keystore.signJwtPresentation).toHaveBeenCalledTimes(1);
+		expect(keystore.signVcdm2Presentation).not.toHaveBeenCalled();
+		expect(JSON.parse(response.vpToken!)).toEqual({ q1: ["sdjwt-vp-token"] });
 	});
 });
