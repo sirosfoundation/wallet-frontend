@@ -10,6 +10,7 @@ import { fetchKeyConfig, HpkeConfig } from '@/lib/utils/ohttpHelpers';
 import { OHTTP_KEY_CONFIG } from '@/config';
 import { logger } from '../logger';
 import useErrorDialog from '@/hooks/useErrorDialog';
+import { useOIDFlowClientAuthMaterialManager } from '@/hooks/useOIDFlowClientAuthMaterialManager';
 
 export const SessionContextProvider = ({ children }: React.PropsWithChildren) => {
 	const { isOnline } = useContext(StatusContext);
@@ -35,16 +36,19 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 		return wasCleared;
 	}, []);
 
+	const oidFlowClientAuthMaterialManager = useOIDFlowClientAuthMaterialManager();
+
 	// Use a ref to hold a stable reference to the clearSession function
-	const clearSessionRef = useRef<() => void>();
+	const clearSessionRef = useRef<() => void>(null);
 
 	// Memoize clearSession using useCallback
 	const clearSession = useCallback(async () => {
 		window.history.replaceState({}, '', `${window.location.pathname}`);
 		sessionClearedRef.current = true;
+		oidFlowClientAuthMaterialManager.clear();
 		logger.debug('[Session Context] Clear Session');
 		api.clearSession();
-	}, [api]);
+	}, [api, oidFlowClientAuthMaterialManager]);
 
 	// Update the ref whenever clearSession changes
 	useEffect(() => {
@@ -54,8 +58,9 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	// The close() will dispatch Event CloseSessionTabLocal in order to call the clearSession
 	const logout = useCallback(async () => {
 		logger.debug('[Session Context] Close Keystore');
+		oidFlowClientAuthMaterialManager.clear();
 		await keystore.close();
-	}, [keystore]);
+	}, [keystore, oidFlowClientAuthMaterialManager]);
 
 	useEffect(() => {
 		return api.authTokens.onTokenRejection(() => {
@@ -103,14 +108,17 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 		}
 	}, [getCalculatedWalletState]);
 
+
+
 	const value: SessionContextValue = useMemo(() => ({
 		api,
 		isLoggedIn: isLoggedIn,
 		keystore,
 		logout,
 		obliviousKeyConfig,
-		consumeSessionCleared
-	}), [api, keystore, logout, isLoggedIn, obliviousKeyConfig, consumeSessionCleared]);
+		consumeSessionCleared,
+		oidFlowClientAuthMaterialManager,
+	}), [api, keystore, logout, isLoggedIn, obliviousKeyConfig, consumeSessionCleared, oidFlowClientAuthMaterialManager]);
 
 	useEffect(() => {
 		if (api && keystore && api.isLoggedIn() === true && keystore.isOpen() === false && ((tabId && globalTabId && tabId !== globalTabId) || (!tabId && globalTabId))) {

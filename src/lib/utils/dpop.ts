@@ -1,21 +1,62 @@
-import { JWK, KeyLike, SignJWT } from "jose";
-import { generateRandomIdentifier } from "./generateRandomIdentifier";
+import { JWK, KeyLike, SignJWT } from 'jose';
+import { generateRandomIdentifier } from '../utils/generateRandomIdentifier';
 
-export async function generateDPoP(privateKey: KeyLike, publicKeyJwk: JWK, targetMethod: string, targetUri: string, nonce?: string, access_token?: string) {
-	return new SignJWT({
-		"jti": generateRandomIdentifier(8),
-		"htm": targetMethod,
-		"htu": targetUri,
-		"nonce": nonce,
-		"ath": access_token ? await calculateAth(access_token) : undefined,
-	})
-		.setIssuedAt()
+/**
+ * A signing keypair for DPoP proofs.
+ */
+export interface DPoPKeyPair {
+	privateKey: KeyLike | Uint8Array;
+	publicKeyJwk: JWK;
+}
+
+/**
+ * Parameters that vary per DPoP proof.
+ */
+export interface DPoPProofParams {
+	htm: string;
+	htu: string;
+	ath?: string;
+	nonce?: string;
+}
+
+/**
+ * Build a fresh DPoP proof JWT signed by the given key.
+ *
+ * @see https://www.rfc-editor.org/rfc/rfc9449.html#section-4.2
+ */
+export async function buildDPoPProof(
+	keyPair: DPoPKeyPair,
+	params: DPoPProofParams,
+): Promise<string> {
+	const { htm, htu, ath, nonce } = params;
+
+	const claims: Record<string, unknown> = { htm, htu };
+	if (ath) {
+		claims.ath = ath;
+	}
+	if (nonce) {
+		claims.nonce = nonce;
+	}
+
+	return await new SignJWT(claims)
 		.setProtectedHeader({
-			"typ": "dpop+jwt",
-			"alg": "ES256",
-			"jwk": publicKeyJwk,
+			alg: 'ES256',
+			typ: 'dpop+jwt',
+			jwk: keyPair.publicKeyJwk,
 		})
-		.sign(privateKey);
+		.setIssuedAt()
+		.setJti(generateRandomIdentifier(16))
+		.sign(keyPair.privateKey);
+}
+
+/**
+ * @deprecated - Use `buildDPoPProof` instead.
+ */
+export async function generateDPoP(privateKey: KeyLike, publicKeyJwk: JWK, targetMethod: string, targetUri: string, nonce?: string, access_token?: string) {
+	return buildDPoPProof(
+		{ privateKey, publicKeyJwk },
+		{ htm: targetMethod, htu: targetUri, nonce, ath: access_token ? await calculateAth(access_token) : undefined }
+	);
 }
 
 export async function calculateAth(accessToken: string) {
