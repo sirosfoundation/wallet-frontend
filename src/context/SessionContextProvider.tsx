@@ -10,7 +10,7 @@ import { fetchKeyConfig, HpkeConfig } from '@/lib/utils/ohttpHelpers';
 import { OHTTP_KEY_CONFIG } from '@/config';
 import { logger } from '../logger';
 import useErrorDialog from '@/hooks/useErrorDialog';
-import { useOIDFlowClientAuthMaterialManager } from '@/hooks/useOIDFlowClientAuthMaterialManager';
+import { useOIDFlowClientAuthStore } from '@/hooks/useOIDFlowClientAuthStore';
 
 export const SessionContextProvider = ({ children }: React.PropsWithChildren) => {
 	const { isOnline } = useContext(StatusContext);
@@ -36,7 +36,7 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 		return wasCleared;
 	}, []);
 
-	const oidFlowClientAuthMaterialManager = useOIDFlowClientAuthMaterialManager();
+	const oidFlowClientAuthMaterialManager = useOIDFlowClientAuthStore();
 
 	// Use a ref to hold a stable reference to the clearSession function
 	const clearSessionRef = useRef<() => void>(null);

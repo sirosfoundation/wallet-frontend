@@ -6,7 +6,7 @@ import {
 } from '@/lib/openid-flow/OIDFlowClientAuthMaterial';
 import { generateRandomIdentifier } from '@/lib/utils/generateRandomIdentifier';
 
-export type OIDFlowClientAuthMaterialManager = {
+export type OIDFlowClientAuthStore = {
 	getAuthMaterial(flowId: string): Promise<OIDFlowClientAuthMaterial>;
 	exportAuthMaterial(): Promise<SerializedClientAuthMaterial | undefined>;
 	attachWia(flowId: string, wia: string): void;
@@ -14,7 +14,7 @@ export type OIDFlowClientAuthMaterialManager = {
 	clear(): void;
 };
 
-export function useOIDFlowClientAuthMaterialManager(): OIDFlowClientAuthMaterialManager {
+export function useOIDFlowClientAuthStore(): OIDFlowClientAuthStore {
 	const ref = useRef<{
 		flowId: string;
 		material: OIDFlowClientAuthMaterial;
