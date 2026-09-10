@@ -2,49 +2,79 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { decodeJwt, decodeProtectedHeader } from 'jose';
 
-import { useOIDFlowSignHandler, type OIDFlowSignResponse } from './useOIDFlowSignHandler';
+import {
+	useOIDFlowSignHandler,
+	type OIDFlowSignResponse,
+} from './useOIDFlowSignHandler';
 
 const mockPost = vi.fn();
 
-vi.mock('@/api', async (importOriginal) => ({
+vi.mock('@/api', async importOriginal => ({
 	...(await importOriginal<typeof import('@/api')>()),
 	useApi: () => ({ post: mockPost }),
 }));
 
-vi.mock('@/config', async (importOriginal) => ({
+vi.mock('@/config', async importOriginal => ({
 	...(await importOriginal<typeof import('@/config')>()),
 	WIA_ENABLED: true,
 	BACKEND_URL: 'https://wallet-provider.example',
 }));
 
+vi.mock('./useHttpClient', () => ({
+	useHttpClient: () => ({ post: mockPost }),
+}));
+
 vi.mock('@/context/SessionContext', async () => {
-	const { createContext } = await vi.importActual<typeof import('react')>('react');
-	const { generateKeyPair, exportJWK } = await vi.importActual<typeof import('jose')>('jose');
-	const { generateRandomIdentifier } = await vi.importActual<typeof import('@/lib/utils/generateRandomIdentifier')>('@/lib/utils/generateRandomIdentifier');
-	const store = new Map<string, unknown>();
-	const getFlowClientAuthKey = async (flowId: string) => {
-		const existing = store.get(flowId);
-		if (existing) return existing;
-		const { privateKey, publicKey } = await generateKeyPair('ES256', { extractable: true });
-		const entry = {
-			dpopKeyId: generateRandomIdentifier(16),
-			keyPair: { privateKey, publicKeyJwk: await exportJWK(publicKey) },
-		};
-		store.set(flowId, entry);
-		return entry;
+	const { createContext } =
+		await vi.importActual<typeof import('react')>('react');
+	const { generateKeyPair, exportJWK } =
+		await vi.importActual<typeof import('jose')>('jose');
+	const { generateRandomIdentifier } = await vi.importActual<
+		typeof import('@/lib/utils/generateRandomIdentifier')
+	>('@/lib/utils/generateRandomIdentifier');
+
+	// Module-scoped store; each test uses a unique flowId (see note below).
+	const store = new Map<
+		string,
+		{ dpopKeyId: string; keyPair: unknown; wia?: string }
+	>();
+	const oidFlowClientAuthMaterialManager = {
+		async getAuthMaterial(flowId: string) {
+			const existing = store.get(flowId);
+			if (existing) return existing;
+			const { privateKey, publicKey } = await generateKeyPair('ES256', {
+				extractable: true,
+			});
+			const material = {
+				dpopKeyId: generateRandomIdentifier(16),
+				keyPair: { privateKey, publicKeyJwk: await exportJWK(publicKey) },
+			};
+			store.set(flowId, material);
+			return material;
+		},
+		attachWia(flowId: string, wia: string) {
+			const existing = store.get(flowId);
+			if (existing) existing.wia = wia;
+		},
 	};
-	return { default: createContext({ keystore: {}, getFlowClientAuthKey }) };
+
+	return {
+		default: createContext({ keystore: {}, oidFlowClientAuthMaterialManager }),
+	};
 });
 
 vi.mock('@/context/StatusContext', async () => {
-	const { createContext } = await vi.importActual<typeof import('react')>('react');
+	const { createContext } =
+		await vi.importActual<typeof import('react')>('react');
 	return { default: createContext({ isOnline: true }) };
 });
 
 function primeWiaResponses() {
 	mockPost
 		.mockResolvedValueOnce({ data: { challenge: 'test-challenge' } })
-		.mockResolvedValueOnce({ data: { wallet_instance_attestation: 'signed.wia.jwt' } });
+		.mockResolvedValueOnce({
+			data: { wallet_instance_attestation: 'signed.wia.jwt' },
+		});
 }
 
 function renderSignHandler() {
@@ -145,9 +175,12 @@ describe('useOIDFlowSignHandler / sign_client_auth', () => {
 		expect(mockPost).toHaveBeenCalledTimes(2);
 
 		// ...but every proof and PoP is freshly signed (distinct jti).
-		expect(decodeJwt(first!.dpopProof!).jti).not.toBe(decodeJwt(second!.dpopProof!).jti);
-		expect(decodeJwt(first!.clientAttestationPoP!).jti)
-			.not.toBe(decodeJwt(second!.clientAttestationPoP!).jti);
+		expect(decodeJwt(first!.dpopProof!).jti).not.toBe(
+			decodeJwt(second!.dpopProof!).jti,
+		);
+		expect(decodeJwt(first!.clientAttestationPoP!).jti).not.toBe(
+			decodeJwt(second!.clientAttestationPoP!).jti,
+		);
 	});
 
 	it('addresses the WIA-request PoP to the wallet provider (BACKEND_URL), not the AS', async () => {
@@ -167,7 +200,11 @@ describe('useOIDFlowSignHandler / sign_client_auth', () => {
 			});
 		});
 
-		expect(mockPost).toHaveBeenNthCalledWith(1, '/wallet-provider/wia/challenge', {});
+		expect(mockPost).toHaveBeenNthCalledWith(
+			1,
+			'/wallet-provider/wia/challenge',
+			{},
+		);
 		const [path, body] = mockPost.mock.calls[1];
 		expect(path).toBe('/wallet-provider/wia/generate');
 		expect(decodeJwt(body.pop).aud).toBe('https://wallet-provider.example');
@@ -208,7 +245,10 @@ describe('useOIDFlowSignHandler / sign_client_auth', () => {
 			res = await result.current.handleSignRequest({
 				flowId: 'flow-wia-only',
 				action: 'sign_client_auth',
-				params: { issuer: 'https://wallet.example.com/cb', audience: 'https://as.example.com' },
+				params: {
+					issuer: 'https://wallet.example.com/cb',
+					audience: 'https://as.example.com',
+				},
 			});
 		});
 
@@ -261,7 +301,8 @@ describe('useOIDFlowSignHandler / sign_client_auth', () => {
 		});
 
 		expect(a?.dpopKeyId).not.toBe(b?.dpopKeyId);
-		expect(decodeProtectedHeader(a!.dpopProof!).jwk)
-			.not.toEqual(decodeProtectedHeader(b!.dpopProof!).jwk);
+		expect(decodeProtectedHeader(a!.dpopProof!).jwk).not.toEqual(
+			decodeProtectedHeader(b!.dpopProof!).jwk,
+		);
 	});
 });
