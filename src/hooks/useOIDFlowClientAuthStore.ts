@@ -2,15 +2,13 @@ import { useCallback, useRef, useMemo } from 'react';
 import { exportJWK, generateKeyPair } from 'jose';
 import {
 	OIDFlowClientAuthMaterial,
-	SerializedClientAuthMaterial,
 } from '@/lib/openid-flow/OIDFlowClientAuthMaterial';
 import { generateRandomIdentifier } from '@/lib/utils/generateRandomIdentifier';
 
 export type OIDFlowClientAuthStore = {
 	getAuthMaterial(flowId: string): Promise<OIDFlowClientAuthMaterial>;
-	exportAuthMaterial(): Promise<SerializedClientAuthMaterial | undefined>;
 	attachWia(flowId: string, wia: string): void;
-	seedMaterial(material: SerializedClientAuthMaterial): void;
+	seedMaterial(material: OIDFlowClientAuthMaterial): void;
 	clear(): void;
 };
 
@@ -21,7 +19,7 @@ export function useOIDFlowClientAuthStore(): OIDFlowClientAuthStore {
 	} | null>(null);
 	// A key persisted across an authorization-code redirect, seeded before the
 	// resumed flow starts and consumed once by the next getFlowClientAuthKey mint.
-	const seedRef = useRef<SerializedClientAuthMaterial | null>(null);
+	const seedRef = useRef<OIDFlowClientAuthMaterial | null>(null);
 
 	const getAuthMaterial = useCallback(
 		async (flowId: string) => {
@@ -31,7 +29,11 @@ export function useOIDFlowClientAuthStore(): OIDFlowClientAuthStore {
 			const seed = seedRef.current;
 			if (seed) {
 				seedRef.current = null;
-				const material = await OIDFlowClientAuthMaterial.fromSerialized(seed);
+				const material = new OIDFlowClientAuthMaterial(
+					seed.dpopKeyId,
+					seed.keyPair,
+					seed.wia,
+				);
 				ref.current = { flowId, material };
 				return material;
 			}
@@ -40,13 +42,21 @@ export function useOIDFlowClientAuthStore(): OIDFlowClientAuthStore {
 			const current = ref.current;
 			if (current?.flowId === flowId) return current.material;
 
-			const { privateKey, publicKey } = await generateKeyPair('ES256', {
-				extractable: true,
-			});
+			const { privateKey, publicKey } = await generateKeyPair(
+				'ES256',
+				{
+					// If we ever move to storing keys in the backend privateData blob,
+					// this needs to be a extractable key.
+					extractable: false,
+				},
+			);
 			const publicKeyJwk = await exportJWK(publicKey);
 			const material = new OIDFlowClientAuthMaterial(
 				generateRandomIdentifier(16),
-				{ privateKey, publicKeyJwk },
+				{
+					privateKey,
+					publicKeyJwk,
+				},
 			);
 
 			ref.current = { flowId, material };
@@ -55,12 +65,6 @@ export function useOIDFlowClientAuthStore(): OIDFlowClientAuthStore {
 		},
 		[seedRef, ref],
 	);
-
-	const exportAuthMaterial = useCallback(async () => {
-		const material = ref.current?.material;
-		if (!material) return undefined;
-		return material.serialize();
-	}, [ref]);
 
 	const attachWia = useCallback(
 		(flowId: string, wia: string) => {
@@ -77,7 +81,7 @@ export function useOIDFlowClientAuthStore(): OIDFlowClientAuthStore {
 	);
 
 	const seedMaterial = useCallback(
-		(material: SerializedClientAuthMaterial) => {
+		(material: OIDFlowClientAuthMaterial) => {
 			seedRef.current = material;
 		},
 		[seedRef],
@@ -91,11 +95,10 @@ export function useOIDFlowClientAuthStore(): OIDFlowClientAuthStore {
 	return useMemo(
 		() => ({
 			getAuthMaterial,
-			exportAuthMaterial,
 			attachWia,
 			seedMaterial,
 			clear,
 		}),
-		[getAuthMaterial, exportAuthMaterial, attachWia, seedMaterial, clear],
+		[getAuthMaterial, attachWia, seedMaterial, clear],
 	);
 }
