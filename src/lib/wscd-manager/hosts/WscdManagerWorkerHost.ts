@@ -1,5 +1,5 @@
 import { WEBAUTHN_RPID } from '@/config';
-import WscdManagerWorker from '@/workers/wscd-manager?worker';
+import WscdManagerWorker from '../worker?worker';
 import { WscdManagerHosts, WscdHostStrength, WscdPlugin } from '../resources';
 import {
 	AuthFactor,
