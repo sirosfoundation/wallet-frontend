@@ -1,5 +1,4 @@
 import {
-	PlatformCapability,
 	WscdPlugin,
 	WscdManagerHosts,
 	WscdHostStrength,
@@ -81,10 +80,6 @@ export type WscdEligibilityRequirements = {
 	 * Auth factors the key requires to be exercised (all must be satisfiable).
 	 */
 	factors: AuthFactor[];
-	/**
-	 * Runtime/browser surfaces the operation touches (all must be provided).
-	 */
-	capabilities: PlatformCapability[];
 };
 
 /**

@@ -2,7 +2,6 @@ import init, { WscdManagerJs } from '@sirosfoundation/wscd-manager-wasm';
 import wasmUrl from '@sirosfoundation/wscd-manager-wasm/siros_wscd_manager_bg.wasm?url';
 import { WEBAUTHN_RPID } from '@/config';
 import {
-	PlatformCapability,
 	WscdManagerHosts,
 	WscdPlugin,
 	WscdHostStrength,
@@ -17,13 +16,6 @@ import type {
 import { logger } from '@/logger';
 
 export class WscdManagerInPageHost implements IWscdManagerHost {
-	#providedCapabilities: ReadonlySet<PlatformCapability> = new Set([
-		PlatformCapability.MAIN_THREAD,
-		PlatformCapability.DIGITAL_CREDENTIALS,
-		PlatformCapability.PROXIMITY,
-		PlatformCapability.NETWORK,
-	]);
-
 	#supportedPlugins: ReadonlySet<WscdPlugin> = new Set([
 		WscdPlugin.SOFTKEY,
 		WscdPlugin.FIDO2,
@@ -49,15 +41,11 @@ export class WscdManagerInPageHost implements IWscdManagerHost {
 	async isEligible({
 		plugin,
 		factors,
-		capabilities,
 	}: WscdEligibilityRequirements) {
 		const supportsPlugin = this.#supportedPlugins.has(plugin);
 		const satisfiesFactors = factors.every((f) => this.#canSatisfyFactor(f));
-		const hasCapabilities = capabilities.every((c) =>
-			this.#providedCapabilities.has(c),
-		);
 
-		return supportsPlugin && satisfiesFactors && hasCapabilities;
+		return supportsPlugin && satisfiesFactors;
 	}
 
 	async runOperation<T extends keyof IWscdOperations>(
