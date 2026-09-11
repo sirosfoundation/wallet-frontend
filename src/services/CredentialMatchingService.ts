@@ -13,7 +13,7 @@
 import { ExtendedVcEntity } from '@/context/CredentialsContext';
 import { DcqlQuery, DcqlCredential, DcqlQueryResult } from 'dcql';
 import { logger } from '@/logger';
-import * as cbor from 'cbor-x';
+import { cborDecode } from '@auth0/mdl/lib/cbor';
 import { fromBase64Url } from "../util";
 import { extractDocTypeFromIssuerAuth } from '@/lib/verifiable-credentials';
 
@@ -55,9 +55,18 @@ export function matchCredentials(
 		return { matches: [], no_match_reason: 'No credentials could be shaped for matching' };
 	}
 
-	// 2. Parse, validate, and run the query
-	let result: DcqlQueryResult;
-	try {
+	// TODO: Remove before merge
+	logger.debug('matchCredentials: dcqlQuery', JSON.stringify(dcqlQuery));
+	// TODO: Remove before merge
+	logger.debug('matchCredentials: shaped mdoc', JSON.stringify(
+		shaped
+		.filter(s => (s as any).credential_format === 'mso_mdoc')
+		.map(s => ({ doctype: (s as any).doctype, namespaces: (s as any).namespaces })),
+		null, 2));
+
+		// 2. Parse, validate, and run the query
+		let result: DcqlQueryResult;
+		try {
 		const parsedQuery = DcqlQuery.parse(dcqlQuery);
 		DcqlQuery.validate(parsedQuery);
 		result = DcqlQuery.query(parsedQuery, shaped);
@@ -65,6 +74,9 @@ export function matchCredentials(
 		logger.error('DCQL query failed:', e);
 		return { matches: [], no_match_reason: `DCQL query error: ${e instanceof Error ? e.message : String(e)}` };
 	}
+
+	// TODO: Remove before merge
+	logger.debug('matchCredentials: dcql result', JSON.stringify(result, null, 2));
 
 	// 3. Map results back to CredentialMatch format
 	const matches: CredentialMatch[] = [];
@@ -111,38 +123,43 @@ export function shapeCredential(credential: ExtendedVcEntity): (DcqlCredential &
 
 	if (format === 'mso_mdoc') {
 		try {
-			const data = credential.data;
-			const bytes = fromBase64Url(data);
-			const mdoc = cbor.decode(bytes); // full DeviceResponse, or a bare IssuerSigned structure
+			const bytes = fromBase64Url(credential.data);
+			// mdl codec, not cbor-x: returns Maps + tag-24 DataItems so
+			// IssuerSignedItems expose elementIdentifier/elementValue.
+			const mdoc = cborDecode(bytes) as Map<string, unknown>;
 
 			let docType: string;
-			let rawNameSpaces: Record<string, any[]>;
-			if (mdoc.documents?.[0]) {
-				const doc = mdoc.documents[0];
-				docType = doc.docType;
-				rawNameSpaces = doc.issuerSigned.nameSpaces; // { [namespaceName]: TaggedItem[] }
-			} else if (mdoc.nameSpaces && mdoc.issuerAuth) {
-				// Bare IssuerSigned structure (no documents[] envelope) - what
-				// real-world/interop issuers (e.g. geneva2026.mdoc.online) send for
-				// mso_mdoc credential responses. IssuerSigned has no docType field of
-				// its own; it has to be read from the MSO embedded in issuerAuth's
-				// COSE_Sign1 payload instead.
-				docType = extractDocTypeFromIssuerAuth(mdoc.issuerAuth);
-				rawNameSpaces = mdoc.nameSpaces;
+			let rawNameSpaces: Map<string, unknown[]>;
+
+			const documents = mdoc.get('documents') as unknown[] | undefined;
+			if (Array.isArray(documents) && documents.length > 0) {
+				const doc = documents[0] as Map<string, unknown>;
+				docType = doc.get('docType') as string;
+				const issuerSigned = doc.get('issuerSigned') as Map<string, unknown>;
+				rawNameSpaces = issuerSigned.get('nameSpaces') as Map<string, unknown[]>;
+			} else if (mdoc.get('nameSpaces') && mdoc.get('issuerAuth')) {
+				// Bare IssuerSigned; docType comes from the MSO in issuerAuth.
+				docType = extractDocTypeFromIssuerAuth(mdoc.get('issuerAuth') as unknown[]);
+				rawNameSpaces = mdoc.get('nameSpaces') as Map<string, unknown[]>;
 			} else {
 				throw new Error('mdoc credential envelope missing documents[] (and not a bare IssuerSigned structure either)');
 			}
 
 			const namespaces: Record<string, Record<string, unknown>> = {};
-
-			for (const [nsName, items] of Object.entries(rawNameSpaces as Record<string, any[]>)) {
+			for (const [nsName, items] of rawNameSpaces) {
 				const claims: Record<string, unknown> = {};
-				for (const taggedItem of items) {
-					const item = cbor.decode(taggedItem.value);
-					claims[item.elementIdentifier] = item.elementValue;
+				for (const rawItem of items) {
+					// mdl decodes each tag-24 item to a DataItem (.data = Map); tolerate
+					// a plain Map too. Avoid instanceof DataItem (breaks across mdl copies).
+					const item = (rawItem instanceof Map
+						? rawItem
+						: (rawItem as { data?: Map<string, unknown> })?.data) as Map<string, unknown> | undefined;
+					if (!item) continue;
+					claims[item.get('elementIdentifier') as string] = item.get('elementValue');
 				}
 				namespaces[nsName] = claims;
 			}
+
 			return {
 				credential_format: 'mso_mdoc',
 				doctype: docType,
