@@ -55,7 +55,7 @@ export interface IWscdManagerHost {
  * The set of cryptographic operations that a WSCD can perform.
  */
 export interface IWscdOperations {
-	generateKeyPairs(): Promise<void>;
+	generateKeypairs(): Promise<void>;
 	generateOpenid4vciProofs(): Promise<void>;
 	signJwtPresentation(): Promise<void>;
 	generateDeviceResponse(): Promise<void>;

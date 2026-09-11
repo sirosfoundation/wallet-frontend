@@ -28,9 +28,9 @@ export class WscdManagerClient implements IWscdManagerClient {
 		]);
 	}
 
-	async generateKeyPairs(): Promise<void> {
+	async generateKeypairs(): Promise<void> {
 		return await this.#dispatchOperation(
-			'generateKeyPairs',
+			'generateKeypairs',
 		);
 	}
 
