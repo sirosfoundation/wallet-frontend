@@ -10,8 +10,7 @@ import { notify } from '@/context/notifier';
 import { deriveHolderKidFromCredential } from '@/lib/verifiable-credentials';
 import CredentialsContext from '@/context/CredentialsContext';
 import { logger } from '@/logger';
-import { OIDFlowClientAuthMaterial } from '@/lib/openid-flow/OIDFlowClientAuthMaterial';
-import { addItem, getItem, removeItem } from '@/indexedDB';
+import { SerializedClientAuthMaterial } from '@/lib/openid-flow/OIDFlowClientAuthMaterial';
 
 export interface UseOID4VCIFlowOptions {
 	/**
@@ -191,17 +190,16 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 						// WIA to the issuance session, so PAR and token must carry
 						// the same one. Survives the redirect via sessionStorage,
 						// the same channel code_verifier already uses.
-						const clientAuthMaterial = await oidFlowClientAuthMaterialManager.getAuthMaterial(result.transactionId);
-
+						const clientAuthKey = await oidFlowClientAuthMaterialManager.exportAuthMaterial();
 						// Save pending flow state for resumption after redirect
-						await savePendingFlow({
+						savePendingFlow({
 							flowId: result.transactionId,
 							codeVerifier: result.codeVerifier,
 							state: result.issuerState,
 							credentialOffer: result.credentialOffer
 								? JSON.stringify(result.credentialOffer)
 								: undefined,
-							clientAuthMaterial,
+							clientAuthKey,
 							timestamp: Date.now(),
 						});
 					}
@@ -298,17 +296,15 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 					? transport.onProgress(onProgress)
 					: () => {};
 
-				const storedFlow = await loadAndClearPendingFlow(state);
+				const storedFlow = loadAndClearPendingFlow();
 
-				if (!storedFlow) throw new Error('No pending flow for this state');
+				if (state !== storedFlow?.state) throw new Error('State mismatch in authorization response');
 
 				// Reuse the PAR leg's client-held key + WIA so this token leg
 				// presents the identical attestation the issuer bound to the
 				// issuance session (see savePendingFlow above).
-				if (storedFlow.clientAuthMaterial) {
-					oidFlowClientAuthMaterialManager.seedMaterial(
-						storedFlow.clientAuthMaterial,
-					);
+				if (storedFlow?.clientAuthKey) {
+					oidFlowClientAuthMaterialManager.seedMaterial(storedFlow.clientAuthKey);
 				}
 
 				try {
@@ -577,45 +573,44 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 	};
 }
 
+// Storage key for pending OID4VCI flow state
+const OID4VCI_PENDING_FLOW_KEY = 'oid4vci_pending_flow';
+
 export interface PendingOID4VCIFlow {
 	flowId?: string;
 	codeVerifier?: string;
 	state?: string;
 	credentialOffer?: string;
-	clientAuthMaterial?: OIDFlowClientAuthMaterial;
+	clientAuthKey?: SerializedClientAuthMaterial;
 	timestamp: number;
 }
 
 /**
  * Save pending flow state for resumption after same-tab redirect
  */
-async function savePendingFlow(flow: PendingOID4VCIFlow): Promise<void> {
-	if (!flow.state) {
-		throw new Error('Cannot persist a pending flow without a state');
-	}
-	await addItem('pendingOID4VCIFlows', flow.state, flow, 'pendingOID4VCIFlows');
+function savePendingFlow(flow: PendingOID4VCIFlow): void {
+	sessionStorage.setItem(OID4VCI_PENDING_FLOW_KEY, JSON.stringify(flow));
 }
 
 /**
  * Load and clear pending flow state
  */
-async function loadAndClearPendingFlow(state: string): Promise<PendingOID4VCIFlow | null> {
-	const storedFlow = await getItem(
-		'pendingOID4VCIFlows',
-		state,
-		'pendingOID4VCIFlows',
-	) as PendingOID4VCIFlow | null;
-	if (!storedFlow) return null;
+function loadAndClearPendingFlow(): PendingOID4VCIFlow | null {
+	const stored = sessionStorage.getItem(OID4VCI_PENDING_FLOW_KEY);
+	if (!stored) return null;
 
-	// The record holds key material, so remove it regardless
-	// of what happens next.
-	await removeItem('pendingOID4VCIFlows', state, 'pendingOID4VCIFlows');
+	sessionStorage.removeItem(OID4VCI_PENDING_FLOW_KEY);
 
-	// Expire after 10 minutes
-	if (Date.now() - storedFlow.timestamp > 10 * 60 * 1000) {
+	try {
+		const flow = JSON.parse(stored) as PendingOID4VCIFlow;
+		// Expire after 10 minutes
+		if (Date.now() - flow.timestamp > 10 * 60 * 1000) {
+			return null;
+		}
+		return flow;
+	} catch {
 		return null;
 	}
-	return storedFlow;
 }
 
 /**

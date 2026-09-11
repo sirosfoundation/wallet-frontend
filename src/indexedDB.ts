@@ -26,10 +26,6 @@ const stores = {
 		name: 'AppDataSource',
 		storeName: 'requestCache',
 	}),
-	pendingOID4VCIFlows: localforage.createInstance({
-		name: 'AppDataSource',
-		storeName: 'pendingOID4VCIFlows',
-	}),
 };
 
 
@@ -73,7 +69,6 @@ export async function initializeDataSource(): Promise<void> {
 		await stores.users.ready();
 		await stores.externalEntities.ready();
 		await stores.requestCache.ready();
-		await stores.pendingOID4VCIFlows.ready();
 
 		await migrateDataSource();
 
