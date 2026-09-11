@@ -1,16 +1,30 @@
 import { WscdManagerInPageHost } from './hosts/WscdManagerInPageHost';
-import { IWscdManagerClient, IWscdManagerHost, IWscdOperations, OperationReturnType, WscdEligibilityRequirements } from './types';
+import { WscdManagerNativeWrapperHost } from './hosts/WscdManagerNativeWrapperHost';
+import { WscdManagerWalletCompanionHost } from './hosts/WscdManagerWalletCompanionHost';
+import { WscdManagerWorkerHost } from './hosts/WscdManagerWorkerHost';
+import {
+	IWscdManagerClient,
+	IWscdManagerHost,
+	IWscdOperations,
+	OperationReturnType,
+	WscdEligibilityRequirements,
+} from './types';
 import { requirementsForOperation } from './utils';
 
 export class WscdManagerClient implements IWscdManagerClient {
 	#ready: Promise<void>;
-	constructor() { this.#ready = this.#initialize(); }   // kick off; don't await in ctor
-
 	#availableHosts: IWscdManagerHost[] = [];
+
+	constructor() {
+		this.#ready = this.#initialize();
+	}
 
 	async #initialize(): Promise<void> {
 		await this.#registerHosts([
 			new WscdManagerInPageHost(),
+			new WscdManagerWorkerHost(),
+			new WscdManagerNativeWrapperHost(),
+			new WscdManagerWalletCompanionHost(),
 		]);
 	}
 

@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { PlatformCapability, WscdPlugin } from '../resources';
+import { WscdPlugin } from '../resources';
 import type { AuthFactor, WscdEligibilityRequirements } from '../types';
 import { WscdManagerInPageHost } from './WscdManagerInPageHost';
 
 // Controls the RP id the host compares webauthn factors against.
-vi.mock('@/config', () => ({ WEBAUTHN_RPID: 'wallet.example.com' }));
+vi.mock('@/config', () => ({
+	WEBAUTHN_RPID: 'wallet.example.com',
+	LOG_LEVEL: 'debug',
+}));
 
 const RPID = 'wallet.example.com';
 
@@ -14,7 +17,6 @@ function requirements(
 	return {
 		plugin: WscdPlugin.SOFTKEY,
 		factors: [{ kind: 'none' }],
-		capabilities: [],
 		...overrides,
 	};
 }
@@ -39,14 +41,6 @@ describe('WscdManagerInPageHost', () => {
 					true,
 				);
 			}
-		});
-
-		it('provides every platform capability', async () => {
-			await expect(
-				host.isEligible(
-					requirements({ capabilities: Object.values(PlatformCapability) }),
-				),
-			).resolves.toBe(true);
 		});
 
 		it('satisfies the none and opaque-pin factors', async () => {
@@ -90,10 +84,6 @@ describe('WscdManagerInPageHost', () => {
 				host.isEligible({
 					plugin: WscdPlugin.FIDO2,
 					factors: [{ kind: 'webauthn', rpId: RPID }, { kind: 'opaque-pin' }],
-					capabilities: [
-						PlatformCapability.MAIN_THREAD,
-						PlatformCapability.DIGITAL_CREDENTIALS,
-					],
 				}),
 			).resolves.toBe(true);
 		});
