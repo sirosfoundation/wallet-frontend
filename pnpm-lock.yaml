@@ -35,6 +35,9 @@ importers:
       '@sirosfoundation/wcc-types':
         specifier: ^0.1.0-beta.1
         version: 0.1.0-beta.1
+      '@sirosfoundation/wscd-manager-wasm':
+        specifier: ^0.8.3
+        version: 0.8.3
       asn1js:
         specifier: ^3.0.5
         version: 3.0.10
@@ -1799,6 +1802,9 @@ packages:
 
   '@sirosfoundation/wcc-types@0.1.0-beta.1':
     resolution: {integrity: sha512-nmLval2+yG1/rJUpjiaZlJoykxuMSndq7tpTYmy2XMAEuC3/ANoboG4VyFh7stf7vHMdAObE+jRkxLSg8VARVw==}
+
+  '@sirosfoundation/wscd-manager-wasm@0.8.3':
+    resolution: {integrity: sha512-TkyVzCU4gJOsQ/wGoeCHuqo1ABlBd70iUDpfXE3SRI2VqCpjF6dTiDGa3DbdUxNX3CqGqAD21JuJrSL6ceoLHg==}
 
   '@stablelib/binary@1.0.1':
     resolution: {integrity: sha512-ClJWvmL6UBM/wjkvv/7m5VP3GMr9t0osr4yVgLZsLCOz4hGN9gIAFEqnJ0TsSMAN+n840nf2cHZnA5/KFqHC7Q==}
@@ -6619,6 +6625,8 @@ snapshots:
   '@sirosfoundation/browser-log@0.1.0-beta.4': {}
 
   '@sirosfoundation/wcc-types@0.1.0-beta.1': {}
+
+  '@sirosfoundation/wscd-manager-wasm@0.8.3': {}
 
   '@stablelib/binary@1.0.1':
     dependencies:

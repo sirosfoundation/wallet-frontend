@@ -13,6 +13,7 @@
     "@sd-jwt/core": "^0.10.0",
     "@sirosfoundation/browser-log": "^0.1.0-beta.4",
     "@sirosfoundation/wcc-types": "^0.1.0-beta.1",
+    "@sirosfoundation/wscd-manager-wasm": "^0.8.3",
     "asn1js": "^3.0.5",
     "axios": "^1.4.0",
     "cbor-x": "1.6.4",
