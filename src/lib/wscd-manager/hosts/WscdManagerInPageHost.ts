@@ -1,4 +1,4 @@
-import init, { WscdManagerJs} from '@sirosfoundation/wscd-manager-wasm';
+import init, { WscdManagerJs } from '@sirosfoundation/wscd-manager-wasm';
 import wasmUrl from '@sirosfoundation/wscd-manager-wasm/siros_wscd_manager_bg.wasm?url';
 import { WEBAUTHN_RPID } from '@/config';
 import {
@@ -30,7 +30,7 @@ export class WscdManagerInPageHost implements IWscdManagerHost {
 		WscdPlugin.R2PS,
 	]);
 
-	#wscd: WscdManagerJs
+	#wscd: WscdManagerJs;
 
 	readonly id = WscdManagerHosts.IN_PAGE;
 	readonly strength = WscdHostStrength.IN_PAGE;
