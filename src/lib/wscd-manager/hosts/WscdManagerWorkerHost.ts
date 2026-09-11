@@ -1,4 +1,5 @@
 import { WEBAUTHN_RPID } from '@/config';
+import WscdManagerWorker from '@/workers/wscd-manager?worker';
 import { WscdManagerHosts, WscdHostStrength, WscdPlugin } from '../resources';
 import {
 	AuthFactor,
@@ -7,6 +8,7 @@ import {
 	OperationReturnType,
 	WscdEligibilityRequirements,
 } from '../types';
+import { logger } from '@/logger';
 
 export class WscdManagerWorkerHost implements IWscdManagerHost {
 	#supportedPlugins: ReadonlySet<WscdPlugin> = new Set([
@@ -18,16 +20,21 @@ export class WscdManagerWorkerHost implements IWscdManagerHost {
 	readonly id = WscdManagerHosts.WORKER;
 	readonly strength = WscdHostStrength.WORKER;
 
+	#worker: Worker;
+
 	public async initialize() {
-		// Implement the initialization logic for the worker host here.
-		// For now, just resolve immediately.
-		return Promise.resolve();
+		this.#worker = new WscdManagerWorker();
+		logger.debug('WscdManagerWorkerHost initialized');
+
+		// TODO: remove this debug messages.
+		this.#worker.onmessage = (e) => {
+			console.log("Message received from worker:", e.data);
+		};
+		this.#worker.postMessage('listKeys');
 	}
 
 	public async isAvailable() {
-		// Implement the availability check logic for the worker host here.
-		// For now, just resolve immediately.
-		return Promise.resolve(true);
+		return !!window.Worker;
 	}
 
 	public async isEligible({
