@@ -14,8 +14,9 @@ import {
 import { detectCredentialFormat, VerifiableCredentialFormat } from 'wallet-common';
 import { MDoc } from '@auth0/mdl';
 import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
-import { generateFlowAttestation } from '@/lib/services/WIA';
-
+import { attestFlowIfEnabled, buildClientAttestationPop } from '@/lib/services/WIA';
+import { buildDPoPProof } from '@/lib/utils/dpop';
+import { useHttpClient } from './useHttpClient';
 
 interface ProofTypeConfig {
 	key_attestations_required?: Record<string, unknown> | null;
@@ -44,10 +45,16 @@ export type OIDFlowSignOptions = {
 		credentialRaw?: string;
 	}>;
 	verifierJwkThumbprint?: string;
+	htm?: string;
+	htu?: string;
+	dpopNonce?: string;
+	ath?: string;
+	keyId?: string;
 }
 
 export interface OIDFlowSignRequest {
-	action: 'generate_proof' | 'sign_presentation' | 'request_attestation';
+	flowId: string;
+	action: 'generate_proof' | 'sign_presentation' | 'sign_client_auth';
 	params: OIDFlowSignOptions;
 }
 
@@ -77,13 +84,16 @@ export interface OIDFlowSignResponse {
 	vpToken?: string;
 	clientAttestation?: string;
 	clientAttestationPoP?: string;
+	dpopKeyId?: string;
+	dpopProof?: string;
 }
 
 export function useOIDFlowSignHandler() {
 	const sessionContext = useContext(SessionContext);
 	const { isOnline } = useContext(StatusContext);
 	const api = useApi(isOnline);
-
+	const httpClient = useHttpClient();
+	const oidFlowClientAuthMaterialManager = sessionContext?.oidFlowClientAuthMaterialManager;
 	const keystore = sessionContext?.keystore;
 
 	const signPresentation = useCallback(async (options: OIDFlowSignOptions): Promise<OIDFlowSignResponse> => {
@@ -195,38 +205,61 @@ export function useOIDFlowSignHandler() {
 		throw new Error(`Unsupported proof type requested: ${proofType}`);
 	}, [keystore, api]);
 
-	const generateClientAttestation = useCallback(async (
+	const signClientAuth = useCallback(async (
 		options: OIDFlowSignOptions,
+		flowId: string,
 	): Promise<OIDFlowSignResponse> => {
-		// Engine-driven Wallet Instance Attestation (Tier 3). The backend sends
-		// a `request_attestation` sign_request once it has resolved the issuer's
-		// authorization server, so the wallet never parses the credential offer
-		// itself (avoids a CORS-bound fetch from the browser).
-		//
-		// KNOWN LIMITATIONS (documented, not fixed):
-		//
-		// - the engine requests the
-		//   attestation once and replays the same WIA + PoP on both the PAR and
-		//   token requests (and any DPoP-nonce retry). An AS that enforces a
-		//   single-use PoP `jti` would reject the second use.
-		//
-		// - the WIA `cnf` key is a fresh
-		//   key minted inside generateFlowAttestation, NOT the DPoP key the engine
-		//   binds the token to (that key is engine-side over WebSocket). So
-		//   `cnf` != DPoP key, and strict EC TS03 §2.2.1.1 key binding is not
-		//   satisfied on this transport.
-		const { audience, issuer } = options;
+		const { audience, issuer, htm, htu, dpopNonce, ath } = options;
 
-		if (!audience || !issuer) return {};
-
-		return await generateFlowAttestation(
-			api.post,
-			WIA_ENABLED,
-			issuer,
-			audience,
-			BACKEND_URL,
+		const authMaterial = await oidFlowClientAuthMaterialManager.getAuthMaterial(
+			flowId
 		);
-	}, [api]);
+
+		const response: OIDFlowSignResponse = { dpopKeyId: authMaterial.dpopKeyId };
+
+		if (htm && htu) {
+			response.dpopProof = await buildDPoPProof(
+				authMaterial.keyPair,
+				{
+					htm,
+					htu,
+					ath,
+					nonce: dpopNonce
+				},
+			);
+		}
+
+		if (audience && issuer) {
+			try {
+				const wia = await attestFlowIfEnabled(
+					httpClient,
+					WIA_ENABLED,
+					authMaterial.wia,
+					authMaterial.keyPair,
+					issuer,
+					BACKEND_URL,
+				);
+
+				if (wia) {
+					oidFlowClientAuthMaterialManager.attachWia(flowId, wia);
+					response.clientAttestation = wia;
+					response.clientAttestationPoP = await buildClientAttestationPop(
+						authMaterial.keyPair,
+						issuer,
+						audience,
+					);
+				}
+			}
+			catch (err) {
+				logger.debug(
+					'[WS Sign Handler] WIA attach failed; proceeding DPoP-only',
+					err,
+				);
+			}
+		}
+
+		return response;
+	}, [oidFlowClientAuthMaterialManager, httpClient]);
 
 	const handleSignRequest = useCallback(async (request: OIDFlowSignRequest): Promise<OIDFlowSignResponse> => {
 		logger.debug('[WS Sign Handler] Received sign request:', request.action);
@@ -234,8 +267,8 @@ export function useOIDFlowSignHandler() {
 		if (!keystore) throw new Error('Keystore not available');
 
 		switch (request.action) {
-			case 'request_attestation':
-				return await generateClientAttestation(request.params);
+			case 'sign_client_auth':
+				return await signClientAuth(request.params, request.flowId);
 			case 'generate_proof':
 				return await generateProof(request.params);
 			case 'sign_presentation':
@@ -243,7 +276,7 @@ export function useOIDFlowSignHandler() {
 			default:
 				throw new Error(`Unknown sign action: ${request.action}`);
 		}
-	}, [keystore, generateProof, signPresentation, generateClientAttestation]);
+	}, [keystore, generateProof, signPresentation, signClientAuth]);
 
 	return { handleSignRequest, signPresentation, generateProof };
 }
