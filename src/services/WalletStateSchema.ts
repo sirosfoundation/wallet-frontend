@@ -486,13 +486,7 @@ export async function findMergeBase(
 export async function mergeEventHistories(container1: WalletStateContainerGeneric, container2: WalletStateContainerGeneric): Promise<WalletStateContainerGeneric> {
 	const mergeBase = await findMergeBase(container1, container2);
 	if (mergeBase === null) {
-		const events = [...container1.events, ...container2.events].sort(compareBy(e => e.timestampSeconds));
-		const newContainer = {
-			...container1,
-			events: events,
-		};
-		await CurrentSchema.WalletStateOperations.validateEventHistoryContinuity(newContainer);
-		return newContainer;
+		return CurrentSchema.WalletStateOperations.mergeWithoutCommonBase(container1, container2);
 	}
 
 	const { lastEventHash, baseState, commonEvents, uniqueEvents1, uniqueEvents2 } = mergeBase;
@@ -512,7 +506,7 @@ export async function mergeEventHistories(container1: WalletStateContainerGeneri
 	const newEventHistory = commonEvents.concat(mergeDivergentPartsResult);
 	const newContainer = {
 		lastEventHash,
-		S: baseState,
+		S: CurrentSchema.WalletStateOperations.mergeState(baseState, container1.S, container2.S),
 		events: newEventHistory,
 	};
 	await CurrentSchema.WalletStateOperations.validateEventHistoryContinuity(newContainer);
