@@ -91,6 +91,10 @@ export interface IWscdSignOperations {
 
 /**
  * Generate operations. These create new cryptographic material or proofs.
+ *
+ * They're separated from signing operations, because they (for now)
+ * require exporting and saving the wscd container into the keystore/privateData
+ * storage.
  */
 export interface IWscdGenerateOperations {
 	generateKeypairs(): Promise<void>;
