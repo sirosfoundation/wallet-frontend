@@ -199,6 +199,20 @@ A new markdown file is created under `.changeset/` and commited in a new commit 
 
 Tags follow the `v${version}` format.
 
+#### Pre-release mode
+
+To release beta or rc releases, you need to enter *prerelease mode*:
+
+```bash
+# to enter beta mode
+pnpm prerelease-mode enter beta
+
+# to exit beta mode
+pnpm prerelease-mode exit
+```
+
+Instead of beta, it can be `rc`, or `alpha` or anything else.
+
 ## PRF Compatibility
 
 The wwWallet Frontend is designed to be compatible with the PRF extension to WebAuthn, ensuring a streamlined and secure registration and authentication process. Below, we present specific compatibility scenarios based on the operating system, emphasizing both WebAuthn and PRF extension compatibility.

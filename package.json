@@ -105,6 +105,7 @@
     "dev:docker": "concurrently -k -n Types,Vite -c yellow,cyan \"pnpm typecheck:watch\" \"pnpm start-docker\"",
     "dev:test": "concurrently -k -n Types,Tests -c yellow,cyan \"pnpm typecheck:watch\" \"pnpm test-start\"",
     "changeset": "changeset add",
+    "prerelease-mode": "changeset pre",
     "version": "dotenv -e .changeset/.env -- changeset version",
     "tag": "changeset tag"
   },
