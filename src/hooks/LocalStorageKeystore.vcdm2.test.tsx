@@ -4,12 +4,19 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import * as jose from "jose";
 import { MemoryRouter } from "react-router-dom";
+import * as keystore from "@/services/keystore";
+import { useLocalStorageKeystore } from "@/services/LocalStorageKeystore";
+import { jsonStringifyTaggedBinary, toBase64Url } from "@/util";
 
 /**
  * happy-dom provides a `window` but no Web Storage, and `useStorage.ts` reads
  * `window.localStorage` at module scope — which is why LocalStorageKeystore
  * has had no tests at all. Install an in-memory Storage before any import
  * evaluates.
+ *
+ * Vitest hoists `vi.hoisted` and `vi.mock` above every import, so this runs
+ * before the imports above it despite appearing below them — which is what
+ * lets them sit at the top of the file for `import/first`.
  */
 vi.hoisted(() => {
 	class MemoryStorage implements Storage {
@@ -39,10 +46,6 @@ vi.mock("@/hooks/useIndexedDb", () => ({
 		destroy: vi.fn(async () => undefined),
 	}),
 }));
-
-import * as keystore from "@/services/keystore";
-import { useLocalStorageKeystore } from "@/services/LocalStorageKeystore";
-import { jsonStringifyTaggedBinary, toBase64Url } from "@/util";
 
 const VCDM2_CONTEXT = "https://www.w3.org/ns/credentials/v2";
 const USER_HANDLE = toBase64Url(new Uint8Array([1, 2, 3, 4]));

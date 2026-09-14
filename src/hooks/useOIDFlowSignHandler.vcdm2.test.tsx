@@ -1,16 +1,17 @@
 import React from "react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/react";
-
-// `useApi` reaches for network/session plumbing the presentation path never
-// needs, so it is stubbed before the hook is imported.
-vi.mock("@/api", () => ({
-	useApi: () => ({ updatePrivateData: vi.fn(), getExternalEntity: vi.fn() }),
-}));
-
 import SessionContext from "@/context/SessionContext";
 import StatusContext from "@/context/StatusContext";
 import { useOIDFlowSignHandler } from "./useOIDFlowSignHandler";
+
+// `useApi` reaches for network/session plumbing the presentation path never
+// needs, so it is stubbed out. Vitest hoists `vi.mock` above every import, so
+// this still applies to the imports above it — they must stay at the top of
+// the file for `import/first`.
+vi.mock("@/api", () => ({
+	useApi: () => ({ updatePrivateData: vi.fn(), getExternalEntity: vi.fn() }),
+}));
 
 const VCDM2_CONTEXT = "https://www.w3.org/ns/credentials/v2";
 
