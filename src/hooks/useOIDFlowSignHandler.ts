@@ -9,7 +9,6 @@ import {
 	applySelectiveDisclosure,
 } from '@/lib/verifiable-credentials';
 import { detectCredentialFormat, VerifiableCredentialFormat } from 'wallet-common';
-import { MDoc } from '@auth0/mdl';
 import { attestFlowIfEnabled, buildClientAttestationPop } from '@/lib/services/WIA';
 import { buildDPoPProof } from '@/lib/utils/dpop';
 import { useHttpClient } from './useHttpClient';
@@ -384,7 +383,7 @@ async function createVpTokenFromMdoc(
 		throw new Error('disclosedClaims required for mdoc presentation');
 	}
 
-	let deviceResponseMDoc: MDoc | Uint8Array;
+	let deviceResponseMDoc: Uint8Array;
 	if (responseUri) {
 		deviceResponseMDoc = await wscd.generateDeviceResponse({
 			credential: credentialRaw,
