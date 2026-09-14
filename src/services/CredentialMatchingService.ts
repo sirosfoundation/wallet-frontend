@@ -113,6 +113,7 @@ export function shapeCredential(credential: ExtendedVcEntity): (DcqlCredential &
 		try {
 			const mdoc = decodeStoredMdoc(credential.data);
 			const { docType, nameSpaces } = resolveMdocIssuerSigned(mdoc);
+
 			return {
 				credential_format: 'mso_mdoc',
 				doctype: docType,
