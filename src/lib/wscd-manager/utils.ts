@@ -3,6 +3,7 @@ import type {
 	IWscdOperations,
 	WscdEligibilityRequirements,
 	AuthFactor,
+	IWscdManagerHost,
 } from './types';
 
 /**
@@ -20,4 +21,13 @@ export function requirementsForOperation(
 		plugin: WscdPlugin.SOFTKEY,
 		factors: [{ kind: 'none' }] as AuthFactor[],
 	};
+}
+
+/**
+ * Does the host require a container import.
+ *
+ * Only softkey hosts require a container import.
+ */
+export function hostNeedsContainerImport(host: IWscdManagerHost): boolean {
+	return host.supportedPlugins.has(WscdPlugin.SOFTKEY);
 }

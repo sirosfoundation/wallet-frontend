@@ -1,6 +1,7 @@
-import { FC, PropsWithChildren, useRef, useMemo } from 'react';
+import { FC, PropsWithChildren, useRef, useMemo, useEffect, useContext } from 'react';
 import { WscdManagerClientContext } from './WscdManagerClientContext';
 import { WscdManagerClient } from '@/lib/wscd-manager';
+import SessionContext from './SessionContext';
 
 export const WscdManagerClientContextProvider: FC<PropsWithChildren> = ({
 	children,
@@ -8,10 +9,23 @@ export const WscdManagerClientContextProvider: FC<PropsWithChildren> = ({
 	const clientRef = useRef<WscdManagerClient>(null);
 	clientRef.current ??= new WscdManagerClient();
 
+	const { keystore } = useContext(SessionContext);
+
 	const value = useMemo(
 		() => ({ wscdManagerClient: clientRef.current! }),
 		[],
 	);
+
+	useEffect(() => {
+		clientRef.current?.setContainerImporter(async () => {
+			return keystore.getWscdContainer();
+		})
+	}, [keystore])
+
+	// TEMP: debug
+	useEffect(() => {
+		value.wscdManagerClient.generateKeypairs();
+	}, [value.wscdManagerClient]);
 
 	return (
 		<WscdManagerClientContext.Provider value={value}>

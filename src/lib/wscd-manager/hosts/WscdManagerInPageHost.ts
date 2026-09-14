@@ -16,7 +16,7 @@ import type {
 import { logger } from '@/logger';
 
 export class WscdManagerInPageHost implements IWscdManagerHost {
-	#supportedPlugins: ReadonlySet<WscdPlugin> = new Set([
+	readonly supportedPlugins: ReadonlySet<WscdPlugin> = new Set([
 		WscdPlugin.SOFTKEY,
 		WscdPlugin.FIDO2,
 		WscdPlugin.R2PS,
@@ -42,20 +42,37 @@ export class WscdManagerInPageHost implements IWscdManagerHost {
 		plugin,
 		factors,
 	}: WscdEligibilityRequirements) {
-		const supportsPlugin = this.#supportedPlugins.has(plugin);
+		const supportsPlugin = this.supportedPlugins.has(plugin);
 		const satisfiesFactors = factors.every((f) => this.#canSatisfyFactor(f));
 
 		return supportsPlugin && satisfiesFactors;
+	}
+
+	async importContainer(container: Uint8Array): Promise<void> {
+		this.#wscd.importContainer(container);
+	}
+
+	async exportContainer(): Promise<Uint8Array> {
+		return this.#wscd.exportContainer();
 	}
 
 	async runOperation<T extends keyof IWscdOperations>(
 		id: T,
 		...args: Parameters<IWscdOperations[T]>
 	): Promise<OperationReturnType<T>> {
+		switch (id) {
+			case 'generateKeypairs': {
+				const kid = await this.#wscd.generateKey();
+				const container = this.#wscd.exportContainer();
+				const json = JSON.parse(new TextDecoder().decode(container));
 
-		// Implement the operation execution logic here.
-		// For now, just throw an error indicating it's not implemented.
-		throw new Error('runOperation not implemented');
+				logger.debug('WSCD generated key', kid, 'container bytes:', container.length);
+				logger.debug({ kid, container, json })
+				return undefined as OperationReturnType<T>;
+			}
+			default:
+			throw new Error(`runOperation: ${String(id)} not implemented`);
+		}
 	}
 
 	#canSatisfyFactor(factor: AuthFactor): boolean {

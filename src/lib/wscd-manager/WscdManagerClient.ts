@@ -1,7 +1,7 @@
 import { WscdManagerInPageHost } from './hosts/WscdManagerInPageHost';
-import { WscdManagerNativeWrapperHost } from './hosts/WscdManagerNativeWrapperHost';
-import { WscdManagerWalletCompanionHost } from './hosts/WscdManagerWalletCompanionHost';
-import { WscdManagerWorkerHost } from './hosts/WscdManagerWorkerHost';
+// import { WscdManagerNativeWrapperHost } from './hosts/WscdManagerNativeWrapperHost';
+// import { WscdManagerWalletCompanionHost } from './hosts/WscdManagerWalletCompanionHost';
+// import { WscdManagerWorkerHost } from './hosts/WscdManagerWorkerHost';
 import {
 	IWscdManagerClient,
 	IWscdManagerHost,
@@ -9,11 +9,12 @@ import {
 	OperationReturnType,
 	WscdEligibilityRequirements,
 } from './types';
-import { requirementsForOperation } from './utils';
+import { hostNeedsContainerImport, requirementsForOperation } from './utils';
 
 export class WscdManagerClient implements IWscdManagerClient {
 	#ready: Promise<void>;
 	#availableHosts: IWscdManagerHost[] = [];
+	#containerImportCallback: () => Promise<Uint8Array>;
 
 	constructor() {
 		this.#ready = this.#initialize();
@@ -22,10 +23,14 @@ export class WscdManagerClient implements IWscdManagerClient {
 	async #initialize(): Promise<void> {
 		await this.#registerHosts([
 			new WscdManagerInPageHost(),
-			new WscdManagerWorkerHost(),
-			new WscdManagerNativeWrapperHost(),
-			new WscdManagerWalletCompanionHost(),
+			// new WscdManagerWorkerHost(),
+			// new WscdManagerNativeWrapperHost(),
+			// new WscdManagerWalletCompanionHost(),
 		]);
+	}
+
+	setContainerImporter(callback: () => Promise<Uint8Array>): void {
+		this.#containerImportCallback = callback;
 	}
 
 	async generateKeypairs(): Promise<void> {
@@ -87,6 +92,14 @@ export class WscdManagerClient implements IWscdManagerClient {
 		const kid = '';
 		const requirements = requirementsForOperation(op, kid);
 		const host = await this.#selectHost(requirements);
+
+		if (hostNeedsContainerImport(host)) {
+			if (!this.#containerImportCallback) {
+				throw new Error('Container import callback not set');
+			}
+			const bytes = await this.#containerImportCallback();
+			if (bytes) await host.importContainer(bytes);
+		}
 
 		return host.runOperation(op, ...args);
 	}

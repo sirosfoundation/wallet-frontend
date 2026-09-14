@@ -12,7 +12,9 @@ import {
  * running the wscd-manager-wasm binary (or, bridging with the system that does),
  * in case of the native wrapper implementation.
  */
-export interface IWscdManagerClient extends IWscdOperations {}
+export interface IWscdManagerClient extends IWscdOperations {
+
+}
 
 /**
  * The WSCD Manager Host represents an individual host that runs the
@@ -29,6 +31,10 @@ export interface IWscdManagerHost {
 	 * inherent security or trust level.
 	 */
 	readonly strength: WscdHostStrength;
+	/**
+	 * Available plugins supported by the host.
+	 */
+	readonly supportedPlugins: ReadonlySet<WscdPlugin>;
 	/**
 	 * Initialization or setup logic for the host, if any.
 	 */
@@ -49,6 +55,16 @@ export interface IWscdManagerHost {
 		id: T,
 		...args: Parameters<IWscdOperations[T]>
 	): Promise<OperationReturnType<T>>;
+	/**
+	 * Imports a container of cryptographic material into the WSCD manager client.
+	 * This typically replaces the current state with the provided container.
+	 */
+	importContainer(container: Uint8Array): Promise<void>;
+	/**
+	 * Exports the current container of cryptographic material from the
+	 * WSCD manager client.
+	 */
+	exportContainer(): Promise<Uint8Array>;
 }
 
 /**

@@ -144,6 +144,7 @@ export interface LocalStorageKeystore {
 	 * @param remotePrivateDataRaw - Raw private data bytes from the server
 	 */
 	syncWithRemoteData(remotePrivateDataRaw: Uint8Array): Promise<Result<AsymmetricEncryptedContainer, 'keystoreNotOpen' | 'mergeFailed'>>,
+	getWscdContainer(): Promise<Uint8Array>,
 }
 
 /** A stateful wrapper around the keystore module, storing state in the browser's localStorage and sessionStorage. */
@@ -903,6 +904,10 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		}
 	}, [privateData, mainKey, assertKeystoreOpen, writePrivateDataOnIdb, userHandleB64u, setPrivateData, setMainKey, setCalculatedWalletState]);
 
+	const getWscdContainer = useCallback(async (): Promise<Uint8Array> => {
+		return Promise.resolve(null);
+	}, []);
+
 	return useMemo(() => ({
 		isOpen,
 		close,
@@ -934,6 +939,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		getCredentialIssuanceSessionByState,
 		alterSettings,
 		syncWithRemoteData,
+		getWscdContainer,
 	}), [
 		isOpen,
 		close,
@@ -965,5 +971,6 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		getCredentialIssuanceSessionByState,
 		alterSettings,
 		syncWithRemoteData,
+		getWscdContainer,
 	]);
 }
