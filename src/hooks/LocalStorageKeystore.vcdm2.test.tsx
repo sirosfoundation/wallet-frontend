@@ -3,7 +3,7 @@ import React from "react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import * as jose from "jose";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import * as keystore from "@/services/keystore";
 import { useLocalStorageKeystore } from "@/services/LocalStorageKeystore";
 import { jsonStringifyTaggedBinary, toBase64Url } from "@/util";
