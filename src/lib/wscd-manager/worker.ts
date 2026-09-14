@@ -15,6 +15,9 @@ globalThis.onmessage = async ({ data }: MessageEvent<WorkerMessage>) => {
 		let result: unknown;
 
 		switch (data.action) {
+			case 'ping':
+				result = true;
+				break;
 			case 'import_container':
 				wscd.importContainer(data.container);
 				break;

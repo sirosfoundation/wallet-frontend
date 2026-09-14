@@ -4,8 +4,6 @@ import { WscdManagerHosts, WscdHostStrength, WscdPlugin, WscdContainer } from '.
 import {
 	AuthFactor,
 	IWscdManagerHost,
-	IWscdOperations,
-	OperationReturnType,
 	WorkerMessage,
 	WorkerResponse,
 	WorkerResult,
@@ -43,7 +41,9 @@ export class WscdManagerWorkerHost implements IWscdManagerHost {
 	}
 
 	public async isAvailable() {
-		return !!window.Worker;
+		if (!window.Worker) return false;
+		const pong = await this.#messageWorker({ action: 'ping' });
+		return pong === true;
 	}
 
 	public async isEligible({

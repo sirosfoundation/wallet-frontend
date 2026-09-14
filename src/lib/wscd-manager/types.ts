@@ -181,6 +181,9 @@ export type WorkerMessage = {
 	id?: number;
 } & (
 	| {
+		action: 'ping',
+	}
+	| {
 		action: 'import_container',
 		container: Uint8Array,
 	}
@@ -199,6 +202,10 @@ export type WorkerResponse = {
 	error?: string;
 } & (
 	| {
+		action: 'ping',
+		result: true;
+	}
+	| {
 		action: 'import_container';
 		result: boolean;
 	}
@@ -211,3 +218,6 @@ export type WorkerResponse = {
 		result: Uint8Array;
 	}
 )
+
+export type WorkerResult<A extends WorkerMessage['action']> =
+	Extract<WorkerResponse, { action: A }>['result'];
