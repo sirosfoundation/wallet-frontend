@@ -3,6 +3,14 @@ import { cborDecode, cborEncode, DataItem } from '@auth0/mdl/lib/cbor';
 import { parse } from '@auth0/mdl';
 
 /**
+ * Issuer-signed data resolved from a stored mdoc: its docType and namespaces.
+ */
+export interface MdocIssuerSigned {
+	docType: string;
+	nameSpaces: Map<string, unknown[]>;
+}
+
+/**
  * Extract the base64url-encoded IssuerSigned structure from a stored mdoc
  * credential, which may be either a full DeviceResponse envelope or a bare
  * IssuerSigned already.
@@ -38,13 +46,18 @@ export function extractIssuerSignedB64(raw: string): string {
 		return raw;
 	}
 	if (!Array.isArray(documents) || documents.length === 0) {
-		throw new Error('Malformed DeviceResponse: `documents` is present but empty');
+		throw new Error(
+			'Malformed DeviceResponse: `documents` is present but empty',
+		);
 	}
 
 	const first = documents[0];
-	const issuerSigned = first instanceof Map ? first.get('issuerSigned') : undefined;
+	const issuerSigned =
+		first instanceof Map ? first.get('issuerSigned') : undefined;
 	if (!issuerSigned) {
-		throw new Error('Malformed DeviceResponse: first document has no `issuerSigned`');
+		throw new Error(
+			'Malformed DeviceResponse: first document has no `issuerSigned`',
+		);
 	}
 
 	return base64url.encode(cborEncode(issuerSigned));
@@ -65,7 +78,12 @@ export function parseIssuerSignedToMDoc(raw: string) {
 	const docType = cborDecode(payload).data.get('docType');
 	const envelope = {
 		version: '1.0',
-		documents: [new Map([['docType', docType], ['issuerSigned', issuerSigned]])],
+		documents: [
+			new Map([
+				['docType', docType],
+				['issuerSigned', issuerSigned],
+			]),
+		],
 		status: 0,
 	};
 	return parse(cborEncode(envelope));
@@ -105,28 +123,120 @@ export function extractDocTypeFromIssuerAuth(issuerAuth: unknown[]): string {
  * @param disclosedClaims - Array of claim paths to disclose, e.g. ["credentialSubject.name", "credentialSubject.address.street"]
  * @returns Presentation definition object for requesting an MDoc presentation with the specified claims disclosed
  */
-export function buildMdocPresentationDefinition(docType: string, disclosedClaims: string[]) {
-	const fields = disclosedClaims.map(claim => {
+export function buildMdocPresentationDefinition(
+	docType: string,
+	disclosedClaims: string[],
+) {
+	const fields = disclosedClaims.map((claim) => {
 		const lastDot = claim.lastIndexOf('.');
 		return {
-			path: [`$['${claim.substring(0, lastDot)}']['${claim.substring(lastDot + 1)}']`],
+			path: [
+				`$['${claim.substring(0, lastDot)}']['${claim.substring(lastDot + 1)}']`,
+			],
 			intent_to_retain: false,
 		};
 	});
 
 	return {
 		id: 'mdoc-request',
-		input_descriptors: [{
-			id: docType,
-			format: {
-				mso_mdoc: {
-					alg: ['ES256', 'ES384', 'EdDSA'],
+		input_descriptors: [
+			{
+				id: docType,
+				format: {
+					mso_mdoc: {
+						alg: ['ES256', 'ES384', 'EdDSA'],
+					},
+				},
+				constraints: {
+					limit_disclosure: 'required',
+					fields,
 				},
 			},
-			constraints: {
-				limit_disclosure: 'required',
-				fields,
-			},
-		}],
+		],
 	};
+}
+
+/**
+ * Decode a stored `mso_mdoc` credential (base64url) into its CBOR `Map` using
+ * mdl's codec. cbor-x's defaults must not be used here.
+ * See {@link extractIssuerSignedB64} for the integer-COSE-label corruption
+ * they cause.
+ *
+ * @param raw - Base64url-encoded DeviceResponse or bare IssuerSigned
+ */
+export function decodeStoredMdoc(raw: string): Map<string, unknown> {
+	const decoded = cborDecode(base64url.decode(raw));
+
+	if (!(decoded instanceof Map)) {
+		throw new Error('mdoc credential did not decode to a CBOR map');
+	}
+
+	return decoded;
+}
+
+/**
+ * Resolve `docType` + issuer-signed `nameSpaces` from a decoded mdoc, accepting
+ * either a full DeviceResponse envelope (`documents[]`) or a bare `IssuerSigned`
+ * (`nameSpaces` + `issuerAuth`), both shapes are seen from different issuers.
+ */
+export function resolveMdocIssuerSigned(
+	mdoc: Map<string, unknown>,
+): MdocIssuerSigned {
+	const documents = mdoc.get('documents');
+
+	if (Array.isArray(documents) && documents.length > 0) {
+		const doc = documents[0] as Map<string, unknown>;
+		const issuerSigned = doc.get('issuerSigned') as Map<string, unknown>;
+
+		return {
+			docType: doc.get('docType') as string,
+			nameSpaces: issuerSigned.get('nameSpaces') as Map<string, unknown[]>,
+		};
+	}
+
+	if (mdoc.get('nameSpaces') && mdoc.get('issuerAuth')) {
+		// Bare IssuerSigned has no docType field; read it from the MSO in issuerAuth.
+		return {
+			docType: extractDocTypeFromIssuerAuth(
+				mdoc.get('issuerAuth') as unknown[],
+			),
+			nameSpaces: mdoc.get('nameSpaces') as Map<string, unknown[]>,
+		};
+	}
+
+	throw new Error('mdoc is neither a DeviceResponse nor a bare IssuerSigned');
+}
+
+/**
+ * Flatten issuer-signed `nameSpaces` into
+ * `{ [namespace]: { [elementIdentifier]: elementValue } }`.
+ *
+ * Each IssuerSignedItem is a tag-24 `DataItem` (mdl exposes its decoded Map on
+ * `.data`); an already-decoded `Map` is tolerated too.
+ */
+export function mdocNameSpacesToClaims(
+	nameSpaces: Map<string, unknown[]>,
+): Record<string, Record<string, unknown>> {
+	const namespaces: Record<string, Record<string, unknown>> = {};
+
+	for (const [nsName, items] of nameSpaces) {
+		const claims: Record<string, unknown> = {};
+
+		for (const rawItem of items) {
+			const item = (
+				rawItem instanceof Map
+					? rawItem
+					: (rawItem as { data?: Map<string, unknown> })?.data
+			) as Map<string, unknown> | undefined;
+
+			if (!item) continue;
+
+			claims[item.get('elementIdentifier') as string] =
+				item.get('elementValue');
+		}
+
+		namespaces[nsName] = claims;
+	}
+
+	return namespaces;
 }
