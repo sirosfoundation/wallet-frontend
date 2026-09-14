@@ -700,6 +700,68 @@ describe('OIDFlowWebSocketTransport', () => {
 			expect(parsed.vp_token).toBe('eyJ...vp-token...');
 		});
 
+		it('parses sign_client_auth params and serializes dpop_key_id/dpop_proof', async () => {
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+			const mockWs = mockWebSocketInstances[0];
+
+			const signHandler = vi.fn().mockResolvedValue({
+				dpopKeyId: 'key-1',
+				dpopProof: 'eyJ...dpop...',
+				clientAttestation: 'wia.jwt',
+				clientAttestationPoP: 'pop.jwt',
+			});
+			transport.onSignRequest(signHandler);
+
+			mockWs.simulateMessage({
+				flow_id: 'flow-ca',
+				message_id: 'msg-ca',
+				type: 'sign_request',
+				action: 'sign_client_auth',
+				params: {
+					audience: 'https://as.example.com',
+					issuer: 'https://wallet.example.com/cb',
+					htm: 'POST',
+					htu: 'https://as.example.com/token',
+					dpop_nonce: 'nonce-xyz',
+					ath: 'token-hash',
+				},
+			});
+
+			await vi.waitFor(() => {
+				expect(signHandler).toHaveBeenCalled();
+			});
+
+			// snake_case wire params mapped to camelCase for the handler.
+			expect(signHandler).toHaveBeenCalledWith(expect.objectContaining({
+				flowId: 'flow-ca',
+				messageId: 'msg-ca',
+				action: 'sign_client_auth',
+				params: expect.objectContaining({
+					audience: 'https://as.example.com',
+					issuer: 'https://wallet.example.com/cb',
+					htm: 'POST',
+					htu: 'https://as.example.com/token',
+					dpopNonce: 'nonce-xyz',
+					ath: 'token-hash',
+				}),
+			}));
+
+			await new Promise(resolve => setTimeout(resolve, 100));
+			await vi.waitFor(() => {
+				expect(mockWs.sentMessages.length).toBeGreaterThan(0);
+			});
+
+			const signResponseMsg = mockWs.sentMessages.find(
+				m => JSON.parse(m).type === 'sign_response'
+			);
+			const parsed = JSON.parse(signResponseMsg!);
+			expect(parsed.dpop_key_id).toBe('key-1');
+			expect(parsed.dpop_proof).toBe('eyJ...dpop...');
+			expect(parsed.client_attestation).toBe('wia.jwt');
+			expect(parsed.client_attestation_pop).toBe('pop.jwt');
+		});
+
 		it('should handle multiple sign handlers', async () => {
 			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();

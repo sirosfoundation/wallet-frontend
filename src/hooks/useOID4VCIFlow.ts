@@ -10,6 +10,7 @@ import { notify } from '@/context/notifier';
 import { deriveHolderKidFromCredential } from '@/lib/verifiable-credentials';
 import CredentialsContext from '@/context/CredentialsContext';
 import { logger } from '@/logger';
+import { SerializedClientAuthMaterial } from '@/lib/openid-flow/OIDFlowClientAuthMaterial';
 
 export interface UseOID4VCIFlowOptions {
 	/**
@@ -80,7 +81,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 	const { onProgress, onError, onIssuanceWarnings } = options;
 
 	const { credentialEngine } = useContext(CredentialsContext);
-	const { api, keystore } = useContext(SessionContext);
+	const { api, keystore, oidFlowClientAuthMaterialManager } = useContext(SessionContext);
 	const transportContext = useOIDFlowTransportSafe();
 	const { openID4VCI } = useContext(OpenID4VCIContext);
 
@@ -184,6 +185,12 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 					assertNotAborted();
 
 					if (result.authorizationUrl && result.codeVerifier) {
+						// Persist the flow's client-held key (+ its WIA) so the
+						// post-redirect token leg reuses it: the issuer binds the
+						// WIA to the issuance session, so PAR and token must carry
+						// the same one. Survives the redirect via sessionStorage,
+						// the same channel code_verifier already uses.
+						const clientAuthKey = await oidFlowClientAuthMaterialManager.exportAuthMaterial();
 						// Save pending flow state for resumption after redirect
 						savePendingFlow({
 							flowId: result.transactionId,
@@ -192,6 +199,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 							credentialOffer: result.credentialOffer
 								? JSON.stringify(result.credentialOffer)
 								: undefined,
+							clientAuthKey,
 							timestamp: Date.now(),
 						});
 					}
@@ -269,7 +277,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		} finally {
 			setIsLoading(false);
 		}
-	}, [transportType, transport, openID4VCI, onProgress, onError, validateCredentialOffer, assertNotAborted]);
+	}, [transportType, transport, openID4VCI, onProgress, onError, validateCredentialOffer, assertNotAborted, oidFlowClientAuthMaterialManager]);
 
 	/**
 	 * Handle authorization response (after OAuth redirect)
@@ -291,6 +299,13 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 				const storedFlow = loadAndClearPendingFlow();
 
 				if (state !== storedFlow?.state) throw new Error('State mismatch in authorization response');
+
+				// Reuse the PAR leg's client-held key + WIA so this token leg
+				// presents the identical attestation the issuer bound to the
+				// issuance session (see savePendingFlow above).
+				if (storedFlow?.clientAuthKey) {
+					oidFlowClientAuthMaterialManager.seedMaterial(storedFlow.clientAuthKey);
+				}
 
 				try {
 					// Resumption: pass saved offer + auth code to start fresh backend flow
@@ -354,7 +369,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		} finally {
 			setIsLoading(false);
 		}
-	}, [transportType, transport, openID4VCI, onProgress, onError, assertNotAborted]);
+	}, [transportType, transport, openID4VCI, onProgress, onError, assertNotAborted, oidFlowClientAuthMaterialManager]);
 
 	/**
 	 * Request credentials with pre-authorized code flow
@@ -566,6 +581,7 @@ export interface PendingOID4VCIFlow {
 	codeVerifier?: string;
 	state?: string;
 	credentialOffer?: string;
+	clientAuthKey?: SerializedClientAuthMaterial;
 	timestamp: number;
 }
 
