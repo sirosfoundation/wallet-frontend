@@ -386,7 +386,7 @@ async function createVpTokenFromMdoc(
 
 	let deviceResponseMDoc: MDoc | Uint8Array;
 	if (responseUri) {
-		const drm = await wscd.generateDeviceResponse({
+		deviceResponseMDoc = await wscd.generateDeviceResponse({
 			credential: credentialRaw,
 			disclosedClaims,
 			sessionTranscript: {
@@ -397,9 +397,8 @@ async function createVpTokenFromMdoc(
 			},
 		});
 
-		deviceResponseMDoc = drm;
 	} else if (origin) {
-		const drm = await wscd.generateDeviceResponseForDCAPI({
+		deviceResponseMDoc = await wscd.generateDeviceResponseForDCAPI({
 			credential: credentialRaw,
 			disclosedClaims,
 			sessionTranscript: {
@@ -408,7 +407,6 @@ async function createVpTokenFromMdoc(
 				jwkThumbprint: verifierJwkThumbprint ?? undefined,
 			},
 		});
-		deviceResponseMDoc = drm;
 	} else {
 		throw new Error('Unexpected error: neither responseUri nor origin provided for mdoc presentation');
 	}
