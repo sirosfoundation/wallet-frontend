@@ -10,8 +10,6 @@ import {
 import type {
 	AuthFactor,
 	IWscdManagerHost,
-	IWscdOperations,
-	OperationReturnType,
 	WscdEligibilityRequirements,
 } from '../types';
 import { logger } from '@/logger';
@@ -58,23 +56,8 @@ export class WscdManagerInPageHost implements IWscdManagerHost {
 		return exportWscdContainer(this.#wscd);
 	}
 
-	async runOperation<T extends keyof IWscdOperations>(
-		id: T,
-		...args: Parameters<IWscdOperations[T]>
-	): Promise<OperationReturnType<T>> {
-		switch (id) {
-			case 'generateKeypairs': {
-				const kid = await this.#wscd.generateKey();
-				const container = this.#wscd.exportContainer();
-				const json = JSON.parse(new TextDecoder().decode(container));
-
-				logger.debug('WSCD generated key', kid, 'container bytes:', container.length);
-				logger.debug({ kid, container, json })
-				return undefined as OperationReturnType<T>;
-			}
-			default:
-			throw new Error(`runOperation: ${String(id)} not implemented`);
-		}
+	async sign(kid: string, data: Uint8Array): Promise<Uint8Array> {
+		return this.#wscd.sign(kid, data);
 	}
 
 	#canSatisfyFactor(factor: AuthFactor): boolean {

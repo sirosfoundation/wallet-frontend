@@ -50,12 +50,9 @@ export interface IWscdManagerHost {
 	 */
 	isEligible(requirements: WscdEligibilityRequirements): Promise<boolean>;
 	/**
-	 * Run a {@link IWscdOperations} on the host.
+	 * Signs the provided data using the specified key identifier (kid).
 	 */
-	runOperation<T extends keyof IWscdOperations>(
-		id: T,
-		...args: Parameters<IWscdOperations[T]>
-	): Promise<OperationReturnType<T>>;
+	sign(kid: string, data: Uint8Array): Promise<Uint8Array>;
 	/**
 	 * Imports a container of cryptographic material into the WSCD manager client.
 	 * This typically replaces the current state with the provided container.
@@ -69,16 +66,42 @@ export interface IWscdManagerHost {
 }
 
 /**
- * The set of cryptographic operations that a WSCD can perform.
+ * Sign operations. These involve signing data or generating responses that
+ * require cryptographic proofs, without new cryptographic material being created.
  */
-export interface IWscdOperations {
-	generateKeypairs(): Promise<void>;
-	generateOpenid4vciProofs(): Promise<void>;
-	signJwtPresentation(): Promise<void>;
+export interface IWscdSignOperations {
+	/**
+	 * Sign as SD-JWT presentation.
+	 */
+	signSdJwtPresentation(request: SignJwtPresentationRequest): Promise<string>;
+	/**
+	 * Generate a device response for mDoc.
+	 */
 	generateDeviceResponse(): Promise<void>;
+	/**
+	 * Generate a device response for mDoc for the DC API.
+	 */
 	generateDeviceResponseForDCAPI(): Promise<void>;
+	/**
+	 * Generate a device response for mDoc with proximity-based authentication.
+	 */
 	generateDeviceResponseWithProximity(): Promise<void>;
 }
+
+/**
+ * Generate operations. These create new cryptographic material or proofs.
+ */
+export interface IWscdGenerateOperations {
+	generateKeypairs(): Promise<void>;
+	generateOpenid4vciProofs(): Promise<void>;
+}
+
+/**
+ * The set of cryptographic operations that a WSCD can perform.
+ *
+ * @todo add {@link IWscdGenerateOperations} to the operations set.
+ */
+export interface IWscdOperations extends IWscdSignOperations {}
 
 export type OperationReturnType<T extends keyof IWscdOperations> =
 	ReturnType<IWscdOperations[T]>;
@@ -126,3 +149,13 @@ export type WscdKeyMetadata = {
 	plugin: WscdPlugin;
 	factors: AuthFactor[];
 };
+
+export type SignJwtPresentationRequest = {
+	nonce: string,
+	audience: string,
+	verifiableCredentials: any[],
+	transactionDataResponseParams?: {
+		transaction_data_hashes: string[],
+		transaction_data_hashes_alg: string[]
+	}
+}

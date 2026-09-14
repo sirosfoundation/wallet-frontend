@@ -8,19 +8,18 @@ import type {
 } from './types';
 
 /**
- * @todo Implement logic to retrieve the actual metadata for the given key ID.
- * 			 Dependant on the S.extensions work in the wallet privateData.
+ * Requirements for a given credential based on its key ID.
  */
-export function requirementsForOperation(
-	op: keyof IWscdOperations,
+export function requirementsForCredential(
 	kid: string,
 ): WscdEligibilityRequirements {
-	void op;
 	void kid;
 
+	// Currently, all credentials are assumed to require the softkey plugin
+	// with no authentication factors.
 	return {
 		plugin: WscdPlugin.SOFTKEY,
-		factors: [{ kind: 'none' }] as AuthFactor[],
+		factors: [{ kind: 'none' }],
 	};
 }
 

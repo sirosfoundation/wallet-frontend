@@ -17,6 +17,8 @@ import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
 import { attestFlowIfEnabled, buildClientAttestationPop } from '@/lib/services/WIA';
 import { buildDPoPProof } from '@/lib/utils/dpop';
 import { useHttpClient } from './useHttpClient';
+import { useWscdManagerClient } from './useWscdManagerClient';
+import { IWscdManagerClient } from '@/lib/wscd-manager';
 
 interface ProofTypeConfig {
 	key_attestations_required?: Record<string, unknown> | null;
@@ -95,6 +97,7 @@ export function useOIDFlowSignHandler() {
 	const httpClient = useHttpClient();
 	const oidFlowClientAuthMaterialManager = sessionContext?.oidFlowClientAuthMaterialManager;
 	const keystore = sessionContext?.keystore;
+	const wscd = useWscdManagerClient();
 
 	const signPresentation = useCallback(async (options: OIDFlowSignOptions): Promise<OIDFlowSignResponse> => {
 		const { audience, nonce, credentialsToInclude, responseUri, origin, verifierJwkThumbprint } = options;
@@ -117,6 +120,7 @@ export function useOIDFlowSignHandler() {
 
 			const vpToken = await createVpToken(
 				keystore,
+				wscd,
 				{
 					credentialRaw: c.credentialRaw,
 					disclosedClaims: c.disclosedClaims,
@@ -138,7 +142,7 @@ export function useOIDFlowSignHandler() {
 		return {
 			vpToken: JSON.stringify(vpTokenMap)
 		};
-	}, [keystore]);
+	}, [keystore, wscd]);
 
 	const generateProof = useCallback(async (options: OIDFlowSignOptions): Promise<OIDFlowSignResponse> => {
 		const { audience, nonce, proofTypesSupported, issuer, count = 1 } = options;
@@ -283,6 +287,7 @@ export function useOIDFlowSignHandler() {
 
 async function createVpToken(
 	keystore: LocalStorageKeystore,
+	wscd: IWscdManagerClient,
 	credentialData: {
 		credentialRaw: string;
 		disclosedClaims?: string[];
@@ -303,7 +308,7 @@ async function createVpToken(
 			case VerifiableCredentialFormat.VC_SDJWT:
 			case VerifiableCredentialFormat.JWT_VC_JSON:
 				return await createVpTokenFromSdJwt(
-					keystore,
+					wscd,
 					{
 						credentialRaw,
 						disclosedClaims: disclosedClaims ?? [],
@@ -334,7 +339,7 @@ async function createVpToken(
 }
 
 async function createVpTokenFromSdJwt(
-	keystore: LocalStorageKeystore,
+	wscd: IWscdManagerClient,
 	credentialData: {
 		credentialRaw: string;
 		disclosedClaims: string[];
@@ -348,7 +353,11 @@ async function createVpTokenFromSdJwt(
 	const { nonce, audience } = params;
 
 	const credential = await applySelectiveDisclosure(credentialRaw, disclosedClaims);
-	const { vpjwt } = await keystore.signJwtPresentation(nonce, audience, [credential]);
+	const vpjwt = await wscd.signSdJwtPresentation({
+		audience,
+		nonce,
+		verifiableCredentials: [credential],
+	});
 	return vpjwt;
 }
 

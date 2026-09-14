@@ -2,15 +2,16 @@ import { WscdManagerInPageHost } from './hosts/WscdManagerInPageHost';
 // import { WscdManagerNativeWrapperHost } from './hosts/WscdManagerNativeWrapperHost';
 // import { WscdManagerWalletCompanionHost } from './hosts/WscdManagerWalletCompanionHost';
 // import { WscdManagerWorkerHost } from './hosts/WscdManagerWorkerHost';
-import { hostNeedsContainerImportExport, requirementsForOperation } from './utils';
+import { hostNeedsContainerImportExport, requirementsForCredential } from './utils';
 import { WscdContainer } from './resources';
 import {
 	IWscdManagerClient,
 	IWscdManagerHost,
-	IWscdOperations,
-	OperationReturnType,
+	SignJwtPresentationRequest,
 	WscdEligibilityRequirements,
 } from './types';
+import { prepareSdJwtPresentation } from '../verifiable-credentials';
+import { base64url } from 'jose';
 
 export class WscdManagerClient implements IWscdManagerClient {
 	#ready: Promise<void>;
@@ -41,40 +42,43 @@ export class WscdManagerClient implements IWscdManagerClient {
 	// 	this.#containerExportCallback = callback;
 	// }
 
-	async generateKeypairs(): Promise<void> {
-		return await this.#dispatchOperation(
-			'generateKeypairs',
-		);
-	}
+	public async signSdJwtPresentation({
+		audience,
+		nonce,
+		verifiableCredentials,
+		transactionDataResponseParams,
+	}: SignJwtPresentationRequest): Promise<string> {
 
-	async generateOpenid4vciProofs(): Promise<void> {
-		return await this.#dispatchOperation(
-			'generateOpenid4vciProofs',
+		const {
+			kid,
+			sdJwt,
+			signingInput,
+		} = await prepareSdJwtPresentation(
+			verifiableCredentials,
+			nonce,
+			audience,
+			transactionDataResponseParams,
 		);
-	}
 
-	async signJwtPresentation(): Promise<void> {
-		return await this.#dispatchOperation(
-			'signJwtPresentation',
+		const sig = await this.#dispatchSignRequest(
+			kid,
+			new TextEncoder().encode(signingInput),
 		);
+
+		const kbJwt = `${signingInput}.${base64url.encode(sig)}`;
+		return (sdJwt + kbJwt);
 	}
 
 	async generateDeviceResponse(): Promise<void> {
-		return await this.#dispatchOperation(
-			'generateDeviceResponse',
-		);
+		return Promise.resolve(null);
 	}
 
 	async generateDeviceResponseForDCAPI(): Promise<void> {
-		return await this.#dispatchOperation(
-			'generateDeviceResponseForDCAPI',
-		);
+		return Promise.resolve(null);
 	}
 
 	async generateDeviceResponseWithProximity(): Promise<void> {
-		return await this.#dispatchOperation(
-			'generateDeviceResponseWithProximity',
-		);
+		return Promise.resolve(null);
 	}
 
 	async #registerHosts(hosts: IWscdManagerHost[]): Promise<void> {
@@ -87,22 +91,17 @@ export class WscdManagerClient implements IWscdManagerClient {
 		this.#availableHosts = hosts.filter((_, i) => availability[i]);
 	}
 
-	/**
-	 * Dispatches the specified operation to the most eligible host based on the operation's requirements.
-	 */
-	async #dispatchOperation<T extends keyof IWscdOperations>(
-		op: T,
-		...args: Parameters<IWscdOperations[T]>
-	): Promise<OperationReturnType<T>> {
-		await this.#ready;
-		// TODO: we need to figure out how to obtain the key ID (kid) for the operation
-		// It's
-		const kid = '';
-		const requirements = requirementsForOperation(op, kid);
-		const host = await this.#selectHost(requirements);
-		const needsImportExport = hostNeedsContainerImportExport(host);
+	async #dispatchSignRequest(
+		kid: string,
+		data: Uint8Array
+	): Promise<Uint8Array> {
+		await this.#ready
+		const
+			requirements = requirementsForCredential(kid),
+			host = await this.#selectHost(requirements),
+			needsImport = hostNeedsContainerImportExport(host);
 
-		if (needsImportExport) {
+		if (needsImport) {
 			if (!this.#containerImportCallback) {
 				throw new Error('Container import callback not set');
 			}
@@ -110,10 +109,7 @@ export class WscdManagerClient implements IWscdManagerClient {
 			if (bytes) await host.importContainer(bytes);
 		}
 
-		const result = await host.runOperation(op, ...args);
-
-		// todo: once we start generating keys or performing operations that modify
-		// the container, we should export the container
+		const result = await host.sign(kid, data);
 
 		return result;
 	}
