@@ -435,7 +435,12 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			await session.initialize();
 			cleanupUrl();
 
-			const result = await handleDCAPIRequest(session.request, session.verifiedOrigin);
+			const result = await handleDCAPIRequest(
+				session.request,
+				session.selectedCredentialIDs,
+				session.verifiedOrigin,
+			);
+
 			if (!result?.success) {
 				throw new OIDFlowError(result.error);
 			}

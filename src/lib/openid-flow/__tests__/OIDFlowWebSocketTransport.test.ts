@@ -184,6 +184,36 @@ describe('OIDFlowWebSocketTransport', () => {
 			expect(result.issuerMetadata).toEqual({ issuer: 'https://issuer.example.com' });
 		});
 
+		it('forwards wallet attestation as client_attestation/client_attestation_pop wire fields', async () => {
+			// Field names must match go-wallet-backend's FlowStartMessage exactly
+			// (internal/engine/messages.go) - this is the only WebSocket-specific
+			// encoding step; WIA/PoP generation itself happens once upstream in
+			// useOID4VCIFlow.ts, transport-agnostically (see OID4VCITypes.ts).
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+
+			const flowPromise = transport.startOID4VCIFlow({
+				credentialOfferUri: 'openid-credential-offer://?credential_offer=...',
+				clientAttestation: 'signed.wia.jwt',
+				clientAttestationPoP: 'signed.pop.jwt',
+			});
+
+			await vi.waitFor(() => {
+				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(1);
+			});
+
+			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[1]);
+			expect(sentMessage.client_attestation).toBe('signed.wia.jwt');
+			expect(sentMessage.client_attestation_pop).toBe('signed.pop.jwt');
+
+			mockWebSocketInstances[0].simulateMessage({
+				flow_id: sentMessage.flow_id,
+				type: 'flow_complete',
+				payload: { issuer_metadata: { issuer: 'https://issuer.example.com' } },
+			});
+			await flowPromise;
+		});
+
 		it('should send flow_action message with holder binding', async () => {
 			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
@@ -668,6 +698,68 @@ describe('OIDFlowWebSocketTransport', () => {
 			expect(signResponseMsg).toBeDefined();
 			const parsed = JSON.parse(signResponseMsg!);
 			expect(parsed.vp_token).toBe('eyJ...vp-token...');
+		});
+
+		it('parses sign_client_auth params and serializes dpop_key_id/dpop_proof', async () => {
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+			const mockWs = mockWebSocketInstances[0];
+
+			const signHandler = vi.fn().mockResolvedValue({
+				dpopKeyId: 'key-1',
+				dpopProof: 'eyJ...dpop...',
+				clientAttestation: 'wia.jwt',
+				clientAttestationPoP: 'pop.jwt',
+			});
+			transport.onSignRequest(signHandler);
+
+			mockWs.simulateMessage({
+				flow_id: 'flow-ca',
+				message_id: 'msg-ca',
+				type: 'sign_request',
+				action: 'sign_client_auth',
+				params: {
+					audience: 'https://as.example.com',
+					issuer: 'https://wallet.example.com/cb',
+					htm: 'POST',
+					htu: 'https://as.example.com/token',
+					dpop_nonce: 'nonce-xyz',
+					ath: 'token-hash',
+				},
+			});
+
+			await vi.waitFor(() => {
+				expect(signHandler).toHaveBeenCalled();
+			});
+
+			// snake_case wire params mapped to camelCase for the handler.
+			expect(signHandler).toHaveBeenCalledWith(expect.objectContaining({
+				flowId: 'flow-ca',
+				messageId: 'msg-ca',
+				action: 'sign_client_auth',
+				params: expect.objectContaining({
+					audience: 'https://as.example.com',
+					issuer: 'https://wallet.example.com/cb',
+					htm: 'POST',
+					htu: 'https://as.example.com/token',
+					dpopNonce: 'nonce-xyz',
+					ath: 'token-hash',
+				}),
+			}));
+
+			await new Promise(resolve => setTimeout(resolve, 100));
+			await vi.waitFor(() => {
+				expect(mockWs.sentMessages.length).toBeGreaterThan(0);
+			});
+
+			const signResponseMsg = mockWs.sentMessages.find(
+				m => JSON.parse(m).type === 'sign_response'
+			);
+			const parsed = JSON.parse(signResponseMsg!);
+			expect(parsed.dpop_key_id).toBe('key-1');
+			expect(parsed.dpop_proof).toBe('eyJ...dpop...');
+			expect(parsed.client_attestation).toBe('wia.jwt');
+			expect(parsed.client_attestation_pop).toBe('pop.jwt');
 		});
 
 		it('should handle multiple sign handlers', async () => {

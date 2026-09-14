@@ -1,14 +1,6 @@
 import React from 'react';
 import EntityListItem from './EntityListItem';
 
-export function getCredentialType(parsedCredential: any): string {
-	return (
-		parsedCredential?.metadata?.credential?.vct ??
-		parsedCredential?.metadata?.credential?.doctype ??
-		''
-	);
-}
-
 export function buildCredentialConfiguration(
 	key: string,
 	config: any,

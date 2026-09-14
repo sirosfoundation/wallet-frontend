@@ -13,9 +13,9 @@
 import { ExtendedVcEntity } from '@/context/CredentialsContext';
 import { DcqlQuery, DcqlCredential, DcqlQueryResult } from 'dcql';
 import { logger } from '@/logger';
-import * as cbor from 'cbor-x';
+import { cborDecode } from '@auth0/mdl/lib/cbor';
 import { fromBase64Url } from "../util";
-import { extractDocTypeFromIssuerAuth } from '@/lib/verifiable-credentials';
+import { decodeStoredMdoc, extractDocTypeFromIssuerAuth, mdocNameSpacesToClaims, resolveMdocIssuerSigned } from '@/lib/verifiable-credentials';
 
 export interface CredentialMatch {
 	input_descriptor_id: string;
@@ -111,42 +111,13 @@ export function shapeCredential(credential: ExtendedVcEntity): (DcqlCredential &
 
 	if (format === 'mso_mdoc') {
 		try {
-			const data = credential.data;
-			const bytes = fromBase64Url(data);
-			const mdoc = cbor.decode(bytes); // full DeviceResponse, or a bare IssuerSigned structure
+			const mdoc = decodeStoredMdoc(credential.data);
+			const { docType, nameSpaces } = resolveMdocIssuerSigned(mdoc);
 
-			let docType: string;
-			let rawNameSpaces: Record<string, any[]>;
-			if (mdoc.documents?.[0]) {
-				const doc = mdoc.documents[0];
-				docType = doc.docType;
-				rawNameSpaces = doc.issuerSigned.nameSpaces; // { [namespaceName]: TaggedItem[] }
-			} else if (mdoc.nameSpaces && mdoc.issuerAuth) {
-				// Bare IssuerSigned structure (no documents[] envelope) - what
-				// real-world/interop issuers (e.g. geneva2026.mdoc.online) send for
-				// mso_mdoc credential responses. IssuerSigned has no docType field of
-				// its own; it has to be read from the MSO embedded in issuerAuth's
-				// COSE_Sign1 payload instead.
-				docType = extractDocTypeFromIssuerAuth(mdoc.issuerAuth);
-				rawNameSpaces = mdoc.nameSpaces;
-			} else {
-				throw new Error('mdoc credential envelope missing documents[] (and not a bare IssuerSigned structure either)');
-			}
-
-			const namespaces: Record<string, Record<string, unknown>> = {};
-
-			for (const [nsName, items] of Object.entries(rawNameSpaces as Record<string, any[]>)) {
-				const claims: Record<string, unknown> = {};
-				for (const taggedItem of items) {
-					const item = cbor.decode(taggedItem.value);
-					claims[item.elementIdentifier] = item.elementValue;
-				}
-				namespaces[nsName] = claims;
-			}
 			return {
 				credential_format: 'mso_mdoc',
 				doctype: docType,
-				namespaces,
+				namespaces: mdocNameSpacesToClaims(nameSpaces),
 				cryptographic_holder_binding: true,
 				_batchId: credential.batchId,
 			} as DcqlCredential & { _batchId?: number };
@@ -175,7 +146,7 @@ export function shapeCredential(credential: ExtendedVcEntity): (DcqlCredential &
 /**
  * Extract available claims from a credential for disclosure selection.
  */
-function extractAvailableClaims(credential: ExtendedVcEntity): string[] {
+export function extractAvailableClaims(credential: ExtendedVcEntity): string[] {
 	const claims: string[] = [];
 	const vcClaims = credential.parsedCredential?.signedClaims || {};
 	extractClaimPaths(vcClaims, '', claims);

@@ -74,7 +74,7 @@ export class DCAPIRequest {
 		const requestJwt = url.searchParams.get('request');
 
 		this.data = requestJwt
-			? this.#parseJwt(requestJwt, url)
+			? this.#parseJwt(requestJwt)
 			: this.#parsePlainParams(url);
 		this.isSigned = 'rawJwt' in this.data;
 	}
@@ -89,12 +89,7 @@ export class DCAPIRequest {
 		await this.#verifyJwtSignature();
 	}
 
-	#parseJwt(jwt: string, url: URL): SignedDCAPIRequest {
-		const urlClientId = url.searchParams.get('client_id');
-		if (!urlClientId) {
-			throw new Error('client_id required in URL for signed requests');
-		}
-
+	#parseJwt(jwt: string): SignedDCAPIRequest {
 		const header = decodeProtectedHeader(jwt);
 		const payload = decodeJwt(jwt);
 
@@ -129,10 +124,6 @@ export class DCAPIRequest {
 		if (!success) {
 			logger.error('Invalid DC API JWT request:', error);
 			throw new Error('Invalid DC API JWT request: ' + error.errors.map(e => e.message).join(', '));
-		}
-
-		if (urlClientId !== data.clientId) {
-			throw new Error('client_id mismatch between URL and JWT');
 		}
 
 		return data;

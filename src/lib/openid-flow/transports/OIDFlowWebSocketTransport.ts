@@ -64,7 +64,7 @@ interface ProofTypesSupported {
 export interface SignRequest {
 	flowId: string;
 	messageId: string;
-	action: 'generate_proof' | 'sign_presentation';
+	action: 'generate_proof' | 'sign_presentation' | 'sign_client_auth';
 	params: {
 		audience?: string;
 		nonce?: string;
@@ -80,6 +80,11 @@ export interface SignRequest {
 		}>;
 		responseUri?: string;
 		verifierJwkThumbprint?: string;
+		htm?: string;
+		htu?: string;
+		dpopNonce?: string;
+		ath?: string;
+		keyId?: string;
 	};
 }
 
@@ -100,6 +105,10 @@ export interface SignResponse {
 	proofJwt?: string;       // single proof (legacy)
 	proofs?: ProofObject[];  // batch proofs
 	vpToken?: string;
+	clientAttestation?: string;
+	clientAttestationPoP?: string;
+	dpopKeyId?: string;
+	dpopProof?: string;
 }
 
 /**
@@ -174,10 +183,6 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			evaluateIssuerTrust: async () => ({ trusted: false }),
 			evaluateVerifierTrust: async () => ({ trusted: false }),
 		};
-	}
-
-	getCurrentFlowId(): string | null {
-		return this.currentFlowId;
 	}
 
 	// ===== Connection Lifecycle =====
@@ -327,6 +332,12 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				credential_offer_uri: params.credentialOfferUri,
 				offer: params.credentialOffer,
 				redirect_uri: params.redirectUri,  // Include redirect URI for authorization code flow continuation
+				// Wire names match go-wallet-backend's FlowStartMessage exactly
+				// (internal/engine/messages.go) - see OID4VCITypes.ts for why
+				// these are generated transport-agnostically, once, upstream
+				// of this WebSocket-specific encoding.
+				client_attestation: params.clientAttestation,
+				client_attestation_pop: params.clientAttestationPoP,
 			});
 
 			return this.mapOID4VCIResponse(response);
@@ -829,7 +840,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		const request: SignRequest = {
 			flowId,
 			messageId: (message.message_id as string) || (message.messageId as string) || '',
-			action: message.action as 'generate_proof' | 'sign_presentation',
+			action: message.action as 'generate_proof' | 'sign_presentation' | 'sign_client_auth',
 			params: {
 				audience: rawParams.audience as string | undefined,
 				issuer: rawParams.issuer as string | undefined,
@@ -839,6 +850,11 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				count: rawParams.count as number | undefined,
 				responseUri: rawParams.response_uri as string | undefined,
 				verifierJwkThumbprint: rawParams.verifier_jwk_thumbprint as string | undefined,
+				htm: rawParams.htm as string | undefined,
+				htu: rawParams.htu as string | undefined,
+				dpopNonce: rawParams.dpop_nonce as string | undefined,
+				ath: rawParams.ath as string | undefined,
+				keyId: rawParams.key_id as string | undefined,
 				credentialsToInclude: (
 					rawParams.credentials_to_include as Array<{
 						credential_id: string;
@@ -909,6 +925,10 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			if (response.proofJwt) msg.proof_jwt = response.proofJwt;
 			if (response.proofs) msg.proofs = response.proofs;
 			if (response.vpToken) msg.vp_token = response.vpToken;
+			if (response.clientAttestation) msg.client_attestation = response.clientAttestation;
+			if (response.clientAttestationPoP) msg.client_attestation_pop = response.clientAttestationPoP;
+			if (response.dpopKeyId) msg.dpop_key_id = response.dpopKeyId;
+			if (response.dpopProof) msg.dpop_proof = response.dpopProof;
 		}
 
 		try {

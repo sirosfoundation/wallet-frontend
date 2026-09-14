@@ -3,7 +3,7 @@ import SessionContext from '@/context/SessionContext';
 import { useApi } from '@/api';
 import StatusContext from '@/context/StatusContext';
 import { logger } from '@/logger';
-import { OPENID4VCI_PROOF_TYPE_PRECEDENCE } from '@/config';
+import { OPENID4VCI_PROOF_TYPE_PRECEDENCE, WIA_ENABLED, BACKEND_URL } from '@/config';
 import { base64url } from 'jose';
 import {
 	applySelectiveDisclosure,
@@ -14,7 +14,9 @@ import {
 import { detectCredentialFormat, VerifiableCredentialFormat } from 'wallet-common';
 import { MDoc } from '@auth0/mdl';
 import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
-
+import { attestFlowIfEnabled, buildClientAttestationPop } from '@/lib/services/WIA';
+import { buildDPoPProof } from '@/lib/utils/dpop';
+import { useHttpClient } from './useHttpClient';
 
 interface ProofTypeConfig {
 	key_attestations_required?: Record<string, unknown> | null;
@@ -43,10 +45,16 @@ export type OIDFlowSignOptions = {
 		credentialRaw?: string;
 	}>;
 	verifierJwkThumbprint?: string;
+	htm?: string;
+	htu?: string;
+	dpopNonce?: string;
+	ath?: string;
+	keyId?: string;
 }
 
 export interface OIDFlowSignRequest {
-	action: 'generate_proof' | 'sign_presentation';
+	flowId: string;
+	action: 'generate_proof' | 'sign_presentation' | 'sign_client_auth';
 	params: OIDFlowSignOptions;
 }
 
@@ -74,13 +82,18 @@ export interface OIDFlowSignResponse {
 	proofJwt?: string;       // single proof (legacy)
 	proofs?: ProofObject[];  // batch proofs
 	vpToken?: string;
+	clientAttestation?: string;
+	clientAttestationPoP?: string;
+	dpopKeyId?: string;
+	dpopProof?: string;
 }
 
 export function useOIDFlowSignHandler() {
 	const sessionContext = useContext(SessionContext);
 	const { isOnline } = useContext(StatusContext);
 	const api = useApi(isOnline);
-
+	const httpClient = useHttpClient();
+	const oidFlowClientAuthMaterialManager = sessionContext?.oidFlowClientAuthMaterialManager;
 	const keystore = sessionContext?.keystore;
 
 	const signPresentation = useCallback(async (options: OIDFlowSignOptions): Promise<OIDFlowSignResponse> => {
@@ -192,14 +205,70 @@ export function useOIDFlowSignHandler() {
 		throw new Error(`Unsupported proof type requested: ${proofType}`);
 	}, [keystore, api]);
 
-	const handleSignRequest = useCallback(async (request: OIDFlowSignRequest): Promise<OIDFlowSignResponse> => {
-		if (!keystore) {
-			throw new Error('Keystore not available');
+	const signClientAuth = useCallback(async (
+		options: OIDFlowSignOptions,
+		flowId: string,
+	): Promise<OIDFlowSignResponse> => {
+		const { audience, issuer, htm, htu, dpopNonce, ath } = options;
+
+		const authMaterial = await oidFlowClientAuthMaterialManager.getAuthMaterial(
+			flowId
+		);
+
+		const response: OIDFlowSignResponse = { dpopKeyId: authMaterial.dpopKeyId };
+
+		if (htm && htu) {
+			response.dpopProof = await buildDPoPProof(
+				authMaterial.keyPair,
+				{
+					htm,
+					htu,
+					ath,
+					nonce: dpopNonce
+				},
+			);
 		}
 
+		if (audience && issuer) {
+			try {
+				const wia = await attestFlowIfEnabled(
+					httpClient,
+					WIA_ENABLED,
+					authMaterial.wia,
+					authMaterial.keyPair,
+					issuer,
+					BACKEND_URL,
+				);
+
+				if (wia) {
+					oidFlowClientAuthMaterialManager.attachWia(flowId, wia);
+					response.clientAttestation = wia;
+					response.clientAttestationPoP = await buildClientAttestationPop(
+						authMaterial.keyPair,
+						issuer,
+						audience,
+					);
+				}
+			}
+			catch (err) {
+				logger.debug(
+					'[WS Sign Handler] WIA attach failed; proceeding DPoP-only',
+					err,
+				);
+			}
+		}
+
+		return response;
+	}, [oidFlowClientAuthMaterialManager, httpClient]);
+
+	const handleSignRequest = useCallback(async (request: OIDFlowSignRequest): Promise<OIDFlowSignResponse> => {
 		logger.debug('[WS Sign Handler] Received sign request:', request.action);
 
+		if (!keystore) throw new Error('Keystore not available');
+
 		switch (request.action) {
+			case 'sign_client_auth':
+				return await signClientAuth(request.params, request.flowId);
 			case 'generate_proof':
 				return await generateProof(request.params);
 			case 'sign_presentation':
@@ -207,7 +276,7 @@ export function useOIDFlowSignHandler() {
 			default:
 				throw new Error(`Unknown sign action: ${request.action}`);
 		}
-	}, [keystore, generateProof, signPresentation]);
+	}, [keystore, generateProof, signPresentation, signClientAuth]);
 
 	return { handleSignRequest, signPresentation, generateProof };
 }
