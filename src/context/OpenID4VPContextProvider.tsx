@@ -1,5 +1,4 @@
 import React, { useState, useContext, useCallback } from "react";
-import { useOpenID4VP } from "../lib/services/OpenID4VP/OpenID4VP";
 import OpenID4VPContext from "./OpenID4VPContext";
 import GenericConsentPopup from "@/components/Popups/GenericConsentPopup";
 import SessionContext from "./SessionContext";
@@ -40,10 +39,9 @@ export const OpenID4VPContextProvider = ({ children }: React.PropsWithChildren) 
 		[showPopupConsent]
 	);
 
-	const openID4VP = useOpenID4VP({ showTransactionDataConsentPopup });
 
 	return (
-		<OpenID4VPContext.Provider value={{ openID4VP, showTransactionDataConsentPopup }}>
+		<OpenID4VPContext.Provider value={{ showTransactionDataConsentPopup }}>
 			{children}
 			{isLoggedIn && (
 				<>
