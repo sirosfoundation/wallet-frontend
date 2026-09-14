@@ -1,10 +1,10 @@
-import { MDoc } from '@auth0/mdl';
 import {
 	WscdPlugin,
 	WscdManagerHosts,
 	WscdHostStrength,
 	WscdContainer,
 } from './resources';
+import { SessionTranscriptDcApiOptions, SessionTranscriptOptions } from '../verifiable-credentials';
 
 /**
  * The WSCD Manager Client is the public interface of the WSCD, and contains
@@ -78,15 +78,15 @@ export interface IWscdSignOperations {
 	/**
 	 * Generate a device response for mDoc.
 	 */
-	generateDeviceResponse(request: GenerateDeviceResponseRequest): Promise<MDoc>;
+	generateDeviceResponse(request: GenerateDeviceResponseRequest): Promise<Uint8Array>;
 	/**
 	 * Generate a device response for mDoc for the DC API.
 	 */
-	generateDeviceResponseForDCAPI(request: GenerateDeviceResponseRequest): Promise<MDoc>;
+	generateDeviceResponseForDCAPI(request: GenerateDeviceResponseForDCAPIRequest): Promise<Uint8Array>;
 	/**
 	 * Generate a device response for mDoc with proximity-based authentication.
 	 */
-	generateDeviceResponseWithProximity(request: GenerateDeviceResponseRequest): Promise<MDoc>;
+	generateDeviceResponseWithProximity(request: GenerateDeviceResponseRequest): Promise<Uint8Array>;
 }
 
 /**
@@ -160,23 +160,15 @@ export type SignJwtPresentationRequest = {
 		transaction_data_hashes_alg: string[]
 	}
 };
+
 export type GenerateDeviceResponseRequest = {
-	credential: MDoc,
-	presentationDefinition: any,
+	credential: string,
+	disclosedClaims: string[],
 	sessionTranscript: SessionTranscriptOptions,
 };
 
-type SessionTranscriptOptions =
-	| {
-		name: 'OpenID4VPHandover',
-		clientId: string,
-		responseUri: string,
-		nonce: string,
-		jwkThumbprint: string | null,
-	}
-	| {
-		name: 'OpenID4VPDCAPIHandover',
-		origin: string,
-		nonce: string,
-		jwkThumbprint: string | null,
-	};
+export type GenerateDeviceResponseForDCAPIRequest = {
+	credential: string,
+	disclosedClaims: string[],
+	sessionTranscript: SessionTranscriptDcApiOptions,
+};

@@ -13,3 +13,8 @@ engineStrict: true
 minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
   - '@sirosfoundation/*'
+
+## TEMPORARY fix: Override cbor-x version for @owf/cose dependency since
+## @auth0/mdl and @owf/cose both depend on cbor-x and compete for its extensions
+overrides:
+  "@owf/cose>cbor-x": "1.6.5"

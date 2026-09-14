@@ -1,6 +1,16 @@
 import { base64url } from 'jose';
 import { cborDecode, cborEncode, DataItem } from '@auth0/mdl/lib/cbor';
 import { parse } from '@auth0/mdl';
+import {
+	DeviceRequest,
+	DocRequest,
+	ItemsRequest,
+	IssuerSigned,
+	MdocContext,
+	SessionTranscript,
+	DeviceResponse,
+} from '@owf/mdoc';
+import * as jose from 'jose';
 
 /**
  * Issuer-signed data resolved from a stored mdoc: its docType and namespaces.
@@ -8,6 +18,7 @@ import { parse } from '@auth0/mdl';
 export interface MdocIssuerSigned {
 	docType: string;
 	nameSpaces: Map<string, unknown[]>;
+	issuerAuth: unknown[];
 }
 
 /**
@@ -191,6 +202,7 @@ export function resolveMdocIssuerSigned(
 		return {
 			docType: doc.get('docType') as string,
 			nameSpaces: issuerSigned.get('nameSpaces') as Map<string, unknown[]>,
+			issuerAuth: issuerSigned.get('issuerAuth') as unknown[],
 		};
 	}
 
@@ -201,6 +213,7 @@ export function resolveMdocIssuerSigned(
 				mdoc.get('issuerAuth') as unknown[],
 			),
 			nameSpaces: mdoc.get('nameSpaces') as Map<string, unknown[]>,
+			issuerAuth: mdoc.get('issuerAuth') as unknown[],
 		};
 	}
 
@@ -239,4 +252,145 @@ export function mdocNameSpacesToClaims(
 	}
 
 	return namespaces;
+}
+
+export type PreparedMdocDeviceResponse = {
+	kid: string;
+	deviceRequest: DeviceRequest;
+	issuerSigned: IssuerSigned;
+}
+
+/**
+ * Prepare a device response for the given mdoc credential and disclosed claims.
+ */
+export async function prepareMdocDeviceResponse(
+	credential: string,
+	disclosedClaims: string[],
+): Promise<PreparedMdocDeviceResponse> {
+	const issuerSigned = IssuerSigned.fromEncodedForOid4Vci(extractIssuerSignedB64(credential));
+
+	const mso = issuerSigned.issuerAuth.mobileSecurityObject;
+	const deviceKey = mso.deviceKeyInfo.deviceKey;
+	const kid = await jose.calculateJwkThumbprint(deviceKey.jwk, 'sha256');
+
+	const deviceRequest = DeviceRequest.create({
+		docRequests: [DocRequest.create({
+			itemsRequest: ItemsRequest.create({
+				docType: mso.docType,
+				namespaces: claimsToNamespaces(disclosedClaims),
+			}),
+		})],
+	});
+
+	return { kid, deviceRequest, issuerSigned };
+}
+
+
+/**
+ * Convert an array of disclosed claims in "ns.element" format into the
+ * ItemsRequest namespaces shape: { [namespace]: { [element]: intentToRetain } }.
+ */
+function claimsToNamespaces(
+	disclosedClaims: string[],
+): Record<string, Record<string, boolean>> {
+	const namespaces: Record<string, Record<string, boolean>> = {};
+	for (const claim of disclosedClaims) {
+		const lastDot = claim.lastIndexOf('.');
+		const ns = claim.slice(0, lastDot);
+		const element = claim.slice(lastDot + 1);
+		(namespaces[ns] ??= {})[element] = false; // false = intent_to_retain
+	}
+	return namespaces;
+}
+
+/** WebCrypto-backed crypto half of the MdocContext. */
+function mdocCrypto(): MdocContext['crypto'] {
+	return {
+		random: (n) => crypto.getRandomValues(new Uint8Array(n)),
+		digest: async ({ digestAlgorithm, bytes }) =>
+			new Uint8Array(await crypto.subtle.digest(digestAlgorithm, bytes)),
+		hdkf: async () => {
+			throw new Error('HKDF not needed for signature-based device auth');
+		},
+	};
+}
+
+export type SessionTranscriptOptions ={
+	clientId: string,
+	responseUri: string,
+	nonce: string,
+	jwkThumbprint: string | null,
+};
+
+export function buildOid4vpSessionTranscript({
+	clientId,
+	responseUri,
+	nonce,
+	jwkThumbprint,
+}: SessionTranscriptOptions): Promise<SessionTranscript> {
+	return SessionTranscript.forOid4Vp(
+		{
+			clientId,
+			responseUri,
+			nonce,
+			jwkThumbprint: jwkThumbprint ? base64url.decode(jwkThumbprint) : undefined,
+		},
+		{ crypto: mdocCrypto() },
+	);
+}
+
+export type SessionTranscriptDcApiOptions = {
+	origin: string;
+	nonce: string;
+	jwkThumbprint: string | null;
+};
+
+export function buildOid4vpDcApiSessionTranscript({
+	origin,
+	nonce,
+	jwkThumbprint,
+}: SessionTranscriptDcApiOptions): Promise<SessionTranscript> {
+	return SessionTranscript.forOid4VpDcApi(
+		{
+			origin,
+			nonce,
+			jwkThumbprint: jwkThumbprint ? base64url.decode(jwkThumbprint) : undefined,
+		},
+		{ crypto: mdocCrypto() },
+	);
+}
+
+export async function generateMdocDeviceResponse(
+	credential: string,
+	disclosedClaims: string[],
+	sessionTranscript: SessionTranscript,
+	sign: (kid: string, toBeSigned: Uint8Array) => Promise<Uint8Array>,
+): Promise<Uint8Array> {
+	const { kid, deviceRequest, issuerSigned } = await prepareMdocDeviceResponse(
+		credential,
+		disclosedClaims,
+	);
+	const deviceKey =
+		issuerSigned.issuerAuth.mobileSecurityObject.deviceKeyInfo.deviceKey;
+
+	const deviceResponse = await DeviceResponse.createWithDeviceRequest(
+		{
+			deviceRequest,
+			sessionTranscript,
+			issuerSigned: [issuerSigned],
+			signature: { signingKey: deviceKey },
+		},
+		{
+			crypto: mdocCrypto(),
+			cose: {
+				sign1: {
+					sign: async ({ toBeSigned }) => sign(kid, toBeSigned),
+					verify: async () => true,
+				},
+				mac0: undefined as any,
+			},
+		},
+	);
+
+	return deviceResponse.encode();
 }

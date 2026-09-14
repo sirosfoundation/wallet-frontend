@@ -1,9 +1,7 @@
 import { WscdManagerJs } from '@sirosfoundation/wscd-manager-wasm';
 import { WscdContainer, WscdContainerSchema, WscdPlugin } from './resources';
 import type {
-	IWscdOperations,
 	WscdEligibilityRequirements,
-	AuthFactor,
 	IWscdManagerHost,
 } from './types';
 

@@ -2,15 +2,25 @@ import { WscdManagerInPageHost } from './hosts/WscdManagerInPageHost';
 // import { WscdManagerNativeWrapperHost } from './hosts/WscdManagerNativeWrapperHost';
 // import { WscdManagerWalletCompanionHost } from './hosts/WscdManagerWalletCompanionHost';
 // import { WscdManagerWorkerHost } from './hosts/WscdManagerWorkerHost';
-import { hostNeedsContainerImportExport, requirementsForCredential } from './utils';
+import {
+	hostNeedsContainerImportExport,
+	requirementsForCredential,
+} from './utils';
 import { WscdContainer } from './resources';
 import {
+	GenerateDeviceResponseForDCAPIRequest,
+	GenerateDeviceResponseRequest,
 	IWscdManagerClient,
 	IWscdManagerHost,
 	SignJwtPresentationRequest,
 	WscdEligibilityRequirements,
 } from './types';
-import { prepareSdJwtPresentation } from '../verifiable-credentials';
+import {
+	buildOid4vpDcApiSessionTranscript,
+	buildOid4vpSessionTranscript,
+	generateMdocDeviceResponse,
+	prepareSdJwtPresentation,
+} from '../verifiable-credentials';
 import { base64url } from 'jose';
 
 export class WscdManagerClient implements IWscdManagerClient {
@@ -48,12 +58,7 @@ export class WscdManagerClient implements IWscdManagerClient {
 		verifiableCredentials,
 		transactionDataResponseParams,
 	}: SignJwtPresentationRequest): Promise<string> {
-
-		const {
-			kid,
-			sdJwt,
-			signingInput,
-		} = await prepareSdJwtPresentation(
+		const { kid, sdJwt, signingInput } = await prepareSdJwtPresentation(
 			verifiableCredentials,
 			nonce,
 			audience,
@@ -66,38 +71,50 @@ export class WscdManagerClient implements IWscdManagerClient {
 		);
 
 		const kbJwt = `${signingInput}.${base64url.encode(sig)}`;
-		return (sdJwt + kbJwt);
+		return sdJwt + kbJwt;
 	}
 
-	async generateDeviceResponse(): Promise<void> {
-		return Promise.resolve(null);
-	}
+	async generateDeviceResponse({
+		credential,
+		disclosedClaims,
+		sessionTranscript,
+	}: GenerateDeviceResponseRequest): Promise<Uint8Array> {
+		const transcript = await buildOid4vpSessionTranscript(sessionTranscript);
 
-	async generateDeviceResponseForDCAPI(): Promise<void> {
-		return Promise.resolve(null);
-	}
-
-	async generateDeviceResponseWithProximity(): Promise<void> {
-		return Promise.resolve(null);
-	}
-
-	async #registerHosts(hosts: IWscdManagerHost[]): Promise<void> {
-		await Promise.all(hosts.map((host) => host.initialize()));
-
-		const availability = await Promise.all(
-			hosts.map((host) => host.isAvailable())
+		return generateMdocDeviceResponse(
+			credential,
+			disclosedClaims,
+			transcript,
+			(kid, data) => this.#dispatchSignRequest(kid, data),
 		);
+	}
 
-		this.#availableHosts = hosts.filter((_, i) => availability[i]);
+	async generateDeviceResponseForDCAPI({
+		credential,
+		disclosedClaims,
+		sessionTranscript,
+	}: GenerateDeviceResponseForDCAPIRequest): Promise<Uint8Array> {
+		const transcript =
+			await buildOid4vpDcApiSessionTranscript(sessionTranscript);
+
+		return generateMdocDeviceResponse(
+			credential,
+			disclosedClaims,
+			transcript,
+			(kid, data) => this.#dispatchSignRequest(kid, data),
+		);
+	}
+
+	async generateDeviceResponseWithProximity(): Promise<Uint8Array> {
+		return Promise.resolve(new Uint8Array());
 	}
 
 	async #dispatchSignRequest(
 		kid: string,
-		data: Uint8Array
+		data: Uint8Array,
 	): Promise<Uint8Array> {
-		await this.#ready
-		const
-			requirements = requirementsForCredential(kid),
+		await this.#ready;
+		const requirements = requirementsForCredential(kid),
 			host = await this.#selectHost(requirements),
 			needsImport = hostNeedsContainerImportExport(host);
 
@@ -114,20 +131,33 @@ export class WscdManagerClient implements IWscdManagerClient {
 		return result;
 	}
 
+	async #registerHosts(hosts: IWscdManagerHost[]): Promise<void> {
+		await Promise.all(hosts.map((host) => host.initialize()));
+
+		const availability = await Promise.all(
+			hosts.map((host) => host.isAvailable()),
+		);
+
+		this.#availableHosts = hosts.filter((_, i) => availability[i]);
+	}
+
 	/**
 	 * Selects the most eligible host based on the given requirements.
 	 */
-	async #selectHost(req: WscdEligibilityRequirements): Promise<IWscdManagerHost> {
+	async #selectHost(
+		req: WscdEligibilityRequirements,
+	): Promise<IWscdManagerHost> {
 		const eligible = (
 			await Promise.all(
 				this.#availableHosts.map(async (host) =>
-					await host.isEligible(req) ? host : null,
+					(await host.isEligible(req)) ? host : null,
 				),
 			)
 		).filter((h): h is IWscdManagerHost => h !== null);
 
 		const [strongest] = eligible.sort((a, b) => b.strength - a.strength);
-		if (!strongest) throw new Error('No eligible WSCD host for these requirements');
+		if (!strongest)
+			throw new Error('No eligible WSCD host for these requirements');
 
 		return strongest;
 	}
