@@ -5,6 +5,7 @@ import {
 	WscdManagerHosts,
 	WscdPlugin,
 	WscdHostStrength,
+	WscdContainer,
 } from '../resources';
 import type {
 	AuthFactor,
@@ -14,6 +15,7 @@ import type {
 	WscdEligibilityRequirements,
 } from '../types';
 import { logger } from '@/logger';
+import { exportWscdContainer, importWscdContainer } from '../utils';
 
 export class WscdManagerInPageHost implements IWscdManagerHost {
 	readonly supportedPlugins: ReadonlySet<WscdPlugin> = new Set([
@@ -48,12 +50,12 @@ export class WscdManagerInPageHost implements IWscdManagerHost {
 		return supportsPlugin && satisfiesFactors;
 	}
 
-	async importContainer(container: Uint8Array): Promise<void> {
-		this.#wscd.importContainer(container);
+	async importContainer(container: WscdContainer): Promise<void> {
+		return importWscdContainer(this.#wscd, container);
 	}
 
-	async exportContainer(): Promise<Uint8Array> {
-		return this.#wscd.exportContainer();
+	async exportContainer(): Promise<WscdContainer> {
+		return exportWscdContainer(this.#wscd);
 	}
 
 	async runOperation<T extends keyof IWscdOperations>(

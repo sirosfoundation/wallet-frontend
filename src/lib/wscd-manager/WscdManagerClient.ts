@@ -2,6 +2,8 @@ import { WscdManagerInPageHost } from './hosts/WscdManagerInPageHost';
 // import { WscdManagerNativeWrapperHost } from './hosts/WscdManagerNativeWrapperHost';
 // import { WscdManagerWalletCompanionHost } from './hosts/WscdManagerWalletCompanionHost';
 // import { WscdManagerWorkerHost } from './hosts/WscdManagerWorkerHost';
+import { hostNeedsContainerImportExport, requirementsForOperation } from './utils';
+import { WscdContainer } from './resources';
 import {
 	IWscdManagerClient,
 	IWscdManagerHost,
@@ -9,12 +11,12 @@ import {
 	OperationReturnType,
 	WscdEligibilityRequirements,
 } from './types';
-import { hostNeedsContainerImport, requirementsForOperation } from './utils';
 
 export class WscdManagerClient implements IWscdManagerClient {
 	#ready: Promise<void>;
 	#availableHosts: IWscdManagerHost[] = [];
-	#containerImportCallback: () => Promise<Uint8Array>;
+	#containerImportCallback: () => Promise<WscdContainer>;
+	// #containerExportCallback: (container: WscdContainer) => Promise<void>;
 
 	constructor() {
 		this.#ready = this.#initialize();
@@ -29,9 +31,15 @@ export class WscdManagerClient implements IWscdManagerClient {
 		]);
 	}
 
-	setContainerImporter(callback: () => Promise<Uint8Array>): void {
+	setContainerImporter(callback: () => Promise<WscdContainer>): void {
 		this.#containerImportCallback = callback;
 	}
+
+	// setContainerExporter(
+	// 	callback: (container: WscdContainer) => Promise<void>
+	// ): void {
+	// 	this.#containerExportCallback = callback;
+	// }
 
 	async generateKeypairs(): Promise<void> {
 		return await this.#dispatchOperation(
@@ -92,8 +100,9 @@ export class WscdManagerClient implements IWscdManagerClient {
 		const kid = '';
 		const requirements = requirementsForOperation(op, kid);
 		const host = await this.#selectHost(requirements);
+		const needsImportExport = hostNeedsContainerImportExport(host);
 
-		if (hostNeedsContainerImport(host)) {
+		if (needsImportExport) {
 			if (!this.#containerImportCallback) {
 				throw new Error('Container import callback not set');
 			}
@@ -101,7 +110,12 @@ export class WscdManagerClient implements IWscdManagerClient {
 			if (bytes) await host.importContainer(bytes);
 		}
 
-		return host.runOperation(op, ...args);
+		const result = await host.runOperation(op, ...args);
+
+		// todo: once we start generating keys or performing operations that modify
+		// the container, we should export the container
+
+		return result;
 	}
 
 	/**

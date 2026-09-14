@@ -2,6 +2,7 @@ import {
 	WscdPlugin,
 	WscdManagerHosts,
 	WscdHostStrength,
+	WscdContainer,
 } from './resources';
 
 /**
@@ -59,12 +60,12 @@ export interface IWscdManagerHost {
 	 * Imports a container of cryptographic material into the WSCD manager client.
 	 * This typically replaces the current state with the provided container.
 	 */
-	importContainer(container: Uint8Array): Promise<void>;
+	importContainer(container: WscdContainer): Promise<void>;
 	/**
 	 * Exports the current container of cryptographic material from the
 	 * WSCD manager client.
 	 */
-	exportContainer(): Promise<Uint8Array>;
+	exportContainer(): Promise<WscdContainer>;
 }
 
 /**

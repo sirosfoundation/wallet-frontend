@@ -35,7 +35,7 @@ export enum WscdHostStrength {
 /**
  * Cryptographic key managed by the WSCD manager.
  */
-const WscdKeySchema = z.object({
+export const WscdKeySchema = z.object({
 	kid: z.string(),
 	algorithm: z.string(),
 	d: z.string(),
@@ -46,13 +46,13 @@ export type WscdKey = z.infer<typeof WscdKeySchema>;
 /**
  * Kind of factor managed by the WSCD manager.
  */
-const WscdFactorKindSchema = z.enum(['Opaque', 'WebAuthn', 'RawSign']);
+export const WscdFactorKindSchema = z.enum(['Opaque', 'WebAuthn', 'RawSign']);
 export type WscdFactorKind = z.infer<typeof WscdFactorKindSchema>;
 
 /**
  * Lifecycle state of a factor managed by the WSCD manager.
  */
-const WscdLifecycleStateSchema = z.enum([
+export const WscdLifecycleStateSchema = z.enum([
 	'Uninitialized', 'Registered', 'Active', 'Suspended', 'Destroyed',
 ]);
 export type WscdLifecycleState = z.infer<typeof WscdLifecycleStateSchema>;
@@ -60,7 +60,7 @@ export type WscdLifecycleState = z.infer<typeof WscdLifecycleStateSchema>;
 /**
  * Context information for the lifecycle of a factor managed by the WSCD manager.
  */
-const WscdLifecycleContextSchema = z.object({
+export const WscdLifecycleContextSchema = z.object({
 	factor_kind: WscdFactorKindSchema,
 	state: WscdLifecycleStateSchema,
 	updated_at: z.number(),
@@ -72,7 +72,7 @@ export type WscdLifecycleContext = z.infer<typeof WscdLifecycleContextSchema>;
  * Container for managing cryptographic keys and their associated lifecycle
  * contexts within the WSCD manager.
  */
-const WscdContainerSchema = z.object({
+export const WscdContainerSchema = z.object({
 	keys: z.array(WscdKeySchema),
 	lifecycle: z.record(z.string(), WscdLifecycleContextSchema).default({}),
 });

@@ -18,14 +18,9 @@ export const WscdManagerClientContextProvider: FC<PropsWithChildren> = ({
 
 	useEffect(() => {
 		clientRef.current?.setContainerImporter(async () => {
-			return keystore.getWscdContainer();
+			return keystore.exportToWscdContainer();
 		})
 	}, [keystore])
-
-	// TEMP: debug
-	useEffect(() => {
-		value.wscdManagerClient.generateKeypairs();
-	}, [value.wscdManagerClient]);
 
 	return (
 		<WscdManagerClientContext.Provider value={value}>
