@@ -68,3 +68,33 @@ export function exportWscdContainer(
 
 	return data;
 }
+
+/**
+ * Ensures that the given WscdContainer is valid and returns it as
+ * an encoded Uint8Array.
+ */
+export function ensureEncodedWscdContainer(container: WscdContainer): Uint8Array {
+	const { success, error, data } = WscdContainerSchema.safeParse(container);
+
+	if (!success) {
+		throw new Error(`Failed to parse WscdContainer: ${error}`);
+	}
+
+	return new TextEncoder().encode(JSON.stringify(data));
+}
+
+/**
+ * Ensures that the given WscdContainer is valid and returns it as
+ * a decoded object.
+ */
+export function ensureDecodedWscdContainer(container: Uint8Array): WscdContainer {
+	const { success, error, data } = WscdContainerSchema.safeParse(
+		JSON.parse(new TextDecoder().decode(container))
+	);
+
+	if (!success) {
+		throw new Error(`Failed to parse WscdContainer: ${error}`);
+	}
+
+	return data;
+}

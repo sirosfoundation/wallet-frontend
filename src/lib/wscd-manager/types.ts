@@ -176,3 +176,38 @@ export type GenerateDeviceResponseForDCAPIRequest = {
 	disclosedClaims: string[],
 	sessionTranscript: SessionTranscriptDcApiOptions,
 };
+
+export type WorkerMessage = {
+	id?: number;
+} & (
+	| {
+		action: 'import_container',
+		container: Uint8Array,
+	}
+	| {
+		action: 'export_container',
+	}
+	| {
+		action: 'sign_request',
+		kid: string,
+		data: Uint8Array,
+	}
+)
+
+export type WorkerResponse = {
+	id: number;
+	error?: string;
+} & (
+	| {
+		action: 'import_container';
+		result: boolean;
+	}
+	| {
+		action: 'export_container';
+		result: Uint8Array;
+	}
+	| {
+		action: 'sign_request';
+		result: Uint8Array;
+	}
+)

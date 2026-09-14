@@ -13,7 +13,7 @@ import type {
 	WscdEligibilityRequirements,
 } from '../types';
 import { logger } from '@/logger';
-import { exportWscdContainer, importWscdContainer } from '../utils';
+import { ensureDecodedWscdContainer, ensureEncodedWscdContainer } from '../utils';
 
 export class WscdManagerInPageHost implements IWscdManagerHost {
 	readonly supportedPlugins: ReadonlySet<WscdPlugin> = new Set([
@@ -49,11 +49,12 @@ export class WscdManagerInPageHost implements IWscdManagerHost {
 	}
 
 	async importContainer(container: WscdContainer): Promise<void> {
-		return importWscdContainer(this.#wscd, container);
+		const result = ensureEncodedWscdContainer(container);
+		this.#wscd.importContainer(result);
 	}
 
 	async exportContainer(): Promise<WscdContainer> {
-		return exportWscdContainer(this.#wscd);
+		return ensureDecodedWscdContainer(this.#wscd.exportContainer());
 	}
 
 	async sign(kid: string, data: Uint8Array): Promise<Uint8Array> {
