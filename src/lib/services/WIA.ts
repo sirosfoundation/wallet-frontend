@@ -24,12 +24,21 @@ export interface WIAKeyPair {
  */
 export async function requestWIA(
 	httpClient: IHttpClient,
+	authToken: string,
 	dpopKeyPair: WIAKeyPair,
 	clientId: string,
 	walletProviderURI: string,
 ): Promise<string | undefined> {
 	try {
-		const challengeResponse = await httpClient.post('/wallet-provider/wia/challenge', {});
+		const baseUrl = `${walletProviderURI.replace(/\/$/, '')}/wallet-provider/wia`;
+
+		const challengeResponse = await httpClient.post(
+			`${baseUrl}/challenge`,
+			{},
+			{
+				Authorization: `Bearer ${authToken}`,
+			}
+		);
 		if (
 			!challengeResponse?.data ||
 			typeof challengeResponse.data !== 'object' ||
@@ -58,11 +67,18 @@ export async function requestWIA(
 			.setJti(generateRandomIdentifier(8))
 			.sign(dpopKeyPair.privateKey);
 
-		const generateResponse = await httpClient.post('/wallet-provider/wia/generate', {
-			pop,
-			challenge,
-			client_id: clientId,
-		});
+		const generateResponse = await httpClient.post(
+			`${baseUrl}/generate`,
+			{
+				pop,
+				challenge,
+				client_id: clientId,
+			},
+			{
+				Authorization: `Bearer ${authToken}`,
+			}
+		);
+
 		if (
 			!generateResponse?.data ||
 			typeof generateResponse.data !== 'object' ||
@@ -127,6 +143,7 @@ export async function buildClientAttestationPop(
  */
 export async function attestFlowIfEnabled(
 	httpClient: IHttpClient,
+	authToken: string,
 	enabled: boolean,
 	existingWia: string | undefined,
 	dpopKeyPair: WIAKeyPair,
@@ -139,5 +156,5 @@ export async function attestFlowIfEnabled(
 	if (existingWia) {
 		return existingWia;
 	}
-	return await requestWIA(httpClient, dpopKeyPair, clientId, walletProviderURI);
+	return await requestWIA(httpClient, authToken, dpopKeyPair, clientId, walletProviderURI);
 }
