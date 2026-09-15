@@ -1,3 +1,5 @@
+import { WscdManagerJs } from '@sirosfoundation/wscd-manager-wasm';
+
 /**
  * Display properties for credential UI in Android's credential selector
  */
@@ -53,4 +55,5 @@ export interface NativeWrapper {
 	sendDcApiResponse(response: string, error?: string): void;
 	isKeystoreOpen(): Promise<boolean>;
 	startScanPhysicalId?(): void;
+	callWscd(method: keyof WscdManagerJs, ...args: unknown[]): Promise<unknown>;
 }

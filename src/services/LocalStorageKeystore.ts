@@ -17,6 +17,7 @@ import { addAlterSettingsEvent, addDeleteCredentialEvent, addDeleteCredentialIss
 import { UserId } from "@/api/types";
 import { getItem } from "@/indexedDB";
 import { WalletStateContainerGeneric } from "./WalletStateSchemaCommon";
+import { WscdContainer } from "@/lib/wscd-manager";
 
 type WalletState = CurrentSchema.WalletState;
 type WalletStateCredential = CurrentSchema.WalletStateCredential;
@@ -144,6 +145,8 @@ export interface LocalStorageKeystore {
 	 * @param remotePrivateDataRaw - Raw private data bytes from the server
 	 */
 	syncWithRemoteData(remotePrivateDataRaw: Uint8Array): Promise<Result<AsymmetricEncryptedContainer, 'keystoreNotOpen' | 'mergeFailed'>>,
+	exportToWscdContainer(): Promise<WscdContainer>,
+	importFromWscdContainer(container: WscdContainer): Promise<void>
 }
 
 /** A stateful wrapper around the keystore module, storing state in the browser's localStorage and sessionStorage. */
@@ -903,6 +906,29 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		}
 	}, [privateData, mainKey, assertKeystoreOpen, writePrivateDataOnIdb, userHandleB64u, setPrivateData, setMainKey, setCalculatedWalletState]);
 
+	const exportToWscdContainer = useCallback(async (): Promise<WscdContainer> => {
+		const keypairs = calculatedWalletState?.keypairs ?? [];
+
+		const keys = keypairs
+			.filter(({ keypair }) => keypair.privateKey?.d)
+			.map(({ kid, keypair }) => ({
+				kid,
+				algorithm: keypair.alg,
+				d: keypair.privateKey.d,
+				created_at: 0, // keystore doesn't carry this info
+			}));
+
+		return {
+			keys,
+			lifecycle: {},
+		}
+	}, [calculatedWalletState]);
+
+	const importFromWscdContainer = useCallback(async (container: WscdContainer): Promise<void> => {
+		// Implement the logic to import the WscdContainer into the local keystore
+		console.log('Importing WscdContainer:', container);
+	}, []);
+
 	return useMemo(() => ({
 		isOpen,
 		close,
@@ -934,6 +960,8 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		getCredentialIssuanceSessionByState,
 		alterSettings,
 		syncWithRemoteData,
+		exportToWscdContainer,
+		importFromWscdContainer,
 	}), [
 		isOpen,
 		close,
@@ -965,5 +993,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		getCredentialIssuanceSessionByState,
 		alterSettings,
 		syncWithRemoteData,
+		exportToWscdContainer,
+		importFromWscdContainer,
 	]);
 }
