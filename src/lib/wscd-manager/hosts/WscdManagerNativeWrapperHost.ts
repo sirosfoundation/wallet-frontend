@@ -1,15 +1,14 @@
 import { WEBAUTHN_RPID } from '@/config';
-import { WscdManagerHosts, WscdHostStrength, WscdPlugin } from '../resources';
+import { WscdManagerHosts, WscdHostStrength, WscdPlugin, WscdContainer } from '../resources';
 import {
 	AuthFactor,
 	IWscdManagerHost,
-	IWscdOperations,
-	OperationReturnType,
 	WscdEligibilityRequirements,
 } from '../types';
+import { ensureDecodedWscdContainer, ensureEncodedWscdContainer } from '../utils';
 
 export class WscdManagerNativeWrapperHost implements IWscdManagerHost {
-	#supportedPlugins: ReadonlySet<WscdPlugin> = new Set([
+	readonly supportedPlugins: ReadonlySet<WscdPlugin> = new Set([
 		WscdPlugin.SOFTKEY,
 		WscdPlugin.FIDO2,
 		WscdPlugin.R2PS,
@@ -19,34 +18,52 @@ export class WscdManagerNativeWrapperHost implements IWscdManagerHost {
 	readonly strength = WscdHostStrength.NATIVE_WRAPPER;
 
 	public async initialize() {
-		// Implement the initialization logic for the native wrapper host here.
-		// For now, just resolve immediately.
-		return Promise.resolve();
+		// no-op
 	}
 
 	public async isAvailable() {
-		// Implement the availability check logic for the native wrapper host here.
-		// @ts-ignore
-		return window.nativeWrapper?.wscdManager !== undefined;
+		return (
+			typeof window.nativeWrapper?.callWscd === 'function'
+		)
 	}
 
 	public async isEligible({
 		plugin,
 		factors,
 	}: WscdEligibilityRequirements) {
-		const supported = this.#supportedPlugins.has(plugin);
+		const supported = this.supportedPlugins.has(plugin);
 		const satisfiesFactors = factors.every((f) => this.#canSatisfyFactor(f));
 
 		return supported && satisfiesFactors;
 	}
 
-	public async runOperation<T extends keyof IWscdOperations>(
-		id: T,
-		...args: Parameters<IWscdOperations[T]>
-	): Promise<OperationReturnType<T>> {
-		// Implement the operation execution logic for the native wrapper host here.
-		// For now, just throw an error indicating it's not implemented.
-		throw new Error('runOperation not implemented');
+	public async importContainer(container: WscdContainer): Promise<void> {
+		await window.nativeWrapper.callWscd(
+			'importContainer',
+			ensureEncodedWscdContainer(container)
+		);
+	}
+
+	public async exportContainer(): Promise<WscdContainer> {
+		const result = await window.nativeWrapper.callWscd(
+			'exportContainer',
+		);
+
+		if (!(result instanceof Uint8Array)) {
+			throw new Error('Invalid container exported from native wrapper');
+		}
+
+		return ensureDecodedWscdContainer(result);
+	}
+
+	public async sign(kid: string, data: Uint8Array): Promise<Uint8Array> {
+		const result = await window.nativeWrapper.callWscd('sign', kid, data);
+
+		if (!(result instanceof Uint8Array)) {
+			throw new Error('Invalid signature returned from native wrapper');
+		}
+
+		return result;
 	}
 
 	#canSatisfyFactor(factor: AuthFactor): boolean {

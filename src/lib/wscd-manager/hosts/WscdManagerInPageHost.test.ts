@@ -88,8 +88,4 @@ describe('WscdManagerInPageHost', () => {
 			).resolves.toBe(true);
 		});
 	});
-
-	describe('runOperation', () => {
-
-	});
 });
