@@ -74,7 +74,7 @@ export interface IWscdSignOperations {
 	/**
 	 * Sign as SD-JWT presentation.
 	 */
-	signSdJwtPresentation(request: SignJwtPresentationRequest): Promise<string>;
+	signSdJwtPresentation(request: SignSdJwtPresentationRequest): Promise<string>;
 	/**
 	 * Generate a device response for mDoc.
 	 */
@@ -155,7 +155,10 @@ export type WscdKeyMetadata = {
 	factors: AuthFactor[];
 };
 
-export type SignJwtPresentationRequest = {
+/**
+ * Request parameters for signing a SD-JWT presentation.
+ */
+export type SignSdJwtPresentationRequest = {
 	nonce: string,
 	audience: string,
 	verifiableCredentials: any[],
@@ -165,18 +168,28 @@ export type SignJwtPresentationRequest = {
 	}
 };
 
+/**
+ * Request parameters for generating a device response from a mDoc.
+ */
 export type GenerateDeviceResponseRequest = {
 	credential: string,
 	disclosedClaims: string[],
 	sessionTranscript: SessionTranscriptOptions,
 };
 
+/**
+ * Request parameters for generating a device response from a mDoc
+ * for the DC API.
+ */
 export type GenerateDeviceResponseForDCAPIRequest = {
 	credential: string,
 	disclosedClaims: string[],
 	sessionTranscript: SessionTranscriptDcApiOptions,
 };
 
+/**
+ * Messages sent to the WSCD worker.
+ */
 export type WorkerMessage = {
 	id?: number;
 } & (
@@ -197,6 +210,9 @@ export type WorkerMessage = {
 	}
 )
 
+/**
+ * Responses from the WSCD worker, corresponding to {@link WorkerMessage}
+ */
 export type WorkerResponse = {
 	id: number;
 	error?: string;
@@ -219,5 +235,9 @@ export type WorkerResponse = {
 	}
 )
 
+/**
+ * Helper to map {@link WorkerMessage} actions to their corresponding
+ * {@link WorkerResponse} results.
+ */
 export type WorkerResult<A extends WorkerMessage['action']> =
 	Extract<WorkerResponse, { action: A }>['result'];

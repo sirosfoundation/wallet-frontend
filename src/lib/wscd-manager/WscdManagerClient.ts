@@ -12,7 +12,7 @@ import {
 	GenerateDeviceResponseRequest,
 	IWscdManagerClient,
 	IWscdManagerHost,
-	SignJwtPresentationRequest,
+	SignSdJwtPresentationRequest,
 	WscdEligibilityRequirements,
 } from './types';
 import {
@@ -57,7 +57,7 @@ export class WscdManagerClient implements IWscdManagerClient {
 		nonce,
 		verifiableCredentials,
 		transactionDataResponseParams,
-	}: SignJwtPresentationRequest): Promise<string> {
+	}: SignSdJwtPresentationRequest): Promise<string> {
 		const { kid, sdJwt, signingInput } = await prepareSdJwtPresentation(
 			verifiableCredentials,
 			nonce,
