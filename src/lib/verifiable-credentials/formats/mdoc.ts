@@ -1,5 +1,4 @@
 import { base64url, calculateJwkThumbprint } from 'jose';
-import { parse } from '@auth0/mdl';
 import { cborDecode, cborEncode, DataItem } from '@auth0/mdl/lib/cbor';
 import {
 	DeviceRequest,
