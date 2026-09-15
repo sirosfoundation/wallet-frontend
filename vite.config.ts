@@ -57,6 +57,7 @@ export default defineConfig(async ({ mode, command }) => {
 			host: true,
 			port: 3000,
 			open: true,
+			headers: {"content-security-policy":"style-src 'self';"}
 		},
 		preview: {
 			host: true,

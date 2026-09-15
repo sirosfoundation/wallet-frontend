@@ -329,3 +329,143 @@ input:-webkit-autofill {
 html:not(.is-wrapper-app) .passkey-button-security-key {
 	display: none;
 }
+
+/* reactour style components */
+
+.focus-outline-hidden :focus { outline: none; }
+
+/* SvgButton */
+.reactour-svg-button {
+	padding: 0;
+	border: 0;
+	display: block;
+	background: none;
+	font-size: 0;
+	cursor: pointer;
+}
+
+/* Label */
+.reactour-label {
+	font-size: 12px;
+	line-height: 1;
+}
+
+/* Arrow */
+.reactour-arrow {
+	color: var(--reactour-arrow-color, #646464);
+}
+
+.reactour-arrow:hover {
+	color: var(--reactour-arrow-hover-color, #000);
+}
+
+.reactour-arrow--no-label {
+	width: 16px;
+	height: 12px;
+	flex: 0 0 16px;
+}
+
+/* StyledClose */
+.reactour-close {
+	position: absolute;
+	top: 22px;
+	right: 22px;
+	width: 9px;
+	height: 9px;
+	color: #5e5e5e;
+}
+
+.reactour-close:hover {
+	color: #000
+}
+
+/* Guide */
+.reactour-guide {
+  position: fixed;
+  transition: transform 0.3s;
+  top: 0;
+  left: 0;
+  z-index: 1000000;
+}
+
+.reactour-guide--default-styles {
+  max-width: 331px;
+  min-width: 150px;
+  padding-right: 40px;
+  background-color: #fff;
+  padding: 24px 30px;
+  box-shadow: 0 0.5em 3em rgba(0, 0, 0, 0.3);
+  color: inherit;
+}
+
+/* Badge */
+.reactour-badge {
+  position: absolute;
+  font-family: monospace;
+  height: 1.875em;
+  line-height: 2;
+  padding-left: 0.8125em;
+  padding-right: 0.8125em;
+  font-size: 1em;
+  border-radius: 1.625em;
+  color: white;
+  text-align: center;
+  box-shadow: 0 0.25em 0.5em rgba(0, 0, 0, 0.3);
+  top: -0.8125em;
+  left: -0.8125em;
+}
+
+.reactour-controls {
+  display: flex;
+  margin-top: 24px;
+  align-items: center;
+  justify-content: center;
+}
+
+.reactour-navigation {
+  counter-reset: dot;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Dot */
+.reactour-dot {
+  counter-increment: dot;
+  width: 8px;
+  height: 8px;
+  border-radius: 100%;
+  padding: 0;
+  display: block;
+  margin: 4px;
+  transition: opacity 0.3s, transform 0.3s;
+}
+.reactour-dot::before {
+  content: counter(dot);
+  position: absolute;
+  bottom: calc(100% + 0.25em);
+  left: 50%;
+  opacity: 0;
+  transform: translate(-50%, 1em);
+  transition: 0.3s;
+	display: var(--reactour-dot-number-display, none);
+}
+.reactour-dot:hover {
+  background-color: currentColor;
+}
+.reactour-dot:hover::before {
+  opacity: 0.5;
+  transform: translate(-50%, -2px);
+}
+
+/* SvgMaskWrapper */
+.reactour-svg-mask-wrapper {
+  width: 100%;
+  left: 0;
+  top: 0;
+  height: 100%;
+  position: fixed;
+  z-index: 99999;
+  pointer-events: none;
+}
