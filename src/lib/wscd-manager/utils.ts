@@ -30,45 +30,6 @@ export function hostNeedsContainerImportExport(host: IWscdManagerHost): boolean 
 	return host.supportedPlugins.has(WscdPlugin.SOFTKEY);
 }
 
-
-/**
- * Imports a WscdContainer into the given WscdManagerJs instance.
- */
-export function importWscdContainer(
-	wscd: WscdManagerJs,
-	container: WscdContainer,
-): void {
-	const { success, error, data } = WscdContainerSchema.safeParse(container);
-
-	if (!success) {
-		throw new Error(`Failed to parse WscdContainer: ${error}`);
-	}
-
-	wscd.importContainer(
-		new TextEncoder().encode(JSON.stringify(data))
-	);
-
-	console.log('WscdManager imported container:', data);
-}
-
-/**
- * Exports the current WscdContainer from the given WscdManagerJs instance.
- */
-export function exportWscdContainer(
-	wscd: WscdManagerJs,
-): WscdContainer {
-	const raw = wscd.exportContainer();
-	const json = JSON.parse(new TextDecoder().decode(raw));
-
-	const { success, error, data } = WscdContainerSchema.safeParse(json);
-
-	if (!success) {
-		throw new Error(`Failed to parse WscdContainer: ${error}`);
-	}
-
-	return data;
-}
-
 /**
  * Ensures that the given WscdContainer is valid and returns it as
  * an encoded Uint8Array.
