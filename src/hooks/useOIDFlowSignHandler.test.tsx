@@ -24,6 +24,17 @@ vi.mock('./useHttpClient', () => ({
 	useHttpClient: () => ({ post: mockPost }),
 }));
 
+// sign_client_auth never touches the WSCD client; stub it so the hook can
+// mount without a WscdManagerClientContextProvider.
+vi.mock('./useWscdManagerClient', () => ({
+	useWscdManagerClient: () => ({
+		signSdJwtPresentation: vi.fn(),
+		generateDeviceResponse: vi.fn(),
+		generateDeviceResponseForDCAPI: vi.fn(),
+		generateDeviceResponseWithProximity: vi.fn(),
+	}),
+}));
+
 vi.mock('@/context/SessionContext', async () => {
 	const { createContext } =
 		await vi.importActual<typeof import('react')>('react');
