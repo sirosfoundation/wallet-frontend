@@ -32,15 +32,17 @@ export class WscdManagerClient implements IWscdManagerClient {
 	#containerImportCallback: () => Promise<WscdContainer>;
 	#containerExportCallback: (container: WscdContainer) => Promise<void>;
 
-	constructor() {
-		this.#ready = this.#initialize();
-	}
-
-	async #initialize(): Promise<void> {
-		await this.#registerHosts([
+	constructor(
+		hosts: IWscdManagerHost[] = [
 			new WscdManagerInPageHost(),
 			new WscdManagerWorkerHost(),
-		]);
+		],
+	) {
+		this.#ready = this.#initialize(hosts);
+	}
+
+	async #initialize(hosts: IWscdManagerHost[]): Promise<void> {
+		await this.#registerHosts(hosts);
 	}
 
 	public setContainerImporter(callback: () => Promise<WscdContainer>): void {

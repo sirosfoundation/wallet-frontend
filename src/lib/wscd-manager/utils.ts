@@ -1,9 +1,13 @@
 import { calculateJwkThumbprint } from 'jose';
-import { ExportedWscdContainer, ExportedWscdContainerSchema, WscdContainer, WscdContainerSchema, WscdManagerError, WscdPlugin } from './resources';
-import type {
-	WscdEligibilityRequirements,
-	IWscdManagerHost,
-} from './types';
+import {
+	ExportedWscdContainer,
+	ExportedWscdContainerSchema,
+	WscdContainer,
+	WscdContainerSchema,
+	WscdManagerError,
+	WscdPlugin,
+} from './resources';
+import type { WscdEligibilityRequirements, IWscdManagerHost } from './types';
 
 /**
  * Requirements for a given credential based on its key ID.
@@ -15,10 +19,7 @@ export function requirementsForCredential(
 
 	// Currently, all credentials are assumed to require the softkey plugin
 	// with no authentication factors.
-	return {
-		plugin: WscdPlugin.SOFTKEY,
-		factors: [{ kind: 'none' }],
-	};
+	return { plugin: WscdPlugin.SOFTKEY, factors: [{ kind: 'none' }] };
 }
 
 /**
@@ -26,7 +27,9 @@ export function requirementsForCredential(
  *
  * Only softkey hosts require a container import.
  */
-export function hostNeedsContainerImportExport(host: IWscdManagerHost): boolean {
+export function hostNeedsContainerImportExport(
+	host: IWscdManagerHost,
+): boolean {
 	return host.supportedPlugins.has(WscdPlugin.SOFTKEY);
 }
 
@@ -34,7 +37,9 @@ export function hostNeedsContainerImportExport(host: IWscdManagerHost): boolean 
  * Ensures that the given WscdContainer is valid and returns it as
  * an encoded Uint8Array.
  */
-export function ensureEncodedWscdContainer(container: WscdContainer): Uint8Array {
+export function ensureEncodedWscdContainer(
+	container: WscdContainer,
+): Uint8Array {
 	const { success, error, data } = WscdContainerSchema.safeParse(container);
 
 	if (!success) {
@@ -48,9 +53,11 @@ export function ensureEncodedWscdContainer(container: WscdContainer): Uint8Array
  * Ensures that the given WscdContainer is valid and returns it as
  * a decoded object.
  */
-export function ensureDecodedWscdContainer(container: Uint8Array): WscdContainer {
+export function ensureDecodedWscdContainer(
+	container: Uint8Array,
+): WscdContainer {
 	const { success, error, data } = WscdContainerSchema.safeParse(
-		JSON.parse(new TextDecoder().decode(container))
+		JSON.parse(new TextDecoder().decode(container)),
 	);
 
 	if (!success) {
@@ -67,23 +74,24 @@ export async function exportWscdContainerToKeystore(
 	host: IWscdManagerHost,
 	container: WscdContainer,
 ): Promise<ExportedWscdContainer> {
-	const exportedContainer: ExportedWscdContainer = container;
-	for (const key of exportedContainer.keys) {
+	const keys: ExportedWscdContainer['keys'] = [];
+	for (const key of container.keys) {
 		// host handle as exported by the WSCD
-		const keyHandle = key.kid;
-		const publicKey = await host.exportPublicKey(keyHandle);
-		key.publicKey = publicKey;
-		// Use the tumbprint kid instead of the host key handle.
-		key.kid = await calculateJwkThumbprint(publicKey, 'sha256');
+		const publicKey = await host.exportPublicKey(key.kid);
+		keys.push({
+			...key,
+			publicKey,
+			// canonical thumbprint kid instead of the host key handle
+			kid: await calculateJwkThumbprint(publicKey, 'sha256'),
+		});
 	}
 
-	const {
-		success,
-		error,
-		data,
-	} = ExportedWscdContainerSchema.safeParse(exportedContainer);
+	const { success, error, data } =
+		ExportedWscdContainerSchema.safeParse({ ...container, keys });
 	if (!success) {
-		throw new WscdManagerError(`Failed to parse ExportedWscdContainer: ${error}`);
+		throw new WscdManagerError(
+			`Failed to parse ExportedWscdContainer: ${error}`,
+		);
 	}
 
 	return data;
