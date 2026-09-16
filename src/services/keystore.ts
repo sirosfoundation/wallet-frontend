@@ -16,6 +16,7 @@ import { SupportedAlgs } from "@auth0/mdl/lib/mdoc/model/types";
 import { COSEKeyToJWK } from "cose-kit";
 import { withHintsFromAllowCredentials } from "@/util-webauthn";
 import { addDeleteKeypairEvent, addNewKeypairEvent, CurrentSchema, foldState, SchemaV1, SchemaV2, SchemaV3 } from "./WalletStateSchema";
+import { buildVcdm2Presentation, holderIdFromCredential, holderJwkFromCredential } from "wallet-common";
 import { logger } from "../logger";
 
 type WalletState = CurrentSchema.WalletState;
@@ -1036,6 +1037,73 @@ export async function signJwtPresentation([privateData, mainKey, calculatedState
 
 	const jws = sdJwt + kbJWT;
 	return { vpjwt: jws };
+}
+
+/**
+ * Sign a W3C VCDM 2.0 verifiable presentation with an enveloping JOSE proof.
+ *
+ * Unlike `signJwtPresentation`, which appends a KB-JWT to an SD-JWT, a VCDM
+ * 2.0 presentation is a JSON-LD object in its own right: the credentials are
+ * embedded (Data Integrity) or referenced as `data:` URIs (enveloped), and the
+ * whole presentation is then signed as a JWS by the holder key.
+ *
+ * The holder key is taken from the credential's own binding — `cnf.jwk` for an
+ * enveloped credential, a `did:key` subject identifier for a Data Integrity
+ * one. A credential with no binding cannot be presented, and that is reported
+ * rather than silently signed with an arbitrary key.
+ */
+export async function signVcdm2Presentation(
+	[privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState],
+	nonce: string,
+	audience: string,
+	verifiableCredentials: unknown[],
+	transactionDataResponseParams?: { transaction_data_hashes: string[], transaction_data_hashes_alg: string[] },
+): Promise<{ vpjwt: string }> {
+	if (verifiableCredentials.length === 0) {
+		throw new Error("A presentation must contain at least one credential");
+	}
+
+	const holderJwk = holderJwkFromCredential(verifiableCredentials[0]);
+	if (!holderJwk) {
+		throw new Error("Holder public key could not be resolved from the VCDM 2.0 credential");
+	}
+
+	const kid = await jose.calculateJwkThumbprint(holderJwk as JWK, "sha256");
+	const keypair = calculatedState.keypairs.filter((k) => k.kid === kid)[0];
+	if (!keypair) {
+		throw new Error("Key pair not found for kid (key ID): " + kid);
+	}
+
+	const { alg, privateKey } = keypair.keypair;
+	const importedPrivateKey = await crypto.subtle.importKey(
+		'jwk',
+		privateKey,
+		{ name: 'ECDSA', namedCurve: 'P-256' },
+		true,
+		['sign'],
+	);
+
+	const holder = holderIdFromCredential(verifiableCredentials[0]);
+	const presentation = buildVcdm2Presentation(verifiableCredentials, { holder });
+
+	// Strip any private key material before publishing the key in the header.
+	const { d: _omitted, ...publicJwk } = holderJwk as JWK & { d?: string };
+
+	const vpjwt = await new SignJWT({
+		...presentation,
+		nonce,
+		aud: audience,
+		...transactionDataResponseParams,
+	})
+		.setIssuedAt()
+		.setProtectedHeader({
+			typ: "vp+jwt",
+			alg,
+			jwk: publicJwk,
+		})
+		.sign(importedPrivateKey);
+
+	return { vpjwt };
 }
 
 export async function generateOpenid4vciProofs(
