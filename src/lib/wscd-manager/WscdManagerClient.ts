@@ -207,6 +207,37 @@ export class WscdManagerClient implements IWscdManagerClient {
 		return kid;
 	}
 
+	async #registerHosts(hosts: IWscdManagerHost[]): Promise<void> {
+		await Promise.all(hosts.map((host) => host.initialize()));
+
+		const availability = await Promise.all(
+			hosts.map((host) => host.isAvailable()),
+		);
+
+		this.#availableHosts = hosts.filter((_, i) => availability[i]);
+	}
+
+	/**
+	 * Selects the most eligible host based on the given requirements.
+	 */
+	async #selectHost(
+		req: WscdEligibilityRequirements,
+	): Promise<IWscdManagerHost> {
+		const eligible = (
+			await Promise.all(
+				this.#availableHosts.map(async (host) =>
+					(await host.isEligible(req)) ? host : null,
+				),
+			)
+		).filter((h): h is IWscdManagerHost => h !== null);
+
+		const [strongest] = eligible.sort((a, b) => b.strength - a.strength);
+		if (!strongest)
+			throw new Error('No eligible WSCD host for these requirements');
+
+		return strongest;
+	}
+
 	async #seedHostContainer(host: IWscdManagerHost): Promise<void> {
 		const needsImport = hostNeedsContainerImportExport(host);
 
@@ -243,37 +274,6 @@ export class WscdManagerClient implements IWscdManagerClient {
 		);
 
 		await this.#containerExportCallback(exportedContainer);
-	}
-
-	async #registerHosts(hosts: IWscdManagerHost[]): Promise<void> {
-		await Promise.all(hosts.map((host) => host.initialize()));
-
-		const availability = await Promise.all(
-			hosts.map((host) => host.isAvailable()),
-		);
-
-		this.#availableHosts = hosts.filter((_, i) => availability[i]);
-	}
-
-	/**
-	 * Selects the most eligible host based on the given requirements.
-	 */
-	async #selectHost(
-		req: WscdEligibilityRequirements,
-	): Promise<IWscdManagerHost> {
-		const eligible = (
-			await Promise.all(
-				this.#availableHosts.map(async (host) =>
-					(await host.isEligible(req)) ? host : null,
-				),
-			)
-		).filter((h): h is IWscdManagerHost => h !== null);
-
-		const [strongest] = eligible.sort((a, b) => b.strength - a.strength);
-		if (!strongest)
-			throw new Error('No eligible WSCD host for these requirements');
-
-		return strongest;
 	}
 
 	/**
