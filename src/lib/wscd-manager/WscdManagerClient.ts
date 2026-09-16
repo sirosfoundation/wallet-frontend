@@ -238,6 +238,12 @@ export class WscdManagerClient implements IWscdManagerClient {
 		return strongest;
 	}
 
+	/**
+	 * Seeds the host container if it requires import.
+	 *
+	 * This is currently only relevant for operations running on softkeys,
+	 * since we're importing from the keystore into the wscd host container.
+	 */
 	async #seedHostContainer(host: IWscdManagerHost): Promise<void> {
 		const needsImport = hostNeedsContainerImportExport(host);
 
@@ -255,6 +261,12 @@ export class WscdManagerClient implements IWscdManagerClient {
 		await host.importContainer(bytes);
 	}
 
+	/**
+	 * Exports the host container for the keystore to consume if needed.
+	 *
+	 * For now, only needed for softkeys that should be persisted
+	 * in the keystore.
+	 */
 	async #persistHostContainer(host: IWscdManagerHost): Promise<void> {
 		const needsExport = hostNeedsContainerImportExport(host);
 		if (!needsExport) return;
