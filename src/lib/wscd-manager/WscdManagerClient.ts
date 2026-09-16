@@ -113,7 +113,8 @@ export class WscdManagerClient implements IWscdManagerClient {
 		await this.#ready;
 
 		const requirements = await this.#determineElegibilityRequirements();
-		const host = await this.#selectAndSeedHostContainer(requirements);
+		const host = await this.#selectHost(requirements);
+		await this.#seedHostContainer(host);
 
 		const keys: Keypair[] = [];
 		for (let i = 0; i < count; i++) {
@@ -138,7 +139,8 @@ export class WscdManagerClient implements IWscdManagerClient {
 			plugin: WscdPlugin.SOFTKEY,
 			factors: [{ kind: 'none' } as AuthFactor],
 		};
-		const host = await this.#selectAndSeedHostContainer(requirements);
+		const host = await this.#selectHost(requirements);
+		await this.#seedHostContainer(host);
 
 		const proofs: string[] = [];
 		for (const { nonce, audience, issuer } of requests) {
@@ -175,7 +177,8 @@ export class WscdManagerClient implements IWscdManagerClient {
 	): Promise<Uint8Array> {
 		await this.#ready;
 		const requirements = requirementsForCredential(kid);
-		const host = await this.#selectAndSeedHostContainer(requirements);
+		const host = await this.#selectHost(requirements);
+		await this.#seedHostContainer(host);
 
 		const keyHandle = await this.#resolveKeyHandle(kid);
 		const result = await host.sign(keyHandle, data);
@@ -199,13 +202,10 @@ export class WscdManagerClient implements IWscdManagerClient {
 		return kid;
 	}
 
-	async #selectAndSeedHostContainer(
-		requirements: WscdEligibilityRequirements,
-	): Promise<IWscdManagerHost> {
-		const host = await this.#selectHost(requirements),
-			needsImport = hostNeedsContainerImportExport(host);
+	async #seedHostContainer(host: IWscdManagerHost): Promise<void> {
+		const needsImport = hostNeedsContainerImportExport(host);
 
-		if (!needsImport) return host;
+		if (!needsImport) return;
 
 		if (!this.#containerImportCallback) {
 			throw new Error('Container import callback not set');
@@ -217,8 +217,6 @@ export class WscdManagerClient implements IWscdManagerClient {
 		}
 
 		await host.importContainer(bytes);
-
-		return host;
 	}
 
 	async #persistHostContainer(host: IWscdManagerHost): Promise<void> {
