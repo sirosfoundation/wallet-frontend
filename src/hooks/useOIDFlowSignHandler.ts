@@ -179,12 +179,7 @@ export function useOIDFlowSignHandler() {
 				issuer,
 			}));
 
-			const [{ proof_jwts }, newPrivateData, keystoreCommit] =
-				await keystore.generateOpenid4vciProofs(requests);
-
-			// Persist key changes
-			await api.updatePrivateData(newPrivateData);
-			await keystoreCommit();
+			const proof_jwts = await wscd.generateOpenid4vciProofs(requests);
 
 			const proofs: ProofObject[] = proof_jwts.map(jwt => ({
 				proof_type: proofType,
@@ -196,7 +191,7 @@ export function useOIDFlowSignHandler() {
 		}
 
 		throw new Error(`Unsupported proof type requested: ${proofType}`);
-	}, [keystore, wscd, api]);
+	}, [wscd, api]);
 
 	const signClientAuth = useCallback(async (
 		options: OIDFlowSignOptions,

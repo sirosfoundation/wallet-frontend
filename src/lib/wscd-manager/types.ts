@@ -114,8 +114,10 @@ export interface IWscdGenerateOperations {
 	 * Generates new cryptographic key pairs. Returns the KID's and public keys.
 	 */
 	generateKeypairs(count: number): Promise<Keypair[]>;
-	// TODO?
-	// generateOpenid4vciProofs(requests: GenerateOpenid4vciProofsRequest[]): Promise<string[]>;
+	/**
+	 * Generates OpenID4VCI proofs for the given requests. Returns an array of proof strings.
+	 */
+	generateOpenid4vciProofs(requests: GenerateOpenid4vciProofsRequest[]): Promise<string[]>;
 }
 
 /**
