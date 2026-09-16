@@ -41,11 +41,11 @@ export class WscdManagerClient implements IWscdManagerClient {
 		]);
 	}
 
-	setContainerImporter(callback: () => Promise<WscdContainer>): void {
+	public setContainerImporter(callback: () => Promise<WscdContainer>): void {
 		this.#containerImportCallback = callback;
 	}
 
-	setContainerExporter(
+	public setContainerExporter(
 		callback: (container: WscdContainer) => Promise<void>
 	): void {
 		this.#containerExportCallback = callback;
@@ -73,7 +73,7 @@ export class WscdManagerClient implements IWscdManagerClient {
 		return sdJwt + kbJwt;
 	}
 
-	async generateDeviceResponse({
+	public async generateDeviceResponse({
 		credential,
 		disclosedClaims,
 		sessionTranscript,
@@ -88,7 +88,7 @@ export class WscdManagerClient implements IWscdManagerClient {
 		);
 	}
 
-	async generateDeviceResponseForDCAPI({
+	public async generateDeviceResponseForDCAPI({
 		credential,
 		disclosedClaims,
 		sessionTranscript,
@@ -104,11 +104,11 @@ export class WscdManagerClient implements IWscdManagerClient {
 		);
 	}
 
-	async generateDeviceResponseWithProximity(): Promise<Uint8Array> {
+	public async generateDeviceResponseWithProximity(): Promise<Uint8Array> {
 		return Promise.resolve(new Uint8Array());
 	}
 
-	async generateKeypairs(count: number): Promise<Keypair[]> {
+	public async generateKeypairs(count: number): Promise<Keypair[]> {
 		await this.#ready;
 
 		const requirements = {

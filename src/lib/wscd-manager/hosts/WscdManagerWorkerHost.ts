@@ -27,7 +27,7 @@ export class WscdManagerWorkerHost implements IWscdManagerHost {
 	#nextId = 0;
 	#pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: unknown) => void }>();
 
-	public async initialize() {
+	public async initialize(): Promise<void> {
 		this.#worker = new WscdManagerWorker();
 		this.#worker.onmessage = ({ data }: MessageEvent<WorkerResponse>) => {
 			const pending = this.#pending.get(data.id);
@@ -43,7 +43,7 @@ export class WscdManagerWorkerHost implements IWscdManagerHost {
 		this.#worker.postMessage('listKeys');
 	}
 
-	public async isAvailable() {
+	public async isAvailable(): Promise<boolean> {
 		if (!window.Worker) return false;
 		const pong = await this.#messageWorker({ action: 'ping' });
 		return pong === true;
@@ -59,7 +59,7 @@ export class WscdManagerWorkerHost implements IWscdManagerHost {
 		return supported && satisfiesFactors;
 	}
 
-	async importContainer(container: WscdContainer): Promise<void> {
+	public async importContainer(container: WscdContainer): Promise<void> {
 		await this.#messageWorker({
 			action: 'import_container',
 			container: ensureEncodedWscdContainer(container),
@@ -67,7 +67,7 @@ export class WscdManagerWorkerHost implements IWscdManagerHost {
 		logger.debug('Container imported successfully to web worker host');
 	}
 
-	async exportContainer(): Promise<WscdContainer> {
+	public async exportContainer(): Promise<WscdContainer> {
 		const result = await this.#messageWorker({
 			action: 'export_container',
 		});
@@ -75,7 +75,7 @@ export class WscdManagerWorkerHost implements IWscdManagerHost {
 		return ensureDecodedWscdContainer(result);
 	}
 
-	async sign(keyHandle: string, data: Uint8Array): Promise<Uint8Array> {
+	public async sign(keyHandle: string, data: Uint8Array): Promise<Uint8Array> {
 		return this.#messageWorker({
 			action: 'sign_request',
 			keyHandle,
@@ -83,13 +83,13 @@ export class WscdManagerWorkerHost implements IWscdManagerHost {
 		});
 	}
 
-	async generateKey(): Promise<string> {
+	public async generateKey(): Promise<string> {
 		return this.#messageWorker({
 			action: 'generate_key',
 		});
 	}
 
-	async exportPublicKey(keyHandle: string): Promise<JWK> {
+	public async exportPublicKey(keyHandle: string): Promise<JWK> {
 		return this.#messageWorker({
 			action: 'export_public_key',
 			keyHandle,
