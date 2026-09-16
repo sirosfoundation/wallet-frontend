@@ -9,6 +9,7 @@ overrides:
 
 patchedDependencies:
   cbor-x@1.6.4: 5dd1073cc30388a0a34fca92d7f5da906a96613928a9f7c06340303fea8838e5
+  reactour@1.19.4: 266746c5d7c0d42e26c5e63aede48213d8ef7936bd72d8ef40125f244c977670
 
 importers:
 
@@ -127,7 +128,7 @@ importers:
         version: 7.2.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       reactour:
         specifier: ^1.19.2
-        version: 1.19.4(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react-is@18.3.1)(react@19.2.8)(styled-components@6.4.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8))
+        version: 1.19.4(patch_hash=266746c5d7c0d42e26c5e63aede48213d8ef7936bd72d8ef40125f244c977670)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react-is@18.3.1)(react@19.2.8)(styled-components@6.4.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8))
       sharp:
         specifier: ^0.34.5
         version: 0.34.5
@@ -9207,7 +9208,7 @@ snapshots:
 
   react@19.2.8: {}
 
-  reactour@1.19.4(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react-is@18.3.1)(react@19.2.8)(styled-components@6.4.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)):
+  reactour@1.19.4(patch_hash=266746c5d7c0d42e26c5e63aede48213d8ef7936bd72d8ef40125f244c977670)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react-is@18.3.1)(react@19.2.8)(styled-components@6.4.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)):
     dependencies:
       '@rooks/use-mutation-observer': 4.11.2(react@19.2.8)
       classnames: 2.3.1

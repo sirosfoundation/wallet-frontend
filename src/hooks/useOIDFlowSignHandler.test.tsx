@@ -11,7 +11,10 @@ const mockPost = vi.fn();
 
 vi.mock('@/api', async importOriginal => ({
 	...(await importOriginal<typeof import('@/api')>()),
-	useApi: () => ({ post: mockPost }),
+	useApi: () => ({
+		post: mockPost,
+		authTokens: { ensureBackendToken: async () => ({ raw: 'test-token' }) },
+	}),
 }));
 
 vi.mock('@/config', async importOriginal => ({
@@ -213,11 +216,12 @@ describe('useOIDFlowSignHandler / sign_client_auth', () => {
 
 		expect(mockPost).toHaveBeenNthCalledWith(
 			1,
-			'/wallet-provider/wia/challenge',
+			'https://wallet-provider.example/wallet-provider/wia/challenge',
 			{},
+			{ Authorization: 'Bearer test-token' },
 		);
 		const [path, body] = mockPost.mock.calls[1];
-		expect(path).toBe('/wallet-provider/wia/generate');
+		expect(path).toBe('https://wallet-provider.example/wallet-provider/wia/generate');
 		expect(decodeJwt(body.pop).aud).toBe('https://wallet-provider.example');
 	});
 

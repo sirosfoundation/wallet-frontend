@@ -8,6 +8,7 @@ allowBuilds:
 
 patchedDependencies:
   cbor-x@1.6.4: patches/cbor-x@1.6.4.patch
+  reactour@1.19.4: patches/reactour@1.19.4.patch
 
 engineStrict: true
 minimumReleaseAge: 1440

@@ -93,6 +93,7 @@ export function useOIDFlowSignHandler() {
 	const oidFlowClientAuthMaterialManager = sessionContext?.oidFlowClientAuthMaterialManager;
 	const keystore = sessionContext?.keystore;
 	const wscd = useWscdManagerClient();
+	const authTokens = api.authTokens;
 
 	const signPresentation = useCallback(async (options: OIDFlowSignOptions): Promise<OIDFlowSignResponse> => {
 		const { audience, nonce, credentialsToInclude, responseUri, origin, verifierJwkThumbprint } = options;
@@ -221,6 +222,7 @@ export function useOIDFlowSignHandler() {
 			try {
 				const wia = await attestFlowIfEnabled(
 					httpClient,
+					(await authTokens.ensureBackendToken()).raw,
 					WIA_ENABLED,
 					authMaterial.wia,
 					authMaterial.keyPair,
@@ -247,7 +249,7 @@ export function useOIDFlowSignHandler() {
 		}
 
 		return response;
-	}, [oidFlowClientAuthMaterialManager, httpClient]);
+	}, [oidFlowClientAuthMaterialManager, httpClient, authTokens]);
 
 	const handleSignRequest = useCallback(async (request: OIDFlowSignRequest): Promise<OIDFlowSignResponse> => {
 		logger.debug('[WS Sign Handler] Received sign request:', request.action);

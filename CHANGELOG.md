@@ -1,5 +1,12 @@
 # wallet-frontend
 
+## 0.6.0-beta.1
+
+### Patch Changes
+
+- send bearer token in auth header to WIA endpoints by [@smncd](https://github.com/smncd) in [#295](https://github.com/sirosfoundation/wallet-frontend/pull/295)
+- fixed welcome tour csp problems. by [@lov1saconde](https://github.com/lov1saconde) in [#294](https://github.com/sirosfoundation/wallet-frontend/pull/294)
+
 ## 0.6.0-beta.0
 
 ### Minor Changes
