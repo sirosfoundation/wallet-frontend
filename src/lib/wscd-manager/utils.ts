@@ -1,5 +1,5 @@
 import { calculateJwkThumbprint } from 'jose';
-import { ExportedWscdContainer, ExportedWscdContainerSchema, WscdContainer, WscdContainerSchema, WscdPlugin } from './resources';
+import { ExportedWscdContainer, ExportedWscdContainerSchema, WscdContainer, WscdContainerSchema, WscdManagerError, WscdPlugin } from './resources';
 import type {
 	WscdEligibilityRequirements,
 	IWscdManagerHost,
@@ -38,7 +38,7 @@ export function ensureEncodedWscdContainer(container: WscdContainer): Uint8Array
 	const { success, error, data } = WscdContainerSchema.safeParse(container);
 
 	if (!success) {
-		throw new Error(`Failed to parse WscdContainer: ${error}`);
+		throw new WscdManagerError(`Failed to parse WscdContainer: ${error}`);
 	}
 
 	return new TextEncoder().encode(JSON.stringify(data));
@@ -54,7 +54,7 @@ export function ensureDecodedWscdContainer(container: Uint8Array): WscdContainer
 	);
 
 	if (!success) {
-		throw new Error(`Failed to parse WscdContainer: ${error}`);
+		throw new WscdManagerError(`Failed to parse WscdContainer: ${error}`);
 	}
 
 	return data;
@@ -83,7 +83,7 @@ export async function exportWscdContainerToKeystore(
 		data,
 	} = ExportedWscdContainerSchema.safeParse(exportedContainer);
 	if (!success) {
-		throw new Error(`Failed to parse ExportedWscdContainer: ${error}`);
+		throw new WscdManagerError(`Failed to parse ExportedWscdContainer: ${error}`);
 	}
 
 	return data;

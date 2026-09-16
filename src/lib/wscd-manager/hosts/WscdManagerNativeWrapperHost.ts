@@ -1,5 +1,5 @@
 import { WEBAUTHN_RPID } from '@/config';
-import { WscdManagerHosts, WscdHostStrength, WscdPlugin, WscdContainer } from '../resources';
+import { WscdManagerHosts, WscdHostStrength, WscdPlugin, WscdContainer, WscdManagerError } from '../resources';
 import {
 	AuthFactor,
 	IWscdManagerHost,
@@ -50,7 +50,7 @@ export class WscdManagerNativeWrapperHost implements IWscdManagerHost {
 		);
 
 		if (!(result instanceof Uint8Array)) {
-			throw new Error('Invalid container exported from native wrapper');
+			throw new WscdManagerError('Invalid container exported from native wrapper');
 		}
 
 		return ensureDecodedWscdContainer(result);
@@ -60,7 +60,7 @@ export class WscdManagerNativeWrapperHost implements IWscdManagerHost {
 		const result = await window.nativeWrapper.callWscd('sign', keyHandle, data);
 
 		if (!(result instanceof Uint8Array)) {
-			throw new Error('Invalid signature returned from native wrapper');
+			throw new WscdManagerError('Invalid signature returned from native wrapper');
 		}
 
 		return result;

@@ -1,6 +1,6 @@
 import { WEBAUTHN_RPID } from '@/config';
 import WscdManagerWorker from '../worker?worker';
-import { WscdManagerHosts, WscdHostStrength, WscdPlugin, WscdContainer } from '../resources';
+import { WscdManagerHosts, WscdHostStrength, WscdPlugin, WscdContainer, WscdManagerError } from '../resources';
 import {
 	AuthFactor,
 	IWscdManagerHost,
@@ -32,7 +32,9 @@ export class WscdManagerWorkerHost implements IWscdManagerHost {
 			const pending = this.#pending.get(data.id);
 			if (!pending) return;
 			this.#pending.delete(data.id);
-			'error' in data ? pending.reject(new Error(data.error)) : pending.resolve(data.result);
+			'error' in data
+				? pending.reject(new WscdManagerError(data.error))
+				: pending.resolve(data.result);
 		};
 		logger.debug('WscdManagerWorkerHost initialized');
 
