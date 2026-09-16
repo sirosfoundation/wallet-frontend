@@ -6,6 +6,7 @@ import SessionContext from './SessionContext';
 export const WscdManagerClientContextProvider: FC<PropsWithChildren> = ({
 	children,
 }) => {
+	const { api } = useContext(SessionContext);
 	const clientRef = useRef<WscdManagerClient>(null);
 	clientRef.current ??= new WscdManagerClient();
 
@@ -19,8 +20,14 @@ export const WscdManagerClientContextProvider: FC<PropsWithChildren> = ({
 	useEffect(() => {
 		clientRef.current?.setContainerImporter(async () => {
 			return keystore.exportToWscdContainer();
-		})
-	}, [keystore])
+		});
+
+		clientRef.current?.setContainerExporter(async (container) => {
+			const [, newPrivateData, commit] = await keystore.importFromWscdContainer(container);
+			await api.updatePrivateData(newPrivateData);
+			await commit();
+		});
+	}, [keystore, api])
 
 	return (
 		<WscdManagerClientContext.Provider value={value}>

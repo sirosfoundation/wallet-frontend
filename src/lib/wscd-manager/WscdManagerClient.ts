@@ -1,17 +1,20 @@
 import { WscdManagerInPageHost } from './hosts/WscdManagerInPageHost';
 // import { WscdManagerNativeWrapperHost } from './hosts/WscdManagerNativeWrapperHost';
 // import { WscdManagerWalletCompanionHost } from './hosts/WscdManagerWalletCompanionHost';
-import { WscdManagerWorkerHost } from './hosts/WscdManagerWorkerHost';
+// import { WscdManagerWorkerHost } from './hosts/WscdManagerWorkerHost';
 import {
+	exportWscdContainerToKeystore,
 	hostNeedsContainerImportExport,
 	requirementsForCredential,
 } from './utils';
-import { WscdContainer } from './resources';
+import { WscdContainer, WscdPlugin } from './resources';
 import {
+	AuthFactor,
 	GenerateDeviceResponseForDCAPIRequest,
 	GenerateDeviceResponseRequest,
 	IWscdManagerClient,
 	IWscdManagerHost,
+	Keypair,
 	SignSdJwtPresentationRequest,
 	WscdEligibilityRequirements,
 } from './types';
@@ -21,13 +24,13 @@ import {
 	generateMdocDeviceResponse,
 	prepareSdJwtPresentation,
 } from '../verifiable-credentials';
-import { base64url } from 'jose';
+import { base64url, calculateJwkThumbprint } from 'jose';
 
 export class WscdManagerClient implements IWscdManagerClient {
 	#ready: Promise<void>;
 	#availableHosts: IWscdManagerHost[] = [];
 	#containerImportCallback: () => Promise<WscdContainer>;
-	// #containerExportCallback: (container: WscdContainer) => Promise<void>;
+	#containerExportCallback: (container: WscdContainer) => Promise<void>;
 
 	constructor() {
 		this.#ready = this.#initialize();
@@ -36,7 +39,7 @@ export class WscdManagerClient implements IWscdManagerClient {
 	async #initialize(): Promise<void> {
 		await this.#registerHosts([
 			new WscdManagerInPageHost(),
-			new WscdManagerWorkerHost(),
+			// new WscdManagerWorkerHost(),
 			// new WscdManagerNativeWrapperHost(),
 			// new WscdManagerWalletCompanionHost(),
 		]);
@@ -46,11 +49,11 @@ export class WscdManagerClient implements IWscdManagerClient {
 		this.#containerImportCallback = callback;
 	}
 
-	// setContainerExporter(
-	// 	callback: (container: WscdContainer) => Promise<void>
-	// ): void {
-	// 	this.#containerExportCallback = callback;
-	// }
+	setContainerExporter(
+		callback: (container: WscdContainer) => Promise<void>
+	): void {
+		this.#containerExportCallback = callback;
+	}
 
 	public async signSdJwtPresentation({
 		audience,
@@ -109,26 +112,98 @@ export class WscdManagerClient implements IWscdManagerClient {
 		return Promise.resolve(new Uint8Array());
 	}
 
+	async generateKeypairs(count: number): Promise<Keypair[]> {
+		await this.#ready;
+
+		const requirements = {
+			plugin: WscdPlugin.SOFTKEY,
+			factors: [{ kind: 'none' } as AuthFactor],
+		};
+		const host = await this.#selectAndSeedHostContainer(requirements);
+
+		const keys: Keypair[] = [];
+		for (let i = 0; i < count; i++) {
+			const
+				keyHandle = await host.generateKey(),
+				publicKey = await host.exportPublicKey(keyHandle),
+				kid = await calculateJwkThumbprint(publicKey, 'sha256');
+
+			keys.push({
+				kid,
+				publicKey,
+			});
+		}
+
+		await this.#persistHostContainer(host);
+
+		return keys;
+	}
+
 	async #dispatchSignRequest(
 		kid: string,
 		data: Uint8Array,
 	): Promise<Uint8Array> {
 		await this.#ready;
-		const requirements = requirementsForCredential(kid),
+		const requirements = requirementsForCredential(kid);
+		const host = await this.#selectAndSeedHostContainer(requirements);
+
+		const keyHandle = await this.#resolveKeyHandle(kid);
+		const result = await host.sign(keyHandle, data);
+
+		return result;
+	}
+
+	/**
+	 * Translates a canonical kid (JWK thumbprint) to the host key handle.
+	 * Softkey re-keys under the thumbprint (handle === kid); other plugins will
+	 * need a real lookup, e.g. an in-memory kid -> keyHandle map.
+	 */
+	async #resolveKeyHandle(kid: string): Promise<string> {
+		return kid;
+	}
+
+	async #selectAndSeedHostContainer(
+		requirements: WscdEligibilityRequirements,
+	): Promise<IWscdManagerHost> {
+		const
 			host = await this.#selectHost(requirements),
 			needsImport = hostNeedsContainerImportExport(host);
 
-		if (needsImport) {
-			if (!this.#containerImportCallback) {
-				throw new Error('Container import callback not set');
-			}
-			const bytes = await this.#containerImportCallback();
-			if (bytes) await host.importContainer(bytes);
+		if (!needsImport) return host;
+
+		if (!this.#containerImportCallback) {
+			throw new Error('Container import callback not set');
 		}
 
-		const result = await host.sign(kid, data);
+		const bytes = await this.#containerImportCallback();
+		if (!bytes) {
+			throw new Error('Container import callback did not return any bytes');
+		}
 
-		return result;
+		await host.importContainer(bytes);
+
+		return host;
+	}
+
+	async #persistHostContainer(host: IWscdManagerHost): Promise<void> {
+		const needsExport = hostNeedsContainerImportExport(host);
+		if (!needsExport) return;
+
+		if (!this.#containerExportCallback) {
+			throw new Error('Container export callback not set');
+		}
+
+		const container = await host.exportContainer();
+		if (!container) {
+			throw new Error('Container export did not return any bytes');
+		}
+
+		const exportedContainer = await exportWscdContainerToKeystore(
+			host,
+			container,
+		);
+
+		await this.#containerExportCallback(exportedContainer);
 	}
 
 	async #registerHosts(hosts: IWscdManagerHost[]): Promise<void> {

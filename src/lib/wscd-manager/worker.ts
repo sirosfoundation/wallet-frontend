@@ -25,7 +25,7 @@ globalThis.onmessage = async ({ data }: MessageEvent<WorkerMessage>) => {
 				result = wscd.exportContainer();
 				break;
 			case 'sign_request':
-				result = await wscd.sign(data.kid, data.data);
+				result = await wscd.sign(data.keyHandle, data.data);
 				break;
 		}
 		globalThis.postMessage({

@@ -8,7 +8,7 @@ import {
 } from '../types';
 
 export class WscdManagerWalletCompanionHost implements IWscdManagerHost {
-	#supportedPlugins: ReadonlySet<WscdPlugin> = new Set([
+	readonly supportedPlugins: ReadonlySet<WscdPlugin> = new Set([
 		WscdPlugin.R2PS,
 	]);
 
@@ -31,7 +31,7 @@ export class WscdManagerWalletCompanionHost implements IWscdManagerHost {
 		plugin,
 		factors,
 	}: WscdEligibilityRequirements) {
-		const supported = this.#supportedPlugins.has(plugin);
+		const supported = this.supportedPlugins.has(plugin);
 		const satisfiesFactors = factors.every((f) => this.#canSatisfyFactor(f));
 
 		return supported && satisfiesFactors;

@@ -1,4 +1,5 @@
-import { WscdContainer, WscdContainerSchema, WscdPlugin } from './resources';
+import { calculateJwkThumbprint } from 'jose';
+import { ExportedWscdContainer, ExportedWscdContainerSchema, WscdContainer, WscdContainerSchema, WscdPlugin } from './resources';
 import type {
 	WscdEligibilityRequirements,
 	IWscdManagerHost,
@@ -54,6 +55,35 @@ export function ensureDecodedWscdContainer(container: Uint8Array): WscdContainer
 
 	if (!success) {
 		throw new Error(`Failed to parse WscdContainer: ${error}`);
+	}
+
+	return data;
+}
+
+/**
+ * Exports the given WscdContainer to a format suitable for keystore import.
+ */
+export async function exportWscdContainerToKeystore(
+	host: IWscdManagerHost,
+	container: WscdContainer,
+): Promise<ExportedWscdContainer> {
+	const exportedContainer: ExportedWscdContainer = container;
+	for (const key of exportedContainer.keys) {
+		// host handle as exported by the WSCD
+		const keyHandle = key.kid;
+		const publicKey = await host.exportPublicKey(keyHandle);
+		key.publicKey = publicKey;
+		// Use the tumbprint kid instead of the host key handle.
+		key.kid = await calculateJwkThumbprint(publicKey, 'sha256');
+	}
+
+	const {
+		success,
+		error,
+		data,
+	} = ExportedWscdContainerSchema.safeParse(exportedContainer);
+	if (!success) {
+		throw new Error(`Failed to parse ExportedWscdContainer: ${error}`);
 	}
 
 	return data;

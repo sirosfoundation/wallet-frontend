@@ -130,15 +130,15 @@ describe('WscdManagerNativeWrapperHost', () => {
 	});
 
 	describe('sign', () => {
-		it('forwards the kid and data to the bridge and returns the signature', async () => {
-			const kid = 'sw-1234';
+		it('forwards the keyHandle and data to the bridge and returns the signature', async () => {
+			const keyHandle = 'sw-1234';
 			const data = new Uint8Array([1, 2, 3]);
 			const signature = new Uint8Array([9, 9, 9]);
 			callWscd.mockResolvedValue(signature);
 
-			await expect(host.sign(kid, data)).resolves.toBe(signature);
+			await expect(host.sign(keyHandle, data)).resolves.toBe(signature);
 			expect(callWscd).toHaveBeenCalledTimes(1);
-			expect(callWscd).toHaveBeenCalledWith('sign', kid, data);
+			expect(callWscd).toHaveBeenCalledWith('sign', keyHandle, data);
 		});
 
 		it('throws when the bridge returns a non-Uint8Array signature', async () => {

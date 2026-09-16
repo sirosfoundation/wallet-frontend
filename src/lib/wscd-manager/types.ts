@@ -4,7 +4,11 @@ import {
 	WscdHostStrength,
 	WscdContainer,
 } from './resources';
-import { SessionTranscriptDcApiOptions, SessionTranscriptOptions } from '../verifiable-credentials';
+import {
+	SessionTranscriptDcApiOptions,
+	SessionTranscriptOptions
+} from '../verifiable-credentials';
+import { JWK } from 'jose';
 
 /**
  * The WSCD Manager Client is the public interface of the WSCD, and contains
@@ -51,9 +55,18 @@ export interface IWscdManagerHost {
 	 */
 	isEligible(requirements: WscdEligibilityRequirements): Promise<boolean>;
 	/**
-	 * Signs the provided data using the specified key identifier (kid).
+	 * Signs the provided data using the host key handle.
 	 */
-	sign(kid: string, data: Uint8Array): Promise<Uint8Array>;
+	sign(keyHandle: string, data: Uint8Array): Promise<Uint8Array>;
+	/**
+	 * Generates new cryptographic key material within the host. Returns its host
+	 * key handle, not the canonical thumbprint.
+	 */
+	generateKey(): Promise<string>;
+	/**
+	 * Exports the public key for the given host key handle.
+	 */
+	exportPublicKey(keyHandle: string): Promise<JWK>;
 	/**
 	 * Imports a container of cryptographic material into the WSCD manager client.
 	 * This typically replaces the current state with the provided container.
@@ -97,8 +110,12 @@ export interface IWscdSignOperations {
  * storage.
  */
 export interface IWscdGenerateOperations {
-	generateKeypairs(): Promise<void>;
-	generateOpenid4vciProofs(): Promise<void>;
+	/**
+	 * Generates new cryptographic key pairs. Returns the KID's and public keys.
+	 */
+	generateKeypairs(count: number): Promise<Keypair[]>;
+	// TODO?
+	// generateOpenid4vciProofs(requests: GenerateOpenid4vciProofsRequest[]): Promise<string[]>;
 }
 
 /**
@@ -106,7 +123,7 @@ export interface IWscdGenerateOperations {
  *
  * @todo add {@link IWscdGenerateOperations} to the operations set.
  */
-export interface IWscdOperations extends IWscdSignOperations {}
+export interface IWscdOperations extends IWscdSignOperations, IWscdGenerateOperations {}
 
 export type OperationReturnType<T extends keyof IWscdOperations> =
 	ReturnType<IWscdOperations[T]>;
@@ -188,6 +205,23 @@ export type GenerateDeviceResponseForDCAPIRequest = {
 };
 
 /**
+ * Request parameters for generating OpenID4VCI proofs.
+ */
+export type GenerateOpenid4vciProofsRequest = {
+	nonce: string;
+	audience: string;
+	issuer: string;
+};
+
+/**
+ * KID and public key pair.
+ */
+export type Keypair = {
+	kid: string;
+	publicKey: JWK;
+};
+
+/**
  * Messages sent to the WSCD worker.
  */
 export type WorkerMessage = {
@@ -205,7 +239,7 @@ export type WorkerMessage = {
 	}
 	| {
 		action: 'sign_request',
-		kid: string,
+		keyHandle: string,
 		data: Uint8Array,
 	}
 )

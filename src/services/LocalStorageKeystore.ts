@@ -13,11 +13,11 @@ import * as keystore from "./keystore";
 import type { AsymmetricEncryptedContainer, AsymmetricEncryptedContainerKeys, EncryptedContainer, OpenedContainer, PrivateData, UnlockSuccess, WebauthnPrfEncryptionKeyInfo, WebauthnPrfSaltInfo, WrappedKeyInfo } from "./keystore";
 import { MDoc } from "@auth0/mdl";
 import { WalletStateUtils } from "./WalletStateUtils";
-import { addAlterSettingsEvent, addDeleteCredentialEvent, addDeleteCredentialIssuanceSessionEvent, addDeleteKeypairEvent, addDeletePresentationEvent, addNewCredentialEvent, addNewPresentationEvent, addSaveCredentialIssuanceSessionEvent, CurrentSchema, foldOldEventsIntoBaseState, foldState, mergeEventHistories } from "./WalletStateSchema";
+import { addAlterSettingsEvent, addDeleteCredentialEvent, addDeleteCredentialIssuanceSessionEvent, addDeleteKeypairEvent, addDeletePresentationEvent, addNewCredentialEvent, addNewKeypairEvent, addNewPresentationEvent, addSaveCredentialIssuanceSessionEvent, CurrentSchema, foldOldEventsIntoBaseState, foldState, mergeEventHistories } from "./WalletStateSchema";
 import { UserId } from "@/api/types";
 import { getItem } from "@/indexedDB";
 import { WalletStateContainerGeneric } from "./WalletStateSchemaCommon";
-import { WscdContainer } from "@/lib/wscd-manager";
+import { ExportedWscdContainer, WscdContainer } from "@/lib/wscd-manager";
 
 type WalletState = CurrentSchema.WalletState;
 type WalletStateCredential = CurrentSchema.WalletStateCredential;
@@ -146,7 +146,11 @@ export interface LocalStorageKeystore {
 	 */
 	syncWithRemoteData(remotePrivateDataRaw: Uint8Array): Promise<Result<AsymmetricEncryptedContainer, 'keystoreNotOpen' | 'mergeFailed'>>,
 	exportToWscdContainer(): Promise<WscdContainer>,
-	importFromWscdContainer(container: WscdContainer): Promise<void>
+	importFromWscdContainer(container: WscdContainer): Promise<[
+		{},
+		AsymmetricEncryptedContainer,
+		CommitCallback,
+	]>
 }
 
 /** A stateful wrapper around the keystore module, storing state in the browser's localStorage and sessionStorage. */
@@ -924,10 +928,34 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		}
 	}, [calculatedWalletState]);
 
-	const importFromWscdContainer = useCallback(async (container: WscdContainer): Promise<void> => {
-		// Implement the logic to import the WscdContainer into the local keystore
-		console.log('Importing WscdContainer:', container);
-	}, []);
+	const importFromWscdContainer = useCallback(
+		async (container: ExportedWscdContainer) => {
+			let [walletStateContainer, ,] = await openPrivateData();
+			walletStateContainer = await foldOldEventsIntoBaseState(walletStateContainer);
+
+			const existing = new Set(foldState(walletStateContainer).keypairs.map((k) => k.kid));
+			const toAdd = container.keys.filter((k) => !existing.has(k.kid));
+			if (toAdd.length === 0) return;
+
+			for (const { kid, algorithm, d, publicKey } of toAdd) {
+				const keypair: keystore.CredentialKeyPair = {
+					kid,
+					did: await keystore.createDidFromJwk(publicKey, config.DID_KEY_VERSION),
+					alg: algorithm,
+					publicKey,
+					privateKey: { ...publicKey, d }, // full JWK, not d-only
+				};
+				walletStateContainer = await addNewKeypairEvent(walletStateContainer, kid, keypair);
+			}
+
+			return await editPrivateData(async (originalContainer) => {
+				const { newContainer } = await keystore.updateWalletState(originalContainer, walletStateContainer);
+				return [{}, newContainer];
+			});
+		},
+		[editPrivateData, openPrivateData],
+	);
+
 
 	return useMemo(() => ({
 		isOpen,

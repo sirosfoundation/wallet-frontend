@@ -1,3 +1,4 @@
+import { JWK } from 'jose';
 import { z } from 'zod';
 
 export enum WscdManagerHosts {
@@ -30,6 +31,13 @@ export enum WscdHostStrength {
 	 * hardware-backed secure element
 	 */
 	NATIVE_WRAPPER = 30,
+}
+
+export class WscdManagerError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'WscdManagerError';
+	}
 }
 
 /**
@@ -77,3 +85,22 @@ export const WscdContainerSchema = z.object({
 	lifecycle: z.record(z.string(), WscdLifecycleContextSchema).default({}),
 });
 export type WscdContainer = z.infer<typeof WscdContainerSchema>;
+
+/**
+ * Exported schema for keystore compatibility.
+ * Adds public key information to each key.
+ */
+export const ExportedWscdContainerSchema = WscdContainerSchema.extend({
+	keys: z.array(
+		WscdKeySchema.extend({
+			publicKey: z.custom<JWK>(
+				(value) =>
+					typeof value === 'object' &&
+					value !== null &&
+					typeof (value as { kty?: unknown }).kty === 'string',
+				{ message: 'publicKey must be a JWK' },
+			),
+		}),
+	),
+});
+export type ExportedWscdContainer = z.infer<typeof ExportedWscdContainerSchema>;

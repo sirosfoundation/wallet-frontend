@@ -153,12 +153,7 @@ export function useOIDFlowSignHandler() {
 			.find(type => proofTypesSupported[type]) as 'jwt' | 'attestation' | undefined;
 
 		if (proofType === 'attestation') {
-			const [{ keypairs }, newPrivateData, keystoreCommit] =
-				await keystore.generateKeypairs(count);
-
-			// Persist key changes
-			await api.updatePrivateData(newPrivateData);
-			await keystoreCommit();
+			const keypairs = await wscd.generateKeypairs(count);
 
 			const response = await api.post('/wallet-provider/key-attestation/generate', {
 				jwks: keypairs.map(kp => kp.publicKey),
@@ -201,7 +196,7 @@ export function useOIDFlowSignHandler() {
 		}
 
 		throw new Error(`Unsupported proof type requested: ${proofType}`);
-	}, [keystore, api]);
+	}, [keystore, wscd, api]);
 
 	const signClientAuth = useCallback(async (
 		options: OIDFlowSignOptions,

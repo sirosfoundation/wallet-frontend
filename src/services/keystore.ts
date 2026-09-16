@@ -987,6 +987,18 @@ async function createDid(publicKey: CryptoKey, didKeyVersion: DidKeyVersion): Pr
 	}
 }
 
+export async function createDidFromJwk(publicKeyJwk: JWK, didKeyVersion: DidKeyVersion): Promise<string> {
+	const { kty, crv, x, y } = publicKeyJwk;
+	const publicKey = await crypto.subtle.importKey(
+		'jwk',
+		{ kty, crv, x, y },
+		{ name: 'ECDSA', namedCurve: 'P-256' },
+		true,
+		['verify'],
+	);
+	return createDid(publicKey, didKeyVersion);
+}
+
 export async function signJwtPresentation([privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState], nonce: string, audience: string, verifiableCredentials: any[], transactionDataResponseParams?: { transaction_data_hashes: string[], transaction_data_hashes_alg: string[] }): Promise<{ vpjwt: string }> {
 	const hasher = async (data: string | ArrayBuffer, alg: string) => {
 		const encoded =

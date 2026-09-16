@@ -14,6 +14,7 @@ import type {
 } from '../types';
 import { logger } from '@/logger';
 import { ensureDecodedWscdContainer, ensureEncodedWscdContainer } from '../utils';
+import { JWK } from 'jose';
 
 export class WscdManagerInPageHost implements IWscdManagerHost {
 	readonly supportedPlugins: ReadonlySet<WscdPlugin> = new Set([
@@ -57,8 +58,16 @@ export class WscdManagerInPageHost implements IWscdManagerHost {
 		return ensureDecodedWscdContainer(this.#wscd.exportContainer());
 	}
 
-	async sign(kid: string, data: Uint8Array): Promise<Uint8Array> {
-		return this.#wscd.sign(kid, data);
+	async sign(keyHandle: string, data: Uint8Array): Promise<Uint8Array> {
+		return this.#wscd.sign(keyHandle, data);
+	}
+
+	async generateKey(): Promise<string> {
+		return this.#wscd.generateKey();
+	}
+
+	async exportPublicKey(keyHandle: string): Promise<JWK> {
+		return await this.#wscd.exportPublicKey(keyHandle);
 	}
 
 	#canSatisfyFactor(factor: AuthFactor): boolean {

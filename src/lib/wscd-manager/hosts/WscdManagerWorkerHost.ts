@@ -72,10 +72,10 @@ export class WscdManagerWorkerHost implements IWscdManagerHost {
 		return ensureDecodedWscdContainer(result);
 	}
 
-	async sign(kid: string, data: Uint8Array): Promise<Uint8Array> {
+	async sign(keyHandle: string, data: Uint8Array): Promise<Uint8Array> {
 		return this.#messageWorker({
 			action: 'sign_request',
-			kid,
+			keyHandle,
 			data,
 		});
 	}
