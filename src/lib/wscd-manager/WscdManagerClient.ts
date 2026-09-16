@@ -24,6 +24,7 @@ import {
 	prepareSdJwtPresentation,
 } from '../verifiable-credentials';
 import { base64url, calculateJwkThumbprint } from 'jose';
+import { logger } from '@/logger';
 
 export class WscdManagerClient implements IWscdManagerClient {
 	#ready: Promise<void>;
@@ -127,6 +128,7 @@ export class WscdManagerClient implements IWscdManagerClient {
 
 		await this.#persistHostContainer(host);
 
+		logger.debug(`Generated ${keys.length} key(s) with host '${host.id}'`);
 		return keys;
 	}
 
@@ -168,6 +170,8 @@ export class WscdManagerClient implements IWscdManagerClient {
 		}
 
 		await this.#persistHostContainer(host);
+
+		logger.debug(`Generated ${proofs.length} OpenID4VCI proof(s) with host '${host.id}'`);
 		return proofs;
 	}
 
@@ -183,6 +187,7 @@ export class WscdManagerClient implements IWscdManagerClient {
 		const keyHandle = await this.#resolveKeyHandle(kid);
 		const result = await host.sign(keyHandle, data);
 
+		logger.debug(`Completed sign request with host '${host.id}'`);
 		return result;
 	}
 
