@@ -242,6 +242,13 @@ export type WorkerMessage = {
 		keyHandle: string,
 		data: Uint8Array,
 	}
+	| {
+		action: 'generate_key',
+	}
+	| {
+		action: 'export_public_key',
+		keyHandle: string,
+	}
 )
 
 /**
@@ -266,6 +273,14 @@ export type WorkerResponse = {
 	| {
 		action: 'sign_request';
 		result: Uint8Array;
+	}
+	| {
+		action: 'generate_key';
+		result: string;
+	}
+	| {
+		action: 'export_public_key';
+		result: JWK;
 	}
 )
 

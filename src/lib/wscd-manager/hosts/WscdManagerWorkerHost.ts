@@ -11,6 +11,7 @@ import {
 } from '../types';
 import { logger } from '@/logger';
 import { ensureDecodedWscdContainer, ensureEncodedWscdContainer } from '../utils';
+import { JWK } from 'jose';
 
 export class WscdManagerWorkerHost implements IWscdManagerHost {
 	readonly supportedPlugins: ReadonlySet<WscdPlugin> = new Set([
@@ -79,6 +80,19 @@ export class WscdManagerWorkerHost implements IWscdManagerHost {
 			action: 'sign_request',
 			keyHandle,
 			data,
+		});
+	}
+
+	async generateKey(): Promise<string> {
+		return this.#messageWorker({
+			action: 'generate_key',
+		});
+	}
+
+	async exportPublicKey(keyHandle: string): Promise<JWK> {
+		return this.#messageWorker({
+			action: 'export_public_key',
+			keyHandle,
 		});
 	}
 

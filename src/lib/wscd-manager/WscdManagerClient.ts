@@ -1,7 +1,5 @@
 import { WscdManagerInPageHost } from './hosts/WscdManagerInPageHost';
-// import { WscdManagerNativeWrapperHost } from './hosts/WscdManagerNativeWrapperHost';
-// import { WscdManagerWalletCompanionHost } from './hosts/WscdManagerWalletCompanionHost';
-// import { WscdManagerWorkerHost } from './hosts/WscdManagerWorkerHost';
+import { WscdManagerWorkerHost } from './hosts/WscdManagerWorkerHost';
 import {
 	exportWscdContainerToKeystore,
 	hostNeedsContainerImportExport,
@@ -39,9 +37,7 @@ export class WscdManagerClient implements IWscdManagerClient {
 	async #initialize(): Promise<void> {
 		await this.#registerHosts([
 			new WscdManagerInPageHost(),
-			// new WscdManagerWorkerHost(),
-			// new WscdManagerNativeWrapperHost(),
-			// new WscdManagerWalletCompanionHost(),
+			new WscdManagerWorkerHost(),
 		]);
 	}
 
