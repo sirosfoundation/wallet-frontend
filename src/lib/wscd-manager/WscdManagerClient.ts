@@ -137,10 +137,7 @@ export class WscdManagerClient implements IWscdManagerClient {
 	): Promise<string[]> {
 		await this.#ready;
 
-		const requirements = {
-			plugin: WscdPlugin.SOFTKEY,
-			factors: [{ kind: 'none' } as AuthFactor],
-		};
+		const requirements = await this.#determineElegibilityRequirements();
 		const host = await this.#selectHost(requirements);
 		await this.#seedHostContainer(host);
 
