@@ -16,7 +16,7 @@ import Spinner from '@/components/Shared/Spinner';
  * credential is shown with. Any other verification failure is not a status the user can act on,
  * so it is left unset.
  */
-function toCredentialStatus(error: CredentialVerificationError): CredentialStatus {
+export function toCredentialStatus(error: CredentialVerificationError): CredentialStatus {
 	switch (error) {
 		case CredentialVerificationError.ExpiredCredential: return 'expired';
 		case CredentialVerificationError.NotYetValidCredential: return 'notYetValid';

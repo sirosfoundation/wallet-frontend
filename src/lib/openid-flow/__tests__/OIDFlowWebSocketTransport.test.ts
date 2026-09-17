@@ -1153,6 +1153,59 @@ describe('OIDFlowWebSocketTransport', () => {
 		});
 	});
 
+	describe('Verifier Trust Evaluation', () => {
+		// The engine asks the wallet to evaluate a verifier mid-flow. DIIP v5 requires the `did`
+		// Client Identifier Scheme, which arrives prefixed as `decentralized_identifier:did:…`,
+		// so the scheme has to be derived from the client_id rather than assumed.
+		const evaluateVerifierTrust = vi.fn();
+		const trustEvaluators = {
+			evaluateIssuerTrust: vi.fn(),
+			evaluateVerifierTrust,
+		} as never;
+
+		const evaluate = async (subjectId: string, context?: Record<string, unknown>) => {
+			evaluateVerifierTrust.mockReset();
+			evaluateVerifierTrust.mockResolvedValue({ trusted: true });
+
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken, 'default', trustEvaluators);
+			await transport.connect();
+
+			mockWebSocketInstances[0].simulateMessage({
+				type: 'progress',
+				flow_id: 'flow-1',
+				step: 'evaluating_verifier_trust',
+				payload: {
+					trust_evaluation_required: true,
+					request: { subject_id: subjectId, subject_type: 'credential_verifier', context },
+				},
+			});
+
+			await vi.waitFor(() => expect(evaluateVerifierTrust).toHaveBeenCalled());
+			return evaluateVerifierTrust.mock.calls[0][0];
+		};
+
+		it('reads the did scheme out of a decentralized_identifier client_id', async () => {
+			const arg = await evaluate('decentralized_identifier:did:web:verifier.example.com');
+			expect(arg.clientIdScheme.scheme).toBe('did');
+			// The bare DID is what a resolver can act on; the prefixed form is not.
+			expect(arg.clientIdScheme.identifier).toBe('did:web:verifier.example.com');
+		});
+
+		it('handles a did:jwk verifier the same way', async () => {
+			const arg = await evaluate('decentralized_identifier:did:jwk:eyJrdHkiOiJFQyJ9');
+			expect(arg.clientIdScheme.scheme).toBe('did');
+			expect(arg.clientIdScheme.identifier).toBe('did:jwk:eyJrdHkiOiJFQyJ9');
+		});
+
+		it('lets an explicit scheme from the backend win', async () => {
+			// The backend may know something the identifier does not say; when it overrides the
+			// derived scheme the raw client_id is passed through untouched.
+			const arg = await evaluate('verifier.example.com', { client_id_scheme: 'x509_san_dns' });
+			expect(arg.clientIdScheme.scheme).toBe('x509_san_dns');
+			expect(arg.clientIdScheme.identifier).toBe('verifier.example.com');
+		});
+	});
+
 	describe('Flow Action Sending', () => {
 		it('should send flow_action message with sendFlowAction', async () => {
 			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
