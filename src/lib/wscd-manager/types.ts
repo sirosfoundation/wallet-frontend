@@ -57,7 +57,7 @@ export interface IWscdManagerHost {
 	/**
 	 * Signs the provided data using the host key handle.
 	 */
-	sign(keyHandle: string, data: Uint8Array): Promise<Uint8Array>;
+	sign(kid: string, data: Uint8Array): Promise<Uint8Array>;
 	/**
 	 * Generates new cryptographic key material within the host. Returns its host
 	 * key handle, not the canonical thumbprint.
@@ -66,7 +66,7 @@ export interface IWscdManagerHost {
 	/**
 	 * Exports the public key for the given host key handle.
 	 */
-	exportPublicKey(keyHandle: string): Promise<JWK>;
+	exportPublicKey(kid: string): Promise<JWK>;
 	/**
 	 * Imports a container of cryptographic material into the WSCD manager client.
 	 * This typically replaces the current state with the provided container.
@@ -241,7 +241,7 @@ export type WorkerMessage = {
 	}
 	| {
 		action: 'sign_request',
-		keyHandle: string,
+		kid: string,
 		data: Uint8Array,
 	}
 	| {
@@ -249,7 +249,7 @@ export type WorkerMessage = {
 	}
 	| {
 		action: 'export_public_key',
-		keyHandle: string,
+		kid: string,
 	}
 )
 

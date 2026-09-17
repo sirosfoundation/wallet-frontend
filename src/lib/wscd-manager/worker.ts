@@ -25,13 +25,13 @@ globalThis.onmessage = async ({ data }: MessageEvent<WorkerMessage>) => {
 				result = wscd.exportContainer();
 				break;
 			case 'sign_request':
-				result = await wscd.sign(data.keyHandle, data.data);
+				result = await wscd.sign(data.kid, data.data);
 				break;
 			case 'generate_key':
 				result = await wscd.generateKey();
 				break;
 			case 'export_public_key':
-				result = await wscd.exportPublicKey(data.keyHandle);
+				result = await wscd.exportPublicKey(data.kid);
 				break;
 		}
 		globalThis.postMessage({

@@ -1,4 +1,3 @@
-import { calculateJwkThumbprint } from 'jose';
 import {
 	ExportedWscdContainer,
 	ExportedWscdContainerSchema,
@@ -76,16 +75,17 @@ export async function exportWscdContainerToKeystore(
 	container: WscdContainer,
 ): Promise<ExportedWscdContainer> {
 	const keys: ExportedWscdContainer['keys'] = [];
-	for (const key of container.keys) {
-		// host handle as exported by the WSCD
-		const publicKey = await host.exportPublicKey(key.kid);
-		keys.push({
-			...key,
-			publicKey,
-			// canonical thumbprint kid instead of the host key handle
-			kid: await calculateJwkThumbprint(publicKey, 'sha256'),
-		});
-	}
+
+	await Promise.all(
+		container.keys.map(async (key) => {
+			// host handle as exported by the WSCD
+			const publicKey = await host.exportPublicKey(key.kid);
+			keys.push({
+				...key,
+				publicKey,
+			});
+		}),
+	);
 
 	const { success, error, data } =
 		ExportedWscdContainerSchema.safeParse({ ...container, keys });

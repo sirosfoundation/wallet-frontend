@@ -23,7 +23,7 @@ import {
 	generateMdocDeviceResponse,
 	prepareSdJwtPresentation,
 } from '../verifiable-credentials';
-import { base64url, calculateJwkThumbprint } from 'jose';
+import { base64url } from 'jose';
 import { logger } from '@/logger';
 
 export class WscdManagerClient implements IWscdManagerClient {
@@ -121,9 +121,8 @@ export class WscdManagerClient implements IWscdManagerClient {
 
 		const keys: Keypair[] = [];
 		for (let i = 0; i < count; i++) {
-			const keyHandle = await host.generateKey(),
-				publicKey = await host.exportPublicKey(keyHandle),
-				kid = await calculateJwkThumbprint(publicKey, 'sha256');
+			const kid = await host.generateKey(),
+				publicKey = await host.exportPublicKey(kid);
 
 			keys.push({ kid, publicKey });
 		}
@@ -145,13 +144,12 @@ export class WscdManagerClient implements IWscdManagerClient {
 
 		const proofs: string[] = [];
 		for (const { nonce, audience, issuer } of requests) {
-			const keyHandle = await host.generateKey();
-			const publicKey = await host.exportPublicKey(keyHandle);
-			const kid = await calculateJwkThumbprint(publicKey, 'sha256');
+			const kid = await host.generateKey();
+			const publicKey = await host.exportPublicKey(kid);
 
 			const proof = await this.#signCompactJws(
 				host,
-				keyHandle,
+				kid,
 				{
 					alg: 'ES256',
 					typ: 'openid4vci-proof+jwt',
@@ -183,8 +181,7 @@ export class WscdManagerClient implements IWscdManagerClient {
 		const host = await this.#selectHost(requirements);
 		await this.#seedHostContainer(host);
 
-		const keyHandle = await this.#resolveKeyHandle(kid);
-		const result = await host.sign(keyHandle, data);
+		const result = await host.sign(kid, data);
 
 		logger.debug(`Completed sign request with host '${host.id}'`);
 		return result;
@@ -195,15 +192,6 @@ export class WscdManagerClient implements IWscdManagerClient {
 			plugin: WscdPlugin.SOFTKEY,
 			factors: [{ kind: 'none' } as AuthFactor],
 		};
-	}
-
-	/**
-	 * Translates a canonical kid (JWK thumbprint) to the host key handle.
-	 * Softkey re-keys under the thumbprint (handle === kid); other plugins will
-	 * need a real lookup, e.g. an in-memory kid -> keyHandle map.
-	 */
-	async #resolveKeyHandle(kid: string): Promise<string> {
-		return kid;
 	}
 
 	async #registerHosts(hosts: IWscdManagerHost[]): Promise<void> {
@@ -292,13 +280,13 @@ export class WscdManagerClient implements IWscdManagerClient {
 	 */
 	async #signCompactJws(
 		host: IWscdManagerHost,
-		keyHandle: string,
+		kid: string,
 		header: Record<string, unknown>,
 		payload: Record<string, unknown>,
 	): Promise<string> {
 		const signingInput = `${base64url.encode(JSON.stringify(header))}.${base64url.encode(JSON.stringify(payload))}`;
 		const sig = await host.sign(
-			keyHandle,
+			kid,
 			new TextEncoder().encode(signingInput),
 		);
 		return `${signingInput}.${base64url.encode(sig)}`;

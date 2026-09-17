@@ -75,10 +75,10 @@ export class WscdManagerWorkerHost implements IWscdManagerHost {
 		return ensureDecodedWscdContainer(result);
 	}
 
-	public async sign(keyHandle: string, data: Uint8Array): Promise<Uint8Array> {
+	public async sign(kid: string, data: Uint8Array): Promise<Uint8Array> {
 		return this.#messageWorker({
 			action: 'sign_request',
-			keyHandle,
+			kid: kid,
 			data,
 		});
 	}
@@ -89,10 +89,10 @@ export class WscdManagerWorkerHost implements IWscdManagerHost {
 		});
 	}
 
-	public async exportPublicKey(keyHandle: string): Promise<JWK> {
+	public async exportPublicKey(kid: string): Promise<JWK> {
 		return this.#messageWorker({
 			action: 'export_public_key',
-			keyHandle,
+			kid: kid,
 		});
 	}
 

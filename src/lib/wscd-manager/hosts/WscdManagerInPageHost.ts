@@ -58,16 +58,16 @@ export class WscdManagerInPageHost implements IWscdManagerHost {
 		return ensureDecodedWscdContainer(this.#wscd.exportContainer());
 	}
 
-	async sign(keyHandle: string, data: Uint8Array): Promise<Uint8Array> {
-		return this.#wscd.sign(keyHandle, data);
+	async sign(kid: string, data: Uint8Array): Promise<Uint8Array> {
+		return this.#wscd.sign(kid, data);
 	}
 
 	async generateKey(): Promise<string> {
 		return this.#wscd.generateKey();
 	}
 
-	async exportPublicKey(keyHandle: string): Promise<JWK> {
-		return await this.#wscd.exportPublicKey(keyHandle);
+	async exportPublicKey(kid: string): Promise<JWK> {
+		return await this.#wscd.exportPublicKey(kid);
 	}
 
 	#canSatisfyFactor(factor: AuthFactor): boolean {

@@ -56,8 +56,8 @@ export class WscdManagerNativeWrapperHost implements IWscdManagerHost {
 		return ensureDecodedWscdContainer(result);
 	}
 
-	public async sign(keyHandle: string, data: Uint8Array): Promise<Uint8Array> {
-		const result = await window.nativeWrapper.callWscd('sign', keyHandle, data);
+	public async sign(kid: string, data: Uint8Array): Promise<Uint8Array> {
+		const result = await window.nativeWrapper.callWscd('sign', kid, data);
 
 		if (!(result instanceof Uint8Array)) {
 			throw new WscdManagerError('Invalid signature returned from native wrapper');
