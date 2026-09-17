@@ -55,16 +55,17 @@ export interface IWscdManagerHost {
 	 */
 	isEligible(requirements: WscdEligibilityRequirements): Promise<boolean>;
 	/**
-	 * Signs the provided data using the host key handle.
+	 * Signs the provided data using the specified key identified by
+	 * its canonical thumbprint (kid).
 	 */
 	sign(kid: string, data: Uint8Array): Promise<Uint8Array>;
 	/**
-	 * Generates new cryptographic key material within the host. Returns its host
-	 * key handle, not the canonical thumbprint.
+	 * Generates new cryptographic key material within the host. Returns the
+	 * canonical thumbprint (kid).
 	 */
 	generateKey(): Promise<string>;
 	/**
-	 * Exports the public key for the given host key handle.
+	 * Exports the public key for the given canonical thumbprint (kid).
 	 */
 	exportPublicKey(kid: string): Promise<JWK>;
 	/**
