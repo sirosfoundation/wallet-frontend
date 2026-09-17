@@ -14,6 +14,7 @@ import { handleOIDCCallback, buildOIDCConfig } from '../../lib/oidc';
 import LoginLayout from '../../components/Auth/LoginLayout';
 import { LoaderCircle, CheckCircle, AlertCircle } from 'lucide-react';
 import Button from '../../components/Buttons/Button';
+import { useStatusContext } from '@/hooks/useStatusContext';
 
 type CallbackState =
 	| { status: 'processing' }
@@ -21,6 +22,7 @@ type CallbackState =
 	| { status: 'error'; message: string };
 
 export default function OIDCCallback() {
+	const { blockUpdates } = useStatusContext();
 	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const { buildPath, getRegistrationOIDCProvider, getLoginOIDCProvider, isLoadingConfig } = useTenant();
@@ -32,6 +34,8 @@ export default function OIDCCallback() {
 		if (isLoadingConfig) {
 			return;
 		}
+
+		const release = blockUpdates('oidc-callback');
 
 		const processCallback = async () => {
 			try {
@@ -82,10 +86,16 @@ export default function OIDCCallback() {
 					status: 'error',
 					message: t('oidcGate.errorGeneric'),
 				});
+			} finally {
+				release();
 			}
 		};
 
 		processCallback();
+
+		return () => {
+			release();
+		};
 	}, [isLoadingConfig, getRegistrationOIDCProvider, getLoginOIDCProvider, buildPath, navigate, t]);
 
 	const handleRetry = () => {
