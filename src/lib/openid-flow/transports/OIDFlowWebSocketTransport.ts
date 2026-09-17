@@ -486,12 +486,20 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 	async startOID4VPFlow(params: OID4VPFlowParams): Promise<OID4VPFlowResult> {
 		if (params.requestUriRef && params.clientId && !params.selectedCredentials) {
-			// Phase 1: Start flow with authorization request
+			// Phase 1: Start flow with authorization request.
+			//
+			// request_uri_method and wallet_metadata are only acted on for a
+			// request_uri_method=post request (OpenID4VP §5.10), but the
+			// backend is the side that knows whether this is one - it is what
+			// dereferences request_uri - so both are sent whenever they are
+			// known and left to it.
 			const response = await this.send({
 				type: 'flow_start',
 				protocol: 'oid4vp',
 				request_uri_ref: params.requestUriRef,
 				client_id: params.clientId,
+				...(params.requestUriMethod ? { request_uri_method: params.requestUriMethod } : {}),
+				...(params.walletMetadata ? { wallet_metadata: params.walletMetadata } : {}),
 			});
 
 			return this.mapOID4VPResponse(response);
