@@ -1,12 +1,12 @@
 {
 	"ConnectionStatusIcon": {
 		"qualityLabels": {
+			"connecting": "Σύνδεση...",
 			"excellent": "Άριστη",
 			"fair": "Μέτρια",
 			"good": "Καλή",
 			"poor": "Κακή",
-			"veryPoor": "Πολύ Κακή",
-			"connecting": "Σύνδεση..."
+			"veryPoor": "Πολύ Κακή"
 		},
 		"status": "Κατάσταση σύνδεσης:"
 	},
@@ -23,6 +23,10 @@
 		"close": "Κλείσιμο",
 		"continue": "Συνέχεια",
 		"delete": "Διαγραφή",
+		"externalPasskey": "Passkey σε κλειδί ασφαλείας",
+		"hybridPasskey": "Passkey σε κοντινή συσκευή",
+		"loading": "Φόρτωση...",
+		"logout": "Αποσύνδεση",
 		"navItemAddCredentials": "Προσθήκη Πιστοποιητικών",
 		"navItemAddCredentialsSimple": "Προσθήκη",
 		"navItemCredentials": "Πιστοποιητικά",
@@ -36,6 +40,7 @@
 		"offline": "Εκτός σύνδεσης",
 		"offlineTitle": "Είστε εκτός σύνδεσης. Δεν έχετε πρόσβαση εδώ αυτή τη στιγμή.",
 		"online": "Σε σύνδεση",
+		"platformPasskey": "Passkey σε αυτήν τη συσκευή",
 		"previous": "Προηγούμενο",
 		"privateDataConflict": "Η συνεδρία σας δεν είναι συγχρονισμένη με τον server. Παρακαλώ αποσυνδεθείτε, συνδεθείτε ξανά και δοκιμάστε ξανά.",
 		"refresh": "Ανανέωση",
@@ -45,43 +50,25 @@
 		"showMore": "Εμφάνιση περισσότερων",
 		"submit": "Υποβολή",
 		"tryAgain": "Δοκιμάστε ξανά",
-		"walletName": "SIROS ID (dev)",
-		"externalPasskey": "Passkey σε κλειδί ασφαλείας",
-		"hybridPasskey": "Passkey σε κοντινή συσκευή",
-		"loading": "Φόρτωση...",
-		"platformPasskey": "Passkey σε αυτήν τη συσκευή"
+		"walletName": "SIROS ID (dev)"
 	},
-	"presentCredentialsFlow": {
-		"overview": {
-			"title": "Αίτημα κοινοποίησης δεδομένων",
-			"requester": "Αιτών",
-			"purpose": "Σκοπός",
-			"requestedInformation": "Ζητούμενες πληροφορίες",
-			"share": "Κοινοποίηση",
-			"decline": "Απόρριψη",
-			"switchCredential": "Αλλαγή πιστοποιητικού",
-			"switchCredentialAria": "Αλλαγή πιστοποιητικού: {{name}}, {{count}} διαθέσιμα"
-		},
-		"sharing": {
-			"sending": "Αποστολή..."
-		},
-		"completed": {
-			"title": "Επιτυχία!",
-			"description": "Τα δεδομένα σας κοινοποιήθηκαν στον {{verifierName}}.",
-			"redirecting": "Ανακατεύθυνση..."
-		},
-		"error": {
-			"close": "Κλείσιμο"
-		}
+	"credentialInfo": {
+		"legendAriaLabel": "Υπόμνημα αξιώσεων",
+		"legendRequested": "Ζητήθηκε από τον επαληθευτή",
+		"legendRequired": "Απαιτείται"
 	},
-	"expiredRibbon": {
-		"expired": "Ληγμένο"
+	"credentialTypeCard": {
+		"selectAriaLabel": "Επιλογή πιστοποιητικού {{name}}",
+		"selectedAriaLabel": "Αυτό το πιστοποιητικό είναι επιλεγμένο αυτήν τη στιγμή"
 	},
 	"errors": {
 		"walletServiceAuth": {
 			"description": "Δεν ήταν δυνατή η επαλήθευση της ταυτότητας του πορτοφολιού με την υπηρεσία πορτοφολιού. Συνδεθείτε ξανά.",
 			"title": "Αποτυχία ελέγχου ταυτότητας με την υπηρεσία πορτοφολιού"
 		}
+	},
+	"expiredRibbon": {
+		"expired": "Ληγμένο"
 	},
 	"issuance": {
 		"credentialsHaveErrors": "Βρέθηκαν σφάλματα κατα την επαλήθευση του credential που προσπαθήσατε να λάβετε.",
@@ -121,7 +108,8 @@
 		"enterUsername": "Εισάγετε το όνομα χρήστη σας",
 		"fillInFieldsError": "Παρακαλώ συμπληρώστε όλα τα απαιτούμενα πεδία",
 		"forgetCachedUser": "Κάντε κλικ για να Ξεχάσετε τον Αποθηκευμένο Χρήστη {{name}}",
-		"incorrectCredentialsError": "Λάθος όνομα χρήστη ή κωδικός",
+		"inviteInvalid": "Ο κωδικός πρόσκλησης δεν είναι έγκυρος ή έχει λήξει.",
+		"inviteRequired": "Απαιτείται κωδικός πρόσκλησης για εγγραφή σε αυτόν τον πάροχο.",
 		"login": "Σύνδεση",
 		"loginAsUser": "Συνδεθείτε ως {{name}}",
 		"loginCache": "Επιλέξτε τον λογαριασμό του πορτοφολιού σας",
@@ -156,9 +144,7 @@
 		"useOtherAccount": "Χρησιμοποιήστε άλλο λογαριασμό",
 		"usernameExistsError": "Απέτυχε η δημιουργία λογαριασμού χρήστη, το όνομα χρήστη υπάρχει ήδη.",
 		"usernameLabel": "Όνομα Χρήστη",
-		"welcomeMessage": "Καλώς ήρθατε στο <highlight>$t(common.walletName)</highlight>",
-		"inviteInvalid": "Ο κωδικός πρόσκλησης δεν είναι έγκυρος ή έχει λήξει.",
-		"inviteRequired": "Απαιτείται κωδικός πρόσκλησης για εγγραφή σε αυτόν τον πάροχο."
+		"welcomeMessage": "Καλώς ήρθατε στο <highlight>$t(common.walletName)</highlight>"
 	},
 	"loginState": {
 		"confirm": "Επιβεβαίωση",
@@ -182,6 +168,33 @@
 		"message": "Λυπούμαστε, η σελίδα που ψάχνετε δεν μπορεί να προσπελαστεί",
 		"title": "Ωχ, η σελίδα δεν βρέθηκε!"
 	},
+	"notifications": {
+		"newCredential": {
+			"message": "Ένα νέο πιστοποιητικό έφτασε.",
+			"title": "Νέο πιστοποιητικό"
+		},
+		"success": {
+			"message": "Η λειτουργία ολοκληρώθηκε επιτυχώς.",
+			"title": "Επιτυχία"
+		}
+	},
+	"oidcGate": {
+		"awaitingAuth": "Αναμονή για πιστοποίηση...",
+		"awaitingAuthHint": "Ολοκληρώστε τη διαδικασία σύνδεσης στο αναδυόμενο παράθυρο ή τη νέα καρτέλα.",
+		"callbackError": "Σφάλμα πιστοποίησης",
+		"callbackProcessing": "Επεξεργασία πιστοποίησης...",
+		"callbackSuccess": "Επιτυχής πιστοποίηση! Ανακατεύθυνση...",
+		"errorCancelled": "Η πιστοποίηση ακυρώθηκε.",
+		"errorExpired": "Η συνεδρία σας έληξε. Παρακαλώ δοκιμάστε ξανά.",
+		"errorGeneric": "Η πιστοποίηση απέτυχε. Παρακαλώ δοκιμάστε ξανά.",
+		"errorIdentityMismatch": "Αυτό το πορτοφόλι είναι καταχωρημένο σε διαφορετική ταυτότητα.",
+		"loginExplanation": "Ο οργανισμός σας ({{tenant}}) απαιτεί επαλήθευση ταυτότητας πριν από την πρόσβαση στο πορτοφόλι σας.",
+		"registrationExplanation": "Ο οργανισμός σας ({{tenant}}) απαιτεί επαλήθευση ταυτότητας πριν τη δημιουργία πορτοφολιού.",
+		"signInWith": "Σύνδεση με {{provider}}",
+		"signUpWith": "Εγγραφή με {{provider}}",
+		"verified": "Επαληθευμένο: {{name}}",
+		"verifiedUser": "Ταυτότητα επαληθευμένη"
+	},
 	"openIdCallback": {
 		"authorizationError": {
 			"title": "Σφάλμα Εξουσιοδότησης"
@@ -195,20 +208,20 @@
 				"description": "Το αίτημα παρουσίασης απορρίφθηκε.",
 				"title": "Άρνηση Πρόσβασης"
 			},
-			"AUTH_FAILED": {
-				"description": "Το wallet δεν μπόρεσε να αυθεντικοποιηθεί με την υπηρεσία παρουσίασης. Δοκιμάστε ξανά.",
-				"title": "Αποτυχία Αυθεντικοποίησης"
-			},
-			"AUTH_RESPONSE_ERROR": {
-				"description": "Η απόκριση εξουσιοδότησης δεν μπόρεσε να ολοκληρωθεί. Δοκιμάστε ξανά.",
-				"title": "Αποτυχία Απόκρισης Εξουσιοδότησης"
-			},
 			"AUTHORIZATION_FAILED": {
 				"description": "Η εξουσιοδότηση με τον verifier δεν μπόρεσε να ολοκληρωθεί.",
 				"title": "Αποτυχία Εξουσιοδότησης"
 			},
 			"AUTHORIZATION_RESPONSE_FAILED": {
 				"description": "Η απόκριση εξουσιοδότησης δεν μπόρεσε να ολοκληρωθεί.",
+				"title": "Αποτυχία Απόκρισης Εξουσιοδότησης"
+			},
+			"AUTH_FAILED": {
+				"description": "Το wallet δεν μπόρεσε να αυθεντικοποιηθεί με την υπηρεσία παρουσίασης. Δοκιμάστε ξανά.",
+				"title": "Αποτυχία Αυθεντικοποίησης"
+			},
+			"AUTH_RESPONSE_ERROR": {
+				"description": "Η απόκριση εξουσιοδότησης δεν μπόρεσε να ολοκληρωθεί. Δοκιμάστε ξανά.",
 				"title": "Αποτυχία Απόκρισης Εξουσιοδότησης"
 			},
 			"CONNECTION_LOST": {
@@ -352,20 +365,21 @@
 			"message": "Θα ανακατευθυνθείτε στο <strong>{{issuerName}}</strong> <i>{{issuerDescription}}</i> για να εκδώσετε ένα <strong>{{credentialName}}</strong> <i>{{credentialDescription}}</i>.",
 			"title": "Επιλεγμένο:"
 		},
-		"searchPlaceholder": "Αναζήτηση credential...",
 		"scanPhysicalId": {
-			"sectionTitle": "Σάρωση Φυσικής Ταυτότητας",
 			"digitalId": {
-				"title": "Ψηφιακή Ταυτότητα (σαρωμένο διαβατήριο)",
-				"description": "Χρησιμοποιήστε το διαβατήριό σας για να δημιουργήσετε ψηφιακή ταυτότητα."
-			}
-		}
+				"description": "Χρησιμοποιήστε το διαβατήριό σας για να δημιουργήσετε ψηφιακή ταυτότητα.",
+				"title": "Ψηφιακή Ταυτότητα (σαρωμένο διαβατήριο)"
+			},
+			"sectionTitle": "Σάρωση Φυσικής Ταυτότητας"
+		},
+		"searchPlaceholder": "Αναζήτηση credential..."
 	},
 	"pageCredentials": {
 		"addCard": {
 			"text": "Προσθήκη Νέου Πιστοποιητικού",
 			"title": "Επαληθεύσιμο Πιστοποιητικό"
 		},
+		"copyDatasetToClipboard": "Αντιγραφή δεδομένων (JSON) στο πρόχειρο",
 		"credentialDetailsTitle": "Κάντε κλικ για να δείτε λεπτομέρειες για το {{friendlyName}}",
 		"credentialFullScreenTitle": "Κάντε κλικ για πλήρη οθόνη στο {{friendlyName}}",
 		"credentialTitle": "Πιστοποιητικό",
@@ -385,8 +399,7 @@
 		"slideButtonTitleDisable": "Δεν υπάρχει διαθέσιμο {{direction}} πιστοποιητικό",
 		"slideButtonTitleEnable": "Κάντε κλικ για να μεταβείτε στο {{direction}} πιστοποιητικό",
 		"slideNext": "επόμενο",
-		"slidePrevious": "προηγούμενο",
-		"copyDatasetToClipboard": "Αντιγραφή δεδομένων (JSON) στο πρόχειρο"
+		"slidePrevious": "προηγούμενο"
 	},
 	"pageHistory": {
 		"description": "Δείτε στο ιστορικό αποστολών πιστοποιητικών πότε και σε ποιους verifiers τα στείλατε.",
@@ -396,14 +409,42 @@
 			"title": "Λεπτομέρειες Αποστολής"
 		}
 	},
-	"pageShareCredentials": {
-		"description": "Αναζητήστε και επιλέξτε ένα verifier για να μοιραστείτε πιστοποιητικά",
-		"noFound": "Δεν βρέθηκαν αντίστοιχοι verifiers.",
-		"popup": {
-			"message": "Θα ανακατευθυνθείτε στo {{verifierName}}.",
-			"title": "Επιλεγμένο:"
+	"pagePending": {
+		"description": "Προβολή εκκρεμών αιτημάτων έκδοσης",
+		"noFound": "Δεν βρέθηκαν εκκρεμή αιτήματα έκδοσης",
+		"title": "Εκκρεμή Αιτήματα Έκδοσης"
+	},
+	"pageScanPhysicalId": {
+		"beforeYouBegin": {
+			"goodInternet": "Καλή σύνδεση internet",
+			"goodLighting": "Καλός φωτισμός",
+			"passportReady": "Έχετε το διαβατήριό σας έτοιμο",
+			"title": "Πριν ξεκινήσετε"
 		},
-		"searchPlaceholder": "Αναζήτηση verifiers..."
+		"biometricConsent": "Συναινώ στην επεξεργασία βιομετρικών δεδομένων για επαλήθευση ταυτότητας.",
+		"goBackAriaLabel": "Πίσω",
+		"startScan": "Έναρξη Σάρωσης",
+		"steps": {
+			"step1": {
+				"description": "Σαρώστε το πρόσωπό σας για να αποδείξετε ότι είστε πραγματικός, ζωντανός άνθρωπος",
+				"title": "Βήμα 1"
+			},
+			"step2": {
+				"description": "Σαρώστε το έγγραφό σας",
+				"title": "Βήμα 2"
+			},
+			"step3": {
+				"description": "Τοποθετήστε το τηλέφωνό σας πάνω στο έγγραφο για να διαβάσετε το chip NFC",
+				"title": "Βήμα 3"
+			}
+		},
+		"title": "Σάρωση Φυσικής Ταυτότητας",
+		"whyFaceScan": {
+			"description": "Χρησιμοποιούμε γρήγορη τρισδιάστατη επαλήθευση προσώπου για να αποτρέψουμε δόλια χρήση του εγγράφου σας. Τα βιομετρικά σας δεδομένα κρυπτογραφούνται και διαγράφονται μετά την ολοκλήρωση της επαλήθευσης.",
+			"privacyPolicy": "πολιτική απορρήτου μας",
+			"title": "Γιατί σάρωση προσώπου;",
+			"viewOur": "δείτε την "
+		}
 	},
 	"pageSettings": {
 		"addPasskey": "Προσθήκη κλειδιού πρόσβασης:",
@@ -411,6 +452,16 @@
 		"appVersion": {
 			"descriptionLatestVersion": "Χρησιμοποιείτε την τελευταία έκδοση του $t(common.walletName) {{react_app_version}}",
 			"descriptionOldVersion": "Χρησιμοποιείτε την έκδοση του wwWallet {{react_app_version}}.<br/> <strong>Μια νέα έκδοση είναι διαθέσιμη.</strong> <reloadButton>Ανανεώστε</reloadButton> για ενημέρωση!"
+		},
+		"appearance": {
+			"colorScheme": {
+				"dark": "Σκοτεινό",
+				"description": "Επιλέξτε αν η εμφάνιση θα είναι φωτεινή ή σκοτεινή, ή ακολουθήστε τις ρυθμίσεις της συσκευής σας.",
+				"light": "Φωτεινό",
+				"system": "Σύστημα",
+				"title": "Χρωματικό Σχήμα"
+			},
+			"title": "Εμφάνιση"
 		},
 		"deleteAccount": {
 			"buttonText": "Διαγραφή του λογαριασμού σας",
@@ -420,7 +471,16 @@
 			"title": "Διαγραφή λογαριασμού"
 		},
 		"description": "Δείτε πληροφορίες λογαριασμού και διαχειριστείτε κλειδιά πρόσβασης",
+		"lockSensitive": "Κλείδωμα ευαίσθητων ενεργειών",
+		"lockSensitiveTitle": "Κλικ για κλείδωμα ευαίσθητων ενεργειών",
 		"noOtherPasskeys": "Δεν υπάρχουν άλλα κλειδιά πρόσβασης σε αυτόν τον λογαριασμό.",
+		"oblivious": {
+			"description": "Επιλέξτε ιδιωτική πύλη για χρήση Oblivious HTTP",
+			"disabled": "Χωρίς χρήση Oblivious HTTP",
+			"gunet": "Πύλη GUnet",
+			"successMessage": "Αποθηκεύτηκε",
+			"title": "Oblivious HTTP"
+		},
 		"passkeyItem": {
 			"canEncrypt": "Μπορεί να Κρυπτογραφήσει",
 			"canEncryptNo": "Όχι",
@@ -462,6 +522,8 @@
 			"manageOtherPasskeys": "Διαχείριση Άλλων Κλειδιών Πρόσβασης",
 			"rememberIssuer": "Remember Issuer"
 		},
+		"unlockSensitive": "Ξεκλείδωμα ευαίσθητων ενεργειών",
+		"unlockSensitiveTitle": "Κλικ για ξεκλείδωμα ευαίσθητων ενεργειών",
 		"upgradePrfKey": {
 			"description": "Παρακαλώ αυθεντικοποιηθείτε με το κλειδί πρόσβασης \"{{passkeyLabel}}\"...",
 			"error": "<p>Κάτι πήγε στραβά, δοκιμάστε ξανά.</p><p>Σημειώστε ότι πρέπει να αυθεντικοποιηθείτε με το κλειδί πρόσβασης \"{{passkeyLabel}}\".</p>",
@@ -473,60 +535,16 @@
 			"register": "Καταχώρηση στο Wallet Companion",
 			"registered": "Καταχωρημένο στο Wallet Companion",
 			"title": "Wallet Companion (beta)"
-		},
-		"appearance": {
-			"colorScheme": {
-				"dark": "Σκοτεινό",
-				"description": "Επιλέξτε αν η εμφάνιση θα είναι φωτεινή ή σκοτεινή, ή ακολουθήστε τις ρυθμίσεις της συσκευής σας.",
-				"light": "Φωτεινό",
-				"system": "Σύστημα",
-				"title": "Χρωματικό Σχήμα"
-			},
-			"title": "Εμφάνιση"
-		},
-		"lockSensitive": "Κλείδωμα ευαίσθητων ενεργειών",
-		"lockSensitiveTitle": "Κλικ για κλείδωμα ευαίσθητων ενεργειών",
-		"oblivious": {
-			"description": "Επιλέξτε ιδιωτική πύλη για χρήση Oblivious HTTP",
-			"disabled": "Χωρίς χρήση Oblivious HTTP",
-			"gunet": "Πύλη GUnet",
-			"successMessage": "Αποθηκεύτηκε",
-			"title": "Oblivious HTTP"
-		},
-		"unlockSensitive": "Ξεκλείδωμα ευαίσθητων ενεργειών",
-		"unlockSensitiveTitle": "Κλικ για ξεκλείδωμα ευαίσθητων ενεργειών"
+		}
 	},
-	"pageScanPhysicalId": {
-		"title": "Σάρωση Φυσικής Ταυτότητας",
-		"goBackAriaLabel": "Πίσω",
-		"steps": {
-			"step1": {
-				"title": "Βήμα 1",
-				"description": "Σαρώστε το πρόσωπό σας για να αποδείξετε ότι είστε πραγματικός, ζωντανός άνθρωπος"
-			},
-			"step2": {
-				"title": "Βήμα 2",
-				"description": "Σαρώστε το έγγραφό σας"
-			},
-			"step3": {
-				"title": "Βήμα 3",
-				"description": "Τοποθετήστε το τηλέφωνό σας πάνω στο έγγραφο για να διαβάσετε το chip NFC"
-			}
+	"pageShareCredentials": {
+		"description": "Αναζητήστε και επιλέξτε ένα verifier για να μοιραστείτε πιστοποιητικά",
+		"noFound": "Δεν βρέθηκαν αντίστοιχοι verifiers.",
+		"popup": {
+			"message": "Θα ανακατευθυνθείτε στo {{verifierName}}.",
+			"title": "Επιλεγμένο:"
 		},
-		"beforeYouBegin": {
-			"title": "Πριν ξεκινήσετε",
-			"passportReady": "Έχετε το διαβατήριό σας έτοιμο",
-			"goodLighting": "Καλός φωτισμός",
-			"goodInternet": "Καλή σύνδεση internet"
-		},
-		"whyFaceScan": {
-			"title": "Γιατί σάρωση προσώπου;",
-			"description": "Χρησιμοποιούμε γρήγορη τρισδιάστατη επαλήθευση προσώπου για να αποτρέψουμε δόλια χρήση του εγγράφου σας. Τα βιομετρικά σας δεδομένα κρυπτογραφούνται και διαγράφονται μετά την ολοκλήρωση της επαλήθευσης.",
-			"viewOur": "δείτε την ",
-			"privacyPolicy": "πολιτική απορρήτου μας"
-		},
-		"startScan": "Έναρξη Σάρωσης",
-		"biometricConsent": "Συναινώ στην επεξεργασία βιομετρικών δεδομένων για επαλήθευση ταυτότητας."
+		"searchPlaceholder": "Αναζήτηση verifiers..."
 	},
 	"parsing": {
 		"errorCouldNotParse": "Δεν ήταν δυνατή η ανάγνωση του credential.",
@@ -546,6 +564,34 @@
 		"securityKeyLabel": "Κλειδί πρόσβασης σε κλειδί ασφαλείας",
 		"title": "Επιλογή τοποθεσίας δημιουργίας κλειδιού πρόσβασης",
 		"triggerButton": "Πώς λειτουργούν τα κλειδιά πρόσβασης;"
+	},
+	"pendingTransactions": {
+		"subtitle": "Αναμονή ολοκλήρωσης έκδοσης",
+		"title": "{{count}} εκκρεμές/ή πιστοποιητικό/ά",
+		"view": "Προβολή λεπτομερειών"
+	},
+	"presentCredentialsFlow": {
+		"completed": {
+			"description": "Τα δεδομένα σας κοινοποιήθηκαν στον {{verifierName}}.",
+			"redirecting": "Ανακατεύθυνση...",
+			"title": "Επιτυχία!"
+		},
+		"error": {
+			"close": "Κλείσιμο"
+		},
+		"overview": {
+			"decline": "Απόρριψη",
+			"purpose": "Σκοπός",
+			"requestedInformation": "Ζητούμενες πληροφορίες",
+			"requester": "Αιτών",
+			"share": "Κοινοποίηση",
+			"switchCredential": "Αλλαγή πιστοποιητικού",
+			"switchCredentialAria": "Αλλαγή πιστοποιητικού: {{name}}, {{count}} διαθέσιμα",
+			"title": "Αίτημα κοινοποίησης δεδομένων"
+		},
+		"sharing": {
+			"sending": "Αποστολή..."
+		}
 	},
 	"protocolSteps": {
 		"common": {
@@ -621,23 +667,37 @@
 		"previewTitle": "Προεπισκόπηση",
 		"purpose": "Purpose: ",
 		"purposeNotSpecified": "Μη ορισμένο purpose από τον verifier.",
+		"qcRequest": "Αυτή η συναλλαγή ζητά τη δημιουργία πιστοποιητικών υπογραφής σύμφωνα με τους Όρους και Προϋποθέσεις (T&C) του QTSP",
 		"request": "Αίτημα:",
 		"requestedCredentialsFieldsTitle": "Ζητούμενα πεδία:",
 		"requestingParty": "Requesting Party: ",
 		"selectDescription": "Επιλέξτε το Πιστοποιητικό που θέλετε να στείλετε.",
 		"selectTitle": "Επιλογή",
-		"summaryDescription": "Πρόκειται να μοιραστείτε <strong>μόνο τα παρακάτω πεδία</strong> από τα επιλεγμένα πιστοποιητικά.",
-		"summaryTitle": "Σύνοψη",
-		"qcRequest": "Αυτή η συναλλαγή ζητά τη δημιουργία πιστοποιητικών υπογραφής σύμφωνα με τους Όρους και Προϋποθέσεις (T&C) του QTSP",
 		"signedDocuments": "Έγγραφα προς Υπογραφή: ",
 		"specificClaimsRequested": "Ο επαληθευτής ζήτησε συγκεκριμένες αξιώσεις του πιστοποιητικού.",
+		"summaryDescription": "Πρόκειται να μοιραστείτε <strong>μόνο τα παρακάτω πεδία</strong> από τα επιλεγμένα πιστοποιητικά.",
+		"summaryTitle": "Σύνοψη",
 		"transactionDataExample": "Αποδοχή παραδείγματος όρων και προϋποθέσεων δεδομένων συναλλαγής"
+	},
+	"sessionRecoveryPopup": {
+		"sessionExpired": "Η συνεδρία σας έληξε. Επαληθεύστε ξανά την ταυτότητά σας για να συνεχίσετε."
 	},
 	"sidebar": {
 		"navItemLogout": "Αποσύνδεση",
+		"obliviousEnabled": "Ιδιωτικά αιτήματα με Oblivious HTTP ενεργοποιημένο",
 		"poweredBy": "Powered by <docLinkWalletGithub>SIROS Foundation</docLinkWalletGithub>",
-		"poweredByAriaLabel": "GitHub repository του SIROS Foundation",
-		"obliviousEnabled": "Ιδιωτικά αιτήματα με Oblivious HTTP ενεργοποιημένο"
+		"poweredByAriaLabel": "GitHub repository του SIROS Foundation"
+	},
+	"switchCredentialPopup": {
+		"alternativeCredentials": "Επιλέξτε άλλο πιστοποιητικό",
+		"close": "Κλείσιμο",
+		"description": "Επιλέξτε το πιστοποιητικό που θα χρησιμοποιηθεί για αυτό το αίτημα.",
+		"selectedCredential": "Τρέχον πιστοποιητικό",
+		"title": "Εναλλαγή πιστοποιητικού"
+	},
+	"syncPopup": {
+		"description": "Φαίνεται ότι <strong>τροποποιήσατε το πορτοφόλι σας σε άλλη συνεδρία</strong>. Χρησιμοποιήστε το <strong>passkey</strong> σας για συγχρονισμό.",
+		"title": "Συγχρονισμός Πορτοφολιού"
 	},
 	"tenantSelector": {
 		"closePopup": "Κλείσιμο παραθύρου",
@@ -678,70 +738,6 @@
 	"updateNotification": {
 		"description": "Μια νέα έκδοση είναι διαθέσιμη!"
 	},
-	"welcomeModal": {
-		"description": "Ανακαλύψτε το <strong> $t(common.walletName) </strong>, το απόλυτο εργαλείο σας για τη διαχείριση ψηφιακών πιστοποιητικών. Δείτε, λάβετε, στείλτε και παρακολουθήστε όλα τα πιστοποιητικά σας με ευκολία!",
-		"dismissButton": "Απόρριψη",
-		"question": "Είστε έτοιμοι να εξερευνήσετε τις δυνατότητες του $t(common.walletName) μέσω μιας ξενάγησης;",
-		"startTourButton": "Έναρξη Ξενάγησης",
-		"title": "Καλώς ήρθατε στο $t(common.walletName)!"
-	},
-	"credentialInfo": {
-		"legendAriaLabel": "Υπόμνημα αξιώσεων",
-		"legendRequested": "Ζητήθηκε από τον επαληθευτή",
-		"legendRequired": "Απαιτείται"
-	},
-	"credentialTypeCard": {
-		"selectAriaLabel": "Επιλογή πιστοποιητικού {{name}}",
-		"selectedAriaLabel": "Αυτό το πιστοποιητικό είναι επιλεγμένο αυτήν τη στιγμή"
-	},
-	"switchCredentialPopup": {
-		"title": "Εναλλαγή πιστοποιητικού",
-		"description": "Επιλέξτε το πιστοποιητικό που θα χρησιμοποιηθεί για αυτό το αίτημα.",
-		"selectedCredential": "Τρέχον πιστοποιητικό",
-		"alternativeCredentials": "Επιλέξτε άλλο πιστοποιητικό",
-		"close": "Κλείσιμο"
-	},
-	"notifications": {
-		"newCredential": {
-			"message": "Ένα νέο πιστοποιητικό έφτασε.",
-			"title": "Νέο πιστοποιητικό"
-		},
-		"success": {
-			"message": "Η λειτουργία ολοκληρώθηκε επιτυχώς.",
-			"title": "Επιτυχία"
-		}
-	},
-	"oidcGate": {
-		"awaitingAuth": "Αναμονή για πιστοποίηση...",
-		"awaitingAuthHint": "Ολοκληρώστε τη διαδικασία σύνδεσης στο αναδυόμενο παράθυρο ή τη νέα καρτέλα.",
-		"callbackError": "Σφάλμα πιστοποίησης",
-		"callbackProcessing": "Επεξεργασία πιστοποίησης...",
-		"callbackSuccess": "Επιτυχής πιστοποίηση! Ανακατεύθυνση...",
-		"errorCancelled": "Η πιστοποίηση ακυρώθηκε.",
-		"errorExpired": "Η συνεδρία σας έληξε. Παρακαλώ δοκιμάστε ξανά.",
-		"errorGeneric": "Η πιστοποίηση απέτυχε. Παρακαλώ δοκιμάστε ξανά.",
-		"errorIdentityMismatch": "Αυτό το πορτοφόλι είναι καταχωρημένο σε διαφορετική ταυτότητα.",
-		"loginExplanation": "Ο οργανισμός σας ({{tenant}}) απαιτεί επαλήθευση ταυτότητας πριν από την πρόσβαση στο πορτοφόλι σας.",
-		"registrationExplanation": "Ο οργανισμός σας ({{tenant}}) απαιτεί επαλήθευση ταυτότητας πριν τη δημιουργία πορτοφολιού.",
-		"signInWith": "Σύνδεση με {{provider}}",
-		"signUpWith": "Εγγραφή με {{provider}}",
-		"verified": "Επαληθευμένο: {{name}}",
-		"verifiedUser": "Ταυτότητα επαληθευμένη"
-	},
-	"pagePending": {
-		"description": "Προβολή εκκρεμών αιτημάτων έκδοσης",
-		"noFound": "Δεν βρέθηκαν εκκρεμή αιτήματα έκδοσης",
-		"title": "Εκκρεμή Αιτήματα Έκδοσης"
-	},
-	"pendingTransactions": {
-		"subtitle": "Αναμονή ολοκλήρωσης έκδοσης",
-		"title": "{{count}} εκκρεμές/ή πιστοποιητικό/ά",
-		"view": "Προβολή λεπτομερειών"
-	},
-	"syncPopup": {
-		"description": "Φαίνεται ότι <strong>τροποποιήσατε το πορτοφόλι σας σε άλλη συνεδρία</strong>. Χρησιμοποιήστε το <strong>passkey</strong> σας για συγχρονισμό.",
-		"title": "Συγχρονισμός Πορτοφολιού"
-	},
 	"viewSelect": {
 		"aria": {
 			"menuLabel": "Επιλογές προβολής πιστοποιητικών",
@@ -754,5 +750,12 @@
 			"verticalSlider": "Κάθετο Σλάιντερ"
 		},
 		"view": "Προβολή"
+	},
+	"welcomeModal": {
+		"description": "Ανακαλύψτε το <strong> $t(common.walletName) </strong>, το απόλυτο εργαλείο σας για τη διαχείριση ψηφιακών πιστοποιητικών. Δείτε, λάβετε, στείλτε και παρακολουθήστε όλα τα πιστοποιητικά σας με ευκολία!",
+		"dismissButton": "Απόρριψη",
+		"question": "Είστε έτοιμοι να εξερευνήσετε τις δυνατότητες του $t(common.walletName) μέσω μιας ξενάγησης;",
+		"startTourButton": "Έναρξη Ξενάγησης",
+		"title": "Καλώς ήρθατε στο $t(common.walletName)!"
 	}
 }

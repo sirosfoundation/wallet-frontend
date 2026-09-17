@@ -1,12 +1,12 @@
 {
 	"ConnectionStatusIcon": {
 		"qualityLabels": {
+			"connecting": "A conectar...",
 			"excellent": "Excelente",
 			"fair": "Razoável",
 			"good": "Boa",
 			"poor": "Má",
-			"veryPoor": "Muito má",
-			"connecting": "A conectar..."
+			"veryPoor": "Muito má"
 		},
 		"status": "Estado da conexão:"
 	},
@@ -23,6 +23,10 @@
 		"close": "Fechar",
 		"continue": "Continuar",
 		"delete": "Eliminar",
+		"externalPasskey": "Passkey numa chave de segurança",
+		"hybridPasskey": "Passkey num dispositivo próximo",
+		"loading": "A carregar...",
+		"logout": "Sair",
 		"navItemAddCredentials": "Adicionar Credenciais",
 		"navItemAddCredentialsSimple": "Adicionar",
 		"navItemCredentials": "Credenciais",
@@ -36,6 +40,7 @@
 		"offline": "Offline",
 		"offlineTitle": "Está offline. Não tem acesso neste momento.",
 		"online": "Online",
+		"platformPasskey": "Passkey neste dispositivo",
 		"previous": "Anterior",
 		"privateDataConflict": "A sua sessão não está sincronizada com o servidor. Por favor, volte a iniciar sessão e tente novamente.",
 		"refresh": "Atualizar",
@@ -45,43 +50,31 @@
 		"showMore": "Mostrar mais",
 		"submit": "Submeter",
 		"tryAgain": "Tentar novamente",
-		"walletName": "SIROS ID (dev)",
-		"externalPasskey": "Passkey numa chave de segurança",
-		"hybridPasskey": "Passkey num dispositivo próximo",
-		"loading": "A carregar...",
-		"platformPasskey": "Passkey neste dispositivo"
+		"walletName": "SIROS ID (dev)"
 	},
-	"presentCredentialsFlow": {
-		"overview": {
-			"title": "Pedido para partilhar dados",
-			"requester": "Solicitante",
-			"purpose": "Objetivo",
-			"requestedInformation": "Informação solicitada",
-			"share": "Partilhar",
-			"decline": "Recusar",
-			"switchCredential": "Trocar credencial",
-			"switchCredentialAria": "Trocar credencial: {{name}}, {{count}} disponíveis"
-		},
-		"sharing": {
-			"sending": "A enviar..."
-		},
-		"completed": {
-			"title": "Sucesso!",
-			"description": "Os seus dados foram partilhados com {{verifierName}}.",
-			"redirecting": "A redirecionar..."
-		},
-		"error": {
-			"close": "Fechar"
-		}
+	"credentialInfo": {
+		"legendAriaLabel": "Legenda de atributos",
+		"legendRequested": "Solicitado pelo verificador",
+		"legendRequired": "Obrigatório"
 	},
-	"expiredRibbon": {
-		"expired": "Expirada"
+	"credentialTypeCard": {
+		"selectAriaLabel": "Selecionar credencial {{name}}",
+		"selectedAriaLabel": "Esta credencial está atualmente selecionada"
 	},
 	"errors": {
 		"walletServiceAuth": {
 			"description": "A carteira não conseguiu autenticar-se no serviço da carteira. Por favor, inicie sessão novamente.",
 			"title": "Falha na autenticação do serviço da carteira"
 		}
+	},
+	"expiredRibbon": {
+		"expired": "Expirada"
+	},
+	"issuance": {
+		"credentialsHaveErrors": "Foram encontrados erros ao verificar a credencial que está a tentar receber.",
+		"error": "Erro de Emissão",
+		"proceed": "Deseja receber esta credencial?",
+		"title": "Emissão de Credencial"
 	},
 	"issuanceWarningPopup": {
 		"codes": {
@@ -115,7 +108,8 @@
 		"enterUsername": "Introduza o seu nome de utilizador",
 		"fillInFieldsError": "Por favor, preencha todos os campos obrigatórios",
 		"forgetCachedUser": "Clique para esquecer o utilizador guardado {{name}}",
-		"incorrectCredentialsError": "Nome de utilizador ou palavra-passe incorreto(s)",
+		"inviteInvalid": "O código de convite é inválido ou expirou.",
+		"inviteRequired": "É necessário um código de convite para se registar neste fornecedor.",
 		"login": "Iniciar sessão",
 		"loginAsUser": "Iniciar sessão como {{name}}",
 		"loginCache": "Selecione sua conta de carteira",
@@ -150,9 +144,7 @@
 		"useOtherAccount": "Usar outra conta",
 		"usernameExistsError": "Não foi possível criar conta de utilizador. O nome de utilizador já existe.",
 		"usernameLabel": "Nome de utilizador",
-		"welcomeMessage": "Bem-vindo(a) à <highlight>$t(common.walletName)</highlight>",
-		"inviteInvalid": "O código de convite é inválido ou expirou.",
-		"inviteRequired": "É necessário um código de convite para se registar neste fornecedor."
+		"welcomeMessage": "Bem-vindo(a) à <highlight>$t(common.walletName)</highlight>"
 	},
 	"loginState": {
 		"confirm": "Confirmar",
@@ -176,6 +168,33 @@
 		"message": "Lamentamos, mas a página que procura não pode ser acedida",
 		"title": "Oops, página não encontrada!"
 	},
+	"notifications": {
+		"newCredential": {
+			"message": "Uma nova credencial chegou.",
+			"title": "Nova credencial"
+		},
+		"success": {
+			"message": "A operação foi concluída com sucesso.",
+			"title": "Sucesso"
+		}
+	},
+	"oidcGate": {
+		"awaitingAuth": "A aguardar autenticação...",
+		"awaitingAuthHint": "Complete o processo de início de sessão na janela pop-up ou no novo separador.",
+		"callbackError": "Erro de autenticação",
+		"callbackProcessing": "A processar autenticação...",
+		"callbackSuccess": "Autenticação bem-sucedida! A redirecionar...",
+		"errorCancelled": "A autenticação foi cancelada.",
+		"errorExpired": "A sua sessão expirou. Por favor, tente novamente.",
+		"errorGeneric": "A autenticação falhou. Por favor, tente novamente.",
+		"errorIdentityMismatch": "Esta carteira está registada com uma identidade diferente.",
+		"loginExplanation": "A sua organização ({{tenant}}) requer que verifique a sua identidade antes de aceder à sua carteira.",
+		"registrationExplanation": "A sua organização ({{tenant}}) requer que verifique a sua identidade antes de criar uma carteira.",
+		"signInWith": "Iniciar sessão com {{provider}}",
+		"signUpWith": "Registar com {{provider}}",
+		"verified": "Verificado: {{name}}",
+		"verifiedUser": "Identidade verificada"
+	},
 	"openIdCallback": {
 		"authorizationError": {
 			"title": "Erro de Autorização"
@@ -189,20 +208,20 @@
 				"description": "O pedido de apresentação foi recusado.",
 				"title": "Acesso Negado"
 			},
-			"AUTH_FAILED": {
-				"description": "A carteira não conseguiu autenticar-se no serviço de apresentação. Por favor, tente novamente.",
-				"title": "Falha na Autenticação"
-			},
-			"AUTH_RESPONSE_ERROR": {
-				"description": "A resposta de autorização não pôde ser concluída. Tente novamente.",
-				"title": "Falha na Resposta de Autorização"
-			},
 			"AUTHORIZATION_FAILED": {
 				"description": "A autorização com o verifier não pôde ser concluída.",
 				"title": "Falha na Autorização"
 			},
 			"AUTHORIZATION_RESPONSE_FAILED": {
 				"description": "A resposta de autorização não pôde ser concluída.",
+				"title": "Falha na Resposta de Autorização"
+			},
+			"AUTH_FAILED": {
+				"description": "A carteira não conseguiu autenticar-se no serviço de apresentação. Por favor, tente novamente.",
+				"title": "Falha na Autenticação"
+			},
+			"AUTH_RESPONSE_ERROR": {
+				"description": "A resposta de autorização não pôde ser concluída. Tente novamente.",
 				"title": "Falha na Resposta de Autorização"
 			},
 			"CONNECTION_LOST": {
@@ -346,20 +365,21 @@
 			"message": "Será redirecionado para <strong>{{issuerName}}</strong> <i>{{issuerDescription}}</i> para emitir uma <strong>{{credentialName}}</strong> <i>{{credentialDescription}}</i>.",
 			"title": "Selecionado:"
 		},
-		"searchPlaceholder": "Procurar credencial...",
 		"scanPhysicalId": {
-			"sectionTitle": "Digitalizar ID Físico",
 			"digitalId": {
-				"title": "ID Digital (passaporte digitalizado)",
-				"description": "Use o seu passaporte para criar um ID digital."
-			}
-		}
+				"description": "Use o seu passaporte para criar um ID digital.",
+				"title": "ID Digital (passaporte digitalizado)"
+			},
+			"sectionTitle": "Digitalizar ID Físico"
+		},
+		"searchPlaceholder": "Procurar credencial..."
 	},
 	"pageCredentials": {
 		"addCard": {
 			"text": "Adicionar Nova Credencial",
 			"title": "Credencial Verificável"
 		},
+		"copyDatasetToClipboard": "Copiar dados (JSON) para a área de transferência",
 		"credentialDetailsTitle": "Clique para ver detalhes sobre {{friendlyName}}",
 		"credentialFullScreenTitle": "Clique para ver em tela cheia o {{friendlyName}}",
 		"credentialTitle": "Credencial",
@@ -379,8 +399,7 @@
 		"slideButtonTitleDisable": "Sem credencial {{direction}} disponível",
 		"slideButtonTitleEnable": "Clique para ir para a credencial {{direction}}",
 		"slideNext": "Seguinte",
-		"slidePrevious": "Anterior",
-		"copyDatasetToClipboard": "Copiar dados (JSON) para a área de transferência"
+		"slidePrevious": "Anterior"
 	},
 	"pageHistory": {
 		"description": "Consulte o histórico de transmissões de credenciais, com informação sobre quando e para que verifiers elas foram enviadas.",
@@ -390,14 +409,42 @@
 			"title": "Detalhes de apresentação"
 		}
 	},
-	"pageShareCredentials": {
-		"description": "Pesquise e selecione um verifier para partilhar credenciais",
-		"noFound": "Sem verifiers correspondentes.",
-		"popup": {
-			"message": "Será redirecionado para {{verifierName}}.",
-			"title": "Selecionado:"
+	"pagePending": {
+		"description": "Ver pedidos de emissão pendentes",
+		"noFound": "Nenhum pedido de emissão pendente encontrado",
+		"title": "Pedidos de Emissão Pendentes"
+	},
+	"pageScanPhysicalId": {
+		"beforeYouBegin": {
+			"goodInternet": "Boa ligação à internet",
+			"goodLighting": "Boa iluminação",
+			"passportReady": "Tenha o passaporte pronto",
+			"title": "Antes de começar"
 		},
-		"searchPlaceholder": "Procurar verifiers..."
+		"biometricConsent": "Consinto o processamento biométrico para verificação de identidade.",
+		"goBackAriaLabel": "Voltar",
+		"startScan": "Iniciar Digitalização",
+		"steps": {
+			"step1": {
+				"description": "Digitalize o seu rosto para mostrar que é um humano real e vivo",
+				"title": "Passo 1"
+			},
+			"step2": {
+				"description": "Digitalize o seu documento",
+				"title": "Passo 2"
+			},
+			"step3": {
+				"description": "Coloque o seu telemóvel sobre o documento para ler o chip NFC",
+				"title": "Passo 3"
+			}
+		},
+		"title": "Digitalizar ID Físico",
+		"whyFaceScan": {
+			"description": "Utilizamos uma verificação facial 3D rápida para prevenir o uso fraudulento do seu documento. Os seus dados biométricos são encriptados e eliminados após a conclusão da verificação.",
+			"privacyPolicy": "Política de Privacidade.",
+			"title": "Porquê digitalização facial?",
+			"viewOur": "Consulte a nossa"
+		}
 	},
 	"pageSettings": {
 		"addPasskey": "Adicionar chave de acesso:",
@@ -405,6 +452,16 @@
 		"appVersion": {
 			"descriptionLatestVersion": "Está, neste momento, a usar a versão mais recente ({{react_app_version}}) da $t(common.walletName).",
 			"descriptionOldVersion": "Está, neste momento, a usar a versão {{react_app_version}} da wwWallet.<br/> <strong>Está disponível uma nova versão.</strong> Por favor, <reloadButton>recarregue</reloadButton> para atualizar!"
+		},
+		"appearance": {
+			"colorScheme": {
+				"dark": "Escuro",
+				"description": "Escolha se a aparência deve ser clara ou escura, ou seguir as definições do dispositivo.",
+				"light": "Claro",
+				"system": "Sistema",
+				"title": "Esquema de Cores"
+			},
+			"title": "Aparência"
 		},
 		"deleteAccount": {
 			"buttonText": "Elimine a sua conta",
@@ -414,7 +471,16 @@
 			"title": "Eliminar conta"
 		},
 		"description": "Consulte informação da conta e gira chaves de acesso",
+		"lockSensitive": "Bloquear ações sensíveis",
+		"lockSensitiveTitle": "Clique para bloquear ações sensíveis",
 		"noOtherPasskeys": "Não há mais chaves de acesso nesta conta.",
+		"oblivious": {
+			"description": "Selecione um gateway privado para usar Oblivious HTTP",
+			"disabled": "Não usar Oblivious HTTP",
+			"gunet": "Gateway GUnet",
+			"successMessage": "Guardado",
+			"title": "Oblivious HTTP"
+		},
 		"passkeyItem": {
 			"canEncrypt": "Pode encriptar",
 			"canEncryptNo": "Não",
@@ -456,6 +522,8 @@
 			"manageOtherPasskeys": "Gerir outras chaves de acesso",
 			"rememberIssuer": "Relembrar issuer"
 		},
+		"unlockSensitive": "Desbloquear ações sensíveis",
+		"unlockSensitiveTitle": "Clique para desbloquear ações sensíveis",
 		"upgradePrfKey": {
 			"description": "Por favor, autentique-se com a chave de acesso \"{{passkeyLabel}}\"...",
 			"error": "<p>Algo correu mal. Por favor, tente novamente.</p><p>Por favor, lembre-se que precisa de se autenticar com a chave de acesso \"{{passkeyLabel}}\".</p>",
@@ -467,60 +535,22 @@
 			"register": "Registar no Wallet Companion",
 			"registered": "Registado no Wallet Companion",
 			"title": "Wallet Companion (beta)"
-		},
-		"appearance": {
-			"colorScheme": {
-				"dark": "Escuro",
-				"description": "Escolha se a aparência deve ser clara ou escura, ou seguir as definições do dispositivo.",
-				"light": "Claro",
-				"system": "Sistema",
-				"title": "Esquema de Cores"
-			},
-			"title": "Aparência"
-		},
-		"lockSensitive": "Bloquear ações sensíveis",
-		"lockSensitiveTitle": "Clique para bloquear ações sensíveis",
-		"oblivious": {
-			"description": "Selecione um gateway privado para usar Oblivious HTTP",
-			"disabled": "Não usar Oblivious HTTP",
-			"gunet": "Gateway GUnet",
-			"successMessage": "Guardado",
-			"title": "Oblivious HTTP"
-		},
-		"unlockSensitive": "Desbloquear ações sensíveis",
-		"unlockSensitiveTitle": "Clique para desbloquear ações sensíveis"
+		}
 	},
-	"pageScanPhysicalId": {
-		"title": "Digitalizar ID Físico",
-		"goBackAriaLabel": "Voltar",
-		"steps": {
-			"step1": {
-				"title": "Passo 1",
-				"description": "Digitalize o seu rosto para mostrar que é um humano real e vivo"
-			},
-			"step2": {
-				"title": "Passo 2",
-				"description": "Digitalize o seu documento"
-			},
-			"step3": {
-				"title": "Passo 3",
-				"description": "Coloque o seu telemóvel sobre o documento para ler o chip NFC"
-			}
+	"pageShareCredentials": {
+		"description": "Pesquise e selecione um verifier para partilhar credenciais",
+		"noFound": "Sem verifiers correspondentes.",
+		"popup": {
+			"message": "Será redirecionado para {{verifierName}}.",
+			"title": "Selecionado:"
 		},
-		"beforeYouBegin": {
-			"title": "Antes de começar",
-			"passportReady": "Tenha o passaporte pronto",
-			"goodLighting": "Boa iluminação",
-			"goodInternet": "Boa ligação à internet"
-		},
-		"whyFaceScan": {
-			"title": "Porquê digitalização facial?",
-			"description": "Utilizamos uma verificação facial 3D rápida para prevenir o uso fraudulento do seu documento. Os seus dados biométricos são encriptados e eliminados após a conclusão da verificação.",
-			"viewOur": "Consulte a nossa",
-			"privacyPolicy": "Política de Privacidade."
-		},
-		"startScan": "Iniciar Digitalização",
-		"biometricConsent": "Consinto o processamento biométrico para verificação de identidade."
+		"searchPlaceholder": "Procurar verifiers..."
+	},
+	"parsing": {
+		"errorCouldNotParse": "A credencial não pôde ser analisada.",
+		"errorInvalidDatatype": "A credencial não pôde ser analisada.",
+		"errorMissingIssuerIdentifier": "O identificador do emissor está em falta.",
+		"errorNotSupportedCredentialType": "Este tipo de credencial não é suportado."
 	},
 	"passkeyInfoPopup": {
 		"closeAriaLabel": "Fechar popup de informações da chave de acesso",
@@ -534,6 +564,34 @@
 		"securityKeyLabel": "Chave de acesso numa chave de segurança",
 		"title": "Escolher onde criar a sua chave de acesso",
 		"triggerButton": "Como funcionam as chaves de acesso?"
+	},
+	"pendingTransactions": {
+		"subtitle": "A aguardar conclusão da emissão",
+		"title": "{{count}} credencial(is) pendente(s)",
+		"view": "Ver detalhes"
+	},
+	"presentCredentialsFlow": {
+		"completed": {
+			"description": "Os seus dados foram partilhados com {{verifierName}}.",
+			"redirecting": "A redirecionar...",
+			"title": "Sucesso!"
+		},
+		"error": {
+			"close": "Fechar"
+		},
+		"overview": {
+			"decline": "Recusar",
+			"purpose": "Objetivo",
+			"requestedInformation": "Informação solicitada",
+			"requester": "Solicitante",
+			"share": "Partilhar",
+			"switchCredential": "Trocar credencial",
+			"switchCredentialAria": "Trocar credencial: {{name}}, {{count}} disponíveis",
+			"title": "Pedido para partilhar dados"
+		},
+		"sharing": {
+			"sending": "A enviar..."
+		}
 	},
 	"protocolSteps": {
 		"common": {
@@ -577,6 +635,13 @@
 		"unsupportedDescription": "Este código QR não é suportado pela carteira. Por favor, digitalize uma oferta de credencial ou solicitação de apresentação.",
 		"unsupportedTitle": "Código QR não suportado"
 	},
+	"qrShareMdoc": {
+		"communicating": "A comunicar com o verificador...",
+		"enablePermissions": "Não foi possível aceder às funcionalidades de dispositivos próximos. Ative as permissões de dispositivos próximos nas definições e reinicie a aplicação.",
+		"nearbyVerifierRequested": "Um verificador próximo solicitou os seguintes campos:",
+		"send": "Enviar",
+		"shareUsingQR": "Partilhar com QR Code"
+	},
 	"queryableList": {
 		"all": "Todos",
 		"recent": "Recentes"
@@ -598,27 +663,41 @@
 		"baseTitle": "Enviar Credenciais",
 		"credentialSelectTitle": "Clique para selecionar a {{friendlyName}}",
 		"nextButtonDisabledTitle": "Precisa de selecionar uma credencial para continuar",
-		"purpose": "Objetivo: ",
-		"purposeNotSpecified": "Objetivo não especificado pelo verifier",
-		"request": "Solicitação:",
-		"requestedCredentialsFieldsTitle": "Campos solicitados:",
-		"selectDescription": "Você está prestes a compartilhar <strong>apenas os seguintes campos</strong> das credenciais selecionadas.",
-		"selectTitle": "Selecionar",
 		"previewDescription": "Será solicitado a selecionar credenciais que correspondam aos requisitos abaixo.",
 		"previewTitle": "Pré-visualização",
+		"purpose": "Objetivo: ",
+		"purposeNotSpecified": "Objetivo não especificado pelo verifier",
 		"qcRequest": "Esta transação solicita a criação de certificados de assinatura de acordo com os Termos e Condições (T&C) do QTSP",
+		"request": "Solicitação:",
+		"requestedCredentialsFieldsTitle": "Campos solicitados:",
 		"requestingParty": "Parte solicitante: ",
+		"selectDescription": "Você está prestes a compartilhar <strong>apenas os seguintes campos</strong> das credenciais selecionadas.",
+		"selectTitle": "Selecionar",
 		"signedDocuments": "Documentos a Assinar: ",
 		"specificClaimsRequested": "O verificador solicitou atributos específicos da credencial.",
 		"summaryDescription": "Está prestes a partilhar <strong>apenas os seguintes campos</strong> das credenciais selecionadas.",
 		"summaryTitle": "Resumo",
 		"transactionDataExample": "Aceitar exemplo de termos e condições de dados de transação"
 	},
+	"sessionRecoveryPopup": {
+		"sessionExpired": "A sua sessão expirou. Volte a autenticar-se para continuar."
+	},
 	"sidebar": {
 		"navItemLogout": "Sair",
+		"obliviousEnabled": "Pedidos privados com Oblivious HTTP ativado",
 		"poweredBy": "Desenvolvido por <docLinkWalletGithub>SIROS Foundation</docLinkWalletGithub>",
-		"poweredByAriaLabel": "Repositório GitHub da SIROS Foundation",
-		"obliviousEnabled": "Pedidos privados com Oblivious HTTP ativado"
+		"poweredByAriaLabel": "Repositório GitHub da SIROS Foundation"
+	},
+	"switchCredentialPopup": {
+		"alternativeCredentials": "Selecionar outra credencial",
+		"close": "Fechar",
+		"description": "Selecione a credencial a utilizar para este pedido.",
+		"selectedCredential": "Credencial atual",
+		"title": "Trocar credencial"
+	},
+	"syncPopup": {
+		"description": "Parece que <strong>modificou a sua carteira noutra sessão</strong>. Use a sua <strong>passkey</strong> para sincronizar a sua carteira.",
+		"title": "Sincronizar Carteira"
 	},
 	"tenantSelector": {
 		"closePopup": "Fechar popup",
@@ -659,89 +738,6 @@
 	"updateNotification": {
 		"description": "Nova versão disponível!"
 	},
-	"welcomeModal": {
-		"description": "Explore a <strong> $t(common.walletName) </strong>, a sua ferramenta para gerir credenciais digitais. Consulte, apresente e acompanhe todas as suas credenciais com facilidade!",
-		"dismissButton": "Dispensar",
-		"question": "Está disponível para explorar as funcionalidades da $t(common.walletName) através de uma apresentação guiada?",
-		"startTourButton": "Começar",
-		"title": "Bem vindo(a) à $t(common.walletName)!"
-	},
-	"credentialInfo": {
-		"legendAriaLabel": "Legenda de atributos",
-		"legendRequested": "Solicitado pelo verificador",
-		"legendRequired": "Obrigatório"
-	},
-	"credentialTypeCard": {
-		"selectAriaLabel": "Selecionar credencial {{name}}",
-		"selectedAriaLabel": "Esta credencial está atualmente selecionada"
-	},
-	"switchCredentialPopup": {
-		"title": "Trocar credencial",
-		"description": "Selecione a credencial a utilizar para este pedido.",
-		"selectedCredential": "Credencial atual",
-		"alternativeCredentials": "Selecionar outra credencial",
-		"close": "Fechar"
-	},
-	"issuance": {
-		"credentialsHaveErrors": "Foram encontrados erros ao verificar a credencial que está a tentar receber.",
-		"error": "Erro de Emissão",
-		"proceed": "Deseja receber esta credencial?",
-		"title": "Emissão de Credencial"
-	},
-	"notifications": {
-		"newCredential": {
-			"message": "Uma nova credencial chegou.",
-			"title": "Nova credencial"
-		},
-		"success": {
-			"message": "A operação foi concluída com sucesso.",
-			"title": "Sucesso"
-		}
-	},
-	"oidcGate": {
-		"awaitingAuth": "A aguardar autenticação...",
-		"awaitingAuthHint": "Complete o processo de início de sessão na janela pop-up ou no novo separador.",
-		"callbackError": "Erro de autenticação",
-		"callbackProcessing": "A processar autenticação...",
-		"callbackSuccess": "Autenticação bem-sucedida! A redirecionar...",
-		"errorCancelled": "A autenticação foi cancelada.",
-		"errorExpired": "A sua sessão expirou. Por favor, tente novamente.",
-		"errorGeneric": "A autenticação falhou. Por favor, tente novamente.",
-		"errorIdentityMismatch": "Esta carteira está registada com uma identidade diferente.",
-		"loginExplanation": "A sua organização ({{tenant}}) requer que verifique a sua identidade antes de aceder à sua carteira.",
-		"registrationExplanation": "A sua organização ({{tenant}}) requer que verifique a sua identidade antes de criar uma carteira.",
-		"signInWith": "Iniciar sessão com {{provider}}",
-		"signUpWith": "Registar com {{provider}}",
-		"verified": "Verificado: {{name}}",
-		"verifiedUser": "Identidade verificada"
-	},
-	"pagePending": {
-		"description": "Ver pedidos de emissão pendentes",
-		"noFound": "Nenhum pedido de emissão pendente encontrado",
-		"title": "Pedidos de Emissão Pendentes"
-	},
-	"parsing": {
-		"errorCouldNotParse": "A credencial não pôde ser analisada.",
-		"errorInvalidDatatype": "A credencial não pôde ser analisada.",
-		"errorMissingIssuerIdentifier": "O identificador do emissor está em falta.",
-		"errorNotSupportedCredentialType": "Este tipo de credencial não é suportado."
-	},
-	"pendingTransactions": {
-		"subtitle": "A aguardar conclusão da emissão",
-		"title": "{{count}} credencial(is) pendente(s)",
-		"view": "Ver detalhes"
-	},
-	"qrShareMdoc": {
-		"communicating": "A comunicar com o verificador...",
-		"enablePermissions": "Não foi possível aceder às funcionalidades de dispositivos próximos. Ative as permissões de dispositivos próximos nas definições e reinicie a aplicação.",
-		"nearbyVerifierRequested": "Um verificador próximo solicitou os seguintes campos:",
-		"send": "Enviar",
-		"shareUsingQR": "Partilhar com QR Code"
-	},
-	"syncPopup": {
-		"description": "Parece que <strong>modificou a sua carteira noutra sessão</strong>. Use a sua <strong>passkey</strong> para sincronizar a sua carteira.",
-		"title": "Sincronizar Carteira"
-	},
 	"viewSelect": {
 		"aria": {
 			"menuLabel": "Opções de visualização de credenciais",
@@ -754,5 +750,12 @@
 			"verticalSlider": "Slider Vertical"
 		},
 		"view": "Vista"
+	},
+	"welcomeModal": {
+		"description": "Explore a <strong> $t(common.walletName) </strong>, a sua ferramenta para gerir credenciais digitais. Consulte, apresente e acompanhe todas as suas credenciais com facilidade!",
+		"dismissButton": "Dispensar",
+		"question": "Está disponível para explorar as funcionalidades da $t(common.walletName) através de uma apresentação guiada?",
+		"startTourButton": "Começar",
+		"title": "Bem vindo(a) à $t(common.walletName)!"
 	}
 }

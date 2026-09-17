@@ -26,6 +26,7 @@
 		"externalPasskey": "Passkey på en säkerhetsnyckel",
 		"hybridPasskey": "Passkey på en enhet i närheten",
 		"loading": "Laddar...",
+		"logout": "Logga ut",
 		"navItemAddCredentials": "Lägg till intyg",
 		"navItemAddCredentialsSimple": "Lägg till",
 		"navItemCredentials": "Intyg",
@@ -51,29 +52,6 @@
 		"tryAgain": "Försök igen",
 		"walletName": "SIROS ID (dev)"
 	},
-	"presentCredentialsFlow": {
-		"overview": {
-			"title": "Begäran om att dela data",
-			"requester": "Begärande part",
-			"purpose": "Syfte",
-			"requestedInformation": "Begärd information",
-			"share": "Dela",
-			"decline": "Avvisa",
-			"switchCredential": "Byt intyg",
-			"switchCredentialAria": "Byt intyg: {{name}}, {{count}} tillgängliga"
-		},
-		"sharing": {
-			"sending": "Skickar..."
-		},
-		"completed": {
-			"title": "Lyckades!",
-			"description": "Dina uppgifter har delats med {{verifierName}}.",
-			"redirecting": "Omdirigerar..."
-		},
-		"error": {
-			"close": "Stäng"
-		}
-	},
 	"credentialInfo": {
 		"legendAriaLabel": "Attributförklaring",
 		"legendRequested": "Begärt av verifierare",
@@ -83,21 +61,14 @@
 		"selectAriaLabel": "Välj intyg {{name}}",
 		"selectedAriaLabel": "Detta intyg är för närvarande valt"
 	},
-	"switchCredentialPopup": {
-		"title": "Byt intyg",
-		"description": "Välj intyget som ska användas för denna begäran.",
-		"selectedCredential": "Nuvarande intyg",
-		"alternativeCredentials": "Välj ett annat intyg",
-		"close": "Stäng"
-	},
-	"expiredRibbon": {
-		"expired": "Utgånget"
-	},
 	"errors": {
 		"walletServiceAuth": {
 			"description": "Plånboken kunde inte autentisera mot plånbokstjänsten. Logga in igen.",
 			"title": "Autentisering mot plånbokstjänsten misslyckades"
 		}
+	},
+	"expiredRibbon": {
+		"expired": "Utgånget"
 	},
 	"issuance": {
 		"credentialsHaveErrors": "Fel har hittats vid verifiering av intyget du försöker ta emot.",
@@ -137,7 +108,6 @@
 		"enterUsername": "Ange ditt användarnamn",
 		"fillInFieldsError": "Vänligen fyll i alla obligatoriska fält",
 		"forgetCachedUser": "Klicka för att glömma sparad användare {{name}}",
-		"incorrectCredentialsError": "Felaktigt användarnamn eller lösenord",
 		"inviteInvalid": "Inbjudningskoden är ogiltig eller har gått ut.",
 		"inviteRequired": "En inbjudningskod krävs för att registrera sig hos denna leverantör.",
 		"login": "Logga in",
@@ -238,20 +208,20 @@
 				"description": "Presentationsförfrågan avvisades.",
 				"title": "Åtkomst nekad"
 			},
-			"AUTH_FAILED": {
-				"description": "Plånboken kunde inte autentisera mot presentationstjänsten. Försök igen.",
-				"title": "Autentisering misslyckades"
-			},
-			"AUTH_RESPONSE_ERROR": {
-				"description": "Auktoriseringssvaret kunde inte slutföras. Försök igen.",
-				"title": "Auktoriseringssvar misslyckades"
-			},
 			"AUTHORIZATION_FAILED": {
 				"description": "Auktorisering med verifieraren kunde inte slutföras.",
 				"title": "Auktorisering misslyckades"
 			},
 			"AUTHORIZATION_RESPONSE_FAILED": {
 				"description": "Auktoriseringssvaret kunde inte slutföras.",
+				"title": "Auktoriseringssvar misslyckades"
+			},
+			"AUTH_FAILED": {
+				"description": "Plånboken kunde inte autentisera mot presentationstjänsten. Försök igen.",
+				"title": "Autentisering misslyckades"
+			},
+			"AUTH_RESPONSE_ERROR": {
+				"description": "Auktoriseringssvaret kunde inte slutföras. Försök igen.",
 				"title": "Auktoriseringssvar misslyckades"
 			},
 			"CONNECTION_LOST": {
@@ -395,14 +365,14 @@
 			"message": "Du kommer att omdirigeras till <strong>{{issuerName}}</strong> <i>{{issuerDescription}}</i> för att utfärda ett <strong>{{credentialName}}</strong> <i>{{credentialDescription}}</i>.",
 			"title": "Valt:"
 		},
-		"searchPlaceholder": "Sök intyg...",
 		"scanPhysicalId": {
-			"sectionTitle": "Skanna fysiskt ID",
 			"digitalId": {
-				"title": "Digitalt ID (skannat pass)",
-				"description": "Använd ditt pass för att skapa ett digitalt ID."
-			}
-		}
+				"description": "Använd ditt pass för att skapa ett digitalt ID.",
+				"title": "Digitalt ID (skannat pass)"
+			},
+			"sectionTitle": "Skanna fysiskt ID"
+		},
+		"searchPlaceholder": "Sök intyg..."
 	},
 	"pageCredentials": {
 		"addCard": {
@@ -444,14 +414,37 @@
 		"noFound": "Inga väntande utfärdningsförfrågningar hittades",
 		"title": "Väntande utfärdningsförfrågningar"
 	},
-	"pageShareCredentials": {
-		"description": "Sök och välj en verifierare att dela intyg med",
-		"noFound": "Inga matchande verifierare hittades.",
-		"popup": {
-			"message": "Du kommer att omdirigeras till <strong>{{verifierName}}</strong>.",
-			"title": "Valt:"
+	"pageScanPhysicalId": {
+		"beforeYouBegin": {
+			"goodInternet": "Bra internetanslutning",
+			"goodLighting": "Bra belysning",
+			"passportReady": "Ha passet redo",
+			"title": "Innan du börjar"
 		},
-		"searchPlaceholder": "Sök verifierare..."
+		"biometricConsent": "Jag samtycker till biometrisk behandling för identitetsverifiering.",
+		"goBackAriaLabel": "Tillbaka",
+		"startScan": "Starta skanning",
+		"steps": {
+			"step1": {
+				"description": "Skanna ditt ansikte för att visa att du är en verklig, levande människa",
+				"title": "Steg 1"
+			},
+			"step2": {
+				"description": "Skanna ditt dokument",
+				"title": "Steg 2"
+			},
+			"step3": {
+				"description": "Lägg telefonen på dokumentet för att läsa NFC-chippet",
+				"title": "Steg 3"
+			}
+		},
+		"title": "Skanna fysiskt ID",
+		"whyFaceScan": {
+			"description": "Vi använder en snabb 3D-ansiktsverifiering för att förhindra bedräglig användning av ditt dokument. Dina biometriska data krypteras och raderas när verifieringen är klar.",
+			"privacyPolicy": "integritetspolicy",
+			"title": "Varför ansiktsskanning?",
+			"viewOur": "Visa vår "
+		}
 	},
 	"pageSettings": {
 		"addPasskey": "Lägg till passkey:",
@@ -544,37 +537,14 @@
 			"title": "Wallet Companion (beta)"
 		}
 	},
-	"pageScanPhysicalId": {
-		"title": "Skanna fysiskt ID",
-		"goBackAriaLabel": "Tillbaka",
-		"steps": {
-			"step1": {
-				"title": "Steg 1",
-				"description": "Skanna ditt ansikte för att visa att du är en verklig, levande människa"
-			},
-			"step2": {
-				"title": "Steg 2",
-				"description": "Skanna ditt dokument"
-			},
-			"step3": {
-				"title": "Steg 3",
-				"description": "Lägg telefonen på dokumentet för att läsa NFC-chippet"
-			}
+	"pageShareCredentials": {
+		"description": "Sök och välj en verifierare att dela intyg med",
+		"noFound": "Inga matchande verifierare hittades.",
+		"popup": {
+			"message": "Du kommer att omdirigeras till <strong>{{verifierName}}</strong>.",
+			"title": "Valt:"
 		},
-		"beforeYouBegin": {
-			"title": "Innan du börjar",
-			"passportReady": "Ha passet redo",
-			"goodLighting": "Bra belysning",
-			"goodInternet": "Bra internetanslutning"
-		},
-		"whyFaceScan": {
-			"title": "Varför ansiktsskanning?",
-			"description": "Vi använder en snabb 3D-ansiktsverifiering för att förhindra bedräglig användning av ditt dokument. Dina biometriska data krypteras och raderas när verifieringen är klar.",
-			"viewOur": "Visa vår ",
-			"privacyPolicy": "integritetspolicy"
-		},
-		"startScan": "Starta skanning",
-		"biometricConsent": "Jag samtycker till biometrisk behandling för identitetsverifiering."
+		"searchPlaceholder": "Sök verifierare..."
 	},
 	"parsing": {
 		"errorCouldNotParse": "Intyget kunde inte tolkas.",
@@ -599,6 +569,29 @@
 		"subtitle": "Väntar på att utfärdningen ska slutföras",
 		"title": "{{count}} väntande intyg",
 		"view": "Visa detaljer"
+	},
+	"presentCredentialsFlow": {
+		"completed": {
+			"description": "Dina uppgifter har delats med {{verifierName}}.",
+			"redirecting": "Omdirigerar...",
+			"title": "Lyckades!"
+		},
+		"error": {
+			"close": "Stäng"
+		},
+		"overview": {
+			"decline": "Avvisa",
+			"purpose": "Syfte",
+			"requestedInformation": "Begärd information",
+			"requester": "Begärande part",
+			"share": "Dela",
+			"switchCredential": "Byt intyg",
+			"switchCredentialAria": "Byt intyg: {{name}}, {{count}} tillgängliga",
+			"title": "Begäran om att dela data"
+		},
+		"sharing": {
+			"sending": "Skickar..."
+		}
 	},
 	"protocolSteps": {
 		"common": {
@@ -686,11 +679,21 @@
 		"summaryTitle": "Sammanfattning",
 		"transactionDataExample": "Acceptera exempelvillkor för transaktionsdata"
 	},
+	"sessionRecoveryPopup": {
+		"sessionExpired": "Din session har löpt ut. Autentisera dig igen för att fortsätta."
+	},
 	"sidebar": {
 		"navItemLogout": "Logga ut",
 		"obliviousEnabled": "Privata förfrågningar med Oblivious HTTP aktiverat",
 		"poweredBy": "Drivs av <docLinkWalletGithub>SIROS Foundation</docLinkWalletGithub>",
 		"poweredByAriaLabel": "GitHub-repository för SIROS Foundation"
+	},
+	"switchCredentialPopup": {
+		"alternativeCredentials": "Välj ett annat intyg",
+		"close": "Stäng",
+		"description": "Välj intyget som ska användas för denna begäran.",
+		"selectedCredential": "Nuvarande intyg",
+		"title": "Byt intyg"
 	},
 	"syncPopup": {
 		"description": "Det verkar som att du har <strong>ändrat din plånbok i en annan session</strong>. Använd din <strong>passkey</strong> för att synkronisera din plånbok.",

@@ -14,6 +14,7 @@ import { useOIDFlowClientAuthStore } from '@/hooks/useOIDFlowClientAuthStore';
 import { useAuthServerClient } from '@/hooks/useAuthServerClient';
 import { getTenantFromUrlPath } from '@/lib/tenant';
 import { AuthTokens } from '@/lib/auth';
+import { SessionRecoveryPopup } from '@/components/Popups/SessionRecoveryPopup';
 
 export const SessionContextProvider = ({ children }: React.PropsWithChildren) => {
 	const { isOnline } = useContext(StatusContext);
@@ -36,6 +37,11 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 
 	const [walletStateLoaded, setWalletStateLoaded] = useState<boolean>(false);
 	const [obliviousKeyConfig, setObliviousKeyConfig] = useState<HpkeConfig>(null);
+
+	const [sessionRecovery, setSessionRecovery] = useState<{
+		resolve: () => void;
+		reject: (reason?: unknown) => void;
+	} | null>(null);
 
 	// A unique id for each logged in tab
 	const [globalTabId] = useLocalStorage<string | null>("globalTabId", null);
@@ -86,10 +92,15 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	}, [displayError, clearSession, authTokens, t]);
 
 	useEffect(() => {
-		return authTokens.onSessionExpired(() => {
-			clearSession();
-		});
-	}, [authTokens, clearSession]);
+		return authTokens.onSessionExpired(() =>
+			new Promise<void>((resolve, reject) => {
+				setSessionRecovery({
+					resolve: () => { setSessionRecovery(null); resolve(); },
+					reject: (e) => { setSessionRecovery(null); reject(e); },
+				});
+			}),
+		);
+	}, [authTokens]);
 
 	useEffect(() => {
 		// Handler function that calls the current clearSession function
@@ -126,8 +137,6 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 			}
 		}
 	}, [getCalculatedWalletState]);
-
-
 
 	const value: SessionContextValue = useMemo(() => ({
 		api,
@@ -173,6 +182,12 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	return (
 		<SessionContext.Provider value={value}>
 			{children}
+			{sessionRecovery && (
+				<SessionRecoveryPopup
+					recovery={sessionRecovery}
+					onLogout={() => clearSession()}
+				/>
+			)}
 		</SessionContext.Provider>
 	);
 };

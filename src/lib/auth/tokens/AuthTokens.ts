@@ -20,7 +20,8 @@ export class AuthTokens {
 	readonly #tokenRejectionWindowMs = 60 * 1000;
 	readonly #maxTokenRejections = 3;
 
-	readonly #sessionExpiredListeners = new Set<() => void>();
+	readonly #sessionRecoveryListeners = new Set<() => Promise<void>>();
+	#sessionRecoveryInFlight: Promise<void> | null = null;
 
 	readonly #tokens = new Map<string, AccessTokenInterface>();
 
@@ -86,9 +87,9 @@ export class AuthTokens {
 	 * The listener will be called when the session expires.
 	 * Returns a function to unregister the listener.
 	 */
-	public onSessionExpired(listener: () => void): () => void {
-		this.#sessionExpiredListeners.add(listener);
-		return () => this.#sessionExpiredListeners.delete(listener);
+	public onSessionExpired(listener: () => Promise<void>): () => void {
+		this.#sessionRecoveryListeners.add(listener);
+		return () => this.#sessionRecoveryListeners.delete(listener);
 	}
 
 	/**
@@ -248,7 +249,7 @@ export class AuthTokens {
 		tac?: string;
 		anonymous?: boolean;
 	}): Promise<AccessTokenInterface> {
-		try {
+		const task = async () => {
 			const data = await this.#authServerClient.requestAccessToken(
 				options.audience,
 				this.#tenantId,
@@ -257,9 +258,19 @@ export class AuthTokens {
 			);
 
 			return new AccessToken(data.access_token);
+		}
+		try {
+			return await task();
 		} catch (error) {
-			if (error?.response?.status === 401) {
-				this.#emitSessionExpired();
+			if (
+				error?.response?.status === 401 &&
+				(
+					error?.response?.data?.error === 'invalid or expired session' ||
+					error?.response?.data?.error === 'authentication required'
+				)
+			) {
+				await this.#recoverSession();
+				return await task();
 			}
 
 			throw error;
@@ -278,14 +289,21 @@ export class AuthTokens {
 		}
 	}
 
-	#emitSessionExpired(): void {
-		for (const listener of this.#sessionExpiredListeners) {
-			try {
-				listener();
-			} catch (e) {
-				logger.error('Error in session expired listener:', e);
-			}
+	async #recoverSession(): Promise<void> {
+		if (this.#sessionRecoveryInFlight) {
+			return this.#sessionRecoveryInFlight;
 		}
+
+		this.#sessionRecoveryInFlight = (async () => {
+			try {
+				await Promise.all(
+					[...this.#sessionRecoveryListeners].map(listener => listener())
+				);
+			} finally {
+				this.#sessionRecoveryInFlight = null;
+			}
+		})();
+		return this.#sessionRecoveryInFlight;
 	}
 
 	#emitTokenRejection(info: TokenRejectionInfo<keyof AuthTokensManifest>): void {
