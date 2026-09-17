@@ -4,7 +4,7 @@ import { prepareCredentialsForNativeWrapper } from './credentials';
 import {
 	shapeCredential,
 	extractAvailableClaims,
-} from '@/services/CredentialMatchingService';
+} from '@/lib/services/CredentialMatchingService';
 import { getElementPropValue } from '@/util';
 import type { ExtendedVcEntity } from '@/context/CredentialsContext';
 import { getCredentialType } from '../utils/getCredentialType';
