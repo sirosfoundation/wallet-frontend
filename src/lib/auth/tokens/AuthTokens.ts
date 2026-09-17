@@ -48,7 +48,13 @@ export class AuthTokens {
 			tac: 'rwlid',
 		},
 		'anonymous': {
-			audience: 'wallet-backend',
+			// wallet-registry (not wallet-backend): this token intentionally
+			// omits identity (sub), so it's scoped to a narrower, specific
+			// audience rather than sharing the general-purpose backend
+			// audience with the fully-authenticated 'backend' token above.
+			// The backend still accepts wallet-backend for this token
+			// transitionally, but wallet-registry is the intended value.
+			audience: 'wallet-registry',
 			tac: 'rl',
 			anonymous: true,
 		},
