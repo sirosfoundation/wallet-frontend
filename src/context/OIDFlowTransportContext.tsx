@@ -12,7 +12,6 @@
 import React, { createContext, useContext, useMemo, useEffect, useState, useCallback } from 'react';
 import type { IOIDFlowTransport } from '@/lib/openid-flow/types/IOIDFlowTransport';
 import { nullOIDFlowTransport } from '@/lib/openid-flow/types/IOIDFlowTransport';
-import { OIDFlowHttpProxyTransport } from '@/lib/openid-flow/transports/OIDFlowHttpProxyTransport';
 import { OIDFlowWebSocketTransport } from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
 import type { SignRequestHandler, MatchRequestHandler } from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
 import {
@@ -214,7 +213,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 			code: 'DISCONTINUED_HTTP_PROXY_FLOW',
 			message: 'HTTP proxy transport flow is discontinued. Please use WebSocket transport instead.',
 		});
-	}, [httpClient]);
+	}, []);
 
 	// Create and manage WebSocket transport (only if capability is available)
 	useEffect(() => {
