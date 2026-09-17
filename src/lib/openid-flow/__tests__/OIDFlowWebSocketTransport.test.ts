@@ -1101,6 +1101,91 @@ describe('OIDFlowWebSocketTransport', () => {
 		});
 	});
 
+	describe('Reporting no matching credentials', () => {
+		/** The flow_action the transport sends, once it has been sent. */
+		async function sentCredentialsMatched(mockWs: MockWebSocket) {
+			let message: Record<string, unknown> | undefined;
+			await vi.waitFor(() => {
+				const raw = mockWs.sentMessages.find(
+					m => JSON.parse(m).action === 'credentials_matched'
+				);
+				expect(raw).toBeDefined();
+				message = JSON.parse(raw!);
+			});
+			return message!;
+		}
+
+		it('sends credentials_matched with an empty match set and the reason', async () => {
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+			const mockWs = mockWebSocketInstances[0];
+
+			const reported = transport.reportNoMatchingCredentials('No credentials match DCQL query');
+
+			const message = await sentCredentialsMatched(mockWs);
+			expect(message.type).toBe('flow_action');
+			expect(message.action).toBe('credentials_matched');
+			expect(message.payload).toEqual({
+				matches: [],
+				no_match_reason: 'No credentials match DCQL query',
+			});
+
+			// Engine ends the flow rather than waiting for a consent that cannot come
+			mockWs.simulateMessage({
+				type: 'flow_error',
+				flow_id: message.flow_id,
+				step: 'credential_selection',
+				error: {
+					code: 'NO_MATCHING_CREDENTIAL',
+					message: 'This request needs a credential you do not have: urn:eudi:pid:1',
+					details: {
+						requested_types: ['urn:eudi:pid:1'],
+						no_match_reason: 'No credentials match DCQL query',
+					},
+				},
+			});
+
+			const result = await reported;
+			expect(result).toEqual({
+				success: false,
+				error: {
+					code: 'NO_MATCHING_CREDENTIAL',
+					message: 'This request needs a credential you do not have: urn:eudi:pid:1',
+					details: {
+						requested_types: ['urn:eudi:pid:1'],
+						no_match_reason: 'No credentials match DCQL query',
+					},
+				},
+			});
+		});
+
+		it('omits no_match_reason when there is none', async () => {
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+			const mockWs = mockWebSocketInstances[0];
+
+			await transport.reportNoMatchingCredentials(undefined, 20);
+
+			const message = await sentCredentialsMatched(mockWs);
+			expect(message.payload).toEqual({ matches: [] });
+		});
+
+		it('resolves with null when the engine ignores the action', async () => {
+			// An engine older than go-wallet-backend #336 drops credentials_matched
+			// silently; the caller must fall back to its own error, not hang.
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+
+			expect(await transport.reportNoMatchingCredentials('no match', 20)).toBeNull();
+		});
+
+		it('resolves with null when the transport is not connected', async () => {
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+
+			expect(await transport.reportNoMatchingCredentials('no match')).toBeNull();
+		});
+	});
+
 	describe('Flow Action Sending', () => {
 		it('should send flow_action message with sendFlowAction', async () => {
 			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
