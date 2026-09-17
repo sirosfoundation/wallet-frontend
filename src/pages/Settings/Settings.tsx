@@ -91,7 +91,7 @@ const WebauthnRegistation = ({
 }: {
 	onSuccess: () => void,
 }) => {
-	const { isOnline } = useContext(StatusContext);
+	const { isOnline, blockUpdates } = useContext(StatusContext);
 	const { api, keystore } = useContext(SessionContext);
 	const [beginData, setBeginData] = useState(null);
 	const [pendingCredential, setPendingCredential] = useState(null);
