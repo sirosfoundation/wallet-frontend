@@ -11,10 +11,23 @@ import { OHTTP_KEY_CONFIG } from '@/config';
 import { logger } from '../logger';
 import useErrorDialog from '@/hooks/useErrorDialog';
 import { useOIDFlowClientAuthStore } from '@/hooks/useOIDFlowClientAuthStore';
+import { useAuthServerClient } from '@/hooks/useAuthServerClient';
+import { getTenantFromUrlPath } from '@/lib/tenant';
+import { AuthTokens } from '@/lib/auth';
 
 export const SessionContextProvider = ({ children }: React.PropsWithChildren) => {
 	const { isOnline } = useContext(StatusContext);
-	const api = useApi(isOnline);
+	const authServerClient = useAuthServerClient();
+	const tenantId = getTenantFromUrlPath();
+	const authTokens = useMemo(
+		() => AuthTokens.fromStorage({
+			authServerClient,
+			tenantId,
+			storage: window.sessionStorage,
+		}),
+		[authServerClient, tenantId],
+	);
+	const api = useApi(isOnline, authTokens);
 	const keystore = useLocalStorageKeystore(keystoreEvents);
 	const { getCalculatedWalletState } = keystore;
 	const isLoggedIn = useMemo(() => api.isLoggedIn() && keystore.isOpen(), [keystore, api]);
@@ -63,14 +76,14 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	}, [keystore, oidFlowClientAuthMaterialManager]);
 
 	useEffect(() => {
-		return api.authTokens.onTokenRejection(() => {
+		return authTokens.onTokenRejection(() => {
 			displayError({
 				title: t('errors.walletServiceAuth.title'),
 				description: t('errors.walletServiceAuth.description'),
 				fatal: true,
 			});
 		});
-	}, [displayError, clearSession, api.authTokens, t]);
+	}, [displayError, clearSession, authTokens, t]);
 
 	useEffect(() => {
 		// Handler function that calls the current clearSession function
@@ -118,7 +131,17 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 		obliviousKeyConfig,
 		consumeSessionCleared,
 		oidFlowClientAuthMaterialManager,
-	}), [api, keystore, logout, isLoggedIn, obliviousKeyConfig, consumeSessionCleared, oidFlowClientAuthMaterialManager]);
+		authTokens,
+	}), [
+		api,
+		keystore,
+		logout,
+		isLoggedIn,
+		obliviousKeyConfig,
+		consumeSessionCleared,
+		oidFlowClientAuthMaterialManager,
+		authTokens
+	]);
 
 	useEffect(() => {
 		if (api && keystore && api.isLoggedIn() === true && keystore.isOpen() === false && ((tabId && globalTabId && tabId !== globalTabId) || (!tabId && globalTabId))) {
