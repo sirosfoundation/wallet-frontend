@@ -40,7 +40,7 @@
     "react-transition-group": "^4.4.5",
     "react-webcam": "^7.2.0",
     "reactour": "^1.19.4",
-    "sharp": "^0.34.5",
+    "sharp": "^0.35.4",
     "styled-components": "^6.5.3",
     "swiper": "^14.2.0",
     "tailwindcss": "^4.3.3",
