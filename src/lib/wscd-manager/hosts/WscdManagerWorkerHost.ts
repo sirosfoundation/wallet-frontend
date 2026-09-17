@@ -38,9 +38,6 @@ export class WscdManagerWorkerHost implements IWscdManagerHost {
 				: pending.resolve(data.result);
 		};
 		logger.debug('WscdManagerWorkerHost initialized');
-
-		// TODO: remove this debug messages.
-		this.#worker.postMessage('listKeys');
 	}
 
 	public async isAvailable(): Promise<boolean> {
