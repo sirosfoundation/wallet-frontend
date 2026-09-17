@@ -9,6 +9,7 @@ import { useTenant } from '@/context/TenantContext';
 import { useLocation, useNavigate } from 'react-router';
 import checkForUpdates from '@/offlineUpdateSW';
 import { UserLock } from 'lucide-react';
+import { CachedUser } from '@/services/LocalStorageKeystore';
 
 const WebauthnLogin = ({
 	filteredUser,
@@ -62,7 +63,7 @@ const WebauthnLogin = ({
 	);
 
 	const onLoginCachedUser = async (cachedUser) => {
-		setError();
+		setError('');
 		setIsSubmitting(true);
 		await onLogin(cachedUser);
 		setIsSubmitting(false);
@@ -110,7 +111,7 @@ const SyncPopup = ({ message, onClose }) => {
 	const cachedUsers = keystore.getCachedUsers();
 	const from = location.search || '/';
 
-	const getfilteredUser = () => {
+	const getfilteredUser: () => [CachedUser | null, boolean, boolean] = () => {
 		const queryParams = new URLSearchParams(from);
 		const state = queryParams.get('state');
 		const user = queryParams.get('user');
