@@ -72,7 +72,7 @@ export async function prepareMdocDeviceResponse(
 export async function generateMdocDeviceResponse(
 	credential: string,
 	disclosedClaims: string[],
-	sessionTranscript: SessionTranscript,
+	sessionTranscript: SessionTranscript | Uint8Array,
 	sign: (kid: string, toBeSigned: Uint8Array) => Promise<Uint8Array>,
 ): Promise<Uint8Array> {
 	const { kid, deviceRequest, issuerSigned } = await prepareMdocDeviceResponse(

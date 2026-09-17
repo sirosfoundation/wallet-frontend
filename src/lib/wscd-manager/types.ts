@@ -99,7 +99,7 @@ export interface IWscdSignOperations {
 	/**
 	 * Generate a device response for mDoc with proximity-based authentication.
 	 */
-	generateDeviceResponseWithProximity(request: GenerateDeviceResponseRequest): Promise<Uint8Array>;
+	generateDeviceResponseWithProximity(request: GenerateDeviceResponseWithProximityRequest): Promise<Uint8Array>;
 }
 
 /**
@@ -204,6 +204,16 @@ export type GenerateDeviceResponseForDCAPIRequest = {
 	credential: string,
 	disclosedClaims: string[],
 	sessionTranscript: SessionTranscriptDcApiOptions,
+};
+
+/**
+ * Request parameters for generating a device response from a mDoc
+ * with proximity.
+ */
+export type GenerateDeviceResponseWithProximityRequest = {
+	credential: string,
+	disclosedClaims: string[],
+	sessionTranscriptBytes: Uint8Array,
 };
 
 /**

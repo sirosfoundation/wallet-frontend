@@ -10,6 +10,7 @@ import {
 	AuthFactor,
 	GenerateDeviceResponseForDCAPIRequest,
 	GenerateDeviceResponseRequest,
+	GenerateDeviceResponseWithProximityRequest,
 	GenerateOpenid4vciProofsRequest,
 	IWscdManagerClient,
 	IWscdManagerHost,
@@ -108,8 +109,17 @@ export class WscdManagerClient implements IWscdManagerClient {
 		);
 	}
 
-	public async generateDeviceResponseWithProximity(): Promise<Uint8Array> {
-		return Promise.resolve(new Uint8Array());
+	public async generateDeviceResponseWithProximity({
+		credential,
+		disclosedClaims,
+		sessionTranscriptBytes,
+	}: GenerateDeviceResponseWithProximityRequest): Promise<Uint8Array> {
+		return generateMdocDeviceResponse(
+			credential,
+			disclosedClaims,
+			sessionTranscriptBytes,
+			(kid, data) => this.#dispatchSignRequest(kid, data),
+		);
 	}
 
 	public async generateKeypairs(count: number): Promise<Keypair[]> {
