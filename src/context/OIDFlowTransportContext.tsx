@@ -12,7 +12,6 @@
 import React, { createContext, useContext, useMemo, useEffect, useState, useCallback } from 'react';
 import type { IOIDFlowTransport } from '@/lib/openid-flow/types/IOIDFlowTransport';
 import { nullOIDFlowTransport } from '@/lib/openid-flow/types/IOIDFlowTransport';
-import { OIDFlowHttpProxyTransport } from '@/lib/openid-flow/transports/OIDFlowHttpProxyTransport';
 import { OIDFlowWebSocketTransport } from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
 import type { SignRequestHandler, MatchRequestHandler } from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
 import {
@@ -188,20 +187,33 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 	// Determine which transports are available based on config AND capabilities
 	const availableTransports = useMemo(() => {
 		const available: OIDFlowTransportType[] = [];
-		if (HTTP_PROXY_TRANSPORT_ALLOWED) available.push('http_proxy');
+
+		if (HTTP_PROXY_TRANSPORT_ALLOWED) {
+			throw new OIDFlowError({
+				code: 'DISCONTINUED_HTTP_PROXY_FLOW',
+				message: 'HTTP proxy transport flow is discontinued. Please use WebSocket transport instead.',
+			});
+		}
+
 		// Only add websocket if config allows AND engine has capability
 		if (WEBSOCKET_TRANSPORT_ALLOWED && WS_URL && wsCapabilityAvailable) {
 			available.push('websocket');
 		}
+
 		if (DIRECT_TRANSPORT_ALLOWED) available.push('direct');
+
 		return available;
 	}, [wsCapabilityAvailable]);
 
 	// Create HTTP proxy transport only if allowed
 	const httpTransport = useMemo(() => {
 		if (!HTTP_PROXY_TRANSPORT_ALLOWED) return null;
-		return new OIDFlowHttpProxyTransport(httpClient);
-	}, [httpClient]);
+
+		throw new OIDFlowError({
+			code: 'DISCONTINUED_HTTP_PROXY_FLOW',
+			message: 'HTTP proxy transport flow is discontinued. Please use WebSocket transport instead.',
+		});
+	}, []);
 
 	// Create and manage WebSocket transport (only if capability is available)
 	useEffect(() => {

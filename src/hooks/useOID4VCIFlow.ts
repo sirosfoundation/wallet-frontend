@@ -1,6 +1,5 @@
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useOIDFlowTransportSafe } from '@/context/OIDFlowTransportContext';
-import OpenID4VCIContext from '@/context/OpenID4VCIContext';
 import { CredentialOfferSchema, VerifiableCredentialFormat } from 'wallet-common';
 import type { OID4VCIFlowResult } from '@/lib/openid-flow/types/OID4VCITypes';
 import type { OIDFlowActiveTransportType, OIDFlowProgressEvent } from '@/lib/openid-flow/types/OIDFlowTypes';
@@ -10,6 +9,7 @@ import { notify } from '@/context/notifier';
 import { deriveHolderKidFromCredential } from '@/lib/verifiable-credentials';
 import CredentialsContext from '@/context/CredentialsContext';
 import { logger } from '@/logger';
+import { OIDFlowError } from '@/lib/openid-flow/errors';
 import { SerializedClientAuthMaterial } from '@/lib/openid-flow/OIDFlowClientAuthMaterial';
 
 export interface UseOID4VCIFlowOptions {
@@ -83,7 +83,6 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 	const { credentialEngine } = useContext(CredentialsContext);
 	const { api, keystore, oidFlowClientAuthMaterialManager } = useContext(SessionContext);
 	const transportContext = useOIDFlowTransportSafe();
-	const { openID4VCI } = useContext(OpenID4VCIContext);
 
 	const abortRef = useRef<AbortController>(new AbortController());
 	const [isLoading, setIsLoading] = useState(false);
@@ -216,46 +215,11 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			}
 
 			// HTTP proxy transport: use existing implementation
-			if (transportType === 'http_proxy' && openID4VCI) {
-				const result = await openID4VCI.handleCredentialOffer(credentialOfferUrl.toString());
-
-				assertNotAborted();
-
-				// Save offer state for requestWithPreAuthorization
-				if (result.preAuthorizedCode) {
-					offerStateRef.current = {
-						credentialIssuer: result.credentialIssuer,
-						selectedCredentialConfigurationId: result.selectedCredentialConfigurationId,
-					};
-
-					return {
-						success: true,
-						credentialIssuerIdentifier: result.credentialIssuer,
-						selectedCredentialConfigurationId: result.selectedCredentialConfigurationId,
-						preAuthorizedCode: result.preAuthorizedCode,
-						issuerState: result.issuer_state,
-						txCode: result.txCode,
-					};
-				}
-
-				const authRequestResult = await openID4VCI.generateAuthorizationRequest(
-					result.credentialIssuer,
-					result.selectedCredentialConfigurationId,
-					result.issuer_state
-				);
-
-				if (!authRequestResult.url) {
-					throw new Error('Failed to generate authorization request URL');
-				}
-
-				return {
-					success: true,
-					credentialIssuerIdentifier: result.credentialIssuer,
-					selectedCredentialConfigurationId: result.selectedCredentialConfigurationId,
-					authorizationRequired: true,
-					authorizationUrl: authRequestResult.url,
-					issuerState: result.issuer_state,
-				};
+			if (transportType === 'http_proxy') {
+				throw new OIDFlowError({
+					code: 'DISCONTINUED_HTTP_PROXY_FLOW',
+					message: 'HTTP proxy transport flow is discontinued. Please use WebSocket transport instead.',
+				});
 			}
 
 			throw new Error('No transport available for credential issuance');
@@ -277,7 +241,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		} finally {
 			setIsLoading(false);
 		}
-	}, [transportType, transport, openID4VCI, onProgress, onError, validateCredentialOffer, assertNotAborted, oidFlowClientAuthMaterialManager]);
+	}, [transportType, transport, onProgress, onError, validateCredentialOffer, assertNotAborted, oidFlowClientAuthMaterialManager]);
 
 	/**
 	 * Handle authorization response (after OAuth redirect)
@@ -329,24 +293,11 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			}
 
 			// HTTP proxy transport: use existing implementation
-			if (transportType === 'http_proxy' && openID4VCI) {
-				const url = new URL(window.location.href);
-				url.searchParams.set('code', authCode);
-				url.searchParams.set('state', state || '');
-				const result = await openID4VCI.handleAuthorizationResponse(url.toString());
-
-				assertNotAborted();
-
-				if (!result.credentials || result.credentials.length === 0) {
-					throw new Error('No credentials received in authorization response');
-				}
-
-				return {
-					success: true,
-					credentials: result.credentials,
-					credentialIssuerIdentifier: result.credentialIssuerIdentifier,
-					selectedCredentialConfigurationId: result.credentialConfigurationId,
-				};
+			if (transportType === 'http_proxy') {
+				throw new OIDFlowError({
+					code: 'DISCONTINUED_HTTP_PROXY_FLOW',
+					message: 'HTTP proxy transport flow is discontinued. Please use WebSocket transport instead.',
+				});
 			}
 
 			throw new Error('No transport available');
@@ -369,7 +320,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		} finally {
 			setIsLoading(false);
 		}
-	}, [transportType, transport, openID4VCI, onProgress, onError, assertNotAborted, oidFlowClientAuthMaterialManager]);
+	}, [transportType, transport, onProgress, onError, assertNotAborted, oidFlowClientAuthMaterialManager]);
 
 	/**
 	 * Request credentials with pre-authorized code flow
@@ -407,32 +358,11 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			}
 
 			// HTTP proxy transport: use existing implementation
-			if (transportType === 'http_proxy' && openID4VCI) {
-				if (!offerStateRef.current) {
-					throw new Error(
-						'Pre-authorization flow via HTTP transport requires calling ' +
-						'handleCredentialOffer first to establish offer state.'
-					);
-				}
-				const result = await openID4VCI.requestCredentialsWithPreAuthorization(
-					offerStateRef.current.credentialIssuer,
-					offerStateRef.current.selectedCredentialConfigurationId,
-					preAuthorizedCode,
-					txCodeInput,
-				);
-
-				assertNotAborted();
-
-				if (!result.credentials || result.credentials.length === 0) {
-					throw new Error('No credentials received in pre-authorization response');
-				}
-
-				return {
-					success: true,
-					credentials: result.credentials,
-					credentialIssuerIdentifier: result.credentialIssuerIdentifier,
-					selectedCredentialConfigurationId: result.credentialConfigurationId,
-				};
+			if (transportType === 'http_proxy') {
+				throw new OIDFlowError({
+					code: 'DISCONTINUED_HTTP_PROXY_FLOW',
+					message: 'HTTP proxy transport flow is discontinued. Please use WebSocket transport instead.',
+				});
 			}
 
 			throw new Error('No transport available');
@@ -456,7 +386,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			offerStateRef.current = null;
 			setIsLoading(false);
 		}
-	}, [transportType, transport, openID4VCI, onProgress, onError, assertNotAborted]);
+	}, [transportType, transport, onProgress, onError, assertNotAborted]);
 
 	/**
 	 * Handle received credentials: validate, store in wallet, and notify.
