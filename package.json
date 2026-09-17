@@ -25,7 +25,7 @@
     "jose": "^4.15.9",
     "jsonpointer": "^5.0.1",
     "jsqr-es6": "1.4.0-1",
-    "key-did-resolver": "^3.0.0",
+    "key-did-resolver": "^4.0.0",
     "localforage": "^1.10.0",
     "lucide-react": "^0.554.0",
     "multiformats": "^12.1.3",
