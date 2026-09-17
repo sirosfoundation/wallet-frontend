@@ -190,7 +190,11 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 						requestUriRef,
 						clientId,
 						requestUriMethod: requestUriMethod ?? undefined,
-						walletMetadata: WALLET_METADATA,
+						// Only a POST carries wallet_metadata to the verifier,
+						// and here - unlike in the native SDKs, which hand the
+						// backend a request URI they have not parsed - we have
+						// read the method ourselves and know which this is.
+						walletMetadata: requestUriMethod === 'post' ? WALLET_METADATA : undefined,
 					});
 
 					if (!result.success) {
