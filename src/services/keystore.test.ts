@@ -354,7 +354,7 @@ describe("The keystore", () => {
 		});
 
 		it("reports a credential whose holder key it does not hold", async () => {
-            const { container } = await openWithKeypair();
+			const { container } = await openWithKeypair();
 			await asyncAssertThrows(
 				() => keystore.signJwtPresentation(
 					container as any, "n", "https://verifier.example", [sdJwtWithCnf({ kid: "did:jwk:other#0" })],
