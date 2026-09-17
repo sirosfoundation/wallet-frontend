@@ -185,7 +185,7 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 			{sessionRecovery && (
 				<SessionRecoveryPopup
 					recovery={sessionRecovery}
-					onLogout={() => clearSession()}
+					onLogout={() => logout()}
 				/>
 			)}
 		</SessionContext.Provider>

@@ -38,9 +38,6 @@ export const UserAuthPopup: FC<UserAuthPopupProps> = ({
 			// Pass the tenantId from URL path to ensure proper tenant-scoped login
 			const result = await api.loginWebauthn(keystore, async () => false, [], cachedUser, effectiveTenantId);
 			if (result.ok) {
-				const params = new URLSearchParams(window.location.search);
-				params.delete('user');
-				params.delete('sync')
 				onSuccess();
 			} else {
 				const err = result.val;
