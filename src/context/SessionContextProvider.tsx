@@ -86,6 +86,12 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	}, [displayError, clearSession, authTokens, t]);
 
 	useEffect(() => {
+		return authTokens.onSessionExpired(() => {
+			clearSession();
+		});
+	}, [authTokens, clearSession]);
+
+	useEffect(() => {
 		// Handler function that calls the current clearSession function
 		const handleClearSession = () => {
 			if (clearSessionRef.current) {
