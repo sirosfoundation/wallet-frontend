@@ -86,28 +86,50 @@ export interface LocalStorageKeystore {
 	updateCachedUserDisplayName(userHandleB64u: string, displayName: string): void,
 	updateCachedUserTenant(userHandleB64u: string, tenant: { id: string; displayName?: string }): void,
 	getUserHandleB64u(): string | null,
+	/**
+	 * @deprecated in favor of WscdManagerClient.signSdJwtPresentation().
+	 *             Will be removed in a future release.
+	 */
 	signJwtPresentation(nonce: string, audience: string, verifiableCredentials: any[], transactionDataResponseParams?: { transaction_data_hashes: string[], transaction_data_hashes_alg: string[] }): Promise<{ vpjwt: string }>,
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateOpenid4vciProofs().
+	 *             Will be removed in a future release.
+	 */
 	generateOpenid4vciProofs(requests: { nonce: string, audience: string, issuer: string }[]): Promise<[
 		{ proof_jwts: string[] },
 		AsymmetricEncryptedContainer,
 		CommitCallback,
 	]>,
-
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateKeypairs().
+	 *             Will be removed in a future release.
+	 */
 	generateKeypairs(n: number): Promise<[
 		{ keypairs: keystore.CredentialKeyPair[] },
 		AsymmetricEncryptedContainer,
 		CommitCallback,
 	]>,
-
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateDeviceResponse().
+	 *             Will be removed in a future release.
+	 */
 	generateDeviceResponse(
 		mdocCredential: MDoc, presentationDefinition: any,
 		nonce: string, clientId: string, responseUri: string,
 		verifierJwkThumbprint: string | null,
 	): Promise<{ deviceResponseMDoc: MDoc }>,
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateDeviceResponseForDCAPI().
+	 *             Will be removed in a future release.
+	 */
 	generateDeviceResponseForDCAPI(
 		mdocCredential: MDoc, presentationDefinition: any,
 		nonce: string, origin: string, jwkThumbprint: string | null
 	): Promise<{ deviceResponseMDoc: MDoc }>,
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateDeviceResponseWithProximity().
+	 *             Will be removed in a future release.
+	 */
 	generateDeviceResponseWithProximity(mdocCredential: MDoc, presentationDefinition: any, sessionTranscriptBytes: any): Promise<{ deviceResponseMDoc: MDoc }>,
 
 	getCalculatedWalletState(): WalletState | null,
@@ -665,6 +687,10 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		[privateData, setPrivateData, writePrivateDataOnIdb, userHandleB64u]
 	);
 
+	/**
+	 * @deprecated in favor of WscdManagerClient.signJwtPresentation().
+	 *             Will be removed in a future release.
+	 */
 	const signJwtPresentation = useCallback(
 		async (nonce: string, audience: string, verifiableCredentials: any[], transactionDataResponseParams?: { transaction_data_hashes: string[], transaction_data_hashes_alg: string[] }): Promise<{ vpjwt: string }> => (
 			await keystore.signJwtPresentation(await openPrivateData(), nonce, audience, verifiableCredentials, transactionDataResponseParams)
@@ -672,6 +698,10 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		[openPrivateData]
 	);
 
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateDeviceResponse().
+	 *             Will be removed in a future release.
+	 */
 	const generateDeviceResponse = useCallback(
 		async (mdocCredential: MDoc, presentationDefinition: any, nonce: string, clientId: string, responseUri: string, verifierJwkThumbprint: string | null): Promise<{ deviceResponseMDoc: MDoc }> => (
 			await keystore.generateDeviceResponse(await openPrivateData(), mdocCredential, presentationDefinition, nonce, clientId, responseUri, verifierJwkThumbprint)
@@ -679,6 +709,10 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		[openPrivateData]
 	);
 
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateDeviceResponseForDCAPI().
+	 *             Will be removed in a future release.
+	 */
 	const generateDeviceResponseForDCAPI = useCallback(
 		async (mdocCredential: MDoc, presentationDefinition: any, nonce: string, origin: string, verifierJwkThumbprint: string | null): Promise<{ deviceResponseMDoc: MDoc }> => (
 			await keystore.generateDeviceResponseForDCAPI(await openPrivateData(), mdocCredential, presentationDefinition, nonce, origin, verifierJwkThumbprint)
@@ -686,6 +720,10 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		[openPrivateData]
 	);
 
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateDeviceResponseWithProximity().
+	 *             Will be removed in a future release.
+	 */
 	const generateDeviceResponseWithProximity = useCallback(
 		async (mdocCredential: MDoc, presentationDefinition: any, sessionTranscriptBytes: any): Promise<{ deviceResponseMDoc: MDoc }> => (
 			await keystore.generateDeviceResponseWithProximity(await openPrivateData(), mdocCredential, presentationDefinition, sessionTranscriptBytes)
@@ -697,6 +735,10 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		return privateData !== null && mainKey !== null;
 	}, [privateData, mainKey]);
 
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateOpenid4vciProofs().
+	 *             Will be removed in a future release.
+	 */
 	const generateOpenid4vciProofs = useCallback(async (requests: { nonce: string, audience: string, issuer: string }[]): Promise<[
 		{ proof_jwts: string[] },
 		AsymmetricEncryptedContainer,
@@ -715,6 +757,10 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		})
 	), [editPrivateData]);
 
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateKeypairs().
+	 *             Will be removed in a future release.
+	 */
 	const generateKeypairs = useCallback(
 		async (n: number): Promise<[
 			{ keypairs: keystore.CredentialKeyPair[] },
