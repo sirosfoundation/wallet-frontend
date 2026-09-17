@@ -8,6 +8,7 @@ import {
 	WscdPlugin,
 } from './resources';
 import type { WscdEligibilityRequirements, IWscdManagerHost } from './types';
+import { browserSupportsPreviewSign } from '../utils/browserSupportsPreviewSign';
 
 /**
  * Requirements for a given credential based on its key ID.
@@ -95,4 +96,22 @@ export async function exportWscdContainerToKeystore(
 	}
 
 	return data;
+}
+
+/**
+ * Returns a list of WscdPlugins supported by the current environment.
+ */
+export async function supportedWscdManagerPlugins(): Promise<WscdPlugin[]> {
+	const plugins: WscdPlugin[] = [
+		// Softkeys are always supported.
+		WscdPlugin.SOFTKEY,
+	];
+
+	if (await browserSupportsPreviewSign()) {
+		plugins.push(WscdPlugin.FIDO2);
+	}
+
+	// TODO: figure out criteria for R2PS.
+
+	return plugins;
 }
