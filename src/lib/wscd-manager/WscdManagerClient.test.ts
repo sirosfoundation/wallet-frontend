@@ -46,9 +46,11 @@ const publicKeyJwk: JWK = {
 	y: '_O6ZbDIE6K_jmzgORF3DW-sSGVuigXIP9XMdPyGSOS0',
 };
 
+const publicKeyKid = 'q95J3MNIjVVGXyrmJVm5Vfr6E-iGfIF0Bo4XZAGhFf4'
+
 function makeContainer(): WscdContainer {
 	return {
-		keys: [{ kid: 'sw-1', algorithm: 'ES256', d: 'ZmFrZQ', created_at: 0 }],
+		keys: [{ kid: publicKeyKid, algorithm: 'ES256', d: 'ZmFrZQ', created_at: 0 }],
 		lifecycle: {},
 	};
 }
@@ -62,7 +64,7 @@ function fakeHost(overrides: Partial<IWscdManagerHost> = {}): IWscdManagerHost {
 		isAvailable: vi.fn().mockResolvedValue(true),
 		isEligible: vi.fn().mockResolvedValue(true),
 		sign: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
-		generateKey: vi.fn().mockResolvedValue('sw-1'),
+		generateKey: vi.fn().mockResolvedValue(publicKeyKid),
 		exportPublicKey: vi.fn().mockResolvedValue(publicKeyJwk),
 		importContainer: vi.fn().mockResolvedValue(undefined),
 		exportContainer: vi.fn().mockResolvedValue(makeContainer()),

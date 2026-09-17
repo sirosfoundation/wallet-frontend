@@ -18,9 +18,11 @@ const publicKeyJwk: JWK = {
 	y: '_O6ZbDIE6K_jmzgORF3DW-sSGVuigXIP9XMdPyGSOS0',
 };
 
+const publicKeyKid = 'q95J3MNIjVVGXyrmJVm5Vfr6E-iGfIF0Bo4XZAGhFf4';
+
 function makeContainer(): WscdContainer {
 	return {
-		keys: [{ kid: 'sw-abc', algorithm: 'ES256', d: 'ZmFrZQ', created_at: 0 }],
+		keys: [{ kid: publicKeyKid, algorithm: 'ES256', d: 'ZmFrZQ', created_at: 0 }],
 		lifecycle: {},
 	};
 }
@@ -91,13 +93,13 @@ describe('exportWscdContainerToKeystore', () => {
 	it('exports the public key using the original host handle', async () => {
 		const host = fakeHost();
 		await exportWscdContainerToKeystore(host, makeContainer());
-		expect(host.exportPublicKey).toHaveBeenCalledWith('sw-abc');
+		expect(host.exportPublicKey).toHaveBeenCalledWith(publicKeyKid);
 	});
 
 	it('does not mutate the input container', async () => {
 		const input = makeContainer();
 		await exportWscdContainerToKeystore(fakeHost(), input);
-		expect(input.keys[0].kid).toBe('sw-abc');
+		expect(input.keys[0].kid).toBe(publicKeyKid);
 		expect('publicKey' in input.keys[0]).toBe(false);
 	});
 
