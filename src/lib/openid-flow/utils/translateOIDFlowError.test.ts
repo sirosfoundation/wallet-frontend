@@ -32,6 +32,32 @@ describe('translateOIDFlowError', () => {
 		});
 	});
 
+	it('names the credential types the engine says are missing', () => {
+		const err = new OIDFlowError({
+			code: 'NO_MATCHING_CREDENTIAL',
+			message: 'This request needs a credential you do not have: urn:eudi:pid:1',
+			details: { requested_types: ['urn:eudi:pid:1'], no_match_reason: 'No credentials match DCQL query' },
+		});
+
+		expect(translateOIDFlowError(i18n.t.bind(i18n), err, 'vpFlowError')).toEqual({
+			title: 'No Matching Credential',
+			description: 'This request needs a credential you do not have: urn:eudi:pid:1.',
+		});
+	});
+
+	it('uses the plain copy when the engine names no credential types', () => {
+		const err = new OIDFlowError({
+			code: 'NO_MATCHING_CREDENTIAL',
+			message: 'You do not have a credential that matches this request',
+			details: { no_match_reason: 'No credentials could be shaped for matching' },
+		});
+
+		expect(translateOIDFlowError(i18n.t.bind(i18n), err, 'vpFlowError')).toEqual({
+			title: 'No Matching Credential',
+			description: 'You do not have a credential that matches this request.',
+		});
+	});
+
 	it('falls back to generic verification copy for unknown codes', () => {
 		const err = new OIDFlowError({
 			code: 'SOME_NEW_CODE',

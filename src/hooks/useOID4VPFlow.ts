@@ -221,6 +221,35 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 	}, [transportType, transport, onProgress, onError]);
 
 	/**
+	 * Build the error for "the wallet holds nothing this verifier asked for",
+	 * telling the engine first.
+	 *
+	 * Local matching is the only place that knows the answer, and until the
+	 * engine hears it the flow sits at credential_selection until the
+	 * five-minute user-interaction timeout and then fails as a generic
+	 * FLOW_TIMEOUT - with the verifier's session left to expire on its own.
+	 * The engine answers with NO_MATCHING_CREDENTIAL, which names the
+	 * credential types the query asked for in `details.requested_types`, so
+	 * its error is preferred over the local one when it arrives. An engine
+	 * that does not handle the action (older than go-wallet-backend #336)
+	 * leaves us with the local error, exactly as before.
+	 */
+	const noMatchingCredentialsError = useCallback(async (
+		noMatchReason?: string,
+		localCode?: string,
+	): Promise<OIDFlowError> => {
+		const engineError = transportType === 'websocket'
+			? (await transport?.reportNoMatchingCredentials?.(noMatchReason))?.error
+			: undefined;
+
+		return new OIDFlowError({
+			code: engineError?.code ?? localCode ?? 'NO_MATCHING_CREDENTIALS',
+			message: engineError?.message || noMatchReason || 'No matching credentials',
+			details: engineError?.details,
+		});
+	}, [transport, transportType]);
+
+	/**
 	 * Handle credential selection by showing the configured UI and returning the user's selection
 	 */
 	const handleCredentialSelection = useCallback(async (
@@ -249,7 +278,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				const { matches, no_match_reason, code } = matchCredentials(credentials, dcqlQuery);
 
 				if (matches.length === 0) {
-					throw new OIDFlowError({ code: code ?? 'NO_MATCHING_CREDENTIALS', message: no_match_reason || 'No matching credentials' });
+					throw await noMatchingCredentialsError(no_match_reason, code);
 				}
 
 				conformantCredentialsMap = new Map(buildConformantCredentialsMap(matches, dcqlQuery));
@@ -319,6 +348,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				error: {
 					code: error.code,
 					message: error.message,
+					...(error.details ? { details: error.details } : {}),
 				},
 			};
 		} finally {
@@ -328,6 +358,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		keystore,
 		options,
 		waitForCredentials,
+		noMatchingCredentialsError,
 		onError,
 	]);
 
