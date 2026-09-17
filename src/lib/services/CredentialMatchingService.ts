@@ -13,9 +13,11 @@
 import { ExtendedVcEntity } from '@/context/CredentialsContext';
 import { DcqlQuery, DcqlCredential, DcqlQueryResult } from 'dcql';
 import { logger } from '@/logger';
-import { cborDecode } from '@auth0/mdl/lib/cbor';
-import { fromBase64Url } from "../util";
-import { decodeStoredMdoc, extractDocTypeFromIssuerAuth, mdocNameSpacesToClaims, resolveMdocIssuerSigned } from '@/lib/verifiable-credentials';
+import {
+	decodeStoredMdoc,
+	mdocNameSpacesToClaims,
+	resolveMdocIssuerSigned,
+} from '@/lib/verifiable-credentials';
 
 export interface CredentialMatch {
 	input_descriptor_id: string;
