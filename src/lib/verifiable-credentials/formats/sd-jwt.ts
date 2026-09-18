@@ -50,6 +50,81 @@ export async function applySelectiveDisclosure(rawCredential: string, requestedC
 }
 
 /**
+ * Prepares an SD-JWT presentation for the holder to sign.
+ * This includes resolving the holder's key, computing the SD-JWT hash,
+ * and constructing the signing input.
+ */
+export async function prepareSdJwtPresentation(
+	rawCredentials: string[],
+	nonce: string,
+	audience: string,
+	transactionDataResponseParams?: Record<string, unknown>,
+): Promise<{ kid: string; sdJwt: string; signingInput: string }> {
+	const rawCredential = rawCredentials[0];
+
+	const { cnf, kid } = await resolveHolderKey(rawCredential);
+
+	const sdJwt = rawCredential.endsWith('~')
+		? rawCredential
+		: `${rawCredential}~`;
+
+	const sdHash = await resolveSdHash(sdJwt);
+
+	const header = {
+		typ: 'kb+jwt',
+		alg: 'ES256',
+		jwk: cnf.jwk,
+	};
+
+	const payload = {
+		nonce,
+		aud: audience,
+		sd_hash: sdHash,
+		iat: Math.floor(Date.now() / 1000),
+		...transactionDataResponseParams,
+	};
+
+	const signingInput = [header, payload].map(
+		(obj) => {
+			const
+				json = JSON.stringify(obj),
+				input = new TextEncoder().encode(json),
+				encoded = jose.base64url.encode(input);
+			return encoded;
+		}
+	).join('.');
+
+	return { kid, sdJwt, signingInput };
+}
+
+type HolderKeyResolution = { cnf: { jwk: jose.JWK }; kid: string };
+
+/**
+ * Resolves the holder's public key and key ID from the raw SD-JWT credential.
+ */
+async function resolveHolderKey(rawCredential: string): Promise<HolderKeyResolution> {
+	const [issuerJwt] = rawCredential.split('~');
+	const { cnf } = jose.decodeJwt(issuerJwt) as { cnf?: { jwk?: jose.JWK } };
+
+	if (!cnf?.jwk) throw new Error('Holder public key could not be resolved from cnf.jwk');
+
+	const kid = await jose.calculateJwkThumbprint(cnf.jwk, 'sha256');
+
+	return { cnf: { jwk: cnf.jwk }, kid };
+}
+
+/**
+ * Resolves the SD-JWT hash from the raw credential.
+ */
+async function resolveSdHash(rawCredential: string): Promise<string> {
+	const
+		data = new TextEncoder().encode(rawCredential),
+		digest = await crypto.subtle.digest('SHA-256', data),
+		hash = new Uint8Array(digest);
+	return jose.base64url.encode(hash);
+}
+
+/**
  * Converts dot-separated claim paths into the nested frame object that
  * @sd-jwt/core expects for selective disclosure.
  *

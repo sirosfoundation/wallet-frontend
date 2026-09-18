@@ -5,16 +5,13 @@ import { OPENID4VCI_PROOF_TYPE_PRECEDENCE, WIA_ENABLED, BACKEND_URL } from '@/co
 import { base64url } from 'jose';
 import {
 	applySelectiveDisclosure,
-	buildMdocPresentationDefinition,
-	extractIssuerSignedB64,
-	parseIssuerSignedToMDoc,
 } from '@/lib/verifiable-credentials';
 import { detectCredentialFormat, VerifiableCredentialFormat } from 'wallet-common';
-import { MDoc } from '@auth0/mdl';
-import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
 import { attestFlowIfEnabled, buildClientAttestationPop } from '@/lib/services/WIA';
 import { buildDPoPProof } from '@/lib/utils/dpop';
 import { useHttpClient } from './useHttpClient';
+import { useWscdManagerClient } from './useWscdManagerClient';
+import { IWscdManagerClient } from '@/lib/wscd-manager';
 
 interface ProofTypeConfig {
 	key_attestations_required?: Record<string, unknown> | null;
@@ -94,6 +91,7 @@ export function useOIDFlowSignHandler() {
 		oidFlowClientAuthMaterialManager,
 	} = useContext(SessionContext);
 	const httpClient = useHttpClient();
+	const wscd = useWscdManagerClient();
 
 	const signPresentation = useCallback(async (options: OIDFlowSignOptions): Promise<OIDFlowSignResponse> => {
 		const { audience, nonce, credentialsToInclude, responseUri, origin, verifierJwkThumbprint } = options;
@@ -115,7 +113,7 @@ export function useOIDFlowSignHandler() {
 			}
 
 			const vpToken = await createVpToken(
-				keystore,
+				wscd,
 				{
 					credentialRaw: c.credentialRaw,
 					disclosedClaims: c.disclosedClaims,
@@ -137,7 +135,7 @@ export function useOIDFlowSignHandler() {
 		return {
 			vpToken: JSON.stringify(vpTokenMap)
 		};
-	}, [keystore]);
+	}, [wscd]);
 
 	const generateProof = useCallback(async (options: OIDFlowSignOptions): Promise<OIDFlowSignResponse> => {
 		const { audience, nonce, proofTypesSupported, issuer, count = 1 } = options;
@@ -154,12 +152,7 @@ export function useOIDFlowSignHandler() {
 			.find(type => proofTypesSupported[type]) as 'jwt' | 'attestation' | undefined;
 
 		if (proofType === 'attestation') {
-			const [{ keypairs }, newPrivateData, keystoreCommit] =
-				await keystore.generateKeypairs(count);
-
-			// Persist key changes
-			await api.updatePrivateData(newPrivateData);
-			await keystoreCommit();
+			const keypairs = await wscd.generateKeypairs(count);
 
 			const response = await api.post('/wallet-provider/key-attestation/generate', {
 				jwks: keypairs.map(kp => kp.publicKey),
@@ -185,12 +178,7 @@ export function useOIDFlowSignHandler() {
 				issuer,
 			}));
 
-			const [{ proof_jwts }, newPrivateData, keystoreCommit] =
-				await keystore.generateOpenid4vciProofs(requests);
-
-			// Persist key changes
-			await api.updatePrivateData(newPrivateData);
-			await keystoreCommit();
+			const proof_jwts = await wscd.generateOpenid4vciProofs(requests);
 
 			const proofs: ProofObject[] = proof_jwts.map(jwt => ({
 				proof_type: proofType,
@@ -202,7 +190,7 @@ export function useOIDFlowSignHandler() {
 		}
 
 		throw new Error(`Unsupported proof type requested: ${proofType}`);
-	}, [keystore, api]);
+	}, [wscd, api]);
 
 	const signClientAuth = useCallback(async (
 		options: OIDFlowSignOptions,
@@ -282,7 +270,7 @@ export function useOIDFlowSignHandler() {
 }
 
 async function createVpToken(
-	keystore: LocalStorageKeystore,
+	wscd: IWscdManagerClient,
 	credentialData: {
 		credentialRaw: string;
 		disclosedClaims?: string[];
@@ -303,7 +291,7 @@ async function createVpToken(
 			case VerifiableCredentialFormat.VC_SDJWT:
 			case VerifiableCredentialFormat.JWT_VC_JSON:
 				return await createVpTokenFromSdJwt(
-					keystore,
+					wscd,
 					{
 						credentialRaw,
 						disclosedClaims: disclosedClaims ?? [],
@@ -315,7 +303,7 @@ async function createVpToken(
 				);
 			case VerifiableCredentialFormat.MSO_MDOC:
 				return await createVpTokenFromMdoc(
-					keystore,
+					wscd,
 					{
 						credentialRaw,
 						disclosedClaims: disclosedClaims ?? [],
@@ -334,7 +322,7 @@ async function createVpToken(
 }
 
 async function createVpTokenFromSdJwt(
-	keystore: LocalStorageKeystore,
+	wscd: IWscdManagerClient,
 	credentialData: {
 		credentialRaw: string;
 		disclosedClaims: string[];
@@ -348,12 +336,16 @@ async function createVpTokenFromSdJwt(
 	const { nonce, audience } = params;
 
 	const credential = await applySelectiveDisclosure(credentialRaw, disclosedClaims);
-	const { vpjwt } = await keystore.signJwtPresentation(nonce, audience, [credential]);
+	const vpjwt = await wscd.signSdJwtPresentation({
+		audience,
+		nonce,
+		verifiableCredentials: [credential],
+	});
 	return vpjwt;
 }
 
 async function createVpTokenFromMdoc(
-	keystore: LocalStorageKeystore,
+	wscd: IWscdManagerClient,
 	credentialData: {
 		credentialRaw: string;
 		disclosedClaims: string[];
@@ -380,41 +372,33 @@ async function createVpTokenFromMdoc(
 	if (!disclosedClaims?.length) {
 		throw new Error('disclosedClaims required for mdoc presentation');
 	}
-	// The stored credential may be a full DeviceResponse envelope, or a bare
-	// IssuerSigned structure directly (what real-world/interop issuers, e.g.
-	// geneva2026.mdoc.online, send for mso_mdoc credential responses) - in
-	// the latter case it already *is* the issuerSigned structure.
-	//
-	// Decode with mdl's codec, never cbor-x's defaults. cbor-x decodes maps
-	// to plain objects, whose keys can only be strings, so a decode/encode
-	// round-trip silently rewrites COSE's integer header labels as decimal
-	// strings - issuerAuth's x5chain label 33 becomes "33". Byte strings
-	// survive, so the damage is invisible until a verifier looks for the
-	// certificate chain and reports the credential as having none. The
-	// unprotected header is not covered by the COSE signature, so nothing
-	// upstream of that verifier notices.
-	const issuerSignedB64 = extractIssuerSignedB64(credentialRaw);
-	const mdoc = parseIssuerSignedToMDoc(issuerSignedB64);
-	const presentationDefinition = buildMdocPresentationDefinition(
-		mdoc.documents[0].docType,
-		disclosedClaims ?? [],
-	);
-	let deviceResponseMDoc: MDoc;
+
+	let deviceResponseMDoc: Uint8Array;
 	if (responseUri) {
-		const { deviceResponseMDoc: drm } = await keystore.generateDeviceResponse(
-			mdoc, presentationDefinition, nonce, audience, responseUri,
-			verifierJwkThumbprint ?? null,
-		);
-		deviceResponseMDoc = drm;
+		deviceResponseMDoc = await wscd.generateDeviceResponse({
+			credential: credentialRaw,
+			disclosedClaims,
+			sessionTranscript: {
+				clientId: audience,
+				responseUri,
+				nonce,
+				jwkThumbprint: verifierJwkThumbprint ?? undefined,
+			},
+		});
+
 	} else if (origin) {
-		const { deviceResponseMDoc: drm } = await keystore.generateDeviceResponseForDCAPI(
-			mdoc, presentationDefinition, nonce, origin,
-			verifierJwkThumbprint ?? null,
-		);
-		deviceResponseMDoc = drm;
+		deviceResponseMDoc = await wscd.generateDeviceResponseForDCAPI({
+			credential: credentialRaw,
+			disclosedClaims,
+			sessionTranscript: {
+				origin,
+				nonce,
+				jwkThumbprint: verifierJwkThumbprint ?? undefined,
+			},
+		});
 	} else {
 		throw new Error('Unexpected error: neither responseUri nor origin provided for mdoc presentation');
 	}
 
-	return base64url.encode(new Uint8Array(deviceResponseMDoc.encode()));
+	return base64url.encode(new Uint8Array(deviceResponseMDoc instanceof Uint8Array ? deviceResponseMDoc : deviceResponseMDoc.encode()));
 }

@@ -1,6 +1,14 @@
-import { base64url } from 'jose';
+import { base64url, calculateJwkThumbprint } from 'jose';
 import { cborDecode, cborEncode, DataItem } from '@auth0/mdl/lib/cbor';
-import { parse } from '@auth0/mdl';
+import {
+	DeviceRequest,
+	DocRequest,
+	ItemsRequest,
+	IssuerSigned,
+	MdocContext,
+	SessionTranscript,
+	DeviceResponse,
+} from '@owf/mdoc';
 
 /**
  * Issuer-signed data resolved from a stored mdoc: its docType and namespaces.
@@ -8,6 +16,132 @@ import { parse } from '@auth0/mdl';
 export interface MdocIssuerSigned {
 	docType: string;
 	nameSpaces: Map<string, unknown[]>;
+	issuerAuth: unknown[];
+}
+
+export type PreparedMdocDeviceResponse = {
+	kid: string;
+	deviceRequest: DeviceRequest;
+	issuerSigned: IssuerSigned;
+}
+
+export type SessionTranscriptOptions = {
+	clientId: string,
+	responseUri: string,
+	nonce: string,
+	jwkThumbprint: string | null,
+};
+
+export type SessionTranscriptDcApiOptions = {
+	origin: string;
+	nonce: string;
+	jwkThumbprint: string | null;
+};
+
+/**
+ * Prepare a device response for the given mdoc credential and disclosed claims.
+ */
+export async function prepareMdocDeviceResponse(
+	credential: string,
+	disclosedClaims: string[],
+): Promise<PreparedMdocDeviceResponse> {
+	const issuerSigned = IssuerSigned.fromEncodedForOid4Vci(
+		extractIssuerSignedB64(credential),
+	);
+
+	const mso = issuerSigned.issuerAuth.mobileSecurityObject;
+	const deviceKey = mso.deviceKeyInfo.deviceKey;
+	const kid = await calculateJwkThumbprint(deviceKey.jwk, 'sha256');
+
+	const deviceRequest = DeviceRequest.create({
+		docRequests: [DocRequest.create({
+			itemsRequest: ItemsRequest.create({
+				docType: mso.docType,
+				namespaces: claimsToNamespaces(disclosedClaims),
+			}),
+		})],
+	});
+
+	return { kid, deviceRequest, issuerSigned };
+}
+
+/**
+ * Generate a device response for the given mdoc credential and disclosed claims,
+ * using the provided session transcript and signing function.
+ */
+export async function generateMdocDeviceResponse(
+	credential: string,
+	disclosedClaims: string[],
+	sessionTranscript: SessionTranscript | Uint8Array,
+	sign: (kid: string, toBeSigned: Uint8Array) => Promise<Uint8Array>,
+): Promise<Uint8Array> {
+	const { kid, deviceRequest, issuerSigned } = await prepareMdocDeviceResponse(
+		credential,
+		disclosedClaims,
+	);
+	const deviceKey =
+		issuerSigned.issuerAuth.mobileSecurityObject.deviceKeyInfo.deviceKey;
+
+	const deviceResponse = await DeviceResponse.createWithDeviceRequest(
+		{
+			deviceRequest,
+			sessionTranscript,
+			issuerSigned: [issuerSigned],
+			signature: { signingKey: deviceKey },
+		},
+		{
+			crypto: mdocCrypto(),
+			cose: {
+				sign1: {
+					sign: async ({ toBeSigned }) => sign(kid, toBeSigned),
+					verify: async () => true,
+				},
+				mac0: undefined as any,
+			},
+		},
+	);
+
+	return deviceResponse.encode();
+}
+
+/**
+ * Build a session transcript for an OpenID for Verifiable Presentations (OID4VP)
+ * flow.
+ */
+export function buildOid4vpSessionTranscript({
+	clientId,
+	responseUri,
+	nonce,
+	jwkThumbprint,
+}: SessionTranscriptOptions): Promise<SessionTranscript> {
+	return SessionTranscript.forOid4Vp(
+		{
+			clientId,
+			responseUri,
+			nonce,
+			jwkThumbprint: jwkThumbprint ? base64url.decode(jwkThumbprint) : undefined,
+		},
+		{ crypto: mdocCrypto() },
+	);
+}
+
+/**
+ * Build a session transcript for an OpenID for Verifiable Presentations (OID4VP)
+ * flow using the DC API.
+ */
+export function buildOid4vpDcApiSessionTranscript({
+	origin,
+	nonce,
+	jwkThumbprint,
+}: SessionTranscriptDcApiOptions): Promise<SessionTranscript> {
+	return SessionTranscript.forOid4VpDcApi(
+		{
+			origin,
+			nonce,
+			jwkThumbprint: jwkThumbprint ? base64url.decode(jwkThumbprint) : undefined,
+		},
+		{ crypto: mdocCrypto() },
+	);
 }
 
 /**
@@ -64,99 +198,6 @@ export function extractIssuerSignedB64(raw: string): string {
 }
 
 /**
- * Parse a base64url-encoded issuerSigned blob into an MDoc
- * @todo This partially exists in wallet-common, we should look into consolidating this logic.
- *
- * @param raw - Base64url-encoded issuerSigned blob from an OID4VCI proof or similar
- * @returns Parsed MDoc object with version, documents array, and status
- */
-export function parseIssuerSignedToMDoc(raw: string) {
-	const credentialBytes = base64url.decode(raw);
-	const issuerSigned = cborDecode(credentialBytes);
-	const issuerAuth = issuerSigned.get('issuerAuth') as Array<Uint8Array>;
-	const payload = issuerAuth?.[2];
-	const docType = cborDecode(payload).data.get('docType');
-	const envelope = {
-		version: '1.0',
-		documents: [
-			new Map([
-				['docType', docType],
-				['issuerSigned', issuerSigned],
-			]),
-		],
-		status: 0,
-	};
-	return parse(cborEncode(envelope));
-}
-
-/**
- * Extract `docType` from the MSO (MobileSecurityObject) embedded in a bare
- * `IssuerSigned` structure's `issuerAuth` COSE_Sign1 payload (index 2 of the
- * 4-element array) - the only place docType is available when there's no
- * enclosing `{docType, issuerSigned}` document wrapper (e.g. a stored mdoc
- * credential issued directly as a bare IssuerSigned, as real-world/interop
- * issuers such as geneva2026.mdoc.online do for `mso_mdoc` credential
- * responses).
- *
- * @param issuerAuth - The decoded COSE_Sign1 array `[protected, unprotected, payload, signature]`
- * @returns The MSO's `docType`
- */
-export function extractDocTypeFromIssuerAuth(issuerAuth: unknown[]): string {
-	const payload = issuerAuth?.[2] as Uint8Array | undefined;
-	if (!payload) {
-		throw new Error('issuerAuth is not a COSE_Sign1 array (missing payload)');
-	}
-	const decoded = cborDecode(payload);
-	const mso = decoded instanceof DataItem ? decoded.data : decoded;
-	const docType = mso?.get?.('docType');
-	if (!docType) {
-		throw new Error('MSO missing docType');
-	}
-	return docType;
-}
-
-/**
- * Build a PEX presentation definition from disclosed claim URN paths
- * @todo This partially exists in wallet-common, we should look into consolidating this logic.
- *
- * @param docType - The docType of the MDoc being requested (e.g. "org.iso.18013.5.1.mDL")
- * @param disclosedClaims - Array of claim paths to disclose, e.g. ["credentialSubject.name", "credentialSubject.address.street"]
- * @returns Presentation definition object for requesting an MDoc presentation with the specified claims disclosed
- */
-export function buildMdocPresentationDefinition(
-	docType: string,
-	disclosedClaims: string[],
-) {
-	const fields = disclosedClaims.map((claim) => {
-		const lastDot = claim.lastIndexOf('.');
-		return {
-			path: [
-				`$['${claim.substring(0, lastDot)}']['${claim.substring(lastDot + 1)}']`,
-			],
-			intent_to_retain: false,
-		};
-	});
-
-	return {
-		id: 'mdoc-request',
-		input_descriptors: [
-			{
-				id: docType,
-				format: {
-					mso_mdoc: {
-						alg: ['ES256', 'ES384', 'EdDSA'],
-					},
-				},
-				constraints: {
-					limit_disclosure: 'required',
-					fields,
-				},
-			},
-		],
-	};
-}
-
-/**
  * Decode a stored `mso_mdoc` credential (base64url) into its CBOR `Map` using
  * mdl's codec. cbor-x's defaults must not be used here.
  * See {@link extractIssuerSignedB64} for the integer-COSE-label corruption
@@ -191,6 +232,7 @@ export function resolveMdocIssuerSigned(
 		return {
 			docType: doc.get('docType') as string,
 			nameSpaces: issuerSigned.get('nameSpaces') as Map<string, unknown[]>,
+			issuerAuth: issuerSigned.get('issuerAuth') as unknown[],
 		};
 	}
 
@@ -201,10 +243,37 @@ export function resolveMdocIssuerSigned(
 				mdoc.get('issuerAuth') as unknown[],
 			),
 			nameSpaces: mdoc.get('nameSpaces') as Map<string, unknown[]>,
+			issuerAuth: mdoc.get('issuerAuth') as unknown[],
 		};
 	}
 
 	throw new Error('mdoc is neither a DeviceResponse nor a bare IssuerSigned');
+}
+
+/**
+ * Extract `docType` from the MSO (MobileSecurityObject) embedded in a bare
+ * `IssuerSigned` structure's `issuerAuth` COSE_Sign1 payload (index 2 of the
+ * 4-element array) - the only place docType is available when there's no
+ * enclosing `{docType, issuerSigned}` document wrapper (e.g. a stored mdoc
+ * credential issued directly as a bare IssuerSigned, as real-world/interop
+ * issuers such as geneva2026.mdoc.online do for `mso_mdoc` credential
+ * responses).
+ *
+ * @param issuerAuth - The decoded COSE_Sign1 array `[protected, unprotected, payload, signature]`
+ * @returns The MSO's `docType`
+ */
+export function extractDocTypeFromIssuerAuth(issuerAuth: unknown[]): string {
+	const payload = issuerAuth?.[2] as Uint8Array | undefined;
+	if (!payload) {
+		throw new Error('issuerAuth is not a COSE_Sign1 array (missing payload)');
+	}
+	const decoded = cborDecode(payload);
+	const mso = decoded instanceof DataItem ? decoded.data : decoded;
+	const docType = mso?.get?.('docType');
+	if (!docType) {
+		throw new Error('MSO missing docType');
+	}
+	return docType;
 }
 
 /**
@@ -239,4 +308,33 @@ export function mdocNameSpacesToClaims(
 	}
 
 	return namespaces;
+}
+
+/**
+ * Convert an array of disclosed claims in "ns.element" format into the
+ * ItemsRequest namespaces shape: { [namespace]: { [element]: intentToRetain } }.
+ */
+function claimsToNamespaces(
+	disclosedClaims: string[],
+): Record<string, Record<string, boolean>> {
+	const namespaces: Record<string, Record<string, boolean>> = {};
+	for (const claim of disclosedClaims) {
+		const lastDot = claim.lastIndexOf('.');
+		const ns = claim.slice(0, lastDot);
+		const element = claim.slice(lastDot + 1);
+		(namespaces[ns] ??= {})[element] = false; // false = intent_to_retain
+	}
+	return namespaces;
+}
+
+/** WebCrypto-backed crypto half of the MdocContext. */
+function mdocCrypto(): MdocContext['crypto'] {
+	return {
+		random: (n) => crypto.getRandomValues(new Uint8Array(n)),
+		digest: async ({ digestAlgorithm, bytes }) =>
+			new Uint8Array(await crypto.subtle.digest(digestAlgorithm, bytes as BufferSource)),
+		hdkf: async () => {
+			throw new Error('HKDF not needed for signature-based device auth');
+		},
+	};
 }

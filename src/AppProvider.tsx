@@ -17,6 +17,7 @@ import { WebSocketSignHandlerProvider } from './context/WebSocketSignHandlerProv
 import { ErrorDialogContextProvider } from './context/ErrorDialogContextProvider';
 import { TxCodeInputProvider } from './context/TxCodeInputContext';
 import { WalletCompanionProvider } from './context/WalletCompanionContext';
+import { WscdManagerClientContextProvider } from './context/WscdManagerClientContextProvider';
 
 type RootProviderProps = {
 	children: ReactNode;
@@ -29,21 +30,23 @@ const AppProvider: React.FC<RootProviderProps> = ({ children }) => {
 				<StatusContextProvider>
 					<SessionContextProvider>
 						<CredentialsContextProvider>
-							<OIDFlowTransportProvider>
-								<WebSocketSignHandlerProvider>
-									<OpenID4VPContextProvider>
-										<TxCodeInputProvider>
-											<NotificationProvider>
-												<WalletCompanionProvider>
-													<AppSettingsProvider>
-														{children}
-													</AppSettingsProvider>
-												</WalletCompanionProvider>
-											</NotificationProvider>
-										</TxCodeInputProvider>
-									</OpenID4VPContextProvider>
-								</WebSocketSignHandlerProvider>
-							</OIDFlowTransportProvider>
+							<WscdManagerClientContextProvider>
+								<OIDFlowTransportProvider>
+									<WebSocketSignHandlerProvider>
+										<OpenID4VPContextProvider>
+											<TxCodeInputProvider>
+												<NotificationProvider>
+													<WalletCompanionProvider>
+														<AppSettingsProvider>
+															{children}
+														</AppSettingsProvider>
+													</WalletCompanionProvider>
+												</NotificationProvider>
+											</TxCodeInputProvider>
+										</OpenID4VPContextProvider>
+									</WebSocketSignHandlerProvider>
+								</OIDFlowTransportProvider>
+							</WscdManagerClientContextProvider>
 						</CredentialsContextProvider>
 					</SessionContextProvider>
 				</StatusContextProvider>

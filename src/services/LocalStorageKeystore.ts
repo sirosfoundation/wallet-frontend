@@ -13,10 +13,11 @@ import * as keystore from "./keystore";
 import type { AsymmetricEncryptedContainer, AsymmetricEncryptedContainerKeys, EncryptedContainer, OpenedContainer, PrivateData, UnlockSuccess, WebauthnPrfEncryptionKeyInfo, WebauthnPrfSaltInfo, WrappedKeyInfo } from "./keystore";
 import { MDoc } from "@auth0/mdl";
 import { WalletStateUtils } from "./WalletStateUtils";
-import { addAlterSettingsEvent, addDeleteCredentialEvent, addDeleteCredentialIssuanceSessionEvent, addDeleteKeypairEvent, addDeletePresentationEvent, addNewCredentialEvent, addNewPresentationEvent, addSaveCredentialIssuanceSessionEvent, CurrentSchema, foldOldEventsIntoBaseState, foldState, mergeEventHistories } from "./WalletStateSchema";
+import { addAlterSettingsEvent, addDeleteCredentialEvent, addDeleteCredentialIssuanceSessionEvent, addDeleteKeypairEvent, addDeletePresentationEvent, addNewCredentialEvent, addNewKeypairEvent, addNewPresentationEvent, addSaveCredentialIssuanceSessionEvent, CurrentSchema, foldOldEventsIntoBaseState, foldState, mergeEventHistories } from "./WalletStateSchema";
 import { UserId } from "@/api/types";
 import { getItem } from "@/indexedDB";
 import { WalletStateContainerGeneric } from "./WalletStateSchemaCommon";
+import { ExportedWscdContainer, WscdContainer } from "@/lib/wscd-manager";
 
 type WalletState = CurrentSchema.WalletState;
 type WalletStateCredential = CurrentSchema.WalletStateCredential;
@@ -85,28 +86,50 @@ export interface LocalStorageKeystore {
 	updateCachedUserDisplayName(userHandleB64u: string, displayName: string): void,
 	updateCachedUserTenant(userHandleB64u: string, tenant: { id: string; displayName?: string }): void,
 	getUserHandleB64u(): string | null,
+	/**
+	 * @deprecated in favor of WscdManagerClient.signSdJwtPresentation().
+	 *             Will be removed in a future release.
+	 */
 	signJwtPresentation(nonce: string, audience: string, verifiableCredentials: any[], transactionDataResponseParams?: { transaction_data_hashes: string[], transaction_data_hashes_alg: string[] }): Promise<{ vpjwt: string }>,
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateOpenid4vciProofs().
+	 *             Will be removed in a future release.
+	 */
 	generateOpenid4vciProofs(requests: { nonce: string, audience: string, issuer: string }[]): Promise<[
 		{ proof_jwts: string[] },
 		AsymmetricEncryptedContainer,
 		CommitCallback,
 	]>,
-
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateKeypairs().
+	 *             Will be removed in a future release.
+	 */
 	generateKeypairs(n: number): Promise<[
 		{ keypairs: keystore.CredentialKeyPair[] },
 		AsymmetricEncryptedContainer,
 		CommitCallback,
 	]>,
-
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateDeviceResponse().
+	 *             Will be removed in a future release.
+	 */
 	generateDeviceResponse(
 		mdocCredential: MDoc, presentationDefinition: any,
 		nonce: string, clientId: string, responseUri: string,
 		verifierJwkThumbprint: string | null,
 	): Promise<{ deviceResponseMDoc: MDoc }>,
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateDeviceResponseForDCAPI().
+	 *             Will be removed in a future release.
+	 */
 	generateDeviceResponseForDCAPI(
 		mdocCredential: MDoc, presentationDefinition: any,
 		nonce: string, origin: string, jwkThumbprint: string | null
 	): Promise<{ deviceResponseMDoc: MDoc }>,
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateDeviceResponseWithProximity().
+	 *             Will be removed in a future release.
+	 */
 	generateDeviceResponseWithProximity(mdocCredential: MDoc, presentationDefinition: any, sessionTranscriptBytes: any): Promise<{ deviceResponseMDoc: MDoc }>,
 
 	getCalculatedWalletState(): WalletState | null,
@@ -144,6 +167,12 @@ export interface LocalStorageKeystore {
 	 * @param remotePrivateDataRaw - Raw private data bytes from the server
 	 */
 	syncWithRemoteData(remotePrivateDataRaw: Uint8Array): Promise<Result<AsymmetricEncryptedContainer, 'keystoreNotOpen' | 'mergeFailed'>>,
+	exportToWscdContainer(): Promise<WscdContainer>,
+	importFromWscdContainer(container: WscdContainer): Promise<[
+		{},
+		AsymmetricEncryptedContainer,
+		CommitCallback,
+	]>
 }
 
 /** A stateful wrapper around the keystore module, storing state in the browser's localStorage and sessionStorage. */
@@ -658,6 +687,10 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		[privateData, setPrivateData, writePrivateDataOnIdb, userHandleB64u]
 	);
 
+	/**
+	 * @deprecated in favor of WscdManagerClient.signJwtPresentation().
+	 *             Will be removed in a future release.
+	 */
 	const signJwtPresentation = useCallback(
 		async (nonce: string, audience: string, verifiableCredentials: any[], transactionDataResponseParams?: { transaction_data_hashes: string[], transaction_data_hashes_alg: string[] }): Promise<{ vpjwt: string }> => (
 			await keystore.signJwtPresentation(await openPrivateData(), nonce, audience, verifiableCredentials, transactionDataResponseParams)
@@ -665,6 +698,10 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		[openPrivateData]
 	);
 
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateDeviceResponse().
+	 *             Will be removed in a future release.
+	 */
 	const generateDeviceResponse = useCallback(
 		async (mdocCredential: MDoc, presentationDefinition: any, nonce: string, clientId: string, responseUri: string, verifierJwkThumbprint: string | null): Promise<{ deviceResponseMDoc: MDoc }> => (
 			await keystore.generateDeviceResponse(await openPrivateData(), mdocCredential, presentationDefinition, nonce, clientId, responseUri, verifierJwkThumbprint)
@@ -672,6 +709,10 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		[openPrivateData]
 	);
 
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateDeviceResponseForDCAPI().
+	 *             Will be removed in a future release.
+	 */
 	const generateDeviceResponseForDCAPI = useCallback(
 		async (mdocCredential: MDoc, presentationDefinition: any, nonce: string, origin: string, verifierJwkThumbprint: string | null): Promise<{ deviceResponseMDoc: MDoc }> => (
 			await keystore.generateDeviceResponseForDCAPI(await openPrivateData(), mdocCredential, presentationDefinition, nonce, origin, verifierJwkThumbprint)
@@ -679,6 +720,10 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		[openPrivateData]
 	);
 
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateDeviceResponseWithProximity().
+	 *             Will be removed in a future release.
+	 */
 	const generateDeviceResponseWithProximity = useCallback(
 		async (mdocCredential: MDoc, presentationDefinition: any, sessionTranscriptBytes: any): Promise<{ deviceResponseMDoc: MDoc }> => (
 			await keystore.generateDeviceResponseWithProximity(await openPrivateData(), mdocCredential, presentationDefinition, sessionTranscriptBytes)
@@ -690,6 +735,10 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		return privateData !== null && mainKey !== null;
 	}, [privateData, mainKey]);
 
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateOpenid4vciProofs().
+	 *             Will be removed in a future release.
+	 */
 	const generateOpenid4vciProofs = useCallback(async (requests: { nonce: string, audience: string, issuer: string }[]): Promise<[
 		{ proof_jwts: string[] },
 		AsymmetricEncryptedContainer,
@@ -708,6 +757,10 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		})
 	), [editPrivateData]);
 
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateKeypairs().
+	 *             Will be removed in a future release.
+	 */
 	const generateKeypairs = useCallback(
 		async (n: number): Promise<[
 			{ keypairs: keystore.CredentialKeyPair[] },
@@ -903,6 +956,53 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		}
 	}, [privateData, mainKey, assertKeystoreOpen, writePrivateDataOnIdb, userHandleB64u, setPrivateData, setMainKey, setCalculatedWalletState]);
 
+	const exportToWscdContainer = useCallback(async (): Promise<WscdContainer> => {
+		const keypairs = calculatedWalletState?.keypairs ?? [];
+
+		const keys = keypairs
+			.filter(({ keypair }) => keypair.privateKey?.d)
+			.map(({ kid, keypair }) => ({
+				kid,
+				algorithm: keypair.alg,
+				d: keypair.privateKey.d,
+				created_at: 0, // keystore doesn't carry this info
+			}));
+
+		return {
+			keys,
+			lifecycle: {},
+		}
+	}, [calculatedWalletState]);
+
+	const importFromWscdContainer = useCallback(
+		async (container: ExportedWscdContainer) => {
+			let [walletStateContainer, ,] = await openPrivateData();
+			walletStateContainer = await foldOldEventsIntoBaseState(walletStateContainer);
+
+			const existing = new Set(foldState(walletStateContainer).keypairs.map((k) => k.kid));
+			const toAdd = container.keys.filter((k) => !existing.has(k.kid));
+			if (toAdd.length === 0) return;
+
+			for (const { kid, algorithm, d, publicKey } of toAdd) {
+				const keypair: keystore.CredentialKeyPair = {
+					kid,
+					did: await keystore.createDidFromJwk(publicKey, config.DID_KEY_VERSION),
+					alg: algorithm,
+					publicKey,
+					privateKey: { ...publicKey, d }, // full JWK, not d-only
+				};
+				walletStateContainer = await addNewKeypairEvent(walletStateContainer, kid, keypair);
+			}
+
+			return await editPrivateData(async (originalContainer) => {
+				const { newContainer } = await keystore.updateWalletState(originalContainer, walletStateContainer);
+				return [{}, newContainer];
+			});
+		},
+		[editPrivateData, openPrivateData],
+	);
+
+
 	return useMemo(() => ({
 		isOpen,
 		close,
@@ -934,6 +1034,8 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		getCredentialIssuanceSessionByState,
 		alterSettings,
 		syncWithRemoteData,
+		exportToWscdContainer,
+		importFromWscdContainer,
 	}), [
 		isOpen,
 		close,
@@ -965,5 +1067,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		getCredentialIssuanceSessionByState,
 		alterSettings,
 		syncWithRemoteData,
+		exportToWscdContainer,
+		importFromWscdContainer,
 	]);
 }
