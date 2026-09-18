@@ -7,7 +7,7 @@
 # (not build-time VITE_* args), matching production behavior.
 
 # --- Stage 1: Install dependencies ---
-FROM node:22-trixie-slim AS builder-base
+FROM node:25-trixie-slim AS builder-base
 
 RUN apt-get update -y && apt-get install -y git fontconfig && rm -rf /var/lib/apt/lists/*
 
