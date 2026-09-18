@@ -42,6 +42,7 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 		resolve: () => void;
 		reject: (reason?: unknown) => void;
 	} | null>(null);
+	const sessionRecoveryPromiseRef = useRef<Promise<void> | null>(null);
 
 	// A unique id for each logged in tab
 	const [globalTabId] = useLocalStorage<string | null>("globalTabId", null);
@@ -92,14 +93,31 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	}, [displayError, clearSession, authTokens, t]);
 
 	useEffect(() => {
-		return authTokens.onSessionExpired(() =>
-			new Promise<void>((resolve, reject) => {
+		return authTokens.onSessionExpired(() => {
+			if (sessionRecoveryPromiseRef.current) {
+				return sessionRecoveryPromiseRef.current;
+			}
+
+			sessionRecoveryPromiseRef.current = new Promise<void>((resolve, reject) => {
+				const clearRecovery = () => {
+					sessionRecoveryPromiseRef.current = null;
+					setSessionRecovery(null);
+				};
+
 				setSessionRecovery({
-					resolve: () => { setSessionRecovery(null); resolve(); },
-					reject: (e) => { setSessionRecovery(null); reject(e); },
+					resolve: () => {
+						clearRecovery();
+						resolve();
+					},
+					reject: (e) => {
+						clearRecovery();
+						reject(e);
+					},
 				});
-			}),
-		);
+			});
+
+			return sessionRecoveryPromiseRef.current;
+		});
 	}, [authTokens]);
 
 	useEffect(() => {

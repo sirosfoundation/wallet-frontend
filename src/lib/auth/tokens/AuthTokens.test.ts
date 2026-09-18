@@ -220,6 +220,34 @@ describe('AuthTokens', () => {
 			expect(storage.getItem(`${STORAGE_PREFIX}:backend`)).toBeNull();
 			expect(auth.backendTokenExists()).toBe(false);
 		});
+
+		it('clears cached tokens before retrying after session recovery', async () => {
+			client.requestAccessToken
+				.mockResolvedValueOnce(tokenResponse(makeJwt({ sub: 'cached-backend' })))
+				.mockRejectedValueOnce({
+					response: {
+						status: 401,
+						data: { error: 'invalid or expired session' },
+					},
+				})
+				.mockResolvedValueOnce(tokenResponse(makeJwt({ sub: 'anonymous', tac: 'rl' })))
+				.mockResolvedValueOnce(tokenResponse(makeJwt({ sub: 'fresh-backend' })));
+			const auth = makeAuthTokens();
+			const sessionRecovery = vi.fn().mockResolvedValue(undefined);
+			auth.onSessionExpired(sessionRecovery);
+
+			await auth.ensureBackendToken();
+			await auth.ensureAnonymousToken();
+
+			expect(sessionRecovery).toHaveBeenCalledTimes(1);
+			expect(storage.getItem(`${STORAGE_PREFIX}:backend`)).toBeNull();
+			expect(auth.backendTokenExists(false)).toBe(false);
+
+			const freshBackendToken = await auth.ensureBackendToken();
+
+			expect(client.requestAccessToken).toHaveBeenCalledTimes(4);
+			expect(freshBackendToken.sub).toBe('fresh-backend');
+		});
 	});
 
 	describe('registerTokenRejection', () => {

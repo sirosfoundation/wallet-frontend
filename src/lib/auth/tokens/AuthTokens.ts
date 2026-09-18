@@ -238,7 +238,7 @@ export class AuthTokens {
 	 * It does not notify listeners of token rejections.
 	 */
 	async clear(): Promise<void> {
-		for (const name of this.#tokens.keys()) {
+		for (const name of Object.keys(AuthTokens.MANIFEST)) {
 			this.#tokenStorage.clear(name);
 		}
 		this.#tokenRejectionTimes.clear();
@@ -270,6 +270,7 @@ export class AuthTokens {
 				)
 			) {
 				await this.#recoverSession();
+				await this.clear();
 				return await task();
 			}
 

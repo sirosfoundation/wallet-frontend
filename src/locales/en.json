@@ -431,7 +431,7 @@
 	"pageScanPhysicalId": {
 		"beforeYouBegin": {
 			"goodInternet": "Have good internet connection",
-			"goodLighting": "Have good lightning",
+			"goodLighting": "Have good lighting",
 			"passportReady": "Have passport ready",
 			"title": "Before you begin"
 		},
