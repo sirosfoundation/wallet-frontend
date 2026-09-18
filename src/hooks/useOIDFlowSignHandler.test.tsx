@@ -73,7 +73,11 @@ vi.mock('@/context/SessionContext', async () => {
 	};
 
 	return {
-		default: createContext({ keystore: {}, oidFlowClientAuthMaterialManager }),
+		default: createContext({
+			keystore: {},
+			authTokens: { ensureBackendToken: async () => ({ raw: 'test-token' }) },
+			oidFlowClientAuthMaterialManager,
+		}),
 	};
 });
 
