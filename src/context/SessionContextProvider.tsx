@@ -119,12 +119,17 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 					}
 				};
 
+				let settled = false;
 				const recovery: SessionRecoveryState = {
 					resolve: () => {
+						if (settled) return;
+						settled = true;
 						clearRecovery();
 						resolve();
 					},
 					reject: (e) => {
+						if (settled) return;
+						settled = true;
 						clearRecovery();
 						reject(e);
 					},

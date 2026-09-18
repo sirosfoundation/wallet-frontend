@@ -277,7 +277,12 @@ export class AuthTokens {
 		} catch (error) {
 			if (isRecoverableSessionError(error)) {
 				await this.clear();
-				await this.#recoverSession();
+				try {
+					await this.#recoverSession();
+				} catch (recoveryError) {
+					this.registerTokenRejection(name);
+					throw recoveryError;
+				}
 				try {
 					return await task();
 				} catch (retryError) {

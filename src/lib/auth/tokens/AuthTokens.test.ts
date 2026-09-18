@@ -275,6 +275,27 @@ describe('AuthTokens', () => {
 			expect(auth.registerAnonymousTokenRejection()).toBe(false);
 			expect(rejectionListener).toHaveBeenCalledWith({ name: 'anonymous', rejections: 3 });
 		});
+
+		it('counts a failed session recovery as a token rejection', async () => {
+			client.requestAccessToken.mockRejectedValue({
+				response: {
+					status: 401,
+					data: { error: 'authentication required' },
+				},
+			});
+			const auth = makeAuthTokens();
+			const sessionRecovery = vi.fn().mockRejectedValue(new Error('session recovery cancelled'));
+			const rejectionListener = vi.fn();
+			auth.onSessionExpired(sessionRecovery);
+			auth.onTokenRejection(rejectionListener);
+
+			await expect(auth.ensureAnonymousToken()).rejects.toThrow('session recovery cancelled');
+
+			expect(sessionRecovery).toHaveBeenCalledTimes(1);
+			expect(auth.registerAnonymousTokenRejection()).toBe(true);
+			expect(auth.registerAnonymousTokenRejection()).toBe(false);
+			expect(rejectionListener).toHaveBeenCalledWith({ name: 'anonymous', rejections: 3 });
+		});
 	});
 
 	describe('registerTokenRejection', () => {
