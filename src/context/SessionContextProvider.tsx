@@ -88,6 +88,7 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 
 	useEffect(() => {
 		return authTokens.onTokenRejection(() => {
+			void clearSession();
 			displayError({
 				title: t('errors.walletServiceAuth.title'),
 				description: t('errors.walletServiceAuth.description'),

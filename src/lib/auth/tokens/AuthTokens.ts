@@ -276,8 +276,8 @@ export class AuthTokens {
 			return await task();
 		} catch (error) {
 			if (isRecoverableSessionError(error)) {
-				await this.#recoverSession();
 				await this.clear();
+				await this.#recoverSession();
 				try {
 					return await task();
 				} catch (retryError) {
