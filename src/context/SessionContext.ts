@@ -3,6 +3,7 @@ import { BackendApi } from '../api';
 import type { LocalStorageKeystore } from '../services/LocalStorageKeystore';
 import { HpkeConfig } from '@/lib/utils/ohttpHelpers';
 import { OIDFlowClientAuthStore } from '@/hooks/useOIDFlowClientAuthStore';
+import { AuthTokens } from '@/lib/auth';
 
 export type SessionContextValue = {
 	api: BackendApi,
@@ -12,6 +13,7 @@ export type SessionContextValue = {
 	consumeSessionCleared: () => boolean,
 	obliviousKeyConfig: HpkeConfig,
 	oidFlowClientAuthMaterialManager: OIDFlowClientAuthStore,
+	authTokens: AuthTokens,
 };
 
 const SessionContext: React.Context<SessionContextValue> = createContext({
@@ -22,6 +24,7 @@ const SessionContext: React.Context<SessionContextValue> = createContext({
 	logout: async () => { },
 	consumeSessionCleared: () => false,
 	oidFlowClientAuthMaterialManager: undefined,
+	authTokens: undefined,
 });
 
 export default SessionContext;

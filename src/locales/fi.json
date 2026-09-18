@@ -22,10 +22,12 @@
 		"cancel": "Peruuta",
 		"close": "Sulje",
 		"continue": "Jatka",
+		"declineAndExit": "Hylkää ja poistu",
 		"delete": "Poista",
 		"externalPasskey": "Passkey turva-avaimella",
 		"hybridPasskey": "Passkey lähellä olevalla laitteella",
 		"loading": "Ladataan...",
+		"logout": "Kirjaudu ulos",
 		"navItemAddCredentials": "Lisää todistuksia",
 		"navItemAddCredentialsSimple": "Lisää",
 		"navItemCredentials": "Todistukset",
@@ -51,29 +53,6 @@
 		"tryAgain": "Yritä uudelleen",
 		"walletName": "SIROS ID (dev)"
 	},
-	"presentCredentialsFlow": {
-		"overview": {
-			"title": "Pyyntö jakaa tietoja",
-			"requester": "Pyytäjä",
-			"purpose": "Tarkoitus",
-			"requestedInformation": "Pyydetyt tiedot",
-			"share": "Jaa",
-			"decline": "Hylkää",
-			"switchCredential": "Vaihda todistus",
-			"switchCredentialAria": "Vaihda todistus: {{name}}, {{count}} saatavilla"
-		},
-		"sharing": {
-			"sending": "Lähetetään..."
-		},
-		"completed": {
-			"title": "Onnistui!",
-			"description": "Tietosi jaettiin taholle {{verifierName}}.",
-			"redirecting": "Ohjataan uudelleen..."
-		},
-		"error": {
-			"close": "Sulje"
-		}
-	},
 	"credentialInfo": {
 		"legendAriaLabel": "Attribuuttien selite",
 		"legendRequested": "Todentajan pyytämä",
@@ -83,21 +62,14 @@
 		"selectAriaLabel": "Valitse todistus {{name}}",
 		"selectedAriaLabel": "Tämä todistus on tällä hetkellä valittuna"
 	},
-	"switchCredentialPopup": {
-		"title": "Vaihda todistus",
-		"description": "Valitse todistus, jota käytetään tähän pyyntöön.",
-		"selectedCredential": "Nykyinen todistus",
-		"alternativeCredentials": "Valitse toinen todistus",
-		"close": "Sulje"
-	},
-	"expiredRibbon": {
-		"expired": "Vanhentunut"
-	},
 	"errors": {
 		"walletServiceAuth": {
 			"description": "Lompakko ei voinut tunnistautua lompakkopalveluun. Kirjaudu sisään uudelleen.",
 			"title": "Lompakkopalvelun todennus epäonnistui"
 		}
+	},
+	"expiredRibbon": {
+		"expired": "Vanhentunut"
 	},
 	"issuance": {
 		"credentialsHaveErrors": "Vastaanotettavan todistuksen vahvistuksessa havaittiin virheitä.",
@@ -137,7 +109,6 @@
 		"enterUsername": "Syötä käyttäjänimesi",
 		"fillInFieldsError": "Täytä kaikki pakolliset kentät",
 		"forgetCachedUser": "Napsauta unohtaaksesi tallennetun käyttäjän {{name}}",
-		"incorrectCredentialsError": "Väärä käyttäjänimi tai salasana",
 		"inviteInvalid": "Kutsukoodi on virheellinen tai vanhentunut.",
 		"inviteRequired": "Kutsukoodi vaaditaan rekisteröitymiseen tähän palveluntarjoajaan.",
 		"login": "Kirjaudu",
@@ -238,20 +209,20 @@
 				"description": "Esityspyyntö evättiin.",
 				"title": "Pääsy evätty"
 			},
-			"AUTH_FAILED": {
-				"description": "Lompakko ei voinut tunnistautua esityspalveluun. Yritä uudelleen.",
-				"title": "Todenus epäonnistui"
-			},
-			"AUTH_RESPONSE_ERROR": {
-				"description": "Valtuutusvastausta ei voitu suorittaa loppuun. Yritä uudelleen.",
-				"title": "Valtuutusvastaus epäonnistui"
-			},
 			"AUTHORIZATION_FAILED": {
 				"description": "Valtuutusta todentajan kanssa ei voitu suorittaa loppuun.",
 				"title": "Valtuutus epäonnistui"
 			},
 			"AUTHORIZATION_RESPONSE_FAILED": {
 				"description": "Valtuutusvastausta ei voitu suorittaa loppuun.",
+				"title": "Valtuutusvastaus epäonnistui"
+			},
+			"AUTH_FAILED": {
+				"description": "Lompakko ei voinut tunnistautua esityspalveluun. Yritä uudelleen.",
+				"title": "Todenus epäonnistui"
+			},
+			"AUTH_RESPONSE_ERROR": {
+				"description": "Valtuutusvastausta ei voitu suorittaa loppuun. Yritä uudelleen.",
 				"title": "Valtuutusvastaus epäonnistui"
 			},
 			"CONNECTION_LOST": {
@@ -395,14 +366,14 @@
 			"message": "Sinut ohjataan kohteeseen <strong>{{issuerName}}</strong> <i>{{issuerDescription}}</i> myöntämään <strong>{{credentialName}}</strong> <i>{{credentialDescription}}</i>.",
 			"title": "Valittu:"
 		},
-		"searchPlaceholder": "Etsi todistuksia...",
 		"scanPhysicalId": {
-			"sectionTitle": "Skannaa fyysinen henkilöllisyystodistus",
 			"digitalId": {
-				"title": "Digitaalinen henkilöllisyystodistus (skannattu passi)",
-				"description": "Käytä passiasi digitaalisen henkilöllisyystodistuksen luomiseen."
-			}
-		}
+				"description": "Käytä passiasi digitaalisen henkilöllisyystodistuksen luomiseen.",
+				"title": "Digitaalinen henkilöllisyystodistus (skannattu passi)"
+			},
+			"sectionTitle": "Skannaa fyysinen henkilöllisyystodistus"
+		},
+		"searchPlaceholder": "Etsi todistuksia..."
 	},
 	"pageCredentials": {
 		"addCard": {
@@ -444,14 +415,37 @@
 		"noFound": "Odottavia myöntämispyyntöjä ei löytynyt",
 		"title": "Odottavat myöntämispyynnöt"
 	},
-	"pageShareCredentials": {
-		"description": "Etsi ja valitse todentaja, jolle haluat jakaa todistuksia",
-		"noFound": "Vastaavia todentajia ei löytynyt.",
-		"popup": {
-			"message": "Sinut ohjataan kohteeseen <strong>{{verifierName}}</strong>.",
-			"title": "Valittu:"
+	"pageScanPhysicalId": {
+		"beforeYouBegin": {
+			"goodInternet": "Hyvä internetyhteys",
+			"goodLighting": "Hyvä valaistus",
+			"passportReady": "Pidä passi valmiina",
+			"title": "Ennen kuin aloitat"
 		},
-		"searchPlaceholder": "Etsi todentajia..."
+		"biometricConsent": "Suostun biometriseen käsittelyyn henkilöllisyyden varmistamiseksi.",
+		"goBackAriaLabel": "Takaisin",
+		"startScan": "Aloita skannaus",
+		"steps": {
+			"step1": {
+				"description": "Skannaa kasvosi osoittaaksesi, että olet oikea, elävä ihminen",
+				"title": "Vaihe 1"
+			},
+			"step2": {
+				"description": "Skannaa asiakirjasi",
+				"title": "Vaihe 2"
+			},
+			"step3": {
+				"description": "Aseta puhelin asiakirjan päälle NFC-sirun lukemiseksi",
+				"title": "Vaihe 3"
+			}
+		},
+		"title": "Skannaa fyysinen henkilöllisyystodistus",
+		"whyFaceScan": {
+			"description": "Käytämme nopeaa 3D-kasvotunnistusta estääksemme asiakirjasi väärinkäytön. Biometriset tietosi salataan ja hävitetään tarkistuksen jälkeen.",
+			"privacyPolicy": "tietosuojakäytäntömme",
+			"title": "Miksi kasvokuvaus?",
+			"viewOur": "Katso "
+		}
 	},
 	"pageSettings": {
 		"addPasskey": "Lisää passkey:",
@@ -544,37 +538,14 @@
 			"title": "Wallet Companion (beta)"
 		}
 	},
-	"pageScanPhysicalId": {
-		"title": "Skannaa fyysinen henkilöllisyystodistus",
-		"goBackAriaLabel": "Takaisin",
-		"steps": {
-			"step1": {
-				"title": "Vaihe 1",
-				"description": "Skannaa kasvosi osoittaaksesi, että olet oikea, elävä ihminen"
-			},
-			"step2": {
-				"title": "Vaihe 2",
-				"description": "Skannaa asiakirjasi"
-			},
-			"step3": {
-				"title": "Vaihe 3",
-				"description": "Aseta puhelin asiakirjan päälle NFC-sirun lukemiseksi"
-			}
+	"pageShareCredentials": {
+		"description": "Etsi ja valitse todentaja, jolle haluat jakaa todistuksia",
+		"noFound": "Vastaavia todentajia ei löytynyt.",
+		"popup": {
+			"message": "Sinut ohjataan kohteeseen <strong>{{verifierName}}</strong>.",
+			"title": "Valittu:"
 		},
-		"beforeYouBegin": {
-			"title": "Ennen kuin aloitat",
-			"passportReady": "Pidä passi valmiina",
-			"goodLighting": "Hyvä valaistus",
-			"goodInternet": "Hyvä internetyhteys"
-		},
-		"whyFaceScan": {
-			"title": "Miksi kasvokuvaus?",
-			"description": "Käytämme nopeaa 3D-kasvotunnistusta estääksemme asiakirjasi väärinkäytön. Biometriset tietosi salataan ja hävitetään tarkistuksen jälkeen.",
-			"viewOur": "Katso ",
-			"privacyPolicy": "tietosuojakäytäntömme"
-		},
-		"startScan": "Aloita skannaus",
-		"biometricConsent": "Suostun biometriseen käsittelyyn henkilöllisyyden varmistamiseksi."
+		"searchPlaceholder": "Etsi todentajia..."
 	},
 	"parsing": {
 		"errorCouldNotParse": "Todistusta ei voitu jäsentää.",
@@ -599,6 +570,29 @@
 		"subtitle": "Odotetaan myöntämisen valmistumista",
 		"title": "{{count}} odottavaa todistusta",
 		"view": "Näytä tiedot"
+	},
+	"presentCredentialsFlow": {
+		"completed": {
+			"description": "Tietosi jaettiin taholle {{verifierName}}.",
+			"redirecting": "Ohjataan uudelleen...",
+			"title": "Onnistui!"
+		},
+		"error": {
+			"close": "Sulje"
+		},
+		"overview": {
+			"decline": "Hylkää",
+			"purpose": "Tarkoitus",
+			"requestedInformation": "Pyydetyt tiedot",
+			"requester": "Pyytäjä",
+			"share": "Jaa",
+			"switchCredential": "Vaihda todistus",
+			"switchCredentialAria": "Vaihda todistus: {{name}}, {{count}} saatavilla",
+			"title": "Pyyntö jakaa tietoja"
+		},
+		"sharing": {
+			"sending": "Lähetetään..."
+		}
 	},
 	"protocolSteps": {
 		"common": {
@@ -686,11 +680,21 @@
 		"summaryTitle": "Yhteenveto",
 		"transactionDataExample": "Hyväksy esimerkki tapahtumadatan ehdoista"
 	},
+	"sessionRecoveryPopup": {
+		"sessionExpired": "Istuntosi on vanhentunut. Kirjaudu uudelleen jatkaaksesi."
+	},
 	"sidebar": {
 		"navItemLogout": "Kirjaudu ulos",
 		"obliviousEnabled": "Yksityiset pyynnöt Oblivious HTTP:llä käytössä",
 		"poweredBy": "Käyttää <docLinkWalletGithub>SIROS Foundation</docLinkWalletGithub>",
 		"poweredByAriaLabel": "SIROS Foundationin GitHub-repositorio"
+	},
+	"switchCredentialPopup": {
+		"alternativeCredentials": "Valitse toinen todistus",
+		"close": "Sulje",
+		"description": "Valitse todistus, jota käytetään tähän pyyntöön.",
+		"selectedCredential": "Nykyinen todistus",
+		"title": "Vaihda todistus"
 	},
 	"syncPopup": {
 		"description": "Näyttää siltä, että olet <strong>muokannut lompakkoasi toisessa istunnossa</strong>. Käytä <strong>passkeytäsi</strong> synkronoidaksesi lompakon.",

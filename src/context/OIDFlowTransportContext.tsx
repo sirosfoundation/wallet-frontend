@@ -91,7 +91,7 @@ interface OIDFlowTransportProviderProps {
 export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> = ({
 	children,
 }) => {
-	const { api } = useContext(SessionContext);
+	const { authTokens } = useContext(SessionContext);
 	const httpClient = useHttpClient();
 
 	// Tenant ID for multi-tenant routing (from URL path, more robust than sessionStorage)
@@ -104,14 +104,14 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		let active = true;
 		(async () => {
 			try {
-				const token = await api.authTokens.ensureBackendToken();
+				const token = await authTokens.ensureBackendToken();
 				if (active) setAuthToken(token.raw);
 			} catch {
 				if (active) setAuthToken(null);
 			}
 		})();
 		return () => { active = false; };
-	}, [api.authTokens]);
+	}, [authTokens]);
 
 	const [isConnected, setIsConnected] = useState(false);
 	const [wsTransport, setWsTransport] = useState<OIDFlowWebSocketTransport | null>(null);
@@ -279,13 +279,13 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 			setLastError(error);
 
 			if (error instanceof OIDFlowError && error.code === 'AUTH_FAILED') {
-				const shouldRetry = api.authTokens.registerBackendTokenRejection();
+				const shouldRetry = authTokens.registerBackendTokenRejection();
 				if (!shouldRetry) {
 					logger.error('Engine auth still failing after refresh; giving up (global handler notified)');
 					return;
 				}
 
-				const fresh = await api.authTokens.ensureBackendToken();
+				const fresh = await authTokens.ensureBackendToken();
 				setAuthToken(fresh.raw);
 			}
 		});
@@ -302,7 +302,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 				return next;
 			});
 		};
-	}, [authToken, tenantId, capabilitiesLoaded, wsCapabilityAvailable, trustEvaluators, api.authTokens]);
+	}, [authToken, tenantId, capabilitiesLoaded, wsCapabilityAvailable, trustEvaluators, authTokens]);
 
 	// Update auth token and tenant ID on WebSocket when they change
 	useEffect(() => {

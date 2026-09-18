@@ -30,7 +30,7 @@ type WalletStateCredential = CurrentSchema.WalletStateCredential;
 
 
 export const CredentialsContextProvider = ({ children }: React.PropsWithChildren) => {
-	const { api, keystore, isLoggedIn } = useContext(SessionContext);
+	const { api, keystore, isLoggedIn, authTokens } = useContext(SessionContext);
 	const [vcEntityList, setVcEntityList] = useState<ExtendedVcEntity[] | null>(null);
 	const [latestCredentials, setLatestCredentials] = useState<Set<number>>(new Set());
 	const [currentSlide, setCurrentSlide] = useState<number>(1);
@@ -49,11 +49,11 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 		const clientConfig: AuthZENClientConfig = {
 			httpClient: httpClient,
 			baseUrl: BACKEND_URL,
-			getAuthToken: async () => (await api.authTokens.ensureAnonymousToken()).raw,
+			getAuthToken: async () => (await authTokens.ensureAnonymousToken()).raw,
 			tenantId: getTenantFromUrlPath() ?? 'default',
 		};
 		return AuthZENClient(clientConfig);
-	}, [api, httpClient]);
+	}, [authTokens, httpClient]);
 
 	useEffect(() => {
 		if (!getCalculatedWalletState) return;
