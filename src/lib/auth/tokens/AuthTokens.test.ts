@@ -248,6 +248,33 @@ describe('AuthTokens', () => {
 			expect(client.requestAccessToken).toHaveBeenCalledTimes(4);
 			expect(freshBackendToken.sub).toBe('fresh-backend');
 		});
+
+		it('counts a repeated session-expired retry failure as a token rejection', async () => {
+			client.requestAccessToken
+				.mockRejectedValue({
+					response: {
+						status: 401,
+						data: { error: 'authentication required' },
+					},
+				});
+			const auth = makeAuthTokens();
+			const sessionRecovery = vi.fn().mockResolvedValue(undefined);
+			const rejectionListener = vi.fn();
+			auth.onSessionExpired(sessionRecovery);
+			auth.onTokenRejection(rejectionListener);
+
+			await expect(auth.ensureAnonymousToken()).rejects.toMatchObject({
+				response: {
+					status: 401,
+					data: { error: 'authentication required' },
+				},
+			});
+
+			expect(sessionRecovery).toHaveBeenCalledTimes(1);
+			expect(auth.registerAnonymousTokenRejection()).toBe(true);
+			expect(auth.registerAnonymousTokenRejection()).toBe(false);
+			expect(rejectionListener).toHaveBeenCalledWith({ name: 'anonymous', rejections: 3 });
+		});
 	});
 
 	describe('registerTokenRejection', () => {

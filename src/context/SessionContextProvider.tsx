@@ -16,6 +16,11 @@ import { getTenantFromUrlPath } from '@/lib/tenant';
 import { AuthTokens } from '@/lib/auth';
 import { SessionRecoveryPopup } from '@/components/Popups/SessionRecoveryPopup';
 
+type SessionRecoveryState = {
+	resolve: () => void;
+	reject: (reason?: unknown) => void;
+};
+
 export const SessionContextProvider = ({ children }: React.PropsWithChildren) => {
 	const { isOnline } = useContext(StatusContext);
 	const authServerClient = useAuthServerClient();
@@ -38,11 +43,10 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	const [walletStateLoaded, setWalletStateLoaded] = useState<boolean>(false);
 	const [obliviousKeyConfig, setObliviousKeyConfig] = useState<HpkeConfig>(null);
 
-	const [sessionRecovery, setSessionRecovery] = useState<{
-		resolve: () => void;
-		reject: (reason?: unknown) => void;
-	} | null>(null);
+	const [sessionRecovery, setSessionRecovery] = useState<SessionRecoveryState | null>(null);
+	const isMountedRef = useRef(true);
 	const sessionRecoveryPromiseRef = useRef<Promise<void> | null>(null);
+	const sessionRecoveryRef = useRef<SessionRecoveryState | null>(null);
 
 	// A unique id for each logged in tab
 	const [globalTabId] = useLocalStorage<string | null>("globalTabId", null);
@@ -93,6 +97,13 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	}, [displayError, clearSession, authTokens, t]);
 
 	useEffect(() => {
+		return () => {
+			isMountedRef.current = false;
+			sessionRecoveryRef.current?.reject(new Error('session recovery interrupted'));
+		};
+	}, []);
+
+	useEffect(() => {
 		return authTokens.onSessionExpired(() => {
 			if (sessionRecoveryPromiseRef.current) {
 				return sessionRecoveryPromiseRef.current;
@@ -100,11 +111,14 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 
 			sessionRecoveryPromiseRef.current = new Promise<void>((resolve, reject) => {
 				const clearRecovery = () => {
+					sessionRecoveryRef.current = null;
 					sessionRecoveryPromiseRef.current = null;
-					setSessionRecovery(null);
+					if (isMountedRef.current) {
+						setSessionRecovery(null);
+					}
 				};
 
-				setSessionRecovery({
+				const recovery: SessionRecoveryState = {
 					resolve: () => {
 						clearRecovery();
 						resolve();
@@ -113,7 +127,9 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 						clearRecovery();
 						reject(e);
 					},
-				});
+				};
+				sessionRecoveryRef.current = recovery;
+				setSessionRecovery(recovery);
 			});
 
 			return sessionRecoveryPromiseRef.current;

@@ -156,7 +156,7 @@ export class AuthTokens {
 		const existing = this.#tokens.get(name);
 		if (existing && !existing.isExpired()) return existing;
 
-		const token = await this.#requestAccessToken(AuthTokens.MANIFEST[name]);
+		const token = await this.#requestAccessToken(name, AuthTokens.MANIFEST[name]);
 		this.#tokens.set(name, token);
 		this.#tokenStorage.store(name, token);
 		return token;
@@ -244,11 +244,24 @@ export class AuthTokens {
 		this.#tokenRejectionTimes.clear();
 	}
 
-	async #requestAccessToken(options: {
+	async #requestAccessToken(name: keyof typeof AuthTokens.MANIFEST, options: {
 		audience: string;
 		tac?: string;
 		anonymous?: boolean;
 	}): Promise<AccessTokenInterface> {
+		const isRecoverableSessionError = (error: unknown): error is {
+			response: { status: number; data?: { error?: string } };
+		} => {
+			const sessionError = error as {
+				response?: { status?: number; data?: { error?: string } };
+			} | null;
+			return sessionError?.response?.status === 401 &&
+				(
+					sessionError.response.data?.error === 'invalid or expired session' ||
+					sessionError.response.data?.error === 'authentication required'
+				);
+		};
+
 		const task = async () => {
 			const data = await this.#authServerClient.requestAccessToken(
 				options.audience,
@@ -262,16 +275,17 @@ export class AuthTokens {
 		try {
 			return await task();
 		} catch (error) {
-			if (
-				error?.response?.status === 401 &&
-				(
-					error?.response?.data?.error === 'invalid or expired session' ||
-					error?.response?.data?.error === 'authentication required'
-				)
-			) {
+			if (isRecoverableSessionError(error)) {
 				await this.#recoverSession();
 				await this.clear();
-				return await task();
+				try {
+					return await task();
+				} catch (retryError) {
+					if (isRecoverableSessionError(retryError)) {
+						this.registerTokenRejection(name);
+					}
+					throw retryError;
+				}
 			}
 
 			throw error;
