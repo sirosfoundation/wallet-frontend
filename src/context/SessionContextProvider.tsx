@@ -11,10 +11,24 @@ import { OHTTP_KEY_CONFIG } from '@/config';
 import { logger } from '../logger';
 import useErrorDialog from '@/hooks/useErrorDialog';
 import { useOIDFlowClientAuthStore } from '@/hooks/useOIDFlowClientAuthStore';
+import { useAuthServerClient } from '@/hooks/useAuthServerClient';
+import { getTenantFromUrlPath } from '@/lib/tenant';
+import { AuthTokens } from '@/lib/auth';
+import { SessionRecoveryPopup } from '@/components/Popups/SessionRecoveryPopup';
 
 export const SessionContextProvider = ({ children }: React.PropsWithChildren) => {
 	const { isOnline } = useContext(StatusContext);
-	const api = useApi(isOnline);
+	const authServerClient = useAuthServerClient();
+	const tenantId = getTenantFromUrlPath();
+	const authTokens = useMemo(
+		() => AuthTokens.fromStorage({
+			authServerClient,
+			tenantId,
+			storage: window.sessionStorage,
+		}),
+		[authServerClient, tenantId],
+	);
+	const api = useApi({ isOnline, authTokens });
 	const keystore = useLocalStorageKeystore(keystoreEvents);
 	const { getCalculatedWalletState } = keystore;
 	const isLoggedIn = useMemo(() => api.isLoggedIn() && keystore.isOpen(), [keystore, api]);
@@ -23,6 +37,11 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 
 	const [walletStateLoaded, setWalletStateLoaded] = useState<boolean>(false);
 	const [obliviousKeyConfig, setObliviousKeyConfig] = useState<HpkeConfig>(null);
+
+	const [sessionRecovery, setSessionRecovery] = useState<{
+		resolve: () => void;
+		reject: (reason?: unknown) => void;
+	} | null>(null);
 
 	// A unique id for each logged in tab
 	const [globalTabId] = useLocalStorage<string | null>("globalTabId", null);
@@ -63,14 +82,25 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	}, [keystore, oidFlowClientAuthMaterialManager]);
 
 	useEffect(() => {
-		return api.authTokens.onTokenRejection(() => {
+		return authTokens.onTokenRejection(() => {
 			displayError({
 				title: t('errors.walletServiceAuth.title'),
 				description: t('errors.walletServiceAuth.description'),
 				fatal: true,
 			});
 		});
-	}, [displayError, clearSession, api.authTokens, t]);
+	}, [displayError, clearSession, authTokens, t]);
+
+	useEffect(() => {
+		return authTokens.onSessionExpired(() =>
+			new Promise<void>((resolve, reject) => {
+				setSessionRecovery({
+					resolve: () => { setSessionRecovery(null); resolve(); },
+					reject: (e) => { setSessionRecovery(null); reject(e); },
+				});
+			}),
+		);
+	}, [authTokens]);
 
 	useEffect(() => {
 		// Handler function that calls the current clearSession function
@@ -108,8 +138,6 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 		}
 	}, [getCalculatedWalletState]);
 
-
-
 	const value: SessionContextValue = useMemo(() => ({
 		api,
 		isLoggedIn: isLoggedIn,
@@ -118,7 +146,17 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 		obliviousKeyConfig,
 		consumeSessionCleared,
 		oidFlowClientAuthMaterialManager,
-	}), [api, keystore, logout, isLoggedIn, obliviousKeyConfig, consumeSessionCleared, oidFlowClientAuthMaterialManager]);
+		authTokens,
+	}), [
+		api,
+		keystore,
+		logout,
+		isLoggedIn,
+		obliviousKeyConfig,
+		consumeSessionCleared,
+		oidFlowClientAuthMaterialManager,
+		authTokens
+	]);
 
 	useEffect(() => {
 		if (api && keystore && api.isLoggedIn() === true && keystore.isOpen() === false && ((tabId && globalTabId && tabId !== globalTabId) || (!tabId && globalTabId))) {
@@ -144,6 +182,12 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	return (
 		<SessionContext.Provider value={value}>
 			{children}
+			{sessionRecovery && (
+				<SessionRecoveryPopup
+					recovery={sessionRecovery}
+					onLogout={() => logout()}
+				/>
+			)}
 		</SessionContext.Provider>
 	);
 };

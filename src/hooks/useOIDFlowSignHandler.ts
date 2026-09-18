@@ -1,7 +1,5 @@
 import { useContext, useCallback } from 'react';
 import SessionContext from '@/context/SessionContext';
-import { useApi } from '@/api';
-import StatusContext from '@/context/StatusContext';
 import { logger } from '@/logger';
 import { OPENID4VCI_PROOF_TYPE_PRECEDENCE, WIA_ENABLED, BACKEND_URL } from '@/config';
 import { base64url } from 'jose';
@@ -89,13 +87,13 @@ export interface OIDFlowSignResponse {
 }
 
 export function useOIDFlowSignHandler() {
-	const sessionContext = useContext(SessionContext);
-	const { isOnline } = useContext(StatusContext);
-	const api = useApi(isOnline);
+	const {
+		api,
+		keystore,
+		authTokens,
+		oidFlowClientAuthMaterialManager,
+	} = useContext(SessionContext);
 	const httpClient = useHttpClient();
-	const oidFlowClientAuthMaterialManager = sessionContext?.oidFlowClientAuthMaterialManager;
-	const keystore = sessionContext?.keystore;
-	const authTokens = api.authTokens;
 
 	const signPresentation = useCallback(async (options: OIDFlowSignOptions): Promise<OIDFlowSignResponse> => {
 		const { audience, nonce, credentialsToInclude, responseUri, origin, verifierJwkThumbprint } = options;
