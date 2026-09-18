@@ -109,7 +109,7 @@ export const UserAuthPopup: FC<UserAuthPopupProps> = ({
 						disabled={isSubmitting}
 						additionalClassName='w-full'
 					>
-						{t('common.logout')}
+						{t('common.declineAndExit')}
 					</Button>
 				</div>
 			</ul>

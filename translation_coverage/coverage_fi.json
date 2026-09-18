@@ -1,6 +1,6 @@
 {
 	"schemaVersion": 1,
 	"label": "FI Coverage",
-	"message": "99.8%",
-	"color": "yellow"
+	"message": "100%",
+	"color": "brightgreen"
 }

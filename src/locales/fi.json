@@ -22,6 +22,7 @@
 		"cancel": "Peruuta",
 		"close": "Sulje",
 		"continue": "Jatka",
+		"declineAndExit": "Hylkää ja poistu",
 		"delete": "Poista",
 		"externalPasskey": "Passkey turva-avaimella",
 		"hybridPasskey": "Passkey lähellä olevalla laitteella",

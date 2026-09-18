@@ -22,6 +22,7 @@
 		"cancel": "Cancelar",
 		"close": "Fechar",
 		"continue": "Continuar",
+		"declineAndExit": "Recusar e sair",
 		"delete": "Eliminar",
 		"externalPasskey": "Passkey numa chave de segurança",
 		"hybridPasskey": "Passkey num dispositivo próximo",
