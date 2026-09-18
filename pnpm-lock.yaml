@@ -30,6 +30,9 @@ importers:
       '@hpke/dhkem-x25519':
         specifier: ^1.8.0
         version: 1.8.0
+      '@owf/mdoc':
+        specifier: ^0.8.0
+        version: 0.8.0
       '@sd-jwt/core':
         specifier: ^0.10.0
         version: 0.10.0
@@ -1562,6 +1565,18 @@ packages:
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
 
+  '@owf/cose@0.4.0':
+    resolution: {integrity: sha512-bN06KEB2kXWBskcapRGt3giVHvVRNds3NLc8nInXh6PbbbzPrsK+hMpYxIULDa89HJhK7sJKthttepYslu3aYw==}
+
+  '@owf/identity-common@0.4.0':
+    resolution: {integrity: sha512-YvbEeIuLE+TlR7wfzsfR3tAzNPFssbZ559QZactwGVunl1zgZG0smzArQwpgc3qNv0LrLdeCBzPd2ZcyfGyDHQ==}
+
+  '@owf/mdoc@0.8.0':
+    resolution: {integrity: sha512-mSO/WjWERwpbcLa3fcmq+7J6TketLyAqP0sPj2aCJQsSCoH8ZWbiiwgRO6djFiCZmWkpDPO0uUqaj9Fi7bUj4g==}
+
+  '@owf/token-status-list@0.4.0':
+    resolution: {integrity: sha512-KmjNfB0cHV/I3rtP8IGCisw62u/gxDrlCYE75JjZMl+5biB2NeYxpZ6lWJG5NJzFxsy2U4ekTqxuk5AFnPbEkw==}
+
   '@panva/hkdf@1.2.1':
     resolution: {integrity: sha512-6oclG6Y3PiDFcoyk8srjLfVKyMfVCKJ27JwNPViuXziFpmdz+MZnZN/aKY0JGXgYuO/VghU0jcOAZgWXZ1Dmrw==}
 
@@ -2571,6 +2586,12 @@ packages:
 
   cbor-x@1.6.4:
     resolution: {integrity: sha512-UGKHjp6RHC6QuZ2yy5LCKm7MojM4716DwoSaqwQpaH4DvZvbBTGcoDNTiG9Y2lByXZYFEs9WRkS5tLl96IrF1Q==}
+
+  cbor-x@1.6.5:
+    resolution: {integrity: sha512-yO64CxnSh6kp+pHNRK9IfwnMvCB+c8HvmUjQY/9l9YRF0/cAPka/tUHLwS64QqUpFCq3/OtbKziVJYXH2EaRig==}
+
+  cbor-x@1.6.6:
+    resolution: {integrity: sha512-8QiD9PGOxyQHo7s2pzwTBH6lTjqekxPdl9Aq6fXvZgCuCJHOht1puDEA/fTr6mciB76c+M+Gi0qT2i1a4pm4Wg==}
 
   chai@6.2.2:
     resolution: {integrity: sha512-NUPRluOfOiTKBKvWPtSD4PhFvWCqOi0BGStNWs57X9js7XGTprSmFoz5F0tWhR4WPjNeR9jXqdC7/UpSJTnlRg==}
@@ -3948,6 +3969,9 @@ packages:
   pako@2.2.0:
     resolution: {integrity: sha512-zJq6RP/5q+TO2OpFV3FHzlPnFjmkb7Nc99a5SNjJE+uu/PkpChs+NIZSSzbBoD+6kjiISXjfYdwj1ZRQ81dz/w==}
 
+  pako@3.0.2:
+    resolution: {integrity: sha512-uBv6IT2aT1A78iU6dpNEbf6+CyhlV/6g9JlJs9kpgjFGFhruIICVRysF/W0SLzXg5+hCl+KroH7e4YUyfEmgLg==}
+
   parent-module@1.0.1:
     resolution: {integrity: sha512-GQ2EWRpQV8/o+Aw8YqtfZZPfNRWZYkbidE9k5rpl/hC3vtHHBfGm2Ifi6qWV+coDGkrUKZAxE3Lot5kcsRlh+g==}
     engines: {node: '>=6'}
@@ -5052,8 +5076,17 @@ packages:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
 
+  zod-validation-error@5.0.0:
+    resolution: {integrity: sha512-hmk+pkyKq7Q71PiWVSDUc3VfpzpvcRHZ3QPw9yEMVvmtCekaMeOHnbr3WbxfrgEnQTv6haGP4cmv0Ojmihzsxw==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      zod: ^3.25.0 || ^4.0.0
+
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+
+  zod@4.6.5:
+    resolution: {integrity: sha512-v5l/aFXZQeai4awLbOpSoHecE9UiMrnfx75tEXLjNonXVARxQ5mOeipTjROUchszUNCqnE+hqAMujRsRHsut2Q==}
 
 snapshots:
 
@@ -6456,6 +6489,30 @@ snapshots:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.3
 
+  '@owf/cose@0.4.0':
+    dependencies:
+      '@owf/identity-common': 0.4.0
+      cbor-x: 1.6.5
+      zod: 4.6.5
+      zod-validation-error: 5.0.0(zod@4.6.5)
+
+  '@owf/identity-common@0.4.0': {}
+
+  '@owf/mdoc@0.8.0':
+    dependencies:
+      '@owf/cose': 0.4.0
+      '@owf/identity-common': 0.4.0
+      '@owf/token-status-list': 0.4.0
+      zod: 4.6.5
+
+  '@owf/token-status-list@0.4.0':
+    dependencies:
+      '@owf/cose': 0.4.0
+      '@owf/identity-common': 0.4.0
+      cbor-x: 1.6.6
+      pako: 3.0.2
+      zod: 4.6.5
+
   '@panva/hkdf@1.2.1': {}
 
   '@peculiar/asn1-asym-key@2.9.4':
@@ -7572,6 +7629,14 @@ snapshots:
     optional: true
 
   cbor-x@1.6.4(patch_hash=5dd1073cc30388a0a34fca92d7f5da906a96613928a9f7c06340303fea8838e5):
+    optionalDependencies:
+      cbor-extract: 2.2.2
+
+  cbor-x@1.6.5:
+    optionalDependencies:
+      cbor-extract: 2.2.2
+
+  cbor-x@1.6.6:
     optionalDependencies:
       cbor-extract: 2.2.2
 
@@ -9149,6 +9214,8 @@ snapshots:
 
   pako@2.2.0: {}
 
+  pako@3.0.2: {}
+
   parent-module@1.0.1:
     dependencies:
       callsites: 3.1.0
@@ -10342,4 +10409,10 @@ snapshots:
 
   yocto-queue@0.1.0: {}
 
+  zod-validation-error@5.0.0(zod@4.6.5):
+    dependencies:
+      zod: 4.6.5
+
   zod@3.25.76: {}
+
+  zod@4.6.5: {}
