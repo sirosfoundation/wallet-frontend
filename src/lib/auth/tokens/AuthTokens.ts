@@ -290,7 +290,7 @@ export class AuthTokens {
 	}
 
 	async #recoverSession(): Promise<void> {
-		if (this.#sessionRecoveryInFlight) {
+		if (this.#sessionRecoveryInFlight instanceof Promise) {
 			return this.#sessionRecoveryInFlight;
 		}
 
@@ -303,6 +303,7 @@ export class AuthTokens {
 				this.#sessionRecoveryInFlight = null;
 			}
 		})();
+
 		return this.#sessionRecoveryInFlight;
 	}
 
