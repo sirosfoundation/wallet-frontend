@@ -28,7 +28,7 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 		}),
 		[authServerClient, tenantId],
 	);
-	const api = useApi(isOnline, authTokens);
+	const api = useApi({ isOnline, authTokens });
 	const keystore = useLocalStorageKeystore(keystoreEvents);
 	const { getCalculatedWalletState } = keystore;
 	const isLoggedIn = useMemo(() => api.isLoggedIn() && keystore.isOpen(), [keystore, api]);

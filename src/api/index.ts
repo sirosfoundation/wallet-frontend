@@ -115,7 +115,15 @@ export interface BackendApi {
 	>>;
 }
 
-export function useApi(isOnlineProp: boolean = true, authTokens: AuthTokens): BackendApi {
+export type UseApiProps = {
+	isOnline: boolean;
+	authTokens: AuthTokens;
+}
+
+export function useApi({
+	isOnline: isOnlineProp = true,
+	authTokens,
+}: UseApiProps): BackendApi {
 	const isOnline = useMemo(() => isOnlineProp === null ? true : isOnlineProp, [isOnlineProp]);
 	const authServer = useAuthServerClient();
 	const tenantId = getTenantFromUrlPath() ?? 'default';
