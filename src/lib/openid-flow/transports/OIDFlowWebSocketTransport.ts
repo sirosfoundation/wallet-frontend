@@ -138,6 +138,15 @@ export type MatchResponse = CredentialsMatchedResult;
 export type MatchRequestHandler = (request: MatchRequest) => Promise<MatchResponse>;
 
 /**
+ * How long to wait for the engine's answer to a `credentials_matched` action
+ * reporting an empty match set. The engine ends the flow as soon as it reads
+ * the action, so this only has to cover one round trip - kept far below the
+ * general request timeout so an engine that ignores the action (one older than
+ * go-wallet-backend #336) costs the user a moment, not a minute.
+ */
+const NO_MATCH_RESPONSE_TIMEOUT_MS = 10000;
+
+/**
  * Flow action message to send to server
  */
 export interface FlowAction {
@@ -520,13 +529,63 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		throw new Error('Invalid OID4VP flow params: no valid entry point or continuation');
 	}
 
+	/**
+	 * Tell the engine that local DCQL matching came up empty, as a
+	 * `credentials_matched` flow action with no matches.
+	 *
+	 * The engine ends the flow with `NO_MATCHING_CREDENTIAL` - naming the
+	 * credential types the query asked for - and reports `access_denied` to the
+	 * verifier, so neither the user nor the verifier's session waits out the
+	 * five-minute user-interaction timeout. Declining is not the honest
+	 * alternative here: the user was never asked and declined nothing.
+	 *
+	 * An engine that predates that handling (go-wallet-backend #336) drops the
+	 * action silently, so the wait is deliberately short and `null` means "no
+	 * answer" - the caller then falls back to its own local error rather than
+	 * leaving the user at a spinner.
+	 */
+	async reportNoMatchingCredentials(
+		noMatchReason?: string,
+		timeoutMs: number = NO_MATCH_RESPONSE_TIMEOUT_MS,
+	): Promise<OID4VPFlowResult | null> {
+		if (!this.isConnected()) {
+			logger.warn('Cannot report no matching credentials: WebSocket not connected');
+			return null;
+		}
+
+		try {
+			const response = await this.send({
+				type: 'flow_action',
+				action: 'credentials_matched',
+				payload: {
+					matches: [],
+					...(noMatchReason ? { no_match_reason: noMatchReason } : {}),
+				},
+			}, timeoutMs);
+
+			return this.mapOID4VPResponse(response);
+		} catch (err) {
+			logger.warn('No engine answer to credentials_matched:', err instanceof Error ? err.message : err);
+			return null;
+		}
+	}
+
 	private mapOID4VPResponse(response: ServerMessage): OID4VPFlowResult {
 		if (response.type === 'error' || response.type === 'flow_error') {
+			const error = response.error as {
+				code?: string;
+				message?: string;
+				details?: Record<string, unknown>;
+			} | undefined;
+
 			return {
 				success: false,
 				error: {
-					code: (response.error as { code?: string })?.code ?? 'UNKNOWN_ERROR',
-					message: (response.error as { message?: string })?.message ?? 'Unknown error',
+					code: error?.code ?? 'UNKNOWN_ERROR',
+					message: error?.message ?? 'Unknown error',
+					// e.g. requested_types on NO_MATCHING_CREDENTIAL - the UI
+					// needs them to name the credential the user is missing.
+					...(error?.details ? { details: error.details } : {}),
 				},
 			};
 		}
@@ -1102,7 +1161,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		}
 	}
 
-	private send(message: Record<string, unknown>): Promise<ServerMessage> {
+	private send(message: Record<string, unknown>, timeoutMs: number = this.requestTimeout): Promise<ServerMessage> {
 		return new Promise((resolve, reject) => {
 			if (!this.isConnected()) {
 				reject(new Error('WebSocket not connected'));
@@ -1124,7 +1183,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 					this.pending.delete(flowId);
 					reject(new Error('Request timeout'));
 				}
-			}, this.requestTimeout);
+			}, timeoutMs);
 
 			// Store pending request
 			this.pending.set(flowId, { resolve, reject, flowId, timeout });

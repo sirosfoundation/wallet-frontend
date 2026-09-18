@@ -293,6 +293,11 @@
 				"description": "The presentation request is malformed — no query or pre-matched credentials provided.",
 				"title": "Invalid Presentation Request"
 			},
+			"NO_MATCHING_CREDENTIAL": {
+				"description": "You do not have a credential that matches this request.",
+				"descriptionWithTypes": "This request needs a credential you do not have: {{types}}.",
+				"title": "No Matching Credential"
+			},
 			"NO_MATCHING_CREDENTIALS": {
 				"description": "You do not have any credentials that match this request.",
 				"title": "No Matching Credentials"

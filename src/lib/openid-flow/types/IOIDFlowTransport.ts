@@ -68,6 +68,19 @@ export interface IOIDFlowTransport {
 	 */
 	startOID4VPFlow(params: OID4VPFlowParams): Promise<OID4VPFlowResult>;
 
+	/**
+	 * Tell the flow orchestrator that local DCQL matching found nothing the
+	 * verifier asked for, so the presentation fails now instead of waiting for
+	 * a consent that can never come.
+	 *
+	 * Optional: only transports that orchestrate a flow server-side (the
+	 * WebSocket one) have anyone to tell. Resolves with the orchestrator's
+	 * terminal error, or `null` if it had nothing to say.
+	 *
+	 * @param noMatchReason - why matching failed, for diagnostics
+	 */
+	reportNoMatchingCredentials?(noMatchReason?: string): Promise<OID4VPFlowResult | null>;
+
 	// ===== Generic Request =====
 
 	/**
