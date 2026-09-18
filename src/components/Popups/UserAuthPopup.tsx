@@ -90,15 +90,7 @@ export const UserAuthPopup: FC<UserAuthPopupProps> = ({
 				</p>
 			</div>
 			<ul className=" p-2">
-				<div className='flex flex-row gap-4 justify-center mr-2'>
-					<Button
-						id="cancel-login-state"
-						onClick={onLogout}
-						disabled={isSubmitting}
-						additionalClassName='w-full'
-					>
-						{t('common.logout')}
-					</Button>
+				<div className='flex flex-col gap-4 justify-center mr-2'>
 					<Button
 						id={`${isSubmitting ? 'submitting' : 'continue'}-login-state`}
 						onClick={() => onLoginCachedUser(user)}
@@ -109,7 +101,15 @@ export const UserAuthPopup: FC<UserAuthPopupProps> = ({
 						<UserLock className="inline text-xl mr-2" />
 						{isSubmitting
 							? t('loginSignup.submitting')
-							: t('common.continue')}
+							: t('loginSignup.loginWithPasskey')}
+					</Button>
+					<Button
+						id="cancel-login-state"
+						onClick={onLogout}
+						disabled={isSubmitting}
+						additionalClassName='w-full'
+					>
+						{t('common.logout')}
 					</Button>
 				</div>
 			</ul>
