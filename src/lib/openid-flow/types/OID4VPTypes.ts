@@ -18,6 +18,22 @@ export interface OID4VPFlowParams {
 	/** Authorization request URI */
 	requestUriRef?: string;
 	clientId?: string;
+	/**
+	 * OpenID4VP 1.0 §5.10's `request_uri_method`, for the verifier that wants
+	 * the wallet to POST to its request URI rather than GET it.
+	 *
+	 * It travels on the authorization request next to `request_uri`, so
+	 * pulling `requestUriRef` out of that URI without this loses it - and the
+	 * backend, which is what dereferences the reference, would silently fall
+	 * back to a GET and supply no `wallet_nonce`.
+	 */
+	requestUriMethod?: string;
+	/**
+	 * What this wallet can present, sent as `wallet_metadata` when the backend
+	 * POSTs to the request URI - see {@link WALLET_METADATA}. The backend
+	 * substitutes a guess of its own when it is absent.
+	 */
+	walletMetadata?: Record<string, unknown>;
 
 	// ===== Continuation parameters (after credential selection) =====
 

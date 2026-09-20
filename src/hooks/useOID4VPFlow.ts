@@ -22,6 +22,7 @@ import { DcqlQuery } from 'dcql';
 import { getLeastUsedCredentialInstance } from '@/lib/services/CredentialBatchHelper';
 import { applySelectiveDisclosure } from '@/lib/verifiable-credentials';
 import { OIDFlowError } from '@/lib/openid-flow/errors';
+import { WALLET_METADATA } from '@/lib/openid-flow/walletMetadata';
 import { useOIDFlowSignHandler } from './useOIDFlowSignHandler';
 import { DCAPIRequest, DCAPISession } from '@/lib/openid-flow/platforms/dc-api';
 import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
@@ -176,10 +177,22 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				try {
 					const requestUriRef = authorizationRequestUrl.searchParams.get('request_uri');
 					const clientId = authorizationRequestUrl.searchParams.get('client_id');
+					// request_uri_method rides on the authorization request
+					// next to request_uri; extracting one without the other
+					// would leave the backend to fall back to a GET, sending
+					// no wallet_nonce, on a request that asked for the POST of
+					// OpenID4VP §5.10.
+					const requestUriMethod = authorizationRequestUrl.searchParams.get('request_uri_method');
 					verifierAudienceRef.current = clientId ?? '';
 					const result = await transport.startOID4VPFlow({
 						requestUriRef,
 						clientId,
+						requestUriMethod: requestUriMethod ?? undefined,
+						// Only a POST carries wallet_metadata to the verifier,
+						// and here - unlike in the native SDKs, which hand the
+						// backend a request URI they have not parsed - we have
+						// read the method ourselves and know which this is.
+						walletMetadata: requestUriMethod === 'post' ? WALLET_METADATA : undefined,
 					});
 
 					if (!result.success) {

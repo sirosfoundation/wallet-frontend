@@ -385,6 +385,64 @@ describe('OIDFlowWebSocketTransport', () => {
 			expect(result.verifierInfo?.name).toBe('Test Verifier');
 		});
 
+		// The backend is what dereferences request_uri, so it is the only side
+		// that can honour request_uri_method=post - and the only side that
+		// cannot see the parameter once the hook has extracted request_uri
+		// from the authorization request on its own.
+		it('should forward request_uri_method and wallet_metadata on flow_start', async () => {
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+
+			const walletMetadata = { vp_formats_supported: { 'dc+sd-jwt': { 'kb-jwt_alg_values': ['ES256'] } } };
+			const flowPromise = transport.startOID4VPFlow({
+				requestUriRef: 'https://verifier.example.com/request-object/42',
+				clientId: 'https://verifier.example.com',
+				requestUriMethod: 'post',
+				walletMetadata,
+			});
+
+			await vi.waitFor(() => {
+				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(1);
+			});
+
+			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[1]);
+			expect(sentMessage.request_uri_method).toBe('post');
+			expect(sentMessage.wallet_metadata).toEqual(walletMetadata);
+
+			mockWebSocketInstances[0].simulateMessage({
+				flow_id: sentMessage.flow_id,
+				type: 'flow_complete',
+			});
+			await flowPromise;
+		});
+
+		// Absent means "GET, as RFC 9101 has always done" - the key is not
+		// sent at all rather than as an empty value the backend would have to
+		// reject as an unsupported method.
+		it('should omit request_uri_method when the request does not ask for one', async () => {
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+
+			const flowPromise = transport.startOID4VPFlow({
+				requestUriRef: 'https://verifier.example.com/request-object/42',
+				clientId: 'https://verifier.example.com',
+			});
+
+			await vi.waitFor(() => {
+				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(1);
+			});
+
+			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[1]);
+			expect(sentMessage).not.toHaveProperty('request_uri_method');
+			expect(sentMessage).not.toHaveProperty('wallet_metadata');
+
+			mockWebSocketInstances[0].simulateMessage({
+				flow_id: sentMessage.flow_id,
+				type: 'flow_complete',
+			});
+			await flowPromise;
+		});
+
 		it('should send flow_action with selected credentials', async () => {
 			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
