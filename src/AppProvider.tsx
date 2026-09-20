@@ -14,6 +14,7 @@ import { AppSettingsProvider } from './context/AppSettingsProvider';
 import { NotificationProvider } from './context/NotificationProvider';
 import { OIDFlowTransportProvider } from './context/OIDFlowTransportContext';
 import { WebSocketSignHandlerProvider } from './context/WebSocketSignHandlerProvider';
+import { WebSocketMatchHandlerProvider } from './context/WebSocketMatchHandlerProvider';
 import { ErrorDialogContextProvider } from './context/ErrorDialogContextProvider';
 import { TxCodeInputProvider } from './context/TxCodeInputContext';
 import { WalletCompanionProvider } from './context/WalletCompanionContext';
@@ -31,17 +32,19 @@ const AppProvider: React.FC<RootProviderProps> = ({ children }) => {
 						<CredentialsContextProvider>
 							<OIDFlowTransportProvider>
 								<WebSocketSignHandlerProvider>
-									<OpenID4VPContextProvider>
-										<TxCodeInputProvider>
-											<NotificationProvider>
-												<WalletCompanionProvider>
-													<AppSettingsProvider>
-														{children}
-													</AppSettingsProvider>
-												</WalletCompanionProvider>
-											</NotificationProvider>
-										</TxCodeInputProvider>
-									</OpenID4VPContextProvider>
+									<WebSocketMatchHandlerProvider>
+										<OpenID4VPContextProvider>
+											<TxCodeInputProvider>
+												<NotificationProvider>
+													<WalletCompanionProvider>
+														<AppSettingsProvider>
+															{children}
+														</AppSettingsProvider>
+													</WalletCompanionProvider>
+												</NotificationProvider>
+											</TxCodeInputProvider>
+										</OpenID4VPContextProvider>
+									</WebSocketMatchHandlerProvider>
 								</WebSocketSignHandlerProvider>
 							</OIDFlowTransportProvider>
 						</CredentialsContextProvider>

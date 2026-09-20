@@ -265,6 +265,11 @@
 				"description": "Esityspyyntö on virheellinen — kyselyä tai ennalta sovitettuja todistuksia ei annettu.",
 				"title": "Virheellinen esityspyyntö"
 			},
+			"NO_MATCHING_CREDENTIAL": {
+				"description": "Sinulla ei ole todistusta, joka vastaa tätä pyyntöä.",
+				"descriptionWithTypes": "Tämä pyyntö edellyttää todistusta, jota sinulla ei ole: {{types}}.",
+				"title": "Ei vastaavaa todistusta"
+			},
 			"NO_MATCHING_CREDENTIALS": {
 				"description": "Sinulla ei ole todistuksia, jotka vastaavat tätä pyyntöä.",
 				"title": "Ei vastaavia todistuksia"

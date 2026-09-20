@@ -265,6 +265,11 @@
 				"description": "Presentationsförfrågan är felaktig — ingen fråga eller förmatchade intyg angavs.",
 				"title": "Ogiltig presentationsförfrågan"
 			},
+			"NO_MATCHING_CREDENTIAL": {
+				"description": "Du har inget intyg som matchar denna förfrågan.",
+				"descriptionWithTypes": "Denna förfrågan kräver ett intyg som du inte har: {{types}}.",
+				"title": "Inget matchande intyg"
+			},
 			"NO_MATCHING_CREDENTIALS": {
 				"description": "Du har inga intyg som matchar denna förfrågan.",
 				"title": "Inga matchande intyg"

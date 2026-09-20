@@ -265,6 +265,11 @@
 				"description": "O pedido de apresentação é inválido — nenhuma consulta ou credenciais pré-correspondidas fornecidas.",
 				"title": "Pedido de Apresentação Inválido"
 			},
+			"NO_MATCHING_CREDENTIAL": {
+				"description": "Não possui uma credencial que corresponda a este pedido.",
+				"descriptionWithTypes": "Este pedido requer uma credencial que não possui: {{types}}.",
+				"title": "Sem Credencial Correspondente"
+			},
 			"NO_MATCHING_CREDENTIALS": {
 				"description": "Não possui credenciais que correspondam a este pedido.",
 				"title": "Sem Credenciais Correspondentes"
