@@ -1,8 +1,20 @@
 import * as WalletSchemaCommon from './WalletStateSchemaCommon';
 import * as SchemaV2 from './WalletStateSchemaVersion2';
 import { JWK } from 'jose';
+import { compareBy } from '@/util';
 
 export * from './WalletStateSchemaVersion2';
+
+
+export class NoCommonMergeBaseError extends Error {
+	constructor(
+		public readonly container1: WalletSchemaCommon.WalletStateContainerGeneric,
+		public readonly container2: WalletSchemaCommon.WalletStateContainerGeneric,
+	) {
+		super('Cannot merge wallet histories: the two histories share no common ancestor');
+		this.name = 'NoCommonMergeBaseError';
+	}
+}
 
 
 /**
@@ -143,11 +155,99 @@ export function createOperations(
 	}
 
 	const v2ops = SchemaV2.createOperations(SCHEMA_VERSION, mergeStrategies);
+
+	// Same per-type merge as v2, but events of a type this version does not model
+	// are carried through (union, de-duplicated by eventId) instead of crashing
+	// the merge.
+	async function mergeDivergentHistoriesWithStrategies(
+			mergedByEarlierSchemaVersions: WalletSchemaCommon.WalletSessionEvent[],
+			historyA: WalletSessionEvent[],
+			historyB: WalletSessionEvent[],
+			parentHash: string,
+	): Promise<WalletSchemaCommon.WalletSessionEvent[]> {
+			const eventsByType: Record<string, [WalletSessionEvent[], WalletSessionEvent[], WalletSessionEvent[]]> = {
+					new_credential: [[], [], []],
+					delete_credential: [[], [], []],
+					new_keypair: [[], [], []],
+					delete_keypair: [[], [], []],
+					new_presentation: [[], [], []],
+					delete_presentation: [[], [], []],
+					alter_settings: [[], [], []],
+					save_credential_issuance_session: [[], [], []],
+					delete_credential_issuance_session: [[], [], []],
+			};
+			const unrecognised: WalletSessionEvent[] = [];
+
+			const route = (event: WalletSessionEvent, side: 0 | 1 | 2) => {
+					const bucket = eventsByType[event.type];
+					if (bucket) {
+							bucket[side].push(event);
+					} else {
+							unrecognised.push(event);
+					}
+			};
+			mergedByEarlierSchemaVersions.forEach(event => route(event as WalletSessionEvent, 0));
+			historyA.forEach(event => route(event, 1));
+			historyB.forEach(event => route(event, 2));
+
+			let mergedEvents: WalletSessionEvent[] = [];
+			for (const type in mergeStrategies) {
+					const [earlier, a, b] = eventsByType[type];
+					mergedEvents = mergedEvents.concat(
+							mergeStrategies[type as WalletSessionEvent["type"]](earlier as SchemaV2.WalletSessionEvent[],
+							a as SchemaV2.WalletSessionEvent[],
+							b as SchemaV2.WalletSessionEvent[],
+						),
+					);
+			}
+
+			const seen = new Set<number>();
+			for (const event of unrecognised) {
+					if (!seen.has(event.eventId)) {
+							seen.add(event.eventId);
+							mergedEvents.push(event);
+					}
+			}
+
+			mergedEvents.sort(compareBy(event => event.timestampSeconds));
+			return v2ops.rebuildEventHistory(mergedEvents, parentHash);
+	}
+
+	// Carry top-level S fields this version does not model (e.g. the `extensions`
+	// namespace) across a merge instead of dropping them. Later sources win.
+	function mergeState(
+		baseState: WalletSchemaCommon.WalletState,
+		...sources: WalletSchemaCommon.WalletState[]
+	): WalletSchemaCommon.WalletState {
+		const knownKeys = new Set(Object.keys(initialWalletStateContainer().S));
+		const result: Record<string, unknown> = { ...baseState };
+		for (const source of sources) {
+			for (const [key, value] of Object.entries(source)) {
+				if (!knownKeys.has(key)) {
+					result[key] = value;
+				}
+			}
+		}
+		return result as unknown as WalletSchemaCommon.WalletState;
+	}
+
+	// No shared ancestor means the two histories cannot be reconciled
+	// automatically; surface a typed, catchable error the caller can resolve.
+	function mergeWithoutCommonBase(
+		container1: WalletSchemaCommon.WalletStateContainerGeneric,
+		container2: WalletSchemaCommon.WalletStateContainerGeneric,
+	): WalletSchemaCommon.WalletStateContainerGeneric {
+		throw new NoCommonMergeBaseError(container1, container2);
+	}
+
 	return {
 		...v2ops,
 		migrateState,
 		initialWalletStateContainer,
 		walletStateReducer,
+		mergeDivergentHistoriesWithStrategies,
+		mergeState,
+		mergeWithoutCommonBase,
 	};
 }
 
