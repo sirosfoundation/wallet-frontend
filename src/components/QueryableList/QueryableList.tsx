@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import SearchInput from "../Inputs/SearchInput";
 import Button from "../Buttons/Button";
 import { useTranslation } from "react-i18next";
-import { getElementPropValue, sanitizeId } from "../../util";
+import { getElementPropValue, sanitizeId } from '@/lib/utils';
 import { H3 } from "../Shared/Heading";
 import { highlightBestSequence } from "./highlightBestSequence";
 

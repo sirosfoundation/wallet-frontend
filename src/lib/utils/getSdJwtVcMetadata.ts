@@ -1,5 +1,5 @@
 import axios from "axios";
-import { fromBase64 } from "../../util";
+import { fromBase64 } from '@/lib/utils';
 import { logger } from '@/logger';
 
 /** uses https://datatracker.ietf.org/doc/draft-ietf-oauth-sd-jwt-vc/05/ to fetch the metadata */

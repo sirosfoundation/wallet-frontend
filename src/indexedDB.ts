@@ -3,7 +3,7 @@ import localforage from 'localforage';
 import { getTenantScopedBasePath } from './lib/tenant';
 import { logger } from './logger';
 // import { UserId } from './api/types';
-// import { fromBase64Url } from './util';
+// import { fromBase64Url } from '@/lib/utils/binary';
 
 const stores = {
 	users: localforage.createInstance({

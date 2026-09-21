@@ -4,7 +4,7 @@ import { CurrentSchema } from "@/services/WalletStateSchema";
 import { WalletStateUtils } from "@/services/WalletStateUtils";
 import { IOpenID4VCIClientStateRepository } from "../interfaces/IOpenID4VCIClientStateRepository";
 import { CLOCK_TOLERANCE, OPENID4VCI_TRANSACTION_ID_LIFETIME_IN_SECONDS } from "@/config";
-import { last } from "@/util";
+import { last } from '@/lib/utils';
 import { logger } from '@/logger';
 
 type WalletStateCredentialIssuanceSession = CurrentSchema.WalletStateCredentialIssuanceSession;

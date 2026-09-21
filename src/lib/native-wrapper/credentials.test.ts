@@ -5,7 +5,7 @@ import {
 	shapeCredential,
 	extractAvailableClaims,
 } from '@/services/CredentialMatchingService';
-import { getElementPropValue } from '@/util';
+import { getElementPropValue } from '@/lib/utils';
 import type { ExtendedVcEntity } from '@/context/CredentialsContext';
 import { getCredentialType } from '../utils/getCredentialType';
 

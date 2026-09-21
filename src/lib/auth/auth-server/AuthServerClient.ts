@@ -1,5 +1,5 @@
 import axios, { AxiosResponse } from 'axios';
-import { jsonStringifyTaggedBinary, transformTaggedResponse } from '@/util';
+import { jsonStringifyTaggedBinary, transformTaggedResponse } from '@/lib/utils';
 import {
 	LoginBeginResponse,
 	LoginBeginResponseSchema,

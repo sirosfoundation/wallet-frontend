@@ -3,7 +3,7 @@ import * as jose from 'jose';
 import { COSEKeyToJWK } from 'cose-kit';
 import { cborEncode, DataItem } from '@auth0/mdl/lib/cbor';
 import { VerifiableCredentialFormat } from 'wallet-common';
-import { fromBase64Url, toBase64Url } from '@/util';
+import { fromBase64Url, toBase64Url } from '@/lib/utils';
 import { deriveHolderKidFromCredential } from './utils';
 
 describe('deriveHolderKidFromCredential', () => {
