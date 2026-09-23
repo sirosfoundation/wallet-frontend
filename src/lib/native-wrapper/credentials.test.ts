@@ -18,7 +18,7 @@ vi.mock('@/components/QueryableList/CredentialsDisplayUtils', () => ({
 	getCredentialType: vi.fn(),
 }));
 
-vi.mock('@/util', () => ({
+vi.mock('@/lib/utils', () => ({
 	getElementPropValue: vi.fn(),
 }));
 
