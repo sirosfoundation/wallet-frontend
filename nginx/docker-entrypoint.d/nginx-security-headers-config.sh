@@ -63,7 +63,7 @@ fi
 #	      https://github.com/sirosfoundation/wallet-frontend/issues/251
 CSP="default-src 'self'; \
 script-src 'self'; \
-style-src 'self' 'unsafe-inline'; \
+style-src 'self'; \
 font-src 'self' data:; \
 img-src 'self' data: ${RESOURCE_SCHEME_SRC}; \
 connect-src ${CONNECT_SRC}; \

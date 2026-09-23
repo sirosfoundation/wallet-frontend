@@ -12,7 +12,6 @@
 import React, { createContext, useContext, useMemo, useEffect, useState, useCallback } from 'react';
 import type { IOIDFlowTransport } from '@/lib/openid-flow/types/IOIDFlowTransport';
 import { nullOIDFlowTransport } from '@/lib/openid-flow/types/IOIDFlowTransport';
-import { OIDFlowHttpProxyTransport } from '@/lib/openid-flow/transports/OIDFlowHttpProxyTransport';
 import { OIDFlowWebSocketTransport } from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
 import type { SignRequestHandler, MatchRequestHandler } from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
 import {
@@ -92,7 +91,7 @@ interface OIDFlowTransportProviderProps {
 export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> = ({
 	children,
 }) => {
-	const { api } = useContext(SessionContext);
+	const { authTokens } = useContext(SessionContext);
 	const httpClient = useHttpClient();
 
 	// Tenant ID for multi-tenant routing (from URL path, more robust than sessionStorage)
@@ -105,14 +104,14 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		let active = true;
 		(async () => {
 			try {
-				const token = await api.authTokens.ensureBackendToken();
+				const token = await authTokens.ensureBackendToken();
 				if (active) setAuthToken(token.raw);
 			} catch {
 				if (active) setAuthToken(null);
 			}
 		})();
 		return () => { active = false; };
-	}, [api.authTokens]);
+	}, [authTokens]);
 
 	const [isConnected, setIsConnected] = useState(false);
 	const [wsTransport, setWsTransport] = useState<OIDFlowWebSocketTransport | null>(null);
@@ -178,20 +177,33 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 	// Determine which transports are available based on config AND capabilities
 	const availableTransports = useMemo(() => {
 		const available: OIDFlowTransportType[] = [];
-		if (HTTP_PROXY_TRANSPORT_ALLOWED) available.push('http_proxy');
+
+		if (HTTP_PROXY_TRANSPORT_ALLOWED) {
+			throw new OIDFlowError({
+				code: 'DISCONTINUED_HTTP_PROXY_FLOW',
+				message: 'HTTP proxy transport flow is discontinued. Please use WebSocket transport instead.',
+			});
+		}
+
 		// Only add websocket if config allows AND engine has capability
 		if (WEBSOCKET_TRANSPORT_ALLOWED && WS_URL && wsCapabilityAvailable) {
 			available.push('websocket');
 		}
+
 		if (DIRECT_TRANSPORT_ALLOWED) available.push('direct');
+
 		return available;
 	}, [wsCapabilityAvailable]);
 
 	// Create HTTP proxy transport only if allowed
 	const httpTransport = useMemo(() => {
 		if (!HTTP_PROXY_TRANSPORT_ALLOWED) return null;
-		return new OIDFlowHttpProxyTransport(httpClient);
-	}, [httpClient]);
+
+		throw new OIDFlowError({
+			code: 'DISCONTINUED_HTTP_PROXY_FLOW',
+			message: 'HTTP proxy transport flow is discontinued. Please use WebSocket transport instead.',
+		});
+	}, []);
 
 	// Create and manage WebSocket transport (only if capability is available)
 	useEffect(() => {
@@ -257,13 +269,13 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 			setLastError(error);
 
 			if (error instanceof OIDFlowError && error.code === 'AUTH_FAILED') {
-				const shouldRetry = api.authTokens.registerBackendTokenRejection();
+				const shouldRetry = authTokens.registerBackendTokenRejection();
 				if (!shouldRetry) {
 					logger.error('Engine auth still failing after refresh; giving up (global handler notified)');
 					return;
 				}
 
-				const fresh = await api.authTokens.ensureBackendToken();
+				const fresh = await authTokens.ensureBackendToken();
 				setAuthToken(fresh.raw);
 			}
 		});
@@ -280,7 +292,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 				return next;
 			});
 		};
-	}, [authToken, tenantId, capabilitiesLoaded, wsCapabilityAvailable, trustEvaluators, api.authTokens]);
+	}, [authToken, tenantId, capabilitiesLoaded, wsCapabilityAvailable, trustEvaluators, authTokens]);
 
 	// Update auth token and tenant ID on WebSocket when they change
 	useEffect(() => {

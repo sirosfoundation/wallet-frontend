@@ -15,10 +15,13 @@ export class AuthTokens {
 	readonly #tenantId: string;
 	readonly #authServerClient: AuthServerClient;
 
-	readonly #rejectionListeners = new Set<TokenRejectionListener<keyof AuthTokensManifest>>();
-	readonly #rejectionTimes = new Map<keyof AuthTokensManifest, number[]>();
-	readonly #rejectionWindowMs = 60 * 1000;
-	readonly #maxRejections = 3;
+	readonly #tokenRejectionListeners = new Set<TokenRejectionListener<keyof AuthTokensManifest>>();
+	readonly #tokenRejectionTimes = new Map<keyof AuthTokensManifest, number[]>();
+	readonly #tokenRejectionWindowMs = 60 * 1000;
+	readonly #maxTokenRejections = 3;
+
+	readonly #sessionRecoveryListeners = new Set<() => Promise<void>>();
+	#sessionRecoveryInFlight: Promise<void> | null = null;
 
 	readonly #tokens = new Map<string, AccessTokenInterface>();
 
@@ -75,8 +78,18 @@ export class AuthTokens {
 	 * Returns a function to unregister the listener.
 	 */
 	public onTokenRejection(listener: TokenRejectionListener<keyof AuthTokensManifest>): () => void {
-		this.#rejectionListeners.add(listener);
-		return () => this.#rejectionListeners.delete(listener);
+		this.#tokenRejectionListeners.add(listener);
+		return () => this.#tokenRejectionListeners.delete(listener);
+	}
+
+	/**
+	 * Registers a listener for session expiration events.
+	 * The listener will be called when the session expires.
+	 * Returns a function to unregister the listener.
+	 */
+	public onSessionExpired(listener: () => Promise<void>): () => void {
+		this.#sessionRecoveryListeners.add(listener);
+		return () => this.#sessionRecoveryListeners.delete(listener);
 	}
 
 	/**
@@ -85,20 +98,20 @@ export class AuthTokens {
 	 */
 	public registerTokenRejection(name: keyof AuthTokensManifest): boolean {
 		const now = Date.now();
-		const times = (this.#rejectionTimes.get(name) ?? [])
-			.filter(t => now - t < this.#rejectionWindowMs);
+		const times = (this.#tokenRejectionTimes.get(name) ?? [])
+			.filter(t => now - t < this.#tokenRejectionWindowMs);
 		times.push(now);
 
 		// Always invalidate the cached token so a retry mints a new one.
 		this.#tokenStorage.clear(name);
 
-		if (times.length >= this.#maxRejections) {
-			this.#rejectionTimes.delete(name);
+		if (times.length >= this.#maxTokenRejections) {
+			this.#tokenRejectionTimes.delete(name);
 			this.#emitTokenRejection({ name, rejections: times.length });
 			return false;
 		}
 
-		this.#rejectionTimes.set(name, times);
+		this.#tokenRejectionTimes.set(name, times);
 		return true;
 	}
 
@@ -228,7 +241,7 @@ export class AuthTokens {
 		for (const name of this.#tokens.keys()) {
 			this.#tokenStorage.clear(name);
 		}
-		this.#rejectionTimes.clear();
+		this.#tokenRejectionTimes.clear();
 	}
 
 	async #requestAccessToken(options: {
@@ -236,14 +249,32 @@ export class AuthTokens {
 		tac?: string;
 		anonymous?: boolean;
 	}): Promise<AccessTokenInterface> {
-		const data = await this.#authServerClient.requestAccessToken(
-			options.audience,
-			this.#tenantId,
-			options.tac,
-			options.anonymous,
-		);
+		const task = async () => {
+			const data = await this.#authServerClient.requestAccessToken(
+				options.audience,
+				this.#tenantId,
+				options.tac,
+				options.anonymous,
+			);
 
-		return new AccessToken(data.access_token);
+			return new AccessToken(data.access_token);
+		}
+		try {
+			return await task();
+		} catch (error) {
+			if (
+				error?.response?.status === 401 &&
+				(
+					error?.response?.data?.error === 'invalid or expired session' ||
+					error?.response?.data?.error === 'authentication required'
+				)
+			) {
+				await this.#recoverSession();
+				return await task();
+			}
+
+			throw error;
+		}
 	}
 
 	#loadTokensFromStorage(): void {
@@ -258,9 +289,26 @@ export class AuthTokens {
 		}
 	}
 
+	async #recoverSession(): Promise<void> {
+		if (this.#sessionRecoveryInFlight instanceof Promise) {
+			return this.#sessionRecoveryInFlight;
+		}
+
+		this.#sessionRecoveryInFlight = (async () => {
+			try {
+				await Promise.all(
+					[...this.#sessionRecoveryListeners].map(listener => listener())
+				);
+			} finally {
+				this.#sessionRecoveryInFlight = null;
+			}
+		})();
+
+		return this.#sessionRecoveryInFlight;
+	}
 
 	#emitTokenRejection(info: TokenRejectionInfo<keyof AuthTokensManifest>): void {
-		for (const listener of this.#rejectionListeners) {
+		for (const listener of this.#tokenRejectionListeners) {
 			try {
 				listener(info);
 			} catch (e) {

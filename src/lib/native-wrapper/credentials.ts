@@ -10,7 +10,7 @@ import {
 import {
 	shapeCredential,
 	extractAvailableClaims,
-} from '@/services/CredentialMatchingService';
+} from '@/lib/services/CredentialMatchingService';
 import { getElementPropValue } from '@/util';
 import { getCredentialType } from '../utils/getCredentialType';
 

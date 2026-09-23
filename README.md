@@ -187,17 +187,31 @@ A new markdown file is created under `.changeset/` and commited in a new commit 
 2. **Consume the changesets.** This deletes the pending changeset files, bumps the version in `package.json`, and updates `CHANGELOG.md`:
 
   ```bash
-  pnpm version
+  pnpm run version
   ```
 
 3. **Tag** the release once merged (or pushed):
 
   ```bash
-  pnpm tag
+  pnpm run tag
   git push --follow-tags
   ```
 
 Tags follow the `v${version}` format.
+
+#### Pre-release mode
+
+To release beta or rc releases, you need to enter *prerelease mode*:
+
+```bash
+# to enter beta mode
+pnpm run prerelease-mode enter beta
+
+# to exit beta mode
+pnpm run prerelease-mode exit
+```
+
+Instead of beta, it can be `rc`, or `alpha` or anything else.
 
 ## PRF Compatibility
 

@@ -23,6 +23,21 @@ export interface OID4VCIFlowParams {
 	/** OAuth redirect URI for authorization code flow */
 	redirectUri?: string;
 
+	// ===== Wallet attestation (OAuth-Client-Attestation, all transports) =====
+	// Transport-agnostic on purpose: WIA/PoP generation (WIA.ts) happens once
+	// in useOID4VCIFlow.ts regardless of which transport is active, and each
+	// transport implementation (WebSocket today, WMP later) just forwards
+	// these two values in its own wire format - see
+	// go-wallet-backend's engine.ClientAttestationProvider, whose doc comment
+	// already documents "WebSocket FlowStartMessage, WMP flow params, native
+	// SDK flow start" as equally valid sources for the exact same two values.
+
+	/** Wallet Instance Attestation JWT (oauth-client-attestation+jwt) */
+	clientAttestation?: string;
+
+	/** Per-request PoP JWT bound to the WIA's cnf key (oauth-client-attestation-pop+jwt) */
+	clientAttestationPoP?: string;
+
 	// ===== Continuation parameters =====
 
 	/** Holder binding information (sent after user consent) */
