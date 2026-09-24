@@ -45,7 +45,7 @@ const SyncPopup = ({ message, onClose }) => {
 	}
 
 	if (!filteredUser) {
-		return;
+		return null;
 	}
 
 	return (

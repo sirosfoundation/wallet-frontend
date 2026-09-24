@@ -1,6 +1,7 @@
 import { VerifiableCredentialFormat } from 'wallet-common';
 import * as jose from 'jose';
 import { fromBase64Url } from '@/util';
+import { resolveCnfKid } from '@/services/keystore';
 import { cborDecode } from '@auth0/mdl/lib/cbor';
 import { COSEKeyToJWK } from 'cose-kit';
 
@@ -20,9 +21,13 @@ export async function deriveHolderKidFromCredential(
 				const decoded = JSON.parse(
 					new TextDecoder().decode(fromBase64Url(payload))
 				);
-				const cnf = decoded.cnf as { jwk?: jose.JWK } | undefined;
-				if (cnf?.jwk) {
-					return jose.calculateJwkThumbprint(cnf.jwk, 'sha256');
+				// DIIP v5 binds the holder by `cnf.kid`, a DID URL into their DID document;
+				// `cnf.jwk` is the wwWallet-native form. resolveCnfKid is the one place that
+				// rule lives, so both name the key the same way the signing path will.
+				const cnf = decoded.cnf as { jwk?: jose.JWK, kid?: string } | undefined;
+				const kid = await resolveCnfKid(cnf);
+				if (kid) {
+					return kid;
 				}
 			} catch {
 				return undefined;

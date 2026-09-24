@@ -16,6 +16,11 @@ import { getTenantFromUrlPath } from '@/lib/tenant';
 import { AuthTokens } from '@/lib/auth';
 import { SessionRecoveryPopup } from '@/components/Popups/SessionRecoveryPopup';
 
+type SessionRecoveryState = {
+	resolve: () => void;
+	reject: (reason?: unknown) => void;
+};
+
 export const SessionContextProvider = ({ children }: React.PropsWithChildren) => {
 	const { isOnline } = useContext(StatusContext);
 	const authServerClient = useAuthServerClient();
@@ -38,10 +43,10 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	const [walletStateLoaded, setWalletStateLoaded] = useState<boolean>(false);
 	const [obliviousKeyConfig, setObliviousKeyConfig] = useState<HpkeConfig>(null);
 
-	const [sessionRecovery, setSessionRecovery] = useState<{
-		resolve: () => void;
-		reject: (reason?: unknown) => void;
-	} | null>(null);
+	const [sessionRecovery, setSessionRecovery] = useState<SessionRecoveryState | null>(null);
+	const isMountedRef = useRef(true);
+	const sessionRecoveryPromiseRef = useRef<Promise<void> | null>(null);
+	const sessionRecoveryRef = useRef<SessionRecoveryState | null>(null);
 
 	// A unique id for each logged in tab
 	const [globalTabId] = useLocalStorage<string | null>("globalTabId", null);
@@ -83,6 +88,7 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 
 	useEffect(() => {
 		return authTokens.onTokenRejection(() => {
+			void clearSession();
 			displayError({
 				title: t('errors.walletServiceAuth.title'),
 				description: t('errors.walletServiceAuth.description'),
@@ -92,14 +98,48 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	}, [displayError, clearSession, authTokens, t]);
 
 	useEffect(() => {
-		return authTokens.onSessionExpired(() =>
-			new Promise<void>((resolve, reject) => {
-				setSessionRecovery({
-					resolve: () => { setSessionRecovery(null); resolve(); },
-					reject: (e) => { setSessionRecovery(null); reject(e); },
-				});
-			}),
-		);
+		return () => {
+			isMountedRef.current = false;
+			sessionRecoveryRef.current?.reject(new Error('session recovery interrupted'));
+		};
+	}, []);
+
+	useEffect(() => {
+		return authTokens.onSessionExpired(() => {
+			if (sessionRecoveryPromiseRef.current) {
+				return sessionRecoveryPromiseRef.current;
+			}
+
+			sessionRecoveryPromiseRef.current = new Promise<void>((resolve, reject) => {
+				const clearRecovery = () => {
+					sessionRecoveryRef.current = null;
+					sessionRecoveryPromiseRef.current = null;
+					if (isMountedRef.current) {
+						setSessionRecovery(null);
+					}
+				};
+
+				let settled = false;
+				const recovery: SessionRecoveryState = {
+					resolve: () => {
+						if (settled) return;
+						settled = true;
+						clearRecovery();
+						resolve();
+					},
+					reject: (e) => {
+						if (settled) return;
+						settled = true;
+						clearRecovery();
+						reject(e);
+					},
+				};
+				sessionRecoveryRef.current = recovery;
+				setSessionRecovery(recovery);
+			});
+
+			return sessionRecoveryPromiseRef.current;
+		});
 	}, [authTokens]);
 
 	useEffect(() => {

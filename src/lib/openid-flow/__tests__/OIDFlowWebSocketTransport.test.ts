@@ -152,6 +152,58 @@ describe('OIDFlowWebSocketTransport', () => {
 	});
 
 	describe('OID4VCI Flow', () => {
+		it('forwards authorization_details on flow_start when the wallet asks for a configuration', async () => {
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+
+			const authorizationDetails = [
+				{ type: 'openid_credential' as const, credential_configuration_id: 'ehic' },
+			];
+			const flowPromise = transport.startOID4VCIFlow({
+				credentialOfferUri: 'openid-credential-offer://?credential_offer=...',
+				authorizationDetails,
+			});
+
+			await vi.waitFor(() => {
+				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(1);
+			});
+
+			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[1]);
+			expect(sentMessage.authorization_details).toEqual(authorizationDetails);
+
+			mockWebSocketInstances[0].simulateMessage({
+				flow_id: sentMessage.flow_id,
+				type: 'flow_complete',
+				payload: {},
+			});
+			await flowPromise;
+		});
+
+		it('omits authorization_details entirely when the wallet is not asking that way', async () => {
+			// Absent is not the same as empty: the engine falls back to `scope`, and a key with
+			// an empty value would be something it has to reject.
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+
+			const flowPromise = transport.startOID4VCIFlow({
+				credentialOfferUri: 'openid-credential-offer://?credential_offer=...',
+			});
+
+			await vi.waitFor(() => {
+				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(1);
+			});
+
+			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[1]);
+			expect('authorization_details' in sentMessage).toBe(false);
+
+			mockWebSocketInstances[0].simulateMessage({
+				flow_id: sentMessage.flow_id,
+				type: 'flow_complete',
+				payload: {},
+			});
+			await flowPromise;
+		});
+
 		it('should send flow_start message with credential_offer_uri', async () => {
 			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
@@ -1098,6 +1150,59 @@ describe('OIDFlowWebSocketTransport', () => {
 			const parsed = JSON.parse(matchResponseMsg!);
 			expect(parsed.error).toBeDefined();
 			expect(parsed.error).toContain('No match handler available');
+		});
+	});
+
+	describe('Verifier Trust Evaluation', () => {
+		// The engine asks the wallet to evaluate a verifier mid-flow. DIIP v5 requires the `did`
+		// Client Identifier Scheme, which arrives prefixed as `decentralized_identifier:did:…`,
+		// so the scheme has to be derived from the client_id rather than assumed.
+		const evaluateVerifierTrust = vi.fn();
+		const trustEvaluators = {
+			evaluateIssuerTrust: vi.fn(),
+			evaluateVerifierTrust,
+		} as never;
+
+		const evaluate = async (subjectId: string, context?: Record<string, unknown>) => {
+			evaluateVerifierTrust.mockReset();
+			evaluateVerifierTrust.mockResolvedValue({ trusted: true });
+
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken, 'default', trustEvaluators);
+			await transport.connect();
+
+			mockWebSocketInstances[0].simulateMessage({
+				type: 'progress',
+				flow_id: 'flow-1',
+				step: 'evaluating_verifier_trust',
+				payload: {
+					trust_evaluation_required: true,
+					request: { subject_id: subjectId, subject_type: 'credential_verifier', context },
+				},
+			});
+
+			await vi.waitFor(() => expect(evaluateVerifierTrust).toHaveBeenCalled());
+			return evaluateVerifierTrust.mock.calls[0][0];
+		};
+
+		it('reads the did scheme out of a decentralized_identifier client_id', async () => {
+			const arg = await evaluate('decentralized_identifier:did:web:verifier.example.com');
+			expect(arg.clientIdScheme.scheme).toBe('did');
+			// The bare DID is what a resolver can act on; the prefixed form is not.
+			expect(arg.clientIdScheme.identifier).toBe('did:web:verifier.example.com');
+		});
+
+		it('handles a did:jwk verifier the same way', async () => {
+			const arg = await evaluate('decentralized_identifier:did:jwk:eyJrdHkiOiJFQyJ9');
+			expect(arg.clientIdScheme.scheme).toBe('did');
+			expect(arg.clientIdScheme.identifier).toBe('did:jwk:eyJrdHkiOiJFQyJ9');
+		});
+
+		it('lets an explicit scheme from the backend win', async () => {
+			// The backend may know something the identifier does not say; when it overrides the
+			// derived scheme the raw client_id is passed through untouched.
+			const arg = await evaluate('verifier.example.com', { client_id_scheme: 'x509_san_dns' });
+			expect(arg.clientIdScheme.scheme).toBe('x509_san_dns');
+			expect(arg.clientIdScheme.identifier).toBe('verifier.example.com');
 		});
 	});
 
