@@ -758,5 +758,10 @@
 		"question": "Oletko valmis tutustumaan $t(common.walletName) -sovelluksen ominaisuuksiin opastetun kierroksen avulla?",
 		"startTourButton": "Aloita opas",
 		"title": "Tervetuloa $t(common.walletName) -sovellukseen!"
+	},
+	"globalError": {
+		"title": "Tapahtui odottamaton virhe",
+		"reportIssueButton": "Ilmoita Ongelmasta",
+		"message": "Kokeile tyhjentää selaimen välimuisti ja yritä uudelleen. Jos virhe jatkuu, ota meihin yhteyttä osoitteessa support@siros.org"
 	}
 }

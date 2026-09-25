@@ -11,6 +11,7 @@ import '@fontsource/inter/500.css';
 import '@fontsource/inter/600.css';
 import './index.css';
 import AppProvider from './AppProvider';
+import GlobalErrorBoundary from './hocs/GlobalErrorBoundary';
 
 // Set root element for react-modal
 Modal.setAppElement('#root');
@@ -30,7 +31,9 @@ const root = createRoot(document.getElementById('root'));
 root.render(
 	<BrowserRouter>
 		<AppProvider>
-			<App />
+			<GlobalErrorBoundary>
+				<App />
+			</GlobalErrorBoundary>
 		</AppProvider>
 	</BrowserRouter>
 );
