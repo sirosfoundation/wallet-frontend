@@ -9,7 +9,7 @@ import useScreenType from '../../hooks/useScreenType';
 
 import { UserData, WebauthnCredential } from '../../api/types';
 import { compareBy, toBase64Url } from '@/lib/utils';
-import { withAuthenticatorAttachmentFromHints } from '@/util-webauthn';
+import { withAuthenticatorAttachmentFromHints } from '@/lib/utils/webauthn';
 import { formatDate } from 'wallet-common';
 import type { WebauthnPrfEncryptionKeyInfo } from '../../services/keystore';
 import { isPrfKeyV2, serializePrivateData } from '../../services/keystore';
