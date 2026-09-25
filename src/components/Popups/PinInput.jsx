@@ -6,7 +6,7 @@ import Button from '../Buttons/Button';
 import SessionContext from '@/context/SessionContext';
 import { useTenant } from '@/context/TenantContext';
 import PopupLayout from './PopupLayout';
-import { last } from '@/util';
+import { last } from '@/lib/utils/array';
 import { Lock } from 'lucide-react';
 
 function PinInput({ isOpen, setIsOpen }) {

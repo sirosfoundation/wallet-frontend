@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as cbor from "cbor-x";
 import { shapeCredential } from "./CredentialMatchingService";
 import { ExtendedVcEntity } from "@/context/CredentialsContext";
-import { toBase64Url } from "../../util";
+import { toBase64Url } from '@/lib/utils';
 
 /**
  * `shapeCredential` (mso_mdoc branch) must handle both stored-credential

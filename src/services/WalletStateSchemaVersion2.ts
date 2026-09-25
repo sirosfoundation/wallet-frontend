@@ -1,4 +1,4 @@
-import { compareBy, deduplicateBy } from '@/util';
+import { compareBy, deduplicateBy } from '@/lib/utils';
 import * as WalletSchemaCommon from './WalletStateSchemaCommon';
 import * as SchemaV1 from './WalletStateSchemaVersion1';
 import { WalletSessionEvent } from './WalletStateSchemaVersion1';

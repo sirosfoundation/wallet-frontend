@@ -1,5 +1,5 @@
 import { FOLD_EVENT_HISTORY_AFTER_SECONDS } from "@/config";
-import { compareBy, last, splitWhen } from "@/util";
+import { compareBy, last, splitWhen } from '@/lib/utils';
 
 import * as SchemaV1 from "./WalletStateSchemaVersion1";
 import * as SchemaV2 from "./WalletStateSchemaVersion2";

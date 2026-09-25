@@ -1,5 +1,5 @@
 import { Dispatch, SetStateAction, useCallback, useEffect, useState } from 'react';
-import { jsonParseTaggedBinary, jsonStringifyTaggedBinary } from '../util';
+import { jsonParseTaggedBinary, jsonStringifyTaggedBinary } from '@/lib/utils';
 import { logger } from '../logger';
 
 type ClearHandle = () => void;
