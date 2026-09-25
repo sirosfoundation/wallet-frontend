@@ -758,5 +758,10 @@
 		"question": "Är du redo att utforska funktionerna i $t(common.walletName) genom en guidad tur?",
 		"startTourButton": "Starta guiden",
 		"title": "Välkommen till $t(common.walletName)!"
+	},
+	"globalError": {
+		"title": "Ett oväntat fel inträffade",
+		"reportIssueButton": "Rapportera Problem",
+		"message": "Prova gärna att rensa webbläsarens cache och försök igen. Om felet kvarstår, kontakta oss på support@siros.org"
 	}
 }

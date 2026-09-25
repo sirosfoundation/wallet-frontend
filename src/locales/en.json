@@ -758,5 +758,10 @@
 		"question": "Are you ready to explore the features of $t(common.walletName) through a guided tour?",
 		"startTourButton": "Start Tour",
 		"title": "Welcome to $t(common.walletName)!"
+	},
+	"globalError": {
+		"title": "An unexpected error happened",
+		"reportIssueButton": "Report Issue",
+		"message": "Please try clearing your browser cache and try again. If the error persists, contact us at support@siros.org"
 	}
 }
