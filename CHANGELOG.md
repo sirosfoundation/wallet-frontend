@@ -1,5 +1,11 @@
 # wallet-frontend
 
+## 0.6.0-beta.3
+
+### Patch Changes
+
+- Remove `http_proxy` from the default value in transports config by [@smncd](https://github.com/smncd) in
+
 ## 0.6.0-beta.2
 
 ### Minor Changes
