@@ -144,8 +144,8 @@ importers:
         specifier: ^0.21.1
         version: 0.21.1(supports-color@8.1.1)(vite@6.1.1(@types/node@20.17.19)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.39.0)(yaml@2.9.0))(workbox-build@7.3.0(@types/babel__core@7.20.5)(supports-color@8.1.1))(workbox-window@7.3.0)
       wallet-common:
-        specifier: git+https://github.com/sirosfoundation/wallet-common.git#feat/vcdm2-support
-        version: https://codeload.github.com/sirosfoundation/wallet-common/tar.gz/a59f5d297aecd8683e16e009fdbb920ca0105dad(debug@4.4.0(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.7.3)(web-streams-polyfill@3.3.3)
+        specifier: github:sirosfoundation/wallet-common#feat/vcdm2-support
+        version: https://codeload.github.com/sirosfoundation/wallet-common/tar.gz/a7e13e435cac2e2e134b277d9e022aa61947180e(debug@4.4.0(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.7.3)(web-streams-polyfill@3.3.3)
       web-vitals:
         specifier: ^2.1.4
         version: 2.1.4
@@ -4837,8 +4837,8 @@ packages:
     resolution: {integrity: sha512-o8qghlI8NZHU1lLPrpi2+Uq7abh4GGPpYANlalzWxyWteJOCsr/P+oPBA49TOLu5FTZO4d3F9MnWJfiMo4BkmA==}
     engines: {node: '>=18'}
 
-  wallet-common@https://codeload.github.com/sirosfoundation/wallet-common/tar.gz/a59f5d297aecd8683e16e009fdbb920ca0105dad:
-    resolution: {gitHosted: true, integrity: sha512-grz9fSJgDcCZDxcSZc7reF6pf9LUJklY/rsl35J1zw3LIhR9BK7oVDMEbjwY36N1SssXaojvhiiPjePOwVR80Q==, tarball: https://codeload.github.com/sirosfoundation/wallet-common/tar.gz/a59f5d297aecd8683e16e009fdbb920ca0105dad}
+  wallet-common@https://codeload.github.com/sirosfoundation/wallet-common/tar.gz/a7e13e435cac2e2e134b277d9e022aa61947180e:
+    resolution: {gitHosted: true, integrity: sha512-47JCwV9mvoC9wb20Al/ZqpV61lsYUp6JMfzaRsKc0pcHVVk6OoKTReLfSYP2Hk5k1icfZsX/8GmvX6ZUgwlI7A==, tarball: https://codeload.github.com/sirosfoundation/wallet-common/tar.gz/a7e13e435cac2e2e134b277d9e022aa61947180e}
     version: 0.0.1
     engines: {node: '>=22.0.0'}
 
@@ -10013,7 +10013,7 @@ snapshots:
     dependencies:
       xml-name-validator: 5.0.0
 
-  wallet-common@https://codeload.github.com/sirosfoundation/wallet-common/tar.gz/a59f5d297aecd8683e16e009fdbb920ca0105dad(debug@4.4.0(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.7.3)(web-streams-polyfill@3.3.3):
+  wallet-common@https://codeload.github.com/sirosfoundation/wallet-common/tar.gz/a7e13e435cac2e2e134b277d9e022aa61947180e(debug@4.4.0(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.7.3)(web-streams-polyfill@3.3.3):
     dependencies:
       '@auth0/mdl': 2.3.0(supports-color@8.1.1)
       '@sd-jwt/core': 0.10.0
