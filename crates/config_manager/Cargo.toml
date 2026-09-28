@@ -1,0 +1,38 @@
+[package]
+name = "wallet-frontend-config-manager"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-2-Clause"
+
+[dependencies]
+ab_glyph = "0.2.32"
+base64 = "0.23.1"
+chrono = "0.4.45"
+csscolorparser = "0.8.4"
+image = "0.25.10"
+imageproc = "0.27.0"
+js-sys = "0.3.106"
+jsonschema = { version = "0.57.0", default-features = false}
+kuchikiki = "0.8.2"
+resvg = "0.48.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.11.0"
+wasm-bindgen = "0.2"
+
+[dev-dependencies]
+ts-rs = { version = "9", features = ["serde-json-impl"] }
+
+[profile.release]
+lto = true            # link-time optimization: smaller + faster, slower to build
+codegen-units = 1     # optimize as one unit (better optimization, slower build)
+strip = true          # strip debug symbols → much smaller binary
+opt-level = 3         # already the release default; use "s"/"z" to optimize for SIZE instead
+panic = "abort"       # smaller binary; skips unwinding (your panics just abort)
+
+[lib]
+name = "config_manager"   # keeps `use config_manager::…` and the output filenames
+crate-type = ["cdylib", "rlib"]
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ['-O', '--enable-bulk-memory']
