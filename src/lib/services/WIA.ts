@@ -116,8 +116,11 @@ export async function buildClientAttestationPop(
 	dpopKeyPair: WIAKeyPair,
 	clientId: string,
 	authorizationServerIssuer: string,
+	challenge?: string,
 ): Promise<string> {
-	return await new SignJWT({})
+	return await new SignJWT({
+		challenge,
+	})
 		.setProtectedHeader({
 			alg: 'ES256',
 			typ: 'oauth-client-attestation-pop+jwt',

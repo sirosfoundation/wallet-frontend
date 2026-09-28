@@ -85,6 +85,7 @@ export interface SignRequest {
 		dpopNonce?: string;
 		ath?: string;
 		keyId?: string;
+		attestationChallenge?: string;
 	};
 }
 
@@ -853,6 +854,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				htm: rawParams.htm as string | undefined,
 				htu: rawParams.htu as string | undefined,
 				dpopNonce: rawParams.dpop_nonce as string | undefined,
+				attestationChallenge: rawParams.attestation_challenge as string | undefined,
 				ath: rawParams.ath as string | undefined,
 				keyId: rawParams.key_id as string | undefined,
 				credentialsToInclude: (

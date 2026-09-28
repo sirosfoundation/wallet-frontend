@@ -48,6 +48,7 @@ export type OIDFlowSignOptions = {
 	dpopNonce?: string;
 	ath?: string;
 	keyId?: string;
+	attestationChallenge?: string;
 }
 
 export interface OIDFlowSignRequest {
@@ -208,7 +209,7 @@ export function useOIDFlowSignHandler() {
 		options: OIDFlowSignOptions,
 		flowId: string,
 	): Promise<OIDFlowSignResponse> => {
-		const { audience, issuer, htm, htu, dpopNonce, ath } = options;
+		const { audience, issuer, htm, htu, dpopNonce, ath, attestationChallenge } = options;
 
 		const authMaterial = await oidFlowClientAuthMaterialManager.getAuthMaterial(
 			flowId
@@ -247,6 +248,7 @@ export function useOIDFlowSignHandler() {
 						authMaterial.keyPair,
 						issuer,
 						audience,
+						attestationChallenge,
 					);
 				}
 			}
