@@ -13,6 +13,7 @@
 import { ExtendedVcEntity } from '@/context/CredentialsContext';
 import { DcqlQuery, DcqlCredential, DcqlQueryResult } from 'dcql';
 import { logger } from '@/logger';
+import { isVcdm2Credential, toTypeArray } from 'wallet-common';
 import { cborDecode } from '@auth0/mdl/lib/cbor';
 import { fromBase64Url } from "../util";
 import { decodeStoredMdoc, extractDocTypeFromIssuerAuth, mdocNameSpacesToClaims, resolveMdocIssuerSigned } from '@/lib/verifiable-credentials';
@@ -132,6 +133,25 @@ export function shapeCredential(credential: ExtendedVcEntity): (DcqlCredential &
 	const signedClaims = credential.parsedCredential?.signedClaims;
 	if (!signedClaims) {
 		return null;
+	}
+
+	// A W3C VCDM 2.0 credential carried in an SD-JWT is a different DCQL model
+	// from an SD-JWT VC: it is identified by its `type` array and has no `vct`
+	// at all, so shaping one the SD-JWT VC way produces an undefined `vct` that
+	// matches nothing.
+	//
+	// The stored format cannot tell the two apart — the wallet records what the
+	// issuer advertised, and both advertise `vc+sd-jwt` — so the payload
+	// decides. `vcdm2+sd-jwt` is internal and never a wire value, so it is
+	// mapped back to the identifier a verifier actually asks for.
+	if (isVcdm2Credential(signedClaims)) {
+		return {
+			credential_format: format === 'vcdm2+sd-jwt' ? 'vc+sd-jwt' : format,
+			type: toTypeArray((signedClaims as Record<string, unknown>).type),
+			claims: signedClaims as Record<string, unknown>,
+			cryptographic_holder_binding: true,
+			_batchId: credential.batchId,
+		} as DcqlCredential & { _batchId?: number };
 	}
 
 	return {
