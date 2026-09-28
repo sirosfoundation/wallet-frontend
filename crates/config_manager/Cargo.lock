@@ -2750,6 +2750,7 @@ dependencies = [
  "base64",
  "chrono",
  "csscolorparser",
+ "html5ever",
  "image",
  "imageproc",
  "js-sys",

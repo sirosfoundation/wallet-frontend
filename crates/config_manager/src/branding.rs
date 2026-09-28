@@ -14,13 +14,13 @@ use crate::utils;
 #[derive(Debug)]
 pub struct BrandingFile {
 	/// Full path to the branding file.
-	pathname: String,
+	pub pathname: String,
 	/// Filename of the branding file.
-	filename: String,
+	pub filename: String,
 	/// Wether this file is the default branding file.
-	_is_default: bool,
+	pub _is_default: bool,
 	/// Wether this file is the custom branding file.
-	is_custom: bool,
+	pub is_custom: bool,
 }
 
 #[derive(Serialize)]
@@ -31,8 +31,8 @@ pub struct BrandingMeta {
 
 #[derive(Debug)]
 pub struct Logofiles {
-	logo_light: BrandingFile,
-	logo_dark: BrandingFile,
+	pub logo_light: BrandingFile,
+	pub logo_dark: BrandingFile,
 }
 
 /// Finds a branding file, preferring custom over default.

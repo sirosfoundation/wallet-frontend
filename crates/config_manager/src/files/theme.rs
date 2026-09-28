@@ -1,5 +1,5 @@
 use crate::{branding, files::{BASE_PATH_ENV, OutputFile}};
-use std::{collections::HashMap, fs, path::Path};
+use std::{fs, path::Path};
 use crate::utils;
 
 pub struct Theme;
@@ -21,47 +21,32 @@ impl OutputFile for Theme {
 		vec![
 			(
 				"theme-css".to_string(),
-				utils::Tag {
-					kind: utils::TagKind::Link,
-					props: Some(HashMap::from([
-						("rel".to_string(), "stylesheet".to_string()),
-						(
-							"href".to_string(),
-							utils::path_with_base(
-								config.get_str(BASE_PATH_ENV).unwrap_or(""),
-								&utils::path_with_hash_suffix(
-									"theme.css",
-									branding_hash,
-								),
+				utils::Tag::link()
+					.attr("rel", "stylesheet")
+					.attr(
+						"href",
+						utils::path_with_base(
+							config.get_str(BASE_PATH_ENV).unwrap_or(""),
+							&utils::path_with_hash_suffix(
+								"theme.css",
+								branding_hash,
 							),
 						),
-					])),
-					text_content: None,
-				},
+					),
 			),
 			(
 				"theme-color-light".to_string(),
-				utils::Tag {
-					kind: utils::TagKind::Meta,
-					props: Some(HashMap::from([
-						("name".to_string(), "theme-color".to_string()),
-						("media".to_string(), "(prefers-color-scheme: light)".to_string()),
-						("content".to_string(), "#f8f9f9".to_string()),
-					])),
-					text_content: None,
-				},
+				utils::Tag::meta()
+					.attr("name", "theme-color")
+					.attr("media", "(prefers-color-scheme: light)")
+					.attr("content", "#f8f9f9"),
 			),
 			(
 				"theme-color-dark".to_string(),
-				utils::Tag {
-					kind: utils::TagKind::Meta,
-					props: Some(HashMap::from([
-						("name".to_string(), "theme-color".to_string()),
-						("media".to_string(), "(prefers-color-scheme: dark)".to_string()),
-						("content".to_string(), "#0c0e11".to_string()),
-					])),
-					text_content: None,
-				},
+				utils::Tag::meta()
+					.attr("name", "theme-color")
+					.attr("media", "(prefers-color-scheme: dark)")
+					.attr("content", "#0c0e11"),
 			)
 		]
 	}

@@ -23,6 +23,9 @@ impl Config {
 	pub fn get(&self, key: &str) -> Option<&Value> {
 		self.0.get(key)
 	}
+	pub fn insert(&mut self, key: &str, value: Value) {
+		self.0.insert(key.to_string(), value);
+	}
 	pub fn to_json_string(
 		&self,
 		additional_keys: Option<&HashMap<String, Value>>,
@@ -37,7 +40,7 @@ impl Config {
 			}
 		}
 
-		Ok(serde_json::to_string_pretty(&with_lowercase_keys)?)
+		Ok(serde_json::to_string(&with_lowercase_keys)?)
 	}
 }
 

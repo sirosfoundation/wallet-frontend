@@ -1,9 +1,17 @@
-use std::{collections::HashMap, path::{Path, PathBuf}};
+use std::{collections::HashMap, fs, path::{Path, PathBuf}};
 
-use config_manager::{branding, files};
+use config_manager::{branding, files, inject, utils};
 
 fn main() {
 	let mut env = HashMap::new();
+	env.insert(
+		"BASE_PATH".to_string(),
+		"/id/hello".to_string(),
+	);
+	env.insert(
+		"STATIC_NAME".to_string(),
+		"My Static Name".to_string()
+	);
 	env.insert(
 		"WELLKNOWN_APPLE_APPIDS".to_string(),
 		"com.example.app1,com.example.app2".to_string(),
@@ -22,7 +30,7 @@ fn main() {
 	let branding_dir: PathBuf = Path::new(env!("CARGO_MANIFEST_DIR"))
 		.join("../../branding");
 
-	let config = config_manager::config::load_and_parse_config(
+	let mut config = config_manager::config::load_and_parse_config(
 		&env_schema_temp,
 		&env
 	).unwrap();
@@ -44,4 +52,38 @@ fn main() {
 	);
 
 	println!("Generated tags: {:?}", tags);
+
+	let logos = branding::find_logo_files(&branding_dir);
+
+	config.insert("branding", serde_json::json!({
+		"logo_light": utils::path_with_hash_suffix(
+			&utils::path_with_base(
+				&config.get_str("BASE_PATH").unwrap(),
+				&logos.logo_light.filename
+			),
+			&hash
+		),
+		"logo_dark": utils::path_with_hash_suffix(
+			&utils::path_with_base(
+				&config.get_str("BASE_PATH").unwrap(),
+				&logos.logo_dark.filename
+			),
+			&hash
+		),
+	}));
+
+	let html_source = fs::read_to_string(
+		Path::new(env!("CARGO_MANIFEST_DIR")).join("index.html")
+	).unwrap();
+
+	let html_out = inject::inject_html(
+		&html_source,
+		&config,
+		&tags,
+	).unwrap();
+
+	fs::write(
+		Path::new(env!("CARGO_MANIFEST_DIR")).join("index.html"),
+		&html_out,
+	).unwrap();
 }

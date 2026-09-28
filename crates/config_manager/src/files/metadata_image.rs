@@ -1,7 +1,6 @@
 use std::fs;
 
 use crate::{branding, files::{OutputFile, STATIC_NAME_ENV, STATIC_NAME_FALLBACK}, utils};
-use std::collections::HashMap;
 
 pub struct MetadataImage;
 
@@ -42,25 +41,15 @@ impl OutputFile for MetadataImage {
 		vec![
 			(
 				"og-image".to_string(),
-				utils::Tag {
-					kind: utils::TagKind::Meta,
-					props: Some(HashMap::from([
-						("property".to_string(), "og:image".to_string()),
-						("content".to_string(), url.to_string()),
-					])),
-					text_content: None,
-				}
+				utils::Tag::meta()
+					.attr("property", "og:image")
+					.attr("content", &url),
 			),
 			(
 				"twitter-image".to_string(),
-				utils::Tag {
-					kind: utils::TagKind::Meta,
-					props: Some(HashMap::from([
-						("name".to_string(), "twitter:image".to_string()),
-						("content".to_string(), url.to_string()),
-					])),
-					text_content: None,
-				}
+				utils::Tag::meta()
+					.attr("name", "twitter:image")
+					.attr("content", &url),
 			)
 		]
 	}

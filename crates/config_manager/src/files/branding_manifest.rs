@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use std::{collections::HashMap, fs, path::Path};
+use std::{fs, path::Path};
 use crate::{
 	branding::{
 		self,
@@ -17,7 +17,6 @@ use crate::{
 	utils::{
 		self,
 		Tag,
-		TagKind
 	}
 };
 
@@ -59,57 +58,34 @@ impl OutputFile for BrandingManifest {
 
 		branding::copy_screenshots(&source_dir, &dest_dir);
 
+		let make_href = |href: &str| {
+			utils::path_with_hash_suffix(
+				&utils::path_with_base(
+					config.get_str(BASE_PATH_ENV).unwrap_or(""),
+					href,
+				),
+				&hash_suffix,
+			)
+		};
+
 		vec![
 			(
 				"manifest".to_string(),
-				Tag {
-					kind: TagKind::Link,
-					props: Some(HashMap::from([
-						("rel".to_string(), "manifest".to_string()),
-						(
-							"href".to_string(),
-							utils::path_with_base(
-								config.get_str(BASE_PATH_ENV).unwrap_or(""),
-								format!("manifest.json{hash_suffix}").as_str(),
-							)
-						),
-					])),
-					text_content: None,
-				}
+				Tag::link()
+					.attr("rel", "manifest")
+					.attr("href", make_href("manifest.json")),
 			),
 			(
 				"apple-touch-icon".to_string(),
-				Tag {
-					kind: TagKind::Link,
-					props: Some(HashMap::from([
-						("rel".to_string(), "apple-touch-icon".to_string()),
-						(
-							"href".to_string(),
-							utils::path_with_base(
-								config.get_str(BASE_PATH_ENV).unwrap_or(""),
-								format!("apple-touch-icon.png{hash_suffix}").as_str(),
-							)
-						),
-					])),
-					text_content: None,
-				}
+				Tag::link()
+					.attr("rel", "apple-touch-icon")
+					.attr("href", make_href("apple-touch-icon.png")),
 			),
 			(
 				"favicon".to_string(),
-				Tag {
-					kind: TagKind::Link,
-					props: Some(HashMap::from([
-						("rel".to_string(), "icon".to_string()),
-						(
-							"href".to_string(),
-							utils::path_with_base(
-								config.get_str(BASE_PATH_ENV).unwrap_or(""),
-								format!("favicon.ico{hash_suffix}").as_str(),
-							)
-						),
-					])),
-					text_content: None,
-				}
+				Tag::link()
+					.attr("rel", "icon")
+					.attr("href", make_href("favicon.ico")),
 			)
 		]
 	}
