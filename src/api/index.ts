@@ -3,7 +3,7 @@ import { Err, Ok, Result } from 'ts-results';
 
 import * as config from '../config';
 import { logger } from '../logger';
-import { fromBase64Url, jsonParseTaggedBinary, jsonStringifyTaggedBinary, toBase64Url, transformTaggedResponse } from '../util';
+import { fromBase64Url, jsonParseTaggedBinary, jsonStringifyTaggedBinary, toBase64Url, transformTaggedResponse } from '@/lib/utils';
 import { EncryptedContainer, makeAssertionPrfExtensionInputs, parsePrivateData, serializePrivateData } from '../services/keystore';
 import { CachedUser, LocalStorageKeystore } from '../services/LocalStorageKeystore';
 import { UserId, Verifier } from './types';
@@ -12,7 +12,7 @@ import { useNavigate } from 'react-router';
 import { UseStorageHandle, useClearStorages, useLocalStorage, useSessionStorage } from '../hooks/useStorage';
 import { addItem, getItem, EXCLUDED_INDEXEDDB_PATHS } from '../indexedDB';
 import { loginWebAuthnBeginOffline } from './LocalAuthentication';
-import { withAuthenticatorAttachmentFromHints, withHintsFromAllowCredentials } from '@/util-webauthn';
+import { withAuthenticatorAttachmentFromHints, withHintsFromAllowCredentials } from '@/lib/utils/webauthn';
 import { getTenantFromUrlPath, setStoredTenant, clearStoredTenant } from '../lib/tenant';
 import { clearOIDCState } from '../lib/oidc';
 import { AuthTokens } from '@/lib/auth';

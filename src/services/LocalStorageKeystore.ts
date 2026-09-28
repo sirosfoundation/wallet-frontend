@@ -4,7 +4,7 @@ import { Err, Ok, Result } from 'ts-results';
 
 import * as config from "../config";
 import { useClearStorages, useLocalStorage, useSessionStorage } from "../hooks/useStorage";
-import { fromBase64Url, jsonStringifyTaggedBinary, toBase64Url } from "../util";
+import { fromBase64Url, jsonStringifyTaggedBinary, toBase64Url } from '@/lib/utils';
 import { useIndexedDb } from "../hooks/useIndexedDb";
 import { useOnUserInactivity } from "../hooks/useOnUserInactivity";
 import { logger } from "../logger";

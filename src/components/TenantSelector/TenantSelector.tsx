@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ChevronRightIcon } from 'lucide-react';
 import SessionContext from '@/context/SessionContext';
 import { getKnownTenants, KnownTenant, buildTenantRoutePath } from '@/lib/tenant';
-import { fromBase64Url } from '@/util';
+import { fromBase64Url } from '@/lib/utils';
 import PopupLayout from '../Popups/PopupLayout';
 import Button from '../Buttons/Button';
 import TenantMeta from './TenantMeta';

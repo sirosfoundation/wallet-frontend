@@ -2,7 +2,7 @@ import { isValidElement } from 'react';
 import { DcqlQuery } from 'dcql';
 import { OID4VPVerifierInfo } from '@/lib/openid-flow';
 import { ExtendedVcEntity } from '@/context/CredentialsContext';
-import { prettyDomain } from '@/utils';
+import { prettyDomain } from '@/lib/utils';
 import type {
 	ConformantCredentials,
 	PresentCredentialsRequest,
@@ -11,7 +11,7 @@ import type {
 	PresentCredentialSet,
 } from './types';
 import { logger } from '@/logger';
-import { normalizePath } from '@/util';
+import { normalizePath } from '@/lib/utils';
 
 /**
  * Resolve a credential presentation request into a PresentCredentialsRequest object.

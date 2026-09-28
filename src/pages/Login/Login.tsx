@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router';
 import { Trans, useTranslation } from 'react-i18next';
 
 import type { CachedUser } from '../../services/LocalStorageKeystore';
-import { calculateByteSize, coerce } from '../../util';
+import { calculateByteSize, coerce } from '@/lib/utils';
 
 import StatusContext from '@/context/StatusContext';
 import SessionContext from '@/context/SessionContext';
