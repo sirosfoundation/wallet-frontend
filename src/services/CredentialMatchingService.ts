@@ -52,7 +52,28 @@ export function matchCredentials(
 		}
 	}
 
+	// Shaping and matching fail silently otherwise: the caller only sees a
+	// generic selection error, with nothing saying which credential was
+	// rejected or why. These make a failed match self-explanatory in the
+	// console without having to reproduce it against a local build.
+	logger.debug('DCQL query requested:', JSON.stringify(dcqlQuery));
+	logger.debug('DCQL shaped credentials:', shaped.map((c) => {
+		const r = c as Record<string, unknown>;
+		return {
+			credential_format: r.credential_format,
+			vct: r.vct,
+			type: r.type,
+			doctype: r.doctype,
+			batchId: r._batchId,
+		};
+	}));
+
 	if (shaped.length === 0) {
+		logger.error('DCQL: no credentials could be shaped', {
+			held: credentials.length,
+			formats: credentials.map((c) => c.format),
+			parsed: credentials.map((c) => Boolean(c.parsedCredential?.signedClaims)),
+		});
 		return { matches: [], no_match_reason: 'No credentials could be shaped for matching' };
 	}
 
@@ -73,6 +94,17 @@ export function matchCredentials(
 	for (const credReq of dcqlQuery.credentials) {
 		const match = result.credential_matches[credReq.id];
 		if (!match?.success || !match.valid_credentials) {
+			// Why a query id matched nothing is the single most useful thing
+			// to know here, and dcql reports it per rejected credential.
+			logger.error('DCQL: no credential satisfied query', {
+				queryId: credReq.id,
+				requestedFormat: (credReq as Record<string, unknown>).format,
+				requestedMeta: (credReq as Record<string, unknown>).meta,
+				issues: (match as Record<string, any> | undefined)?.failed_credentials?.map((f: any) => ({
+					meta: f?.meta?.issues,
+					claims: f?.claims?.issues,
+				})),
+			});
 			continue;
 		}
 
