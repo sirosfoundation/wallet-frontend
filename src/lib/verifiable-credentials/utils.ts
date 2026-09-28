@@ -1,6 +1,6 @@
 import { VerifiableCredentialFormat } from 'wallet-common';
 import * as jose from 'jose';
-import { fromBase64Url } from '@/util';
+import { fromBase64Url } from '@/lib/utils';
 import { cborDecode } from '@auth0/mdl/lib/cbor';
 import { COSEKeyToJWK } from 'cose-kit';
 
