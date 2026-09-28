@@ -1,14 +1,12 @@
-use std::{collections::HashMap, error::Error, fs, path::Path};
-use crate::files::{
-	ANDROID_ASSETLINKS_ENV,
-	ANDROID_ASSETLINKS_FILE,
-	APPLE_APPIDS_ENV,
-	APPLE_APPIDS_FILE
+use crate::{
+	config,
+	files::{ANDROID_ASSETLINKS_FILE, APPLE_APPIDS_FILE},
 };
+use std::{collections::HashMap, error::Error, fs, path::Path};
 
 use serde::Serialize;
 
-use crate::{files::OutputFile};
+use crate::files::OutputFile;
 
 pub struct WellKnown;
 
@@ -29,9 +27,21 @@ impl OutputFile for WellKnown {
 			fs::remove_dir_all(&well_known_dir).unwrap();
 		}
 
-		let generators: [(&str, &str, fn(&WellKnown, &crate::config::Config) -> Result<String, Box<dyn Error>>); 2] = [
-			(ANDROID_ASSETLINKS_ENV, ANDROID_ASSETLINKS_FILE, Self::generate_android_assetlinks),
-			(APPLE_APPIDS_ENV, APPLE_APPIDS_FILE, Self::generate_apple_appids),
+		let generators: [(
+			&str,
+			&str,
+			fn(&WellKnown, &crate::config::Config) -> Result<String, Box<dyn Error>>,
+		); 2] = [
+			(
+				config::keys::WELLKNOWN_ANDROID,
+				ANDROID_ASSETLINKS_FILE,
+				Self::generate_android_assetlinks,
+			),
+			(
+				config::keys::WELLKNOWN_APPLE_APPIDS,
+				APPLE_APPIDS_FILE,
+				Self::generate_apple_appids,
+			),
 		];
 
 		for (env_key, filename, generator) in generators {
@@ -51,17 +61,17 @@ impl WellKnown {
 	/// Determines whether the WellKnown file generation should run
 	/// based on the provided config.
 	fn should_run(&self, config: &crate::config::Config) -> bool {
-		config.get_str(ANDROID_ASSETLINKS_ENV).is_some()
-		|| config.get_str(APPLE_APPIDS_ENV).is_some()
+		config.wellknown_android().is_some()
+			|| config.wellknown_apple_appids().is_some()
 	}
 
 	/// Generates the Android assetlinks.json content from the provided
 	/// source string.
 	fn generate_android_assetlinks(
 		&self,
-		config: &crate::config::Config
+		config: &crate::config::Config,
 	) -> Result<String, Box<dyn Error>> {
-		let source = config.get_str(ANDROID_ASSETLINKS_ENV).unwrap_or("");
+		let source = config.wellknown_android().unwrap_or("");
 		let mut grouped: HashMap<String, Vec<String>> = HashMap::new();
 
 		for pkg in source.split(',') {
@@ -72,7 +82,8 @@ impl WellKnown {
 					continue;
 				}
 
-				grouped.entry(name.to_string())
+				grouped
+					.entry(name.to_string())
 					.or_default()
 					.push(fingerprints.to_string());
 			}
@@ -82,7 +93,8 @@ impl WellKnown {
 			return Err("No valid package/fingerprint pairs".into());
 		}
 
-		let template: Vec<AssetLink> = grouped.into_iter()
+		let template: Vec<AssetLink> = grouped
+			.into_iter()
 			.map(|(key, fingerprints)| AssetLink {
 				relation: vec![
 					"delegate_permission/common.handle_all_urls".to_string(),
@@ -93,7 +105,8 @@ impl WellKnown {
 					package_name: key.to_string(),
 					sha256_cert_fingerprints: fingerprints,
 				},
-			}).collect();
+			})
+			.collect();
 
 		Ok(serde_json::to_string_pretty(&template)?)
 	}
@@ -101,26 +114,31 @@ impl WellKnown {
 	/// Generates the Apple appids content from the provided source string.
 	fn generate_apple_appids(
 		&self,
-		config: &crate::config::Config
+		config: &crate::config::Config,
 	) -> Result<String, Box<dyn Error>> {
 		let app_ids: Vec<String> = config
-				.get_array(APPLE_APPIDS_ENV)
-				.map(|arr| arr.iter().filter_map(|v| v.as_str()).map(String::from).collect())
-				.unwrap_or_default();
+			.wellknown_apple_appids()
+			.map(|arr| {
+				arr
+					.iter()
+					.filter_map(|v| v.as_str())
+					.map(String::from)
+					.collect()
+			})
+			.unwrap_or_default();
 
 		let template = AppleAppSiteAssociation {
 			applinks: AppleAppLinks {
-				details:  vec![AppleAppId {
+				details: vec![AppleAppId {
 					app_ids: app_ids.clone(),
 					components: vec![AppleAppIdComponent {
 						path: "/*".to_string(),
-						comment: "Matches any URL with a path that starts with /.".to_string(),
+						comment: "Matches any URL with a path that starts with /."
+							.to_string(),
 					}],
 				}],
 			},
-			webcredentials: AppleWebCredentials {
-				apps: app_ids,
-			},
+			webcredentials: AppleWebCredentials { apps: app_ids },
 		};
 
 		Ok(serde_json::to_string_pretty(&template)?)

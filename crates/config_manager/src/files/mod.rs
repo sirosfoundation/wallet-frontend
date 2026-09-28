@@ -1,5 +1,5 @@
-use std::{collections::HashMap, path::Path};
 use crate::{config::Config, utils};
+use std::{collections::HashMap, path::Path};
 pub mod branding_manifest;
 pub mod metadata_image;
 pub mod robots;
@@ -7,13 +7,7 @@ pub mod sitemap;
 pub mod theme;
 pub mod well_known;
 
-const BASE_PATH_ENV: &str = "BASE_PATH";
-const STATIC_NAME_ENV: &str = "STATIC_NAME";
-const STATIC_NAME_FALLBACK: &str = "SIROS ID (dev)";
-const URL_ENV: &str = "STATIC_PUBLIC_URL";
-const ANDROID_ASSETLINKS_ENV: &str = "WELLKNOWN_ANDROID_PACKAGE_NAMES_AND_FINGERPRINTS";
 const ANDROID_ASSETLINKS_FILE: &str = "assetlinks.json";
-const APPLE_APPIDS_ENV: &str = "WELLKNOWN_APPLE_APPIDS";
 const APPLE_APPIDS_FILE: &str = "apple-app-site-association";
 
 /// Module for handling various output files like robots.txt and sitemap.xml.

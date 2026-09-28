@@ -77,13 +77,21 @@ extern "C" {
 	fn read_file_sync(this: &NodeFs, path: &str) -> Result<Uint8Array, JsValue>;
 
 	#[wasm_bindgen(method, catch, js_name = writeFileSync)]
-	fn write_file_sync(this: &NodeFs, path: &str, data: &Uint8Array) -> Result<(), JsValue>;
+	fn write_file_sync(
+		this: &NodeFs,
+		path: &str,
+		data: &Uint8Array,
+	) -> Result<(), JsValue>;
 
 	#[wasm_bindgen(method, catch, js_name = readdirSync)]
 	fn readdir_sync(this: &NodeFs, path: &str) -> Result<Array, JsValue>;
 
 	#[wasm_bindgen(method, catch, js_name = mkdirSync)]
-	fn mkdir_sync(this: &NodeFs, path: &str, opts: &JsValue) -> Result<JsValue, JsValue>;
+	fn mkdir_sync(
+		this: &NodeFs,
+		path: &str,
+		opts: &JsValue,
+	) -> Result<JsValue, JsValue>;
 
 	#[wasm_bindgen(method, js_name = existsSync)]
 	fn exists_sync(this: &NodeFs, path: &str) -> bool;
@@ -120,7 +128,8 @@ fn err(e: JsValue) -> FsError {
 
 impl Fs for JsFs {
 	fn read(&self, path: &Path) -> Result<Vec<u8>, FsError> {
-		self.sys
+		self
+			.sys
 			.read_file_sync(&s(path))
 			.map(|a| a.to_vec())
 			.map_err(err)
@@ -130,22 +139,26 @@ impl Fs for JsFs {
 		String::from_utf8(bytes).map_err(|e| FsError(e.to_string()))
 	}
 	fn write(&self, path: &Path, data: &[u8]) -> Result<(), FsError> {
-		self.sys
+		self
+			.sys
 			.write_file_sync(&s(path), &Uint8Array::from(data))
 			.map_err(err)
 	}
 	fn read_dir(&self, path: &Path) -> Result<Vec<PathBuf>, FsError> {
 		let names = self.sys.readdir_sync(&s(path)).map_err(err)?;
-		Ok(names
-			.iter()
-			.filter_map(|v| v.as_string())
-			.map(|name| path.join(name))
-			.collect())
+		Ok(
+			names
+				.iter()
+				.filter_map(|v| v.as_string())
+				.map(|name| path.join(name))
+				.collect(),
+		)
 	}
 	fn create_dir_all(&self, path: &Path) -> Result<(), FsError> {
 		let opts = Object::new();
 		js_sys::Reflect::set(&opts, &"recursive".into(), &true.into()).ok();
-		self.sys
+		self
+			.sys
 			.mkdir_sync(&s(path), &opts.into())
 			.map(|_| ())
 			.map_err(err)
@@ -154,7 +167,8 @@ impl Fs for JsFs {
 		self.sys.exists_sync(&s(path))
 	}
 	fn is_dir(&self, path: &Path) -> bool {
-		self.sys
+		self
+			.sys
 			.stat_sync(&s(path))
 			.map(|st| st.is_directory())
 			.unwrap_or(false)
@@ -163,8 +177,6 @@ impl Fs for JsFs {
 		let opts = Object::new();
 		js_sys::Reflect::set(&opts, &"recursive".into(), &true.into()).ok();
 		js_sys::Reflect::set(&opts, &"force".into(), &true.into()).ok();
-		self.sys
-			.rm_sync(&s(path), &opts.into())
-			.map_err(err)
+		self.sys.rm_sync(&s(path), &opts.into()).map_err(err)
 	}
 }

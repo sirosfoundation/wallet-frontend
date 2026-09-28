@@ -1,12 +1,12 @@
-use crate::fs::{Fs};
+use crate::fs::Fs;
 use wasm_bindgen::prelude::*;
 
-pub mod files;
 pub mod branding;
 pub mod config;
+pub mod files;
+pub mod fs;
 pub mod inject;
 pub mod utils;
-pub mod fs;
 
 #[wasm_bindgen]
 pub struct ConfigManager {
@@ -30,6 +30,8 @@ impl ConfigManager {
 impl ConfigManager {
 	pub fn new() -> ConfigManager {
 		use crate::fs::StdFs;
-		ConfigManager { fs: Box::new(StdFs) }
+		ConfigManager {
+			fs: Box::new(StdFs),
+		}
 	}
 }

@@ -1,6 +1,6 @@
-use crate::{branding, files::{BASE_PATH_ENV, OutputFile}};
-use std::{fs, path::Path};
 use crate::utils;
+use crate::{branding, files::OutputFile};
+use std::{fs, path::Path};
 
 pub struct Theme;
 
@@ -21,18 +21,13 @@ impl OutputFile for Theme {
 		vec![
 			(
 				"theme-css".to_string(),
-				utils::Tag::link()
-					.attr("rel", "stylesheet")
-					.attr(
-						"href",
-						utils::path_with_base(
-							config.get_str(BASE_PATH_ENV).unwrap_or(""),
-							&utils::path_with_hash_suffix(
-								"theme.css",
-								branding_hash,
-							),
-						),
+				utils::Tag::link().attr("rel", "stylesheet").attr(
+					"href",
+					utils::path_with_base(
+						config.base_path(),
+						&utils::path_with_hash_suffix("theme.css", branding_hash),
 					),
+				),
 			),
 			(
 				"theme-color-light".to_string(),
@@ -47,7 +42,7 @@ impl OutputFile for Theme {
 					.attr("name", "theme-color")
 					.attr("media", "(prefers-color-scheme: dark)")
 					.attr("content", "#0c0e11"),
-			)
+			),
 		]
 	}
 }

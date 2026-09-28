@@ -1,57 +1,40 @@
 use serde::Serialize;
 
-use std::{fs, path::Path};
 use crate::{
-	branding::{
-		self,
-		Icons,
-		Screenshot,
-		Screenshots
-	},
-	files::{
-		BASE_PATH_ENV,
-		STATIC_NAME_ENV,
-		STATIC_NAME_FALLBACK,
-		OutputFile
-	},
-	utils::{
-		self,
-		Tag,
-	}
+	branding::{self, Icons, Screenshot, Screenshots},
+	files::OutputFile,
+	utils::{self, Tag},
 };
+use std::{fs, path::Path};
 
 pub struct BrandingManifest;
 
 impl OutputFile for BrandingManifest {
 	fn generate(
-			&self,
-			source_dir: &Path,
-			dest_dir: &Path,
-			config: &crate::config::Config,
-			branding_hash: &str,
-		) -> Vec<(String, crate::utils::Tag)>
-	{
+		&self,
+		source_dir: &Path,
+		dest_dir: &Path,
+		config: &crate::config::Config,
+		branding_hash: &str,
+	) -> Vec<(String, crate::utils::Tag)> {
 		let hash_suffix = if branding_hash.is_empty() {
 			"".to_string()
 		} else {
 			format!("?v={}", branding_hash)
 		};
 
-		let icons = branding::generate_all_icons(branding::GenerateAllIconsOptions {
-			source_dir: source_dir.to_path_buf(),
-			destination_dir: dest_dir.to_path_buf(),
-			branding_hash: branding_hash.to_string(),
-			manifest_icon_sizes: vec![16, 32, 64, 192, 512],
-			apple_touch_icon: Some(true),
-			copy_source: Some(true),
-		});
+		let icons =
+			branding::generate_all_icons(branding::GenerateAllIconsOptions {
+				source_dir: source_dir.to_path_buf(),
+				destination_dir: dest_dir.to_path_buf(),
+				branding_hash: branding_hash.to_string(),
+				manifest_icon_sizes: vec![16, 32, 64, 192, 512],
+				apple_touch_icon: Some(true),
+				copy_source: Some(true),
+			});
 
-		let manifest = self.generate_manifest(
-			branding_hash,
-			config.get_str(STATIC_NAME_ENV)
-				.unwrap_or(STATIC_NAME_FALLBACK),
-			icons,
-		);
+		let manifest =
+			self.generate_manifest(branding_hash, config.static_name(), icons);
 
 		let manifest_json = serde_json::to_string_pretty(&manifest).unwrap();
 		fs::write(dest_dir.join("manifest.json"), manifest_json).unwrap();
@@ -60,10 +43,7 @@ impl OutputFile for BrandingManifest {
 
 		let make_href = |href: &str| {
 			utils::path_with_hash_suffix(
-				&utils::path_with_base(
-					config.get_str(BASE_PATH_ENV).unwrap_or(""),
-					href,
-				),
+				&utils::path_with_base(config.base_path(), href),
 				&hash_suffix,
 			)
 		};
@@ -86,7 +66,7 @@ impl OutputFile for BrandingManifest {
 				Tag::link()
 					.attr("rel", "icon")
 					.attr("href", make_href("favicon.ico")),
-			)
+			),
 		]
 	}
 }

@@ -1,6 +1,6 @@
 use std::{fs, path::Path};
 
-use crate::{files::{OutputFile, URL_ENV}, utils::Tag};
+use crate::{files::OutputFile, utils::Tag};
 
 pub struct RobotsTxt;
 
@@ -12,9 +12,9 @@ impl OutputFile for RobotsTxt {
 		config: &crate::config::Config,
 		_branding_hash: &str,
 	) -> Vec<(String, Tag)> {
-		let Some(url) = config.get_str(URL_ENV) else {
+		let Some(url) = config.static_public_url() else {
 			println!(
-				"robots.txt generation skipped: {URL_ENV} not found in config"
+				"robots.txt generation skipped: STATIC_PUBLIC_URL not found in config"
 			);
 			return Vec::new();
 		};
@@ -31,7 +31,7 @@ impl OutputFile for RobotsTxt {
 impl RobotsTxt {
 	fn content(&self, url: &str) -> String {
 		format!(
-"User-agent: *
+			"User-agent: *
 Disallow: /settings
 Disallow: /credential/
 Disallow: /history

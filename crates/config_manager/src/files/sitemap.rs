@@ -1,7 +1,7 @@
+use chrono::Utc;
 use std::{fs, path::Path};
-use chrono::{Utc};
 
-use crate::{files::{OutputFile, URL_ENV}, utils::Tag};
+use crate::{files::OutputFile, utils::Tag};
 
 pub struct SitemapXml;
 
@@ -13,9 +13,9 @@ impl OutputFile for SitemapXml {
 		_config: &crate::config::Config,
 		_branding_hash: &str,
 	) -> Vec<(String, Tag)> {
-		let Some(url) = _config.get_str(URL_ENV) else {
+		let Some(url) = _config.static_public_url() else {
 			println!(
-				"sitemap.xml generation skipped: {URL_ENV} not found in config"
+				"sitemap.xml generation skipped: STATIC_PUBLIC_URL not found in config"
 			);
 			return Vec::new();
 		};
@@ -34,7 +34,7 @@ impl SitemapXml {
 		let today = Utc::now().format("%Y-%m-%d").to_string();
 
 		format!(
-"<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+			"<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">
 	<url>
 		<loc>{url}/login</loc>

@@ -1,6 +1,6 @@
 use std::fs;
 
-use crate::{branding, files::{OutputFile, STATIC_NAME_ENV, STATIC_NAME_FALLBACK}, utils};
+use crate::{branding, files::OutputFile, utils};
 
 pub struct MetadataImage;
 
@@ -12,22 +12,16 @@ impl OutputFile for MetadataImage {
 		config: &crate::config::Config,
 		branding_hash: &str,
 	) -> Vec<(String, crate::utils::Tag)> {
-		let title = config
-			.get_str(STATIC_NAME_ENV)
-			.unwrap_or(STATIC_NAME_FALLBACK)
-			.to_string();
+		let title = config.static_name();
 
-		let result = branding::generate_metadata_image(
-			branding::MetadataImageOptions {
+		let result =
+			branding::generate_metadata_image(branding::MetadataImageOptions {
 				source_dir: source_dir.to_path_buf(),
-				title: title,
-			}
-		).expect("Metadata image generation failed");
+				title: title.to_string(),
+			})
+			.expect("Metadata image generation failed");
 
-		fs::write(
-			dest_dir.join("image.png"),
-			&result.png_buffer
-		).unwrap();
+		fs::write(dest_dir.join("image.png"), &result.png_buffer).unwrap();
 
 		let base = config
 			.get_str("STATIC_PUBLIC_URL")
@@ -50,7 +44,7 @@ impl OutputFile for MetadataImage {
 				utils::Tag::meta()
 					.attr("name", "twitter:image")
 					.attr("content", &url),
-			)
+			),
 		]
 	}
 }

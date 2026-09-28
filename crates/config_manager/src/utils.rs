@@ -1,7 +1,9 @@
-use std::{collections::HashMap, error::Error, fs::read_to_string, path::{Path, PathBuf}};
-use serde::{Deserialize};
-use html5ever::{namespace_url, ns, LocalName, QualName};
+use html5ever::{LocalName, QualName, namespace_url, ns};
 use kuchikiki::{Attribute, ExpandedName, NodeRef};
+use std::{
+	collections::HashMap,
+	error::Error,
+};
 
 pub fn path_with_base(base_path: &str, path: &str) -> String {
 	if base_path.is_empty() {
@@ -12,7 +14,11 @@ pub fn path_with_base(base_path: &str, path: &str) -> String {
 		return base_path.to_string();
 	}
 
-	format!("{}/{}", base_path.trim_end_matches('/'), path.trim_start_matches('/'))
+	format!(
+		"{}/{}",
+		base_path.trim_end_matches('/'),
+		path.trim_start_matches('/')
+	)
 }
 
 pub fn path_with_hash_suffix(path: &str, hash: &str) -> String {
@@ -21,15 +27,6 @@ pub fn path_with_hash_suffix(path: &str, hash: &str) -> String {
 	} else {
 		format!("{}?v={}", path, hash)
 	}
-}
-
-pub struct FileToWrite<T> {
-	/// The filename to write the content to.
-	filename: String,
-	/// The finished data.
-	data: Option<T>,
-	/// The content to write to the file as a string.
-	content: String,
 }
 
 #[derive(Debug)]
@@ -55,22 +52,39 @@ impl Tag {
 		}
 	}
 	pub fn meta() -> Self {
-		Self { kind: TagKind::Meta, props: None, text_content: None }
+		Self {
+			kind: TagKind::Meta,
+			props: None,
+			text_content: None,
+		}
 	}
 	pub fn link() -> Self {
-		Self { kind: TagKind::Link, props: None, text_content: None }
+		Self {
+			kind: TagKind::Link,
+			props: None,
+			text_content: None,
+		}
 	}
 	pub fn title(text: impl Into<String>) -> Self {
-		Self { kind: TagKind::Title, props: None, text_content: Some(text.into()) }
+		Self {
+			kind: TagKind::Title,
+			props: None,
+			text_content: Some(text.into()),
+		}
 	}
 
 	/// Add/overwrite an attribute; chainable.
-	pub fn attr(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
-		self.props
+	pub fn attr(
+		mut self,
+		key: impl Into<String>,
+		value: impl Into<String>,
+	) -> Self {
+		self
+			.props
 			.get_or_insert_with(HashMap::new)
 			.insert(key.into(), value.into());
 		self
-		}
+	}
 
 	/// Render a Tag to valid HTML node.
 	pub fn to_node(&self) -> NodeRef {
@@ -84,7 +98,10 @@ impl Tag {
 		let attrs = self.props.iter().flatten().map(|(k, v)| {
 			(
 				ExpandedName::new(ns!(), k.as_str()),
-				Attribute { prefix: None, value: v.clone() },
+				Attribute {
+					prefix: None,
+					value: v.clone(),
+				},
 			)
 		});
 
@@ -134,7 +151,6 @@ pub fn insert_tag(head: &NodeRef, tag: &Tag) {
 	}
 }
 
-
 pub fn get_tag_sorting_priority(node: &NodeRef) -> i32 {
 	let el = match node.as_element() {
 		Some(el) => el,
@@ -144,7 +160,8 @@ pub fn get_tag_sorting_priority(node: &NodeRef) -> i32 {
 	let tag_name = el.name.local.to_string();
 	let attrs = el.attributes.borrow();
 	let get = |k: &str| attrs.get(k).unwrap_or("");
-	let (rel, name, property, href) = (get("rel"), get("name"), get("property"), get("href"));
+	let (rel, name, property, href) =
+		(get("rel"), get("name"), get("property"), get("href"));
 
 	if tag_name == "meta" && attrs.contains("charset") {
 		return 1;
@@ -158,31 +175,27 @@ pub fn get_tag_sorting_priority(node: &NodeRef) -> i32 {
 		return 3;
 	}
 
-	if
-		tag_name == "link" && rel.to_lowercase().contains("icon") ||
-		tag_name == "link" && rel == "manifest" ||
-		tag_name == "link" && href.to_lowercase().contains("theme.css") ||
-		tag_name == "meta" && name == "theme-color"
+	if tag_name == "link" && rel.to_lowercase().contains("icon")
+		|| tag_name == "link" && rel == "manifest"
+		|| tag_name == "link" && href.to_lowercase().contains("theme.css")
+		|| tag_name == "meta" && name == "theme-color"
 	{
 		return 4;
 	}
 
-	if
-		tag_name == "meta" && (
-			name == "description" ||
-			name == "keywords" ||
-			name.starts_with("og:") ||
-			name.starts_with("twitter:") ||
-			property.starts_with("og:")
-		)
+	if tag_name == "meta"
+		&& (name == "description"
+			|| name == "keywords"
+			|| name.starts_with("og:")
+			|| name.starts_with("twitter:")
+			|| property.starts_with("og:"))
 	{
 		return 5;
 	}
 
-	if
-		(tag_name == "link" && rel == "stylesheet") ||
-		tag_name == "style" ||
-		tag_name == "script"
+	if (tag_name == "link" && rel == "stylesheet")
+		|| tag_name == "style"
+		|| tag_name == "script"
 	{
 		return 6;
 	}
@@ -194,32 +207,7 @@ pub fn get_tag_sorting_priority(node: &NodeRef) -> i32 {
 	8
 }
 
-
 pub type TagsMap = HashMap<String, Tag>;
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ViteManifestEntry {
-	file: String,
-	src: Option<String>,
-	is_entry: Option<bool>,
-	css: Option<Vec<String>>,
-	assets: Option<Vec<String>>,
-}
-
-pub type ViteManifest = HashMap<String, Option<ViteManifestEntry>>;
-
-pub fn read_vite_manifest(base_path: &str) -> Result<ViteManifest, Box<dyn Error>> {
-	let manifest_path: PathBuf = Path::new(base_path)
-		.join(".vite")
-		.join("manifest.json");
-
-	let manifest_content: String = read_to_string(manifest_path)?;
-
-	let manifest: ViteManifest = serde_json::from_str(&manifest_content)?;
-
-	Ok(manifest)
-}
 
 /// Parses a configuration string into a `HashMap<String, String>`.
 ///
@@ -283,7 +271,7 @@ pub fn camel_to_kebab(s: &str) -> String {
 	for c in s.chars() {
 		if c.is_uppercase() {
 			out.push('-');
-			out.extend(c.to_lowercase());  // to_lowercase yields an iterator (some chars map to many)
+			out.extend(c.to_lowercase()); // to_lowercase yields an iterator (some chars map to many)
 		} else {
 			out.push(c);
 		}
