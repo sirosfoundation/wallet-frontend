@@ -20,3 +20,4 @@ overrides:
 packages:
   - .
   - packages/*
+  - crates/*
