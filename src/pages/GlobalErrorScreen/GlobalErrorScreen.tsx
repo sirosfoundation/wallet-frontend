@@ -3,7 +3,7 @@ import Logo from "@/components/Logo/Logo";
 /*import { useNavigate } from "react-router";*/
 import { useTranslation } from "react-i18next";
 import Button from "@/components/Buttons/Button";
-import { APP_VERSION } from "@/config";
+import { APP_VERSION, STATIC_NAME } from "@/config";
 import { AlertCircle } from "lucide-react";
 
 const ReportIssueEmail = 'support@siros.org';
@@ -39,7 +39,7 @@ const GlobalErrorScreen = ({error}: GlobalErrorScreenProps) => {
 				<div className="flex items-center mt-2 gap-2">
 					<Logo imgClassName="w-10" clickable={false}/>
 					<span className="text-xl font-semibold text-lm-gray-900 dark:text-dm-gray-100">
-						SIROS WALLET ID
+						{STATIC_NAME}
 					</span>
 				</div>
 				<div className="flex-1 flex flex-col items-center justify-center w-full">
