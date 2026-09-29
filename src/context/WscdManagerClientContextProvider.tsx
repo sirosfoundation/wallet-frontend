@@ -6,11 +6,9 @@ import SessionContext from './SessionContext';
 export const WscdManagerClientContextProvider: FC<PropsWithChildren> = ({
 	children,
 }) => {
-	const { api } = useContext(SessionContext);
+	const { api, keystore } = useContext(SessionContext);
 	const clientRef = useRef<WscdManagerClient>(null);
 	clientRef.current ??= new WscdManagerClient();
-
-	const { keystore } = useContext(SessionContext);
 
 	const value = useMemo(
 		() => ({ wscdManagerClient: clientRef.current! }),
