@@ -1,10 +1,10 @@
+use clap::Parser;
+use config_manager::{branding, files, inject, utils};
 use std::{
 	collections::HashMap,
 	fs,
 	path::{Path, PathBuf},
 };
-
-use config_manager::{branding, files, inject, utils};
 
 fn main() {
 	let mut env = HashMap::new();
@@ -84,4 +84,20 @@ fn main() {
 		&html_out,
 	)
 	.unwrap();
+}
+
+#[derive(Parser)]
+#[command(name = "config-manager", version, about)]
+struct Cli {
+	/// Branding source directory
+	#[arg(short, long)]
+	source_dir: PathBuf,
+
+	/// Output directory
+	#[arg(short, long)]
+	dest_dir: PathBuf,
+
+	/// Env schema JSON path
+	#[arg(short, long)]
+	schema_dir: PathBuf,
 }

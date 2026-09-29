@@ -1,9 +1,8 @@
 use html5ever::{LocalName, QualName, namespace_url, ns};
 use kuchikiki::{Attribute, ExpandedName, NodeRef};
-use std::{
-	collections::HashMap,
-	error::Error,
-};
+use serde::Serialize;
+use std::{collections::HashMap, error::Error};
+use tsify::Tsify;
 
 pub fn path_with_base(base_path: &str, path: &str) -> String {
 	if base_path.is_empty() {
@@ -29,18 +28,24 @@ pub fn path_with_hash_suffix(path: &str, hash: &str) -> String {
 	}
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Tsify)]
+pub struct Tags(pub std::collections::HashMap<String, Tag>);
+
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "lowercase")]
 pub enum TagKind {
 	Meta,
 	Link,
 	Title,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
 pub struct Tag {
+	#[serde(rename = "tag")]
 	pub kind: TagKind,
 	pub props: Option<HashMap<String, String>>,
-	pub text_content: Option<String>,
+	pub text_content: Option<String>, // → textContent in TS
 }
 
 impl Tag {
