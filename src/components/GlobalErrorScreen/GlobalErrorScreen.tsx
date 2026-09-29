@@ -5,7 +5,7 @@ import Button from '@/components/Buttons/Button';
 import { APP_VERSION, STATIC_NAME } from '@/config';
 import { AlertCircle } from 'lucide-react';
 
-const ReportIssueEmail = 'support@siros.org';
+const REPORT_ISSUE_EMAIL = 'support@siros.org';
 
 type GlobalErrorScreenProps = {
 	error?: Error;
@@ -29,7 +29,7 @@ const GlobalErrorScreen = ({ error }: GlobalErrorScreenProps) => {
 			`Browser: ${navigator.userAgent}`
 		].join('\n');
 
-		window.location.href = `mailto:${ReportIssueEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+		window.location.href = `mailto:${REPORT_ISSUE_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 	};
 
 	return (

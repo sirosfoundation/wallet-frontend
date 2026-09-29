@@ -30,10 +30,10 @@ Modal.setAppElement('#root');
 const root = createRoot(document.getElementById('root'));
 root.render(
 	<BrowserRouter>
-		<AppProvider>
-			<GlobalErrorBoundary>
+		<GlobalErrorBoundary>
+			<AppProvider>
 				<App />
-			</GlobalErrorBoundary>
-		</AppProvider>
+			</AppProvider>
+		</GlobalErrorBoundary>
 	</BrowserRouter>
 );

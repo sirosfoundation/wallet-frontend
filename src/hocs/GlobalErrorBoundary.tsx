@@ -1,6 +1,6 @@
 import React from 'react';
 import {ErrorBoundary} from 'react-error-boundary';
-import GlobalErrorScreen from '@/pages/GlobalErrorScreen/GlobalErrorScreen';
+import GlobalErrorScreen from '@/components/GlobalErrorScreen/GlobalErrorScreen';
 import { logger } from '@/logger';
 
 
