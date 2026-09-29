@@ -241,7 +241,7 @@ export class WscdManagerClient implements IWscdManagerClient {
 			)
 		).filter((h): h is IWscdManagerHost => h !== null);
 
-		const [strongest] = eligible.sort((a, b) => b.strength - a.strength);
+		const [strongest] = eligible.toSorted((a, b) => b.strength - a.strength);
 		if (!strongest)
 			throw new Error('No eligible WSCD host for these requirements');
 

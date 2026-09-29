@@ -322,7 +322,8 @@ function claimsToNamespaces(
 		const lastDot = claim.lastIndexOf('.');
 		const ns = claim.slice(0, lastDot);
 		const element = claim.slice(lastDot + 1);
-		(namespaces[ns] ??= {})[element] = false; // false = intent_to_retain
+		namespaces[ns] ??= {};
+		namespaces[ns][element] = false; // false = intent_to_retain
 	}
 	return namespaces;
 }

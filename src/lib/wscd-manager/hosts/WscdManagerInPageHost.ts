@@ -36,7 +36,7 @@ export class WscdManagerInPageHost implements IWscdManagerHost {
 
 	public async isAvailable() {
 		// In-page host is always available.
-		return Promise.resolve(true);
+		return true;
 	}
 
 	async isEligible({
