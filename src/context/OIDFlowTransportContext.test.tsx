@@ -1,6 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import React from 'react';
+import SessionContext from './SessionContext';
+import { OIDFlowTransportProvider, useOIDFlowTransport } from './OIDFlowTransportContext';
+
+// vi.mock factories are hoisted above the imports, so what they share with
+// the tests has to be hoisted too.
+const { connect, httpClient } = vi.hoisted(() => ({
+	connect: vi.fn(async () => {}),
+	// Stable across renders, like the real hook: a new object each time would
+	// rebuild trustEvaluators and re-run the WebSocket effect forever.
+	httpClient: {},
+}));
 
 vi.mock('@/config', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/config')>()),
@@ -17,14 +28,10 @@ vi.mock('@/lib/services/CapabilitiesService', () => ({
 	getEngineCapabilities: vi.fn(async () => ['websocket']),
 }));
 
-// Stable across renders, like the real hook: a new object each time would
-// rebuild trustEvaluators and re-run the WebSocket effect forever.
-const httpClient = {};
 vi.mock('@/hooks/useHttpClient', () => ({
 	useHttpClient: () => httpClient,
 }));
 
-const connect = vi.fn(async () => {});
 vi.mock('@/lib/openid-flow/transports/OIDFlowWebSocketTransport', () => ({
 	OIDFlowWebSocketTransport: class {
 		connect = connect;
@@ -37,9 +44,6 @@ vi.mock('@/lib/openid-flow/transports/OIDFlowWebSocketTransport', () => ({
 		onMatchRequest = vi.fn(() => () => {});
 	},
 }));
-
-import SessionContext from './SessionContext';
-import { OIDFlowTransportProvider, useOIDFlowTransport } from './OIDFlowTransportContext';
 
 function deferred<T>() {
 	let resolve!: (value: T) => void;
