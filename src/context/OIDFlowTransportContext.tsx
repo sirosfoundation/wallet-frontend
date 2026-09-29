@@ -100,14 +100,20 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 	// Resolve the backend access token (the WebSocket/relay auth credential) from
 	// the AuthTokens manager exposed on the session api.
 	const [authToken, setAuthToken] = useState<string | null>(null);
+	// Whether the lookup above has finished, with or without a token. Until it
+	// has, a null authToken means "not known yet", not "no WebSocket".
+	const [authTokenSettled, setAuthTokenSettled] = useState(false);
 	useEffect(() => {
 		let active = true;
+		setAuthTokenSettled(false);
 		(async () => {
 			try {
 				const token = await authTokens.ensureBackendToken();
 				if (active) setAuthToken(token.raw);
 			} catch {
 				if (active) setAuthToken(null);
+			} finally {
+				if (active) setAuthTokenSettled(true);
 			}
 		})();
 		return () => { active = false; };
@@ -129,11 +135,17 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		if (!capabilitiesLoaded) return false;
 		// 2. Wait for any transport mid-connection
 		if (pendingTransports.size > 0) return false;
-		// 3. If WebSocket is expected, wait for it to connect or fail
-		const wsExpected = WEBSOCKET_TRANSPORT_ALLOWED && wsCapabilityAvailable && !!WS_URL && !!authToken;
+		// 3. If WebSocket is possible, wait for the backend token that
+		//    authenticates it. Without this, a page load (e.g. the credential
+		//    offer callback) reports ready before the token resolves, and the
+		//    flow starts with no transport at all.
+		const wsPossible = WEBSOCKET_TRANSPORT_ALLOWED && wsCapabilityAvailable && !!WS_URL;
+		if (wsPossible && !authTokenSettled) return false;
+		// 4. If WebSocket is expected, wait for it to connect or fail
+		const wsExpected = wsPossible && !!authToken;
 		if (wsExpected && !isConnected && !lastError) return false;
 		return true;
-	}, [capabilitiesLoaded, pendingTransports, wsCapabilityAvailable, authToken, isConnected, lastError]);
+	}, [capabilitiesLoaded, pendingTransports, wsCapabilityAvailable, authToken, authTokenSettled, isConnected, lastError]);
 
 	const trustEvaluators = useMemo((): TrustEvaluators => {
 		const evaluateIssuerTrust = createIssuerTrustEvaluator({
