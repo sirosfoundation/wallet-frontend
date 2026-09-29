@@ -4,7 +4,7 @@ import * as jose from "jose";
 import * as util from '@cef-ebsi/key-did-resolver/dist/util.js';
 
 import * as keystore from "./keystore.js";
-import { byteArrayEquals, fromBase64, jsonParseTaggedBinary, toBase64, toBase64Url } from "../util";
+import { byteArrayEquals, fromBase64, jsonParseTaggedBinary, toBase64, toBase64Url } from '@/lib/utils';
 import { DidKeyVersion } from "../config.js";
 
 

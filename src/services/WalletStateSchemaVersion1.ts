@@ -1,7 +1,7 @@
 import { WrappedPrivateKey } from "./keystore";
 import { JWK } from "jose";
 import { sha256 } from "./WalletStateUtils";
-import { compareBy, deduplicateFromRightBy, maxByKey } from "@/util";
+import { compareBy, deduplicateFromRightBy, maxByKey } from '@/lib/utils';
 import * as WalletSchemaCommon from "./WalletStateSchemaCommon";
 
 

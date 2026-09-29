@@ -1,5 +1,27 @@
 # wallet-frontend
 
+## 0.6.0-beta.3
+
+### Patch Changes
+
+- Remove `http_proxy` from the default value in transports config by [@smncd](https://github.com/smncd) in
+
+## 0.6.0-beta.2
+
+### Minor Changes
+
+- Breaking: remove deprecated `http_proxy` flow and implementation by [@smncd](https://github.com/smncd) in [#263](https://github.com/sirosfoundation/wallet-frontend/pull/263)
+- Allow OpenID flows to block any updates to the web app itself by [@smncd](https://github.com/smncd) in [#302](https://github.com/sirosfoundation/wallet-frontend/pull/302)
+
+### Patch Changes
+
+- Move credential matching service to `src/lib/services` by [@smncd](https://github.com/smncd) in [#297](https://github.com/sirosfoundation/wallet-frontend/pull/297)
+- Upgrade dependencies by [@smncd](https://github.com/smncd) in [#298](https://github.com/sirosfoundation/wallet-frontend/pull/298)
+- Bump dockerfile build base image to trixie by [@smncd](https://github.com/smncd) in [#299](https://github.com/sirosfoundation/wallet-frontend/pull/299)
+- moved utils to a src/lib/utils, added new testfiles and changed imports in files. by [@lov1saconde](https://github.com/lov1saconde) in [#312](https://github.com/sirosfoundation/wallet-frontend/pull/312)
+- fix: if engine sends back `attestation_challenge`, include it in client attestation PoP by [@smncd](https://github.com/smncd) in [#313](https://github.com/sirosfoundation/wallet-frontend/pull/313)
+- Handle expired sessions, letting the user re-authenticate wherever they are by [@smncd](https://github.com/smncd) in [#305](https://github.com/sirosfoundation/wallet-frontend/pull/305)
+
 ## 0.6.0-beta.1
 
 ### Patch Changes

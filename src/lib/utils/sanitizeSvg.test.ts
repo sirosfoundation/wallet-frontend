@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { sanitizeSvgDataUri, sanitizeSvgContent, isSvgDataUri, normalizeSvgImageDimensions } from '../sanitizeSvg';
+import { sanitizeSvgDataUri, sanitizeSvgContent, isSvgDataUri, normalizeSvgImageDimensions } from './sanitizeSvg';
 
 describe('sanitizeSvg', () => {
 	describe('isSvgDataUri', () => {

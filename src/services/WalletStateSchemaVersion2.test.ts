@@ -1,7 +1,7 @@
 import { assert, describe, it } from "vitest";
 import { WalletStateContainer, WalletStateOperations } from "./WalletStateSchemaVersion2";
 import { mergeEventHistories, SchemaV2 } from "./WalletStateSchema";
-import { jsonParseTaggedBinary } from "@/util";
+import { jsonParseTaggedBinary } from '@/lib/utils';
 
 
 describe("WalletStateSchemaVersion2", () => {

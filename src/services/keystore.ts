@@ -8,13 +8,13 @@ import * as didUtil from "@cef-ebsi/key-did-resolver/dist/util.js";
 
 import * as config from '../config';
 import type { DidKeyVersion } from '../config';
-import { byteArrayEquals, filterObject, jsonParseTaggedBinary, jsonStringifyTaggedBinary, toBase64Url } from "../util";
+import { byteArrayEquals, filterObject, jsonParseTaggedBinary, jsonStringifyTaggedBinary, toBase64Url } from '@/lib/utils';
 import { SDJwt } from "@sd-jwt/core";
 import { cborEncode, cborDecode, DataItem, getCborEncodeDecodeOptions, setCborEncodeDecodeOptions } from "@auth0/mdl/lib/cbor";
 import { DeviceResponse, MDoc } from "@auth0/mdl";
 import { SupportedAlgs } from "@auth0/mdl/lib/mdoc/model/types";
 import { COSEKeyToJWK } from "cose-kit";
-import { withHintsFromAllowCredentials } from "@/util-webauthn";
+import { withHintsFromAllowCredentials } from "@/lib/utils/webauthn";
 import { addDeleteKeypairEvent, addNewKeypairEvent, CurrentSchema, foldState, SchemaV1, SchemaV2, SchemaV3 } from "./WalletStateSchema";
 import { logger } from "../logger";
 
