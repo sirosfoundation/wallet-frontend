@@ -167,6 +167,10 @@ export interface LocalStorageKeystore {
 	 * @param remotePrivateDataRaw - Raw private data bytes from the server
 	 */
 	syncWithRemoteData(remotePrivateDataRaw: Uint8Array): Promise<Result<AsymmetricEncryptedContainer, 'keystoreNotOpen' | 'mergeFailed'>>,
+	/**
+	 * Softkey only: raw private keys leave the keystore because there is no secure element yet.
+	 * Isolated plugins (fido2/r2ps/native) must never export `d`.
+	 */
 	exportToWscdContainer(): Promise<WscdContainer>,
 	importFromWscdContainer(container: ExportedWscdContainer): Promise<[
 		{},
