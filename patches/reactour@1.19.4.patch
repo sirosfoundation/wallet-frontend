@@ -1,0 +1,283 @@
+diff --git a/dist/reactour.esm.js b/dist/reactour.esm.js
+index e3974f3a3cd73073fe808dfad1cf2f4cf92b402a..aded11b2993d64f57e18a1d3bd2509bed23c4117 100644
+--- a/dist/reactour.esm.js
++++ b/dist/reactour.esm.js
+@@ -5,7 +5,7 @@ import scrollSmooth from 'scroll-smooth';
+ import Scrollparent from 'scrollparent';
+ import debounce from 'lodash.debounce';
+ import FocusLock from 'react-focus-lock';
+-import styled, { createGlobalStyle } from 'styled-components';
++/*import styled, { createGlobalStyle } from 'styled-components';*/
+ import PropTypes from 'prop-types';
+ import { createPortal } from 'react-dom';
+ 
+@@ -212,28 +212,25 @@ function _unsupportedIterableToArray(r, a) {
+   }
+ }
+ 
+-var _templateObject$9;
+-var GlobalStyle = createGlobalStyle(_templateObject$9 || (_templateObject$9 = _taggedTemplateLiteral(["\n  .focus-outline-hidden :focus {\n      outline: none;\n  }\n"])));
+-
+-var _templateObject$8;
+-var SvgButton = styled.button(_templateObject$8 || (_templateObject$8 = _taggedTemplateLiteral(["\n  display: block;\n  padding: 0;\n  border: 0;\n  background: none;\n  font-size: 0;\n  cursor: ", ";\n"])), function (props) {
+-  return props.disabled ? 'not-allowed' : 'pointer';
+-});
+-
+-var _templateObject$7, _templateObject2;
+-var Label = styled.span(_templateObject$7 || (_templateObject$7 = _taggedTemplateLiteral(["\n  font-size: 12px;\n  line-height: 1;\n"])));
+ function Arrow(_ref) {
+   var className = _ref.className,
+     onClick = _ref.onClick,
+     inverted = _ref.inverted,
+     label = _ref.label,
+     disabled = _ref.disabled;
+-  return /*#__PURE__*/React.createElement(SvgButton, {
+-    className: className,
++  return /*#__PURE__*/React.createElement("button", {
++    className: cn('reactour-svg-button', 'reactour-arrow', !label && 'reactour-arrow--no-label', className),
++    style: {
++      '--reactour-arrow-color': disabled ? '#caccce' : '#646464',
++      '--reactour-arrow-hover-color': disabled ? '#caccce' : '#000',
++      marginLeft: inverted ? '24px' : undefined,
++      marginRight: inverted ? undefined : '24px',
++			cursor: disabled ? 'not-allowed' : 'pointer',
++    },
+     onClick: onClick,
+     "data-tour-elem": "".concat(inverted ? 'right' : 'left', "-arrow"),
+     disabled: disabled
+-  }, label ? /*#__PURE__*/React.createElement(Label, null, label) : /*#__PURE__*/React.createElement("svg", {
++  }, label ? /*#__PURE__*/React.createElement("span", { className: 'reactour-label' }, label) : /*#__PURE__*/React.createElement("svg", {
+     viewBox: "0 0 18.4 14.4"
+   }, /*#__PURE__*/React.createElement("path", {
+     d: inverted ? 'M17 7.2H1M10.8 1L17 7.2l-6.2 6.2' : 'M1.4 7.2h16M7.6 1L1.4 7.2l6.2 6.2',
+@@ -251,23 +248,14 @@ Arrow.propTypes = {
+   label: PropTypes.node,
+   disabled: PropTypes.bool
+ };
+-var Arrow$1 = styled(Arrow)(_templateObject2 || (_templateObject2 = _taggedTemplateLiteral(["\n  color: ", ";\n\n  ", ";\n  ", ";\n\n  &:hover {\n    color: ", ";\n  }\n"])), function (props) {
+-  return props.disabled ? '#caccce' : '#646464';
+-}, function (props) {
+-  return props.inverted ? 'margin-left: 24px;' : 'margin-right: 24px;';
+-}, function (props) {
+-  return !props.label && "\n    width: 16px;\n    height: 12px;\n    flex: 0 0 16px;\n  ";
+-}, function (props) {
+-  return props.disabled ? '#caccce' : '#000';
+-});
++var Arrow$1 = Arrow;
+ 
+-var _templateObject$6;
+ function Close(_ref) {
+   var className = _ref.className,
+     onClick = _ref.onClick,
+     ariaLabel = _ref.ariaLabel;
+-  return /*#__PURE__*/React.createElement(SvgButton, {
+-    className: className,
++  return /*#__PURE__*/React.createElement("button", {
++    className: cn('reactour-svg-button', 'reactour-close', className),
+     onClick: onClick,
+     "aria-label": ariaLabel
+   }, /*#__PURE__*/React.createElement("svg", {
+@@ -284,7 +272,7 @@ Close.propTypes = {
+   onClick: PropTypes.func.isRequired,
+   ariaLabel: PropTypes.string
+ };
+-var StyledClose = styled(Close)(_templateObject$6 || (_templateObject$6 = _taggedTemplateLiteral(["\n  position: absolute;\n  top: 22px;\n  right: 22px;\n  width: 9px;\n  height: 9px;\n  color: #5e5e5e;\n  &:hover {\n    color: #000;\n  }\n"])));
++var StyledClose = Close;
+ 
+ function getNodeRect(node) {
+   var _node$getBoundingClie = node.getBoundingClientRect(),
+@@ -379,12 +367,7 @@ function bestPositionOf(positions) {
+   });
+ }
+ 
+-var _templateObject$5;
+-var Guide = styled.div(_templateObject$5 || (_templateObject$5 = _taggedTemplateLiteral(["\n  --reactour-accent: ", ";\n  ", "\n  position: fixed;\n  transition: transform 0.3s;\n  top: 0;\n  left: 0;\n  z-index: 1000000;\n\n  transform: ", ";\n"])), function (props) {
+-  return props.accentColor;
+-}, function (props) {
+-  return props.defaultStyles ? "\n  max-width: 331px;\n  min-width: 150px;\n  padding-right: 40px;\n  border-radius: ".concat(props.rounded, "px;\n  background-color: #fff;\n  padding: 24px 30px;\n  box-shadow: 0 0.5em 3em rgba(0, 0, 0, 0.3);\n  color: inherit;\n  ") : '';
+-}, function (props) {
++function reactourComputeGuideTransform(props) {
+   var targetTop = props.targetTop,
+     targetRight = props.targetRight,
+     targetBottom = props.targetBottom,
+@@ -442,44 +425,8 @@ var Guide = styled.div(_templateObject$5 || (_templateObject$5 = _taggedTemplate
+   };
+   var p = pos(helperPosition);
+   return "translate(".concat(Math.round(p[0]), "px, ").concat(Math.round(p[1]), "px)");
+-});
+-
+-var _templateObject$4;
+-var Badge = styled.span(_templateObject$4 || (_templateObject$4 = _taggedTemplateLiteral(["\n  position: absolute;\n  font-family: monospace;\n  background: var(--reactour-accent);\n  background: ", ";\n  height: 1.875em;\n  line-height: 2;\n  padding-left: 0.8125em;\n  padding-right: 0.8125em;\n  font-size: 1em;\n  border-radius: 1.625em;\n  color: white;\n  text-align: center;\n  box-shadow: 0 0.25em 0.5em rgba(0, 0, 0, 0.3);\n  top: -0.8125em;\n  left: -0.8125em;\n"])), function (props) {
+-  return props.accentColor;
+-});
+-
+-var _templateObject$3;
+-var Controls = styled.div(_templateObject$3 || (_templateObject$3 = _taggedTemplateLiteral(["\n  display: flex;\n  margin-top: 24px;\n  align-items: center;\n  justify-content: center;\n"])));
+-
+-var _templateObject$2;
+-var Navigation = styled.nav(_templateObject$2 || (_templateObject$2 = _taggedTemplateLiteral(["\n  counter-reset: dot;\n  display: flex;\n  justify-content: center;\n  align-items: center;\n  flex-wrap: wrap;\n"])));
+-
+-var _templateObject$1;
+-var Dot = styled.button(_templateObject$1 || (_templateObject$1 = _taggedTemplateLiteral(["\n  counter-increment: dot;\n  width: 8px;\n  height: 8px;\n  border: ", ";\n\n  border-radius: 100%;\n  padding: 0;\n  display: block;\n  margin: 4px;\n  transition: opacity 0.3s, transform 0.3s;\n  cursor: ", ";\n  transform: scale(", ");\n\n  color: ", ";\n  background: ", ";\n\n  color: ", ";\n  background: ", ";\n\n  &:before {\n    content: counter(dot);\n    position: absolute;\n    bottom: calc(100% + 0.25em);\n    left: 50%;\n    opacity: 0;\n    transform: translate(-50%, 1em);\n    transition: 0.3s;\n    display: ", ";\n  }\n\n  &:hover {\n    background-color: currentColor;\n\n    &:before {\n      opacity: 0.5;\n      transform: translate(-50%, -2px);\n    }\n  }\n"])), function (props) {
+-  return props.current === props.index ? '0' : '1px solid #caccce';
+-}, function (props) {
+-  return props.disabled ? 'not-allowed' : 'pointer';
+-}, function (props) {
+-  return props.current === props.index ? 1.25 : 1;
+-}, function (props) {
+-  return props.current === props.index ? 'var(--reactour-accent)' : '#caccce';
+-}, function (props) {
+-  return props.current === props.index ? 'var(--reactour-accent)' : 'none';
+-}, function (props) {
+-  return props.current === props.index ? props.accentColor : '#caccce';
+-}, function (props) {
+-  return props.current === props.index ? props.accentColor : 'none';
+-}, function (props) {
+-  return props.showNumber ? 'block' : 'none';
+-});
++}
+ 
+-var _templateObject;
+-var SvgMaskWrapper = styled.div(_templateObject || (_templateObject = _taggedTemplateLiteral(["\n  opacity: ", ";\n  color: ", ";\n  width: 100%;\n  left: 0;\n  top: 0;\n  height: 100%;\n  position: fixed;\n  z-index: 99999;\n  pointer-events: none;\n"])), function (props) {
+-  return !props.maskClassName && 0.7;
+-}, function (props) {
+-  return !props.maskClassName && '#000';
+-});
+ function SvgMask(_ref) {
+   var windowWidth = _ref.windowWidth,
+     windowHeight = _ref.windowHeight,
+@@ -500,9 +447,10 @@ function SvgMask(_ref) {
+   var top = safe(targetTop - padding);
+   var left = safe(targetLeft - padding);
+   var roundedRadius = roundedStep ? Math.min(width / 2, height / 2) : rounded;
+-  return /*#__PURE__*/React.createElement(SvgMaskWrapper, {
+-    onClick: onClick,
+-    maskClassName: className
++  return /*#__PURE__*/React.createElement('div', {
++  onClick: onClick,
++  className: 'reactour-svg-mask-wrapper',
++  style: { opacity: !className ? 0.7 : undefined, color: !className ? '#000' : undefined },
+   }, /*#__PURE__*/React.createElement("svg", {
+     width: windowWidth,
+     height: windowHeight,
+@@ -1264,7 +1212,7 @@ var Tour = /*#__PURE__*/function (_Component) {
+         helperHeight = _this$state2.helperHeight,
+         helperPosition = _this$state2.helperPosition;
+       if (isOpen) {
+-        return /*#__PURE__*/React.createElement(Portal, null, /*#__PURE__*/React.createElement(GlobalStyle, null), /*#__PURE__*/React.createElement(ReactourResizeObserver, {
++        return /*#__PURE__*/React.createElement(Portal, null, /*#__PURE__*/React.createElement(ReactourResizeObserver, {
+           step: steps[current],
+           refresh: function refresh() {
+             return _this3.recalculateNode(steps[current]);
+@@ -1295,28 +1243,21 @@ var Tour = /*#__PURE__*/function (_Component) {
+         }), /*#__PURE__*/React.createElement(FocusLock, {
+           disabled: disableFocusLock,
+           autoFocus: false
+-        }, /*#__PURE__*/React.createElement(Guide, {
+-          ref: this.helper,
+-          targetHeight: targetHeight,
+-          targetWidth: targetWidth,
+-          targetTop: targetTop,
+-          targetRight: targetRight,
+-          targetBottom: targetBottom,
+-          targetLeft: targetLeft,
+-          windowWidth: windowWidth,
+-          windowHeight: windowHeight,
+-          helperWidth: helperWidth,
+-          helperHeight: helperHeight,
+-          helperPosition: helperPosition,
+-          padding: maskSpace,
+-          tabIndex: -1,
+-          current: current,
+-          style: steps[current].style ? steps[current].style : {},
+-          rounded: rounded,
+-          className: cn(CN.helper.base, className, _defineProperty({}, CN.helper.isOpen, isOpen)),
+-          accentColor: accentColor,
+-          defaultStyles: !CustomHelper,
+-          role: "dialog"
++        }, /*#__PURE__*/React.createElement('div', {
++  				ref: this.helper,
++  				tabIndex: -1,
++  				style: Object.assign({
++    				'--reactour-accent': accentColor,
++    				borderRadius: !CustomHelper ? "".concat(rounded, "px") : undefined,
++    				transform: reactourComputeGuideTransform({
++      				targetTop: targetTop, targetRight: targetRight, targetBottom: targetBottom, targetLeft: targetLeft,
++      				windowWidth: windowWidth, windowHeight: windowHeight,
++      				helperWidth: helperWidth, helperHeight: helperHeight, helperPosition: helperPosition,
++      				padding: maskSpace,
++    				}),
++ 					}, steps[current].style ? steps[current].style : {}),
++  				className: cn('reactour-guide', !CustomHelper && 'reactour-guide--default-styles', CN.helper.base, className, _defineProperty({}, CN.helper.isOpen, isOpen)),
++  				role: "dialog"
+         }, CustomHelper ? /*#__PURE__*/React.createElement(CustomHelper, {
+           current: current,
+           totalSteps: steps.length,
+@@ -1333,41 +1274,36 @@ var Tour = /*#__PURE__*/function (_Component) {
+           goTo: this.gotoStep,
+           inDOM: inDOM,
+           step: current + 1
+-        }) : steps[current].content), showNumber && /*#__PURE__*/React.createElement(Badge, {
+-          "data-tour-elem": "badge",
+-          accentColor: accentColor
+-        }, typeof badgeContent === 'function' ? badgeContent(current + 1, steps.length) : current + 1), (showButtons || showNavigation) && /*#__PURE__*/React.createElement(Controls, {
+-          "data-tour-elem": "controls"
++        }) : steps[current].content), showNumber && /*#__PURE__*/React.createElement('span', { "data-tour-elem": "badge", className: 'reactour-badge', style: { background: accentColor }
++        }, typeof badgeContent === 'function' ? badgeContent(current + 1, steps.length) : current + 1), (showButtons || showNavigation) && /*#__PURE__*/React.createElement('div', { "data-tour-elem": "controls", className: 'reactour-controls'
+         }, showButtons && /*#__PURE__*/React.createElement(Arrow$1, {
+           onClick: typeof prevStep === 'function' ? prevStep : this.prevStep,
+           disabled: current === 0,
+           label: prevButton ? prevButton : null
+-        }), showNavigation && /*#__PURE__*/React.createElement(Navigation, {
+-          "data-tour-elem": "navigation"
++        }), showNavigation && /*#__PURE__*/React.createElement('nav', { "data-tour-elem": "navigation" , className: 'reactour-navigation'
+         }, steps.map(function (s, i) {
+-          return /*#__PURE__*/React.createElement(Dot, {
+-            key: "".concat(s.selector ? s.selector : 'undef', "_").concat(i),
+-            onClick: function onClick() {
+-              return _this3.gotoStep(i);
+-            },
+-            current: current,
+-            index: i,
+-            accentColor: accentColor,
+-            disabled: current === i || disableDotsNavigation,
+-            showNumber: showNavigationNumber,
+-            "data-tour-elem": "dot",
+-            className: cn(CN.dot.base, _defineProperty({}, CN.dot.active, current === i)),
+-            "aria-label": s.navDotAriaLabel
+-          });
++          return /*#__PURE__*/React.createElement('button', {
++  					key: "".concat(s.selector ? s.selector : 'undef', "_").concat(i),
++  					onClick: function onClick() { return _this3.gotoStep(i); },
++  					disabled: current === i || disableDotsNavigation,
++  					className: cn('reactour-dot', CN.dot.base, _defineProperty({}, CN.dot.active, current === i)),
++  					style: {
++    					border: current === i ? '0' : '1px solid #caccce',
++    					cursor: (current === i || disableDotsNavigation) ? 'not-allowed' : 'pointer',
++    					transform: "scale(".concat(current === i ? 1.25 : 1, ")"),
++    					color: current === i ? accentColor : '#caccce',
++    					background: current === i ? accentColor : 'none',
++    					'--reactour-dot-number-display': showNavigationNumber ? 'block' : 'none',
++  					},
++  					"data-tour-elem": "dot",
++  					"aria-label": s.navDotAriaLabel,
++					})
+         })), showButtons && /*#__PURE__*/React.createElement(Arrow$1, {
+           onClick: current === steps.length - 1 ? lastStepNextButton ? onRequestClose : function () {} : typeof nextStep === 'function' ? nextStep : this.nextStep,
+           disabled: !lastStepNextButton && current === steps.length - 1,
+           inverted: true,
+           label: lastStepNextButton && current === steps.length - 1 ? lastStepNextButton : nextButton ? nextButton : null
+-        })), showCloseButton && /*#__PURE__*/React.createElement(StyledClose, {
+-          onClick: onRequestClose,
+-          className: "reactour__close",
+-          ariaLabel: closeButtonAriaLabel
++        })), showCloseButton && /*#__PURE__*/React.createElement(Close, { onClick: onRequestClose, className: "reactour__close", ariaLabel: closeButtonAriaLabel 
+         })))));
+       }
+       return null;
+@@ -1411,4 +1347,4 @@ Tour.propTypes = propTypes;
+ Tour.defaultProps = defaultProps;
+ 
+ export default Tour;
+-export { Arrow$1 as Arrow, Badge, StyledClose as Close, Controls, Dot, Navigation };
++export { Arrow$1 as Arrow, StyledClose as Close };

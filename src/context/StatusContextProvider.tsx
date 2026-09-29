@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { BACKEND_URL } from '../config';
 import StatusContext, { Connectivity } from './StatusContext';
@@ -51,7 +51,25 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 	const [pwaInstallable, setPwaInstallable] = useState(null);
 	const [hidePwaPrompt, setHidePwaPrompt] = useLocalStorage<boolean>("hidePwaPrompt", false);
 
+	const updateBlockers = useRef<Map<string, { label: string; since: number; }>>(new Map());
+	const [isSafeToUpdate, setIsSafeToUpdate] = useState(true);
+
 	const lastUpdateCallTime = React.useRef<number>(0);
+
+	const blockUpdates = useCallback((label: string) => {
+		const key = crypto.randomUUID();
+		updateBlockers.current.set(key, { label, since: Date.now() });
+		setIsSafeToUpdate(false);
+
+		let released = false;
+
+		return () => {
+			if (released) return;
+			released = true;
+			updateBlockers.current.delete(key);
+			setIsSafeToUpdate(updateBlockers.current.size === 0);
+		}
+	}, [])
 
 	const updateOnlineStatus = async (forceCheck = true) => {
 
@@ -200,7 +218,7 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 	useEffect(() => {
 		const handler = (event: MessageEvent) => {
 			if (event.data?.type === "NEW_CONTENT_AVAILABLE") {
-				if (document.hidden) {
+				if (document.hidden && isSafeToUpdate) {
 					window.location.reload();
 				} else {
 					setUpdateAvailable(true);
@@ -217,7 +235,7 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 				navigator.serviceWorker.removeEventListener("message", handler);
 			}
 		};
-	}, []);
+	}, [isSafeToUpdate]);
 
 	const dismissPwaPrompt = () => {
 		setHidePwaPrompt(true);
@@ -226,8 +244,21 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 	useEffect(() => {
 		updateOnlineStatus();
 	}, []);
+
+	const value = {
+		isOnline,
+		updateAvailable,
+		connectivity,
+		updateOnlineStatus,
+		pwaInstallable,
+		dismissPwaPrompt,
+		hidePwaPrompt,
+		isSafeToUpdate,
+		blockUpdates,
+	};
+
 	return (
-		<StatusContext.Provider value={{ isOnline, updateAvailable, connectivity, updateOnlineStatus, pwaInstallable, dismissPwaPrompt, hidePwaPrompt }}>
+		<StatusContext.Provider value={value}>
 			{children}
 		</StatusContext.Provider>
 	);

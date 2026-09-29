@@ -21,6 +21,7 @@ import { sanitizeRedirectUrl } from '@/lib/utils/sanitizeRedirectUrl';
 import { ConformantCredentials, PresentCredentialsFlow, usePresentCredentialsFlow } from '@/components/flows/PresentCredentialsFlow';
 import { DcqlQuery } from 'dcql';
 import { OID4VPVerifierInfo } from '@/lib/openid-flow/types/OID4VPTypes';
+import { useStatusContext } from '@/hooks/useStatusContext';
 
 type OpenIDFlowCallbackProps = {
 	callbackUrl: OIDFlowCallbackURL;
@@ -96,6 +97,7 @@ const OpenIDFlowRouter: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
  * OpenID4VCIFlow - Handles OID4VCI credential offer and authorization code callbacks.
  */
 const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
+	const { blockUpdates } = useStatusContext();
 	const { displayError } = useErrorDialog();
 	const { t } = useTranslation();
 	const {
@@ -235,6 +237,8 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 
 		if (callbackUrl.protocol !== 'oid4vci') return;
 
+		const release = blockUpdates('oid4vci-flow');
+
 		(async () => {
 			try {
 				switch (callbackUrl.type) {
@@ -258,8 +262,15 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 					...translateOIDFlowError(t, error, 'vciFlowError'),
 					onClose: () => navigateHome(),
 				});
+			} finally {
+				release();
 			}
 		})();
+
+		return () => {
+			release();
+		};
+
 		// One-shot flow: runs once on mount, guarded by flowIsActive ref.
 		// All deps are stable at mount time. Re-running would restart the protocol flow.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -291,6 +302,7 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
  * OpenID4VPFlow - Handles OID4VP presentation request callbacks.
  */
 const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
+	const { blockUpdates } = useStatusContext();
 	const { displayError } = useErrorDialog();
 	const { t } = useTranslation();
 	const { showTransactionDataConsentPopup } = useContext(OpenID4VPContext);
@@ -493,6 +505,8 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 
 		if (callbackUrl.protocol !== 'oid4vp') return;
 
+		const release = blockUpdates('oid4vp-flow');
+
 		(async () => {
 			try {
 				switch (callbackUrl.type) {
@@ -510,8 +524,14 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				}
 			} catch (error) {
 				handleOID4VPError(error);
+			} finally {
+				release();
 			}
 		})();
+
+		return () => {
+			release();
+		};
 		// One-shot flow: runs once on mount, guarded by flowIsActive ref.
 		// All deps are stable at mount time. Re-running would restart the protocol flow.
 		// eslint-disable-next-line react-hooks/exhaustive-deps

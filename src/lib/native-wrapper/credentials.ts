@@ -10,8 +10,8 @@ import {
 import {
 	shapeCredential,
 	extractAvailableClaims,
-} from '@/services/CredentialMatchingService';
-import { getElementPropValue } from '@/util';
+} from '@/lib/services/CredentialMatchingService';
+import { getElementPropValue } from '@/lib/utils';
 import { getCredentialType } from '../utils/getCredentialType';
 
 const REGISTRY_RESERVED_CLAIMS = new Set([

@@ -1,16 +1,12 @@
-import { useMemo } from 'react';
+import { useContext } from 'react';
 import { AuthTokens } from '@/lib/auth';
-import { getTenantFromUrlPath } from '@/lib/tenant';
-import { useAuthServerClient } from './useAuthServerClient';
+import SessionContext from '@/context/SessionContext';
 
 export function useAuthTokens(): AuthTokens {
-	const authServerClient = useAuthServerClient();
-	const tenantId = getTenantFromUrlPath();
+	const sessionContext = useContext(SessionContext);
 
-	const authTokens = useMemo(
-		() => AuthTokens.fromStorage({ authServerClient, tenantId, storage: window.sessionStorage }),
-		[authServerClient, tenantId],
-	);
-
-	return authTokens;
+	if (!sessionContext) {
+		throw new Error('useAuthTokens must be used within a SessionContextProvider');
+	}
+	return sessionContext.authTokens;
 }

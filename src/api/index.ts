@@ -3,7 +3,7 @@ import { Err, Ok, Result } from 'ts-results';
 
 import * as config from '../config';
 import { logger } from '../logger';
-import { fromBase64Url, jsonParseTaggedBinary, jsonStringifyTaggedBinary, toBase64Url, transformTaggedResponse } from '../util';
+import { fromBase64Url, jsonParseTaggedBinary, jsonStringifyTaggedBinary, toBase64Url, transformTaggedResponse } from '@/lib/utils';
 import { EncryptedContainer, makeAssertionPrfExtensionInputs, parsePrivateData, serializePrivateData } from '../services/keystore';
 import { CachedUser, LocalStorageKeystore } from '../services/LocalStorageKeystore';
 import { UserId, Verifier } from './types';
@@ -12,7 +12,7 @@ import { useNavigate } from 'react-router';
 import { UseStorageHandle, useClearStorages, useLocalStorage, useSessionStorage } from '../hooks/useStorage';
 import { addItem, getItem, EXCLUDED_INDEXEDDB_PATHS } from '../indexedDB';
 import { loginWebAuthnBeginOffline } from './LocalAuthentication';
-import { withAuthenticatorAttachmentFromHints, withHintsFromAllowCredentials } from '@/util-webauthn';
+import { withAuthenticatorAttachmentFromHints, withHintsFromAllowCredentials } from '@/lib/utils/webauthn';
 import { getTenantFromUrlPath, setStoredTenant, clearStoredTenant } from '../lib/tenant';
 import { clearOIDCState } from '../lib/oidc';
 import { AuthTokens } from '@/lib/auth';
@@ -115,18 +115,21 @@ export interface BackendApi {
 	>>;
 }
 
-export function useApi(isOnlineProp: boolean = true): BackendApi {
+export type UseApiProps = {
+	isOnline: boolean;
+	authTokens: AuthTokens;
+}
+
+export function useApi({
+	isOnline: isOnlineProp = true,
+	authTokens,
+}: UseApiProps): BackendApi {
 	const isOnline = useMemo(() => isOnlineProp === null ? true : isOnlineProp, [isOnlineProp]);
 	const authServer = useAuthServerClient();
 	const tenantId = getTenantFromUrlPath() ?? 'default';
 	const [userHandle,] = useSessionStorage<string | null>("userHandle", null);
 	const [cachedUsers] = useLocalStorage<CachedUser[] | null>("cachedUsers", null);
 	const [sessionState, setSessionState, clearSessionState] = useSessionStorage<SessionState | null>("sessionState", null);
-
-	const authTokens = useMemo(
-		() => AuthTokens.fromStorage({ authServerClient: authServer, tenantId, storage: window.sessionStorage }),
-		[authServer, tenantId]
-	);
 
 	/**
 	 * Synchronization tag for the encrypted private data. To prevent data loss,

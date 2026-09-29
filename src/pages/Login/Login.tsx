@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router';
 import { Trans, useTranslation } from 'react-i18next';
 
 import type { CachedUser } from '../../services/LocalStorageKeystore';
-import { calculateByteSize, coerce } from '../../util';
+import { calculateByteSize, coerce } from '@/lib/utils';
 
 import StatusContext from '@/context/StatusContext';
 import SessionContext from '@/context/SessionContext';
@@ -91,7 +91,7 @@ const WebauthnSignupLogin = ({
 	error: React.ReactNode,
 	setError: (error: React.ReactNode) => void,
 }) => {
-	const { isOnline, updateOnlineStatus } = useContext(StatusContext);
+	const { isOnline, updateOnlineStatus, blockUpdates } = useContext(StatusContext);
 	const { api, keystore } = useContext(SessionContext);
 	const { urlTenantId, buildPath, tenantConfig } = useTenant();
 	const location = useLocation();
@@ -267,6 +267,7 @@ const WebauthnSignupLogin = ({
 		event.preventDefault();
 		const webauthnHint = (event.nativeEvent?.submitter as HTMLButtonElement)?.value;
 
+		const release = blockUpdates('login-submit');
 		setError('');
 		setInProgress(true);
 		setIsSubmitting(true);
@@ -282,9 +283,11 @@ const WebauthnSignupLogin = ({
 		setIsSubmitting(false);
 		checkForUpdates();
 		updateOnlineStatus();
+		release();
 	};
 
 	const onLoginCachedUser = async (cachedUser: CachedUser) => {
+		const release = blockUpdates('login-cached-user');
 		setError('');
 		setInProgress(true);
 		setIsSubmitting(true);
@@ -293,6 +296,7 @@ const WebauthnSignupLogin = ({
 		setIsSubmitting(false);
 		checkForUpdates();
 		updateOnlineStatus();
+		release();
 	};
 
 	const onForgetCachedUser = (cachedUser: CachedUser) => {

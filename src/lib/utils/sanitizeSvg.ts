@@ -8,7 +8,7 @@
  * @see https://github.com/sirosfoundation/wallet-frontend/issues/42
  */
 
-import DOMPurify from 'dompurify';
+import DOMPurify, { type Config } from 'dompurify';
 import { logger } from '@/logger';
 
 /**
@@ -19,7 +19,7 @@ import { logger } from '@/logger';
  * - FORBID_TAGS: Explicitly forbid dangerous elements
  * - FORBID_ATTR: Forbid event handler attributes
  */
-const DOMPURIFY_CONFIG: DOMPurify.Config = {
+const DOMPURIFY_CONFIG: Config = {
 	USE_PROFILES: { svg: true, svgFilters: true },
 	FORBID_TAGS: ['script', 'foreignObject', 'iframe', 'embed', 'object'],
 	FORBID_ATTR: [

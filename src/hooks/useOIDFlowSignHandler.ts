@@ -1,7 +1,5 @@
 import { useContext, useCallback } from 'react';
 import SessionContext from '@/context/SessionContext';
-import { useApi } from '@/api';
-import StatusContext from '@/context/StatusContext';
 import { logger } from '@/logger';
 import { OPENID4VCI_PROOF_TYPE_PRECEDENCE, WIA_ENABLED, BACKEND_URL } from '@/config';
 import { base64url } from 'jose';
@@ -50,6 +48,7 @@ export type OIDFlowSignOptions = {
 	dpopNonce?: string;
 	ath?: string;
 	keyId?: string;
+	attestationChallenge?: string;
 }
 
 export interface OIDFlowSignRequest {
@@ -89,12 +88,13 @@ export interface OIDFlowSignResponse {
 }
 
 export function useOIDFlowSignHandler() {
-	const sessionContext = useContext(SessionContext);
-	const { isOnline } = useContext(StatusContext);
-	const api = useApi(isOnline);
+	const {
+		api,
+		keystore,
+		authTokens,
+		oidFlowClientAuthMaterialManager,
+	} = useContext(SessionContext);
 	const httpClient = useHttpClient();
-	const oidFlowClientAuthMaterialManager = sessionContext?.oidFlowClientAuthMaterialManager;
-	const keystore = sessionContext?.keystore;
 
 	const signPresentation = useCallback(async (options: OIDFlowSignOptions): Promise<OIDFlowSignResponse> => {
 		const { audience, nonce, credentialsToInclude, responseUri, origin, verifierJwkThumbprint } = options;
@@ -209,7 +209,7 @@ export function useOIDFlowSignHandler() {
 		options: OIDFlowSignOptions,
 		flowId: string,
 	): Promise<OIDFlowSignResponse> => {
-		const { audience, issuer, htm, htu, dpopNonce, ath } = options;
+		const { audience, issuer, htm, htu, dpopNonce, ath, attestationChallenge } = options;
 
 		const authMaterial = await oidFlowClientAuthMaterialManager.getAuthMaterial(
 			flowId
@@ -233,6 +233,7 @@ export function useOIDFlowSignHandler() {
 			try {
 				const wia = await attestFlowIfEnabled(
 					httpClient,
+					(await authTokens.ensureBackendToken()).raw,
 					WIA_ENABLED,
 					authMaterial.wia,
 					authMaterial.keyPair,
@@ -247,6 +248,7 @@ export function useOIDFlowSignHandler() {
 						authMaterial.keyPair,
 						issuer,
 						audience,
+						attestationChallenge,
 					);
 				}
 			}
@@ -259,7 +261,7 @@ export function useOIDFlowSignHandler() {
 		}
 
 		return response;
-	}, [oidFlowClientAuthMaterialManager, httpClient]);
+	}, [oidFlowClientAuthMaterialManager, httpClient, authTokens]);
 
 	const handleSignRequest = useCallback(async (request: OIDFlowSignRequest): Promise<OIDFlowSignResponse> => {
 		logger.debug('[WS Sign Handler] Received sign request:', request.action);

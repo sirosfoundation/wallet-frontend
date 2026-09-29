@@ -166,26 +166,27 @@ export const WIA_ENABLED: boolean = config.wia_enabled === 'true';
 /**
  * Transport allow-list
  * Controls which transports are permitted
- * Default: http_proxy,websocket enabled for backwards compatibility
+ * Default: websocket enabled for backwards compatibility
  * 'direct' disabled by default (requires ecosystem CORS support)
  */
 export const ALLOWED_TRANSPORTS: OIDFlowTransportType[] =
-	(config.allowed_transports || 'http_proxy,websocket')
+	(config.allowed_transports || 'websocket')
 		.split(',')
 		.map((t: string) => t.trim())
-		.filter((t: string) => ['http_proxy', 'websocket', 'direct'].includes(t)) as OIDFlowTransportType[];
+		.filter((t: string) => ['websocket', 'direct'].includes(t)) as OIDFlowTransportType[];
 
 /**
  * Transport preference order (first available wins)
  * Default prefers WebSocket over HTTP proxy over Direct
  */
 export const TRANSPORT_PREFERENCE: OIDFlowTransportType[] =
-	(config.transport_preference || 'websocket,http_proxy,direct')
+	(config.transport_preference || 'websocket,direct')
 		.split(',')
 		.map((t: string) => t.trim())
-		.filter((t: string) => ['http_proxy', 'websocket', 'direct'].includes(t)) as OIDFlowTransportType[];
+		.filter((t: string) => ['websocket', 'direct'].includes(t)) as OIDFlowTransportType[];
 
 /** Derived convenience checks */
+
 export const HTTP_PROXY_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('http_proxy');
 export const WEBSOCKET_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('websocket');
 export const DIRECT_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('direct');
