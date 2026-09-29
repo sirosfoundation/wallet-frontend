@@ -168,7 +168,7 @@ export interface LocalStorageKeystore {
 	 */
 	syncWithRemoteData(remotePrivateDataRaw: Uint8Array): Promise<Result<AsymmetricEncryptedContainer, 'keystoreNotOpen' | 'mergeFailed'>>,
 	exportToWscdContainer(): Promise<WscdContainer>,
-	importFromWscdContainer(container: WscdContainer): Promise<[
+	importFromWscdContainer(container: ExportedWscdContainer): Promise<[
 		{},
 		AsymmetricEncryptedContainer,
 		CommitCallback,
