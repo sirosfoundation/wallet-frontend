@@ -1,15 +1,19 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { JWK } from 'jose';
 import { WscdManagerWorkerHost } from './WscdManagerWorkerHost';
 import { WscdManagerError, WscdPlugin, type WscdContainer } from '../resources';
 import { ensureEncodedWscdContainer } from '../utils';
 import type { WorkerMessage, WorkerResponse } from '../types';
 
+const WSCD_WORKER_TIMEOUT_MS = 5000;
+
 // A fake Worker that records every postMessage and lets the test drive the
 // response back through the host's onmessage handler.
 const { FakeWorker, workerInstances } = vi.hoisted(() => {
 	class FakeWorker {
 		onmessage: ((event: { data: unknown }) => void) | null = null;
+		onerror: ((event: { message?: string }) => void) | null = null;
+		onmessageerror: ((event: unknown) => void) | null = null;
 		posted: Array<WorkerMessage & { id: number }> = [];
 		constructor() {
 			workerInstances.push(this as unknown as FakeWorker);
@@ -25,6 +29,8 @@ const { FakeWorker, workerInstances } = vi.hoisted(() => {
 
 type FakeWorkerInstance = {
 	onmessage: ((event: { data: unknown }) => void) | null;
+	onerror: ((event: { message?: string }) => void) | null;
+	onmessageerror: ((event: unknown) => void) | null;
 	posted: Array<WorkerMessage & { id: number }>;
 };
 
@@ -237,6 +243,80 @@ describe('WscdManagerWorkerHost message correlation', () => {
 
 		worker.onmessage?.({ data: { id: id + 999, result: 'stray' } });
 		respondToLast(worker, { result: publicKeyKid });
+
+		await expect(promise).resolves.toBe(publicKeyKid);
+	});
+});
+
+describe('WscdManagerWorkerHost failure handling', () => {
+	it('rejects all pending requests when the worker errors', async () => {
+		const { host, worker } = await makeHost();
+
+		const first = host.generateKey();
+		const second = host.sign(publicKeyKid, new Uint8Array([1]));
+
+		worker.onerror?.({ message: 'worker exploded' });
+
+		await expect(first).rejects.toBeInstanceOf(WscdManagerError);
+		await expect(first).rejects.toThrow('worker exploded');
+		await expect(second).rejects.toBeInstanceOf(WscdManagerError);
+	});
+
+	it('rejects all pending requests on a message deserialization error', async () => {
+		const { host, worker } = await makeHost();
+		const promise = host.generateKey();
+
+		worker.onmessageerror?.({});
+
+		await expect(promise).rejects.toThrow(
+			'Worker message deserialization failed',
+		);
+	});
+
+	it('falls back to a generic message when the error carries none', async () => {
+		const { host, worker } = await makeHost();
+		const promise = host.generateKey();
+
+		worker.onerror?.({});
+
+		await expect(promise).rejects.toThrow('Worker error');
+	});
+
+	it('a late response after failAllPending is ignored (no unhandled resolution)', async () => {
+		const { host, worker } = await makeHost();
+		const promise = host.generateKey();
+		const { id } = lastPosted(worker);
+
+		worker.onerror?.({ message: 'boom' });
+		await expect(promise).rejects.toThrow('boom');
+
+		// the map was cleared, so a stray late response must be a no-op
+		expect(() =>
+			worker.onmessage?.({ data: { id, result: publicKeyKid } }),
+		).not.toThrow();
+	});
+});
+
+describe('WscdManagerWorkerHost request timeout', () => {
+	beforeEach(() => vi.useFakeTimers());
+	afterEach(() => vi.useRealTimers());
+
+	it('rejects a request that never gets a response', async () => {
+		const { host } = await makeHost();
+		const promise = host.generateKey();
+
+		// Subscribe to the rejection before it fires, so the timeout isn't briefly unhandled.
+		const expectation = expect(promise).rejects.toThrow(/timed out/);
+		await vi.advanceTimersByTimeAsync(WSCD_WORKER_TIMEOUT_MS);
+		await expectation;
+	});
+
+	it('does not reject a request that responds before the timeout', async () => {
+		const { host, worker } = await makeHost();
+		const promise = host.generateKey();
+
+		respondToLast(worker, { result: publicKeyKid });
+		await vi.advanceTimersByTimeAsync(WSCD_WORKER_TIMEOUT_MS * 2);
 
 		await expect(promise).resolves.toBe(publicKeyKid);
 	});
