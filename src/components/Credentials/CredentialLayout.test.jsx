@@ -28,7 +28,10 @@ vi.hoisted(() => {
 	}
 });
 
-vi.mock('@/hooks/useScreenType', () => ({ default: () => 'desktop' }));
+// Mutable so a test can exercise the mobile branch, which renders `children`
+// through a different layout.
+const screen_ = vi.hoisted(() => ({ type: 'desktop' }));
+vi.mock('@/hooks/useScreenType', () => ({ default: () => screen_.type }));
 vi.mock('@/hooks/useVcEntity', () => ({
 	useVcEntity: () => ({
 		batchId: 1,
@@ -37,6 +40,9 @@ vi.mock('@/hooks/useVcEntity', () => ({
 	}),
 }));
 vi.mock('./CredentialImage', () => ({ default: () => null }));
+vi.mock('../Popups/FullscreenImg', () => ({
+	default: ({ isOpen }) => (isOpen ? <div data-testid="fullscreen-popup" /> : null),
+}));
 vi.mock('@/hooks/useCredentialName', () => ({ useCredentialName: () => 'Test Credential' }));
 vi.mock('@/context/TenantContext', () => ({ useTenant: () => ({ buildPath: (p) => `/${p}` }) }));
 
@@ -49,7 +55,8 @@ function StatefulChild() {
 	);
 }
 
-function renderLayout() {
+function renderLayout({ screenType = 'desktop', fixedRatioImage } = {}) {
+	screen_.type = screenType;
 	let forceParentRerender;
 
 	function Parent() {
@@ -59,7 +66,7 @@ function renderLayout() {
 		return (
 			<MemoryRouter>
 				<CredentialsContext.Provider value={{ vcEntityList: [], fetchVcData: async () => [] }}>
-					<CredentialLayout title="t">
+					<CredentialLayout title="t" fixedRatioImage={fixedRatioImage}>
 						<StatefulChild />
 					</CredentialLayout>
 				</CredentialsContext.Provider>
@@ -100,5 +107,32 @@ describe('CredentialLayout', () => {
 		for (let i = 0; i < 3; i += 1) forceParentRerender();
 
 		expect(screen.getByRole('button', { name: 'changed' })).toBeTruthy();
+	});
+
+	it('keeps child state across a parent re-render on the mobile layout', () => {
+		// The mobile branch renders `children` through a different layout, so
+		// it has to survive the same way.
+		const { forceParentRerender } = renderLayout({ screenType: 'mobile', fixedRatioImage: true });
+
+		act(() => screen.getByRole('button', { name: 'initial' }).click());
+		forceParentRerender();
+
+		expect(screen.getByRole('button', { name: 'changed' })).toBeTruthy();
+	});
+
+	it('renders children on both layouts', () => {
+		renderLayout({ screenType: 'desktop' });
+		expect(screen.getByRole('button', { name: 'initial' })).toBeTruthy();
+	});
+
+	it('opens the fullscreen image popup from the credential image button', () => {
+		// Covers the click handler bound into the image element factory, which
+		// is the part of this change that is not exercised by simply rendering.
+		renderLayout();
+		expect(screen.queryByTestId('fullscreen-popup')).toBeNull();
+
+		act(() => screen.getByRole('button', { name: 'Test Credential' }).click());
+
+		expect(screen.getByTestId('fullscreen-popup')).toBeTruthy();
 	});
 });
