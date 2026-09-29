@@ -5,4 +5,5 @@ export type WscdManagerClientContextValue = {
 	wscdManagerClient: IWscdManagerClient;
 };
 
-export const WscdManagerClientContext = createContext<WscdManagerClientContextValue>(null);
+export const WscdManagerClientContext =
+	createContext<WscdManagerClientContextValue | null>(null);
