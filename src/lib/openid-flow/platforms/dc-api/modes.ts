@@ -159,10 +159,7 @@ function responseToMessage(response: DCAPIResponse): Record<string, unknown> {
 		// bare JWE string with no .response property to find it under.
 		message.response = { response: payload.response };
 	} else if (payload.vp_token) {
-		// Forward the whole payload (vp_token, and state when the request
-		// supplied one) rather than reconstructing a subset - a verifier
-		// correlating this response via state would otherwise never see it.
-		message.response = payload;
+		message.response = { vp_token: payload.vp_token };
 	}
 
 	return message;

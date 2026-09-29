@@ -271,24 +271,6 @@ describe('DCAPIWalletCompanionMode', () => {
 			);
 		});
 
-		it('forwards state alongside vp_token in the response envelope', () => {
-			const vpToken = { credential: ['token1'] };
-
-			mode.send({
-				requestId: 'test-request-123',
-				payload: { vp_token: vpToken, state: 'verifier-state-abc' },
-			});
-
-			expect(mockOpener.postMessage).toHaveBeenCalledWith(
-				{
-					type: 'WC_WALLET_RESPONSE',
-					requestId: 'test-request-123',
-					response: { vp_token: vpToken, state: 'verifier-state-abc' },
-				},
-				'https://verifier.example.com'
-			);
-		});
-
 		it('posts WC_WALLET_RESPONSE with error field', () => {
 			mode.send({
 				requestId: 'test-request-123',

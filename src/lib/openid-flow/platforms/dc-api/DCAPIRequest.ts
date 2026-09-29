@@ -46,10 +46,6 @@ export class DCAPIRequest {
 		return this.data.responseMode;
 	}
 
-	get state() {
-		return this.data.state;
-	}
-
 	get clientId() {
 		return this.isSigned
 			? (this.data as SignedDCAPIRequest).clientId
@@ -119,7 +115,6 @@ export class DCAPIRequest {
 			nonce: payload.nonce,
 			dcqlQuery: payload.dcql_query,
 			responseMode: payload.response_mode,
-			state: payload.state,
 			clientId: payload.client_id,
 			keyMaterial: keyMaterial,
 			rawJwt: jwt,
@@ -152,7 +147,6 @@ export class DCAPIRequest {
 			nonce: url.searchParams.get('nonce'),
 			dcqlQuery: dcqlQueryParam,
 			responseMode: url.searchParams.get('response_mode') ?? undefined,
-			state: url.searchParams.get('state') ?? undefined,
 		});
 
 		if (!success) {
