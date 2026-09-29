@@ -2,7 +2,7 @@ import { IWscdManagerClient } from '@/lib/wscd-manager/types';
 import { createContext } from 'react';
 
 export type WscdManagerClientContextValue = {
-	wscdManagerClient: IWscdManagerClient;
+	wscdManagerClient: IWscdManagerClient | null;
 };
 
 export const WscdManagerClientContext =

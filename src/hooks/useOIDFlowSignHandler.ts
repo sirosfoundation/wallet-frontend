@@ -96,6 +96,9 @@ export function useOIDFlowSignHandler() {
 
 	const signPresentation = useCallback(async (options: OIDFlowSignOptions): Promise<OIDFlowSignResponse> => {
 		const { audience, nonce, credentialsToInclude, responseUri, origin, verifierJwkThumbprint } = options;
+		if (!wscd) {
+			throw new Error('WscdManagerClient is not initialized');
+		}
 		if (!audience || !nonce) {
 			throw new Error('Missing audience or nonce for presentation signing');
 		}
@@ -140,6 +143,9 @@ export function useOIDFlowSignHandler() {
 
 	const generateProof = useCallback(async (options: OIDFlowSignOptions): Promise<OIDFlowSignResponse> => {
 		const { audience, nonce, proofTypesSupported, issuer, count = 1 } = options;
+		if (!wscd) {
+			throw new Error('WscdManagerClient is not initialized');
+		}
 		if (!audience) {
 			throw new Error('Missing audience for proof generation');
 		}
@@ -198,6 +204,10 @@ export function useOIDFlowSignHandler() {
 		flowId: string,
 	): Promise<OIDFlowSignResponse> => {
 		const { audience, issuer, htm, htu, dpopNonce, ath, attestationChallenge } = options;
+
+		if (!wscd) {
+			throw new Error('WscdManagerClient is not initialized');
+		}
 
 		const authMaterial = await oidFlowClientAuthMaterialManager.getAuthMaterial(
 			flowId
