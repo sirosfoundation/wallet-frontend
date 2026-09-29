@@ -8,13 +8,13 @@ import * as didUtil from "@cef-ebsi/key-did-resolver/dist/util.js";
 
 import * as config from '../config';
 import type { DidKeyVersion } from '../config';
-import { byteArrayEquals, filterObject, jsonParseTaggedBinary, jsonStringifyTaggedBinary, toBase64Url } from "../util";
+import { byteArrayEquals, filterObject, jsonParseTaggedBinary, jsonStringifyTaggedBinary, toBase64Url } from '@/lib/utils';
 import { SDJwt } from "@sd-jwt/core";
 import { cborEncode, cborDecode, DataItem, getCborEncodeDecodeOptions, setCborEncodeDecodeOptions } from "@auth0/mdl/lib/cbor";
 import { DeviceResponse, MDoc } from "@auth0/mdl";
 import { SupportedAlgs } from "@auth0/mdl/lib/mdoc/model/types";
 import { COSEKeyToJWK } from "cose-kit";
-import { withHintsFromAllowCredentials } from "@/util-webauthn";
+import { withHintsFromAllowCredentials } from "@/lib/utils/webauthn";
 import { addDeleteKeypairEvent, addNewKeypairEvent, CurrentSchema, foldState, SchemaV1, SchemaV2, SchemaV3 } from "./WalletStateSchema";
 import { buildVcdm2Presentation, holderIdFromCredential, holderJwkFromCredential } from "wallet-common";
 import { logger } from "../logger";
@@ -1063,12 +1063,29 @@ export async function signVcdm2Presentation(
 		throw new Error("A presentation must contain at least one credential");
 	}
 
-	const holderJwk = holderJwkFromCredential(verifiableCredentials[0]);
-	if (!holderJwk) {
+	// One enveloping JWS has exactly one signer, so every credential in the
+	// presentation has to be bound to the same holder key. Signing them all
+	// with the first credential's key would produce a presentation asserting
+	// holder binding it does not have, so a mixed set is refused rather than
+	// silently mis-signed.
+	const holderJwks = verifiableCredentials.map((credential) => holderJwkFromCredential(credential));
+	if (holderJwks.some((jwk) => !jwk)) {
 		throw new Error("Holder public key could not be resolved from the VCDM 2.0 credential");
 	}
 
-	const kid = await jose.calculateJwkThumbprint(holderJwk as JWK, "sha256");
+	const kids = await Promise.all(
+		holderJwks.map((jwk) => jose.calculateJwkThumbprint(jwk as JWK, "sha256")),
+	);
+	const distinctKids = [...new Set(kids)];
+	if (distinctKids.length > 1) {
+		throw new Error(
+			"All credentials in a presentation must be bound to the same holder key, but "
+			+ distinctKids.length + " different keys were found",
+		);
+	}
+
+	const holderJwk = holderJwks[0];
+	const kid = distinctKids[0];
 	const keypair = calculatedState.keypairs.filter((k) => k.kid === kid)[0];
 	if (!keypair) {
 		throw new Error("Key pair not found for kid (key ID): " + kid);
