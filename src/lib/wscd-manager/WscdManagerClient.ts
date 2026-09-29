@@ -61,11 +61,11 @@ export class WscdManagerClient implements IWscdManagerClient {
 	public async signSdJwtPresentation({
 		audience,
 		nonce,
-		verifiableCredentials,
+		verifiableCredential,
 		transactionDataResponseParams,
 	}: SignSdJwtPresentationRequest): Promise<string> {
 		const { kid, sdJwt, signingInput } = await prepareSdJwtPresentation(
-			verifiableCredentials,
+			verifiableCredential,
 			nonce,
 			audience,
 			transactionDataResponseParams,

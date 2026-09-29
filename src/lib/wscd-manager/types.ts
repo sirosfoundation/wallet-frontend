@@ -181,7 +181,7 @@ export type WscdKeyMetadata = {
 export type SignSdJwtPresentationRequest = {
 	nonce: string,
 	audience: string,
-	verifiableCredentials: any[],
+	verifiableCredential: string,
 	transactionDataResponseParams?: {
 		transaction_data_hashes: string[],
 		transaction_data_hashes_alg: string[]

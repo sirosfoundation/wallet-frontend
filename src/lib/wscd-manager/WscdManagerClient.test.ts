@@ -148,7 +148,7 @@ describe('signSdJwtPresentation', () => {
 		const vpjwt = await client.signSdJwtPresentation({
 			audience: 'aud',
 			nonce: 'nonce',
-			verifiableCredentials: ['vc'],
+			verifiableCredential: 'vc',
 		});
 
 		expect(vpjwt).toBe(`SD~HEADER.PAYLOAD.${base64url.encode(signature)}`);

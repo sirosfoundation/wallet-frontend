@@ -341,7 +341,7 @@ async function createVpTokenFromSdJwt(
 	const vpjwt = await wscd.signSdJwtPresentation({
 		audience,
 		nonce,
-		verifiableCredentials: [credential],
+		verifiableCredential: credential,
 	});
 	return vpjwt;
 }

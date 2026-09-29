@@ -55,13 +55,11 @@ export async function applySelectiveDisclosure(rawCredential: string, requestedC
  * and constructing the signing input.
  */
 export async function prepareSdJwtPresentation(
-	rawCredentials: string[],
+	rawCredential: string,
 	nonce: string,
 	audience: string,
 	transactionDataResponseParams?: Record<string, unknown>,
 ): Promise<{ kid: string; sdJwt: string; signingInput: string }> {
-	const rawCredential = rawCredentials[0];
-
 	const { cnf, kid } = await resolveHolderKey(rawCredential);
 
 	const sdJwt = rawCredential.endsWith('~')
