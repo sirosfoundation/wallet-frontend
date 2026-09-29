@@ -981,7 +981,10 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 
 			const existing = new Set(foldState(walletStateContainer).keypairs.map((k) => k.kid));
 			const toAdd = container.keys.filter((k) => !existing.has(k.kid));
-			if (toAdd.length === 0) return;
+			if (toAdd.length === 0) {
+				const [privateData] = await assertKeystoreOpen();
+				return [{}, keystore.assertAsymmetricEncryptedContainer(privateData), async () => {}];
+			}
 
 			for (const { kid, algorithm, d, publicKey } of toAdd) {
 				const keypair: keystore.CredentialKeyPair = {
