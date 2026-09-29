@@ -26,10 +26,12 @@ import {
 } from '../verifiable-credentials';
 import { base64url } from 'jose';
 import { logger } from '@/logger';
+import { Mutex } from '../utils';
 
 export class WscdManagerClient implements IWscdManagerClient {
 	#ready: Promise<void>;
 	#availableHosts: IWscdManagerHost[] = [];
+	#lock: Mutex = new Mutex();
 	#containerImportCallback: () => Promise<WscdContainer>;
 	#containerExportCallback: (container: WscdContainer) => Promise<void>;
 
@@ -125,22 +127,24 @@ export class WscdManagerClient implements IWscdManagerClient {
 	public async generateKeypairs(count: number): Promise<Keypair[]> {
 		await this.#ready;
 
-		const requirements = await this.#determineElegibilityRequirements();
-		const host = await this.#selectHost(requirements);
-		await this.#seedHostContainer(host);
+		return this.#lock.runExclusive(async () => {
+			const requirements = await this.#determineElegibilityRequirements();
+			const host = await this.#selectHost(requirements);
+			await this.#seedHostContainer(host);
 
-		const keys: Keypair[] = [];
-		for (let i = 0; i < count; i++) {
-			const kid = await host.generateKey(),
-				publicKey = await host.exportPublicKey(kid);
+			const keys: Keypair[] = [];
+			for (let i = 0; i < count; i++) {
+				const kid = await host.generateKey(),
+					publicKey = await host.exportPublicKey(kid);
 
-			keys.push({ kid, publicKey });
-		}
+				keys.push({ kid, publicKey });
+			}
 
-		await this.#persistHostContainer(host);
+			await this.#persistHostContainer(host);
 
-		logger.debug(`Generated ${keys.length} key(s) with host '${host.id}'`);
-		return keys;
+			logger.debug(`Generated ${keys.length} key(s) with host '${host.id}'`);
+			return keys;
+		});
 	}
 
 	public async generateOpenid4vciProofs(
@@ -148,38 +152,40 @@ export class WscdManagerClient implements IWscdManagerClient {
 	): Promise<string[]> {
 		await this.#ready;
 
-		const requirements = await this.#determineElegibilityRequirements();
-		const host = await this.#selectHost(requirements);
-		await this.#seedHostContainer(host);
+		return this.#lock.runExclusive(async () => {
+			const requirements = await this.#determineElegibilityRequirements();
+			const host = await this.#selectHost(requirements);
+			await this.#seedHostContainer(host);
 
-		const proofs: string[] = [];
-		for (const { nonce, audience, issuer } of requests) {
-			const kid = await host.generateKey();
-			const publicKey = await host.exportPublicKey(kid);
+			const proofs: string[] = [];
+			for (const { nonce, audience, issuer } of requests) {
+				const kid = await host.generateKey();
+				const publicKey = await host.exportPublicKey(kid);
 
-			const proof = await this.#signCompactJws(
-				host,
-				kid,
-				{
-					alg: 'ES256',
-					typ: 'openid4vci-proof+jwt',
-					jwk: { ...publicKey, kid, key_ops: ['verify'] },
-				},
-				{
-					nonce,
-					aud: audience,
-					iss: issuer,
-					iat: Math.floor(Date.now() / 1000),
-				},
-			);
+				const proof = await this.#signCompactJws(
+					host,
+					kid,
+					{
+						alg: 'ES256',
+						typ: 'openid4vci-proof+jwt',
+						jwk: { ...publicKey, kid, key_ops: ['verify'] },
+					},
+					{
+						nonce,
+						aud: audience,
+						iss: issuer,
+						iat: Math.floor(Date.now() / 1000),
+					},
+				);
 
-			proofs.push(proof);
-		}
+				proofs.push(proof);
+			}
 
-		await this.#persistHostContainer(host);
+			await this.#persistHostContainer(host);
 
-		logger.debug(`Generated ${proofs.length} OpenID4VCI proof(s) with host '${host.id}'`);
-		return proofs;
+			logger.debug(`Generated ${proofs.length} OpenID4VCI proof(s) with host '${host.id}'`);
+			return proofs;
+		});
 	}
 
 	async #dispatchSignRequest(
@@ -187,14 +193,17 @@ export class WscdManagerClient implements IWscdManagerClient {
 		data: Uint8Array,
 	): Promise<Uint8Array> {
 		await this.#ready;
-		const requirements = requirementsForCredential(kid);
-		const host = await this.#selectHost(requirements);
-		await this.#seedHostContainer(host);
 
-		const result = await host.sign(kid, data);
+		return this.#lock.runExclusive(async () => {
+			const requirements = requirementsForCredential(kid);
+			const host = await this.#selectHost(requirements);
+			await this.#seedHostContainer(host);
 
-		logger.debug(`Completed sign request with host '${host.id}'`);
-		return result;
+			const result = await host.sign(kid, data);
+
+			logger.debug(`Completed sign request with host '${host.id}'`);
+			return result;
+		})
 	}
 
 	async #determineElegibilityRequirements(): Promise<WscdEligibilityRequirements> {
