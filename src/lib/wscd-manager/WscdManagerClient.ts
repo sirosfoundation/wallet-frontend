@@ -188,6 +188,10 @@ export class WscdManagerClient implements IWscdManagerClient {
 		});
 	}
 
+	public async dispose(): Promise<void> {
+		await Promise.all(this.#availableHosts.map((h) => h.dispose?.()));
+	}
+
 	async #dispatchSignRequest(
 		kid: string,
 		data: Uint8Array,

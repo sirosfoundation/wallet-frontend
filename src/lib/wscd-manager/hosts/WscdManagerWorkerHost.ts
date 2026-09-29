@@ -103,6 +103,11 @@ export class WscdManagerWorkerHost implements IWscdManagerHost {
 		});
 	}
 
+	public async dispose(): Promise<void> {
+		this.#worker?.terminate();
+		this.#failAllPending('Worker terminated');
+	}
+
 	#messageWorker<A extends WorkerMessage['action']>(
 		message: Extract<WorkerMessage, { action: A }>,
 	): Promise<WorkerResult<A>> {

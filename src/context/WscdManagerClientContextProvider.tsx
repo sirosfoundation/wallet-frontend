@@ -29,6 +29,11 @@ export const WscdManagerClientContextProvider: FC<PropsWithChildren> = ({
 		});
 	}, [keystore, api])
 
+	useEffect(() => {
+		const client = clientRef.current;
+		return () => { void client?.dispose(); };
+	}, []);
+
 	return (
 		<WscdManagerClientContext.Provider value={value}>
 			{children}

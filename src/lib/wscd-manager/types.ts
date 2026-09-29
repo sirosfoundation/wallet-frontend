@@ -19,7 +19,11 @@ import { JWK } from 'jose';
  * in case of the native wrapper implementation.
  */
 export interface IWscdManagerClient extends IWscdOperations {
-
+	/**
+	 * Disposes of the WSCD Manager Client, releasing any held
+	 * resources and performing necessary cleanup.
+	 */
+	dispose(): Promise<void>;
 }
 
 /**
@@ -78,6 +82,11 @@ export interface IWscdManagerHost {
 	 * WSCD manager client.
 	 */
 	exportContainer(): Promise<WscdContainer>;
+	/**
+	 * Disposes of the host, releasing any held resources and
+	 * performing necessary cleanup.
+	 */
+	dispose?(): Promise<void>;
 }
 
 /**
