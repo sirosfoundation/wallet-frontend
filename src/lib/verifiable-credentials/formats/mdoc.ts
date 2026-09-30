@@ -332,7 +332,7 @@ export function mdocNameSpacesToClaims(
  * Convert an array of disclosed claims in "ns.element" format into the
  * ItemsRequest namespaces shape: { [namespace]: { [element]: intentToRetain } }.
  */
-function claimsToNamespaces(
+export function claimsToNamespaces(
 	disclosedClaims: string[],
 ): Record<string, Record<string, boolean>> {
 	const namespaces: Record<string, Record<string, boolean>> = {};
@@ -347,7 +347,7 @@ function claimsToNamespaces(
 }
 
 /** WebCrypto-backed crypto half of the MdocContext. */
-function mdocCrypto(): MdocContext['crypto'] {
+export function mdocCrypto(): MdocContext['crypto'] {
 	return {
 		random: (n) => crypto.getRandomValues(new Uint8Array(n)),
 		digest: async ({ digestAlgorithm, bytes }) =>
