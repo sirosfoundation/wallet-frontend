@@ -6,6 +6,7 @@ import {
 	WscdEligibilityRequirements,
 } from '../types';
 import { ensureDecodedWscdContainer, ensureEncodedWscdContainer } from '../utils';
+import { JWK } from 'jose';
 
 export class WscdManagerNativeWrapperHost implements IWscdManagerHost {
 	readonly supportedPlugins: ReadonlySet<WscdPlugin> = new Set([
@@ -64,6 +65,22 @@ export class WscdManagerNativeWrapperHost implements IWscdManagerHost {
 		}
 
 		return result;
+	}
+
+	public async generateKey(): Promise<string> {
+		const result = await window.nativeWrapper.callWscd('generateKey');
+		if (typeof result !== 'string') {
+			throw new WscdManagerError('Invalid key returned from native wrapper');
+		}
+		return result;
+	}
+
+	public async exportPublicKey(kid: string): Promise<JWK> {
+		const result = await window.nativeWrapper.callWscd('exportPublicKey', kid);
+		if (typeof result !== 'object' || result === null) {
+			throw new WscdManagerError('Invalid public key returned from native wrapper');
+		}
+		return result as JWK;
 	}
 
 	#canSatisfyFactor(factor: AuthFactor): boolean {
