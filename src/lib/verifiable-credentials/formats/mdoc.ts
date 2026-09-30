@@ -86,17 +86,25 @@ export async function generateMdocDeviceResponse(
 		{
 			deviceRequest,
 			sessionTranscript,
-			issuerSigned: [issuerSigned],
-			signature: { signingKey: deviceKey },
+			documents: [
+				{
+					docRequestIndex: 0,
+					issuerSigned,
+					signature: { signingKey: deviceKey },
+				},
+			],
 		},
 		{
 			crypto: mdocCrypto(),
 			cose: {
 				sign1: {
 					sign: async ({ toBeSigned }) => sign(kid, toBeSigned),
-					verify: async () => true,
+					verify: async () => { throw new Error('Signature verification not implemented'); },
 				},
-				mac0: undefined as any,
+				mac0: {
+					authenticate: async () => { throw new Error('MAC0 device auth unsupported; signature-based only'); },
+					verify: async () => { throw new Error('MAC0 device auth unsupported; signature-based only'); },
+				},
 			},
 		},
 	);
