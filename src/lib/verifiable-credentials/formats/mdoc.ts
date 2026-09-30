@@ -8,6 +8,7 @@ import {
 	MdocContext,
 	SessionTranscript,
 	DeviceResponse,
+	CoseKey,
 } from '@owf/mdoc';
 
 /**
@@ -79,8 +80,10 @@ export async function generateMdocDeviceResponse(
 		credential,
 		disclosedClaims,
 	);
-	const deviceKey =
-		issuerSigned.issuerAuth.mobileSecurityObject.deviceKeyInfo.deviceKey;
+	const deviceKeyJwk =
+		issuerSigned.issuerAuth.mobileSecurityObject.deviceKeyInfo.deviceKey.jwk;
+	const signingKey = CoseKey.fromJwk({ ...deviceKeyJwk, alg: 'ES256' });
+
 
 	const deviceResponse = await DeviceResponse.createWithDeviceRequest(
 		{
@@ -90,7 +93,7 @@ export async function generateMdocDeviceResponse(
 				{
 					docRequestIndex: 0,
 					issuerSigned,
-					signature: { signingKey: deviceKey },
+					signature: { signingKey },
 				},
 			],
 		},
