@@ -9,3 +9,4 @@ export { getElementPropValue } from "./getElementPropValue"
 export { normalizePath } from "./normalizePath"
 export { sanitizeId } from "./sanitizeId"
 export { throttle } from "./throttle"
+export * from './mutex';
