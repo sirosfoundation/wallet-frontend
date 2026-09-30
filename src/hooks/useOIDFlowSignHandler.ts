@@ -259,7 +259,7 @@ export function useOIDFlowSignHandler() {
 		}
 
 		return response;
-	}, [oidFlowClientAuthMaterialManager, httpClient, authTokens]);
+	}, [oidFlowClientAuthMaterialManager, httpClient, authTokens, wscd]);
 
 	const handleSignRequest = useCallback(async (request: OIDFlowSignRequest): Promise<OIDFlowSignResponse> => {
 		logger.debug('[WS Sign Handler] Received sign request:', request.action);

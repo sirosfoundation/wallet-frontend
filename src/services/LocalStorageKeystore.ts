@@ -1006,7 +1006,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 				return [{}, newContainer];
 			});
 		},
-		[editPrivateData, openPrivateData],
+		[editPrivateData, openPrivateData, assertKeystoreOpen],
 	);
 
 
