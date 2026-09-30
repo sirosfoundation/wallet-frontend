@@ -82,7 +82,14 @@ export async function generateMdocDeviceResponse(
 	);
 	const deviceKeyJwk =
 		issuerSigned.issuerAuth.mobileSecurityObject.deviceKeyInfo.deviceKey.jwk;
-	const signingKey = CoseKey.fromJwk({ ...deviceKeyJwk, alg: 'ES256' });
+	const algByCrv: Record<string, string> = {
+		'P-256': 'ES256',
+		'P-384': 'ES384',
+		'P-521': 'ES512',
+		'Ed25519': 'EdDSA'
+	};
+	const alg = algByCrv[deviceKeyJwk.crv as string] ?? 'ES256';
+	const signingKey = CoseKey.fromJwk({ ...deviceKeyJwk, alg });
 
 
 	const deviceResponse = await DeviceResponse.createWithDeviceRequest(
