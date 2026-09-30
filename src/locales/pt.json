@@ -762,6 +762,7 @@
 	"globalError": {
 		"title": "Ocorreu um erro inesperado",
 		"reportIssueButton": "Relatar Problema",
-		"message": "Por favor, tente limpar o cache do seu navegador e tente novamente. Se o erro persistir, entre em contato conosco pelo e-mail support@siros.org"
+		"message": "Por favor, reporte este problema para que possamos investigá-lo.",
+		"contactSupport": "Ou, entre em contato conosco pelo e-mail support@siros.org."
 	}
 }

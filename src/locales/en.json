@@ -762,6 +762,7 @@
 	"globalError": {
 		"title": "An unexpected error happened",
 		"reportIssueButton": "Report Issue",
-		"message": "Please try clearing your browser cache and try again. If the error persists, contact us at support@siros.org"
+		"message": "Please report this issue so we can look into it.",
+		"contactSupport": "Or, please contact us at support@siros.org."
 	}
 }

@@ -762,6 +762,7 @@
 	"globalError": {
 		"title": "Tapahtui odottamaton virhe",
 		"reportIssueButton": "Ilmoita Ongelmasta",
-		"message": "Kokeile tyhjentää selaimen välimuisti ja yritä uudelleen. Jos virhe jatkuu, ota meihin yhteyttä osoitteessa support@siros.org"
+		"message": "Ilmoita tästä ongelmasta, jotta voimme tutkia sitä.",
+		"contactSupport": "Tai ota meihin yhteyttä osoitteessa support@siros.org."
 	}
 }

@@ -3,7 +3,7 @@ import Logo from '@/components/Logo/Logo';
 import { useTranslation } from 'react-i18next';
 import Button from '@/components/Buttons/Button';
 import { APP_VERSION, STATIC_NAME } from '@/config';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Send } from 'lucide-react';
 
 const REPORT_ISSUE_EMAIL = 'support@siros.org';
 
@@ -42,7 +42,7 @@ const GlobalErrorScreen = ({ error }: GlobalErrorScreenProps) => {
 					</span>
 				</div>
 				<div className="flex-1 flex flex-col items-center justify-center w-full">
-					<div className="w-full rounded-lg shadow sm:max-w-md xl:p-0">
+					<div className="w-full sm:max-w-md xl:p-0">
 						<div className="p-6 space-y-6 sm:p-8">
 							<div className="flex justify-center">
 								<AlertCircle className="text-lm-red dark:text-dm-red" size={64} />
@@ -55,9 +55,15 @@ const GlobalErrorScreen = ({ error }: GlobalErrorScreenProps) => {
 							</p>
 							<div className="pt-6">
 								<Button onClick={handleReportIssue} variant="outline" additionalClassName="w-full">
-									{t('globalError.reportIssueButton')}
+									<span className="flex items-center justify-center gap-2">
+										<Send size={16} aria-hidden="true" />
+										{t('globalError.reportIssueButton')}
+									</span>
 								</Button>
 							</div>
+							<p className="text-center pt-6">
+								{t('globalError.contactSupport')}
+							</p>
 						</div>
 					</div>
 				</div>
