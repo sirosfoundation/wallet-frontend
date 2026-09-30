@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
 import { render, act } from '@testing-library/react';
+import { WscdManagerClientContextProvider } from './WscdManagerClientContextProvider';
+import { WscdManagerClientContext } from './WscdManagerClientContext';
+import SessionContext, { SessionContextValue } from './SessionContext';
 
 const hoisted = vi.hoisted(() => ({
 	instance: null as null | {
@@ -29,10 +32,6 @@ vi.mock('@/lib/wscd-manager', () => ({
 		}
 	},
 }));
-
-import { WscdManagerClientContextProvider } from './WscdManagerClientContextProvider';
-import { WscdManagerClientContext } from './WscdManagerClientContext';
-import SessionContext, { SessionContextValue } from './SessionContext';
 
 const order: string[] = [];
 let commit: ReturnType<typeof vi.fn>;
