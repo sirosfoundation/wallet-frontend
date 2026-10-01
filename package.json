@@ -108,7 +108,7 @@
     "dev:test": "concurrently -k -n Types,Tests -c yellow,cyan \"pnpm typecheck:watch\" \"pnpm test-start\"",
     "changeset": "changeset add",
     "prerelease-mode": "changeset pre",
-    "version": "dotenv -e .changeset/.env -- changeset version",
+    "version": "dotenv -e .changeset/.env -- changeset version && node utils/version-crates.mjs",
     "tag": "pnpm tag:public && pnpm tag:main",
     "tag:public": "changeset git-tag",
     "tag:main": "VER=\"v$(node -p \"require('./package.json').version\")\"; git tag \"$VER\" -m \"$VER\"",
