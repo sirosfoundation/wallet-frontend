@@ -42,7 +42,7 @@ const GlobalErrorScreen = ({ error }: GlobalErrorScreenProps) => {
 					</span>
 				</div>
 				<div className="flex-1 flex flex-col items-center justify-center w-full">
-					<div className="w-full sm:max-w-md xl:p-0">
+					<div className="w-full shadow rounded-lg sm:max-w-md xl:p-0">
 						<div className="p-6 space-y-6 sm:p-8">
 							<div className="flex justify-center">
 								<AlertCircle className="text-lm-red dark:text-dm-red" size={64} />
@@ -53,7 +53,7 @@ const GlobalErrorScreen = ({ error }: GlobalErrorScreenProps) => {
 							<p className="text-center">
 								{t('globalError.message')}
 							</p>
-							<div className="pt-6">
+							<div className="pt-4">
 								<Button onClick={handleReportIssue} variant="outline" additionalClassName="w-full">
 									<span className="flex items-center justify-center gap-2">
 										<Send size={16} aria-hidden="true" />
@@ -61,7 +61,7 @@ const GlobalErrorScreen = ({ error }: GlobalErrorScreenProps) => {
 									</span>
 								</Button>
 							</div>
-							<p className="text-center pt-6">
+							<p className="text-center pt-2">
 								{t('globalError.contactSupport')}
 							</p>
 						</div>
