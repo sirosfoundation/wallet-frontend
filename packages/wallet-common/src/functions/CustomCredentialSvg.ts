@@ -51,10 +51,9 @@ export function CustomCredentialSvg(args: { httpClient: HttpClient }): CustomCre
 					reader.readAsDataURL(blob);
 				});
 			} else {
-				// Backend (Node.js): Use Axios or Fetch with Buffer
-				const response = await args.httpClient.get(url, {}, { responseType: 'arraybuffer', useCache: true })
-				const blob = response.data as any;
-				const base64 = Buffer.from(blob, "binary").toString("base64");
+				const response = await args.httpClient.get(url, {}, { binary: true, useCache: true });
+				const bytes = response.data as Uint8Array;
+				const base64 = Buffer.from(bytes).toString("base64");
 				const mimeType = response.headers["content-type"]; // Get MIME type
 				return `data:${mimeType};base64,${base64}`;
 			}

@@ -99,6 +99,10 @@ export interface IWscdSignOperations {
 	 */
 	signSdJwtPresentation(request: SignSdJwtPresentationRequest): Promise<string>;
 	/**
+	 * Sign as VCDM2 presentation.
+	 */
+	signVcdm2Presentation(request: SignVcdm2PresentationRequest): Promise<string>;
+	/**
 	 * Generate a device response for mDoc.
 	 */
 	generateDeviceResponse(request: GenerateDeviceResponseRequest): Promise<Uint8Array>;
@@ -191,6 +195,19 @@ export type SignSdJwtPresentationRequest = {
 	nonce: string,
 	audience: string,
 	verifiableCredential: string,
+	transactionDataResponseParams?: {
+		transaction_data_hashes: string[],
+		transaction_data_hashes_alg: string[]
+	}
+};
+
+/**
+ * Request parameters for signing a VCDM2 presentation.
+ */
+export type SignVcdm2PresentationRequest = {
+	nonce: string,
+	audience: string,
+	verifiableCredentials: unknown[],
 	transactionDataResponseParams?: {
 		transaction_data_hashes: string[],
 		transaction_data_hashes_alg: string[]

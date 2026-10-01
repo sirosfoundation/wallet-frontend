@@ -13,7 +13,6 @@
  */
 
 import type { IOIDFlowTransport } from '../types/IOIDFlowTransport';
-import type { IHttpClient } from '../../interfaces/IHttpClient';
 import type {
 	OIDFlowRequest,
 	OIDFlowResponse,
@@ -22,6 +21,7 @@ import type {
 import type { OID4VCIFlowParams, OID4VCIFlowResult } from '../types/OID4VCITypes';
 import type { OID4VPFlowParams, OID4VPFlowResult } from '../types/OID4VPTypes';
 import { logger } from '@/logger';
+import type { HttpClient } from '@sirosfoundation/http-client';
 
 /**
  * HTTP Proxy Transport implementation
@@ -31,12 +31,12 @@ import { logger } from '@/logger';
  * via the hybrid flow hooks, not this transport directly.
  */
 export class OIDFlowHttpProxyTransport implements IOIDFlowTransport {
-	private httpProxy: IHttpClient;
+	private httpClient: HttpClient;
 	private progressCallbacks = new Set<(event: OIDFlowProgressEvent) => void>();
 	private errorCallbacks = new Set<(error: Error) => void>();
 
-	constructor(httpProxy: IHttpClient) {
-		this.httpProxy = httpProxy;
+	constructor(httpClient: HttpClient) {
+		this.httpClient = httpClient;
 	}
 
 	// ===== Connection Lifecycle =====
@@ -100,9 +100,9 @@ export class OIDFlowHttpProxyTransport implements IOIDFlowTransport {
 			let response;
 
 			if (payload.method === 'GET') {
-				response = await this.httpProxy.get(payload.url, payload.headers);
+				response = await this.httpClient.get(payload.url, payload.headers);
 			} else {
-				response = await this.httpProxy.post(payload.url, payload.body, payload.headers);
+				response = await this.httpClient.post(payload.url, payload.body, payload.headers);
 			}
 
 			return {
@@ -156,7 +156,7 @@ export class OIDFlowHttpProxyTransport implements IOIDFlowTransport {
 	 * Get the underlying HTTP proxy instance
 	 * Useful for code that needs direct access to the proxy
 	 */
-	getHttpProxy(): IHttpClient {
-		return this.httpProxy;
+	getHttpProxy(): HttpClient {
+		return this.httpClient;
 	}
 }

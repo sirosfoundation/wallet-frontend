@@ -19,7 +19,7 @@ import { normalizePath } from '@/lib/utils';
  */
 export async function resolveCredentialPresentationRequest(
 	verifierInfo: OID4VPVerifierInfo,
-	dcqlQuery: DcqlQuery.Input,
+	dcqlQuery: DcqlQuery.Input | undefined,
 	conformantCredentials: ConformantCredentials,
 	vcEntityList: ExtendedVcEntity[],
 	preferredLanguages: string[]
@@ -30,9 +30,16 @@ export async function resolveCredentialPresentationRequest(
 		logo: verifierInfo.logo,
 	};
 
-	const queries: PresentCredentialsQuery[] = await Promise.all(dcqlQuery.credentials.map(async (query) => {
-		const id = query.id;
+	// The http_proxy flow matches credentials in wallet-common and hands back
+	// only the conformant map, with no DCQL query attached. Everything shown
+	// per query -- the requested fields and the matching credentials -- comes
+	// from that map anyway; the query contributes the ids and the
+	// credential_sets grouping, so the map's own keys stand in for the ids.
+	const queryIds: string[] = dcqlQuery?.credentials?.length
+		? dcqlQuery.credentials.map((c) => c.id)
+		: [...conformantCredentials.keys()];
 
+	const queries: PresentCredentialsQuery[] = await Promise.all(queryIds.map(async (id) => {
 		const conformant = conformantCredentials.get(id);
 
 		const seen = new Set<string>();
@@ -94,7 +101,7 @@ export async function resolveCredentialPresentationRequest(
 		};
 	}));
 
-	const sets: PresentCredentialSet[] = dcqlQuery.credential_sets?.length
+	const sets: PresentCredentialSet[] = dcqlQuery?.credential_sets?.length
 		? dcqlQuery.credential_sets.map((set) => ({
 				purpose: set.purpose != null ? String(set.purpose) : undefined,
 				required: set.required,
@@ -102,7 +109,7 @@ export async function resolveCredentialPresentationRequest(
 			}))
 		: [{
 				required: true,
-				options: [dcqlQuery.credentials.map((c) => c.id)],
+				options: [queryIds],
 			}];
 
 	return {
