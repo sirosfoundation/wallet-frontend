@@ -1,11 +1,9 @@
-import { type ClientMetaConfig } from '../config';
 import type { OIDFlowTransportType } from '@/lib/openid-flow/types/OIDFlowTypes';
+import type { EnvConfig } from './types/config';
 export type DidKeyVersion = "p256-pub" | "jwk_jcs-pub";
 export type LogLevel = "error" | "info" | "warn" | "debug";
 
-type Config = ClientMetaConfig & Record<string, string | undefined>;
-
-const config: Config = {};
+const config: Partial<EnvConfig> = {};
 
 (function () {
 	if (typeof window === 'undefined') {
@@ -25,6 +23,7 @@ const config: Config = {};
 		}
 	}
 })();
+
 export const MODE = import.meta.env.MODE as 'development' | 'production' || 'production';
 export const APP_VERSION = import.meta.env.VITE_APP_VERSION;
 export const BASE_PATH = config.base_path || '/';
@@ -60,12 +59,11 @@ export const WS_URL = config.ws_url || (ENGINE_URL
 	})()
 	: undefined);
 
-export const MULTI_LANGUAGE_DISPLAY: boolean = config.multi_language_display ? JSON.parse(config.multi_language_display) : false;
+export const MULTI_LANGUAGE_DISPLAY: boolean = config.multi_language_display ? config.multi_language_display : false;
 export const I18N_WALLET_NAME_OVERRIDE: string | undefined = config.i18n_wallet_name_override;
-export const INACTIVE_LOGOUT_MILLIS = (config.inactive_logout_seconds ? parseInt(config.inactive_logout_seconds, 10) : 60 * 15) * 1000
 export const WEBAUTHN_RPID = config.webauthn_rpid ?? "localhost";
-export const OPENID4VP_SAN_DNS_CHECK = config.openid4vp_san_dns_check ? config.openid4vp_san_dns_check === 'true' : false;
-export const OPENID4VP_SAN_DNS_CHECK_SSL_CERTS = config.openid4vp_san_dns_check_ssl_certs ? config.openid4vp_san_dns_check_ssl_certs === 'true' : false;
+export const OPENID4VP_SAN_DNS_CHECK = config.openid4vp_san_dns_check;
+export const OPENID4VP_SAN_DNS_CHECK_SSL_CERTS = config.openid4vp_san_dns_check_ssl_certs;
 
 /**
  * Delegate trust evaluation to the backend's AuthZEN proxy.
@@ -86,11 +84,11 @@ export const DELEGATE_TRUST_TO_BACKEND: boolean = (() => {
 	const configValue = config.delegate_trust_to_backend;
 
 	// Default is true (secure mode - delegate to backend)
-	if (configValue === undefined || configValue === '') {
+	if (configValue === undefined) {
 		return true;
 	}
 
-	const wantsLocalTrustValidation = configValue !== 'true';
+	const wantsLocalTrustValidation = configValue !== true;
 
 	if (wantsLocalTrustValidation) {
 		// Only allow disabling backend trust delegation in development mode
@@ -113,7 +111,7 @@ export const DELEGATE_TRUST_TO_BACKEND: boolean = (() => {
 })();
 
 export const OPENID4VCI_REDIRECT_URI = config.openid4vci_redirect_uri ?  config.openid4vci_redirect_uri : "http://localhost:3000/";
-export const CLOCK_TOLERANCE = config.clock_tolerance && !isNaN(parseInt(config.clock_tolerance)) ? parseInt(config.clock_tolerance) : 60;
+export const CLOCK_TOLERANCE = 60;
 export const STATIC_PUBLIC_URL = config.static_public_url || 'https://demo.wwwallet.org';
 export const STATIC_NAME = config.static_name || 'SIROS ID (dev)';
 
@@ -123,7 +121,7 @@ export const STATIC_NAME = config.static_name || 'SIROS ID (dev)';
  * set preserve_presentation_history=true in the deployment config to opt in
  * to keeping history.
  */
-export const PRESERVE_PRESENTATION_HISTORY: boolean = config.preserve_presentation_history === 'true';
+export const PRESERVE_PRESENTATION_HISTORY: boolean = config.preserve_presentation_history === true;
 
 /**
  * Shows the "Scan Physical ID" entry point on the Add Credentials page
@@ -131,20 +129,19 @@ export const PRESERVE_PRESENTATION_HISTORY: boolean = config.preserve_presentati
  * Defaults to true to match the feature's existing behavior; tenants that
  * don't want it offered can opt out via SCAN_PHYSICAL_ID_ENABLED=false.
  */
-export const SCAN_PHYSICAL_ID_ENABLED: boolean = config.scan_physical_id_enabled !== 'false';
+export const SCAN_PHYSICAL_ID_ENABLED: boolean = config.scan_physical_id_enabled !== false;
 export const OPENID4VCI_PROOF_TYPE_PRECEDENCE = config.openid4vci_proof_type_precedence || 'jwt';
-export const FOLD_EVENT_HISTORY_AFTER_SECONDS = config.fold_event_history_after_seconds && !isNaN(parseInt(config.fold_event_history_after_seconds)) ? parseInt(config.fold_event_history_after_seconds) : 2592000; // 30 days
-export const DISPLAY_ISSUANCE_WARNINGS: boolean = config.display_issuance_warnings ? JSON.parse(config.display_issuance_warnings) : false;
-export const OPENID4VCI_MAX_ACCEPTED_BATCH_SIZE: number = config.openid4vci_max_accepted_batch_size && !isNaN(parseInt(config.openid4vci_max_accepted_batch_size)) ? parseInt(config.openid4vci_max_accepted_batch_size) : 10;
-export const OPENID4VCI_TRANSACTION_ID_POLLING_INTERVAL_IN_SECONDS = config.openid4vci_transaction_id_polling_interval_in_seconds && !isNaN(parseInt(config.openid4vci_transaction_id_polling_interval_in_seconds)) ? parseInt(config.openid4vci_transaction_id_polling_interval_in_seconds) : 200;
-export const OPENID4VCI_TRANSACTION_ID_LIFETIME_IN_SECONDS = config.openid4vci_transaction_id_lifetime_in_seconds && !isNaN(parseInt(config.openid4vci_transaction_id_lifetime_in_seconds)) ? parseInt(config.openid4vci_transaction_id_lifetime_in_seconds) : 2592000;
+export const FOLD_EVENT_HISTORY_AFTER_SECONDS = config.fold_event_history_after_seconds && !isNaN(config.fold_event_history_after_seconds) ? config.fold_event_history_after_seconds : 2592000; // 30 days
+export const DISPLAY_ISSUANCE_WARNINGS: boolean = config.display_issuance_warnings === true;
+export const OPENID4VCI_MAX_ACCEPTED_BATCH_SIZE: number = config.openid4vci_max_accepted_batch_size && !isNaN(config.openid4vci_max_accepted_batch_size) ? config.openid4vci_max_accepted_batch_size : 10;
+export const OPENID4VCI_TRANSACTION_ID_POLLING_INTERVAL_IN_SECONDS = config.openid4vci_transaction_id_polling_interval_in_seconds && !isNaN(config.openid4vci_transaction_id_polling_interval_in_seconds) ? config.openid4vci_transaction_id_polling_interval_in_seconds : 200;
+export const OPENID4VCI_TRANSACTION_ID_LIFETIME_IN_SECONDS = config.openid4vci_transaction_id_lifetime_in_seconds && !isNaN(config.openid4vci_transaction_id_lifetime_in_seconds) ? config.openid4vci_transaction_id_lifetime_in_seconds : 2592000;
 export const OHTTP_KEY_CONFIG = config.ohttp_key_config;
 export const OHTTP_RELAY = config.ohttp_relay;
 export const VCT_REGISTRY_URL: string | undefined = config.vct_registry_url;
 export const POLICY_LINKS = config.policy_links;
-export const SHOW_PWA_INSTALL_PROMPT = config.show_pwa_install_prompt === 'true';
-export const WALLET_COMPANION_INTEGRATION = config.wallet_companion_integration === 'true';
-export const POWERED_BY = config.powered_by;
+export const SHOW_PWA_INSTALL_PROMPT = config.show_pwa_install_prompt === true;
+export const WALLET_COMPANION_INTEGRATION = config.wallet_companion_integration === true;
 
 /**
  * When true, the wallet answers go-wallet-backend's `request_attestation`
@@ -159,7 +156,7 @@ export const POWERED_BY = config.powered_by;
  * docs/WIA_SPEC_COMPLIANCE_PLAN.md for the known limitations (cnf ≠ DPoP key,
  * one PoP reused across PAR + token) and the plan to close them.
  */
-export const WIA_ENABLED: boolean = config.wia_enabled === 'true';
+export const WIA_ENABLED: boolean = config.wia_enabled === true;
 
 // ===== Transport Configuration =====
 
@@ -170,8 +167,7 @@ export const WIA_ENABLED: boolean = config.wia_enabled === 'true';
  * 'direct' disabled by default (requires ecosystem CORS support)
  */
 export const ALLOWED_TRANSPORTS: OIDFlowTransportType[] =
-	(config.allowed_transports || 'websocket')
-		.split(',')
+	(config.allowed_transports || ['websocket'])
 		.map((t: string) => t.trim())
 		.filter((t: string) => ['websocket', 'direct'].includes(t)) as OIDFlowTransportType[];
 
@@ -180,8 +176,7 @@ export const ALLOWED_TRANSPORTS: OIDFlowTransportType[] =
  * Default prefers WebSocket over HTTP proxy over Direct
  */
 export const TRANSPORT_PREFERENCE: OIDFlowTransportType[] =
-	(config.transport_preference || 'websocket,direct')
-		.split(',')
+	(config.transport_preference || ['websocket', 'direct'])
 		.map((t: string) => t.trim())
 		.filter((t: string) => ['websocket', 'direct'].includes(t)) as OIDFlowTransportType[];
 

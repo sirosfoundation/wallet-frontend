@@ -25,6 +25,7 @@
     "dompurify": "^3.4.16",
     "i18next": "^26.4.2",
     "jose": "^4.15.9",
+    "json-schema-to-typescript": "^16.0.0",
     "jsonpointer": "^5.0.1",
     "jsqr-es6": "1.4.0-1",
     "key-did-resolver": "^4.0.0",
@@ -110,7 +111,8 @@
     "version": "dotenv -e .changeset/.env -- changeset version",
     "tag": "pnpm tag:public && pnpm tag:main",
     "tag:public": "changeset git-tag",
-    "tag:main": "VER=\"v$(node -p \"require('./package.json').version\")\"; git tag \"$VER\" -m \"$VER\""
+    "tag:main": "VER=\"v$(node -p \"require('./package.json').version\")\"; git tag \"$VER\" -m \"$VER\"",
+    "typegen:config": "json2ts config/.schemas/env.schema.json -o src/types/env-config.ts --style.useTabs"
   },
   "repository": "https://github.com/wwwallet/wallet-frontend",
   "license": "BSD-2-Clause",
