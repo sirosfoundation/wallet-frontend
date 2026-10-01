@@ -4,12 +4,11 @@ RUN apt-get update -y && apt-get install -y git fontconfig && rm -rf /var/lib/ap
 
 WORKDIR /home/node/app
 
-ENV CI=true
-
 RUN corepack enable
 
 # Install dependencies first so rebuild of these layers is only needed when dependencies change
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY --parents packages/*/package.json ./
 COPY patches ./patches
 RUN --mount=type=cache,target=/pnpm-store \
 	pnpm install --frozen-lockfile --store-dir=/pnpm-store
