@@ -201,10 +201,11 @@ describe('AuthZENClient', () => {
 
 			await client.resolve('did:web:example.com');
 
-			// Verify the request body has subject_id and default subject_type
+			// Verify the request body has subject_id and the auto-detected subject_type.
+			// A `did:` identifier is detected as 'key' by the client.
 			expect(mockHttpClient.post).toHaveBeenCalledWith(
 				`${baseUrl}/v1/resolve`,
-				{ subject_id: 'did:web:example.com', subject_type: 'url' },
+				{ subject_id: 'did:web:example.com', subject_type: 'key' },
 				expect.any(Object),
 				expect.any(Object),
 			);

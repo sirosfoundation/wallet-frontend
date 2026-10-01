@@ -1,5 +1,5 @@
 
-import { assert, describe, it } from "vitest";
+import { assert, describe, it, vi } from "vitest";
 import { Context } from "../interfaces";
 import { PublicKeyResolverEngine } from "../PublicKeyResolverEngine";
 import { MsoMdocVerifier } from './MsoMdocVerifier';
@@ -58,16 +58,25 @@ describe("The MsoMdocVerifier", () => {
 	});
 
 	it("should detect expired DeviceResponse", async () => {
-		const result = await verifier.verify({
-			rawCredential: deviceResponseB64U, opts: {
-				responseUri: "http://wallet-enterprise-acme-verifier:8005/verification/direct_post",
-				expectedAudience: "wallet-enterprise-acme-verifier",
-				holderNonce: "da1c17aa7d902ef8",
-				expectedNonce: "6bc90bea-1e01-49a3-a4de-5d98ddb64850"
-			}
-		});
+		// The issuer certificate is valid until 2025-07-05, while the credential
+		// itself expired on 2025-03-04. Pin the clock between those two dates so
+		// the certificate chain validates and the expiry check is what fails.
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2025-04-01T00:00:00Z"));
+		try {
+			const result = await verifier.verify({
+				rawCredential: deviceResponseB64U, opts: {
+					responseUri: "http://wallet-enterprise-acme-verifier:8005/verification/direct_post",
+					expectedAudience: "wallet-enterprise-acme-verifier",
+					holderNonce: "da1c17aa7d902ef8",
+					expectedNonce: "6bc90bea-1e01-49a3-a4de-5d98ddb64850"
+				}
+			});
 
-		assert(result.success === false && result.error === CredentialVerificationError.ExpiredCredential);
+			assert(result.success === false && result.error === CredentialVerificationError.ExpiredCredential);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it("should produce error because the wrong root certificate was used", async () => {
