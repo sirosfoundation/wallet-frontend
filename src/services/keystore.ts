@@ -16,7 +16,6 @@ import { SupportedAlgs } from "@auth0/mdl/lib/mdoc/model/types";
 import { COSEKeyToJWK } from "cose-kit";
 import { withHintsFromAllowCredentials } from "@/lib/utils/webauthn";
 import { addDeleteKeypairEvent, addNewKeypairEvent, CurrentSchema, foldState, SchemaV1, SchemaV2, SchemaV3 } from "./WalletStateSchema";
-import { buildVcdm2Presentation, holderIdFromCredential, holderJwkFromCredential } from "wallet-common";
 import { logger } from "../logger";
 
 type WalletState = CurrentSchema.WalletState;

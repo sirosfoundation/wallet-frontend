@@ -12,7 +12,7 @@ import {
 
 const mockPost = vi.fn();
 
-vi.mock('@/api', async importOriginal => ({
+vi.mock('@/api', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/api')>()),
 	useApi: () => ({
 		post: mockPost,
@@ -20,7 +20,7 @@ vi.mock('@/api', async importOriginal => ({
 	}),
 }));
 
-vi.mock('@/config', async importOriginal => ({
+vi.mock('@/config', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/config')>()),
 	WIA_ENABLED: true,
 	BACKEND_URL: 'https://wallet-provider.example',
@@ -30,15 +30,18 @@ vi.mock('./useHttpClient', () => ({
 	useHttpClient: () => ({ post: mockPost }),
 }));
 
-// sign_client_auth never touches the WSCD client; stub it so the hook can
-// mount without a WscdManagerClientContextProvider.
-vi.mock('./useWscdManagerClient', () => ({
-	useWscdManagerClient: () => ({
+const { wscdMock } = vi.hoisted(() => ({
+	wscdMock: {
 		signSdJwtPresentation: vi.fn(),
+		signVcdm2Presentation: vi.fn(),
 		generateDeviceResponse: vi.fn(),
 		generateDeviceResponseForDCAPI: vi.fn(),
 		generateDeviceResponseWithProximity: vi.fn(),
-	}),
+	},
+}));
+
+vi.mock('./useWscdManagerClient', () => ({
+	useWscdManagerClient: () => wscdMock,
 }));
 
 vi.mock('@/context/SessionContext', async () => {
@@ -228,7 +231,9 @@ describe('useOIDFlowSignHandler / sign_client_auth', () => {
 			{ Authorization: 'Bearer test-token' },
 		);
 		const [path, body] = mockPost.mock.calls[1];
-		expect(path).toBe('https://wallet-provider.example/wallet-provider/wia/generate');
+		expect(path).toBe(
+			'https://wallet-provider.example/wallet-provider/wia/generate',
+		);
 		expect(decodeJwt(body.pop).aud).toBe('https://wallet-provider.example');
 	});
 
@@ -329,48 +334,39 @@ describe('useOIDFlowSignHandler / sign_client_auth', () => {
 	});
 });
 
-const VCDM2_CONTEXT = "https://www.w3.org/ns/credentials/v2";
+const VCDM2_CONTEXT = 'https://www.w3.org/ns/credentials/v2';
 
 function enc(value: object): string {
 	const bytes = new TextEncoder().encode(JSON.stringify(value));
-	let binary = "";
+	let binary = '';
 	for (const b of bytes) binary += String.fromCharCode(b);
-	return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+	return btoa(binary)
+		.replace(/\+/g, '-')
+		.replace(/\//g, '_')
+		.replace(/=+$/, '');
 }
 
 const vcdm2Credential = {
-	"@context": [VCDM2_CONTEXT],
-	type: ["VerifiableCredential", "DiplomaCredential"],
-	issuer: "did:example:issuer",
-	credentialSubject: { id: "did:example:subject" },
+	'@context': [VCDM2_CONTEXT],
+	type: ['VerifiableCredential', 'DiplomaCredential'],
+	issuer: 'did:example:issuer',
+	credentialSubject: { id: 'did:example:subject' },
 };
 
 /** A VCDM 2.0 credential with an enveloping JOSE proof. */
-const envelopedVcdm2 = `${enc({ alg: "ES256", typ: "vc+jwt" })}.${enc(vcdm2Credential)}.sig`;
+const envelopedVcdm2 = `${enc({ alg: 'ES256', typ: 'vc+jwt' })}.${enc(vcdm2Credential)}.sig`;
 
 /** The same credential secured with an embedded Data Integrity proof. */
 const ldpVcdm2 = JSON.stringify({
 	...vcdm2Credential,
 	proof: {
-		type: "DataIntegrityProof",
-		cryptosuite: "ecdsa-rdfc-2019",
-		verificationMethod: "did:example:issuer#key-1",
-		proofPurpose: "assertionMethod",
-		proofValue: "uAAAA",
+		type: 'DataIntegrityProof',
+		cryptosuite: 'ecdsa-rdfc-2019',
+		verificationMethod: 'did:example:issuer#key-1',
+		proofPurpose: 'assertionMethod',
+		proofValue: 'uAAAA',
 	},
 });
-
-type PresentationArgs = [nonce: string, audience: string, credentials: unknown[], transactionData?: unknown];
-
-function makeKeystore() {
-	return {
-		// Parameters are declared so the recorded calls stay typed, which is
-		// what lets the assertions below inspect the arguments.
-		signVcdm2Presentation: vi.fn(async (..._args: PresentationArgs) => ({ vpjwt: "vcdm2-vp-token" })),
-		signJwtPresentation: vi.fn(async (..._args: PresentationArgs) => ({ vpjwt: "sdjwt-vp-token" })),
-		generateDeviceResponse: vi.fn(),
-	};
-}
 
 function renderSignHandlerWithKeystore(keystore: unknown) {
 	const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -385,192 +381,266 @@ function renderSignHandlerWithKeystore(keystore: unknown) {
 }
 
 const baseParams = {
-	nonce: "n-1",
-	audience: "https://verifier.example",
+	nonce: 'n-1',
+	audience: 'https://verifier.example',
 };
 
-describe("useOIDFlowSignHandler — VCDM 2.0 presentation", () => {
-	let keystore: ReturnType<typeof makeKeystore>;
-
+describe('useOIDFlowSignHandler — VCDM 2.0 presentation', () => {
 	beforeEach(() => {
-		keystore = makeKeystore();
+		wscdMock.signVcdm2Presentation
+			.mockReset()
+			.mockResolvedValue('vcdm2-vp-token');
+		wscdMock.signSdJwtPresentation
+			.mockReset()
+			.mockResolvedValue('sdjwt-vp-token');
 	});
 
-	it("routes an enveloped VCDM 2.0 credential to signVcdm2Presentation", async () => {
-		const { result } = renderSignHandlerWithKeystore(keystore);
-
-		const response = await result.current.signPresentation({
-			...baseParams,
-			credentialsToInclude: [{
-				credentialId: "c1",
-				credentialQueryId: "q1",
-				credentialRaw: envelopedVcdm2,
-			}],
-		});
-
-		expect(keystore.signVcdm2Presentation).toHaveBeenCalledTimes(1);
-		expect(keystore.signJwtPresentation).not.toHaveBeenCalled();
-
-		// The raw compact JWS is handed over unchanged, so it can be wrapped
-		// as an EnvelopedVerifiableCredential.
-		const [nonce, audience, credentials] = keystore.signVcdm2Presentation.mock.calls[0];
-		expect(nonce).toBe("n-1");
-		expect(audience).toBe("https://verifier.example");
-		expect(credentials).toEqual([envelopedVcdm2]);
-
-		expect(JSON.parse(response.vpToken!)).toEqual({ q1: ["vcdm2-vp-token"] });
-	});
-
-	it("parses a Data Integrity credential into an object before presenting it", async () => {
-		const { result } = renderSignHandlerWithKeystore(keystore);
-
-		await result.current.signPresentation({
-			...baseParams,
-			credentialsToInclude: [{
-				credentialId: "c2",
-				credentialQueryId: "q2",
-				credentialRaw: ldpVcdm2,
-			}],
-		});
-
-		const [, , credentials] = keystore.signVcdm2Presentation.mock.calls[0];
-		// An object, not the JSON string: embedding the string would
-		// double-encode the credential inside the presentation.
-		expect(typeof credentials[0]).toBe("object");
-		expect(credentials[0]).toEqual(JSON.parse(ldpVcdm2));
-	});
-
-	it("ignores disclosedClaims, which VCDM 2.0 cannot honour", async () => {
-		const { result } = renderSignHandlerWithKeystore(keystore);
-
-		await result.current.signPresentation({
-			...baseParams,
-			credentialsToInclude: [{
-				credentialId: "c3",
-				credentialQueryId: "q3",
-				credentialRaw: envelopedVcdm2,
-				disclosedClaims: ["degree"],
-			}],
-		});
-
-		// The whole credential is presented; no filtering is attempted.
-		const [, , credentials] = keystore.signVcdm2Presentation.mock.calls[0];
-		expect(credentials).toEqual([envelopedVcdm2]);
-	});
-
-	it("still routes SD-JWT credentials to the SD-JWT signer", async () => {
-		const { result } = renderSignHandlerWithKeystore(keystore);
-		const sdJwt = `${enc({ alg: "ES256", typ: "dc+sd-jwt" })}.${enc({ vct: "x" })}.sig~`;
-
-		await result.current.signPresentation({
-			...baseParams,
-			credentialsToInclude: [{ credentialId: "c4", credentialQueryId: "q4", credentialRaw: sdJwt }],
-		});
-
-		expect(keystore.signJwtPresentation).toHaveBeenCalledTimes(1);
-		expect(keystore.signVcdm2Presentation).not.toHaveBeenCalled();
-	});
-
-	it("presents several credentials, keyed by their query ids", async () => {
-		const { result } = renderSignHandlerWithKeystore(keystore);
+	it('routes an enveloped VCDM 2.0 credential to signVcdm2Presentation', async () => {
+		const { result } = renderSignHandlerWithKeystore({});
 
 		const response = await result.current.signPresentation({
 			...baseParams,
 			credentialsToInclude: [
-				{ credentialId: "c5", credentialQueryId: "q5", credentialRaw: envelopedVcdm2 },
-				{ credentialId: "c6", credentialQueryId: "q6", credentialRaw: ldpVcdm2 },
+				{
+					credentialId: 'c1',
+					credentialQueryId: 'q1',
+					credentialRaw: envelopedVcdm2,
+				},
 			],
 		});
 
-		expect(keystore.signVcdm2Presentation).toHaveBeenCalledTimes(2);
+		expect(wscdMock.signVcdm2Presentation).toHaveBeenCalledTimes(1);
+		expect(wscdMock.signSdJwtPresentation).not.toHaveBeenCalled();
+
+		// The raw compact JWS is handed over unchanged, so it can be wrapped
+		// as an EnvelopedVerifiableCredential.
+		const [{ nonce, audience, verifiableCredentials }] =
+			wscdMock.signVcdm2Presentation.mock.calls[0];
+		expect(nonce).toBe('n-1');
+		expect(audience).toBe('https://verifier.example');
+		expect(verifiableCredentials).toEqual([envelopedVcdm2]);
+
+		expect(JSON.parse(response.vpToken!)).toEqual({ q1: ['vcdm2-vp-token'] });
+	});
+
+	it('parses a Data Integrity credential into an object before presenting it', async () => {
+		const { result } = renderSignHandlerWithKeystore({});
+
+		await result.current.signPresentation({
+			...baseParams,
+			credentialsToInclude: [
+				{
+					credentialId: 'c2',
+					credentialQueryId: 'q2',
+					credentialRaw: ldpVcdm2,
+				},
+			],
+		});
+
+		const [{ verifiableCredentials }] =
+			wscdMock.signVcdm2Presentation.mock.calls[0];
+		// An object, not the JSON string: embedding the string would
+		// double-encode the credential inside the presentation.
+		expect(typeof verifiableCredentials[0]).toBe('object');
+		expect(verifiableCredentials[0]).toEqual(JSON.parse(ldpVcdm2));
+	});
+
+	it('ignores disclosedClaims, which VCDM 2.0 cannot honour', async () => {
+		const { result } = renderSignHandlerWithKeystore({});
+
+		await result.current.signPresentation({
+			...baseParams,
+			credentialsToInclude: [
+				{
+					credentialId: 'c3',
+					credentialQueryId: 'q3',
+					credentialRaw: envelopedVcdm2,
+					disclosedClaims: ['degree'],
+				},
+			],
+		});
+
+		const [{ verifiableCredentials }] =
+			wscdMock.signVcdm2Presentation.mock.calls[0];
+		expect(verifiableCredentials).toEqual([envelopedVcdm2]);
+	});
+
+	it('still routes SD-JWT credentials to the SD-JWT signer', async () => {
+		const { result } = renderSignHandlerWithKeystore({});
+		const sdJwt = `${enc({ alg: 'ES256', typ: 'dc+sd-jwt' })}.${enc({ vct: 'x' })}.sig~`;
+
+		await result.current.signPresentation({
+			...baseParams,
+			credentialsToInclude: [
+				{ credentialId: 'c4', credentialQueryId: 'q4', credentialRaw: sdJwt },
+			],
+		});
+
+		expect(wscdMock.signSdJwtPresentation).toHaveBeenCalledTimes(1);
+		expect(wscdMock.signVcdm2Presentation).not.toHaveBeenCalled();
+	});
+
+	it('presents several credentials, keyed by their query ids', async () => {
+		const { result } = renderSignHandlerWithKeystore({});
+
+		const response = await result.current.signPresentation({
+			...baseParams,
+			credentialsToInclude: [
+				{
+					credentialId: 'c5',
+					credentialQueryId: 'q5',
+					credentialRaw: envelopedVcdm2,
+				},
+				{
+					credentialId: 'c6',
+					credentialQueryId: 'q6',
+					credentialRaw: ldpVcdm2,
+				},
+			],
+		});
+
+		expect(wscdMock.signVcdm2Presentation).toHaveBeenCalledTimes(2);
 		expect(JSON.parse(response.vpToken!)).toEqual({
-			q5: ["vcdm2-vp-token"],
-			q6: ["vcdm2-vp-token"],
+			q5: ['vcdm2-vp-token'],
+			q6: ['vcdm2-vp-token'],
 		});
 	});
 
-	it("rejects a credential format it cannot present", async () => {
-		const { result } = renderSignHandlerWithKeystore(keystore);
+	it('rejects a credential format it cannot present', async () => {
+		const { result } = renderSignHandlerWithKeystore({});
 
-		await expect(result.current.signPresentation({
-			...baseParams,
-			credentialsToInclude: [{ credentialId: "c7", credentialQueryId: "q7", credentialRaw: "not-a-credential" }],
-		})).rejects.toThrow(/Unsupported credential format for presentation signing/);
+		await expect(
+			result.current.signPresentation({
+				...baseParams,
+				credentialsToInclude: [
+					{
+						credentialId: 'c7',
+						credentialQueryId: 'q7',
+						credentialRaw: 'not-a-credential',
+					},
+				],
+			}),
+		).rejects.toThrow(/Unsupported credential format for presentation signing/);
 	});
 
-	it("requires a nonce and an audience", async () => {
-		const { result } = renderSignHandlerWithKeystore(keystore);
+	it('requires a nonce and an audience', async () => {
+		const { result } = renderSignHandlerWithKeystore({});
 
-		await expect(result.current.signPresentation({
-			audience: "aud",
-			credentialsToInclude: [{ credentialId: "c", credentialQueryId: "q", credentialRaw: envelopedVcdm2 }],
-		})).rejects.toThrow(/Missing audience or nonce/);
+		await expect(
+			result.current.signPresentation({
+				audience: 'aud',
+				credentialsToInclude: [
+					{
+						credentialId: 'c',
+						credentialQueryId: 'q',
+						credentialRaw: envelopedVcdm2,
+					},
+				],
+			}),
+		).rejects.toThrow(/Missing audience or nonce/);
 
-		await expect(result.current.signPresentation({
-			nonce: "n",
-			credentialsToInclude: [{ credentialId: "c", credentialQueryId: "q", credentialRaw: envelopedVcdm2 }],
-		})).rejects.toThrow(/Missing audience or nonce/);
+		await expect(
+			result.current.signPresentation({
+				nonce: 'n',
+				credentialsToInclude: [
+					{
+						credentialId: 'c',
+						credentialQueryId: 'q',
+						credentialRaw: envelopedVcdm2,
+					},
+				],
+			}),
+		).rejects.toThrow(/Missing audience or nonce/);
 	});
 
-	it("requires at least one credential", async () => {
-		const { result } = renderSignHandlerWithKeystore(keystore);
+	it('requires at least one credential', async () => {
+		const { result } = renderSignHandlerWithKeystore({});
 
-		await expect(result.current.signPresentation({ ...baseParams, credentialsToInclude: [] }))
-			.rejects.toThrow(/No credentials to include/);
+		await expect(
+			result.current.signPresentation({
+				...baseParams,
+				credentialsToInclude: [],
+			}),
+		).rejects.toThrow(/No credentials to include/);
 	});
 
-	it("reports a credential that is missing from the cache", async () => {
-		const { result } = renderSignHandlerWithKeystore(keystore);
+	it('reports a credential that is missing from the cache', async () => {
+		const { result } = renderSignHandlerWithKeystore({});
 
-		await expect(result.current.signPresentation({
-			...baseParams,
-			credentialsToInclude: [{ credentialId: "c8", credentialQueryId: "q8" }],
-		})).rejects.toThrow(/Credential not in cache: c8/);
+		await expect(
+			result.current.signPresentation({
+				...baseParams,
+				credentialsToInclude: [{ credentialId: 'c8', credentialQueryId: 'q8' }],
+			}),
+		).rejects.toThrow(/Credential not in cache: c8/);
 	});
 
-	it("reports a credential with no query id", async () => {
-		const { result } = renderSignHandlerWithKeystore(keystore);
+	it('reports a credential with no query id', async () => {
+		const { result } = renderSignHandlerWithKeystore({});
 
-		await expect(result.current.signPresentation({
-			...baseParams,
-			credentialsToInclude: [{ credentialId: "c9", credentialRaw: envelopedVcdm2 }],
-		})).rejects.toThrow(/Missing credentialQueryId for credential: c9/);
+		await expect(
+			result.current.signPresentation({
+				...baseParams,
+				credentialsToInclude: [
+					{ credentialId: 'c9', credentialRaw: envelopedVcdm2 },
+				],
+			}),
+		).rejects.toThrow(/Missing credentialQueryId for credential: c9/);
 	});
 
-	it("refuses to sign at all without a keystore", async () => {
+	it('refuses to sign at all without a keystore', async () => {
 		const { result } = renderSignHandlerWithKeystore(undefined);
 
-		await expect(result.current.handleSignRequest({
-			flowId: "flow-1",
-			action: "sign_presentation",
-			params: {
-				...baseParams,
-				credentialsToInclude: [{ credentialId: "c", credentialQueryId: "q", credentialRaw: envelopedVcdm2 }],
-			},
-		})).rejects.toThrow(/Keystore not available/);
+		await expect(
+			result.current.handleSignRequest({
+				flowId: 'flow-1',
+				action: 'sign_presentation',
+				params: {
+					...baseParams,
+					credentialsToInclude: [
+						{
+							credentialId: 'c',
+							credentialQueryId: 'q',
+							credentialRaw: envelopedVcdm2,
+						},
+					],
+				},
+			}),
+		).rejects.toThrow(/Keystore not available/);
 	});
 
-	it("dispatches sign_presentation through handleSignRequest", async () => {
-		const { result } = renderSignHandlerWithKeystore(keystore);
+	it('dispatches sign_presentation through handleSignRequest', async () => {
+		const { result } = renderSignHandlerWithKeystore({});
 
 		const response = await result.current.handleSignRequest({
-			flowId: "flow-1",
-			action: "sign_presentation",
+			flowId: 'flow-1',
+			action: 'sign_presentation',
 			params: {
 				...baseParams,
-				credentialsToInclude: [{ credentialId: "c", credentialQueryId: "q", credentialRaw: envelopedVcdm2 }],
+				credentialsToInclude: [
+					{
+						credentialId: 'c',
+						credentialQueryId: 'q',
+						credentialRaw: envelopedVcdm2,
+					},
+				],
 			},
 		});
 
-		expect(keystore.signVcdm2Presentation).toHaveBeenCalledTimes(1);
-		expect(JSON.parse(response.vpToken!)).toEqual({ q: ["vcdm2-vp-token"] });
+		expect(wscdMock.signVcdm2Presentation).toHaveBeenCalledTimes(1);
+		expect(JSON.parse(response.vpToken!)).toEqual({ q: ['vcdm2-vp-token'] });
 	});
 
-	it("rejects an unknown sign action", async () => {
-		const { result } = renderSignHandlerWithKeystore(keystore);
+	it('rejects an unknown sign action', async () => {
+		const { result } = renderSignHandlerWithKeystore({});
 
-		await expect(result.current.handleSignRequest({ flowId: "flow-1", action: "something_else" as any, params: {} }))
-			.rejects.toThrow(/Unknown sign action/);
+		await expect(
+			result.current.handleSignRequest({
+				flowId: 'flow-1',
+				action: 'something_else' as any,
+				params: {},
+			}),
+		).rejects.toThrow(/Unknown sign action/);
 	});
 });
 
@@ -583,51 +653,72 @@ describe("useOIDFlowSignHandler — VCDM 2.0 presentation", () => {
  * `vc+sd-jwt` expects a VCDM 2.0 VerifiablePresentation, not a bare SD-JWT
  * with a key-binding JWT.
  */
-describe("useOIDFlowSignHandler — VCDM 2.0 carried in an SD-JWT", () => {
-	const vcdm2SdJwt = `${enc({ alg: "ES256", typ: "vc+sd-jwt" })}.${enc(vcdm2Credential)}.sig~`;
+describe('useOIDFlowSignHandler — VCDM 2.0 carried in an SD-JWT', () => {
+	const vcdm2SdJwt = `${enc({ alg: 'ES256', typ: 'vc+sd-jwt' })}.${enc(vcdm2Credential)}.sig~`;
 
-	it("presents it as a VCDM 2.0 presentation, not through the SD-JWT signer", async () => {
-		const keystore = makeKeystore();
-		const { result } = renderSignHandlerWithKeystore(keystore);
+	beforeEach(() => {
+		wscdMock.signVcdm2Presentation
+			.mockReset()
+			.mockResolvedValue('vcdm2-vp-token');
+		wscdMock.signSdJwtPresentation
+			.mockReset()
+			.mockResolvedValue('sdjwt-vp-token');
+	});
+
+	it('presents it as a VCDM 2.0 presentation, not through the SD-JWT signer', async () => {
+		const { result } = renderSignHandlerWithKeystore({});
 
 		const response = await result.current.signPresentation({
 			...baseParams,
-			credentialsToInclude: [{ credentialId: "c1", credentialQueryId: "q1", credentialRaw: vcdm2SdJwt }],
+			credentialsToInclude: [
+				{
+					credentialId: 'c1',
+					credentialQueryId: 'q1',
+					credentialRaw: vcdm2SdJwt,
+				},
+			],
 		});
 
-		expect(keystore.signVcdm2Presentation).toHaveBeenCalledTimes(1);
-		expect(keystore.signJwtPresentation).not.toHaveBeenCalled();
-		expect(JSON.parse(response.vpToken!)).toEqual({ q1: ["vcdm2-vp-token"] });
+		expect(wscdMock.signVcdm2Presentation).toHaveBeenCalledTimes(1);
+		expect(wscdMock.signSdJwtPresentation).not.toHaveBeenCalled();
+		expect(JSON.parse(response.vpToken!)).toEqual({ q1: ['vcdm2-vp-token'] });
 	});
 
-	it("hands over the raw SD-JWT unchanged, so it can be enveloped", async () => {
-		const keystore = makeKeystore();
-		const { result } = renderSignHandlerWithKeystore(keystore);
+	it('hands over the raw SD-JWT unchanged, so it can be enveloped', async () => {
+		const { result } = renderSignHandlerWithKeystore({});
 
 		await result.current.signPresentation({
 			...baseParams,
-			credentialsToInclude: [{ credentialId: "c2", credentialQueryId: "q2", credentialRaw: vcdm2SdJwt }],
+			credentialsToInclude: [
+				{
+					credentialId: 'c2',
+					credentialQueryId: 'q2',
+					credentialRaw: vcdm2SdJwt,
+				},
+			],
 		});
 
 		// The compact SD-JWT goes through as a string: wallet-common wraps it
 		// as an EnvelopedVerifiableCredential naming `application/vc+sd-jwt`.
-		const [, , credentials] = keystore.signVcdm2Presentation.mock.calls[0];
-		expect(credentials).toEqual([vcdm2SdJwt]);
+		const [{ verifiableCredentials }] =
+			wscdMock.signVcdm2Presentation.mock.calls[0];
+		expect(verifiableCredentials).toEqual([vcdm2SdJwt]);
 	});
 
-	it("still routes a dc+sd-jwt credential to the SD-JWT signer", async () => {
+	it('still routes a dc+sd-jwt credential to the SD-JWT signer', async () => {
 		// The other side of the line: an IETF SD-JWT VC keeps its key-binding
 		// presentation, which is what its own spec defines.
-		const keystore = makeKeystore();
-		const { result } = renderSignHandlerWithKeystore(keystore);
-		const sdJwtVc = `${enc({ alg: "ES256", typ: "dc+sd-jwt" })}.${enc({ vct: "urn:eduid" })}.sig~`;
+		const { result } = renderSignHandlerWithKeystore({});
+		const sdJwtVc = `${enc({ alg: 'ES256', typ: 'dc+sd-jwt' })}.${enc({ vct: 'urn:eduid' })}.sig~`;
 
 		await result.current.signPresentation({
 			...baseParams,
-			credentialsToInclude: [{ credentialId: "c3", credentialQueryId: "q3", credentialRaw: sdJwtVc }],
+			credentialsToInclude: [
+				{ credentialId: 'c3', credentialQueryId: 'q3', credentialRaw: sdJwtVc },
+			],
 		});
 
-		expect(keystore.signJwtPresentation).toHaveBeenCalledTimes(1);
-		expect(keystore.signVcdm2Presentation).not.toHaveBeenCalled();
+		expect(wscdMock.signSdJwtPresentation).toHaveBeenCalledTimes(1);
+		expect(wscdMock.signVcdm2Presentation).not.toHaveBeenCalled();
 	});
 });

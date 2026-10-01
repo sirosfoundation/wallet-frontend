@@ -340,7 +340,7 @@ async function createVpToken(
 			case VerifiableCredentialFormat.VCDM2_JOSE:
 			case VerifiableCredentialFormat.LDP_VC:
 				return await createVpTokenFromVcdm2(
-					keystore,
+					wscd,
 					{ credentialRaw },
 					{ nonce, audience }
 				);
@@ -382,7 +382,7 @@ async function createVpTokenFromSdJwt(
  * deliberately ignored rather than silently appearing to filter anything.
  */
 async function createVpTokenFromVcdm2(
-	keystore: LocalStorageKeystore,
+	wscd: IWscdManagerClient,
 	credentialData: {
 		credentialRaw: string;
 	},
@@ -401,7 +401,12 @@ async function createVpTokenFromVcdm2(
 		? JSON.parse(credentialRaw)
 		: credentialRaw;
 
-	const { vpjwt } = await keystore.signVcdm2Presentation(nonce, audience, [credential]);
+	const vpjwt = await wscd.signVcdm2Presentation({
+		nonce,
+		audience,
+		verifiableCredentials: [credential],
+	});
+
 	return vpjwt;
 }
 
