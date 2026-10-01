@@ -216,3 +216,72 @@ describe("DidPublicKeyResolver", () => {
 		expect((await DidPublicKeyResolver().resolve({ identifier: "https://issuer.example" })).success).toBe(false);
 	});
 });
+
+describe("didResolver edge cases", () => {
+	const encode = (value: unknown) => `did:jwk:${toBase64Url(new TextEncoder().encode(JSON.stringify(value)))}`;
+
+	it("refuses a did:jwk with an empty method-specific id", () => {
+		expect(resolveDidJwk("did:jwk:").resolved).toBe(false);
+		expect(resolveDidJwk("did:jwk:#0").error).toContain("empty method-specific id");
+	});
+
+	it("refuses a did:jwk that decodes to something other than a JWK", () => {
+		expect(resolveDidJwk(encode("a string")).error).toContain("valid JWK");
+		expect(resolveDidJwk(encode({ crv: "P-256" })).error).toContain("valid JWK");
+	});
+
+	it("returns null for a did:web without a host", () => {
+		expect(didWebToUrl("did:web:")).toBeNull();
+		expect(didWebToUrl("did:web::path")).toBeNull();
+	});
+
+	it("refuses to fetch for a non-did:web identifier", async () => {
+		const httpClient = { get: vi.fn(), post: vi.fn() };
+		expect((await resolveDidWeb("did:jwk:abc", httpClient)).error).toContain("Not a did:web identifier");
+		expect(httpClient.get).not.toHaveBeenCalled();
+	});
+
+	it("fails when the did:web document is not an object or has no id", async () => {
+		const httpClient = { get: vi.fn(), post: vi.fn() };
+		httpClient.get.mockResolvedValueOnce({ status: 200, headers: {}, data: "<html>" });
+		expect((await resolveDidWeb("did:web:example.com", httpClient)).resolved).toBe(false);
+		httpClient.get.mockResolvedValueOnce({ status: 200, headers: {}, data: { verificationMethod: [] } });
+		expect((await resolveDidWeb("did:web:example.com", httpClient)).error).toContain('no "id"');
+	});
+
+	it("finds a key embedded in the relationship rather than in verificationMethod", () => {
+		const doc: DIDDocument = {
+			id: "did:web:example.com",
+			authentication: [
+				{ id: "did:web:example.com#embedded", type: "JsonWebKey2020", controller: "did:web:example.com", publicKeyJwk: P256_JWK as JsonWebKey },
+			],
+		};
+		expect(findPublicKeyInDidDocument(doc, "#embedded", "authentication")).toEqual(P256_JWK);
+		expect(findPublicKeyInDidDocument(doc, "did:web:example.com", "authentication")).toEqual(P256_JWK);
+	});
+
+	it("dereferences a relative reference in a relationship", () => {
+		const doc: DIDDocument = {
+			id: "did:web:example.com",
+			verificationMethod: [
+				{ id: "did:web:example.com#sig", type: "JsonWebKey2020", controller: "did:web:example.com", publicKeyJwk: P256_JWK as JsonWebKey },
+			],
+			assertionMethod: ["#sig"],
+		};
+		expect(findPublicKeyInDidDocument(doc, "did:web:example.com", "assertionMethod")).toEqual(P256_JWK);
+	});
+
+	it("returns null for a DID URL that names no known verification method", () => {
+		const doc: DIDDocument = { id: "did:web:example.com", assertionMethod: ["did:web:example.com#other"] };
+		expect(findPublicKeyInDidDocument(doc, "did:web:example.com#missing", "assertionMethod")).toBeNull();
+	});
+
+	it("fails when the issuer DID cannot be resolved", async () => {
+		expect((await DidPublicKeyResolver().resolve({ identifier: "did:jwk:" })).success).toBe(false);
+	});
+
+	it("fails when the kid names no key in the issuer's DID document", async () => {
+		const did = toDidJwk(P256_JWK);
+		expect((await DidPublicKeyResolver().resolve({ identifier: did, kid: `${did}#1` })).success).toBe(false);
+	});
+});
