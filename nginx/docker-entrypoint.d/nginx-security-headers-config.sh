@@ -62,7 +62,7 @@ fi
 # TODO: We should restrict unsafe-inline, it's not a long-term solution:
 #	      https://github.com/sirosfoundation/wallet-frontend/issues/251
 CSP="default-src 'self'; \
-script-src 'self'; \
+script-src 'self' 'wasm-unsafe-eval'; \
 style-src 'self'; \
 font-src 'self' data:; \
 img-src 'self' data: ${RESOURCE_SCHEME_SRC}; \
