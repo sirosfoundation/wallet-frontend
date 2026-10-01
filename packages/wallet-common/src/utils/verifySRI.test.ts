@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import crypto from "crypto";
-import { verifySRI } from "./verifySRIFromObject";
+import { verifySRI, verifySRIFromObject } from "./verifySRIFromObject";
 
 const subtle = crypto.webcrypto.subtle as SubtleCrypto;
 
@@ -52,6 +52,10 @@ describe("verifySRI", () => {
 		expect(await verifySRI(subtle, served, `sha512-AAAA ${sri(served)}`)).toBe(true);
 	});
 
+	it("rejects a list in which no digest matches", async () => {
+		expect(await verifySRI(subtle, served, `sha512-AAAA ${sri("something else")}`)).toBe(false);
+	});
+
 	it("does not truncate a digest spelled in the URL-safe alphabet", async () => {
 		// base64url contains dashes. Splitting on every dash cut the digest
 		// short and guaranteed a mismatch.
@@ -68,5 +72,13 @@ describe("verifySRI", () => {
 		expect(await verifySRI(subtle, served, "-abc")).toBe(false);
 		expect(await verifySRI(subtle, served, "md5-abc")).toBe(false);
 		expect(await verifySRI(subtle, served, "sha256-not!base64")).toBe(false);
+	});
+});
+
+describe("verifySRIFromObject", () => {
+	it("hashes the re-serialised object, as the deprecated helper always has", async () => {
+		const compact = `{"vct":"urn:eudi:pid:1"}`;
+		expect(await verifySRIFromObject(subtle, JSON.parse(compact), sri(compact))).toBe(true);
+		expect(await verifySRIFromObject(subtle, JSON.parse(compact), sri("other"))).toBe(false);
 	});
 });
