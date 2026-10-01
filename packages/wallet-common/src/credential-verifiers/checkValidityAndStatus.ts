@@ -80,7 +80,7 @@ export function createValidityAndStatusChecker(args: {
 			},
 		});
 
-		if (!resolution.ok) {
+		if (resolution.ok === false) {
 			console.warn(`Could not determine the revocation status of the credential: ${resolution.reason}`);
 			return null;
 		}
