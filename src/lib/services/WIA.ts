@@ -1,7 +1,7 @@
 import { JWK, KeyLike, SignJWT } from 'jose';
 import { generateRandomIdentifier } from '../utils/generateRandomIdentifier';
 import { logger } from '@/logger';
-import { IHttpClient } from '../interfaces/IHttpClient';
+import type { HttpClient } from '@sirosfoundation/http-client';
 
 export interface WIAKeyPair {
 	privateKey: KeyLike | Uint8Array;
@@ -23,7 +23,7 @@ export interface WIAKeyPair {
  * Tier 3 WIA is informative and must never block the request.
  */
 export async function requestWIA(
-	httpClient: IHttpClient,
+	httpClient: HttpClient,
 	authToken: string,
 	dpopKeyPair: WIAKeyPair,
 	clientId: string,
@@ -145,7 +145,7 @@ export async function buildClientAttestationPop(
  * DPoP nonce challenge) must not mint a second WIA for the same flow.
  */
 export async function attestFlowIfEnabled(
-	httpClient: IHttpClient,
+	httpClient: HttpClient,
 	authToken: string,
 	enabled: boolean,
 	existingWia: string | undefined,
