@@ -16,6 +16,7 @@ import {
 	IWscdManagerHost,
 	Keypair,
 	SignSdJwtPresentationRequest,
+	SignVcdm2PresentationRequest,
 	WscdEligibilityRequirements,
 } from './types';
 import {
@@ -27,6 +28,8 @@ import {
 import { base64url } from 'jose';
 import { logger } from '@/logger';
 import { Mutex } from '../utils';
+import { holderJwkFromCredential } from 'wallet-common';
+import { prepareVcdm2Presentation } from '../verifiable-credentials/formats/vcdm2';
 
 export class WscdManagerClient implements IWscdManagerClient {
 	#ready: Promise<void>;
@@ -78,6 +81,31 @@ export class WscdManagerClient implements IWscdManagerClient {
 
 		const kbJwt = `${signingInput}.${base64url.encode(sig)}`;
 		return sdJwt + kbJwt;
+	}
+
+	public async signVcdm2Presentation({
+		audience,
+		nonce,
+		verifiableCredentials,
+		transactionDataResponseParams,
+	}: SignVcdm2PresentationRequest): Promise<string> {
+		if (verifiableCredentials.length === 0) {
+			throw new Error("A presentation must contain at least one credential");
+		}
+
+		const { kid, signingInput } = await prepareVcdm2Presentation(
+			verifiableCredentials,
+			nonce,
+			audience,
+			transactionDataResponseParams,
+		);
+
+		const sig = await this.#dispatchSignRequest(
+			kid,
+			new TextEncoder().encode(signingInput),
+		);
+
+		return `${signingInput}.${base64url.encode(sig)}`;
 	}
 
 	public async generateDeviceResponse({
