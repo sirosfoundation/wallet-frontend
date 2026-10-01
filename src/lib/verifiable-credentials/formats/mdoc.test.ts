@@ -1,11 +1,25 @@
-import { describe, expect, it } from 'vitest';
+import 'reflect-metadata';
+import { beforeAll, describe, expect, it } from 'vitest';
 import * as cbor from 'cbor-x';
-import { base64url } from 'jose';
+import { base64url, calculateJwkThumbprint } from 'jose';
 import { cborDecode, cborEncode, DataItem } from '@auth0/mdl/lib/cbor';
+import {
+	CoseKey,
+	DeviceKey,
+	IssuerSignedBuilder,
+	SignatureAlgorithm,
+	type MdocContext,
+} from '@owf/mdoc';
+import { X509CertificateGenerator } from '@peculiar/x509';
 import {
 	decodeStoredMdoc,
 	extractDocTypeFromIssuerAuth,
 	extractIssuerSignedB64,
+	generateMdocDeviceResponse,
+	buildOid4vpSessionTranscript,
+	buildOid4vpDcApiSessionTranscript,
+	claimsToNamespaces,
+	mdocCrypto,
 	mdocNameSpacesToClaims,
 	resolveMdocIssuerSigned,
 } from './mdoc';
@@ -383,4 +397,284 @@ function deviceResponseB64(
 		['status', 0],
 	]);
 	return base64url.encode(cborEncode(envelope));
+}
+
+describe('generateMdocDeviceResponse (real @owf/mdoc integration)', () => {
+	const DOC_TYPE = 'org.iso.18013.5.1.mDL';
+	const NAMESPACE = 'org.iso.18013.5.1';
+
+	let credential: string;
+	let deviceJwk: Record<string, unknown>;
+
+	beforeAll(async () => {
+		const fixture = await buildSignedMdocFixture();
+		credential = fixture.credential;
+		deviceJwk = fixture.deviceJwk;
+	});
+
+	it('returns a non-empty device response without throwing', async () => {
+		const bytes = await generateMdocDeviceResponse(
+			credential,
+			[`${NAMESPACE}.family_name`],
+			await oid4vpTranscript(),
+			async () => new Uint8Array(64),
+		);
+
+		expect(bytes).toBeInstanceOf(Uint8Array);
+		expect(bytes.length).toBeGreaterThan(0);
+	});
+
+	it('signs with the device-key thumbprint kid and a non-empty payload', async () => {
+		const seen: { kid?: string; toBeSigned?: Uint8Array } = {};
+		await generateMdocDeviceResponse(
+			credential,
+			[`${NAMESPACE}.family_name`],
+			await oid4vpTranscript(),
+			async (kid, toBeSigned) => {
+				seen.kid = kid;
+				seen.toBeSigned = toBeSigned;
+				return new Uint8Array(64);
+			},
+		);
+
+		expect(seen.kid).toBe(await calculateJwkThumbprint(deviceJwk, 'sha256'));
+		expect(seen.toBeSigned).toBeInstanceOf(Uint8Array);
+		expect(seen.toBeSigned!.length).toBeGreaterThan(0);
+	});
+
+	// The fixture's device-key JWK carries no `alg`; reaching a signed response
+	// pins mdoc.ts deriving it (CoseKey.fromJwk({ ...jwk, alg })). Without that,
+	// CoseKey.fromJwk rejects the key and the whole response generation throws.
+	it('succeeds when the device-key JWK carries no alg', async () => {
+		expect(deviceJwk.alg).toBeUndefined();
+
+		const bytes = await generateMdocDeviceResponse(
+			credential,
+			[`${NAMESPACE}.family_name`],
+			await oid4vpTranscript(),
+			async () => new Uint8Array(64),
+		);
+
+		expect(bytes.length).toBeGreaterThan(0);
+	});
+
+	function oid4vpTranscript() {
+		return buildOid4vpSessionTranscript({
+			clientId: 'x509_san_dns:verifier.example.com',
+			responseUri: 'https://verifier.example.com/response',
+			nonce: 'nonce-123',
+			jwkThumbprint: null,
+		});
+	}
+
+	/**
+	 * Build a genuinely issuer-signed mdoc (base64url, OID4VCI encoding) plus the
+	 * device public-key JWK it commits to. The device JWK is returned with `alg`
+	 * stripped so the response path must supply it.
+	 */
+	async function buildSignedMdocFixture(): Promise<{
+		credential: string;
+		deviceJwk: Record<string, unknown>;
+	}> {
+		const issuerKeys = await generateEcKeyPair();
+		const deviceKeys = await generateEcKeyPair();
+
+		const issuerPrivJwk = (await crypto.subtle.exportKey(
+			'jwk',
+			issuerKeys.privateKey,
+		)) as Record<string, unknown>;
+		const devicePubJwk = (await crypto.subtle.exportKey(
+			'jwk',
+			deviceKeys.publicKey,
+		)) as Record<string, unknown>;
+		delete devicePubJwk.alg;
+
+		const cert = await X509CertificateGenerator.createSelfSigned({
+			serialNumber: '01',
+			name: 'CN=Test Issuer',
+			notBefore: new Date(),
+			notAfter: new Date(Date.now() + YEAR_MS),
+			keys: issuerKeys,
+			signingAlgorithm: { name: 'ECDSA', hash: 'SHA-256' },
+		});
+
+		const now = new Date();
+		const issuerSigned = await new IssuerSignedBuilder(DOC_TYPE, {
+			cose: fixtureCoseContext(),
+			crypto: fixtureCryptoContext(),
+		})
+			.addIssuerNamespace(NAMESPACE, {
+				family_name: 'Doe',
+				given_name: 'Jane',
+			})
+			.sign({
+				signingKey: CoseKey.fromJwk({ ...issuerPrivJwk, alg: 'ES256' }),
+				algorithm: SignatureAlgorithm.ES256,
+				digestAlgorithm: 'SHA-256',
+				validityInfo: {
+					signed: now,
+					validFrom: now,
+					validUntil: new Date(now.getTime() + YEAR_MS),
+				},
+				deviceKeyInfo: { deviceKey: DeviceKey.fromJwk(devicePubJwk) },
+				certificates: [new Uint8Array(cert.rawData)],
+			});
+
+		return { credential: issuerSigned.encodedForOid4Vci, deviceJwk: devicePubJwk };
+	}
+});
+
+describe('claimsToNamespaces', () => {
+	it('maps "ns.element" onto { ns: { element: false } }', () => {
+		// Splits on the last dot, so a dotted namespace stays intact.
+		expect(claimsToNamespaces(['org.iso.18013.5.1.family_name'])).toEqual({
+			'org.iso.18013.5.1': { family_name: false },
+		});
+	});
+
+	it('merges multiple elements in the same namespace', () => {
+		expect(
+			claimsToNamespaces([
+				'org.iso.18013.5.1.family_name',
+				'org.iso.18013.5.1.given_name',
+			]),
+		).toEqual({
+			'org.iso.18013.5.1': { family_name: false, given_name: false },
+		});
+	});
+});
+
+describe('buildOid4vpSessionTranscript', () => {
+	const base = {
+		clientId: 'x509_san_dns:verifier.example.com',
+		responseUri: 'https://verifier.example.com/response',
+		nonce: 'nonce-123',
+	};
+	const thumbprint = base64url.encode(new Uint8Array(32).fill(7));
+
+	it('folds the jwkThumbprint into the transcript when present', async () => {
+		const withThumbprint = await buildOid4vpSessionTranscript({
+			...base,
+			jwkThumbprint: thumbprint,
+		});
+		const withoutThumbprint = await buildOid4vpSessionTranscript({
+			...base,
+			jwkThumbprint: null,
+		});
+
+		expect(withThumbprint.encode()).not.toEqual(withoutThumbprint.encode());
+	});
+
+	it('is deterministic when the thumbprint is null (decoded to undefined)', async () => {
+		const a = await buildOid4vpSessionTranscript({ ...base, jwkThumbprint: null });
+		const b = await buildOid4vpSessionTranscript({ ...base, jwkThumbprint: null });
+
+		expect(a.encode()).toEqual(b.encode());
+	});
+});
+
+describe('buildOid4vpDcApiSessionTranscript', () => {
+	const base = { origin: 'https://verifier.example.com', nonce: 'nonce-123' };
+	const thumbprint = base64url.encode(new Uint8Array(32).fill(7));
+
+	it('folds the jwkThumbprint into the transcript when present', async () => {
+		const withThumbprint = await buildOid4vpDcApiSessionTranscript({
+			...base,
+			jwkThumbprint: thumbprint,
+		});
+		const withoutThumbprint = await buildOid4vpDcApiSessionTranscript({
+			...base,
+			jwkThumbprint: null,
+		});
+
+		expect(withThumbprint.encode()).not.toEqual(withoutThumbprint.encode());
+	});
+
+	it('is deterministic when the thumbprint is null (decoded to undefined)', async () => {
+		const a = await buildOid4vpDcApiSessionTranscript({
+			...base,
+			jwkThumbprint: null,
+		});
+		const b = await buildOid4vpDcApiSessionTranscript({
+			...base,
+			jwkThumbprint: null,
+		});
+
+		expect(a.encode()).toEqual(b.encode());
+	});
+});
+
+/**
+ * mdocCrypto is the signature-only crypto half of the MdocContext: device auth
+ * here is always signature-based, never MAC/ECDH, so HKDF must stay unreachable.
+ */
+describe('mdocCrypto', () => {
+	it('rejects hdkf because device auth is signature-only', async () => {
+		await expect(
+			mdocCrypto().hdkf({
+				privateKey: new Uint8Array(32),
+				publicKey: new Uint8Array(32),
+				salt: new Uint8Array(0),
+				info: new Uint8Array(0),
+			}),
+		).rejects.toThrow(/not needed/);
+	});
+
+	it('digests bytes to a 32-byte SHA-256 hash', async () => {
+		const out = await mdocCrypto().digest({
+			digestAlgorithm: 'SHA-256',
+			bytes: new Uint8Array([1, 2, 3]),
+		});
+
+		expect(out).toBeInstanceOf(Uint8Array);
+		expect(out.length).toBe(32);
+	});
+});
+
+const YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+
+function generateEcKeyPair(): Promise<CryptoKeyPair> {
+	return crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, [
+		'sign',
+		'verify',
+	]);
+}
+
+/** WebCrypto ES256 COSE_Sign1 signer, enough for the issuer signature only. */
+function fixtureCoseContext(): MdocContext['cose'] {
+	return {
+		sign1: {
+			sign: async ({ toBeSigned, key }) => {
+				const privateKey = await crypto.subtle.importKey(
+					'jwk',
+					key.jwk as JsonWebKey,
+					{ name: 'ECDSA', namedCurve: 'P-256' },
+					false,
+					['sign'],
+				);
+				return new Uint8Array(
+					await crypto.subtle.sign(
+						{ name: 'ECDSA', hash: 'SHA-256' },
+						privateKey,
+						toBeSigned as BufferSource,
+					),
+				);
+			},
+			verify: async () => true,
+		},
+		mac0: {} as never,
+	};
+}
+
+function fixtureCryptoContext(): MdocContext['crypto'] {
+	return {
+		random: (n) => crypto.getRandomValues(new Uint8Array(n)),
+		digest: async ({ digestAlgorithm, bytes }) =>
+			new Uint8Array(
+				await crypto.subtle.digest(digestAlgorithm, bytes as BufferSource),
+			),
+		hdkf: async () => {
+			throw new Error('HKDF not needed for the issuer signature');
+		},
+	};
 }

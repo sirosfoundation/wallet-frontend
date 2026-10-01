@@ -17,6 +17,6 @@
 	"tagFormat": "v${version}",
 	"privatePackages": {
 		"version": true,
-		"tag": true
+		"tag": false
 	}
 }

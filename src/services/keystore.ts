@@ -988,6 +988,22 @@ async function createDid(publicKey: CryptoKey, didKeyVersion: DidKeyVersion): Pr
 	}
 }
 
+export async function createDidFromJwk(publicKeyJwk: JWK, didKeyVersion: DidKeyVersion): Promise<string> {
+	const { kty, crv, x, y } = publicKeyJwk;
+	const publicKey = await crypto.subtle.importKey(
+		'jwk',
+		{ kty, crv, x, y },
+		{ name: 'ECDSA', namedCurve: 'P-256' },
+		true,
+		['verify'],
+	);
+	return createDid(publicKey, didKeyVersion);
+}
+
+/**
+ * @deprecated in favor of WscdManagerClient.signJwtPresentation().
+ *             Will be removed in a future release.
+ */
 export async function signJwtPresentation([privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState], nonce: string, audience: string, verifiableCredentials: any[], transactionDataResponseParams?: { transaction_data_hashes: string[], transaction_data_hashes_alg: string[] }): Promise<{ vpjwt: string }> {
 	const hasher = async (data: string | ArrayBuffer, alg: string) => {
 		const encoded =
@@ -1040,89 +1056,9 @@ export async function signJwtPresentation([privateData, mainKey, calculatedState
 }
 
 /**
- * Sign a W3C VCDM 2.0 verifiable presentation with an enveloping JOSE proof.
- *
- * Unlike `signJwtPresentation`, which appends a KB-JWT to an SD-JWT, a VCDM
- * 2.0 presentation is a JSON-LD object in its own right: the credentials are
- * embedded (Data Integrity) or referenced as `data:` URIs (enveloped), and the
- * whole presentation is then signed as a JWS by the holder key.
- *
- * The holder key is taken from the credential's own binding — `cnf.jwk` for an
- * enveloped credential, a `did:key` subject identifier for a Data Integrity
- * one. A credential with no binding cannot be presented, and that is reported
- * rather than silently signed with an arbitrary key.
+ * @deprecated in favor of WscdManagerClient.generateOpenid4vciProofs().
+ *             Will be removed in a future release.
  */
-export async function signVcdm2Presentation(
-	[privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState],
-	nonce: string,
-	audience: string,
-	verifiableCredentials: unknown[],
-	transactionDataResponseParams?: { transaction_data_hashes: string[], transaction_data_hashes_alg: string[] },
-): Promise<{ vpjwt: string }> {
-	if (verifiableCredentials.length === 0) {
-		throw new Error("A presentation must contain at least one credential");
-	}
-
-	// One enveloping JWS has exactly one signer, so every credential in the
-	// presentation has to be bound to the same holder key. Signing them all
-	// with the first credential's key would produce a presentation asserting
-	// holder binding it does not have, so a mixed set is refused rather than
-	// silently mis-signed.
-	const holderJwks = verifiableCredentials.map((credential) => holderJwkFromCredential(credential));
-	if (holderJwks.some((jwk) => !jwk)) {
-		throw new Error("Holder public key could not be resolved from the VCDM 2.0 credential");
-	}
-
-	const kids = await Promise.all(
-		holderJwks.map((jwk) => jose.calculateJwkThumbprint(jwk as JWK, "sha256")),
-	);
-	const distinctKids = [...new Set(kids)];
-	if (distinctKids.length > 1) {
-		throw new Error(
-			"All credentials in a presentation must be bound to the same holder key, but "
-			+ distinctKids.length + " different keys were found",
-		);
-	}
-
-	const holderJwk = holderJwks[0];
-	const kid = distinctKids[0];
-	const keypair = calculatedState.keypairs.filter((k) => k.kid === kid)[0];
-	if (!keypair) {
-		throw new Error("Key pair not found for kid (key ID): " + kid);
-	}
-
-	const { alg, privateKey } = keypair.keypair;
-	const importedPrivateKey = await crypto.subtle.importKey(
-		'jwk',
-		privateKey,
-		{ name: 'ECDSA', namedCurve: 'P-256' },
-		true,
-		['sign'],
-	);
-
-	const holder = holderIdFromCredential(verifiableCredentials[0]);
-	const presentation = buildVcdm2Presentation(verifiableCredentials, { holder });
-
-	// Strip any private key material before publishing the key in the header.
-	const { d: _omitted, ...publicJwk } = holderJwk as JWK & { d?: string };
-
-	const vpjwt = await new SignJWT({
-		...presentation,
-		nonce,
-		aud: audience,
-		...transactionDataResponseParams,
-	})
-		.setIssuedAt()
-		.setProtectedHeader({
-			typ: "vp+jwt",
-			alg,
-			jwk: publicJwk,
-		})
-		.sign(importedPrivateKey);
-
-	return { vpjwt };
-}
-
 export async function generateOpenid4vciProofs(
 	container: OpenedContainer,
 	didKeyVersion: DidKeyVersion,
@@ -1158,7 +1094,10 @@ export async function generateOpenid4vciProofs(
 	return [{ proof_jwts: proof_jwts }, newPrivateData];
 }
 
-
+/**
+ * @deprecated in favor of WscdManagerClient.generateKeypairs().
+ *             Will be removed in a future release.
+ */
 export async function generateKeypairs(
 	container: OpenedContainer,
 	didKeyVersion: DidKeyVersion,
@@ -1187,6 +1126,10 @@ type SessionTranscriptOptions =
 		jwkThumbprint: string | null,
 	};
 
+/**
+ * @deprecated in favor of WscdManagerClient.signJwtPresentation().
+ *             Will be removed in a future release.
+ */
 async function generateDeviceResponseInternal(
 	[privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState],
 	mdocCredential: MDoc,
@@ -1261,6 +1204,10 @@ async function generateDeviceResponseInternal(
 }
 
 // Original signature for backward compatibility (HTTP redirect flow)
+/**
+ * @deprecated in favor of WscdManagerClient.generateDeviceResponse().
+ *             Will be removed in a future release.
+ */
 export async function generateDeviceResponse(
 	[privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState],
 	mdocCredential: MDoc,
@@ -1285,6 +1232,10 @@ export async function generateDeviceResponse(
 }
 
 // New method for DC API flow
+/**
+ * @deprecated in favor of WscdManagerClient.generateDeviceResponseForDCAPI().
+ *             Will be removed in a future release.
+ */
 export async function generateDeviceResponseForDCAPI(
 	[privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState],
 	mdocCredential: MDoc,
@@ -1306,6 +1257,10 @@ export async function generateDeviceResponseForDCAPI(
 	);
 }
 
+/**
+ * @deprecated in favor of WscdManagerClient.generateDeviceResponseWithProximity().
+ *             Will be removed in a future release.
+ */
 export async function generateDeviceResponseWithProximity([privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState], mdocCredential: MDoc, presentationDefinition: any, sessionTranscriptBytes: any): Promise<{ deviceResponseMDoc: MDoc }> {
 	// extract the COSE device public key from mdoc
 	const p: DataItem = cborDecode(mdocCredential.documents[0].issuerSigned.issuerAuth.payload);
