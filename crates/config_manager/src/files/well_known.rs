@@ -2,17 +2,19 @@ use crate::{
 	config,
 	files::{ANDROID_ASSETLINKS_FILE, APPLE_APPIDS_FILE},
 };
-use std::{collections::HashMap, error::Error, fs, path::Path};
+use std::{collections::HashMap, error::Error, path::Path};
 
 use serde::Serialize;
 
 use crate::files::OutputFile;
+use crate::fs::Fs;
 
 pub struct WellKnown;
 
 impl OutputFile for WellKnown {
 	fn generate(
 		&self,
+		fs: &dyn Fs,
 		_source_dir: &Path,
 		dest_dir: &Path,
 		config: &crate::config::Config,
@@ -24,7 +26,7 @@ impl OutputFile for WellKnown {
 
 		let well_known_dir = dest_dir.join(".well-known");
 		if well_known_dir.exists() {
-			fs::remove_dir_all(&well_known_dir).unwrap();
+			fs.remove_dir_all(&well_known_dir).unwrap();
 		}
 
 		let generators: [(
@@ -47,8 +49,8 @@ impl OutputFile for WellKnown {
 		for (env_key, filename, generator) in generators {
 			if config.get(env_key).is_some() {
 				if let Ok(content) = generator(self, config) {
-					fs::create_dir_all(&well_known_dir).unwrap();
-					fs::write(well_known_dir.join(filename), content).unwrap();
+					fs.create_dir_all(&well_known_dir).unwrap();
+					fs.write(&well_known_dir.join(filename), content.as_bytes()).unwrap();
 				}
 			}
 		}

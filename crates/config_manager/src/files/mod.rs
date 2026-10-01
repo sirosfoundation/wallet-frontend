@@ -14,6 +14,7 @@ const APPLE_APPIDS_FILE: &str = "apple-app-site-association";
 pub trait OutputFile {
 	fn generate(
 		&self,
+		fs: &dyn crate::fs::Fs,
 		source_dir: &Path,
 		dest_dir: &Path,
 		config: &Config,
@@ -24,6 +25,7 @@ pub trait OutputFile {
 /// Writes all output files to the specified destination directory and
 /// returns a map of tags.
 pub fn write_all(
+	fs: &dyn crate::fs::Fs,
 	source_dir: &Path,
 	dest_dir: &Path,
 	config: &Config,
@@ -41,7 +43,7 @@ pub fn write_all(
 	let mut tags: HashMap<String, utils::Tag> = HashMap::new();
 
 	for file in &files {
-		tags.extend(file.generate(source_dir, dest_dir, config, branding_hash));
+		tags.extend(file.generate(fs, source_dir, dest_dir, config, branding_hash));
 	}
 
 	tags

@@ -2,7 +2,8 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::{error::Error, path};
 
-use crate::utils;
+use crate::fs::Fs;
+use crate::{utils};
 
 pub mod keys {
 	pub const WALLET_BACKEND_URL: &str = "WALLET_BACKEND_URL";
@@ -102,16 +103,17 @@ impl Config {
 }
 
 pub fn load_and_parse_config(
+	fs: &dyn Fs,
 	schema_path: &path::Path,
 	env: &HashMap<String, String>,
 ) -> Result<Config, Box<dyn Error>> {
-	let schema = load_env_schema(schema_path)?;
+	let schema = load_env_schema(fs, &schema_path.join("env.schema.json"))?;
 	let parsed_env = parse_env(&schema, env)?;
 	Ok(parsed_env)
 }
 
-fn load_env_schema(path: &path::Path) -> Result<Value, Box<dyn Error>> {
-	let file_content = std::fs::read_to_string(path)?;
+fn load_env_schema(fs: &dyn Fs, path: &path::Path) -> Result<Value, Box<dyn Error>> {
+	let file_content = fs.read_to_string(path)?;
 	let json_value: Value = serde_json::from_str(&file_content)?;
 	Ok(json_value)
 }
@@ -153,15 +155,26 @@ fn parse_env(
 		let desired_type =
 			prop.get("type").and_then(Value::as_str).unwrap_or("string");
 		let value = match desired_type {
-			"string" => Value::String(value),
-			"number" => Value::Number(value.parse::<serde_json::Number>()?),
-			"boolean" => Value::Bool(value.parse::<bool>()?),
-			"array" => Value::Array(
-				utils::parse_config_string_vec(&value, true)?
-					.into_iter()
-					.map(Value::String)
-					.collect(),
-			),
+			"integer" | "number" => match value.parse::<serde_json::Number>() {
+				Ok(n) => Value::Number(n),
+				Err(_) => Value::String(value), // keep as-is; validator will flag it
+			},
+			"boolean" => match value.parse::<bool>() {
+				Ok(b) => Value::Bool(b),
+				Err(_) => Value::String(value),
+			},
+			"array" => {
+				if value.trim().is_empty() {
+					Value::Array(vec![])
+				} else {
+					Value::Array(
+						utils::parse_config_string_vec(&value, true)?
+							.into_iter()
+							.map(Value::String)
+							.collect(),
+					)
+				}
+			}
 			_ => Value::String(value),
 		};
 

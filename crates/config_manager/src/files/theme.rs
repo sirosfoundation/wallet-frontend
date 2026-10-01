@@ -1,22 +1,23 @@
 use crate::utils;
-use crate::{branding, files::OutputFile};
-use std::{fs, path::Path};
+use crate::{branding, files::OutputFile, fs::Fs};
+use std::{path::Path};
 
 pub struct Theme;
 
 impl OutputFile for Theme {
 	fn generate(
 		&self,
+		fs: &dyn Fs,
 		source_dir: &Path,
 		dest_dir: &Path,
 		config: &crate::config::Config,
 		branding_hash: &str,
 	) -> Vec<(String, utils::Tag)> {
-		let css = branding::generate_theme_css(branding::GenerateThemeOptions {
+		let css = branding::generate_theme_css(fs, branding::GenerateThemeOptions {
 			source_dir: source_dir.to_path_buf(),
 		});
 
-		fs::write(dest_dir.join("theme.css"), css).unwrap();
+		fs.write(&dest_dir.join("theme.css"), css.as_bytes()).unwrap();
 
 		vec![
 			(

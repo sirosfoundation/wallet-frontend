@@ -1,13 +1,14 @@
 use chrono::Utc;
-use std::{fs, path::Path};
+use std::{path::Path};
 
-use crate::{files::OutputFile, utils::Tag};
+use crate::{files::OutputFile, fs::Fs, utils::Tag};
 
 pub struct SitemapXml;
 
 impl OutputFile for SitemapXml {
 	fn generate(
 		&self,
+		fs: &dyn Fs,
 		_source_dir: &Path,
 		dest_dir: &Path,
 		_config: &crate::config::Config,
@@ -23,7 +24,7 @@ impl OutputFile for SitemapXml {
 		let content = self.content(url);
 		let path = dest_dir.join("sitemap.xml");
 
-		fs::write(path, content.to_string()).unwrap();
+		fs.write(&path, content.to_string().as_bytes()).unwrap();
 
 		Vec::new()
 	}

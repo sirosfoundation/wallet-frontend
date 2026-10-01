@@ -1,8 +1,5 @@
 use std::{
-	error::Error,
-	fs,
-	path::{Path, PathBuf},
-	str::FromStr,
+	error::Error, fs, path::{Path, PathBuf}, str::FromStr,
 };
 
 use ab_glyph::{FontRef, PxScale};
@@ -20,7 +17,7 @@ use serde::Serialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-use crate::utils;
+use crate::{fs::Fs, utils};
 
 #[derive(Debug)]
 pub struct BrandingFile {
@@ -48,6 +45,7 @@ pub struct Logofiles {
 
 /// Finds a branding file, preferring custom over default.
 pub fn find_branding_file(
+	fs: &dyn Fs,
 	base_dir: &Path,
 	file_path: &PathBuf,
 ) -> Option<BrandingFile> {
@@ -56,8 +54,8 @@ pub fn find_branding_file(
 	let custom_file_path: PathBuf =
 		Path::new(base_dir).join("custom").join(file_path);
 
-	let has_default: bool = default_file_path.exists();
-	let has_custom: bool = custom_file_path.exists();
+	let has_default: bool = fs.exists(&default_file_path);
+	let has_custom: bool = fs.exists(&custom_file_path);
 
 	if !has_default && !has_custom {
 		return None;
@@ -87,12 +85,14 @@ pub fn find_branding_file(
 }
 
 /// Finds a logo file (svg or png), preferring custom over default, svg over png.
-pub fn find_logo_file(base_dir: &Path, name: &str) -> Option<BrandingFile> {
+pub fn find_logo_file(fs: &dyn Fs, base_dir: &Path, name: &str) -> Option<BrandingFile> {
 	let svg_file: Option<BrandingFile> = find_branding_file(
+		fs,
 		base_dir,
 		&Path::new("logo").join(format!("{}.svg", name)),
 	);
 	let png_file: Option<BrandingFile> = find_branding_file(
+		fs,
 		base_dir,
 		&Path::new("logo").join(format!("{}.png", name)),
 	);
@@ -120,9 +120,9 @@ pub fn find_logo_file(base_dir: &Path, name: &str) -> Option<BrandingFile> {
 }
 
 /// Find both light and dark logo files
-pub fn find_logo_files(source_dir: &Path) -> Logofiles {
+pub fn find_logo_files(fs: &dyn Fs, source_dir: &Path) -> Logofiles {
 	let [logo_light, logo_dark] = ["logo_light", "logo_dark"].map(|file| {
-		let logo = find_logo_file(source_dir, file);
+		let logo = find_logo_file(fs, source_dir, file);
 
 		if !logo.is_some() {
 			// since this is from ts, throw/catch is the default error handling mechanism
@@ -141,26 +141,23 @@ pub fn find_logo_files(source_dir: &Path) -> Logofiles {
 
 /// Computes a stable hash from all branding inputs.
 /// Changes ONLY when branding files change.
-pub fn get_branding_hash(branding_dir: &Path) -> String {
+pub fn get_branding_hash(fs: &dyn Fs, branding_dir: &Path) -> String {
 	let mut hasher = Sha256::new();
 
-	fn walk_dir(dir: &Path, hasher: &mut Sha256) {
-		let mut entries: Vec<PathBuf> = fs::read_dir(dir)
-			.unwrap()
-			.map(|entry| entry.unwrap().path())
-			.collect();
+	fn walk_dir(fs: &dyn Fs, dir: &Path, hasher: &mut Sha256) {
+		let mut entries: Vec<PathBuf> = fs.read_dir(dir).unwrap();
 		entries.sort();
 
 		for path in entries {
 			if path.is_dir() {
-				walk_dir(&path, hasher);
+				walk_dir(fs, &path, hasher);
 			} else if path.is_file() {
-				let content = fs::read(&path).unwrap();
+				let content = fs.read(&path).unwrap();
 				hasher.update(&content);
 			}
 		}
 	}
-	walk_dir(branding_dir, &mut hasher);
+	walk_dir(fs, branding_dir, &mut hasher);
 
 	let result = hasher.finalize();
 	let hex: String = result.iter().map(|b| format!("{:02x}", b)).collect();
@@ -181,16 +178,16 @@ pub struct Screenshot {
 }
 
 /// Finds a screenshot file, preferring custom over default.
-pub fn find_screenshot_file(base_dir: &Path, filename: &str) -> PathBuf {
+pub fn find_screenshot_file(fs: &dyn Fs, base_dir: &Path, filename: &str) -> PathBuf {
 	let custom_file_path: PathBuf =
 		base_dir.join("custom").join("screenshots").join(filename);
 	let default_file_path: PathBuf =
 		base_dir.join("default").join("screenshots").join(filename);
 
-	if custom_file_path.exists() {
+	if fs.exists(&custom_file_path) {
 		return custom_file_path;
 	}
-	if default_file_path.exists() {
+	if fs.exists(&default_file_path) {
 		return default_file_path;
 	}
 
@@ -198,7 +195,7 @@ pub fn find_screenshot_file(base_dir: &Path, filename: &str) -> PathBuf {
 }
 
 /// Copies all screenshots from branding to public directory
-pub fn copy_screenshots(source_dir: &Path, destination_dir: &Path) {
+pub fn copy_screenshots(fs: &dyn Fs, source_dir: &Path, destination_dir: &Path) {
 	let files = [
 		"screen_mobile_1.png",
 		"screen_mobile_2.png",
@@ -207,12 +204,12 @@ pub fn copy_screenshots(source_dir: &Path, destination_dir: &Path) {
 	];
 
 	let screenshots_dir = destination_dir.join("screenshots");
-	fs::create_dir_all(&screenshots_dir).unwrap();
+	fs.create_dir_all(&screenshots_dir).unwrap();
 
 	for file in files {
-		let source_file = find_screenshot_file(source_dir, file);
+		let source_file = find_screenshot_file(fs, source_dir, file);
 		let destination_file = screenshots_dir.join(file);
-		fs::copy(&source_file, &destination_file).unwrap();
+		fs.copy(&source_file, &destination_file).unwrap();
 	}
 }
 
@@ -262,7 +259,7 @@ pub struct Icon {
 pub type Icons = Vec<Icon>;
 
 /// Generates all icons (favicon, apple touch icon, manifest icons).
-pub fn generate_all_icons(options: GenerateAllIconsOptions) -> Icons {
+pub fn generate_all_icons(fs: &dyn Fs, options: GenerateAllIconsOptions) -> Icons {
 	let hash_suffix: String = if options.branding_hash.is_empty() {
 		"".to_string()
 	} else {
@@ -270,6 +267,7 @@ pub fn generate_all_icons(options: GenerateAllIconsOptions) -> Icons {
 	};
 
 	let favicon = find_branding_file(
+		fs,
 		&options.source_dir,
 		&Path::new("favicon.ico").to_path_buf(),
 	);
@@ -281,28 +279,28 @@ pub fn generate_all_icons(options: GenerateAllIconsOptions) -> Icons {
 	let Logofiles {
 		logo_light,
 		logo_dark,
-	} = find_logo_files(&options.source_dir);
+	} = find_logo_files(fs, &options.source_dir);
 
 	if options.copy_source.unwrap_or(true) {
-		fs::copy(
-			&logo_light.pathname,
+		fs.copy(
+			&Path::new(&logo_light.pathname),
 			&options.destination_dir.join(&logo_light.filename),
 		)
 		.unwrap();
-		fs::copy(
-			&logo_dark.pathname,
+		fs.copy(
+			&Path::new(&logo_dark.pathname),
 			&options.destination_dir.join(&logo_dark.filename),
 		)
 		.unwrap();
-		fs::copy(
-			&favicon.unwrap().pathname,
+		fs.copy(
+			&Path::new(&favicon.unwrap().pathname),
 			&options.destination_dir.join("favicon.ico"),
 		)
 		.unwrap();
 	}
 
 	let icons_dir: PathBuf = options.destination_dir.join("icons");
-	fs::create_dir_all(&icons_dir).unwrap();
+	fs.create_dir_all(&icons_dir).unwrap();
 
 	if options.apple_touch_icon.unwrap_or(true) {
 		const ICON_SIZE: u32 = 180;
@@ -310,14 +308,16 @@ pub fn generate_all_icons(options: GenerateAllIconsOptions) -> Icons {
 
 		let input = Path::new(&logo_light.pathname);
 
-		let logo = load_logo(input, ICON_SIZE - PADDING * 2);
+		let logo = load_logo(fs, input, ICON_SIZE - PADDING * 2);
 
 		let mut canvas =
 			RgbaImage::from_pixel(ICON_SIZE, ICON_SIZE, Rgba([255, 255, 255, 255]));
 
 		imageops::overlay(&mut canvas, &logo, PADDING as i64, PADDING as i64);
 
-		canvas.save(icons_dir.join("apple-touch-icon.png")).unwrap();
+		let out = canvas.into_raw();
+
+		fs.write(&icons_dir.join("apple-touch-icon.png"), &out).unwrap();
 	}
 
 	// Generate manifest icons
@@ -337,7 +337,7 @@ pub fn generate_all_icons(options: GenerateAllIconsOptions) -> Icons {
 
 		match size {
 			192 | 512 => {
-				let logo = load_logo(manifest_logo_path, logo_size);
+				let logo = load_logo(fs, manifest_logo_path, logo_size);
 
 				let mut circle =
 					RgbaImage::from_pixel(size, size, Rgba([255, 255, 255, 255]));
@@ -356,7 +356,8 @@ pub fn generate_all_icons(options: GenerateAllIconsOptions) -> Icons {
 
 				imageops::overlay(&mut circle, &logo, logo_offset, logo_offset);
 
-				circle.save(icons_dir.join(&no_purpose_file)).unwrap();
+				let out = circle.into_raw();
+				fs.write(&icons_dir.join(&no_purpose_file), &out).unwrap();
 
 				icons.push(Icon {
 					src: format!("icons/{no_purpose_file}{hash_suffix}"),
@@ -370,7 +371,8 @@ pub fn generate_all_icons(options: GenerateAllIconsOptions) -> Icons {
 
 				imageops::overlay(&mut maskable, &logo, logo_offset, logo_offset);
 
-				maskable.save(icons_dir.join(&maskable_file)).unwrap();
+				let out = maskable.into_raw();
+				fs.write(&icons_dir.join(&maskable_file), &out).unwrap();
 
 				icons.push(Icon {
 					src: format!("icons/{maskable_file}{hash_suffix}"),
@@ -381,8 +383,9 @@ pub fn generate_all_icons(options: GenerateAllIconsOptions) -> Icons {
 			}
 			_ => {
 				// ---- small icons: just the resized logo, transparent bg ----
-				let logo = load_logo(manifest_logo_path, size);
-				logo.save(icons_dir.join(&no_purpose_file)).unwrap();
+				let logo = load_logo(fs, manifest_logo_path, size);
+				let out = logo.into_raw();
+				fs.write(&icons_dir.join(&no_purpose_file), &out).unwrap();
 
 				icons.push(Icon {
 					src: format!("icons/{no_purpose_file}{hash_suffix}"),
@@ -399,10 +402,10 @@ pub fn generate_all_icons(options: GenerateAllIconsOptions) -> Icons {
 
 /// Load a logo from the given path and resize it to the specified size.
 /// supports both SVG and raster image formats.
-fn load_logo(path: &Path, size: u32) -> RgbaImage {
+fn load_logo(fs: &dyn Fs, path: &Path, size: u32) -> RgbaImage {
 	match path.extension().and_then(|e| e.to_str()) {
 		Some("svg") => {
-			let svg_data = fs::read(path).unwrap();
+			let svg_data = fs.read(path).unwrap();
 
 			let tree = Tree::from_data(&svg_data, &usvg::Options::default()).unwrap();
 
@@ -423,10 +426,13 @@ fn load_logo(path: &Path, size: u32) -> RgbaImage {
 
 			return image::load_from_memory(&png_bytes).unwrap().to_rgba8();
 		}
-		_ => image::open(path)
-			.unwrap()
-			.resize(size, size, FilterType::Lanczos3)
-			.to_rgba8(),
+		_ => {
+			let data = fs.read(path).unwrap();
+			image::load_from_memory(&data)
+				.unwrap()
+				.resize(size, size, FilterType::Lanczos3)
+				.to_rgba8()
+		},
 	}
 }
 
@@ -446,24 +452,26 @@ pub fn all_theme_config_paths(source_dir: &Path) -> ThemeConfigPaths {
 	};
 }
 
-pub fn load_theme(source_dir: &Path) -> Result<Value, Box<dyn Error>> {
+pub fn load_theme(fs: &dyn Fs, source_dir: &Path) -> Result<Value, Box<dyn Error>> {
 	let paths = all_theme_config_paths(source_dir);
 
-	let config_path = if paths.custom_path.exists() {
+	let config_path = if fs.exists(&paths.custom_path) {
 		paths.custom_path
-	} else if paths.default_path.exists() {
+	} else if fs.exists(&paths.default_path) {
 		paths.default_path
 	} else {
 		return Err("No theme.json found".into());
 	};
 
-	let raw = fs::read_to_string(&config_path).unwrap();
+	let raw = fs.read(&config_path).unwrap();
+	let raw = String::from_utf8(raw).unwrap();
 	let theme: Value = serde_json::from_str(&raw).unwrap();
 
 	let schema_path = source_dir.join(".schemas").join("theme.json");
 
-	if schema_path.exists() {
-		let schema_raw = fs::read_to_string(&schema_path).unwrap();
+	if fs.exists(&schema_path) {
+		let schema_raw = fs.read(&schema_path).unwrap();
+		let schema_raw = String::from_utf8(schema_raw).unwrap();
 		let schema: Value = serde_json::from_str(&schema_raw).unwrap();
 
 		let validator =
@@ -521,8 +529,8 @@ pub struct GenerateThemeOptions {
 	pub source_dir: PathBuf,
 }
 
-pub fn generate_theme_css(options: GenerateThemeOptions) -> String {
-	let theme = load_theme(&options.source_dir).unwrap();
+pub fn generate_theme_css(fs: &dyn Fs, options: GenerateThemeOptions) -> String {
+	let theme = load_theme(fs, &options.source_dir).unwrap();
 
 	let brand = theme["brand"].as_object().unwrap();
 
@@ -602,19 +610,20 @@ const SHORT_TITLE_THRESHOLD: u32 = 8;
 const INTER_FONT: &[u8] = include_bytes!("../assets/Inter-SemiBold.ttf");
 
 pub fn generate_metadata_image(
+	fs: &dyn Fs,
 	options: MetadataImageOptions,
 ) -> Result<MetadataImage, Box<dyn Error>> {
 	if options.title.is_empty() {
 		return Err("Title cannot be empty".into());
 	}
 
-	let theme = load_theme(&options.source_dir)?;
+	let theme = load_theme(fs, &options.source_dir)?;
 	let background_color =
 		get_primary_brand_color(&theme).unwrap_or("#FFFFFF".to_string());
 	let text_color =
 		get_optimal_text_color(&background_color).unwrap_or("#000000".to_string());
 	let logo_file =
-		find_logo_file(&options.source_dir, "logo_dark").expect("Logo not found");
+		find_logo_file(fs, &options.source_dir, "logo_dark").expect("Logo not found");
 
 	let [bg_r, bg_g, bg_b, _] = Color::from_str(&background_color)?.to_rgba8();
 
@@ -624,7 +633,7 @@ pub fn generate_metadata_image(
 		Rgba([bg_r, bg_g, bg_b, 255]),
 	);
 
-	let logo = load_logo(Path::new(&logo_file.pathname), LOGO_SIZE);
+	let logo = load_logo(fs, Path::new(&logo_file.pathname), LOGO_SIZE);
 	let logo_x = (IMAGE_WIDTH - MARGIN - LOGO_SIZE) as i64;
 	let logo_y = ((IMAGE_HEIGHT - LOGO_SIZE) / 2) as i64;
 	imageops::overlay(&mut canvas, &logo, logo_x, logo_y);

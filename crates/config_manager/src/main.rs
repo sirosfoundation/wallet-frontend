@@ -1,5 +1,5 @@
 use clap::Parser;
-use config_manager::{branding, files, inject, utils};
+use config_manager::{branding, files, inject, utils, fs::StdFs};
 use std::{
 	collections::HashMap,
 	fs,
@@ -29,7 +29,7 @@ fn main() {
 		Path::new(env!("CARGO_MANIFEST_DIR")).join("../../branding");
 
 	let mut config =
-		config_manager::config::load_and_parse_config(&env_schema_temp, &env)
+		config_manager::config::load_and_parse_config(&StdFs, &env_schema_temp, &env)
 			.unwrap();
 
 	println!("Parsed environment: {:?}", config);

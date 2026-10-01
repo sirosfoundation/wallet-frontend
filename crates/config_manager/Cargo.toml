@@ -23,6 +23,7 @@ serde_json = "1"
 sha2 = "0.11.0"
 tsify = "0.5.8"
 wasm-bindgen = "0.2"
+console_error_panic_hook = "0.1"
 
 [dev-dependencies]
 ts-rs = { version = "9", features = ["serde-json-impl"] }
@@ -39,4 +40,4 @@ name = "config_manager"   # keeps `use config_manager::…` and the output filen
 crate-type = ["cdylib", "rlib"]
 
 [package.metadata.wasm-pack.profile.release]
-wasm-opt = ['-O', '--enable-bulk-memory']
+wasm-opt = ['-O', '--enable-bulk-memory', '--enable-nontrapping-float-to-int', '--enable-simd']

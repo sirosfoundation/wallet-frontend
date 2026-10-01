@@ -9,7 +9,7 @@ run:
 	cargo run --release
 
 wasm:
-	wasm-pack build --release --target bundler --out-dir $(OUT)
+	wasm-pack build --debug --target web --out-dir $(OUT)
 	jq -s '.[0] * .[1]' $(OUT)/package.json package.json > $(OUT)/package.tmp.json
 	mv $(OUT)/package.tmp.json $(OUT)/package.json
 

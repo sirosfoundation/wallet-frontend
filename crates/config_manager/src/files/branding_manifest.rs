@@ -1,17 +1,16 @@
 use serde::Serialize;
 
 use crate::{
-	branding::{self, Icons, Screenshot, Screenshots},
-	files::OutputFile,
-	utils::{self, Tag},
+	branding::{self, Icons, Screenshot, Screenshots}, files::OutputFile, fs::Fs, utils::{self, Tag},
 };
-use std::{fs, path::Path};
+use std::{path::Path};
 
 pub struct BrandingManifest;
 
 impl OutputFile for BrandingManifest {
 	fn generate(
 		&self,
+		fs: &dyn Fs,
 		source_dir: &Path,
 		dest_dir: &Path,
 		config: &crate::config::Config,
@@ -24,7 +23,7 @@ impl OutputFile for BrandingManifest {
 		};
 
 		let icons =
-			branding::generate_all_icons(branding::GenerateAllIconsOptions {
+			branding::generate_all_icons(fs, branding::GenerateAllIconsOptions {
 				source_dir: source_dir.to_path_buf(),
 				destination_dir: dest_dir.to_path_buf(),
 				branding_hash: branding_hash.to_string(),
@@ -37,9 +36,9 @@ impl OutputFile for BrandingManifest {
 			self.generate_manifest(branding_hash, config.static_name(), icons);
 
 		let manifest_json = serde_json::to_string_pretty(&manifest).unwrap();
-		fs::write(dest_dir.join("manifest.json"), manifest_json).unwrap();
+		fs.write(&dest_dir.join("manifest.json"), manifest_json.as_bytes()).unwrap();
 
-		branding::copy_screenshots(&source_dir, &dest_dir);
+		branding::copy_screenshots(fs,&source_dir, &dest_dir);
 
 		let make_href = |href: &str| {
 			utils::path_with_hash_suffix(

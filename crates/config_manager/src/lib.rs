@@ -30,8 +30,8 @@ impl ConfigManager {
 		dest_dir: PathBuf,
 		env: HashMap<String, String>,
 	) -> ConfigManager {
-		let config = config::load_and_parse_config(&schema_dir, &env)
-			.unwrap_or_else(|_| panic!("Failed to load and parse config"));
+		let config = config::load_and_parse_config(&*fs, &schema_dir, &env)
+			.expect("load_and_parse_config");
 
 		ConfigManager {
 			fs,
@@ -44,11 +44,12 @@ impl ConfigManager {
 	}
 
 	fn get_hash_core(&self) -> String {
-		branding::get_branding_hash(&self.branding_dir)
+		branding::get_branding_hash(&*self.fs, &self.branding_dir)
 	}
 
 	fn inject_config_files_core(&self) -> TagsMap {
 		files::write_all(
+			&*self.fs,
 			&self.branding_dir,
 			&self.dest_dir,
 			&self.config,
@@ -77,6 +78,7 @@ impl ConfigManager {
 		#[wasm_bindgen(js_name = "destDir")] dest_dir: &str,
 		env: JsValue,
 	) -> ConfigManager {
+		console_error_panic_hook::set_once();
 		let env: HashMap<String, String> =
 			serde_wasm_bindgen::from_value(env).unwrap();
 

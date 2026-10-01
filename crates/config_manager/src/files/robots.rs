@@ -1,12 +1,13 @@
 use std::{fs, path::Path};
 
-use crate::{files::OutputFile, utils::Tag};
+use crate::{files::OutputFile, fs::Fs, utils::Tag};
 
 pub struct RobotsTxt;
 
 impl OutputFile for RobotsTxt {
 	fn generate(
 		&self,
+		fs: &dyn Fs,
 		_source_dir: &Path,
 		dest_dir: &Path,
 		config: &crate::config::Config,
@@ -22,7 +23,7 @@ impl OutputFile for RobotsTxt {
 		let content = self.content(url);
 		let path = dest_dir.join("robots.txt");
 
-		fs::write(path, content.to_string()).unwrap();
+		fs.write(&path, content.to_string().as_bytes()).unwrap();
 
 		Vec::new()
 	}

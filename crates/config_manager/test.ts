@@ -1,4 +1,4 @@
-import { ConfigManager, JsFs } from './npm/dist';
+import { ConfigManager, JsFs } from './npm/dist/config_manager';
 import * as fs from 'node:fs';
 
 const cm = new ConfigManager(
