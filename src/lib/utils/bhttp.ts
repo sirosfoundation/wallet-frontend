@@ -1,4 +1,3 @@
-import { RequestHeaders } from "../interfaces/IHttpClient";
 import { concat } from "./ohttpHelpers";
 
 // --- RFC 9292 / QUIC-style varint encoder (1/2/4/8 bytes) ---
@@ -173,7 +172,7 @@ export function encodeIndeterminateLengthRequest(opts: {
 }
 
 // --- Convenience: build headers from a JS object (lowercases keys) ---
-export function headersFromObject(obj: RequestHeaders): Array<[string, string | Uint8Array]> {
+export function headersFromObject(obj: Record<string, string>): Array<[string, string | Uint8Array]> {
 	if (obj) {
 		return Object.entries(obj).map(([k, v]) => [k.toLowerCase(), v]);
 	} else {
