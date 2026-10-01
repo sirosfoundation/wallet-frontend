@@ -1,9 +1,15 @@
 use serde::Serialize;
 
 use crate::{
-	branding::{self, Icons, Screenshot, Screenshots}, files::OutputFile, fs::Fs, utils::{self, Tag},
+	branding::{
+		files::{self, Screenshot, Screenshots},
+		icons::{self, Icons},
+	},
+	files::OutputFile,
+	fs::Fs,
+	utils::{self, Tag},
 };
-use std::{path::Path};
+use std::path::Path;
 
 pub struct BrandingManifest;
 
@@ -22,23 +28,26 @@ impl OutputFile for BrandingManifest {
 			format!("?v={}", branding_hash)
 		};
 
-		let icons =
-			branding::generate_all_icons(fs, branding::GenerateAllIconsOptions {
+		let icons = icons::generate_all_icons(
+			fs,
+			icons::GenerateAllIconsOptions {
 				source_dir: source_dir.to_path_buf(),
 				destination_dir: dest_dir.to_path_buf(),
 				branding_hash: branding_hash.to_string(),
 				manifest_icon_sizes: vec![16, 32, 64, 192, 512],
 				apple_touch_icon: Some(true),
 				copy_source: Some(true),
-			});
+			},
+		);
 
 		let manifest =
 			self.generate_manifest(branding_hash, config.static_name(), icons);
 
 		let manifest_json = serde_json::to_string_pretty(&manifest).unwrap();
-		fs.write(&dest_dir.join("manifest.json"), manifest_json.as_bytes()).unwrap();
+		fs.write(&dest_dir.join("manifest.json"), manifest_json.as_bytes())
+			.unwrap();
 
-		branding::copy_screenshots(fs,&source_dir, &dest_dir);
+		files::copy_screenshots(fs, &source_dir, &dest_dir);
 
 		let make_href = |href: &str| {
 			utils::path_with_hash_suffix(

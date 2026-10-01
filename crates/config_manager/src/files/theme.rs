@@ -1,6 +1,7 @@
+use crate::branding::theme;
 use crate::utils;
-use crate::{branding, files::OutputFile, fs::Fs};
-use std::{path::Path};
+use crate::{files::OutputFile, fs::Fs};
+use std::path::Path;
 
 pub struct Theme;
 
@@ -13,11 +14,15 @@ impl OutputFile for Theme {
 		config: &crate::config::Config,
 		branding_hash: &str,
 	) -> Vec<(String, utils::Tag)> {
-		let css = branding::generate_theme_css(fs, branding::GenerateThemeOptions {
-			source_dir: source_dir.to_path_buf(),
-		});
+		let css = theme::generate_theme_css(
+			fs,
+			theme::GenerateThemeOptions {
+				source_dir: source_dir.to_path_buf(),
+			},
+		);
 
-		fs.write(&dest_dir.join("theme.css"), css.as_bytes()).unwrap();
+		fs.write(&dest_dir.join("theme.css"), css.as_bytes())
+			.unwrap();
 
 		vec![
 			(

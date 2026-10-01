@@ -12,11 +12,7 @@ enum Action {
 fn main() {
 	let cli = Cli::parse();
 
-	let dirs = [
-		&cli.schema_dir,
-		&cli.source_dir,
-		&cli.dest_dir,
-	];
+	let dirs = [&cli.schema_dir, &cli.source_dir, &cli.dest_dir];
 
 	for dir in &dirs {
 		if !dir.exists() {
@@ -45,10 +41,8 @@ fn main() {
 				std::process::exit(1);
 			}
 
-			let processed_html = config_manager.inject_html(
-				html_source.to_str().unwrap(),
-				&tags,
-			);
+			let processed_html =
+				config_manager.inject_html(html_source.to_str().unwrap(), &tags);
 
 			if processed_html.is_err() {
 				eprintln!("Failed to process HTML: {:?}", processed_html.err());

@@ -50,7 +50,8 @@ impl OutputFile for WellKnown {
 			if config.get(env_key).is_some() {
 				if let Ok(content) = generator(self, config) {
 					fs.create_dir_all(&well_known_dir).unwrap();
-					fs.write(&well_known_dir.join(filename), content.as_bytes()).unwrap();
+					fs.write(&well_known_dir.join(filename), content.as_bytes())
+						.unwrap();
 				}
 			}
 		}

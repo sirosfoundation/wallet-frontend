@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::{error::Error, path};
 
 use crate::fs::Fs;
-use crate::{utils};
+use crate::utils;
 
 pub mod keys {
 	pub const WALLET_BACKEND_URL: &str = "WALLET_BACKEND_URL";
@@ -112,7 +112,10 @@ pub fn load_and_parse_config(
 	Ok(parsed_env)
 }
 
-fn load_env_schema(fs: &dyn Fs, path: &path::Path) -> Result<Value, Box<dyn Error>> {
+fn load_env_schema(
+	fs: &dyn Fs,
+	path: &path::Path,
+) -> Result<Value, Box<dyn Error>> {
 	let file_content = fs.read_to_string(path)?;
 	let json_value: Value = serde_json::from_str(&file_content)?;
 	Ok(json_value)

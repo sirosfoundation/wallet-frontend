@@ -44,7 +44,7 @@ impl ConfigManager {
 	}
 
 	fn get_hash_core(&self) -> String {
-		branding::get_branding_hash(&*self.fs, &self.branding_dir)
+		branding::files::get_branding_hash(&*self.fs, &self.branding_dir)
 	}
 
 	fn inject_config_files_core(&self) -> TagsMap {

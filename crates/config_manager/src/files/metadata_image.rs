@@ -1,4 +1,4 @@
-use crate::{branding, files::OutputFile, fs::Fs, utils};
+use crate::{branding::metadata_image, files::OutputFile, fs::Fs, utils};
 
 pub struct MetadataImage;
 
@@ -13,14 +13,17 @@ impl OutputFile for MetadataImage {
 	) -> Vec<(String, crate::utils::Tag)> {
 		let title = config.static_name();
 
-		let result =
-			branding::generate_metadata_image(fs,branding::MetadataImageOptions {
+		let result = metadata_image::generate_metadata_image(
+			fs,
+			metadata_image::MetadataImageOptions {
 				source_dir: source_dir.to_path_buf(),
 				title: title.to_string(),
-			})
-			.expect("Metadata image generation failed");
+			},
+		)
+		.expect("Metadata image generation failed");
 
-		fs.write(&dest_dir.join("image.png"), &result.png_buffer).unwrap();
+		fs.write(&dest_dir.join("image.png"), &result.png_buffer)
+			.unwrap();
 
 		let base = config
 			.get_str("STATIC_PUBLIC_URL")
