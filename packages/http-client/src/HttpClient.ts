@@ -9,8 +9,6 @@ import {
 import { HttpClientError } from './resources';
 import { axiosHttpTransport } from './transports/axios';
 
-const BINARY_URL = /\.(png|jpe?g|gif|webp|bmp|tiff?|ico)(\?.*)?(#.*)?$/i;
-
 export type HttpClientOptions = {
 	isOnline: boolean;
 	logger: Logger;
@@ -86,7 +84,7 @@ export class HttpClient {
 		options?: HttpClientRequestOptions,
 	): Promise<HttpResponse> {
 		const { useCache = false, wantRaw = false, binary } = options || {};
-		const isBinary = binary ?? BINARY_URL.test(url);
+		const isBinary = binary ?? isBinaryUrl(url);
 		const now = Math.floor(Date.now() / 1000);
 
 		const cacheKey = [
@@ -296,4 +294,11 @@ function decodeBody(
 		return text ? JSON.parse(text) : null;
 	}
 	return text;
+}
+
+const BINARY_EXT = /\.(png|jpe?g|gif|webp|bmp|tiff?|ico)$/i;
+
+function isBinaryUrl(url: string): boolean {
+	const path = url.split('?')[0].split('#')[0];
+	return BINARY_EXT.test(path);
 }
