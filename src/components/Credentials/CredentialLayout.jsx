@@ -68,36 +68,38 @@ const CredentialLayout = ({ children, title = null, displayCredentialInfo = null
 		[i18n.language]
 	);
 
-	const CredentialImageButton = ({
-		showRibbon,
-		className = "w-full object-cover",
-		onClick = () => setShowFullscreenImgPopup(true),
-		ariaLabel,
-		title,
-		fixedRatioImage = false
-	}) => (
+	// Bound to the surrounding values rather than declared as a component for
+	// the same reason as the layouts below: a component declared here would be
+	// a new type on every render and remount the credential image each time.
+	const credentialImageButton = ({ showRibbon, fixedRatioImage: fixedRatio = false }) => (
 		<button
 			id="show-full-screen-credential"
 			className="relative rounded-xl xm:rounded-lg w-full overflow-hidden transition-shadow shadow-md hover:shadow-lg cursor-pointer"
-			onClick={onClick}
-			aria-label={ariaLabel ?? credentialName}
-			title={title ?? t('pageCredentials.credentialFullScreenTitle', { friendlyName: credentialName })}
+			onClick={() => setShowFullscreenImgPopup(true)}
+			aria-label={credentialName}
+			title={t('pageCredentials.credentialFullScreenTitle', { friendlyName: credentialName })}
 		>
 			<CredentialImage
 				vcEntity={vcEntity}
-				parsedCredential={vcEntity.parsedCredential}
-				className={className}
+				parsedCredential={vcEntity?.parsedCredential}
+				className="w-full object-cover"
 				showRibbon={showRibbon}
-				fixedRatio={fixedRatioImage}
+				fixedRatio={fixedRatio}
 			/>
 		</button>
 	);
 
-	const DesktopLayout = () => (
+	// Plain JSX values rather than components. Declaring a component inside
+	// the render body gives it a new function identity on every render, and
+	// React reconciles by element type *identity* -- so the whole subtree,
+	// `children` included, would be unmounted and remounted each time
+	// CredentialLayout re-rendered. That discarded the state of anything
+	// below it, most visibly CredentialTabsPanel's selected tab.
+	const desktopLayout = (
 		<div className="w-full flex flex-col lg:flex-row gap-4">
 			{/* LEFT COLUMN (always full width, shrinks on lg) */}
 			<div className="w-full lg:w-1/2 flex flex-col gap-4">
-				<CredentialImageButton showRibbon fixedRatioImage={false} />
+				{credentialImageButton({ showRibbon: true, fixedRatioImage: false })}
 				{zeroSigCount !== null && sigTotal && (
 					<UsageStats zeroSigCount={zeroSigCount} sigTotal={sigTotal} screenType={screenType} t={t} />
 
@@ -118,11 +120,11 @@ const CredentialLayout = ({ children, title = null, displayCredentialInfo = null
 		</div>
 	);
 
-	const MobileLayout = () => (
+	const mobileLayout = (
 		<div className="w-full flex flex-col">
 			<div className={`flex flex-row items-center gap-5 mt-2 mb-4 px-2`}>
 				<div className='flex flex-col gap-4 w-4/5 xm:w-4/12'>
-					<CredentialImageButton showRibbon={false} fixedRatioImage={fixedRatioImage} />
+					{credentialImageButton({ showRibbon: false, fixedRatioImage })}
 					{screenType !== 'mobile' && zeroSigCount !== null && sigTotal && (
 						<UsageStats zeroSigCount={zeroSigCount} sigTotal={sigTotal} screenType={screenType} t={t} />
 
@@ -181,7 +183,7 @@ const CredentialLayout = ({ children, title = null, displayCredentialInfo = null
 			<PageDescription description={t('pageCredentials.details.description')} />
 
 			<div className={`w-full flex flex-col ${displayCredentialInfo && screenType === 'desktop' ? 'lg:flex-row gap-4' : ''} mt-0 lg:mt-5 px-2`}>
-				{ (screenType === 'desktop' || !fixedRatioImage) ? <DesktopLayout /> : <MobileLayout />}
+				{ (screenType === 'desktop' || !fixedRatioImage) ? desktopLayout : mobileLayout}
 			</div>
 			{/* Fullscreen credential Popup*/}
 			{showFullscreenImgPopup && (

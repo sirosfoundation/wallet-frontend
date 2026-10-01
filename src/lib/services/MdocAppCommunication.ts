@@ -6,7 +6,7 @@ import { decryptMessage, hexToUint8Array, uint8ArrayToBase64Url, deriveSharedSec
 import { base64url } from "jose";
 import { useCallback, useContext, useMemo, useRef } from "react";
 import SessionContext from "@/context/SessionContext";
-import { toBase64 } from "@/util";
+import { toBase64 } from "@/lib/utils";
 import { generateRandomIdentifier } from "../utils/generateRandomIdentifier";
 import { VerifiableCredentialFormat } from "wallet-common";
 import { WalletStateUtils } from "@/services/WalletStateUtils";

@@ -8,8 +8,8 @@ import AppSettingsContext, { ColorScheme } from '@/context/AppSettingsContext';
 import useScreenType from '../../hooks/useScreenType';
 
 import { UserData, WebauthnCredential } from '../../api/types';
-import { compareBy, toBase64Url } from '../../util';
-import { withAuthenticatorAttachmentFromHints } from '@/util-webauthn';
+import { compareBy, toBase64Url } from '@/lib/utils';
+import { withAuthenticatorAttachmentFromHints } from '@/lib/utils/webauthn';
 import { formatDate } from 'wallet-common';
 import type { WebauthnPrfEncryptionKeyInfo } from '../../services/keystore';
 import { isPrfKeyV2, serializePrivateData } from '../../services/keystore';
@@ -91,7 +91,7 @@ const WebauthnRegistation = ({
 }: {
 	onSuccess: () => void,
 }) => {
-	const { isOnline, blockUpdates } = useContext(StatusContext);
+	const { isOnline } = useContext(StatusContext);
 	const { api, keystore } = useContext(SessionContext);
 	const [beginData, setBeginData] = useState(null);
 	const [pendingCredential, setPendingCredential] = useState(null);

@@ -8,13 +8,13 @@ import * as didUtil from "@cef-ebsi/key-did-resolver/dist/util.js";
 
 import * as config from '../config';
 import type { DidKeyVersion } from '../config';
-import { byteArrayEquals, filterObject, jsonParseTaggedBinary, jsonStringifyTaggedBinary, toBase64Url } from "../util";
+import { byteArrayEquals, filterObject, jsonParseTaggedBinary, jsonStringifyTaggedBinary, toBase64Url } from '@/lib/utils';
 import { SDJwt } from "@sd-jwt/core";
 import { cborEncode, cborDecode, DataItem, getCborEncodeDecodeOptions, setCborEncodeDecodeOptions } from "@auth0/mdl/lib/cbor";
 import { DeviceResponse, MDoc } from "@auth0/mdl";
 import { SupportedAlgs } from "@auth0/mdl/lib/mdoc/model/types";
 import { COSEKeyToJWK } from "cose-kit";
-import { withHintsFromAllowCredentials } from "@/util-webauthn";
+import { withHintsFromAllowCredentials } from "@/lib/utils/webauthn";
 import { addDeleteKeypairEvent, addNewKeypairEvent, CurrentSchema, foldState, SchemaV1, SchemaV2, SchemaV3 } from "./WalletStateSchema";
 import { logger } from "../logger";
 
@@ -1063,6 +1063,22 @@ export async function resolveCnfKid(cnf: { jwk?: JWK, kid?: string } | undefined
 	return null;
 }
 
+export async function createDidFromJwk(publicKeyJwk: JWK, didKeyVersion: DidKeyVersion): Promise<string> {
+	const { kty, crv, x, y } = publicKeyJwk;
+	const publicKey = await crypto.subtle.importKey(
+		'jwk',
+		{ kty, crv, x, y },
+		{ name: 'ECDSA', namedCurve: 'P-256' },
+		true,
+		['verify'],
+	);
+	return createDid(publicKey, didKeyVersion);
+}
+
+/**
+ * @deprecated in favor of WscdManagerClient.signJwtPresentation().
+ *             Will be removed in a future release.
+ */
 export async function signJwtPresentation([privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState], nonce: string, audience: string, verifiableCredentials: any[], transactionDataResponseParams?: { transaction_data_hashes: string[], transaction_data_hashes_alg: string[] }): Promise<{ vpjwt: string }> {
 	const hasher = async (data: string | ArrayBuffer, alg: string) => {
 		const encoded =
@@ -1117,6 +1133,10 @@ export async function signJwtPresentation([privateData, mainKey, calculatedState
 	return { vpjwt: jws };
 }
 
+/**
+ * @deprecated in favor of WscdManagerClient.generateOpenid4vciProofs().
+ *             Will be removed in a future release.
+ */
 export async function generateOpenid4vciProofs(
 	container: OpenedContainer,
 	didKeyVersion: DidKeyVersion,
@@ -1154,7 +1174,10 @@ export async function generateOpenid4vciProofs(
 	return [{ proof_jwts: proof_jwts }, newPrivateData];
 }
 
-
+/**
+ * @deprecated in favor of WscdManagerClient.generateKeypairs().
+ *             Will be removed in a future release.
+ */
 export async function generateKeypairs(
 	container: OpenedContainer,
 	didKeyVersion: DidKeyVersion,
@@ -1179,6 +1202,10 @@ type SessionTranscriptOptions =
 		jwkThumbprint: string | null,
 	};
 
+/**
+ * @deprecated in favor of WscdManagerClient.signJwtPresentation().
+ *             Will be removed in a future release.
+ */
 async function generateDeviceResponseInternal(
 	[privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState],
 	mdocCredential: MDoc,
@@ -1253,6 +1280,10 @@ async function generateDeviceResponseInternal(
 }
 
 // Original signature for backward compatibility (HTTP redirect flow)
+/**
+ * @deprecated in favor of WscdManagerClient.generateDeviceResponse().
+ *             Will be removed in a future release.
+ */
 export async function generateDeviceResponse(
 	[privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState],
 	mdocCredential: MDoc,
@@ -1277,6 +1308,10 @@ export async function generateDeviceResponse(
 }
 
 // New method for DC API flow
+/**
+ * @deprecated in favor of WscdManagerClient.generateDeviceResponseForDCAPI().
+ *             Will be removed in a future release.
+ */
 export async function generateDeviceResponseForDCAPI(
 	[privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState],
 	mdocCredential: MDoc,
@@ -1298,6 +1333,10 @@ export async function generateDeviceResponseForDCAPI(
 	);
 }
 
+/**
+ * @deprecated in favor of WscdManagerClient.generateDeviceResponseWithProximity().
+ *             Will be removed in a future release.
+ */
 export async function generateDeviceResponseWithProximity([privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState], mdocCredential: MDoc, presentationDefinition: any, sessionTranscriptBytes: any): Promise<{ deviceResponseMDoc: MDoc }> {
 	// extract the COSE device public key from mdoc
 	const p: DataItem = cborDecode(mdocCredential.documents[0].issuerSigned.issuerAuth.payload);

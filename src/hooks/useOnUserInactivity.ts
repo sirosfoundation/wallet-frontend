@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useResettableTimeout } from './useResettableTimeout';
-import { throttle } from '../util';
+import { throttle } from '@/lib/utils';
 
 
 /**
