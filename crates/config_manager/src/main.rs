@@ -1,103 +1,81 @@
+use std::{env, path::PathBuf};
+
 use clap::Parser;
-use config_manager::{branding, files, inject, utils, fs::StdFs};
-use std::{
-	collections::HashMap,
-	fs,
-	path::{Path, PathBuf},
-};
+use config_manager::ConfigManager;
+
+#[derive(clap::ValueEnum, Clone)]
+enum Action {
+	/// Generate complete config
+	Generate,
+}
 
 fn main() {
-	let mut env = HashMap::new();
-	env.insert("BASE_PATH".to_string(), "/id/hello".to_string());
-	env.insert("STATIC_NAME".to_string(), "My Static Name".to_string());
-	env.insert(
-		"WELLKNOWN_APPLE_APPIDS".to_string(),
-		"com.example.app1,com.example.app2".to_string(),
-	);
-	env.insert(
-		"STATIC_PUBLIC_URL".to_string(),
-		"http://localhost:3000".to_string(),
-	);
-	env.insert(
-		"WALLET_BACKEND_URL".to_string(),
-		"http://localhost:3000".to_string(),
-	);
+	let cli = Cli::parse();
 
-	let env_schema_temp = Path::new(env!("CARGO_MANIFEST_DIR"))
-		.join("../../config/.schemas/env.schema.json");
-	let branding_dir: PathBuf =
-		Path::new(env!("CARGO_MANIFEST_DIR")).join("../../branding");
+	let dirs = [
+		&cli.schema_dir,
+		&cli.source_dir,
+		&cli.dest_dir,
+	];
 
-	let mut config =
-		config_manager::config::load_and_parse_config(&StdFs, &env_schema_temp, &env)
-			.unwrap();
+	for dir in &dirs {
+		if !dir.exists() {
+			eprintln!("Directory does not exist: {:?}", dir);
+			std::process::exit(1);
+		}
+	}
 
-	println!("Parsed environment: {:?}", config);
+	let [schema_dir, source_dir, dest_dir] = &dirs;
 
-	println!("config json: {}", config.to_json_string(None).unwrap());
-
-	println!("Branding directory: {:?}", branding_dir);
-
-	let hash = branding::get_branding_hash(&branding_dir);
-	println!("Branding hash: {:?}", hash);
-
-	let tags = files::write_all(
-		&branding_dir,
-		&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../public"),
-		&config,
-		&hash,
+	let config_manager = ConfigManager::new(
+		schema_dir.to_path_buf(),
+		source_dir.to_path_buf(),
+		dest_dir.to_path_buf(),
+		env::vars().collect(),
 	);
 
-	println!("Generated tags: {:?}", tags);
+	match cli.action {
+		Action::Generate => {
+			print!("Generating configuration...\n");
+			let tags = config_manager.inject_config_files();
 
-	let logos = branding::find_logo_files(&branding_dir);
+			let html_source = &dest_dir.join("index.html");
+			if !html_source.exists() {
+				eprintln!("HTML source file does not exist: {:?}", html_source);
+				std::process::exit(1);
+			}
 
-	config.insert(
-		"branding",
-		serde_json::json!({
-			"logo_light": utils::path_with_hash_suffix(
-				&utils::path_with_base(
-					&config.get_str("BASE_PATH").unwrap(),
-					&logos.logo_light.filename
-				),
-				&hash
-			),
-			"logo_dark": utils::path_with_hash_suffix(
-				&utils::path_with_base(
-					&config.get_str("BASE_PATH").unwrap(),
-					&logos.logo_dark.filename
-				),
-				&hash
-			),
-		}),
-	);
+			let processed_html = config_manager.inject_html(
+				html_source.to_str().unwrap(),
+				&tags,
+			);
 
-	let html_source = fs::read_to_string(
-		Path::new(env!("CARGO_MANIFEST_DIR")).join("index.html"),
-	)
-	.unwrap();
+			if processed_html.is_err() {
+				eprintln!("Failed to process HTML: {:?}", processed_html.err());
+				std::process::exit(1);
+			}
 
-	let html_out = inject::inject_html(&html_source, &config, &tags).unwrap();
-
-	fs::write(
-		Path::new(env!("CARGO_MANIFEST_DIR")).join("index.html"),
-		&html_out,
-	)
-	.unwrap();
+			std::fs::write(html_source, processed_html.unwrap())
+				.expect("Failed to write processed HTML");
+		}
+	}
 }
 
 #[derive(Parser)]
 #[command(name = "config-manager", version, about)]
 struct Cli {
+	/// Action to perform
+	action: Action,
+
 	/// Branding source directory
-	#[arg(short, long)]
+	#[arg(long)]
 	source_dir: PathBuf,
 
 	/// Output directory
-	#[arg(short, long)]
+	#[arg(long)]
 	dest_dir: PathBuf,
 
 	/// Env schema JSON path
-	#[arg(short, long)]
+	#[arg(long)]
 	schema_dir: PathBuf,
 }
