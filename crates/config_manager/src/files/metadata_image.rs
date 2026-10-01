@@ -1,5 +1,3 @@
-use std::fs;
-
 use crate::{branding, files::OutputFile, fs::Fs, utils};
 
 pub struct MetadataImage;

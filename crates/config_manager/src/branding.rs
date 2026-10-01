@@ -1,5 +1,5 @@
 use std::{
-	error::Error, fs, path::{Path, PathBuf}, str::FromStr,
+	error::Error, path::{Path, PathBuf}, str::FromStr,
 };
 
 use ab_glyph::{FontRef, PxScale};

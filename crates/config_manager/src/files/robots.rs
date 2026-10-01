@@ -1,4 +1,4 @@
-use std::{fs, path::Path};
+use std::{path::Path};
 
 use crate::{files::OutputFile, fs::Fs, utils::Tag};
 
