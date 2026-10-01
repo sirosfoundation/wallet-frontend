@@ -1,6 +1,6 @@
 use html5ever::{LocalName, QualName, namespace_url, ns};
 use kuchikiki::{Attribute, ExpandedName, NodeRef};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, error::Error};
 use tsify::Tsify;
 
@@ -28,10 +28,10 @@ pub fn path_with_hash_suffix(path: &str, hash: &str) -> String {
 	}
 }
 
-#[derive(Serialize, Tsify)]
+#[derive(Serialize, Deserialize, Tsify)]
 pub struct Tags(pub std::collections::HashMap<String, Tag>);
 
-#[derive(Debug, Serialize, Tsify)]
+#[derive(Debug, Serialize, Deserialize, Tsify)]
 #[serde(rename_all = "lowercase")]
 pub enum TagKind {
 	Meta,
@@ -39,7 +39,7 @@ pub enum TagKind {
 	Title,
 }
 
-#[derive(Debug, Serialize, Tsify)]
+#[derive(Debug, Serialize, Deserialize, Tsify)]
 #[serde(rename_all = "camelCase")]
 pub struct Tag {
 	#[serde(rename = "tag")]

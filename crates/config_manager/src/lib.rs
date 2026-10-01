@@ -105,6 +105,8 @@ impl ConfigManager {
 		html: &str,
 		tags: &tsify::Ts<utils::Tags>,
 	) -> Result<String, JsError> {
+		let tags = tags.to_rust()?.0;
+
 		Ok(
 			self
 				.inject_html_core(html, &tags)
