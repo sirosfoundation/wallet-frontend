@@ -38,6 +38,20 @@ describe("verifySRI", () => {
 		expect(await verifySRI(subtle, JSON.parse(compact), sri(compact))).toBe(true);
 	});
 
+	it("matches the served bytes themselves", async () => {
+		expect(await verifySRI(subtle, new TextEncoder().encode(served), sri(served))).toBe(true);
+	});
+
+	it("keeps a byte order mark that decoding the bytes to a string would drop", async () => {
+		// The issuer hashed the file as stored, BOM included. TextDecoder strips
+		// a leading UTF-8 BOM, so only the bytes reproduce that digest.
+		const bytes = new Uint8Array([0xef, 0xbb, 0xbf, ...new TextEncoder().encode(served)]);
+		const expected = `sha256-${crypto.createHash("sha256").update(bytes).digest("base64")}`;
+
+		expect(await verifySRI(subtle, bytes, expected)).toBe(true);
+		expect(await verifySRI(subtle, new TextDecoder().decode(bytes), expected)).toBe(false);
+	});
+
 	it("rejects a digest of different content", async () => {
 		expect(await verifySRI(subtle, served, sri("something else"))).toBe(false);
 	});

@@ -333,7 +333,12 @@ describe("getSdJwtVcMetadata - integrity over the bytes as served", () => {
 		return {
 			get: async (url: string) => {
 				if (url.endsWith("pretty.json")) {
-					return { status: 200, data: JSON.parse(servedBytes), headers: {}, raw };
+					return {
+						status: 200,
+						data: JSON.parse(servedBytes),
+						headers: {},
+						raw: raw === undefined ? undefined : new TextEncoder().encode(raw),
+					};
 				}
 				return { status: 404, data: null, headers: {} };
 			},

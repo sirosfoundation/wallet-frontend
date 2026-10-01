@@ -121,7 +121,7 @@ async function fetchAndMergeMetadata(
 	// The body exactly as served, when the source could provide it. Integrity
 	// digests are defined over these octets; re-serialising the parse is a
 	// fallback that only reproduces them for a compact document.
-	let rawMetadata: string | undefined;
+	let rawMetadata: Uint8Array | undefined;
 
 	// Registry
 	if (vctResolutionEngine) {

@@ -11,7 +11,10 @@ const algoMap: Record<Algorithm, string> = {
  * Type Metadata uses them for `vct#integrity`, `extends#integrity` and friends.
  *
  * SRI is defined over **the octets of the resource as served**. Pass the raw
- * body whenever it is available.
+ * body, as the bytes the HTTP client received (`HttpResponse.raw`), whenever
+ * it is available. A string is hashed as its UTF-8 encoding, which matches the
+ * served bytes only if decoding them changed nothing (a UTF-8 BOM, for one,
+ * is dropped by `TextDecoder`).
  *
  * Passing a parsed object is a fallback, and a lossy one: the digest is then
  * taken over `JSON.stringify` of the parse, which reproduces the original bytes
@@ -28,10 +31,16 @@ const algoMap: Record<Algorithm, string> = {
  */
 export async function verifySRI(
 	subtle: SubtleCrypto,
-	content: string | Record<string, any>,
+	content: Uint8Array | string | Record<string, any>,
 	expectedIntegrity: string,
 ): Promise<boolean> {
-	const raw = typeof content === 'string' ? content : JSON.stringify(content);
+	// Copied into a fresh Uint8Array so the digest input is backed by a plain
+	// ArrayBuffer, which is what SubtleCrypto's BufferSource type accepts.
+	// ArrayBuffer.isView rather than instanceof: a Uint8Array from another realm
+	// (an iframe, a test environment) fails instanceof.
+	const raw = ArrayBuffer.isView(content)
+		? new Uint8Array(content as Uint8Array)
+		: new TextEncoder().encode(typeof content === 'string' ? content : JSON.stringify(content));
 
 	// SRI permits several space-separated digests, strongest first. Any one
 	// matching is a match.
@@ -60,7 +69,7 @@ export async function verifySRI(
 	if (!expectedBytes) return false;
 
 	const digest = new Uint8Array(
-		await subtle.digest(subtleAlgo, new TextEncoder().encode(raw)),
+		await subtle.digest(subtleAlgo, raw),
 	);
 
 	// Compared as bytes, not as base64 text, so the standard and URL-safe
