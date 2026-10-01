@@ -1,6 +1,6 @@
 import { assert, describe, it } from "vitest";
 import { CredentialRenderingService } from "./rendering";
-import { DOMParser } from "xmldom";
+import { DOMParser } from "@xmldom/xmldom";
 import fs from 'fs';
 import path from 'path';
 
@@ -27,7 +27,7 @@ function isValidSVG(dataUri: string) {
 		const parser = new DOMParser();
 		const doc = parser.parseFromString(svgString, "image/svg+xml");
 		// Check if the parsed document contains parser errors
-		return doc.documentElement.nodeName !== "parsererror";
+		return doc.documentElement?.nodeName !== "parsererror";
 	} catch (e) {
 		return false;
 	}

@@ -16,7 +16,6 @@ import { fromBase64Url, toBase64Url } from "../../utils/util";
 import { TransactionData } from "./transactionData";
 import { CredentialEngineOptions, CredentialIssuerMetadata, IacasResponse, OpenID4VPOptions, PresentationClaims, PresentationInfo, OpenID4VPResponseMode, RPState } from "./types";
 import { DcqlPresentationResult } from 'dcql';
-import { randomUUID } from "crypto";
 import { exportJWK, generateKeyPair, importPKCS8, SignJWT, compactDecrypt, CompactDecryptResult, importJWK } from "jose";
 import { serializeDcqlQuery } from "../../utils/serializeDcqlQuery";
 
@@ -39,6 +38,9 @@ const RESERVED_SDJWT_TOPLEVEL = new Set([
 ]);
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();
+
+// Web Crypto UUID generator; works in both browser and Node (>=19) runtimes.
+const randomUUID = (): string => globalThis.crypto.randomUUID();
 
 export class OpenID4VPClientAPI {
 	private rpStateKV: GenericStore<string, RPState | string>;
