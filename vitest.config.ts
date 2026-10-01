@@ -38,6 +38,7 @@ export default defineConfig({
 				test: {
 					name: 'node',
 					include: ['**/services/*.test.ts'],
+					exclude: ['**/node_modules/**'],
 					environment: 'node',
 				},
 			},
@@ -46,7 +47,7 @@ export default defineConfig({
 				test: {
 					name: 'dom',
 					include: ['**/*.test.{ts,tsx,js,jsx}'],
-					exclude: ['**/services/*.test.ts'],
+					exclude: ['**/node_modules/**', '**/services/*.test.ts'],
 					environment: 'happy-dom',
 				},
 			},

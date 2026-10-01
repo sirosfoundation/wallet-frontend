@@ -1,0 +1,239 @@
+import { CredentialParsingError } from "../error";
+import { Context, CredentialParser, HttpClient, CredentialIssuerInfo } from "../interfaces";
+import { DataItem, DeviceSignedDocument, parse } from "@auth0/mdl";
+import { fromBase64Url } from "../utils/util";
+import { FriendlyNameCallback, ImageDataUriCallback, ParsedCredential, VerifiableCredentialFormat, TypeMetadataResult, RenderingCallback } from "../types";
+import { cborDecode, cborEncode } from "@auth0/mdl/lib/cbor";
+import { IssuerSigned } from "@auth0/mdl/lib/mdoc/model/types";
+import { CustomCredentialSvg } from "../functions/CustomCredentialSvg";
+import { getIssuerMetadata } from "../utils/getIssuerMetadata";
+import { convertOpenid4vciToSdjwtvcClaims } from "../functions/convertOpenid4vciToSdjwtvcClaims";
+import type { z } from "zod";
+import { OpenidCredentialIssuerMetadataSchema, } from "../schemas";
+import { dataUriResolver } from "../resolvers/dataUriResolver";
+import { friendlyNameResolver } from "../resolvers/friendlyNameResolver";
+import { renderingResolver } from "../resolvers/renderingResolver";
+import type { IAuthZENClient } from "../authzen/AuthZENClient";
+import { CredentialRenderingService } from "../rendering";
+
+
+type IssuerMetadata = z.infer<typeof OpenidCredentialIssuerMetadataSchema>;
+
+export function MsoMdocParser(args: { context: Context, httpClient: HttpClient, authzenClient?: IAuthZENClient }): CredentialParser {
+
+	function canParseMsoMdoc(raw: unknown): raw is string {
+
+		if (typeof raw !== "string") return false;
+
+		const bytes = fromBase64Url(raw);
+		if (
+			(bytes[0] === 0xA2 && bytes[1] === 0x6A) ||
+			(bytes[0] === 0xB9 && bytes[1] === 0x00) ||
+			(bytes[0] === 0xA3 && bytes[1] === 0x67) ||
+			(bytes[0] === 0xA3 && bytes[1] === 0x66) ||
+			(bytes[0] === 0xA3 && bytes[1] === 0x69)
+		) {
+			return true;
+		}
+
+		return false;
+	}
+
+	function extractValidityInfo(issuerSigned: IssuerSigned): { validUntil?: Date, validFrom?: Date, signed?: Date } {
+		return issuerSigned.issuerAuth.decodedPayload.validityInfo;
+	}
+
+	function collectAllAttrValues(parsedDocument: DeviceSignedDocument): Record<string, unknown> {
+		return parsedDocument.issuerSignedNameSpaces.reduce<Record<string, unknown>>((acc, ns) => {
+			acc[ns] = parsedDocument.getIssuerNameSpace(ns);
+			return acc;
+		}, {});
+	}
+
+	async function fetchIssuerMetadataAndDocs(
+		credentialIssuer?: CredentialIssuerInfo | null
+	): Promise<{ issuerMetadata: IssuerMetadata | null; TypeMetadata: TypeMetadataResult }> {
+		let issuerMetadata: IssuerMetadata | null = null;
+		let TypeMetadata: TypeMetadataResult = {};
+
+		try {
+			if (credentialIssuer?.credentialIssuerIdentifier) {
+				const { metadata } = await getIssuerMetadata(args.httpClient, credentialIssuer.credentialIssuerIdentifier, [], true, args.authzenClient);
+				issuerMetadata = metadata ?? null;
+
+				const issuerClaimsArray = credentialIssuer?.credentialConfigurationId
+					? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]?.credential_metadata?.claims
+					: undefined;
+
+				const convertedClaims = issuerClaimsArray ? convertOpenid4vciToSdjwtvcClaims(issuerClaimsArray) : undefined;
+				if (convertedClaims?.length) {
+					TypeMetadata = { claims: convertedClaims };
+				}
+			}
+		} catch (e) {
+			console.warn("Issuer metadata unavailable or invalid:", e);
+		}
+
+		return { issuerMetadata, TypeMetadata };
+	}
+
+	function toParsedCredential(
+		parsedDocument: DeviceSignedDocument,
+		signedClaims: Record<string, unknown>,
+		TypeMetadata: TypeMetadataResult,
+		friendlyName: FriendlyNameCallback,
+		dataUri: ImageDataUriCallback,
+		rendering: RenderingCallback
+	): ParsedCredential {
+		return {
+			metadata: {
+				credential: {
+					format: VerifiableCredentialFormat.MSO_MDOC,
+					doctype: parsedDocument.docType,
+					TypeMetadata,
+					image: { dataUri },
+					rendering,
+					name: friendlyName
+				},
+				issuer: {
+					id: parsedDocument.issuerSigned.issuerAuth.certificate.issuer,
+					name: parsedDocument.issuerSigned.issuerAuth.certificate.issuer
+				}
+			},
+			signedClaims: { ...signedClaims },
+			validityInfo: { ...extractValidityInfo(parsedDocument.issuerSigned) }
+		};
+	}
+
+	async function deviceResponseParser(
+		rawCredential: string,
+		credentialIssuer?: CredentialIssuerInfo | null
+	): Promise<ParsedCredential | null> {
+		try {
+			const decodedCred = fromBase64Url(rawCredential);
+			const parsedMDOC = parse(decodedCred);
+			const [parsedDocument] = parsedMDOC.documents as DeviceSignedDocument[];
+
+			const signedClaims = collectAllAttrValues(parsedDocument);
+			const renderer = CustomCredentialSvg({ httpClient: args.httpClient });
+			const { issuerMetadata, TypeMetadata } = await fetchIssuerMetadataAndDocs(credentialIssuer);
+
+			const issuerDisplayArray = credentialIssuer?.credentialConfigurationId
+				? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]?.credential_metadata?.display
+				: undefined;
+			const claims = credentialIssuer?.credentialConfigurationId
+				? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]?.credential_metadata?.claims
+				: undefined;
+			const friendlyName = friendlyNameResolver({
+				issuerDisplayArray: issuerDisplayArray as any,
+				fallbackName: "mdoc Verifiable Credential",
+			});
+
+			const dataUri = dataUriResolver({
+				httpClient: args.httpClient,
+				customRenderer: renderer,
+				issuerDisplayArray,
+				signedClaims,
+				credentialDisplayArray: issuerDisplayArray as any,
+				vcRenderer: CredentialRenderingService(),
+				vcMetadataClaims: claims as any,
+				fallbackName: "mdoc Verifiable Credential",
+		});
+
+		const rendering = renderingResolver({ issuerDisplayArray: issuerDisplayArray as any });
+
+		return toParsedCredential(parsedDocument, signedClaims, TypeMetadata, friendlyName, dataUri, rendering);
+		} catch {
+			return null;
+		}
+	}
+
+	async function issuerSignedParser(
+		rawCredential: string,
+		credentialIssuer?: CredentialIssuerInfo | null
+	): Promise<ParsedCredential | null> {
+		try {
+			const credentialBytes = fromBase64Url(rawCredential);
+			const issuerSigned: Map<string, unknown> = cborDecode(credentialBytes);
+			const [header, _, payload, sig] = issuerSigned.get('issuerAuth') as Array<Uint8Array>;
+			const decodedIssuerAuthPayload: DataItem = cborDecode(payload);
+			const docType = decodedIssuerAuthPayload.data.get('docType');
+			const m = {
+				version: '1.0',
+				documents: [new Map([
+					['docType', docType],
+					['issuerSigned', issuerSigned]
+				])],
+				status: 0
+			};
+			const encoded = cborEncode(m);
+			const mdoc = parse(encoded);
+			const [parsedDocument] = mdoc.documents as DeviceSignedDocument[];
+
+			const signedClaims = collectAllAttrValues(parsedDocument);
+			const renderer = CustomCredentialSvg({ httpClient: args.httpClient });
+			const { issuerMetadata, TypeMetadata } = await fetchIssuerMetadataAndDocs(credentialIssuer);
+
+			const issuerDisplayArray = credentialIssuer?.credentialConfigurationId
+				? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]?.credential_metadata?.display
+				: undefined;
+			const claims = credentialIssuer?.credentialConfigurationId
+				? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]?.credential_metadata?.claims
+				: undefined;
+			const friendlyName = friendlyNameResolver({
+				issuerDisplayArray: issuerDisplayArray as any,
+				fallbackName: "mdoc Verifiable Credential",
+			});
+
+			const dataUri = dataUriResolver({
+				httpClient: args.httpClient,
+				customRenderer: renderer,
+				issuerDisplayArray,
+				signedClaims,
+				credentialDisplayArray: issuerDisplayArray as any,
+				vcRenderer: CredentialRenderingService(),
+				vcMetadataClaims: claims as any,
+				fallbackName: "mdoc Verifiable Credential",
+		});
+
+		const rendering = renderingResolver({ issuerDisplayArray: issuerDisplayArray as any });
+
+		return toParsedCredential(parsedDocument, signedClaims, TypeMetadata, friendlyName, dataUri, rendering);
+		} catch {
+			return null;
+		}
+	}
+	return {
+
+		async parse({ rawCredential, credentialIssuer }) {
+
+			if (!canParseMsoMdoc(rawCredential)) {
+				return {
+					success: false,
+					error: CredentialParsingError.UnsupportedFormat,
+				};
+			}
+
+			const deviceResponseParsingResult = await deviceResponseParser(rawCredential, credentialIssuer ?? null);
+			if (deviceResponseParsingResult) {
+				return {
+					success: true,
+					value: deviceResponseParsingResult
+				}
+			}
+
+			const issuerSignedParsingResult = await issuerSignedParser(rawCredential, credentialIssuer ?? null);
+			if (issuerSignedParsingResult) {
+				return {
+					success: true,
+					value: issuerSignedParsingResult,
+				}
+			}
+
+			return {
+				success: false,
+				error: CredentialParsingError.CouldNotParse,
+			}
+		},
+	}
+}
