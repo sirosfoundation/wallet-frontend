@@ -112,7 +112,7 @@
     "tag": "pnpm tag:public && pnpm tag:main",
     "tag:public": "changeset git-tag",
     "tag:main": "VER=\"v$(node -p \"require('./package.json').version\")\"; git tag \"$VER\" -m \"$VER\"",
-    "typegen:config": "json2ts config/.schemas/env.schema.json -o src/types/env-config.ts --style.useTabs"
+    "typegen:config": "jq '.properties |= with_entries(select(.value[\"x-target\"] == \"meta\"))' config/.schemas/env.schema.json | json2ts -o src/types/env-config.ts --style.useTabs"
   },
   "repository": "https://github.com/wwwallet/wallet-frontend",
   "license": "BSD-2-Clause",

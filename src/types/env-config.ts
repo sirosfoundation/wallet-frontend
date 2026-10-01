@@ -7,22 +7,6 @@
 
 export interface WalletFrontendEnvironmentConfiguration {
 	/**
-	 * IP address the dev/build server binds to.
-	 */
-	HOST?: string;
-	/**
-	 * Port the dev/build server runs on.
-	 */
-	PORT?: number;
-	/**
-	 * Generate source maps for debugging.
-	 */
-	GENERATE_SOURCEMAP?: boolean;
-	/**
-	 * Application version. Defaults to the npm package version.
-	 */
-	APP_VERSION?: string;
-	/**
 	 * Base path for asset loading. Used for sub-path deployments.
 	 */
 	BASE_PATH?: string;
@@ -153,28 +137,4 @@ export interface WalletFrontendEnvironmentConfiguration {
 	 * Enable Wallet Instance Attestation.
 	 */
 	WIA_ENABLED?: boolean;
-	/**
-	 * Base URL of the OIDC provider for the OIDC gate feature. Added to the CSP connect-src directive.
-	 */
-	OIDC_GATE_OP_URL?: string;
-	/**
-	 * Generates .well-known/apple-app-site-association for iOS wrappers. In .env: <APP_ID>,<APP_ID>,... Can be left blank.
-	 */
-	WELLKNOWN_APPLE_APPIDS?: string[];
-	/**
-	 * Generates .well-known/assetlinks.json for Android wrappers. In .env: <PKG>::<FINGERPRINT>,... (map of package -> fingerprints). Can be left blank.
-	 */
-	WELLKNOWN_ANDROID_PACKAGE_NAMES_AND_FINGERPRINTS?: string;
-	/**
-	 * Path to the generated nginx security-headers config file.
-	 */
-	NGINX_SEC_HEADER_FILE?: string;
-	/**
-	 * Restrict CSP resource (img) sources to https only. When false, both https and http are allowed.
-	 */
-	NGINX_CSP_ENFORCE_RESOURCE_HTTPS?: boolean;
-	/**
-	 * Add the Strict-Transport-Security (HSTS) header.
-	 */
-	NGINX_ENABLE_HSTS?: boolean;
 }
