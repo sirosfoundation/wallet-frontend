@@ -25,7 +25,7 @@ export function useHttpClient(): HttpClient {
 			transport,
 			decorateHeaders: ({ url }) =>
 				new URL(url).origin === new URL(BACKEND_URL).origin
-					? { 'X-Tenant-ID': getTenantFromUrlPath() }
+					? { 'X-Tenant-ID': getTenantFromUrlPath() || 'default' }
 					: {},
 		});
 	} else {

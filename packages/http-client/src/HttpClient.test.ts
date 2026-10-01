@@ -11,24 +11,6 @@ const logger = {
 	error: vi.fn(),
 } as unknown as Logger;
 
-const bytes = (s: string) => new TextEncoder().encode(s);
-
-function transportReturning(
-	res: Partial<HttpTransportResponse> & { body: Uint8Array },
-): HttpTransport {
-	return vi.fn(async () => ({ status: 200, headers: {}, ...res }));
-}
-
-function memoryIndexedDB(): IndexedDB {
-	const store = new Map<string, unknown>();
-	return {
-		addItem: vi.fn(async (_s, key, value) => {
-			store.set(String(key), value);
-		}),
-		getItem: vi.fn(async (_s, key) => store.get(String(key)) ?? null),
-	};
-}
-
 describe('HttpClient', () => {
 	beforeEach(() => vi.clearAllMocks());
 
@@ -224,4 +206,138 @@ describe('HttpClient', () => {
 		client.setTransport(transportReturning({ body: bytes('two') }));
 		expect((await client.get('https://x.test/g')).data).toBe('two');
 	});
+
+	it.each([
+		['application/json'],
+		['application/ld+json'],
+		['application/did+json'],
+		['application/problem+json'],
+		['text/plain'],
+	])('parses JSON bodies served as %s', async (contentType) => {
+		const transport = transportReturning({
+			headers: { 'content-type': contentType },
+			body: bytes('{"vct":"x"}'),
+		});
+		const client = new HttpClient({ isOnline: true, logger, transport });
+
+		const res = await client.get('https://x.test/meta');
+
+		expect(res.data).toEqual({ vct: 'x' });
+	});
+
+	it('falls back to text when an application/json body is not JSON (gateway HTML)', async () => {
+		const transport = transportReturning({
+			headers: { 'content-type': 'application/json' },
+			body: bytes('<html>502 Bad Gateway</html>'),
+		});
+		const client = new HttpClient({ isOnline: true, logger, transport });
+
+		// must resolve, not reject
+		const res = await client.get('https://x.test/down');
+
+		expect(res.status).toBe(200);
+		expect(res.data).toBe('<html>502 Bad Gateway</html>');
+	});
+
+	it('returns non-JSON text (e.g. an SVG) as a string', async () => {
+		const transport = transportReturning({
+			headers: { 'content-type': 'image/svg+xml' },
+			body: bytes('<svg/>'),
+		});
+		const client = new HttpClient({ isOnline: true, logger, transport });
+
+		const res = await client.get('https://x.test/logo.svg');
+
+		expect(res.data).toBe('<svg/>');
+	});
+
+	it('treats a cached entry without Uint8Array bytes as a miss and refetches', async () => {
+		const transport = transportReturning({
+			headers: { 'content-type': 'application/json' },
+			body: bytes('{"fresh":true}'),
+		});
+		const client = new HttpClient({
+			isOnline: true,
+			logger,
+			transport,
+			indexedDB: malformedIndexedDB(),
+		});
+
+		const res = await client.get('https://x.test/c', {}, { useCache: true });
+
+		expect(transport).toHaveBeenCalledTimes(1);
+		expect(res.data).toEqual({ fresh: true });
+	});
+
+	it('does not return an empty body offline for a pre-upgrade entry', async () => {
+		const client = new HttpClient({
+			isOnline: false,
+			logger,
+			transport: transportReturning({ body: bytes('x') }),
+			indexedDB: malformedIndexedDB(),
+		});
+
+		const res = await client.get('https://x.test/c', {}, { useCache: true });
+
+		expect(res.status).toBe(504);
+		expect(res.data).not.toBe('');
+	});
+
+	it('detects binary URLs with query and fragment', async () => {
+		const transport = transportReturning({
+			headers: { 'content-type': 'image/png' },
+			body: new Uint8Array([1, 2, 3]),
+		});
+		const client = new HttpClient({ isOnline: true, logger, transport });
+
+		const res = await client.get(
+			'https://x.test/logo.png?v=2#frag',
+			{},
+			{ wantRaw: true },
+		);
+
+		expect(res.data).toBeInstanceOf(Uint8Array);
+		expect(Array.from(res.raw!)).toEqual([1, 2, 3]);
+	});
+
+	it('does not treat a non-image path as binary', async () => {
+		const transport = transportReturning({
+			headers: { 'content-type': 'application/json' },
+			body: bytes('{"ok":true}'),
+		});
+		const client = new HttpClient({ isOnline: true, logger, transport });
+
+		const res = await client.get('https://x.test/api/thing?file=a.png');
+
+		expect(res.data).toEqual({ ok: true });
+	});
 });
+
+const bytes = (s: string) => new TextEncoder().encode(s);
+
+function transportReturning(
+	res: Partial<HttpTransportResponse> & { body: Uint8Array },
+): HttpTransport {
+	return vi.fn(async () => ({ status: 200, headers: {}, ...res }));
+}
+
+function memoryIndexedDB(): IndexedDB {
+	const store = new Map<string, unknown>();
+	return {
+		addItem: vi.fn(async (_s, key, value) => {
+			store.set(String(key), value);
+		}),
+		getItem: vi.fn(async (_s, key) => store.get(String(key)) ?? null),
+	};
+}
+
+// a pre-upgrade entry: no Uint8Array `bytes`
+function malformedIndexedDB(): IndexedDB {
+	return {
+		addItem: vi.fn(async () => {}),
+		getItem: vi.fn(async () => ({
+			data: { status: 200, headers: {}, binary: false },
+			expiry: Math.floor(Date.now() / 1000) + 1000,
+		})),
+	};
+}

@@ -88,6 +88,7 @@ export class HttpClient {
 		const now = Math.floor(Date.now() / 1000);
 
 		const cacheKey = [
+			'v2',
 			isBinary ? 'blob' : 'data',
 			url,
 			body ? await this.#hashBody(body) : undefined,
@@ -175,7 +176,7 @@ export class HttpClient {
 				});
 			}
 
-			const data = decodeBody(bytes, contentType, isBinary);
+			const data = decodeBody(bytes, isBinary);
 			return {
 				status,
 				headers: responseHeaders,
@@ -215,7 +216,8 @@ export class HttpClient {
 			if (!ignoreExpiry && this.#isOnline !== null && !isFresh) return null;
 
 			const { status, headers, bytes, contentType, binary } = cached.data;
-			const data = decodeBody(bytes, contentType, binary);
+			if (!(bytes instanceof Uint8Array)) return null;
+			const data = decodeBody(bytes, binary);
 			return { status, headers, data, ...(wantRaw && { raw: bytes }) };
 		} catch (err) {
 			this.#logger.warn('[HttpClient] Failed cache read', err);
@@ -283,17 +285,14 @@ export class HttpClient {
 	}
 }
 
-function decodeBody(
-	bytes: Uint8Array,
-	contentType: string | undefined,
-	binary: boolean,
-): unknown {
+function decodeBody(bytes: Uint8Array, binary: boolean): unknown {
 	if (binary) return bytes;
 	const text = new TextDecoder().decode(bytes);
-	if (contentType?.trim().startsWith('application/json')) {
-		return text ? JSON.parse(text) : null;
+	try {
+		return JSON.parse(text);
+	} catch {
+		return text;
 	}
-	return text;
 }
 
 const BINARY_EXT = /\.(png|jpe?g|gif|webp|bmp|tiff?|ico)$/i;
