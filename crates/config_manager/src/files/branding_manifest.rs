@@ -5,9 +5,10 @@ use crate::{
 		files::{self, Screenshot, Screenshots},
 		icons::{self, Icons},
 	},
+	dom::Tag,
 	files::OutputFile,
 	fs::Fs,
-	utils::{self, Tag},
+	utils::{self},
 };
 use std::path::Path;
 
@@ -21,7 +22,7 @@ impl OutputFile for BrandingManifest {
 		dest_dir: &Path,
 		config: &crate::config::Config,
 		branding_hash: &str,
-	) -> Vec<(String, crate::utils::Tag)> {
+	) -> Vec<(String, Tag)> {
 		let hash_suffix = if branding_hash.is_empty() {
 			"".to_string()
 		} else {

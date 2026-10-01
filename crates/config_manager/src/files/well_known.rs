@@ -8,6 +8,7 @@ use serde::Serialize;
 
 use crate::files::OutputFile;
 use crate::fs::Fs;
+use crate::dom::Tag;
 
 pub struct WellKnown;
 
@@ -19,7 +20,7 @@ impl OutputFile for WellKnown {
 		dest_dir: &Path,
 		config: &crate::config::Config,
 		_branding_hash: &str,
-	) -> Vec<(String, crate::utils::Tag)> {
+	) -> Vec<(String, Tag)> {
 		if !self.should_run(config) {
 			return Vec::new();
 		}

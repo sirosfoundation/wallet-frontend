@@ -1,4 +1,4 @@
-use crate::{fs::Fs, utils::TagsMap};
+use crate::{dom::TagsMap, fs::Fs};
 use std::{collections::HashMap, error::Error, path::PathBuf};
 use wasm_bindgen::prelude::*;
 
@@ -7,6 +7,7 @@ use tsify::Tsify;
 
 pub mod branding;
 pub mod config;
+pub mod dom;
 pub mod files;
 pub mod fs;
 pub mod inject;

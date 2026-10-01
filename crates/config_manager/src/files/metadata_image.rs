@@ -1,4 +1,6 @@
-use crate::{branding::metadata_image, files::OutputFile, fs::Fs, utils};
+use crate::{
+	branding::metadata_image, dom::Tag, files::OutputFile, fs::Fs, utils,
+};
 
 pub struct MetadataImage;
 
@@ -10,7 +12,7 @@ impl OutputFile for MetadataImage {
 		dest_dir: &std::path::Path,
 		config: &crate::config::Config,
 		branding_hash: &str,
-	) -> Vec<(String, crate::utils::Tag)> {
+	) -> Vec<(String, Tag)> {
 		let title = config.static_name();
 
 		let result = metadata_image::generate_metadata_image(
@@ -37,13 +39,13 @@ impl OutputFile for MetadataImage {
 		vec![
 			(
 				"og-image".to_string(),
-				utils::Tag::meta()
+				Tag::meta()
 					.attr("property", "og:image")
 					.attr("content", &url),
 			),
 			(
 				"twitter-image".to_string(),
-				utils::Tag::meta()
+				Tag::meta()
 					.attr("name", "twitter:image")
 					.attr("content", &url),
 			),

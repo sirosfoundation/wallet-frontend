@@ -1,4 +1,4 @@
-use crate::{config::Config, utils};
+use crate::{config::Config, dom::Tag};
 use std::{collections::HashMap, path::Path};
 pub mod branding_manifest;
 pub mod metadata_image;
@@ -19,7 +19,7 @@ pub trait OutputFile {
 		dest_dir: &Path,
 		config: &Config,
 		branding_hash: &str,
-	) -> Vec<(String, utils::Tag)>;
+	) -> Vec<(String, Tag)>;
 }
 
 /// Writes all output files to the specified destination directory and
@@ -30,7 +30,7 @@ pub fn write_all(
 	dest_dir: &Path,
 	config: &Config,
 	branding_hash: &str,
-) -> HashMap<String, utils::Tag> {
+) -> HashMap<String, Tag> {
 	let files: Vec<Box<dyn OutputFile>> = vec![
 		Box::new(robots::RobotsTxt),
 		Box::new(sitemap::SitemapXml),
@@ -40,7 +40,7 @@ pub fn write_all(
 		Box::new(metadata_image::MetadataImage),
 	];
 
-	let mut tags: HashMap<String, utils::Tag> = HashMap::new();
+	let mut tags: HashMap<String, Tag> = HashMap::new();
 
 	for file in &files {
 		tags.extend(file.generate(fs, source_dir, dest_dir, config, branding_hash));

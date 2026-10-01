@@ -3,7 +3,8 @@ use std::{error::Error, vec};
 
 use crate::{
 	config::Config,
-	utils::{self, Tag, TagsMap},
+	dom::{self, Tag, TagsMap},
+	utils,
 };
 
 pub fn inject_html(
@@ -55,11 +56,11 @@ pub fn inject_html(
 	}
 
 	for tag in social_meta_tags {
-		utils::insert_tag(&head, &tag);
+		dom::insert_tag(&head, &tag);
 	}
 
 	for tag in tags.values() {
-		utils::insert_tag(&head, &tag);
+		dom::insert_tag(&head, &tag);
 	}
 
 	let config_str = config.to_json_string(None)?;
@@ -68,7 +69,7 @@ pub fn inject_html(
 		.attr("name", "www:config")
 		.attr("content", config_str);
 
-	utils::insert_tag(&head, &www_config_tag);
+	dom::insert_tag(&head, &www_config_tag);
 
 	sort_head(&head, &config);
 
@@ -87,8 +88,8 @@ pub fn sort_head(head: &NodeRef, config: &Config) {
 		.collect();
 
 	elements.sort_by(|a, b| {
-		utils::get_tag_sorting_priority(a)
-			.cmp(&utils::get_tag_sorting_priority(b))
+		dom::get_tag_sorting_priority(a)
+			.cmp(&dom::get_tag_sorting_priority(b))
 			.then_with(|| sort_key(a).cmp(&sort_key(b)))
 	});
 

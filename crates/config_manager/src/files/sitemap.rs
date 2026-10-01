@@ -1,7 +1,7 @@
 use chrono::Utc;
 use std::path::Path;
 
-use crate::{files::OutputFile, fs::Fs, utils::Tag};
+use crate::{files::OutputFile, fs::Fs, dom::Tag};
 
 pub struct SitemapXml;
 
