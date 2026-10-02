@@ -19,6 +19,7 @@ pub fn all_theme_config_paths(source_dir: &Path) -> ThemeConfigPaths {
 
 pub fn load_theme(
 	fs: &dyn Fs,
+	schema_dir: &Path,
 	source_dir: &Path,
 ) -> Result<Value, Box<dyn Error>> {
 	let paths = all_theme_config_paths(source_dir);
@@ -35,7 +36,7 @@ pub fn load_theme(
 	let raw = String::from_utf8(raw).unwrap();
 	let theme: Value = serde_json::from_str(&raw).unwrap();
 
-	let schema_path = source_dir.join(".schemas").join("theme.json");
+	let schema_path = schema_dir.join("theme.schema.json");
 
 	if fs.exists(&schema_path) {
 		let schema_raw = fs.read(&schema_path).unwrap();
@@ -94,6 +95,7 @@ pub fn get_primary_brand_color(
 }
 
 pub struct GenerateThemeOptions {
+	pub schema_dir: PathBuf,
 	pub source_dir: PathBuf,
 }
 
@@ -101,7 +103,7 @@ pub fn generate_theme_css(
 	fs: &dyn Fs,
 	options: GenerateThemeOptions,
 ) -> String {
-	let theme = load_theme(fs, &options.source_dir).unwrap();
+	let theme = load_theme(fs, &options.schema_dir, &options.source_dir).unwrap();
 
 	let brand = theme["brand"].as_object().unwrap();
 

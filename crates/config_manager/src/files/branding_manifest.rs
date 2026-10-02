@@ -18,6 +18,7 @@ impl OutputFile for BrandingManifest {
 	fn generate(
 		&self,
 		fs: &dyn Fs,
+		_schema_dir: &Path,
 		source_dir: &Path,
 		dest_dir: &Path,
 		config: &crate::config::Config,

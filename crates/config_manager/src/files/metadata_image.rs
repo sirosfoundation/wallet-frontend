@@ -8,6 +8,7 @@ impl OutputFile for MetadataImage {
 	fn generate(
 		&self,
 		fs: &dyn Fs,
+		schema_dir: &std::path::Path,
 		source_dir: &std::path::Path,
 		dest_dir: &std::path::Path,
 		config: &crate::config::Config,
@@ -18,6 +19,7 @@ impl OutputFile for MetadataImage {
 		let result = metadata_image::generate_metadata_image(
 			fs,
 			metadata_image::MetadataImageOptions {
+				schema_dir: schema_dir.to_path_buf(),
 				source_dir: source_dir.to_path_buf(),
 				title: title.to_string(),
 			},

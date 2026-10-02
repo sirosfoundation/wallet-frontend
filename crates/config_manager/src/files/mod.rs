@@ -15,6 +15,7 @@ pub trait OutputFile {
 	fn generate(
 		&self,
 		fs: &dyn crate::fs::Fs,
+		schema_dir: &Path,
 		source_dir: &Path,
 		dest_dir: &Path,
 		config: &Config,
@@ -26,6 +27,7 @@ pub trait OutputFile {
 /// returns a map of tags.
 pub fn write_all(
 	fs: &dyn crate::fs::Fs,
+	schema_dir: &Path,
 	source_dir: &Path,
 	dest_dir: &Path,
 	config: &Config,
@@ -43,7 +45,14 @@ pub fn write_all(
 	let mut tags: HashMap<String, Tag> = HashMap::new();
 
 	for file in &files {
-		tags.extend(file.generate(fs, source_dir, dest_dir, config, branding_hash));
+		tags.extend(file.generate(
+			fs,
+			schema_dir,
+			source_dir,
+			dest_dir,
+			config,
+			branding_hash,
+		));
 	}
 
 	tags

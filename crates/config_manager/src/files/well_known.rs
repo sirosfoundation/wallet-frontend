@@ -6,9 +6,9 @@ use std::{collections::HashMap, error::Error, path::Path};
 
 use serde::Serialize;
 
+use crate::dom::Tag;
 use crate::files::OutputFile;
 use crate::fs::Fs;
-use crate::dom::Tag;
 
 pub struct WellKnown;
 
@@ -16,6 +16,7 @@ impl OutputFile for WellKnown {
 	fn generate(
 		&self,
 		fs: &dyn Fs,
+		_schema_dir: &Path,
 		_source_dir: &Path,
 		dest_dir: &Path,
 		config: &crate::config::Config,

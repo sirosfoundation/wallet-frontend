@@ -10,7 +10,7 @@ import {
 export function InjectConfigPlugin(env: Record<string, string>): Plugin {
 	const configManager = new ConfigManager(
 		new JsFs(fs),
-		resolve('config/.schemas'),
+		resolve('.schemas'),
 		resolve('branding'),
 		resolve('public'),
 		env,

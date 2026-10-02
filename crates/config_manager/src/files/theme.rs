@@ -1,6 +1,6 @@
 use crate::branding::theme;
 use crate::utils;
-use crate::{files::OutputFile, fs::Fs, dom::Tag};
+use crate::{dom::Tag, files::OutputFile, fs::Fs};
 use std::path::Path;
 
 pub struct Theme;
@@ -9,6 +9,7 @@ impl OutputFile for Theme {
 	fn generate(
 		&self,
 		fs: &dyn Fs,
+		schema_dir: &Path,
 		source_dir: &Path,
 		dest_dir: &Path,
 		config: &crate::config::Config,
@@ -17,6 +18,7 @@ impl OutputFile for Theme {
 		let css = theme::generate_theme_css(
 			fs,
 			theme::GenerateThemeOptions {
+				schema_dir: schema_dir.to_path_buf(),
 				source_dir: source_dir.to_path_buf(),
 			},
 		);

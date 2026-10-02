@@ -51,6 +51,7 @@ impl ConfigManager {
 	fn inject_config_files_core(&self) -> TagsMap {
 		files::write_all(
 			&*self.fs,
+			&self.schema_dir,
 			&self.branding_dir,
 			&self.dest_dir,
 			&self.config,

@@ -15,6 +15,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 pub struct MetadataImageOptions {
+	pub schema_dir: PathBuf,
 	pub source_dir: PathBuf,
 	pub title: String,
 }
@@ -44,7 +45,7 @@ pub fn generate_metadata_image(
 		return Err("Title cannot be empty".into());
 	}
 
-	let theme = theme::load_theme(fs, &options.source_dir)?;
+	let theme = theme::load_theme(fs, &options.schema_dir, &options.source_dir)?;
 	let background_color =
 		theme::get_primary_brand_color(&theme).unwrap_or("#FFFFFF".to_string());
 	let text_color = colors::get_optimal_text_color(&background_color)
