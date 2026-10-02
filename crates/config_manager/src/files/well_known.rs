@@ -27,7 +27,7 @@ impl OutputFile for WellKnown {
 		}
 
 		let well_known_dir = dest_dir.join(".well-known");
-		if well_known_dir.exists() {
+		if fs.exists(&well_known_dir) {
 			fs.remove_dir_all(&well_known_dir).unwrap();
 		}
 
@@ -131,6 +131,10 @@ impl WellKnown {
 					.collect()
 			})
 			.unwrap_or_default();
+
+		if app_ids.is_empty() {
+			return Err("App ID list is empty, skipping generation".into())
+		}
 
 		let template = AppleAppSiteAssociation {
 			applinks: AppleAppLinks {
