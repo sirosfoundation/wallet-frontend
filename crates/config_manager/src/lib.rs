@@ -98,15 +98,15 @@ impl ConfigManager {
 	}
 
 	#[wasm_bindgen(js_name = "injectConfigFiles")]
-	pub fn inject_config_files(&self) -> Result<tsify::Ts<utils::Tags>, JsError> {
-		Ok(utils::Tags(self.inject_config_files_core()).into_ts()?)
+	pub fn inject_config_files(&self) -> Result<tsify::Ts<dom::Tags>, JsError> {
+		Ok(dom::Tags(self.inject_config_files_core()).into_ts()?)
 	}
 
 	#[wasm_bindgen(js_name = "injectHtml")]
 	pub fn inject_html(
 		&self,
 		html: &str,
-		tags: &tsify::Ts<utils::Tags>,
+		tags: &tsify::Ts<dom::Tags>,
 	) -> Result<String, JsError> {
 		let tags = tags.to_rust()?.0;
 
