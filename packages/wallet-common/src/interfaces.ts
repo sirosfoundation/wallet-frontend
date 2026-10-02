@@ -63,8 +63,26 @@ export interface PublicKeyResolver {
 }
 
 export interface HttpClient {
-	get(url: string, headers?: Record<string, unknown>, options?: any): Promise<{ status: number, headers: Record<string, unknown>, data: unknown }>;
-	post(url: string, body: any, headers?: Record<string, unknown>, options?: any): Promise<{ status: number, headers: Record<string, unknown>, data: unknown }>;
+	get(url: string, headers?: Record<string, unknown>, options?: any): Promise<HttpResponse>;
+	post(url: string, body: any, headers?: Record<string, unknown>, options?: any): Promise<HttpResponse>;
+}
+
+export interface HttpResponse {
+	status: number;
+	headers: Record<string, unknown>;
+	data: unknown;
+	/**
+	 * The response body exactly as it arrived, as bytes, before any decoding
+	 * or JSON parsing. `@sirosfoundation/http-client` fills it in when the
+	 * request asks for `wantRaw`.
+	 *
+	 * Optional, and additive: an implementation that does not provide it
+	 * behaves as before. Supply it wherever practical, because integrity
+	 * digests are defined over the served octets - reconstructing them by
+	 * re-serialising the parse is lossy, and turns a correct digest over a
+	 * pretty-printed document into a mismatch. See `verifySRI`.
+	 */
+	raw?: Uint8Array;
 }
 
 
