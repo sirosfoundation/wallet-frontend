@@ -161,6 +161,8 @@ const formatClaimValue = (value) => {
 		}
 	}
 
+	if (value instanceof Date) return formatDate(value, 'date');
+
 	// Handle raw image bytes
 	if (
 		typeof value === 'object' &&
