@@ -43,9 +43,38 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient, 
 		return issuerSigned.issuerAuth.decodedPayload.validityInfo;
 	}
 
+	// Convert the CBOR decode (Maps, Date/DateOnly, typed arrays) into plain
+	// JSON so downstream claim traversal and rendering can read it.
+	function cborToPlain(value: unknown): unknown {
+		if (value instanceof Map) {
+			return Object.fromEntries(
+				[...value.entries()].map(([k, v]) => [String(k), cborToPlain(v)]),
+			);
+		}
+
+		if (value instanceof Date) {
+			return value.toISOString();
+		}
+
+		if (Array.isArray(value)) {
+			return value.map(cborToPlain);
+		}
+
+		if (value instanceof Uint8Array) {
+			return value;
+		}
+
+		if (value && typeof value === 'object') {
+			return Object.fromEntries(
+				Object.entries(value).map(([k, v]) => [k, cborToPlain(v)]),
+			);
+		}
+		return value;
+	}
+
 	function collectAllAttrValues(parsedDocument: DeviceSignedDocument): Record<string, unknown> {
 		return parsedDocument.issuerSignedNameSpaces.reduce<Record<string, unknown>>((acc, ns) => {
-			acc[ns] = parsedDocument.getIssuerNameSpace(ns);
+			acc[ns] = cborToPlain(parsedDocument.getIssuerNameSpace(ns));
 			return acc;
 		}, {});
 	}
