@@ -190,6 +190,9 @@ importers:
       '@peculiar/x509':
         specifier: ^2.1.0
         version: 2.1.0
+      '@sirosfoundation/wallet-frontend-config-manager':
+        specifier: workspace:*
+        version: link:crates/config_manager
       '@tailwindcss/vite':
         specifier: ^4.3.3
         version: 4.3.3(vite@6.4.3(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.39.0)(yaml@2.9.1))

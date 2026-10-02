@@ -66,6 +66,7 @@
     "@changesets/cli": "^3.0.3",
     "@peculiar/x509": "^2.1.0",
     "@sd-jwt/core": "^0.10.0",
+    "@sirosfoundation/wallet-frontend-config-manager": "workspace:*",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^6.10.0",

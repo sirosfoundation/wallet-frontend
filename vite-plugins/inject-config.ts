@@ -2,18 +2,11 @@ import * as fs from 'node:fs';
 import { resolve } from 'node:path';
 import { Plugin } from 'vite';
 import {
-	initSync,
 	ConfigManager,
 	JsFs,
 	Tag,
-} from '../crates/config_manager/npm/dist/config_manager.js';
+} from '@sirosfoundation/wallet-frontend-config-manager';
 
-// one-time wasm init with bytes we read ourselves (no require('fs') in the glue)
-initSync({
-	module: fs.readFileSync(
-		resolve('crates/config_manager/npm/dist/config_manager_bg.wasm'),
-	),
-});
 export function InjectConfigPlugin(env: Record<string, string>): Plugin {
 	const configManager = new ConfigManager(
 		new JsFs(fs),
@@ -22,7 +15,6 @@ export function InjectConfigPlugin(env: Record<string, string>): Plugin {
 		resolve('public'),
 		env,
 	);
-
 
 	const tagsToInject = new Map<string, Tag>();
 

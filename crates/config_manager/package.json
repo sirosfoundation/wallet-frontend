@@ -2,5 +2,24 @@
 	"name": "@sirosfoundation/wallet-frontend-config-manager",
 	"version": "0.0.0",
 	"license": "BSD-2-Clause",
-	"private": false
+	"private": false,
+	"main": "./dist/config_manager.js",
+	"types": "./dist/config_manager.d.ts",
+	"exports": {
+		".": {
+			"import": "./dist/config_manager.js",
+			"default": "./dist/config_manager.js",
+			"types": "./dist/config_manager.d.ts"
+		}
+	},
+	"files": [
+		"dist/config_manager_bg.wasm",
+		"dist/config_manager.js",
+		"dist/config_manager.d.ts"
+	],
+	"scripts": {
+		"build": "pnpm run build:wasm && pnpm run build:native",
+		"build:wasm": "wasm-pack build --release --no-pack --target nodejs --out-dir ./dist",
+		"build:native": "cargo build --release"
+	}
 }
