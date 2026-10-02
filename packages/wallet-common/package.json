@@ -2,6 +2,7 @@
 	"name": "wallet-common",
 	"version": "0.0.1",
 	"private": true,
+	"type": "module",
 	"exports": {
 		".": {
 			"import": "./src/index.ts",

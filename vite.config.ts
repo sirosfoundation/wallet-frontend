@@ -50,9 +50,6 @@ export default defineConfig(async ({ mode, command }) => {
 				'@': '/src',
 			},
 		},
-		optimizeDeps: {
-			include: ['wallet-common'],
-		},
 		server: {
 			host: true,
 			port: 3000,
