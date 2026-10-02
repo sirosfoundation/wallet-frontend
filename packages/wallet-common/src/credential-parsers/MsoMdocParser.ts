@@ -43,8 +43,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient, 
 		return issuerSigned.issuerAuth.decodedPayload.validityInfo;
 	}
 
-	// Convert the CBOR decode (Maps, Date/DateOnly, typed arrays) into plain
-	// JSON so downstream claim traversal and rendering can read it.
+	// Convert the CBOR decoded value into a plain JSON-compatible structure.
 	function cborToPlain(value: unknown): unknown {
 		if (value instanceof Map) {
 			return Object.fromEntries(
@@ -53,7 +52,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient, 
 		}
 
 		if (value instanceof Date) {
-			return value.toISOString();
+			return value;
 		}
 
 		if (Array.isArray(value)) {

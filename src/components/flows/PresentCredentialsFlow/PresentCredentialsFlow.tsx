@@ -30,6 +30,7 @@ import { useTranslation } from 'react-i18next';
 import { truncateByWords } from '@/lib/utils';
 import { logger } from '@/logger';
 import SessionContext from '@/context/SessionContext';
+import { formatDate } from 'wallet-common';
 
 type PresentCredentialsFlowProps = {
 	view: PresentCredentialsFlowView;
@@ -481,6 +482,8 @@ const ClaimDetails: FC<{ name?: string; value: unknown }> = ({ name, value }) =>
 				</ul>
 			);
 		}
+
+		if (value instanceof Date) return formatDate(value, 'date');
 
 		if (typeof value === 'object') {
 			return (
