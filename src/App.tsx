@@ -87,6 +87,8 @@ function App() {
 		[multiTenant]
 	);
 
+throw new Error();
+
 	return (
 		<>
 			<Snowfalling />

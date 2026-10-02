@@ -42,7 +42,7 @@ const GlobalErrorScreen = ({ error }: GlobalErrorScreenProps) => {
 					</span>
 				</div>
 				<div className="flex-1 flex flex-col items-center justify-center w-full">
-					<div className="w-full shadow rounded-lg sm:max-w-md xl:p-0">
+					<div className="w-full border border-lm-gray-400 dark:border-dm-gray-600 rounded-lg sm:max-w-md xl:p-0">
 						<div className="p-6 space-y-6 sm:p-8">
 							<div className="flex justify-center">
 								<AlertCircle className="text-lm-red dark:text-dm-red" size={64} />
