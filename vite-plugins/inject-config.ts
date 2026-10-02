@@ -33,7 +33,7 @@ export function InjectConfigPlugin(env: Record<string, string>): Plugin {
 		name: 'inject-config',
 		transformIndexHtml: {
 			order: 'pre',
-			async handler(html) {
+			handler(html) {
 				html = configManager.injectHtml(html, Object.fromEntries(tagsToInject));
 
 				return {
@@ -42,16 +42,16 @@ export function InjectConfigPlugin(env: Record<string, string>): Plugin {
 				}
 			},
 		},
-		async buildStart() {
+		buildStart() {
 			runInjectConfigFiles();
 		},
-		async configureServer(server) {
+		configureServer(server) {
 			runInjectConfigFiles();
 
-			server.watcher.on('change', async (file) => {
+			server.watcher.on('change', (file) => {
 				if (file.endsWith('.env')) {
 					console.log('Environment file changed. Reinjecting config...');
-					await runInjectConfigFiles();
+					runInjectConfigFiles();
 				}
 			});
 
