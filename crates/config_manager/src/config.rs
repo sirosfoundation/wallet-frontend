@@ -104,10 +104,10 @@ impl Config {
 
 pub fn load_and_parse_config(
 	fs: &dyn Fs,
-	schema_path: &path::Path,
+	schema_dir: &path::Path,
 	env: &HashMap<String, String>,
 ) -> Result<Config, Box<dyn Error>> {
-	let schema = load_env_schema(fs, &schema_path.join("env.schema.json"))?;
+	let schema = load_env_schema(fs, &schema_dir.join("env.schema.json"))?;
 	let parsed_env = parse_env(&schema, env)?;
 	Ok(parsed_env)
 }
