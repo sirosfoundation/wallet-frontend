@@ -4,7 +4,7 @@ import { clientsClaim } from "workbox-core";
 import { ExpirationPlugin } from "workbox-expiration";
 import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL, } from "workbox-precaching";
 import { registerRoute } from "workbox-routing";
-import { StaleWhileRevalidate, CacheFirst } from "workbox-strategies";
+import { StaleWhileRevalidate, CacheFirst, NetworkFirst } from "workbox-strategies";
 
 const basePath = new URL(self.registration.scope).pathname.replace(/\/?$/, '/') || '/';
 
@@ -41,7 +41,12 @@ registerRoute(
 
 		return SPA_ROUTE_ALLOWLIST.some((re) => re.test(pathname));
 	},
-	createHandlerBoundToURL(`${basePath}index.html`)
+	new NetworkFirst({
+		cacheName: "app-shell",
+		plugins: [{
+			cacheKeyWillBeUsed: async () => `${basePath}index.html`,
+		}],
+	})
 );
 
 registerRoute(
