@@ -151,6 +151,19 @@ git add -A
 
 Once the development server is running, you can access the app by visiting http://localhost:3000 in your web browser. The app provides various pages and components that you can interact with. Explore the features and enjoy using the Wallet Frontend!
 
+## `.gitignore` strategy
+
+This repo uses a **allowlist (opt-in) `.gitignore`**: by default nothing at the
+project root is tracked, and we explicitly re-include the files and directories
+we care about.
+
+### What this means day to day
+
+- New top level directories will be ignored by default. Add them to the allowlist
+  in `.gitignore` as required.
+- Any files or sub-directories in top level directories that need to be ignored
+  should be added to the ignorelist at the end of the `.gitignore` file.
+
 ## Changesets & Releases
 
 We use [Changesets](https://github.com/changesets/changesets) to track changes and manage version bumps and the `CHANGELOG.md`.
