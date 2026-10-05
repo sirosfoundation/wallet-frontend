@@ -9,7 +9,10 @@ overrides:
 
 patchedDependencies:
   cbor-x@1.6.4: 5dd1073cc30388a0a34fca92d7f5da906a96613928a9f7c06340303fea8838e5
+  cbor-x@1.6.5: b47c5f75069fd6202698648cc62340d62fe373b1e8b683515b4fede9178da481
+  cbor-x@1.6.6: b4262b2b78d6a77bd1d0dc86742cc0056a3d4ef54444c93103957801aceca43e
   reactour@1.19.4: 266746c5d7c0d42e26c5e63aede48213d8ef7936bd72d8ef40125f244c977670
+  zod@4.6.5: 08dadec209f17e9051c802cbd79715b63ebb5f935d1a3a61ecaafad3360bd0bc
 
 importers:
 
@@ -6811,9 +6814,9 @@ snapshots:
   '@owf/cose@0.4.1':
     dependencies:
       '@owf/identity-common': 0.4.1
-      cbor-x: 1.6.5
-      zod: 4.6.5
-      zod-validation-error: 5.0.0(zod@4.6.5)
+      cbor-x: 1.6.5(patch_hash=b47c5f75069fd6202698648cc62340d62fe373b1e8b683515b4fede9178da481)
+      zod: 4.6.5(patch_hash=08dadec209f17e9051c802cbd79715b63ebb5f935d1a3a61ecaafad3360bd0bc)
+      zod-validation-error: 5.0.0(zod@4.6.5(patch_hash=08dadec209f17e9051c802cbd79715b63ebb5f935d1a3a61ecaafad3360bd0bc))
 
   '@owf/identity-common@0.4.1': {}
 
@@ -6822,15 +6825,15 @@ snapshots:
       '@owf/cose': 0.4.1
       '@owf/identity-common': 0.4.1
       '@owf/token-status-list': 0.4.1
-      zod: 4.6.5
+      zod: 4.6.5(patch_hash=08dadec209f17e9051c802cbd79715b63ebb5f935d1a3a61ecaafad3360bd0bc)
 
   '@owf/token-status-list@0.4.1':
     dependencies:
       '@owf/cose': 0.4.1
       '@owf/identity-common': 0.4.1
-      cbor-x: 1.6.6
+      cbor-x: 1.6.6(patch_hash=b4262b2b78d6a77bd1d0dc86742cc0056a3d4ef54444c93103957801aceca43e)
       pako: 3.0.2
-      zod: 4.6.5
+      zod: 4.6.5(patch_hash=08dadec209f17e9051c802cbd79715b63ebb5f935d1a3a61ecaafad3360bd0bc)
 
   '@panva/hkdf@1.2.1': {}
 
@@ -8015,11 +8018,11 @@ snapshots:
     optionalDependencies:
       cbor-extract: 2.2.2
 
-  cbor-x@1.6.5:
+  cbor-x@1.6.5(patch_hash=b47c5f75069fd6202698648cc62340d62fe373b1e8b683515b4fede9178da481):
     optionalDependencies:
       cbor-extract: 2.2.2
 
-  cbor-x@1.6.6:
+  cbor-x@1.6.6(patch_hash=b4262b2b78d6a77bd1d0dc86742cc0056a3d4ef54444c93103957801aceca43e):
     optionalDependencies:
       cbor-extract: 2.2.2
 
@@ -10941,10 +10944,10 @@ snapshots:
 
   yocto-queue@0.1.0: {}
 
-  zod-validation-error@5.0.0(zod@4.6.5):
+  zod-validation-error@5.0.0(zod@4.6.5(patch_hash=08dadec209f17e9051c802cbd79715b63ebb5f935d1a3a61ecaafad3360bd0bc)):
     dependencies:
-      zod: 4.6.5
+      zod: 4.6.5(patch_hash=08dadec209f17e9051c802cbd79715b63ebb5f935d1a3a61ecaafad3360bd0bc)
 
   zod@3.25.76: {}
 
-  zod@4.6.5: {}
+  zod@4.6.5(patch_hash=08dadec209f17e9051c802cbd79715b63ebb5f935d1a3a61ecaafad3360bd0bc): {}

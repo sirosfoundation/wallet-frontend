@@ -1,0 +1,28 @@
+diff --git a/v4/core/util.js b/v4/core/util.js
+index 7a6e969b9d31455fc9a15f474a1d48dbafe36361..f77bc56af618e0815f54e619916866ee3a789dae 100644
+--- a/v4/core/util.js
++++ b/v4/core/util.js
+@@ -216,22 +216,7 @@ export function isObject(data) {
+     return typeof data === "object" && data !== null && !Array.isArray(data);
+ }
+ export const allowsEval = /* @__PURE__*/ cached(() => {
+-    // Skip the probe under `jitless`: strict CSPs report the caught `new Function` as a `securitypolicyviolation` even though the throw is swallowed.
+-    if (globalConfig.jitless) {
+-        return false;
+-    }
+-    // @ts-ignore
+-    if (typeof navigator !== "undefined" && navigator?.userAgent?.includes("Cloudflare")) {
+-        return false;
+-    }
+-    try {
+-        const F = Function;
+-        new F("");
+-        return true;
+-    }
+-    catch (_) {
+-        return false;
+-    }
++    return false;
+ });
+ export function isPlainObject(o) {
+     if (isObject(o) === false)
