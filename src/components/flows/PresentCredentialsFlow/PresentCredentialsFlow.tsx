@@ -495,7 +495,7 @@ const ClaimDetails: FC<{ name?: string; value: unknown }> = ({ name, value }) =>
 								<td className="p-1">
 									{
 										typeof val === 'object' || Array.isArray(val)
-											? <ClaimDetails name={key} value={val} />
+											? <ClaimDetails value={val} />
 											: String(val)
 									}
 								</td>
