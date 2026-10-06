@@ -2,7 +2,11 @@
 
 import { clientsClaim } from "workbox-core";
 import { ExpirationPlugin } from "workbox-expiration";
-import { precacheAndRoute, cleanupOutdatedCaches } from "workbox-precaching";
+import {
+	precacheAndRoute,
+	cleanupOutdatedCaches,
+	matchPrecache,
+} from "workbox-precaching";
 import { registerRoute } from "workbox-routing";
 import {
 	NetworkFirst,
@@ -58,6 +62,10 @@ registerRoute(
 		plugins: [
 			{
 				cacheKeyWillBeUsed: async () => `${basePath}index.html`,
+				handlerDidError: async () => {
+					const cachedResponse = await matchPrecache(`${basePath}index.html`);
+					return cachedResponse ?? Response.error();
+				},
 			},
 		],
 	}),
