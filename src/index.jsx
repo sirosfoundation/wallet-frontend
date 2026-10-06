@@ -13,6 +13,13 @@ import './index.css';
 import AppProvider from './AppProvider';
 import GlobalErrorBoundary from './hocs/GlobalErrorBoundary';
 
+// Handle preload errors
+// Could occur if the wallet tries to load any stale (old) modules
+window.addEventListener('vite:preloadError', (e) => {
+	e.preventDefault();
+	window.location.reload();
+});
+
 // Set root element for react-modal
 Modal.setAppElement('#root');
 

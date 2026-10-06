@@ -13,10 +13,17 @@ export default defineConfig(async ({ mode, command }) => {
 
 	mkdirSync(resolve('public'), { recursive: true });
 
+	// each build gets a unique ID with UTC timestamp
+	const buildId = [
+		process.env.npm_package_version,
+		Date.now().toString(),
+	].join('--');
+
 	return {
 		base: './',
 		define: {
 			'import.meta.env.VITE_APP_VERSION': JSON.stringify(process.env.npm_package_version),
+			'import.meta.env.VITE_BUILD_ID': JSON.stringify(buildId)
 		},
 		plugins: [
 			InjectConfigPlugin(env),

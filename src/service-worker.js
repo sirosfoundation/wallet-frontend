@@ -2,16 +2,23 @@
 
 import { clientsClaim } from "workbox-core";
 import { ExpirationPlugin } from "workbox-expiration";
-import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL, } from "workbox-precaching";
+import { precacheAndRoute, cleanupOutdatedCaches } from "workbox-precaching";
 import { registerRoute } from "workbox-routing";
-import { StaleWhileRevalidate, CacheFirst, NetworkFirst } from "workbox-strategies";
+import {
+	NetworkFirst,
+	StaleWhileRevalidate,
+	CacheFirst,
+} from "workbox-strategies";
 
-const basePath = new URL(self.registration.scope).pathname.replace(/\/?$/, '/') || '/';
+const basePath =
+	new URL(self.registration.scope).pathname.replace(/\/?$/, "/") || "/";
 
 clientsClaim();
+cleanupOutdatedCaches();
 
 precacheAndRoute(self.__WB_MANIFEST, {
 	ignoreURLParametersMatching: [/^v$/],
+	directoryIndex: null,
 });
 
 const SPA_ROUTE_ALLOWLIST = [
@@ -31,6 +38,11 @@ const SPA_ROUTE_ALLOWLIST = [
 	/^\/history\/[^/]+$/,                // History detail
 ];
 
+/**
+ * Network-first strategy for the app shell (HTML) ensures that users
+ * always get the latest version when online, while still providing
+ * offline support by falling back to the cached shell.
+ */
 registerRoute(
 	({ request, url }) => {
 		if (request.mode !== "navigate") return false;
@@ -43,10 +55,31 @@ registerRoute(
 	},
 	new NetworkFirst({
 		cacheName: "app-shell",
-		plugins: [{
-			cacheKeyWillBeUsed: async () => `${basePath}index.html`,
-		}],
-	})
+		plugins: [
+			{
+				cacheKeyWillBeUsed: async () => `${basePath}index.html`,
+			},
+		],
+	}),
+);
+
+/**
+ * Cache hashed build assets using a cache-first strategy.
+ * This ensures that assets are available offline and
+ * new versions are cached when updated.
+ */
+registerRoute(
+	({ request, url }) =>
+		request.destination === "script" ||
+		request.destination === "style" ||
+		request.destination === "worker" ||
+		url.pathname.endsWith(".wasm"),
+	new CacheFirst({
+		cacheName: "assets",
+		plugins: [
+			new ExpirationPlugin({ maxEntries: 300, purgeOnQuotaError: true }),
+		],
+	}),
 );
 
 registerRoute(
@@ -75,39 +108,5 @@ registerRoute(
 				maxEntries: 50,
 			}),
 		],
-	})
+	}),
 );
-
-let isFirstVisit = false;
-
-self.addEventListener('install', (event) => {
-	isFirstVisit = !self.registration.active;
-	self.skipWaiting();
-});
-
-self.addEventListener("activate", (event) => {
-	event.waitUntil(
-		(async () => {
-			// Clean old Workbox precache caches
-			await cleanupOutdatedCaches();
-
-			// Delete runtime image cache
-			const cacheNames = await caches.keys();
-			await Promise.all(
-				cacheNames
-					.filter((name) => name === "images")
-					.map((name) => caches.delete(name))
-			);
-
-			// Claim and reload clients
-			await self.clients.claim();
-
-			if (!isFirstVisit) {
-				const clients = await self.clients.matchAll();
-				clients.forEach((client) => {
-					client.navigate(client.url);
-				});
-			}
-		})()
-	);
-});

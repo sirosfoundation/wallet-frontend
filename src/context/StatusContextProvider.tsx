@@ -53,6 +53,7 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 
 	const updateBlockers = useRef<Map<string, { label: string; since: number; }>>(new Map());
 	const [isSafeToUpdate, setIsSafeToUpdate] = useState(true);
+	const [staleVersion, setStaleVersion] = useState(false);
 
 	const lastUpdateCallTime = React.useRef<number>(0);
 
@@ -214,6 +215,26 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 			window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
 		};
 	}, []);
+
+	useEffect(() => {
+		const buildId = process.env.VITE_BUILD_ID;
+		if (!buildId) return;
+
+		const channel = new BroadcastChannel('sirosid:app-version');
+		channel.postMessage(buildId);
+
+		channel.addEventListener('message', (e) => {
+			if (e.data !== buildId) setStaleVersion(true);
+		});
+
+		return () => channel.close();
+	}, []);
+
+	useEffect(() => {
+		if (staleVersion && isSafeToUpdate) {
+			window.location.reload();
+		}
+	}, [staleVersion, isSafeToUpdate]);
 
 	useEffect(() => {
 		const handler = (event: MessageEvent) => {
