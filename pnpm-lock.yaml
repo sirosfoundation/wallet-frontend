@@ -275,7 +275,11 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@types/node@20.19.43)(@vitest/coverage-v8@4.1.11)(happy-dom@20.14.5)(jsdom@28.1.0(@noble/hashes@1.8.0)(supports-color@8.1.1))(vite@6.4.3(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.39.0)(yaml@2.9.1))
 
-  crates/config_manager: {}
+  crates/config_manager:
+    dependencies:
+      commander:
+        specifier: ^15.0.0
+        version: 15.0.0
 
   packages/http-client:
     dependencies:
@@ -1117,6 +1121,7 @@ packages:
   '@cef-ebsi/key-did-resolver@1.1.0':
     resolution: {integrity: sha512-fx8otCet0vRM/PnndGHHhuWBy5EpX142RsfKT3DTH8/a3Yjkdo8S+C9bGHbDdc6PowPyp4FgF/6XVQUH45iu1A==}
     engines: {node: '>=16.10.0'}
+    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
 
   '@changesets/apply-release-plan@8.1.1':
     resolution: {integrity: sha512-nk2Hbq3M9NeHMdaIRBDvawKrQJzXB9sGyBUE5yWnIKtvdcNCPj75zBekJYr0gTT2ecJH3eFeTrc8eisPImcv0Q==}
@@ -2819,6 +2824,10 @@ packages:
   combined-stream@1.0.8:
     resolution: {integrity: sha512-FQN4MRfuJeHf7cBbBMJFXhKSDq+2kAArBlmRBvcvFE5BB1HZKXtSFASDhdlz9zOYwxh8lDdnvmMOe/+5cdoEdg==}
     engines: {node: '>= 0.8'}
+
+  commander@15.0.0:
+    resolution: {integrity: sha512-z67u4ZhzCL/Tydu1lJARtEZYWbWaN7oYLHbsuzocr6y4N6WZAagG3RQ4FW61V1/0+jImpj293XfrcYnd1qxtPg==}
+    engines: {node: '>=22.12.0'}
 
   commander@2.20.3:
     resolution: {integrity: sha512-GpVkmM8vF2vQUkj2LvZmD35JxeJOLCwJ9cUkugyk2nuhbv3+mJvpLYYt+0+USMxE+oj+ey/lJEnhZw75x/OMcQ==}
@@ -8108,6 +8117,8 @@ snapshots:
   combined-stream@1.0.8:
     dependencies:
       delayed-stream: 1.0.0
+
+  commander@15.0.0: {}
 
   commander@2.20.3: {}
 

@@ -12,14 +12,21 @@
 			"types": "./dist/config_manager.d.ts"
 		}
 	},
+	"bin": {
+		"wallet-frontend-config-manager": "./bin/cli.mjs"
+	},
 	"files": [
 		"dist/config_manager_bg.wasm",
 		"dist/config_manager.js",
-		"dist/config_manager.d.ts"
+		"dist/config_manager.d.ts",
+		"bin/cli.mjs"
 	],
 	"scripts": {
-		"build": "pnpm run build:wasm && pnpm run build:native",
+		"build": "pnpm run build:wasm",
 		"build:wasm": "wasm-pack build --release --no-pack --target nodejs --out-dir ./dist",
-		"build:native": "cargo build --release"
+		"build:native": "cargo build --release --target x86_64-unknown-linux-musl"
+	},
+	"dependencies": {
+		"commander": "^15.0.0"
 	}
 }
