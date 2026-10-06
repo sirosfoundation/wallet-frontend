@@ -24,6 +24,7 @@ cleanupOutdatedCaches();
  * We only skip waiting if the app requests it.
  */
 self.addEventListener('message', (event) => {
+	if (event.origin && event.origin !== self.location.origin) return;
 	if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
