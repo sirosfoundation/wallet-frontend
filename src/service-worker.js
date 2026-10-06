@@ -20,6 +20,13 @@ const basePath =
 clientsClaim();
 cleanupOutdatedCaches();
 
+/**
+ * We only skip waiting if the app requests it.
+ */
+self.addEventListener('message', (event) => {
+	if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
 precacheAndRoute(self.__WB_MANIFEST, {
 	ignoreURLParametersMatching: [/^v$/],
 	directoryIndex: null,
@@ -43,9 +50,7 @@ const SPA_ROUTE_ALLOWLIST = [
 ];
 
 /**
- * Network-first strategy for the app shell (HTML) ensures that users
- * always get the latest version when online, while still providing
- * offline support by falling back to the cached shell.
+ * App-shell navigations: network-first for freshness, precache fallback offline.
  */
 registerRoute(
 	({ request, url }) => {
@@ -57,24 +62,21 @@ registerRoute(
 
 		return SPA_ROUTE_ALLOWLIST.some((re) => re.test(pathname));
 	},
-	new NetworkFirst({
-		cacheName: "app-shell",
-		plugins: [
-			{
-				cacheKeyWillBeUsed: async () => `${basePath}index.html`,
-				handlerDidError: async () => {
-					const cachedResponse = await matchPrecache(`${basePath}index.html`);
-					return cachedResponse ?? Response.error();
-				},
-			},
-		],
-	}),
+	async ({ request }) => {
+		try {
+			// Online: always fresh HTML
+			return await fetch(request);
+		} catch {
+			// Offline: the precached shell is atomically consistent with the
+			// precached chunks it references, so lazy routes never 404.
+			return (await matchPrecache(`${basePath}index.html`)) ?? Response.error();
+		}
+	},
 );
 
 /**
- * Cache hashed build assets using a cache-first strategy.
- * This ensures that assets are available offline and
- * new versions are cached when updated.
+ * Hashed build assets are immutable, so any cached copy is valid. Match across
+ * all caches (incl. a newer, still-waiting SW's precache) before hitting network.
  */
 registerRoute(
 	({ request, url }) =>
@@ -82,12 +84,19 @@ registerRoute(
 		request.destination === "style" ||
 		request.destination === "worker" ||
 		url.pathname.endsWith(".wasm"),
-	new CacheFirst({
-		cacheName: "assets",
-		plugins: [
-			new ExpirationPlugin({ maxEntries: 300, purgeOnQuotaError: true }),
-		],
-	}),
+	async ({ request }) => {
+		const cached = await caches.match(request);
+		if (cached) return cached;
+		try {
+			const response = await fetch(request);
+			if (response.ok) {
+				(await caches.open("assets")).put(request, response.clone());
+			}
+			return response;
+		} catch {
+			return Response.error(); // → vite:preloadError → reload
+		}
+	},
 );
 
 registerRoute(
