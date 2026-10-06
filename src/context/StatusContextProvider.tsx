@@ -53,7 +53,7 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 
 	const updateBlockers = useRef<Map<string, { label: string; since: number; }>>(new Map());
 	const [isSafeToUpdate, setIsSafeToUpdate] = useState(true);
-	const [staleVersion, setStaleVersion] = useState(false);
+	const [isStaleVersion, setIsStaleVersion] = useState(false);
 
 	const lastUpdateCallTime = React.useRef<number>(0);
 
@@ -224,17 +224,17 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 		channel.postMessage(buildId);
 
 		channel.addEventListener('message', (e) => {
-			if (e.data !== buildId) setStaleVersion(true);
+			if (e.data !== buildId) setIsStaleVersion(true);
 		});
 
 		return () => channel.close();
 	}, []);
 
 	useEffect(() => {
-		if (staleVersion && isSafeToUpdate) {
+		if (isStaleVersion && isSafeToUpdate) {
 			window.location.reload();
 		}
-	}, [staleVersion, isSafeToUpdate]);
+	}, [isStaleVersion, isSafeToUpdate]);
 
 	useEffect(() => {
 		const handler = (event: MessageEvent) => {
