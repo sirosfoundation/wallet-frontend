@@ -9,7 +9,10 @@ overrides:
 
 patchedDependencies:
   cbor-x@1.6.4: 5dd1073cc30388a0a34fca92d7f5da906a96613928a9f7c06340303fea8838e5
+  cbor-x@1.6.5: b47c5f75069fd6202698648cc62340d62fe373b1e8b683515b4fede9178da481
+  cbor-x@1.6.6: b4262b2b78d6a77bd1d0dc86742cc0056a3d4ef54444c93103957801aceca43e
   reactour@1.19.4: 266746c5d7c0d42e26c5e63aede48213d8ef7936bd72d8ef40125f244c977670
+  zod@4.6.5: 08dadec209f17e9051c802cbd79715b63ebb5f935d1a3a61ecaafad3360bd0bc
 
 importers:
 
@@ -39,6 +42,9 @@ importers:
       '@sirosfoundation/browser-log':
         specifier: 1.0.0
         version: 1.0.0
+      '@sirosfoundation/http-client':
+        specifier: workspace:*
+        version: link:packages/http-client
       '@sirosfoundation/wcc-types':
         specifier: 0.1.0-beta.1
         version: 0.1.0-beta.1
@@ -105,6 +111,9 @@ importers:
       react-dom:
         specifier: ^19.3.0
         version: 19.3.0(react@19.3.0)
+      react-error-boundary:
+        specifier: ^6.1.6
+        version: 6.1.6(@types/react@19.3.0)(react@19.3.0)
       react-i18next:
         specifier: ^17.0.15
         version: 17.0.15(i18next@26.4.2(typescript@5.9.3))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(typescript@5.9.3)
@@ -268,6 +277,22 @@ importers:
 
   crates/config_manager: {}
 
+  packages/http-client:
+    dependencies:
+      '@sirosfoundation/browser-log':
+        specifier: 1.0.0
+        version: 1.0.0
+      axios:
+        specifier: ^1.20.0
+        version: 1.20.0(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^5.0.2
+        version: 5.0.2(@types/node@20.19.43)(@vitest/coverage-v8@4.1.11(vitest@4.1.11))(happy-dom@20.14.5)(jsdom@28.1.0(@noble/hashes@1.8.0)(supports-color@8.1.1))(vite@6.4.3(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.39.0)(yaml@2.9.1))
+
   packages/wallet-common:
     dependencies:
       '@auth0/mdl':
@@ -279,6 +304,12 @@ importers:
       '@sd-jwt/sd-jwt-vc':
         specifier: ^0.13.0
         version: 0.13.0
+      '@sirosfoundation/browser-log':
+        specifier: ^1.0.0
+        version: 1.0.0
+      '@sirosfoundation/http-client':
+        specifier: workspace:*
+        version: link:../http-client
       asn1js:
         specifier: ^3.0.10
         version: 3.0.10
@@ -4316,6 +4347,15 @@ packages:
     peerDependencies:
       react: ^19.3.0
 
+  react-error-boundary@6.1.6:
+    resolution: {integrity: sha512-CDXPnXDGyFIbkwaaJ6u+xgsRmJhSi6YdgUDW1vnyKHfXp1a9pfAlM+ZET2CDu80/A+8iRcmXN0NSY9BCCoWP5A==}
+    peerDependencies:
+      '@types/react': ^18.0.0 || ^19.0.0
+      react: ^18.0.0 || ^19.0.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+
   react-fast-compare@3.2.2:
     resolution: {integrity: sha512-nsO+KSNgo1SbJqJEYRE9ERzo7YtYbou/OqjSQKxV7jcKox7+usiUVZOAC+XnDOABXggQTno0Y1CpVnuWEc1boQ==}
 
@@ -6814,9 +6854,9 @@ snapshots:
   '@owf/cose@0.4.1':
     dependencies:
       '@owf/identity-common': 0.4.1
-      cbor-x: 1.6.5
-      zod: 4.6.5
-      zod-validation-error: 5.0.0(zod@4.6.5)
+      cbor-x: 1.6.5(patch_hash=b47c5f75069fd6202698648cc62340d62fe373b1e8b683515b4fede9178da481)
+      zod: 4.6.5(patch_hash=08dadec209f17e9051c802cbd79715b63ebb5f935d1a3a61ecaafad3360bd0bc)
+      zod-validation-error: 5.0.0(zod@4.6.5(patch_hash=08dadec209f17e9051c802cbd79715b63ebb5f935d1a3a61ecaafad3360bd0bc))
 
   '@owf/identity-common@0.4.1': {}
 
@@ -6825,15 +6865,15 @@ snapshots:
       '@owf/cose': 0.4.1
       '@owf/identity-common': 0.4.1
       '@owf/token-status-list': 0.4.1
-      zod: 4.6.5
+      zod: 4.6.5(patch_hash=08dadec209f17e9051c802cbd79715b63ebb5f935d1a3a61ecaafad3360bd0bc)
 
   '@owf/token-status-list@0.4.1':
     dependencies:
       '@owf/cose': 0.4.1
       '@owf/identity-common': 0.4.1
-      cbor-x: 1.6.6
+      cbor-x: 1.6.6(patch_hash=b4262b2b78d6a77bd1d0dc86742cc0056a3d4ef54444c93103957801aceca43e)
       pako: 3.0.2
-      zod: 4.6.5
+      zod: 4.6.5(patch_hash=08dadec209f17e9051c802cbd79715b63ebb5f935d1a3a61ecaafad3360bd0bc)
 
   '@panva/hkdf@1.2.1': {}
 
@@ -7603,6 +7643,15 @@ snapshots:
     optionalDependencies:
       vite: 6.4.3(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.39.0)(yaml@2.9.1)
 
+  '@vitest/mocker@5.0.2(vite@6.4.3(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.39.0)(yaml@2.9.1))':
+    dependencies:
+      '@jridgewell/trace-mapping': 0.3.31
+      '@vitest/spy': 5.0.2
+      estree-walker: 3.0.3
+      magic-string: 1.4.2
+    optionalDependencies:
+      vite: 6.4.3(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.39.0)(yaml@2.9.1)
+
   '@vitest/mocker@5.0.2(vite@6.4.3(@types/node@22.20.4)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.39.0)(yaml@2.9.1))':
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
@@ -8011,11 +8060,11 @@ snapshots:
     optionalDependencies:
       cbor-extract: 2.2.2
 
-  cbor-x@1.6.5:
+  cbor-x@1.6.5(patch_hash=b47c5f75069fd6202698648cc62340d62fe373b1e8b683515b4fede9178da481):
     optionalDependencies:
       cbor-extract: 2.2.2
 
-  cbor-x@1.6.6:
+  cbor-x@1.6.6(patch_hash=b4262b2b78d6a77bd1d0dc86742cc0056a3d4ef54444c93103957801aceca43e):
     optionalDependencies:
       cbor-extract: 2.2.2
 
@@ -9790,6 +9839,12 @@ snapshots:
       react: 19.3.0
       scheduler: 0.28.0
 
+  react-error-boundary@6.1.6(@types/react@19.3.0)(react@19.3.0):
+    dependencies:
+      react: 19.3.0
+    optionalDependencies:
+      '@types/react': 19.3.0
+
   react-fast-compare@3.2.2: {}
 
   react-focus-lock@2.13.7(@types/react@19.3.0)(react@19.3.0):
@@ -10625,6 +10680,30 @@ snapshots:
     transitivePeerDependencies:
       - msw
 
+  vitest@5.0.2(@types/node@20.19.43)(@vitest/coverage-v8@4.1.11(vitest@4.1.11))(happy-dom@20.14.5)(jsdom@28.1.0(@noble/hashes@1.8.0)(supports-color@8.1.1))(vite@6.4.3(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.39.0)(yaml@2.9.1)):
+    dependencies:
+      '@types/chai': 5.2.3
+      '@vitest/mocker': 5.0.2(vite@6.4.3(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.39.0)(yaml@2.9.1))
+      chai: 6.2.2
+      es-module-lexer: 2.3.2
+      expect-type: 1.4.0
+      magic-string: 1.4.2
+      obug: 2.2.1
+      picomatch: 4.0.7
+      std-env: 4.3.0
+      tinybench: 6.2.0
+      tinyexec: 1.3.1
+      tinyglobby: 0.2.17
+      vite: 6.4.3(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.39.0)(yaml@2.9.1)
+      why-is-node-running: 3.2.2
+    optionalDependencies:
+      '@types/node': 20.19.43
+      '@vitest/coverage-v8': 4.1.11(vitest@4.1.11)
+      happy-dom: 20.14.5
+      jsdom: 28.1.0(@noble/hashes@1.8.0)(supports-color@8.1.1)
+    transitivePeerDependencies:
+      - msw
+
   vitest@5.0.2(@types/node@22.20.4)(@vitest/coverage-v8@3.2.7)(happy-dom@20.14.5)(jsdom@28.1.0(@noble/hashes@1.8.0)(supports-color@8.1.1))(vite@6.4.3(@types/node@22.20.4)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.39.0)(yaml@2.9.1)):
     dependencies:
       '@types/chai': 5.2.3
@@ -10924,10 +11003,10 @@ snapshots:
 
   yocto-queue@0.1.0: {}
 
-  zod-validation-error@5.0.0(zod@4.6.5):
+  zod-validation-error@5.0.0(zod@4.6.5(patch_hash=08dadec209f17e9051c802cbd79715b63ebb5f935d1a3a61ecaafad3360bd0bc)):
     dependencies:
-      zod: 4.6.5
+      zod: 4.6.5(patch_hash=08dadec209f17e9051c802cbd79715b63ebb5f935d1a3a61ecaafad3360bd0bc)
 
   zod@3.25.76: {}
 
-  zod@4.6.5: {}
+  zod@4.6.5(patch_hash=08dadec209f17e9051c802cbd79715b63ebb5f935d1a3a61ecaafad3360bd0bc): {}

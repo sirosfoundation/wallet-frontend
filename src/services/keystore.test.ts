@@ -1,4 +1,4 @@
-import { assert, describe, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import * as jose from "jose";
 
 import * as util from '@cef-ebsi/key-did-resolver/dist/util.js';

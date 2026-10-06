@@ -33,7 +33,7 @@ export function usePresentCredentialsFlow() {
 	const displayRequestOverviewScreen = useCallback(
 		async (
 			verifierInfo: OID4VPVerifierInfo,
-			dcqlQuery: DcqlQuery.Input,
+			dcqlQuery: DcqlQuery.Input | undefined,
 			conformantCredentials: ConformantCredentials
 		): Promise<PresentCredentialsResult> => {
 			// vcEntityList is null until the credential engine finishes its

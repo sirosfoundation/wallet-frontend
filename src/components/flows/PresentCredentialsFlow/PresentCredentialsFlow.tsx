@@ -30,6 +30,7 @@ import { useTranslation } from 'react-i18next';
 import { truncateByWords } from '@/lib/utils';
 import { logger } from '@/logger';
 import SessionContext from '@/context/SessionContext';
+import { formatDate } from 'wallet-common';
 
 type PresentCredentialsFlowProps = {
 	view: PresentCredentialsFlowView;
@@ -464,7 +465,7 @@ const Purpose: FC<{ purpose: string }> = ({ purpose }) => {
 	);
 };
 
-const ClaimDetails: FC<{ name: string; value: unknown }> = ({ name, value }) => {
+const ClaimDetails: FC<{ name?: string; value: unknown }> = ({ name, value }) => {
 	const resolvedValue = (() => {
 		if (value === null || value === undefined) {
 			return '-';
@@ -474,11 +475,15 @@ const ClaimDetails: FC<{ name: string; value: unknown }> = ({ name, value }) => 
 			return (
 				<ul>
 					{value.map((item, index) => (
-						<li key={index}>{String(item)}</li>
+						<li key={index}>
+							<ClaimDetails value={item} />
+						</li>
 					))}
 				</ul>
 			);
 		}
+
+		if (value instanceof Date) return formatDate(value, 'date');
 
 		if (typeof value === 'object') {
 			return (
@@ -487,7 +492,13 @@ const ClaimDetails: FC<{ name: string; value: unknown }> = ({ name, value }) => 
 						{Object.entries(value).map(([key, val]) => (
 							<tr key={key} className="not-first:mt-1 not-first:pt-1 not-first:border-t not-first:border-t-lm-gray-300 dark:not-first:border-t-dm-gray-700">
 								<td className="font-bold p-1 pr-2">{key}</td>
-								<td className="p-1">{String(val)}</td>
+								<td className="p-1">
+									{
+										typeof val === 'object' || Array.isArray(val)
+											? <ClaimDetails value={val} />
+											: String(val)
+									}
+								</td>
 							</tr>
 						))}
 					</tbody>
@@ -501,8 +512,11 @@ const ClaimDetails: FC<{ name: string; value: unknown }> = ({ name, value }) => 
 
 	return (
 		<>
-			<dt className="font-bold not-first:mt-2 not-first:pt-2">{name}</dt>
-			<dd className="mt-2 wrap-break-word">{resolvedValue}</dd>
+			{name && <dt className="font-bold not-first:mt-2 not-first:pt-2">{name}</dt>}
+			{name
+				? <dd className="mt-2 wrap-break-word">{resolvedValue}</dd>
+				: <div className="mt-2 wrap-break-word">{resolvedValue}</div>
+			}
 		</>
 	);
 };

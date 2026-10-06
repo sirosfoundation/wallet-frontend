@@ -13,6 +13,7 @@
 import { ExtendedVcEntity } from '@/context/CredentialsContext';
 import { DcqlQuery, DcqlCredential, DcqlQueryResult } from 'dcql';
 import { logger } from '@/logger';
+import { isVcdm2Credential, toTypeArray } from 'wallet-common';
 import {
 	decodeStoredMdoc,
 	mdocNameSpacesToClaims,
@@ -53,7 +54,28 @@ export function matchCredentials(
 		}
 	}
 
+	// Shaping and matching fail silently otherwise: the caller only sees a
+	// generic selection error, with nothing saying which credential was
+	// rejected or why. These make a failed match self-explanatory in the
+	// console without having to reproduce it against a local build.
+	logger.debug('DCQL query requested:', JSON.stringify(dcqlQuery));
+	logger.debug('DCQL shaped credentials:', shaped.map((c) => {
+		const r = c as Record<string, unknown>;
+		return {
+			credential_format: r.credential_format,
+			vct: r.vct,
+			type: r.type,
+			doctype: r.doctype,
+			batchId: r._batchId,
+		};
+	}));
+
 	if (shaped.length === 0) {
+		logger.error('DCQL: no credentials could be shaped', {
+			held: credentials.length,
+			formats: credentials.map((c) => c.format),
+			parsed: credentials.map((c) => Boolean(c.parsedCredential?.signedClaims)),
+		});
 		return { matches: [], no_match_reason: 'No credentials could be shaped for matching' };
 	}
 
@@ -74,6 +96,17 @@ export function matchCredentials(
 	for (const credReq of dcqlQuery.credentials) {
 		const match = result.credential_matches[credReq.id];
 		if (!match?.success || !match.valid_credentials) {
+			// Why a query id matched nothing is the single most useful thing
+			// to know here, and dcql reports it per rejected credential.
+			logger.error('DCQL: no credential satisfied query', {
+				queryId: credReq.id,
+				requestedFormat: (credReq as Record<string, unknown>).format,
+				requestedMeta: (credReq as Record<string, unknown>).meta,
+				issues: (match as Record<string, any> | undefined)?.failed_credentials?.map((f: any) => ({
+					meta: f?.meta?.issues,
+					claims: f?.claims?.issues,
+				})),
+			});
 			continue;
 		}
 
@@ -134,6 +167,25 @@ export function shapeCredential(credential: ExtendedVcEntity): (DcqlCredential &
 	const signedClaims = credential.parsedCredential?.signedClaims;
 	if (!signedClaims) {
 		return null;
+	}
+
+	// A W3C VCDM 2.0 credential carried in an SD-JWT is a different DCQL model
+	// from an SD-JWT VC: it is identified by its `type` array and has no `vct`
+	// at all, so shaping one the SD-JWT VC way produces an undefined `vct` that
+	// matches nothing.
+	//
+	// The stored format cannot tell the two apart — the wallet records what the
+	// issuer advertised, and both advertise `vc+sd-jwt` — so the payload
+	// decides. `vcdm2+sd-jwt` is internal and never a wire value, so it is
+	// mapped back to the identifier a verifier actually asks for.
+	if (isVcdm2Credential(signedClaims)) {
+		return {
+			credential_format: format === 'vcdm2+sd-jwt' ? 'vc+sd-jwt' : format,
+			type: toTypeArray((signedClaims as Record<string, unknown>).type),
+			claims: signedClaims as Record<string, unknown>,
+			cryptographic_holder_binding: true,
+			_batchId: credential.batchId,
+		} as DcqlCredential & { _batchId?: number };
 	}
 
 	return {

@@ -1,6 +1,6 @@
 {
   "name": "wallet-frontend",
-  "version": "0.6.0",
+  "version": "0.7.0-beta.0",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.22.0",
@@ -13,6 +13,7 @@
     "@owf/mdoc": "^0.8.1",
     "@sd-jwt/core": "^0.10.0",
     "@sirosfoundation/browser-log": "1.0.0",
+    "@sirosfoundation/http-client": "workspace:*",
     "@sirosfoundation/wcc-types": "0.1.0-beta.1",
     "@sirosfoundation/wscd-manager-wasm": "^0.9.1",
     "asn1js": "^3.0.10",
@@ -35,6 +36,7 @@
     "pkijs": "^3.4.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "react-error-boundary": "^6.1.6",
     "react-i18next": "^17.0.15",
     "react-modal": "^3.16.3",
     "react-qr-code": "^2.2.0",

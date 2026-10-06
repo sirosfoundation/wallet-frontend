@@ -1,11 +1,12 @@
-import axios from "axios";
-import { HttpClient } from "./interfaces";
+import { HttpClient } from '@sirosfoundation/http-client';
+import { Logger } from '@sirosfoundation/browser-log';
+import { HttpClient as HttpClientInterface } from './interfaces';
 
-export const defaultHttpClient: HttpClient = {
-	async get(url, headers, opts) {
-		return axios.get(url, { ...opts, headers: headers as any }).then((res) => (res?.data ? { status: res.status, data: res.data, headers: res.headers } : null)).catch((err) => (err?.response?.data ? { ...err.response.data } : {}));
-	},
-	async post(url, data, headers, opts) {
-		return axios.post(url, data, { ...opts, headers: headers as any }).then((res) => (res?.data ? { status: res.status, data: res.data, headers: res.headers } : null)).catch((err) => (err?.response?.data ? { ...err.response.data } : {}));
-	},
-}
+const client = new HttpClient({ isOnline: true, logger: new Logger() });
+
+export const defaultHttpClient: HttpClientInterface = {
+	get: (url, headers, opts) =>
+		client.get(url, headers as Record<string, string>, opts),
+	post: (url, body, headers, opts) =>
+		client.post(url, body, headers as Record<string, string>, opts),
+};
