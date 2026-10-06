@@ -217,7 +217,7 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 	}, []);
 
 	useEffect(() => {
-		const buildId = process.env.VITE_BUILD_ID;
+		const buildId = import.meta.env.VITE_BUILD_ID;
 		if (!buildId) return;
 
 		const channel = new BroadcastChannel('sirosid:app-version');
