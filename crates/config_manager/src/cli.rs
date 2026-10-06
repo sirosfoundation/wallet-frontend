@@ -56,7 +56,7 @@ fn main() {
 }
 
 #[derive(Parser)]
-#[command(name = "config-manager", version, about)]
+#[command(name = "wallet-frontend-config-manager", version, about)]
 struct Cli {
 	/// Action to perform
 	action: Action,
