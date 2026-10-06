@@ -89,13 +89,13 @@ registerRoute(
 			if (response.ok) {
 				event.waitUntil(
 					caches.open("assets").then((cache) => {
-						cache.put(request, response.clone())
+						return cache.put(request, response.clone())
 					}),
 				);
 			}
 			return response;
 		} catch {
-			return Response.error(); // → vite:preloadError → reload
+			return Response.error();
 		}
 	},
 );
