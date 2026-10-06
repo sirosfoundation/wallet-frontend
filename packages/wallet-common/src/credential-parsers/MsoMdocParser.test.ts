@@ -2,10 +2,9 @@
 
 import { assert, expect, describe, it, vi } from "vitest";
 import { Context } from "../interfaces";
-import { MsoMdocParser } from './MsoMdocParser';
+import { MsoMdocParser, cborToPlain } from './MsoMdocParser';
 import { defaultHttpClient } from "../defaultHttpClient";
 import { VerifiableCredentialFormat } from "../types";
-import { skip } from "node:test";
 
 // Stub that network lookup so the tests do not
 // depend on an external server (whose TLS certificate has since expired).
@@ -156,4 +155,72 @@ it("should successfully parse a Base64-URL-encoded DeviceResponse in mso_mdoc fo
 	assert(nameSpace?.["given_name"] === "Gary");
 	assert((nameSpace?.["birth_date"] === "1988-09-09"));
 
+})
+
+describe("cborToPlain", () => {
+	it("should convert a CBOR Map into a plain object", () => {
+		const input = new Map<string, unknown>([
+			["family_name", "Mustermann"],
+			["given_name", "Erika"],
+		]);
+
+		expect(cborToPlain(input)).toEqual({
+			family_name: "Mustermann",
+			given_name: "Erika",
+		});
+	});
+
+	it("should normalize nested Maps inside arrays into plain objects (#330)", () => {
+		const input = new Map<string, unknown>([
+			["driving_privileges", [
+				new Map<string, unknown>([
+					["vehicle_category_code", "A"],
+					["issue_date", "2020-01-01"],
+				]),
+				new Map<string, unknown>([
+					["vehicle_category_code", "B"],
+					["issue_date", "2021-06-15"],
+				]),
+			]],
+		]);
+
+		expect(cborToPlain(input)).toEqual({
+			driving_privileges: [
+				{ vehicle_category_code: "A", issue_date: "2020-01-01" },
+				{ vehicle_category_code: "B", issue_date: "2021-06-15" },
+			],
+		});
+	});
+
+	it("should recursively normalize nested objects", () => {
+		const input = { address: { city: "Berlin", country: new Map([["code", "DE"]]) } };
+
+		expect(cborToPlain(input)).toEqual({
+			address: { city: "Berlin", country: { code: "DE" } },
+		});
+	});
+
+	it("should preserve Date values for full-date claims (#331)", () => {
+		const birthDate = new Date("1964-08-12T00:00:00.000Z");
+		const input = new Map<string, unknown>([["birth_date", birthDate]]);
+
+		const result = cborToPlain(input) as Record<string, unknown>;
+		expect(result.birth_date).toBeInstanceOf(Date);
+		expect((result.birth_date as Date).toISOString()).toBe(birthDate.toISOString());
+	});
+
+	it("should preserve Uint8Array values", () => {
+		const bytes = new Uint8Array([1, 2, 3]);
+		const result = cborToPlain(new Map([["portrait", bytes]])) as Record<string, unknown>;
+
+		expect(result.portrait).toBeInstanceOf(Uint8Array);
+		expect(result.portrait).toBe(bytes);
+	});
+
+	it("should return primitive values unchanged", () => {
+		expect(cborToPlain("plain")).toBe("plain");
+		expect(cborToPlain(42)).toBe(42);
+		expect(cborToPlain(true)).toBe(true);
+		expect(cborToPlain(null)).toBe(null);
+	});
 })

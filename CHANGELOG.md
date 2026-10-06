@@ -1,5 +1,23 @@
 # wallet-frontend
 
+## 0.7.0-beta.0
+
+### Minor Changes
+
+- added a global error page for the website and updated the language files to include the text from the page by [@lov1saconde](https://github.com/lov1saconde) in [#315](https://github.com/sirosfoundation/wallet-frontend/pull/315)
+- Merge wallet-common package into wallet-frontend by [@smncd](https://github.com/smncd) in [#325](https://github.com/sirosfoundation/wallet-frontend/pull/325)
+- Integrate SIROS WSCD manager wasm. For now only in softkey mode by [@smncd](https://github.com/smncd) in [#290](https://github.com/sirosfoundation/wallet-frontend/pull/290)
+- Issue, verify and present W3C VCDM 2.0 credentials by [@jessevanmuijden](https://github.com/jessevanmuijden) in [#284](https://github.com/sirosfoundation/wallet-frontend/pull/284)
+- Standalone `HttpClient` package by [@smncd](https://github.com/smncd) in [#337](https://github.com/sirosfoundation/wallet-frontend/pull/337)
+
+### Patch Changes
+
+- Wait for the backend token before reporting the OID flow transport ready, so a credential offer opened on page load no longer fails with "No transport available" by [@jessevanmuijden](https://github.com/jessevanmuijden) in [#321](https://github.com/sirosfoundation/wallet-frontend/pull/321)
+- Allow WASM execution in CSP header by [@smncd](https://github.com/smncd) in [#336](https://github.com/sirosfoundation/wallet-frontend/pull/336)
+- Updated dependencies [[`bd6d5b8`](https://github.com/sirosfoundation/wallet-frontend/commit/bd6d5b871742f0b91c8e47e9c3fd32b8798fd460), [`d5592cd`](https://github.com/sirosfoundation/wallet-frontend/commit/d5592cdaae055e9569fb0fe8fbc9517c8566ad39), [`85e1d4d`](https://github.com/sirosfoundation/wallet-frontend/commit/85e1d4d9b55612f40cc40066eb72ec6a28903807)]:
+  - wallet-common@0.1.0-beta.0
+  - @sirosfoundation/http-client@0.1.0-beta.0
+
 ## 0.6.0
 
 ### Minor Changes

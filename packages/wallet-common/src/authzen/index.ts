@@ -27,7 +27,7 @@
  * ```
  */
 
-export {
+export type {
 	// Types
 	AuthZENSubject,
 	AuthZENResource,
@@ -36,18 +36,21 @@ export {
 	AuthZENEvaluationResponseContext,
 	AuthZENEvaluationResponse,
 	AuthZENResolveRequest,
-	AuthZENErrorCode,
 	AuthZENError,
-	TrustStatus,
 	TrustInfo,
+} from './types';
+
+export {
+	AuthZENErrorCode,
+	TrustStatus,
 } from './types';
 
 export {
 	// Client
 	AuthZENClient,
-	IAuthZENClient,
-	AuthZENClientConfig,
-	KeyMaterial,
-	EvaluateVerifierOptions,
-	EvaluateIssuerOptions,
+	type IAuthZENClient,
+	type AuthZENClientConfig,
+	type KeyMaterial,
+	type EvaluateVerifierOptions,
+	type EvaluateIssuerOptions,
 } from './AuthZENClient';
