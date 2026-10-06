@@ -3,6 +3,7 @@
 import * as fs from 'node:fs'
 import { Command } from 'commander';
 import { ConfigManager, JsFs } from '../dist/config_manager.js';
+import pkg from '../package.json' with { type: 'json' };
 
 const program = new Command();
 
@@ -26,7 +27,7 @@ program.hook('preAction', (_, actionCommand) => {
 program
 	.name('wallet-frontend-config-manager')
 	.description('CLI for managing wallet frontend configuration')
-	.version(process.env.npm_package_version);
+	.version(pkg.version);
 
 program
 	.requiredOption(
