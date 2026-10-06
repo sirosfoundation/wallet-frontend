@@ -8,11 +8,7 @@ import {
 	matchPrecache,
 } from "workbox-precaching";
 import { registerRoute } from "workbox-routing";
-import {
-	NetworkFirst,
-	StaleWhileRevalidate,
-	CacheFirst,
-} from "workbox-strategies";
+import { StaleWhileRevalidate, CacheFirst } from "workbox-strategies";
 
 const basePath =
 	new URL(self.registration.scope).pathname.replace(/\/?$/, "/") || "/";
@@ -85,13 +81,17 @@ registerRoute(
 		request.destination === "style" ||
 		request.destination === "worker" ||
 		url.pathname.endsWith(".wasm"),
-	async ({ request }) => {
+	async ({ request, event }) => {
 		const cached = await caches.match(request);
 		if (cached) return cached;
 		try {
 			const response = await fetch(request);
 			if (response.ok) {
-				(await caches.open("assets")).put(request, response.clone());
+				event.waitUntil(
+					caches.open("assets").then((cache) => {
+						cache.put(request, response.clone())
+					}),
+				);
 			}
 			return response;
 		} catch {
