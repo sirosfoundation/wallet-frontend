@@ -66,6 +66,16 @@ impl ConfigManager {
 	) -> Result<String, Box<dyn Error>> {
 		inject::inject_html(html, &self.config, tags)
 	}
+
+	fn insert_env_docs_core(
+		&self,
+		target_file: PathBuf,
+	) -> Result<(), Box<dyn Error>> {
+		self.config.insert_env_docs(
+			&*self.fs,
+			target_file,
+		)
+	}
 }
 
 // wasm: built from the JS node:fs module
@@ -117,6 +127,15 @@ impl ConfigManager {
 				.map_err(|e| JsError::new(&e.to_string()))?,
 		)
 	}
+
+	#[wasm_bindgen(js_name = "insertEnvDocs")]
+	pub fn insert_env_docs(
+		&self,
+		target_file: &str,
+	) -> Result<(), JsError> {
+		self.insert_env_docs_core(PathBuf::from(target_file))
+			.map_err(|e| JsError::new(&e.to_string()))
+	}
 }
 
 // native: built from std::fs
@@ -153,5 +172,12 @@ impl ConfigManager {
 		tags: &TagsMap,
 	) -> Result<String, Box<dyn Error>> {
 		self.inject_html_core(html, tags)
+	}
+
+	pub fn insert_env_docs(
+		&self,
+		target_file: &str,
+	) -> Result<(), Box<dyn Error>> {
+		self.insert_env_docs_core(PathBuf::from(target_file))
 	}
 }

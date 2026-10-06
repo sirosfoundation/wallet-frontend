@@ -1,5 +1,6 @@
 use serde_json::Value;
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::{error::Error, path};
 
 use crate::fs::Fs;
@@ -37,36 +38,40 @@ pub const ENV_SPEC: &[(&str, Presence)] = &[
 ];
 
 #[derive(Debug, Clone)]
-pub struct Config(pub HashMap<String, Value>);
+pub struct Config {
+	config: HashMap<String, Value>,
+	schema: Value,
+}
 
 impl Config {
 	pub fn get_str(&self, key: &str) -> Option<&str> {
-		self.0.get(key).and_then(|v| v.as_str())
+		self.config.get(key).and_then(|v| v.as_str())
 	}
 	pub fn get_array(&self, key: &str) -> Option<&Vec<Value>> {
-		self.0.get(key).and_then(|v| v.as_array())
+		self.config.get(key).and_then(|v| v.as_array())
 	}
 	pub fn get_bool(&self, key: &str) -> Option<bool> {
-		self.0.get(key).and_then(|v| v.as_bool())
+		self.config.get(key).and_then(|v| v.as_bool())
 	}
 	pub fn get_number(&self, key: &str) -> Option<serde_json::Number> {
 		self
-			.0
+			.config
 			.get(key)
 			.and_then(|v| v.as_i64().map(serde_json::Number::from))
 	}
 	pub fn get(&self, key: &str) -> Option<&Value> {
-		self.0.get(key)
+		self.config.get(key)
 	}
 	pub fn insert(&mut self, key: &str, value: Value) {
-		self.0.insert(key.to_string(), value);
+		self.config.insert(key.to_string(), value);
 	}
+
 	pub fn to_json_string(
 		&self,
 		additional_keys: Option<&HashMap<String, Value>>,
 	) -> Result<String, Box<dyn Error>> {
 		let mut with_lowercase_keys = self
-			.0
+			.config
 			.iter()
 			.map(|(k, v)| (k.to_lowercase(), v.clone()))
 			.collect::<serde_json::Map<String, Value>>();
@@ -99,6 +104,69 @@ impl Config {
 	}
 	pub fn wellknown_android(&self) -> Option<&str> {
 		self.get_str(keys::WELLKNOWN_ANDROID)
+	}
+
+	pub fn insert_env_docs(
+		&self,
+		fs: &dyn Fs,
+		target_file: PathBuf,
+	) -> Result<(), Box<dyn Error>> {
+		let title = self.schema.get("title")
+			.and_then(Value::as_str)
+			.ok_or("Missing title in schema")?;
+		let description = self.schema.get("description")
+			.and_then(Value::as_str)
+			.unwrap_or("");
+		let required = self.schema.get("required").and_then(Value::as_array);
+		let props: Vec<(&String, &Value)> = self.schema.get("properties")
+			.and_then(Value::as_object)
+			.ok_or("Missing properties in schema")?.iter().collect();
+
+		let targets = self.schema.get("x-targets")
+			.and_then(Value::as_object)
+			.ok_or("Missing x-targets in schema")?.iter().collect::<Vec<(&String, &Value)>>();
+
+		let mut content = String::new();
+
+		content.push_str(&format!("# {}", title));
+		content.push_str(&format!("\n\n{}", description));
+
+		for (target_id, target) in targets {
+			let target_label = target.get("label").and_then(Value::as_str).unwrap_or(target_id);
+			let target_description = target.get("description").and_then(Value::as_str).unwrap_or("");
+			content.push_str(&format!("\n\n## {}\n\n{}\n\n", target_label, target_description));
+
+			let target_props: Vec<(&String, &Value)> = props.iter()
+				.filter(|(_, prop)| {
+					prop.get("x-target")
+						.and_then(Value::as_str)
+						.map_or(false, |v| v == target_id)
+				})
+				.cloned()
+				.collect();
+
+			content.push_str("| Key | Type | Description | Required | Default |\n");
+			content.push_str("| --- | ---- | ----------- | -------- | ------- |\n");
+			for (key, prop) in target_props {
+				let typ = prop.get("type").and_then(Value::as_str).unwrap_or("-");
+				let desc = prop.get("description").and_then(Value::as_str).unwrap_or("-");
+				let required = required.map_or(false, |arr| arr.iter().any(|v| v == key));
+				let default = prop.get("default").map_or("-", |v| v.as_str().unwrap_or("-"));
+
+				content.push_str(&format!(
+					"| `{}` | `{}` | {} | {} | {} |\n",
+					key,
+					typ,
+					desc,
+					required,
+					default,
+				));
+			}
+		}
+
+		fs.write(&target_file, content.as_bytes())?;
+
+		Ok(())
 	}
 }
 
@@ -202,26 +270,27 @@ fn parse_env(
 	}
 
 	// Convert the validated JSON object into a HashMap for easier usage
-	let mut output = Config(
-		object
+	let mut output = Config {
+		config: object
 			.as_object()
 			.unwrap()
 			.iter()
 			.map(|(k, v)| (k.clone(), v.clone()))
 			.collect(),
-	);
+		schema: schema.clone(),
+	};
 
 	// enforce the Rust-side presence policy
 	for (key, presence) in ENV_SPEC.iter() {
 		match presence {
 			Presence::Required => {
-				if !output.0.contains_key(*key) {
+				if !output.config.contains_key(*key) {
 					panic!("Missing required environment variable: {key}");
 				}
 			}
 			Presence::Default(fallback) => {
 				output
-					.0
+					.config
 					.entry(key.to_string())
 					.or_insert_with(|| Value::String(fallback.to_string()));
 			}

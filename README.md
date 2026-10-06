@@ -69,47 +69,7 @@ Our Web Wallet provides a range of features tailored to enhance the credential m
   cp .env.template .env
   ```
 
-  Now, open the .env file and fill in the variables according to your own configuration. Below is an explanation for each variable:
-
-  **Build-time variables (Vite):**
-  - `HOST`: The IP address where your app will be running (default is '0.0.0.0').
-  - `PORT`: The port on which your app will run (default is 3000).
-  - `GENERATE_SOURCEMAP`: Generate source maps for debugging (`true` or `false`).
-  - `APP_VERSION`: Application version (default: `$npm_package_version`).
-
-  **Runtime variables (injected at container startup):**
-  - `BASE_PATH`: Base path for asset loading (default is `/`). Used for sub-path deployments.
-  - `WS_URL`: The URL of the websocket service.
-  - `WALLET_BACKEND_URL`: The URL of your backend service.
-  - `DID_KEY_VERSION`: DID key version format (e.g., `jwk_jcs-pub`).
-  - `LOG_LEVEL`: Set the log level of the browser console. Supported options: `"error" | "info" | "warn" | "debug"`. Defaults to `info`.
-  - `WEBAUTHN_RPID`: WebAuthn relying party ID (when running locally, set to `localhost`). This must match the `config.webauthn.rp.id` setting in `wallet-backend-server`.
-  - `OPENID4VCI_REDIRECT_URI`: Redirect uri after authentication and token request at the authorization server in OID4VCI flow.
-  - `OPENID4VCI_PROOF_TYPE_PRECEDENCE`: Proof type precedence for OID4VCI (e.g., `"attestation,jwt"`).
-  - `OPENID4VP_SAN_DNS_CHECK`: Verify at the OID4VP incoming authorization request that the SAN contained in the certificate is the same with the response_uri (`true` or `false`).
-  - `OPENID4VP_SAN_DNS_CHECK_SSL_CERTS`: Flag to switch (`true` or `false`) the Subject Alternative Name validation of the certificates during the OpenID4VP.
-  - `MULTI_LANGUAGE_DISPLAY`: Enable or disable multi-language support (`true` or `false`). If left empty, it will be handled as `false`.
-  - `STATIC_PUBLIC_URL`: The installation's public url.
-  - `STATIC_NAME`: The installation's public name.
-  - `I18N_WALLET_NAME_OVERRIDE`: String to override translations of common.walletName (Optional).
-  - `FOLD_EVENT_HISTORY_AFTER_SECONDS`: Fold history events older than this value in seconds (default: 2592000 = 30 days).
-  - `DISPLAY_ISSUANCE_WARNINGS`: Enable or disable (`true` or `false`) the display of the issuance warnings popup.
-  - `OPENID4VCI_MAX_ACCEPTED_BATCH_SIZE`: Configure the maximum accepted batch size during an OpenID4VCI flow.
-  - `OPENID4VCI_TRANSACTION_ID_POLLING_INTERVAL_IN_SECONDS`: Polling interval in seconds for transaction ID.
-  - `OPENID4VCI_TRANSACTION_ID_LIFETIME_IN_SECONDS`: Lifetime in seconds of transaction ID.
-  - `OHTTP_KEY_CONFIG`: URL of OHTTP key config endpoint.
-  - `OHTTP_RELAY`: URL of OHTTP relay endpoint.
-  - `VCT_REGISTRY_URL`: URL of the Type Metadata registry for SD-JWT VC credentials.
-  - `OIDC_GATE_OP_URL`: Base URL of the OIDC provider used by the OIDC gate feature (e.g., `https://accounts.google.com`). Added to the CSP `connect-src` directive to allow browser connections to the provider.
-  - `POLICY_LINKS`: Links to any TOS or other policies. This should be in the format `"<LABEL>::<URL>,<LABEL>::<URL>,<LABEL>::<URL>,..."` Can be left blank.
-  - `SHOW_PWA_INSTALL_PROMPT`: Hide or show the PWA installation prompt on the login screen. Defaults to false if left blank or invalid.
-  - `WALLET_COMPANION_INTEGRATION`: Enable integration with the [Wallet Companion browser extension](https://github.com/sirosfoundation/wallet-companion). Defaults to false if left blank or invalid.
-  - `PRESERVE_PRESENTATION_HISTORY`: If enabled, deleting credentials from the wallet will not remove them from the presentation history. Defaults to false if left blank or invalid.
-  - `SCAN_PHYSICAL_ID_ENABLED`: Show the "Scan Physical ID" entry point (native wrapper apps only) on the Add Credentials page. Defaults to true; set to `false` for tenants that don't want this feature offered.
-
-  **Well-known file generation:**
-  - `WELLKNOWN_APPLE_APPIDS`: Used to generate the `.well-known/apple-app-site-association` file, used for IOS wrappers. This should be in the format `"<APP_ID>,<APP_ID>,<APP_ID>,..."` Can be left blank.
-  - `WELLKNOWN_ANDROID_PACKAGE_NAMES_AND_FINGERPRINTS`: Used to generate the `.well-known/assetlinks.json` file, used for Android wrappers. This should be in the format `"<PKG_NAME>::<FINGERPRINT>,<PKG_NAME>::<FINGERPRINT>,<PKG_NAME>::<FINGERPRINT>,..."` Can be left blank.
+  Now, open the .env file and fill in the variables according to your own configuration. Documentation can be found in [./docs/CONFIGURATION.md](./docs/CONFIGURATION.md)
 
 - Install dependencies:
     ```bash

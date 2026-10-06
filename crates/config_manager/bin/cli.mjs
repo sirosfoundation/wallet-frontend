@@ -50,6 +50,14 @@ program
 		await generate(command.optsWithGlobals().destDir);
 	});
 
+program
+	.command('docs')
+	.description('Insert environment documentation into the specified target file')
+	.argument('<targetFile>', 'Target file to insert environment documentation into')
+	.action(async (targetFile) => {
+		await docs(targetFile);
+	});
+
 program.parse(process.argv);
 
 /**
@@ -64,4 +72,13 @@ async function generate(destDir) {
 	const html = configManager.injectHtml(inputHtml, tags);
 	fs.writeFileSync(`${destDir}/index.html`, html, 'utf-8');
 	console.info(`Configuration files injected into ${destDir}`);
+}
+
+async function docs(target_file) {
+	try {
+		configManager.insertEnvDocs(target_file);
+		console.info(`Environment documentation inserted into ${target_file}`);
+	} catch (error) {
+		console.error(`Failed to insert environment documentation: ${error}`);
+	}
 }
