@@ -1,60 +1,56 @@
-# compiled output
-.cache/
-/dist
-.wallet-common-dist/
-/config/yarn.lock
-node_modules/
-package_lock.json
-/build
+# ==========================================================
+# Gitignore philosophy: "allowlist rather than blocklist"
+#
+# By default we ignore all base directories and files,
+# and only allowlist the necessary files and directories.
+# ==========================================================
 
-.env*
-!.env.template
-!.changeset/.env.example
+/*
 
-# Logs
-logs
-*.log
-npm-debug.log*
-pnpm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
+# ==========================================================
+# Allowlist: these files and directories should be included
+!/.changeset/
+!/.github/
+!/.tx/
+!/.vscode/
+!/branding/
+!/config/
+!/crates/
+!/docs/
+!/nginx/
+!/packages/
+!/patches/
+!/src/
+!/translation_coverage/
+!/utils/
+!/vite-plugins/
+!/.buildignore
+!/.dockerignore
+!/.editorconfig
+!/.env.template
+!/.eslintrc.js
+!/.gitattributes
+!/.gitignore
+!/.htaccess
+!/.pre-commit-config.yaml
+!/CHANGELOG.md
+!/Dockerfile
+!/Dockerfile.e2e
+!/index.html
+!/LICENSE
+!/package.json
+!/pnpm-lock.yaml
+!/pnpm-workspace.yaml
+!/README.md
+!/setup-vitest.ts
+!/tests.Dockerfile
+!/tsconfig.json
+!/vite.config.ts
+!/vitest.config.ts
 
-# OS
-.DS_Store
-
-# Tests
-/coverage
-/.nyc_output
-
-# IDEs and editors
-.idea/
-.project
-.classpath
-.c9/
-*.launch
-.settings/
-*.sublime-workspace
-
-# IDE - VSCode
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-
-# Config file
-branding/custom/
-src/config/config.dev.js
-src/config/config.dev.ts
-src/config/config.prod.js
-ssl_keys/*
-*.tar.gz
-.npmrc
-
-variables.vars
-
-public/
-config/.cache/
-.wallet-common-dist/
-package-lock.json
+# ==========================================================
+# Ignorelist: these files and directories should be excluded
+*.env
+/**/.cache/
+/**/node_modules/
+/**/*.log
