@@ -3,12 +3,7 @@ use std::{env, path::PathBuf};
 use clap::Parser;
 use config_manager::ConfigManager;
 
-#[derive(clap::ValueEnum, Clone)]
-enum Action {
-	/// Generate complete config
-	Generate,
-}
-
+/// Generates configuration files for the wallet frontend.
 fn main() {
 	let cli = Cli::parse();
 
@@ -30,37 +25,30 @@ fn main() {
 		env::vars().collect(),
 	);
 
-	match cli.action {
-		Action::Generate => {
-			print!("Generating configuration...\n");
-			let tags = config_manager.inject_config_files();
+	print!("Generating configuration...\n");
+	let tags = config_manager.inject_config_files();
 
-			let html_source = &dest_dir.join("index.html");
-			if !html_source.exists() {
-				eprintln!("HTML source file does not exist: {:?}", html_source);
-				std::process::exit(1);
-			}
-
-			let processed_html =
-				config_manager.inject_html(html_source.to_str().unwrap(), &tags);
-
-			if processed_html.is_err() {
-				eprintln!("Failed to process HTML: {:?}", processed_html.err());
-				std::process::exit(1);
-			}
-
-			std::fs::write(html_source, processed_html.unwrap())
-				.expect("Failed to write processed HTML");
-		}
+	let html_source = &dest_dir.join("index.html");
+	if !html_source.exists() {
+		eprintln!("HTML source file does not exist: {:?}", html_source);
+		std::process::exit(1);
 	}
+
+	let processed_html =
+		config_manager.inject_html(html_source.to_str().unwrap(), &tags);
+
+	if processed_html.is_err() {
+		eprintln!("Failed to process HTML: {:?}", processed_html.err());
+		std::process::exit(1);
+	}
+
+	std::fs::write(html_source, processed_html.unwrap())
+		.expect("Failed to write processed HTML");
 }
 
 #[derive(Parser)]
-#[command(name = "wallet-frontend-config-manager", version, about)]
+#[command(name = "wallet-frontend-config-generator", version, about)]
 struct Cli {
-	/// Action to perform
-	action: Action,
-
 	/// Branding source directory
 	#[arg(long)]
 	source_dir: PathBuf,

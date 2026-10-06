@@ -43,5 +43,5 @@ crate-type = ["cdylib", "rlib"]
 wasm-opt = ['-O', '--enable-bulk-memory', '--enable-nontrapping-float-to-int', '--enable-simd']
 
 [[bin]]
-name = "wallet-frontend-config-generate"
+name = "wallet-frontend-config-generator"
 path = "src/cli.rs"

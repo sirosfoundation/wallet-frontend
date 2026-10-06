@@ -24,7 +24,7 @@
 	"scripts": {
 		"build": "pnpm run build:wasm",
 		"build:wasm": "wasm-pack build --release --no-pack --target nodejs --out-dir ./dist",
-		"build:native": "cargo build --release --target x86_64-unknown-linux-musl"
+		"build:native": "rustup target add x86_64-unknown-linux-musl && cargo build --release --target x86_64-unknown-linux-musl"
 	},
 	"dependencies": {
 		"commander": "^15.0.0"
