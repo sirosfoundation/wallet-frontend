@@ -43,10 +43,10 @@ export default defineConfig(async ({ mode, command }) => {
 				strategies: 'injectManifest', // Uses `src/service-worker.js` for caching
 				manifest: false, // Vite will use `public/manifest.json` automatically
 				injectManifest: {
+					globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2,wasm}'],
 					maximumFileSizeToCacheInBytes: env.GENERATE_SOURCEMAP === 'true' ? 12 * 1024 * 1024 : 4 * 1024 * 1024,
 					additionalManifestEntries: [
 						{ url: './manifest.json', revision: env.BRANDING_HASH },
-						{ url: './favicon.ico', revision: env.BRANDING_HASH },
 					],
 				},
 			}),
