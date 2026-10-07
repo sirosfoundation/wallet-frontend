@@ -791,6 +791,9 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 					break;
 				case 'credential_verifier':
 					const clientId = request.subject_id;
+					// Derive the scheme from the client_id itself so OID4VP Client Identifier
+					// Prefixes are handled — DIIP v5 requires the `did` scheme, which arrives as
+					// `decentralized_identifier:did:web:…`. An explicit hint from the backend wins.
 					const parsedScheme = parseClientIdScheme(clientId);
 					const scheme = (request.context?.client_id_scheme as string) || parsedScheme.scheme;
 					const identifier = scheme === parsedScheme.scheme ? parsedScheme.identifier : clientId;
