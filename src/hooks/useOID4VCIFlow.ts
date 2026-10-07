@@ -1,10 +1,11 @@
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useOIDFlowTransportSafe } from '@/context/OIDFlowTransportContext';
-import { CredentialOfferSchema, VerifiableCredentialFormat } from 'wallet-common';
+import { CredentialOfferSchema, VerifiableCredentialFormat, detectCredentialFormat } from 'wallet-common';
 import type { OID4VCIFlowResult } from '@/lib/openid-flow/types/OID4VCITypes';
 import type { OIDFlowActiveTransportType, OIDFlowProgressEvent } from '@/lib/openid-flow/types/OIDFlowTypes';
 import { DISPLAY_ISSUANCE_WARNINGS, OPENID4VCI_REDIRECT_URI } from '@/config';
 import SessionContext from '@/context/SessionContext';
+import { buildAuthorizationDetails } from '@/lib/openid-flow/authorizationDetails';
 import { notify } from '@/context/notifier';
 import { deriveHolderKidFromCredential } from '@/lib/verifiable-credentials';
 import CredentialsContext from '@/context/CredentialsContext';
@@ -131,13 +132,14 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 	 * For `credential_offer_uri` (fetch-based) offers, validation is deferred to the
 	 * backend/service since the frontend hasn't fetched the offer content yet.
 	 */
-	const validateCredentialOffer = useCallback((credentialOfferUrl: URL): void => {
+	const validateCredentialOffer = useCallback((credentialOfferUrl: URL) => {
 		const inlineOffer = credentialOfferUrl.searchParams.get('credential_offer');
 		if (inlineOffer) {
 			// Throws ZodError if the offer is malformed — caught by the outer try/catch
-			CredentialOfferSchema.parse(JSON.parse(inlineOffer));
+			return CredentialOfferSchema.parse(JSON.parse(inlineOffer));
 		}
 		// credential_offer_uri: content not available yet, validated when fetched
+		return null;
 	}, []);
 
 	/**
@@ -151,7 +153,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 
 		try {
 			// Validate inline offers before dispatching to any transport
-			validateCredentialOffer(credentialOfferUrl);
+			const parsedOffer = validateCredentialOffer(credentialOfferUrl);
 
 			// WebSocket transport: delegate to backend
 			if (transportType === 'websocket' && transport) {
@@ -179,6 +181,11 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 						credentialOfferUri,
 						credentialOffer,
 						redirectUri: OPENID4VCI_REDIRECT_URI,
+						// DIIP v5 requires asking by `authorization_details`; the offer names the
+						// configuration. Null when the offer does not, leaving `scope` to it.
+						authorizationDetails: buildAuthorizationDetails(
+							parsedOffer?.credential_configuration_ids?.[0],
+						) ?? undefined,
 					});
 
 					assertNotAborted();
@@ -553,7 +560,11 @@ function inferFormatFromCredential(credential: string): VerifiableCredentialForm
 		const header = JSON.parse(atob(headerB64.replace(/-/g, '+').replace(/_/g, '/')));
 
 		if (header.typ === 'dc+sd-jwt') return VerifiableCredentialFormat.DC_SDJWT;
-		if (header.typ === 'vc+sd-jwt') return VerifiableCredentialFormat.VC_SDJWT;
+		if (header.typ === 'vc+sd-jwt') {
+			// VC-JOSE-COSE secures W3C VCDM 2.0 credentials with this same typ; the payload
+			// tells them apart.
+			return detectCredentialFormat(credential) ?? VerifiableCredentialFormat.VC_SDJWT;
+		}
 		if (header.typ === 'JWT' || header.typ === 'jwt_vc_json') return VerifiableCredentialFormat.JWT_VC_JSON;
 	} catch (error) {
 		logger.debug('Failed to parse credential as JWT for format inference', { error });
