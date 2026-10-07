@@ -2,6 +2,8 @@ FROM node:22-trixie-slim AS builder-base
 
 RUN apt-get update -y && apt-get install -y git fontconfig && rm -rf /var/lib/apt/lists/*
 
+ENV CI=true
+
 WORKDIR /home/node/app
 
 RUN corepack enable
@@ -28,18 +30,7 @@ COPY . .
 RUN --mount=type=secret,id=wallet_frontend_envfile,dst=/home/node/app/.env,required=false NODE_OPTIONS=--max-old-space-size=2048 pnpm build
 
 
-FROM nginx:1.31.0-alpine3.23 AS deploy
-
-# Alpine mirrors don't keep old versions of packages around for so long.
-# If pinned dependencies fail to install, check if they still exist.
-RUN apk add --no-cache nodejs=~24 npm=~11 fontconfig && npm install -g \
-	tsx@^4.21.0 \
-	sharp@^0.34.5 \
-	jsdom@^28.0.0 \
-	zod@^3.23.8 \
-	color-convert@^3.1.3
-
-ENV NODE_PATH=/usr/local/lib/node_modules
+FROM wallet-frontend-config-manager AS deploy
 
 WORKDIR /usr/share/nginx/
 
@@ -49,6 +40,7 @@ COPY ./utils/create_custom_branding_resources.sh /home/node/app/
 
 COPY --from=builder --chown=nginx:nginx /home/node/app/dist/ ./html/
 COPY --from=builder --chown=nginx:nginx /home/node/app/dist/ ./dist/
+COPY --from=builder --chown=nginx:nginx /home/node/app/.schemas/ ./.schemas/
 COPY --from=builder --chown=nginx:nginx /home/node/app/config/ ./config/
 COPY --from=builder --chown=nginx:nginx /home/node/app/branding/ ./branding/
 
