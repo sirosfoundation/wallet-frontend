@@ -1,5 +1,15 @@
 # wallet-frontend
 
+## 0.7.0-beta.1
+
+### Patch Changes
+
+- Patch dependencies that called eval, since we don't allow that in our CSP by [@smncd](https://github.com/smncd) in [#348](https://github.com/sirosfoundation/wallet-frontend/pull/348)
+- Avoid writing to IndexedDB if no user handle is present by [@smncd](https://github.com/smncd) in [#333](https://github.com/sirosfoundation/wallet-frontend/pull/333)
+- Convert the CBOR decoded value into a plain JSON-compatible structure during mDoc parsing by [@smncd](https://github.com/smncd) in [#343](https://github.com/sirosfoundation/wallet-frontend/pull/343)
+- Updated dependencies [[`39b2bd2`](https://github.com/sirosfoundation/wallet-frontend/commit/39b2bd24b08702353c7149d812c613e0a8e0df65)]:
+  - wallet-common@0.1.0-beta.1
+
 ## 0.7.0-beta.0
 
 ### Minor Changes

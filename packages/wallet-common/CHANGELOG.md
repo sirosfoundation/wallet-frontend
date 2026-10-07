@@ -1,5 +1,11 @@
 # wallet-common
 
+## 0.1.0-beta.1
+
+### Patch Changes
+
+- Convert the CBOR decoded value into a plain JSON-compatible structure during mDoc parsing by [@smncd](https://github.com/smncd) in [#343](https://github.com/sirosfoundation/wallet-frontend/pull/343)
+
 ## 0.1.0-beta.0
 
 ### Minor Changes
