@@ -38,6 +38,7 @@ const OpenIDFlowCallback = React.lazy(() => import('./pages/OpenIDFlowCallback/O
 
 const Layout = lazyWithDelay(() => import('./components/Layout/Layout'), 400);
 const Login = lazyWithDelay(() => import('./pages/Login/Login'), 400);
+const Signup = lazyWithDelay(() => import('./pages/Signup/Signup'), 400);
 const LoginState = lazyWithDelay(() => import('./pages/Login/LoginState'), 400);
 const NotFound = lazyWithDelay(() => import('./pages/NotFound/NotFound'), 400);
 const OIDCCallback = lazyWithDelay(() => import('./pages/OIDCCallback/OIDCCallback'), 400);
@@ -122,6 +123,7 @@ function App() {
 						 */}
 						<Route element={<PublicRouteWrapper/>}>
 							<Route path="login" element={<Login />} />
+							<Route path="signup" element={<Signup />} />
 							<Route path="login-state" element={<LoginState />} />
 							<Route path="oidc/cb" element={<OIDCCallback />} />
 							<Route path="*" element={<NotFound />} />
