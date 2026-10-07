@@ -254,6 +254,9 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 
 
 	const writePrivateDataOnIdb = useCallback(async (privateData: EncryptedContainer | null, userHandleB64u: string) => {
+		if (!userHandleB64u) {
+			return;
+		}
 		await idb.write(["privateData"], (tx) => {
 			const store = tx.objectStore("privateData");
 			return store.put({ userHandle: userHandleB64u, content: privateData });
