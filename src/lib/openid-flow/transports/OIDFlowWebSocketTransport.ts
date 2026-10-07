@@ -12,7 +12,8 @@
  * - Better error handling with flow state
  */
 
-import { TrustStatus as TrustStatusEnum, parseClientIdScheme } from 'wallet-common';
+import { TrustStatus as TrustStatusEnum, parseClientIdScheme, findPublicKeyInDidDocument } from 'wallet-common';
+import { decodeProtectedHeader } from 'jose';
 import type { IOIDFlowTransport } from '../types/IOIDFlowTransport';
 import type {
 	OIDFlowRequest,
@@ -181,8 +182,8 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		this.authToken = authToken;
 		this.tenantId = tenantId;
 		this.trustEvaluators = trustEvaluators ?? {
-			evaluateIssuerTrust: async () => ({ trusted: false }),
-			evaluateVerifierTrust: async () => ({ trusted: false }),
+			evaluateIssuerTrust: async () => ({ trusted: false, status: TrustStatusEnum.UNKNOWN }),
+			evaluateVerifierTrust: async () => ({ trusted: false, status: TrustStatusEnum.UNKNOWN }),
 		};
 	}
 
@@ -758,6 +759,8 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			subject_type: string;
 			key_material?: { type: string; x5c?: string[]; jwk?: unknown };
 			context?: Record<string, unknown>;
+			requires_resolution?: boolean;
+			request_jwt?: string;
 		} | undefined;
 
 		if (!request?.subject_id) {
@@ -795,21 +798,18 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 					const scheme = (request.context?.client_id_scheme as string) || parsedScheme.scheme;
 					const identifier = scheme === parsedScheme.scheme ? parsedScheme.identifier : clientId;
 
+					const keyMaterial = await this.resolveRequestKeyMaterial(
+						request,
+						parsedScheme.identifier,
+					);
+
 					result = await this.trustEvaluators.evaluateVerifierTrust({
 						clientIdScheme: {
 							scheme: scheme as 'x509_san_dns' | 'did' | 'https' | 'pre-registered',
 							clientId,
 							identifier,
 						},
-						keyMaterial: request.key_material
-							? {
-								type: request.key_material.type as 'jwk' | 'x5c' | 'kid',
-								key: request.key_material.x5c ?? request.key_material.jwk
-							}
-							: {
-								type: 'kid' as const,
-								key: ''
-							},
+						keyMaterial,
 						responseUri: request.context?.response_uri as string | undefined,
 					});
 					break;
@@ -826,6 +826,73 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			logger.error('[WS Transport] Trust evaluation failed:', error);
 			this.sendTrustResult(flowId, { trusted: false, reason: error instanceof Error ? error.message : 'Unknown error' });
 		}
+	}
+
+	/**
+	 * Resolve the key material for a trust evaluation request.
+	 */
+	private async resolveRequestKeyMaterial(
+		request: {
+			requires_resolution?: boolean;
+			request_jwt?: string;
+			key_material?: {
+				type?: string;
+				x5c?: unknown;
+				jwk?: unknown;
+			};
+		},
+		identifier: string,
+	): Promise<{ type: 'jwk' | 'x5c' | 'kid' | 'resolution'; key: unknown }> {
+		if (request.requires_resolution) {
+			return await this.resolveVerifierKeyMaterial(identifier, request.request_jwt);
+		}
+
+		if (request.key_material) {
+			return {
+				type: request.key_material.type as 'jwk' | 'x5c' | 'kid',
+				key: request.key_material.x5c ?? request.key_material.jwk,
+			};
+		}
+
+		return {
+			type: 'kid' as const,
+			key: '',
+		};
+	}
+
+	/**
+	 * Resolve a did:-scheme verifier's key material via the backend `/v1/resolve`
+	 * endpoint.
+	 */
+	private async resolveVerifierKeyMaterial(
+		did: string,
+		requestJwt?: string,
+	): Promise<{ type: 'jwk' | 'x5c' | 'kid' | 'resolution'; key: unknown }> {
+		if (!this.trustEvaluators.resolveDid) {
+			logger.warn('[WS Transport] requires_resolution set but no DID resolver configured; using resolution-only evaluation');
+			return { type: 'resolution', key: [] };
+		}
+
+		const resolution = await this.trustEvaluators.resolveDid(did);
+		if (!resolution.resolved || !resolution.didDocument) {
+			throw new Error(`Failed to resolve DID ${did}${resolution.error ? `: ${resolution.error}` : ''}`);
+		}
+
+		let kid: string | undefined;
+		if (requestJwt) {
+			try {
+				kid = decodeProtectedHeader(requestJwt).kid;
+			} catch (error) {
+				logger.warn('[WS Transport] Failed to decode request_jwt header:', error);
+			}
+		}
+
+		const jwk = findPublicKeyInDidDocument(resolution.didDocument, kid ?? did, 'authentication');
+		if (!jwk) {
+			throw new Error(`No verification key found in DID document for ${did}`);
+		}
+
+		return { type: 'jwk', key: jwk };
 	}
 
 	private sendTrustResult(flowId: string, result: { trusted: boolean; framework?: string; reason?: string }): void {

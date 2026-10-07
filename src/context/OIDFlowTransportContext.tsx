@@ -28,7 +28,7 @@ import {
 } from '@/config';
 import type { OIDFlowActiveTransportType, OIDFlowTransportType } from '@/lib/openid-flow/types/OIDFlowTypes';
 import { logger } from '@/logger';
-import { createIssuerTrustEvaluator, createVerifierTrustEvaluator } from '@/lib/services/TrustEvaluator';
+import { createIssuerTrustEvaluator, createVerifierTrustEvaluator, createDIDResolver } from '@/lib/services/TrustEvaluator';
 import { TrustEvaluators } from '@/lib/openid-flow';
 import { useHttpClient } from '@/hooks/useHttpClient';
 import SessionContext from './SessionContext';
@@ -162,9 +162,17 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 			tenantId,
 		});
 
+		const resolveDid = createDIDResolver({
+			httpClient: httpClient,
+			backendUrl: BACKEND_URL,
+			getAuthToken: () => authToken ?? '',
+			tenantId,
+		});
+
 		return {
 		evaluateIssuerTrust,
 		evaluateVerifierTrust,
+		resolveDid,
 		};
 	}, [tenantId, authToken, httpClient]);
 
