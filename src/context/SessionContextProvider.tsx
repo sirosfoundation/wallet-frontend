@@ -106,7 +106,9 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 
 	useEffect(() => {
 		return authTokens.onSessionExpired(() => {
-			if (sessionRecoveryPromiseRef.current) {
+			// An explicit null check, not a truthiness test: the ref holds a Promise, and
+			// coercing one in a conditional is the signature of a forgotten `await`.
+			if (sessionRecoveryPromiseRef.current !== null) {
 				return sessionRecoveryPromiseRef.current;
 			}
 
