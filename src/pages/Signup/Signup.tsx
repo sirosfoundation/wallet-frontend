@@ -102,7 +102,7 @@ const Signup = () => {
 			retrySignupFrom ? async () => true : prf.promptForPrfRetry,
 			hints,
 			retrySignupFrom,
-			urlTenantId || 'default', 
+			urlTenantId || 'default',
 			inviteCode,
 			gate.idToken || undefined,
 		);
@@ -111,34 +111,34 @@ const Signup = () => {
 			case 'passkeySignupFailedServerError':
 								setError(t('loginSignup.passkeySignupFailedServerError'));
 								break;
-			
+
 							case 'passkeySignupFailedTryAgain':
 								setError(t('loginSignup.passkeySignupFailedTryAgain'));
 								break;
-			
+
 							case 'passkeySignupFinishFailedServerError':
 								setError(t('loginSignup.passkeySignupFinishFailedServerError'));
 								break;
-			
+
 							case 'passkeySignupKeystoreFailed':
 								setError(t('loginSignup.passkeySignupKeystoreFailed'));
 								break;
-			
+
 							case 'inviteRequired':
 								setError(t('loginSignup.inviteRequired'));
 								break;
-			
+
 							case 'inviteInvalid':
 								setError(t('loginSignup.inviteInvalid'));
 								break;
-			
+
 							case 'oidcTokenExpired':
 								// OIDC gate token has expired — clear it and re-show the gate so the user
 								// can re-authenticate via the IdP before retrying the passkey registration
 								gate.reset();
 								setError(t('oidcGate.errorExpired'));
 								break;
-			
+
 							case 'passkeySignupPrfNotSupported':
 								setError(
 									<Trans
@@ -153,11 +153,11 @@ const Signup = () => {
 									/>
 								);
 								break;
-			
+
 							default:
 								if (result.val?.errorId === 'prfRetryFailed') {
 									setRetrySignupFrom(result.val?.retryFrom);
-			
+
 								} else {
 									setError(t('loginSignup.passkeySignupPrfRetryFailed'));
 									throw result;
@@ -200,7 +200,7 @@ const Signup = () => {
 	const nameByteLimitApproaching = nameByteLength >= NAME_BYTE_LIMIT / 2;
 
 	return (
-		<AuthLayout 
+		<AuthLayout
 			headingKey="loginSignup.welcomeMessage"
 			title={t('loginSignup.signUp')}
 			belowCard={<PasskeyInfoPopup />}

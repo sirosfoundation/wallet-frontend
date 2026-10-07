@@ -53,6 +53,6 @@ export default function OIDCGateBoundary({ gate, purpose, username = '', error, 
 		<>
 			{gate.isGateComplete && gate.state.status === 'oidc-complete' && <div className="mb-4">{status}</div>}
 			{children}
-		</>	
+		</>
 	);
 }
