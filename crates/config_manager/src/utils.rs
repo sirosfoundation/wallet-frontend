@@ -83,13 +83,56 @@ pub fn parse_config_string_vec(
 
 pub fn camel_to_kebab(s: &str) -> String {
 	let mut out = String::new();
-	for c in s.chars() {
+
+	for (i, c) in s.chars().enumerate() {
 		if c.is_uppercase() {
-			out.push('-');
-			out.extend(c.to_lowercase()); // to_lowercase yields an iterator (some chars map to many)
+			if i != 0 {
+				out.push('-');
+			}
+
+			out.extend(c.to_lowercase());
 		} else {
 			out.push(c);
 		}
 	}
 	out
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn test_path_with_base() {
+		assert_eq!(path_with_base("", "path"), "path");
+		assert_eq!(path_with_base("base", ""), "base");
+		assert_eq!(path_with_base("base", "path"), "base/path");
+	}
+
+	#[test]
+	fn test_path_with_hash_suffix() {
+		assert_eq!(path_with_hash_suffix("path", ""), "path");
+		assert_eq!(path_with_hash_suffix("path", "hash"), "path?v=hash");
+	}
+
+	#[test]
+	fn test_parse_config_string_map() {
+		let input = "key1::value1,key2::value2";
+		let map = parse_config_string_map(input, true).unwrap();
+		assert_eq!(map.get("key1").unwrap(), "value1");
+		assert_eq!(map.get("key2").unwrap(), "value2");
+	}
+
+	#[test]
+	fn test_parse_config_string_vec() {
+		let input = "item1,item2";
+		let vec = parse_config_string_vec(input, true).unwrap();
+		assert_eq!(vec, vec!["item1", "item2"]);
+	}
+
+	#[test]
+	fn test_camel_to_kebab() {
+		assert_eq!(camel_to_kebab("CamelCase"), "camel-case");
+		assert_eq!(camel_to_kebab("camelCase"), "camel-case");
+	}
 }
