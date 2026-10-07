@@ -1204,6 +1204,53 @@ describe('OIDFlowWebSocketTransport', () => {
 			expect(arg.clientIdScheme.scheme).toBe('x509_san_dns');
 			expect(arg.clientIdScheme.identifier).toBe('verifier.example.com');
 		});
+
+		it('resolves a did verifier key when requires_resolution is set', async () => {
+			// When the engine flags `requires_resolution`, the transport resolves the DID and
+			// hands the authentication key to trust evaluation as JWK key material.
+			const publicKeyJwk = { kty: 'EC', crv: 'P-256', x: 'abc', y: 'def' };
+			const resolveDid = vi.fn().mockResolvedValue({
+				resolved: true,
+				didDocument: {
+					id: 'did:web:verifier.example.com',
+					authentication: [
+						{
+							id: 'did:web:verifier.example.com#key-1',
+							type: 'JsonWebKey2020',
+							controller: 'did:web:verifier.example.com',
+							publicKeyJwk,
+						},
+					],
+				},
+			});
+			const verifierTrust = vi.fn().mockResolvedValue({ trusted: true });
+			const resolvingEvaluators = {
+				evaluateIssuerTrust: vi.fn(),
+				evaluateVerifierTrust: verifierTrust,
+				resolveDid,
+			} as never;
+
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken, 'default', resolvingEvaluators);
+			await transport.connect();
+
+			mockWebSocketInstances[0].simulateMessage({
+				type: 'progress',
+				flow_id: 'flow-1',
+				step: 'evaluating_verifier_trust',
+				payload: {
+					trust_evaluation_required: true,
+					request: {
+						subject_id: 'decentralized_identifier:did:web:verifier.example.com',
+						subject_type: 'credential_verifier',
+						requires_resolution: true,
+					},
+				},
+			});
+
+			await vi.waitFor(() => expect(verifierTrust).toHaveBeenCalled());
+			expect(resolveDid).toHaveBeenCalledWith('did:web:verifier.example.com');
+			expect(verifierTrust.mock.calls[0][0].keyMaterial).toEqual({ type: 'jwk', key: publicKeyJwk });
+		});
 	});
 
 	describe('Flow Action Sending', () => {

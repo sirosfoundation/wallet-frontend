@@ -12,7 +12,7 @@
  * - Better error handling with flow state
  */
 
-import { TrustStatus as TrustStatusEnum, parseClientIdScheme, DIDDocument, DIDVerificationMethod } from 'wallet-common';
+import { TrustStatus as TrustStatusEnum, parseClientIdScheme, findPublicKeyInDidDocument } from 'wallet-common';
 import { decodeProtectedHeader } from 'jose';
 import type { IOIDFlowTransport } from '../types/IOIDFlowTransport';
 import type {
@@ -182,8 +182,8 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		this.authToken = authToken;
 		this.tenantId = tenantId;
 		this.trustEvaluators = trustEvaluators ?? {
-			evaluateIssuerTrust: async () => ({ trusted: false }),
-			evaluateVerifierTrust: async () => ({ trusted: false }),
+			evaluateIssuerTrust: async () => ({ trusted: false, status: TrustStatusEnum.UNKNOWN }),
+			evaluateVerifierTrust: async () => ({ trusted: false, status: TrustStatusEnum.UNKNOWN }),
 		};
 	}
 
@@ -791,11 +791,11 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 					break;
 				case 'credential_verifier':
 					const clientId = request.subject_id;
-          const parsedScheme = parseClientIdScheme(clientId);
-          const scheme = (request.context?.client_id_scheme as string) || parsedScheme.scheme;
+					const parsedScheme = parseClientIdScheme(clientId);
+					const scheme = (request.context?.client_id_scheme as string) || parsedScheme.scheme;
 					const identifier = scheme === parsedScheme.scheme ? parsedScheme.identifier : clientId;
-          
-          const keyMaterial = await this.resolveRequestKeyMaterial(
+
+					const keyMaterial = await this.resolveRequestKeyMaterial(
 						request,
 						parsedScheme.identifier,
 					);
@@ -884,7 +884,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			}
 		}
 
-		const jwk = findVerificationKey(resolution.didDocument, kid);
+		const jwk = findPublicKeyInDidDocument(resolution.didDocument, kid ?? did, 'authentication');
 		if (!jwk) {
 			throw new Error(`No verification key found in DID document for ${did}`);
 		}
@@ -1345,36 +1345,4 @@ function parseTrustStatus(
 		return legacyTrusted ? 'trusted' : 'untrusted';
 	}
 	return 'unknown';
-}
-
-/**
- * Find a verification key (JWK) in a resolved DID document.
- *
- * When a `kid` is provided, the matching verification method is preferred;
- * otherwise (or if no match is found) the first verification method carrying
- * a `publicKeyJwk` is returned.
- */
-function findVerificationKey(doc: DIDDocument, kid?: string): JsonWebKey | null {
-	const matchesKid = (id: string): boolean => {
-		if (!kid) return false;
-		const idFragment = id.includes('#') ? id.split('#')[1] : id;
-		const kidFragment = kid.includes('#') ? kid.split('#')[1] : kid;
-		return id === kid || id === `${doc.id}#${kid}` || idFragment === kidFragment;
-	};
-
-	const inlineMethods: DIDVerificationMethod[] = [
-		...(doc.verificationMethod ?? []),
-		...((doc.authentication ?? []).filter((m): m is DIDVerificationMethod => typeof m === 'object')),
-		...((doc.assertionMethod ?? []).filter((m): m is DIDVerificationMethod => typeof m === 'object')),
-	];
-
-	if (kid) {
-		const matched = inlineMethods.find((vm) => vm.publicKeyJwk && matchesKid(vm.id));
-		if (matched?.publicKeyJwk) {
-			return matched.publicKeyJwk;
-		}
-	}
-
-	const firstWithKey = inlineMethods.find((vm) => vm.publicKeyJwk);
-	return firstWithKey?.publicKeyJwk ?? null;
 }
