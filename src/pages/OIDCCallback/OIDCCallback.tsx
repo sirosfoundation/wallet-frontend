@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useTenant } from '../../context/TenantContext';
 import { handleOIDCCallback, buildOIDCConfig } from '../../lib/oidc';
-import LoginLayout from '../../components/Auth/LoginLayout';
+import LoginLayout from '../../components/Auth/AuthLayout';
 import { LoaderCircle, CheckCircle, AlertCircle } from 'lucide-react';
 import Button from '../../components/Buttons/Button';
 import { useStatusContext } from '@/hooks/useStatusContext';
