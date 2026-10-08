@@ -13,10 +13,17 @@ export function useRedirectWhenLoggedIn(honourReturnTo: boolean) {
 
 	useEffect(() => {
 		if (!isLoggedIn) return;
-		const returnTo = getReturnToUrl();
-		const target = (honourReturnTo ? returnTo : null)
-			?? buildTenantRoutePath(effectiveTenantId, `/${location.search}`);
-		if (matchesTenantFromUrl(effectiveTenantId, urlTenantId)) navigate(target, { replace: true });
-		else window.location.href = target;
+
+		const redirect = async () => {
+			const returnTo = getReturnToUrl();
+			const target = (honourReturnTo ? returnTo : null)
+				?? buildTenantRoutePath(effectiveTenantId, `/${location.search}`);
+
+			if (matchesTenantFromUrl(effectiveTenantId, urlTenantId)) { await navigate(target, { replace: true }); }
+			else {
+				window.location.href = target; 
+			}
+		};
+		void redirect();
 	}, [isLoggedIn, honourReturnTo, effectiveTenantId, urlTenantId, navigate, location.search]);
 }

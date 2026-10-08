@@ -99,7 +99,7 @@ const Signup = () => {
 		const result = await api.signupWebauthn(
 			name,
 			keystore,
-			retrySignupFrom ? async () => true : prf.promptForPrfRetry,
+			retrySignupFrom ? () => Promise.resolve(true) : prf.promptForPrfRetry,
 			hints,
 			retrySignupFrom,
 			urlTenantId || 'default',
@@ -176,9 +176,15 @@ const Signup = () => {
 			await onSignup([hint]);
 		} finally {
 			setInProgress(false);
-			checkForUpdates();
-			updateOnlineStatus();
-			release();
+			try {
+				await checkForUpdates();
+			} finally {
+				try {
+					await updateOnlineStatus();
+				} finally {
+					release();
+				}
+			}
 		}
 	};
 
@@ -188,11 +194,12 @@ const Signup = () => {
 		setRetrySignupFrom(null);
 	};
 
-	const goToLogin = () => {
+	const goToLogin = async () => {
 		// Implement navigation to the login page
-		checkForUpdates();
-		updateOnlineStatus();
-		navigate(buildPath('login') + location.search);
+		const updateCheck = checkForUpdates();
+		const onlineStatusUpdate = updateOnlineStatus();
+		const navigation = navigate(buildPath('login') + location.search);
+		await Promise.all([updateCheck, onlineStatusUpdate, navigation]);
 	};
 
 	const nameByteLength = calculateByteSize(name);

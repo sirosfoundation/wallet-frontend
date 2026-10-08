@@ -15,12 +15,22 @@ export default function PasskeyButtons({ mode, isSubmitting }: { mode: 'login' |
 		{ label: isLogin ? t('loginSignup.loginWithSecurityKey') : t('loginSignup.signUpWithSecurityKey'), Icon: UsbStickDotIcon, variant: 'outline', hint: 'security-key' },
 	];
 
+	let buttonIdPrefix: string;
+	
+	if (isSubmitting) {
+		buttonIdPrefix = 'submitting';
+	} else if (isLogin) {
+		buttonIdPrefix = 'loginPasskey';
+	} else {
+		buttonIdPrefix = 'loginSignup.signUpPasskey';
+	}
+
 	return (
 		<>
 			{buttons.map(({ label, Icon, variant, hint }) => (
 				<div key={label} className="mt-2 relative w-full flex flex-col justify-center">
 					<Button
-						id={`${isSubmitting ? 'submitting' : isLogin ? 'loginPasskey' : 'loginSignup.signUpPasskey'}-${hint}-submit-loginsignup`}
+						id={`${buttonIdPrefix}-${hint}-submit-loginsignup`}
 						type="submit"
 						variant={variant}
 						size="lg"
