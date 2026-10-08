@@ -21,7 +21,7 @@ export function useRedirectWhenLoggedIn(honourReturnTo: boolean) {
 
 			if (matchesTenantFromUrl(effectiveTenantId, urlTenantId)) { await navigate(target, { replace: true }); }
 			else {
-				window.location.href = target; 
+				window.location.href = target;
 			}
 		};
 		void redirect();

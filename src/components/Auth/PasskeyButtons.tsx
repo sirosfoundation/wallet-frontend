@@ -16,7 +16,7 @@ export default function PasskeyButtons({ mode, isSubmitting }: { mode: 'login' |
 	];
 
 	let buttonIdPrefix: string;
-	
+
 	if (isSubmitting) {
 		buttonIdPrefix = 'submitting';
 	} else if (isLogin) {
