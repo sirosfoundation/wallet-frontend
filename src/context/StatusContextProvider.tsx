@@ -240,7 +240,7 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 	useEffect(() => {
 		if (!navigator.serviceWorker) return;
 
-		(async () => {
+		void (async () => {
 			const reg = await navigator.serviceWorker.getRegistration();
 			if (!reg) return;
 
@@ -257,7 +257,7 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 
 	useEffect(() => {
 		if (!isSwWaiting || !isSafeToUpdate || !navigator.serviceWorker) return;
-		(async () => {
+		void (async () => {
 			const reg = await navigator.serviceWorker.getRegistration();
 			reg?.waiting?.postMessage({ type: 'SKIP_WAITING' });
 		})();
