@@ -15,7 +15,6 @@ const BYTE_MIME_SIGNATURES: MimeByteSignatures = {
 		{ offset: 0, signature: [0x52, 0x49, 0x46, 0x46] },
 		{ offset: 8, signature: [0x57, 0x45, 0x42, 0x50] },
 	],
-	'image/bmp': { offset: 0, signature: [0x42, 0x4d] },
 };
 
 /**
