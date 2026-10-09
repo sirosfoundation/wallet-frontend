@@ -31,6 +31,7 @@ import { truncateByWords } from '@/lib/utils';
 import { logger } from '@/logger';
 import SessionContext from '@/context/SessionContext';
 import { formatDate } from 'wallet-common';
+import { ensureStringIsImageDataUri } from '@/lib/utils/image';
 
 type PresentCredentialsFlowProps = {
 	view: PresentCredentialsFlowView;
@@ -504,6 +505,13 @@ const ClaimDetails: FC<{ name?: string; value: unknown }> = ({ name, value }) =>
 					</tbody>
 				</table>
 			);
+		}
+
+		const imageDataUri = typeof value === 'string'
+			? ensureStringIsImageDataUri(value)
+			: null;
+		if (imageDataUri) {
+			return <img className="max-w-xs max-h-xs" src={imageDataUri} alt={name ?? 'image'} />;
 		}
 
 		return String(value);

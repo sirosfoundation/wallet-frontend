@@ -46,6 +46,18 @@ export function fromBase64Url(s: string): Uint8Array {
 	return fromBase64(s.replace(/-/g, "+").replace(/_/g, "/"));
 }
 
+export function isBase64(s: string): boolean {
+	try {
+		return btoa(atob(s)) === s;
+	} catch {
+		return false;
+	}
+}
+
+export function base64UrlToBase64(s: string): string {
+	return base64pad(s.replaceAll('-', '+').replaceAll('_', '/'));
+}
+
 function replacerUint8ArrayToTaggedBase64Url(key: string, value: any): any {
 	if (this[key] instanceof Uint8Array || this[key] instanceof ArrayBuffer) {
 		return { '$b64u': toBase64Url(toU8(this[key])) };
