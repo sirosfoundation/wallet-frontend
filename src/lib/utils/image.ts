@@ -1,4 +1,4 @@
-import { fromBase64Url, isBase64, base64UrlToBase64 } from './binary';
+import { fromBase64Url, isBase64, base64UrlToBase64, toBase64 } from './binary';
 
 type MimeBytes = { offset: number; signature: number[] };
 
@@ -68,4 +68,16 @@ export function ensureStringIsImageDataUri(input: string): string | null {
 		// during the processing of the input string and returning null.
 		return null;
 	}
+}
+
+/**
+ * Converts a Uint8Array of image bytes into a data URI if the
+ * MIME type can be detected.
+ */
+export function imageBytesToDataUri(value: unknown): string | null {
+	if (!(value instanceof Uint8Array)) return null;
+
+	const mime = detectImageMimeFromBytes(value);
+
+	return mime ? `data:${mime};base64,${toBase64(value.slice())}` : null;
 }
