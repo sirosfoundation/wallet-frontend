@@ -61,7 +61,7 @@ describe('ScanPhysicalID', () => {
 
 		expect(screen.getByText('Before you begin')).toBeInTheDocument();
 		expect(screen.getByText('Have passport ready')).toBeInTheDocument();
-		expect(screen.getByText('Have good lightning')).toBeInTheDocument();
+		expect(screen.getByText('Have good lighting')).toBeInTheDocument();
 		expect(screen.getByText('Have good internet connection')).toBeInTheDocument();
 	});
 

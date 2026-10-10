@@ -71,9 +71,12 @@ export const UserAuthPopup: FC<UserAuthPopupProps> = ({
 	const onLoginCachedUser = async (cachedUser: CachedUser) => {
 		setError('');
 		setIsSubmitting(true);
-		await onLogin(cachedUser);
-		setIsSubmitting(false);
-		checkForUpdates();
+		try {
+			await onLogin(cachedUser);
+			checkForUpdates();
+		} finally {
+			setIsSubmitting(false);
+		}
 	};
 
 	return (

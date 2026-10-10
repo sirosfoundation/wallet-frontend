@@ -9,3 +9,5 @@ export { base58Decode, multibaseDecode, multikeyToJwk, didKeyToJwk } from './dat
 export { createDocumentLoader, ALLOWED_CONTEXT_URLS } from './dataIntegrity/documentLoader';
 export { verifyDataIntegrityProof, resolveCryptosuite, SupportedCryptosuites } from './dataIntegrity/verifyDataIntegrityProof';
 export * from './vcdm2Presentation';
+export * from './credentialValidity';
+export * from './tokenStatusList';
