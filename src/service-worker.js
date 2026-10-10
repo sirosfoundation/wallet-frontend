@@ -2,16 +2,31 @@
 
 import { clientsClaim } from "workbox-core";
 import { ExpirationPlugin } from "workbox-expiration";
-import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL, } from "workbox-precaching";
+import {
+	precacheAndRoute,
+	cleanupOutdatedCaches,
+	matchPrecache,
+} from "workbox-precaching";
 import { registerRoute } from "workbox-routing";
 import { StaleWhileRevalidate, CacheFirst } from "workbox-strategies";
 
-const basePath = new URL(self.registration.scope).pathname.replace(/\/?$/, '/') || '/';
+const basePath =
+	new URL(self.registration.scope).pathname.replace(/\/?$/, "/") || "/";
 
 clientsClaim();
+cleanupOutdatedCaches();
+
+/**
+ * We only skip waiting if the app requests it.
+ */
+self.addEventListener('message', (event) => {
+	if (event.origin && event.origin !== self.location.origin) return;
+	if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+});
 
 precacheAndRoute(self.__WB_MANIFEST, {
 	ignoreURLParametersMatching: [/^v$/],
+	directoryIndex: null,
 });
 
 const SPA_ROUTE_ALLOWLIST = [
@@ -31,6 +46,9 @@ const SPA_ROUTE_ALLOWLIST = [
 	/^\/history\/[^/]+$/,                // History detail
 ];
 
+/**
+ * App-shell navigations: network-first for freshness, precache fallback offline.
+ */
 registerRoute(
 	({ request, url }) => {
 		if (request.mode !== "navigate") return false;
@@ -41,7 +59,45 @@ registerRoute(
 
 		return SPA_ROUTE_ALLOWLIST.some((re) => re.test(pathname));
 	},
-	createHandlerBoundToURL(`${basePath}index.html`)
+	async ({ request }) => {
+		try {
+			// Online: always fresh HTML
+			return await fetch(request);
+		} catch {
+			// Offline: the precached shell is atomically consistent with the
+			// precached chunks it references, so lazy routes never 404.
+			return (await matchPrecache(`${basePath}index.html`)) ?? Response.error();
+		}
+	},
+);
+
+/**
+ * Hashed build assets are immutable, so any cached copy is valid. Match across
+ * all caches (incl. a newer, still-waiting SW's precache) before hitting network.
+ */
+registerRoute(
+	({ request, url }) =>
+		request.destination === "script" ||
+		request.destination === "style" ||
+		request.destination === "worker" ||
+		url.pathname.endsWith(".wasm"),
+	async ({ request, event }) => {
+		const cached = await caches.match(request);
+		if (cached) return cached;
+		try {
+			const response = await fetch(request);
+			if (response.ok) {
+				event.waitUntil(
+					caches.open("assets").then((cache) => {
+						return cache.put(request, response.clone())
+					}),
+				);
+			}
+			return response;
+		} catch {
+			return Response.error();
+		}
+	},
 );
 
 registerRoute(
@@ -70,39 +126,5 @@ registerRoute(
 				maxEntries: 50,
 			}),
 		],
-	})
+	}),
 );
-
-let isFirstVisit = false;
-
-self.addEventListener('install', (event) => {
-	isFirstVisit = !self.registration.active;
-	self.skipWaiting();
-});
-
-self.addEventListener("activate", (event) => {
-	event.waitUntil(
-		(async () => {
-			// Clean old Workbox precache caches
-			await cleanupOutdatedCaches();
-
-			// Delete runtime image cache
-			const cacheNames = await caches.keys();
-			await Promise.all(
-				cacheNames
-					.filter((name) => name === "images")
-					.map((name) => caches.delete(name))
-			);
-
-			// Claim and reload clients
-			await self.clients.claim();
-
-			if (!isFirstVisit) {
-				const clients = await self.clients.matchAll();
-				clients.forEach((client) => {
-					client.navigate(client.url);
-				});
-			}
-		})()
-	);
-});

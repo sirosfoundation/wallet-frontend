@@ -53,6 +53,8 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 
 	const updateBlockers = useRef<Map<string, { label: string; since: number; }>>(new Map());
 	const [isSafeToUpdate, setIsSafeToUpdate] = useState(true);
+	const [isStaleVersion, setIsStaleVersion] = useState(false);
+	const [isSwWaiting, setIsSwWaiting] = useState(false);
 
 	const lastUpdateCallTime = React.useRef<number>(0);
 
@@ -214,6 +216,52 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 			window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
 		};
 	}, []);
+
+	useEffect(() => {
+		const buildId = import.meta.env.VITE_BUILD_ID;
+		if (!buildId) return;
+
+		const channel = new BroadcastChannel('sirosid:app-version');
+		channel.postMessage(buildId);
+
+		channel.addEventListener('message', (e) => {
+			if (e.data !== buildId) setIsStaleVersion(true);
+		});
+
+		return () => channel.close();
+	}, []);
+
+	useEffect(() => {
+		if (isStaleVersion && isSafeToUpdate) {
+			window.location.reload();
+		}
+	}, [isStaleVersion, isSafeToUpdate]);
+
+	useEffect(() => {
+		if (!navigator.serviceWorker) return;
+
+		void (async () => {
+			const reg = await navigator.serviceWorker.getRegistration();
+			if (!reg) return;
+
+			if (reg.waiting) setIsSwWaiting(true);
+
+			reg.addEventListener('updatefound', () => {
+				const worker = reg.installing;
+				worker?.addEventListener('statechange', () => {
+					if (worker.state === 'installed') setIsSwWaiting(true);
+				});
+			});
+		})();
+	}, []);
+
+	useEffect(() => {
+		if (!isSwWaiting || !isSafeToUpdate || !navigator.serviceWorker) return;
+		void (async () => {
+			const reg = await navigator.serviceWorker.getRegistration();
+			reg?.waiting?.postMessage({ type: 'SKIP_WAITING' });
+		})();
+	}, [isSwWaiting, isSafeToUpdate]);
 
 	useEffect(() => {
 		const handler = (event: MessageEvent) => {
