@@ -22,7 +22,7 @@ import { DcqlQuery } from 'dcql';
 import { getLeastUsedCredentialInstance } from '@/lib/services/CredentialBatchHelper';
 import { applySelectiveDisclosure } from '@/lib/verifiable-credentials';
 import { OIDFlowError } from '@/lib/openid-flow/errors';
-import { useOIDFlowSignHandler } from './useOIDFlowSignHandler';
+import { useOIDFlowSignHandler, setPendingDcqlQuery } from './useOIDFlowSignHandler';
 import { DCAPIRequest, DCAPISession } from '@/lib/openid-flow/platforms/dc-api';
 import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
 import { BackendApi } from '@/api';
@@ -162,7 +162,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 	): Promise<OID4VPFlowResult> => {
 		setIsLoading(true);
 		setError(null);
-
+		setPendingDcqlQuery(undefined);
 		try {
 			// WebSocket transport: delegate to backend
 			if (transportType === 'websocket' && transport) {
@@ -230,7 +230,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 	): Promise<OID4VPFlowResult> => {
 		setIsLoading(true);
 		setError(null);
-
+		setPendingDcqlQuery(dcqlQuery);
 		try {
 			if (!options.onCredentialSelection) throw new OIDFlowError({
 				code: 'NO_CREDENTIAL_SELECTION_POPUP',
@@ -495,6 +495,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				nonce: session.request.nonce,
 				origin: session.verifiedOrigin,
 				verifierJwkThumbprint: await session.verifierJwkThumbprint(),
+				dcqlQuery: session.request.dcqlQuery,
 				credentialsToInclude: selectedCredentials.map(c => ({
 					credentialId: c.walletCredentialRef,
 					credentialQueryId: c.credentialQueryId,

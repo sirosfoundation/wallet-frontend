@@ -20,6 +20,30 @@ import {
 	resolveMdocIssuerSigned,
 } from '@/lib/verifiable-credentials';
 
+const MSO_MDOC_ZK = 'mso_mdoc_zk';
+const PSEUDONYM_CLAIM = 'pairwise_pseudonym';
+
+/**
+ * The query as the dcql library can match it. A zero-knowledge query (mso_mdoc_zk)
+ * asks for the same stored mdoc as a plain mso_mdoc query; its proof systems and its
+ * derived pairwise_pseudonym only matter to the prover, which gets the original query.
+ */
+function toMatchableQuery(dcqlQuery: DcqlQuery.Input): DcqlQuery.Input {
+	return {
+		...dcqlQuery,
+		credentials: dcqlQuery.credentials.map((q) => {
+			const query = q as Record<string, any>;
+			if (query.format !== MSO_MDOC_ZK) return q;
+			return {
+				...query,
+				format: 'mso_mdoc',
+				meta: { doctype_value: query.meta?.doctype_value },
+				claims: query.claims?.filter((c: any) => c?.path?.[c.path.length - 1] !== PSEUDONYM_CLAIM),
+			};
+		}),
+	} as DcqlQuery.Input;
+}
+
 export interface CredentialMatch {
 	input_descriptor_id: string;
 	credential_id: string;
@@ -82,7 +106,7 @@ export function matchCredentials(
 	// 2. Parse, validate, and run the query
 	let result: DcqlQueryResult;
 	try {
-		const parsedQuery = DcqlQuery.parse(dcqlQuery);
+		const parsedQuery = DcqlQuery.parse(toMatchableQuery(dcqlQuery));
 		DcqlQuery.validate(parsedQuery);
 		result = DcqlQuery.query(parsedQuery, shaped);
 	} catch (e) {
