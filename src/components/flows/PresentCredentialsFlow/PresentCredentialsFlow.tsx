@@ -27,7 +27,11 @@ import {
 	type SwitchCredentialPopupState
 } from '@/components/Popups/SwitchCredentialPopup';
 import { useTranslation } from 'react-i18next';
-import { truncateByWords } from '@/lib/utils';
+import {
+	truncateByWords,
+	ensureStringIsImageDataUri,
+	imageBytesToDataUri,
+} from '@/lib/utils';
 import { logger } from '@/logger';
 import SessionContext from '@/context/SessionContext';
 import { formatDate } from 'wallet-common';
@@ -485,6 +489,13 @@ const ClaimDetails: FC<{ name?: string; value: unknown }> = ({ name, value }) =>
 
 		if (value instanceof Date) return formatDate(value, 'date');
 
+		const imageSrc = typeof value === 'string'
+			? ensureStringIsImageDataUri(value)
+			: imageBytesToDataUri(value);
+		if (imageSrc) {
+			return <img className="max-w-xs max-h-xs" src={imageSrc} alt={name ?? 'image'} />;
+		}
+
 		if (typeof value === 'object') {
 			return (
 				<table className="text-sm">
@@ -505,6 +516,8 @@ const ClaimDetails: FC<{ name?: string; value: unknown }> = ({ name, value }) =>
 				</table>
 			);
 		}
+
+
 
 		return String(value);
 	})();

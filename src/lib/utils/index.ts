@@ -10,3 +10,4 @@ export { normalizePath } from "./normalizePath"
 export { sanitizeId } from "./sanitizeId"
 export { throttle } from "./throttle"
 export * from './mutex';
+export * from './image';
