@@ -34,6 +34,7 @@ export default defineConfig(async ({ mode, command }) => {
 				biome: {
 					command: 'lint',
 				},
+				enableBuild: false,
 			}),
 			VitePWA({
 				registerType: 'autoUpdate',
