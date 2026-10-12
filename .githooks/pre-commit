@@ -1,0 +1,3 @@
+#!/bin/sh
+# Lint only staged files; blocks the commit on lint errors.
+pnpm biome lint --staged --no-errors-on-unmatched

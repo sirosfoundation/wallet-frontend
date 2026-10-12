@@ -94,6 +94,7 @@
     "vitest": "^4.1.11"
   },
   "scripts": {
+    "prepare": "git rev-parse --git-dir > /dev/null 2>&1 && git config core.hooksPath .githooks || true",
     "start": "vite --no-open",
     "start-docker": "npx vite --no-open",
     "build": "vite build",

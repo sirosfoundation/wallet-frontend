@@ -6,7 +6,12 @@
 		"useIgnoreFile": true
 	},
 	"files": {
-		"includes": ["src/**/*.{ts,tsx,js,jsx}", "config/**/*.ts", "vite-plugins/**/*.ts"]
+		"includes": [
+			"src/**/*.{ts,tsx,js,jsx}",
+			"config/**/*.ts",
+			"vite-plugins/**/*.ts",
+			"packages/**/src/**/*.{ts,tsx,js,jsx}"
+		]
 	},
 	"formatter": {
 		"enabled": true,
@@ -27,7 +32,14 @@
 			"correctness": {
 				"noNodejsModules": "off"
 			},
-			"performance": "warn",
+			"performance": {
+				"preset": "recommended",
+				"noNamespaceImport": "warn",
+				"noAwaitInLoops": "warn",
+				"useTopLevelRegex": "warn",
+				"noBarrelFile": "off",
+				"noReExportAll": "off"
+			},
 			"security": "warn",
 			"suspicious": "warn",
 			"style": {
@@ -59,5 +71,18 @@
 			"quoteStyle": "single",
 			"semicolons": "always"
 		}
-	}
+	},
+	"overrides": [
+		{
+			"includes": ["**/*.test.ts", "**/*.test.tsx", "**/*.test.js", "**/*.test.jsx"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"useArrowFunction": "off",
+						"noExcessiveLinesPerFunction": "off"
+					}
+				}
+			}
+		}
+	]
 }
