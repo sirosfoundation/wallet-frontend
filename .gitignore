@@ -33,6 +33,7 @@
 !/.gitignore
 !/.htaccess
 !/.pre-commit-config.yaml
+!/biome.json
 !/CHANGELOG.md
 !/Dockerfile
 !/Dockerfile.e2e

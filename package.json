@@ -6,6 +6,7 @@
   "packageManager": "pnpm@11.22.0",
   "dependencies": {
     "@auth0/mdl": "^2.3.0",
+    "@biomejs/biome": "^2.5.15",
     "@cef-ebsi/key-did-resolver": "^1.1.0",
     "@fontsource/inter": "^5.3.0",
     "@hpke/core": "^1.9.0",
@@ -88,7 +89,7 @@
     "jsdom": "^28.1.0",
     "reflect-metadata": "^0.2.2",
     "vite": "^6.4.3",
-    "vite-plugin-checker": "^0.11.0",
+    "vite-plugin-checker": "^0.14.5",
     "vite-plugin-svgr": "^4.5.0",
     "vitest": "^4.1.11"
   },
@@ -97,7 +98,9 @@
     "start-docker": "npx vite --no-open",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "eslint . --ext .js,.jsx,.ts,.tsx --max-warnings=0",
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "check": "biome check .",
     "test": "VITE_CJS_IGNORE_WARNING=true vitest run",
     "test-start": "VITE_CJS_IGNORE_WARNING=true vitest",
     "test:coverage": "VITE_CJS_IGNORE_WARNING=true vitest run --coverage",
