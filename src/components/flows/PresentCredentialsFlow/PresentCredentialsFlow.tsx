@@ -493,7 +493,7 @@ const ClaimDetails: FC<{ name?: string; value: unknown }> = ({ name, value }) =>
 			? ensureStringIsImageDataUri(value)
 			: imageBytesToDataUri(value);
 		if (imageSrc) {
-			return <img className="max-w-xs max-h-xs" src={imageSrc} alt={name ?? 'image'} />;
+			return <img className="max-w-xs" src={imageSrc} alt={name ?? 'image'} />;
 		}
 
 		if (typeof value === 'object') {
@@ -516,8 +516,6 @@ const ClaimDetails: FC<{ name?: string; value: unknown }> = ({ name, value }) =>
 				</table>
 			);
 		}
-
-
 
 		return String(value);
 	})();
