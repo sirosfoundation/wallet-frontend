@@ -17,6 +17,8 @@ const BYTE_MIME_SIGNATURES: MimeByteSignatures = {
 	],
 };
 
+const ALLOWED_MIMES = Object.keys(BYTE_MIME_SIGNATURES);
+
 /**
  * Detects the MIME type of an image based on its byte signature.
  */
@@ -59,7 +61,8 @@ export function ensureStringIsImageDataUri(input: string): string | null {
 		const isDataLess = !input.startsWith('data:');
 		if (isDataLess) input = `data:${input}`;
 
-		return /^data:image\/[a-zA-Z]+;base64,/.test(input) ? input : null;
+		const mime = input.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,/)?.[1];
+		return mime && ALLOWED_MIMES.includes(mime) ? input : null;
 	} catch {
 		// returning null like this is a discouraged
 		// practice, generally speaking. however here,
