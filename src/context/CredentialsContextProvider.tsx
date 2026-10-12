@@ -209,6 +209,10 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 		}
 	}, [fetchVcData, setVcEntityList]);
 
+	const removeCredential = useCallback((batchId: number) => {
+		setVcEntityList((prev) => (prev ? prev.filter((vc) => vc.batchId !== batchId) : prev));
+	}, []);
+
 	useEffect(() => {
 		if (!getCalculatedWalletState || !credentialEngine || !isLoggedIn) {
 			return;
@@ -217,16 +221,9 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 		getData();
 	}, [getData, getCalculatedWalletState, credentialEngine, isLoggedIn]);
 
-	if (isLoggedIn && !credentialEngine) {
-		return (
-			<Spinner />
-		);
-	}
-	else {
-		return (
-			<CredentialsContext.Provider value={{ vcEntityList, latestCredentials, fetchVcData, getData, currentSlide, setCurrentSlide, parseCredential, credentialEngine, pendingTransactions }}>
-				{children}
-			</CredentialsContext.Provider>
-		);
-	}
+	return (
+		<CredentialsContext.Provider value={{ vcEntityList, latestCredentials, fetchVcData, getData, currentSlide, setCurrentSlide, parseCredential, credentialEngine, pendingTransactions, removeCredential }}>
+			{children}
+		</CredentialsContext.Provider>
+	);
 };
