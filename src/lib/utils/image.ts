@@ -45,8 +45,8 @@ export function detectImageMimeFromBytes(
  */
 export function ensureStringIsImageDataUri(input: string): string | null {
 	try {
-		const isPrefixed = !/^(data:)?image\/[a-zA-Z]+;base64,/.test(input);
-		if (isPrefixed) {
+		const isPrefixed = /^(data:)?image\/[a-zA-Z]+;base64,/.test(input);
+		if (!isPrefixed) {
 			const normalized = base64UrlToBase64(input);
 			if (!isBase64(normalized)) return null;
 
