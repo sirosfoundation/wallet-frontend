@@ -14,6 +14,7 @@ const PopupLayout = ({ isOpen, onClose, loading = false, fullScreen = false, chi
 				isOpen={true}
 				className="absolute inset-0 flex items-center justify-center"
 				overlayClassName="fixed inset-0 bg-lm-gray-900/50 dark:bg-dm-gray-500/50 flex items-center justify-center z-50"
+				bodyOpenClassName="overflow-hidden"
 			>
 				<Spinner />
 			</Modal>
