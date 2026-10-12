@@ -1,9 +1,11 @@
-import { VerifiableCredentialFormat } from 'wallet-common';
-import * as jose from 'jose';
-import { fromBase64Url } from '@/lib/utils';
 import { cborDecode } from '@auth0/mdl/lib/cbor';
 import { COSEKeyToJWK } from 'cose-kit';
+// biome-ignore lint/performance/noNamespaceImport: baseline: pre-existing debt. should be fixed
+import * as jose from 'jose';
+import { VerifiableCredentialFormat } from 'wallet-common';
+import { fromBase64Url } from '@/lib/utils';
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
 export async function deriveHolderKidFromCredential(
 	credential: string,
 	format: VerifiableCredentialFormat,
@@ -17,9 +19,7 @@ export async function deriveHolderKidFromCredential(
 				return undefined;
 			}
 			try {
-				const decoded = JSON.parse(
-					new TextDecoder().decode(fromBase64Url(payload))
-				);
+				const decoded = JSON.parse(new TextDecoder().decode(fromBase64Url(payload)));
 				const cnf = decoded.cnf as { jwk?: jose.JWK } | undefined;
 				if (cnf?.jwk) {
 					return jose.calculateJwkThumbprint(cnf.jwk, 'sha256');
@@ -43,6 +43,8 @@ export async function deriveHolderKidFromCredential(
 				const issuerAuth = mdoc.get('issuerAuth');
 				return issuerAuth[2];
 			})();
+			// biome-ignore lint/suspicious/noEvolvingTypes: baseline: pre-existing debt. should be fixed
+			// biome-ignore lint/suspicious/noImplicitAnyLet: baseline: pre-existing debt. should be fixed
 			let msoBinary;
 			if (msoBinaryRaw instanceof Uint8Array) {
 				msoBinary = msoBinaryRaw;
@@ -51,7 +53,8 @@ export async function deriveHolderKidFromCredential(
 			} else {
 				msoBinary = new Uint8Array(
 					msoBinaryRaw.buffer,
-					msoBinaryRaw.byteOffset || 0, msoBinaryRaw.byteLength || msoBinaryRaw.length
+					msoBinaryRaw.byteOffset || 0,
+					msoBinaryRaw.byteLength || msoBinaryRaw.length,
 				);
 			}
 			if (msoBinary && msoBinary.length > 0) {
@@ -60,13 +63,11 @@ export async function deriveHolderKidFromCredential(
 					const deviceKeyInfo = msoData.data.get('deviceKeyInfo');
 					const deviceKey = deviceKeyInfo.get('deviceKey');
 					const devicePublicKeyJwk = COSEKeyToJWK(deviceKey);
-					const kid = await jose.calculateJwkThumbprint(
-						devicePublicKeyJwk,
-						'sha256',
-					);
+					const kid = await jose.calculateJwkThumbprint(devicePublicKeyJwk, 'sha256');
 
 					return kid;
 				} catch (e) {
+					// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
 					console.log('Failed to decode MSO:', e);
 				}
 			}

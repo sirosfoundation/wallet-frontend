@@ -12,7 +12,7 @@
  * - `'unknown'`   — No PDP configured, PDP unreachable, or evaluation error
  */
 
-import { IssuerTrustEvaluator, VerifierTrustEvaluator } from '@/lib/services/TrustEvaluator';
+import type { IssuerTrustEvaluator, VerifierTrustEvaluator } from '@/lib/services/TrustEvaluator';
 
 /**
  * Trust evaluation status from the backend PDP.

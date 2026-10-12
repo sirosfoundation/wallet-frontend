@@ -1,4 +1,4 @@
-import { JWK } from 'jose';
+import type { JWK } from 'jose';
 import { z } from 'zod';
 
 export enum WscdManagerHosts {
@@ -61,7 +61,11 @@ export type WscdFactorKind = z.infer<typeof WscdFactorKindSchema>;
  * Lifecycle state of a factor managed by the WSCD manager.
  */
 export const WscdLifecycleStateSchema = z.enum([
-	'Uninitialized', 'Registered', 'Active', 'Suspended', 'Destroyed',
+	'Uninitialized',
+	'Registered',
+	'Active',
+	'Suspended',
+	'Destroyed',
 ]);
 export type WscdLifecycleState = z.infer<typeof WscdLifecycleStateSchema>;
 

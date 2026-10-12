@@ -1,10 +1,8 @@
 // To get the values of possible nested properties
-export function getElementPropValue(
-	obj: any,
-	property: string
-): string | number | undefined {
+// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+export function getElementPropValue(obj: any, property: string): string | number | undefined {
 	let value = obj;
-	const propsArray = property.split(".");
+	const propsArray = property.split('.');
 	while (propsArray.length) {
 		if (!value) {
 			break;

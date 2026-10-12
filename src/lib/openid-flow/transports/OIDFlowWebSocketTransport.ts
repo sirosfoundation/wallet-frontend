@@ -12,20 +12,16 @@
  * - Better error handling with flow state
  */
 
-import { TrustStatus as TrustStatusEnum } from 'wallet-common';
-import type { IOIDFlowTransport } from '../types/IOIDFlowTransport';
-import type {
-	OIDFlowRequest,
-	OIDFlowResponse,
-	OIDFlowProgressEvent
-} from '../types/OIDFlowTypes';
-import type { OID4VCIFlowParams, OID4VCIFlowResult } from '../types/OID4VCITypes';
-import type { OID4VPFlowParams, OID4VPFlowResult, OID4VPVerifierInfo } from '../types/OID4VPTypes';
+import type { DcqlQuery } from 'dcql';
+import type { TrustStatus as TrustStatusEnum } from 'wallet-common';
 import type { CredentialsMatchedResult } from '@/lib/services/CredentialMatchingService';
 import { logger } from '@/logger';
-import { TrustEvaluators, TrustStatus } from '../types';
-import { DcqlQuery } from 'dcql';
 import { OIDFlowError } from '../errors';
+import type { TrustEvaluators, TrustStatus } from '../types';
+import type { IOIDFlowTransport } from '../types/IOIDFlowTransport';
+import type { OID4VCIFlowParams, OID4VCIFlowResult } from '../types/OID4VCITypes';
+import type { OID4VPFlowParams, OID4VPFlowResult, OID4VPVerifierInfo } from '../types/OID4VPTypes';
+import type { OIDFlowProgressEvent, OIDFlowRequest, OIDFlowResponse } from '../types/OIDFlowTypes';
 
 /**
  * Pending request waiting for a response
@@ -41,8 +37,8 @@ interface PendingRequest<T = unknown> {
  * WebSocket message from server
  */
 interface ServerMessage {
-	flow_id?: string;  // snake_case from backend
-	flowId?: string;   // camelCase for backwards compat
+	flow_id?: string; // snake_case from backend
+	flowId?: string; // camelCase for backwards compat
 	type: string;
 	[key: string]: unknown;
 }
@@ -103,8 +99,8 @@ export interface ProofObject {
  * Sign response to send back to server
  */
 export interface SignResponse {
-	proofJwt?: string;       // single proof (legacy)
-	proofs?: ProofObject[];  // batch proofs
+	proofJwt?: string; // single proof (legacy)
+	proofs?: ProofObject[]; // batch proofs
 	vpToken?: string;
 	clientAttestation?: string;
 	clientAttestationPoP?: string;
@@ -176,7 +172,12 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 	private authFailed = false;
 
-	constructor(wsUrl: string, authToken: string, tenantId: string = 'default', trustEvaluators?: TrustEvaluators) {
+	constructor(
+		wsUrl: string,
+		authToken: string,
+		tenantId: string = 'default',
+		trustEvaluators?: TrustEvaluators,
+	) {
 		this.wsUrl = wsUrl;
 		this.authToken = authToken;
 		this.tenantId = tenantId;
@@ -188,6 +189,8 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 	// ===== Connection Lifecycle =====
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
+	// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 	async connect(): Promise<void> {
 		// If already connecting, return the existing promise
 		if (this.connectionPromise) {
@@ -199,12 +202,14 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			return Promise.resolve();
 		}
 
+		// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 		this.connectionPromise = new Promise((resolve, reject) => {
 			try {
 				const url = new URL(this.wsUrl);
 				url.searchParams.set('tenant_id', this.tenantId);
 
 				logger.debug('WebSocket connect attempt', {
+					// biome-ignore lint/complexity/noImplicitCoercions: baseline: pre-existing debt. should be fixed
 					hasAuthToken: !!this.authToken,
 					tenantId: this.tenantId,
 					reconnectAttemptsUsed: this.reconnectAttempts,
@@ -217,6 +222,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 				this.ws.onopen = () => {
 					logger.debug('WebSocket connected, sending handshake', {
+						// biome-ignore lint/complexity/noImplicitCoercions: baseline: pre-existing debt. should be fixed
 						hasAuthToken: !!this.authToken,
 						tenantId: this.tenantId,
 						pendingRequests: this.pending.size,
@@ -229,7 +235,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 								JSON.stringify({
 									type: 'handshake',
 									app_token: this.authToken,
-								})
+								}),
 							);
 						}
 					} catch (e) {
@@ -273,9 +279,12 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		return this.connectionPromise;
 	}
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	async disconnect(): Promise<void> {
 		if (this.ws) {
 			// Cancel all pending requests
+			// biome-ignore lint/complexity/noForEach: baseline: pre-existing debt. should be fixed
+			// biome-ignore lint/correctness/noUnusedFunctionParameters: baseline: pre-existing debt. should be fixed
 			Array.from(this.pending.entries()).forEach(([id, pending]) => {
 				clearTimeout(pending.timeout);
 				pending.reject(new Error('WebSocket disconnected'));
@@ -307,6 +316,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 	// ===== OID4VCI Flow =====
 
+	// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 	async startOID4VCIFlow(params: OID4VCIFlowParams): Promise<OID4VCIFlowResult> {
 		// Determine which phase of the flow we're in based on params
 
@@ -332,7 +342,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				protocol: 'oid4vci',
 				credential_offer_uri: params.credentialOfferUri,
 				offer: params.credentialOffer,
-				redirect_uri: params.redirectUri,  // Include redirect URI for authorization code flow continuation
+				redirect_uri: params.redirectUri, // Include redirect URI for authorization code flow continuation
 				// Wire names match go-wallet-backend's FlowStartMessage exactly
 				// (internal/engine/messages.go) - see OID4VCITypes.ts for why
 				// these are generated transport-agnostically, once, upstream
@@ -391,6 +401,8 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		throw new Error('Invalid OID4VCI flow params: no valid entry point or continuation');
 	}
 
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+	// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 	private mapOID4VCIResponse(response: ServerMessage): OID4VCIFlowResult {
 		if (response.type === 'error' || response.type === 'flow_error') {
 			return {
@@ -414,12 +426,15 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			result.issuerMetadata = payload.issuer_metadata as OID4VCIFlowResult['issuerMetadata'];
 		}
 		if (payload?.credential_configurations) {
-			result.credentialConfigurations = payload.credential_configurations as OID4VCIFlowResult['credentialConfigurations'];
+			result.credentialConfigurations =
+				payload.credential_configurations as OID4VCIFlowResult['credentialConfigurations'];
 		}
 		if (payload?.selected_credential_configuration_id) {
-			result.selectedCredentialConfigurationId = payload.selected_credential_configuration_id as string;
+			result.selectedCredentialConfigurationId =
+				payload.selected_credential_configuration_id as string;
 		} else if (response.selected_credential_configuration_id) {
-			result.selectedCredentialConfigurationId = response.selected_credential_configuration_id as string;
+			result.selectedCredentialConfigurationId =
+				response.selected_credential_configuration_id as string;
 		}
 
 		// Authorization
@@ -442,8 +457,12 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		}
 
 		// Selected credential configuration ID fallback from credential offer
-		if (!result.selectedCredentialConfigurationId && result.credentialOffer?.credential_configuration_ids?.length) {
-			result.selectedCredentialConfigurationId = result.credentialOffer.credential_configuration_ids[0];
+		if (
+			!result.selectedCredentialConfigurationId &&
+			result.credentialOffer?.credential_configuration_ids?.length
+		) {
+			result.selectedCredentialConfigurationId =
+				result.credentialOffer.credential_configuration_ids[0];
 		}
 
 		// Credential issuer identifier — from payload, credential_offer, or top-level (flow_complete)
@@ -472,7 +491,11 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		}
 		// Handle credentials array from server
 		if (response?.credentials && Array.isArray(response.credentials)) {
-				result.credentials = (response.credentials as Array<{format: string; credential: string; vct?: string}>);
+			result.credentials = response.credentials as Array<{
+				format: string;
+				credential: string;
+				vct?: string;
+			}>;
 		}
 
 		// Deferred
@@ -508,7 +531,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				type: 'flow_action',
 				action: 'consent',
 				payload: {
-					selected_credentials: params.selectedCredentials.map(c => ({
+					selected_credentials: params.selectedCredentials.map((c) => ({
 						credential_id: c.walletCredentialRef,
 						credential_query_id: c.credentialQueryId,
 						disclosed_claims: c.disclosedClaims ?? [],
@@ -521,6 +544,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		throw new Error('Invalid OID4VP flow params: no valid entry point or continuation');
 	}
 
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
 	private mapOID4VPResponse(response: ServerMessage): OID4VPFlowResult {
 		if (response.type === 'error' || response.type === 'flow_error') {
 			return {
@@ -547,6 +571,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		}
 
 		// Extract purpose from DCQL credential_sets
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 		const credentialSets = (payload?.dcql_query as any)?.credential_sets;
 		if (credentialSets?.[0]?.purpose && result.verifierInfo) {
 			result.verifierInfo.purpose = credentialSets[0].purpose;
@@ -554,7 +579,8 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 		// Presentation definition phase
 		if (response.presentation_definition) {
-			result.presentationDefinition = response.presentation_definition as OID4VPFlowResult['presentationDefinition'];
+			result.presentationDefinition =
+				response.presentation_definition as OID4VPFlowResult['presentationDefinition'];
 		}
 		if (response.conformant_credentials) {
 			// Convert from object to Map if needed
@@ -650,6 +676,8 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 	// ===== Internal Methods =====
 
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+	// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 	private async handleMessage(message: ServerMessage): Promise<void> {
 		// Support both snake_case (backend) and camelCase (legacy)
 		const flowId = (message.flow_id as string) || (message.flowId as string);
@@ -715,10 +743,12 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 		if (type === 'error' && !flowId && message.code === 'AUTH_FAILED') {
 			this.authFailed = true;
-			this.emitError(new OIDFlowError({
-				code: message.code as string,
-				message: (message.message as string) ?? 'Authentication failed',
-			}));
+			this.emitError(
+				new OIDFlowError({
+					code: message.code as string,
+					message: (message.message as string) ?? 'Authentication failed',
+				}),
+			);
 			return;
 		}
 
@@ -745,41 +775,56 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	/**
 	 * Handle trust evaluation
 	 */
-	private async handleTrustEvaluationStep(flowId: string, payload: Record<string, unknown>): Promise<void> {
-		const request = payload.request as {
-			subject_id: string;
-			subject_type: string;
-			key_material?: { type: string; x5c?: string[]; jwk?: unknown };
-			context?: Record<string, unknown>;
-		} | undefined;
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+	// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
+	private async handleTrustEvaluationStep(
+		flowId: string,
+		payload: Record<string, unknown>,
+	): Promise<void> {
+		const request = payload.request as
+			| {
+					subject_id: string;
+					subject_type: string;
+					key_material?: { type: string; x5c?: string[]; jwk?: unknown };
+					context?: Record<string, unknown>;
+			  }
+			| undefined;
 
 		if (!request?.subject_id) {
 			logger.error('[WS Transport] Trust evaluation request missing subject_id');
-			this.ws?.send(JSON.stringify({
-				type: 'flow_action',
-				flow_id: flowId,
-				action: 'trust_result',
-				timestamp: new Date().toISOString(),
-				payload: { trusted: false, reason: 'Missing subject_id' },
-			}));
+			this.ws?.send(
+				JSON.stringify({
+					type: 'flow_action',
+					flow_id: flowId,
+					action: 'trust_result',
+					timestamp: new Date().toISOString(),
+					payload: { trusted: false, reason: 'Missing subject_id' },
+				}),
+			);
 			return;
 		}
 
 		try {
-			let result: { trusted: boolean; status?: TrustStatusEnum; metadata?: Record<string, unknown> } | null = null;
+			let result: {
+				trusted: boolean;
+				status?: TrustStatusEnum;
+				metadata?: Record<string, unknown>;
+			} | null = null;
 
 			switch (request.subject_type) {
 				case 'credential_issuer':
 					result = await this.trustEvaluators.evaluateIssuerTrust({
 						issuerId: request.subject_id,
-						keyMaterial: request.key_material ? {
-							type: request.key_material.type as 'jwk' | 'x5c',
-							key: request.key_material.x5c ?? request.key_material.jwk,
-						} : undefined,
+						keyMaterial: request.key_material
+							? {
+									type: request.key_material.type as 'jwk' | 'x5c',
+									key: request.key_material.x5c ?? request.key_material.jwk,
+								}
+							: undefined,
 						context: request.context,
 					});
 					break;
-				case 'credential_verifier':
+				case 'credential_verifier': {
 					const scheme = (request.context?.client_id_scheme as string) || 'x509_san_dns';
 					const clientId = request.subject_id;
 
@@ -796,16 +841,17 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 						},
 						keyMaterial: request.key_material
 							? {
-								type: request.key_material.type as 'jwk' | 'x5c' | 'kid',
-								key: request.key_material.x5c ?? request.key_material.jwk
-							}
+									type: request.key_material.type as 'jwk' | 'x5c' | 'kid',
+									key: request.key_material.x5c ?? request.key_material.jwk,
+								}
 							: {
-								type: 'kid' as const,
-								key: ''
-							},
+									type: 'kid' as const,
+									key: '',
+								},
 						responseUri: request.context?.response_uri as string | undefined,
 					});
 					break;
+				}
 				default:
 					throw new Error(`Unknown subject_type for trust evaluation: ${request.subject_type}`);
 			}
@@ -817,23 +863,32 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			});
 		} catch (error) {
 			logger.error('[WS Transport] Trust evaluation failed:', error);
-			this.sendTrustResult(flowId, { trusted: false, reason: error instanceof Error ? error.message : 'Unknown error' });
+			this.sendTrustResult(flowId, {
+				trusted: false,
+				reason: error instanceof Error ? error.message : 'Unknown error',
+			});
 		}
 	}
 
-	private sendTrustResult(flowId: string, result: { trusted: boolean; framework?: string; reason?: string }): void {
-			this.ws?.send(JSON.stringify({
-			type: 'flow_action',
-			flow_id: flowId,
-			action: 'trust_result',
-			timestamp: new Date().toISOString(),
-			payload: result,
-		}));
+	private sendTrustResult(
+		flowId: string,
+		result: { trusted: boolean; framework?: string; reason?: string },
+	): void {
+		this.ws?.send(
+			JSON.stringify({
+				type: 'flow_action',
+				flow_id: flowId,
+				action: 'trust_result',
+				timestamp: new Date().toISOString(),
+				payload: result,
+			}),
+		);
 	}
 
 	/**
 	 * Handle a sign request from the server
 	 */
+	// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 	private async handleSignRequest(message: ServerMessage): Promise<void> {
 		const flowId = (message.flow_id as string) || (message.flowId as string) || '';
 		const rawParams = (message.params as Record<string, unknown>) || {};
@@ -847,7 +902,8 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				issuer: rawParams.issuer as string | undefined,
 				nonce: rawParams.nonce as string | undefined,
 				proofType: rawParams.proof_type as string | undefined,
-				proofTypesSupported: rawParams.proof_types_supported as SignRequest['params']['proofTypesSupported'],
+				proofTypesSupported:
+					rawParams.proof_types_supported as SignRequest['params']['proofTypesSupported'],
 				count: rawParams.count as number | undefined,
 				responseUri: rawParams.response_uri as string | undefined,
 				verifierJwkThumbprint: rawParams.verifier_jwk_thumbprint as string | undefined,
@@ -858,12 +914,14 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				ath: rawParams.ath as string | undefined,
 				keyId: rawParams.key_id as string | undefined,
 				credentialsToInclude: (
-					rawParams.credentials_to_include as Array<{
-						credential_id: string;
-						credential_query_id?: string;
-						disclosed_claims?: string[];
-					}> | undefined
-				)?.map(c => ({
+					rawParams.credentials_to_include as
+						| Array<{
+								credential_id: string;
+								credential_query_id?: string;
+								disclosed_claims?: string[];
+						  }>
+						| undefined
+				)?.map((c) => ({
 					credentialId: c.credential_id,
 					credentialQueryId: c.credential_query_id,
 					disclosedClaims: c.disclosed_claims,
@@ -882,6 +940,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		let lastError: Error | null = null;
 		for (const handler of this.signHandlers) {
 			try {
+				// biome-ignore lint/performance/noAwaitInLoops: baseline: pre-existing debt. should be fixed
 				const response = await handler(request);
 				this.sendSignResponse(request.flowId, request.messageId, response);
 				return;
@@ -896,18 +955,19 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			request.flowId,
 			request.messageId,
 			{},
-			lastError?.message || 'Sign operation failed'
+			lastError?.message || 'Sign operation failed',
 		);
 	}
 
 	/**
 	 * Send a sign response back to the server
 	 */
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
 	private sendSignResponse(
 		flowId: string,
 		messageId: string,
 		response: SignResponse,
-		error?: string
+		error?: string,
 	): void {
 		if (!this.isConnected()) {
 			logger.error('Cannot send sign response: WebSocket not connected');
@@ -934,6 +994,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		}
 
 		try {
+			// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 			this.ws!.send(JSON.stringify(msg));
 		} catch (err) {
 			logger.error('Failed to send sign response:', err);
@@ -965,7 +1026,12 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 		if (this.matchHandlers.size === 0) {
 			logger.error('No match handlers registered, cannot respond to match request');
-			this.sendMatchResponse(request.flowId, request.messageId, { matches: [] }, 'No match handler available');
+			this.sendMatchResponse(
+				request.flowId,
+				request.messageId,
+				{ matches: [] },
+				'No match handler available',
+			);
 			return;
 		}
 
@@ -973,6 +1039,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		let lastError: Error | null = null;
 		for (const handler of this.matchHandlers) {
 			try {
+				// biome-ignore lint/performance/noAwaitInLoops: baseline: pre-existing debt. should be fixed
 				const response = await handler(request);
 				this.sendMatchResponse(request.flowId, request.messageId, response);
 				return;
@@ -987,7 +1054,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			request.flowId,
 			request.messageId,
 			{ matches: [] },
-			lastError?.message || 'Credential matching failed'
+			lastError?.message || 'Credential matching failed',
 		);
 	}
 
@@ -998,7 +1065,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		flowId: string,
 		messageId: string,
 		response: MatchResponse,
-		error?: string
+		error?: string,
 	): void {
 		if (!this.isConnected()) {
 			logger.error('Cannot send match response: WebSocket not connected');
@@ -1028,6 +1095,8 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		}
 	}
 
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+	// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 	private handleDisconnect(event: CloseEvent): void {
 		logger.debug('WebSocket closed', {
 			code: event.code,
@@ -1040,6 +1109,8 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		});
 
 		// Reject all pending requests
+		// biome-ignore lint/complexity/noForEach: baseline: pre-existing debt. should be fixed
+		// biome-ignore lint/correctness/noUnusedFunctionParameters: baseline: pre-existing debt. should be fixed
 		Array.from(this.pending.entries()).forEach(([id, pending]) => {
 			clearTimeout(pending.timeout);
 			pending.reject(new Error('WebSocket disconnected'));
@@ -1076,7 +1147,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 		// Attempt reconnect with exponential backoff
 		if (this.reconnectAttempts < this.maxReconnectAttempts) {
-			const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts);
+			const delay = this.reconnectDelay * 2 ** this.reconnectAttempts;
 			this.reconnectAttempts++;
 
 			logger.debug('WebSocket reconnect scheduled', {
@@ -1111,9 +1182,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				return;
 			}
 
-			const flowId = (message.flow_id as string)
-				|| this.currentFlowId
-				|| crypto.randomUUID();
+			const flowId = (message.flow_id as string) || this.currentFlowId || crypto.randomUUID();
 			const fullMessage = { ...message, flow_id: flowId };
 
 			if (message.type === 'flow_start') {
@@ -1133,6 +1202,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 			// Send message
 			try {
+				// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 				this.ws!.send(JSON.stringify(fullMessage));
 			} catch (error) {
 				clearTimeout(timeout);
@@ -1143,7 +1213,8 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	}
 
 	private emitProgress(event: OIDFlowProgressEvent): void {
-		Array.from(this.progressCallbacks).forEach(callback => {
+		// biome-ignore lint/complexity/noForEach: baseline: pre-existing debt. should be fixed
+		Array.from(this.progressCallbacks).forEach((callback) => {
 			try {
 				callback(event);
 			} catch (e) {
@@ -1153,7 +1224,8 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	}
 
 	private emitError(error: Error): void {
-		Array.from(this.errorCallbacks).forEach(callback => {
+		// biome-ignore lint/complexity/noForEach: baseline: pre-existing debt. should be fixed
+		Array.from(this.errorCallbacks).forEach((callback) => {
 			try {
 				callback(error);
 			} catch (e) {
@@ -1167,7 +1239,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	 */
 	updateAuthToken(token: string, tenantId?: string): void {
 		this.authToken = token;
-		this.authFailed = false;   // new token → allow reconnecting again
+		this.authFailed = false; // new token → allow reconnecting again
 		if (tenantId !== undefined) {
 			this.tenantId = tenantId;
 		}
@@ -1192,6 +1264,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		};
 
 		try {
+			// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 			this.ws!.send(JSON.stringify(msg));
 			logger.debug('[WS Transport] Sent flow action:', action.action);
 		} catch (err) {
@@ -1224,6 +1297,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
  * Handles both string URLs and object formats with a `uri` field.
  */
 function parseLogo(logo: unknown): string | undefined {
+	// biome-ignore lint/suspicious/noEqualsToNull: baseline: pre-existing debt. should be fixed
 	if (logo == null) return undefined;
 	if (typeof logo === 'string') return logo;
 	if (typeof logo === 'object' && logo !== null) {
@@ -1259,13 +1333,14 @@ function mapVerifierInfo(raw: Record<string, unknown>): OID4VPVerifierInfo {
  * - Legacy wire format: `trusted` boolean → maps true→"trusted", false→"untrusted"
  * - Missing/null → "unknown"
  */
-function parseTrustStatus(
-	trustedStatus: unknown,
-	legacyTrusted?: unknown,
-): TrustStatus {
+function parseTrustStatus(trustedStatus: unknown, legacyTrusted?: unknown): TrustStatus {
 	// New format: string tri-state
 	if (typeof trustedStatus === 'string') {
-		if (trustedStatus === 'trusted' || trustedStatus === 'untrusted' || trustedStatus === 'unknown') {
+		if (
+			trustedStatus === 'trusted' ||
+			trustedStatus === 'untrusted' ||
+			trustedStatus === 'unknown'
+		) {
 			return trustedStatus;
 		}
 	}

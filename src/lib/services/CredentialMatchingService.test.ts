@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
-import * as cbor from "cbor-x";
-import { matchCredentials, shapeCredential } from "./CredentialMatchingService";
-import { ExtendedVcEntity } from "@/context/CredentialsContext";
+// biome-ignore lint/performance/noNamespaceImport: baseline: pre-existing debt. should be fixed
+import * as cbor from 'cbor-x';
+import { describe, expect, it } from 'vitest';
+import type { ExtendedVcEntity } from '@/context/CredentialsContext';
 import { toBase64Url } from '@/lib/utils';
+import { matchCredentials, shapeCredential } from './CredentialMatchingService';
 
 /**
  * `shapeCredential` (mso_mdoc branch) must handle both stored-credential
@@ -33,40 +34,47 @@ function buildItem(elementIdentifier: string, elementValue: string) {
 
 function buildNameSpaces(namespace: string) {
 	return {
-		[namespace]: [buildItem("given_name", "Jane"), buildItem("family_name", "Doe")],
+		[namespace]: [buildItem('given_name', 'Jane'), buildItem('family_name', 'Doe')],
 	};
 }
 
 function mockMdocCredential(bytes: Uint8Array): ExtendedVcEntity {
 	return {
-		format: "mso_mdoc",
+		format: 'mso_mdoc',
 		data: toBase64Url(bytes),
 		batchId: 1,
 	} as unknown as ExtendedVcEntity;
 }
 
-describe("shapeCredential (mso_mdoc)", () => {
-	it("shapes a full DeviceResponse-shaped envelope", () => {
-		const docType = "org.iso.18013.5.1.mDL";
-		const namespace = "org.iso.18013.5.1";
+describe('shapeCredential (mso_mdoc)', () => {
+	it('shapes a full DeviceResponse-shaped envelope', () => {
+		const docType = 'org.iso.18013.5.1.mDL';
+		const namespace = 'org.iso.18013.5.1';
 		const envelope = {
-			documents: [{
-				docType,
-				issuerSigned: { nameSpaces: buildNameSpaces(namespace), issuerAuth: buildIssuerAuth(docType) },
-			}],
+			documents: [
+				{
+					docType,
+					issuerSigned: {
+						nameSpaces: buildNameSpaces(namespace),
+						issuerAuth: buildIssuerAuth(docType),
+					},
+				},
+			],
 			status: 0,
 		};
 
 		const shaped = shapeCredential(mockMdocCredential(cbor.encode(envelope)));
 
 		expect(shaped).not.toBeNull();
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 		expect((shaped as any).doctype).toBe(docType);
-		expect((shaped as any).namespaces[namespace].given_name).toBe("Jane");
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+		expect((shaped as any).namespaces[namespace].given_name).toBe('Jane');
 	});
 
-	it("shapes a bare IssuerSigned structure, deriving docType from the MSO", () => {
-		const docType = "eu.europa.ec.eudi.pid.1";
-		const namespace = "eu.europa.ec.eudi.pid.1";
+	it('shapes a bare IssuerSigned structure, deriving docType from the MSO', () => {
+		const docType = 'eu.europa.ec.eudi.pid.1';
+		const namespace = 'eu.europa.ec.eudi.pid.1';
 		const bareIssuerSigned = {
 			nameSpaces: buildNameSpaces(namespace),
 			issuerAuth: buildIssuerAuth(docType),
@@ -75,12 +83,14 @@ describe("shapeCredential (mso_mdoc)", () => {
 		const shaped = shapeCredential(mockMdocCredential(cbor.encode(bareIssuerSigned)));
 
 		expect(shaped).not.toBeNull();
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 		expect((shaped as any).doctype).toBe(docType);
-		expect((shaped as any).namespaces[namespace].family_name).toBe("Doe");
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+		expect((shaped as any).namespaces[namespace].family_name).toBe('Doe');
 	});
 
-	it("returns null (not throws) for an unparseable mdoc", () => {
-		const garbage = cbor.encode({ somethingElse: "value" });
+	it('returns null (not throws) for an unparseable mdoc', () => {
+		const garbage = cbor.encode({ somethingElse: 'value' });
 		expect(shapeCredential(mockMdocCredential(garbage))).toBeNull();
 	});
 });
@@ -128,7 +138,7 @@ describe('shapeCredential — W3C VCDM 2.0', () => {
 
 	it('leaves a genuine SD-JWT VC on its vct-based shaping', () => {
 		const shaped = shapeCredential(
-			entity('dc+sd-jwt', { vct: 'urn:eduid', iss: 'https://epi.example' })
+			entity('dc+sd-jwt', { vct: 'urn:eduid', iss: 'https://epi.example' }),
 		) as Record<string, unknown>;
 
 		expect(shaped.vct).toBe('urn:eduid');
@@ -139,17 +149,19 @@ describe('shapeCredential — W3C VCDM 2.0', () => {
 describe('matchCredentials — W3C VCDM 2.0', () => {
 	// What a verifier asking for this credential sends.
 	const query = {
-		credentials: [{
-			id: 'enrollment',
-			format: 'vc+sd-jwt',
-			meta: { type_values: [['AcademicEnrollmentCredential']] },
-		}],
+		credentials: [
+			{
+				id: 'enrollment',
+				format: 'vc+sd-jwt',
+				meta: { type_values: [['AcademicEnrollmentCredential']] },
+			},
+		],
 	} as never;
 
 	it('matches a VCDM 2.0 credential stored under the shared wire format', () => {
 		const { matches, no_match_reason } = matchCredentials(
 			[entity('vc+sd-jwt', vcdm2Claims)],
-			query
+			query,
 		);
 
 		expect(no_match_reason).toBeUndefined();

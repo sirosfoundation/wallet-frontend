@@ -1,14 +1,19 @@
-import { SDJwt } from "@sd-jwt/core";
-import type { HasherAndAlg } from "@sd-jwt/types";
-import { CredentialParsingError } from "../error";
-import { Context, CredentialParser, HttpClient } from "../interfaces";
-import { MetadataWarning, TypeMetadataResult, VerifiableCredentialFormat } from "../types";
-import { CustomCredentialSvg } from "../functions/CustomCredentialSvg";
-import { getIssuerMetadata } from "../utils/getIssuerMetadata";
-import { convertOpenid4vciToSdjwtvcClaims } from "../functions/convertOpenid4vciToSdjwtvcClaims";
-import { dataUriResolver } from "../resolvers/dataUriResolver";
-import { friendlyNameResolver } from "../resolvers/friendlyNameResolver";
-import { renderingResolver } from "../resolvers/renderingResolver";
+import { SDJwt } from '@sd-jwt/core';
+import type { HasherAndAlg } from '@sd-jwt/types';
+import type { IAuthZENClient } from '../authzen/AuthZENClient';
+import { CredentialParsingError } from '../error';
+import { CustomCredentialSvg } from '../functions/CustomCredentialSvg';
+import { convertOpenid4vciToSdjwtvcClaims } from '../functions/convertOpenid4vciToSdjwtvcClaims';
+import type { Context, CredentialParser, HttpClient } from '../interfaces';
+import { dataUriResolver } from '../resolvers/dataUriResolver';
+import { friendlyNameResolver } from '../resolvers/friendlyNameResolver';
+import { renderingResolver } from '../resolvers/renderingResolver';
+import {
+	type MetadataWarning,
+	type TypeMetadataResult,
+	VerifiableCredentialFormat,
+} from '../types';
+import { getIssuerMetadata } from '../utils/getIssuerMetadata';
 import {
 	decodeVcdm2SdJwt,
 	extractVcdm2ValidityInfo,
@@ -17,8 +22,7 @@ import {
 	toTypeArray,
 	validatedIssuerDisplayName,
 	validatedIssuerIdentifier,
-} from "../utils/vcdm2";
-import type { IAuthZENClient } from "../authzen/AuthZENClient";
+} from '../utils/vcdm2';
 
 /**
  * Parser for a W3C VCDM 2.0 credential carried inside an SD-JWT, which is how
@@ -37,21 +41,27 @@ import type { IAuthZENClient } from "../authzen/AuthZENClient";
  * the credential is a JWT with a trailing `~`. Disclosures are still expanded
  * where present, so a partially disclosed credential parses correctly.
  */
-export function VCDM2SdJwtParser(args: { context: Context, httpClient: HttpClient, authzenClient?: IAuthZENClient }): CredentialParser {
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
+export function VCDM2SdJwtParser(args: {
+	context: Context;
+	httpClient: HttpClient;
+	authzenClient?: IAuthZENClient;
+}): CredentialParser {
 	const encoder = new TextEncoder();
 
 	const hasherAndAlgorithm: HasherAndAlg = {
 		hasher: (data: string | ArrayBuffer, alg: string) => {
 			/* v8 ignore next -- @sd-jwt/core only ever hands this disclosure strings */
-			const encoded = typeof data === "string" ? encoder.encode(data) : new Uint8Array(data);
+			const encoded = typeof data === 'string' ? encoder.encode(data) : new Uint8Array(data);
 			return args.context.subtle.digest(alg, encoded).then((v) => new Uint8Array(v));
 		},
-		alg: "sha-256",
+		alg: 'sha-256',
 	};
 
 	return {
+		// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+		// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 		async parse({ rawCredential, credentialIssuer }) {
-
 			const decoded = decodeVcdm2SdJwt(rawCredential);
 			if (!decoded) {
 				return {
@@ -65,7 +75,7 @@ export function VCDM2SdJwtParser(args: { context: Context, httpClient: HttpClien
 			let claims: Record<string, unknown>;
 			try {
 				const parsed = await SDJwt.fromEncode(rawCredential as string, hasherAndAlgorithm.hasher);
-				claims = await parsed.getClaims(hasherAndAlgorithm.hasher) as Record<string, unknown>;
+				claims = (await parsed.getClaims(hasherAndAlgorithm.hasher)) as Record<string, unknown>;
 			} catch {
 				return {
 					success: false,
@@ -88,28 +98,35 @@ export function VCDM2SdJwtParser(args: { context: Context, httpClient: HttpClien
 			// alongside; where present they win, as they do for the enveloped
 			// form, since a JWT verifier enforces those.
 			const jwtClaims = {
-				exp: typeof claims.exp === "number" ? claims.exp : undefined,
-				iat: typeof claims.iat === "number" ? claims.iat : undefined,
-				nbf: typeof claims.nbf === "number" ? claims.nbf : undefined,
+				exp: typeof claims.exp === 'number' ? claims.exp : undefined,
+				iat: typeof claims.iat === 'number' ? claims.iat : undefined,
+				nbf: typeof claims.nbf === 'number' ? claims.nbf : undefined,
 			};
 
 			// `iss` is the JWT's own issuer claim; fall back to the
 			// credential's `issuer` member when the issuer omits it.
-			const issuerId = typeof claims.iss === "string"
-				? claims.iss
-				: validatedIssuerIdentifier(credential.issuer);
+			const issuerId =
+				typeof claims.iss === 'string' ? claims.iss : validatedIssuerIdentifier(credential.issuer);
 
 			const { metadata: issuerMetadata } = await getIssuerMetadata(
-				args.httpClient, issuerId, warnings, true, args.authzenClient,
+				args.httpClient,
+				issuerId,
+				warnings,
+				true,
+				args.authzenClient,
 			);
 
 			const credentialIssuerMetadata = credentialIssuer?.credentialConfigurationId
-				? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]
+				? issuerMetadata?.credential_configurations_supported?.[
+						credentialIssuer.credentialConfigurationId
+					]
 				: undefined;
 
 			let TypeMetadata: TypeMetadataResult = {};
 			if (credentialIssuerMetadata?.credential_metadata?.claims) {
-				const convertedClaims = convertOpenid4vciToSdjwtvcClaims(credentialIssuerMetadata.credential_metadata.claims);
+				const convertedClaims = convertOpenid4vciToSdjwtvcClaims(
+					credentialIssuerMetadata.credential_metadata.claims,
+				);
 				if (convertedClaims?.length) {
 					TypeMetadata = { claims: convertedClaims };
 				}
@@ -118,7 +135,7 @@ export function VCDM2SdJwtParser(args: { context: Context, httpClient: HttpClien
 			const issuerDisplayArray = credentialIssuerMetadata?.credential_metadata?.display;
 			const renderer = CustomCredentialSvg({ httpClient: args.httpClient });
 
-			const fallbackName = primaryCredentialType(credential.type) ?? "Verifiable Credential";
+			const fallbackName = primaryCredentialType(credential.type) ?? 'Verifiable Credential';
 
 			const friendlyName = friendlyNameResolver({ issuerDisplayArray, fallbackName });
 

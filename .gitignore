@@ -11,6 +11,7 @@
 # Allowlist: these files and directories should be included
 !/.changeset/
 !/.github/
+!/.githooks/
 !/.tx/
 !/.vscode/
 !/branding/
@@ -32,7 +33,7 @@
 !/.gitattributes
 !/.gitignore
 !/.htaccess
-!/.pre-commit-config.yaml
+!/biome.json
 !/CHANGELOG.md
 !/Dockerfile
 !/Dockerfile.e2e

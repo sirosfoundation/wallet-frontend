@@ -1,11 +1,12 @@
-import { describe, expect, it } from 'vitest';
 import { base64url, calculateJwkThumbprint, type JWK } from 'jose';
+import { describe, expect, it } from 'vitest';
 import { prepareVcdm2Presentation } from './vcdm2';
 
 function b64url(value: object): string {
 	return base64url.encode(JSON.stringify(value));
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 function decode(part: string): Record<string, any> {
 	return JSON.parse(new TextDecoder().decode(base64url.decode(part)));
 }
@@ -28,11 +29,7 @@ describe('prepareVcdm2Presentation', () => {
 	it('returns the holder thumbprint as the kid', async () => {
 		const credential = envelopedVc({ cnf: { jwk: holderJwk } });
 
-		const { kid } = await prepareVcdm2Presentation(
-			[credential],
-			'nonce',
-			'aud',
-		);
+		const { kid } = await prepareVcdm2Presentation([credential], 'nonce', 'aud');
 
 		expect(kid).toBe(await calculateJwkThumbprint(holderJwk as JWK, 'sha256'));
 	});
@@ -40,11 +37,7 @@ describe('prepareVcdm2Presentation', () => {
 	it('produces a signing input with a vp+jwt / ES256 header carrying the public holder key', async () => {
 		const credential = envelopedVc({ cnf: { jwk: holderJwk } });
 
-		const { signingInput } = await prepareVcdm2Presentation(
-			[credential],
-			'nonce',
-			'aud',
-		);
+		const { signingInput } = await prepareVcdm2Presentation([credential], 'nonce', 'aud');
 		const [header] = signingInput.split('.');
 
 		expect(decode(header)).toEqual({
@@ -57,11 +50,7 @@ describe('prepareVcdm2Presentation', () => {
 	it('embeds the nonce, audience and an issued-at timestamp in the payload', async () => {
 		const credential = envelopedVc({ cnf: { jwk: holderJwk } });
 
-		const { signingInput } = await prepareVcdm2Presentation(
-			[credential],
-			'the-nonce',
-			'the-aud',
-		);
+		const { signingInput } = await prepareVcdm2Presentation([credential], 'the-nonce', 'the-aud');
 		const payload = decode(signingInput.split('.')[1]);
 
 		expect(payload.nonce).toBe('the-nonce');
@@ -75,11 +64,7 @@ describe('prepareVcdm2Presentation', () => {
 			cnf: { jwk: { ...holderJwk, d: 'secret' } },
 		});
 
-		const { signingInput } = await prepareVcdm2Presentation(
-			[credential],
-			'nonce',
-			'aud',
-		);
+		const { signingInput } = await prepareVcdm2Presentation([credential], 'nonce', 'aud');
 		const header = decode(signingInput.split('.')[0]);
 
 		expect(header.jwk.d).toBeUndefined();
@@ -92,12 +77,7 @@ describe('prepareVcdm2Presentation', () => {
 			transaction_data_hashes_alg: ['sha-256'],
 		};
 
-		const { signingInput } = await prepareVcdm2Presentation(
-			[credential],
-			'nonce',
-			'aud',
-			txParams,
-		);
+		const { signingInput } = await prepareVcdm2Presentation([credential], 'nonce', 'aud', txParams);
 		const payload = decode(signingInput.split('.')[1]);
 
 		expect(payload.transaction_data_hashes).toEqual(['hash']);
@@ -105,17 +85,19 @@ describe('prepareVcdm2Presentation', () => {
 	});
 
 	it('throws when the holder key cannot be resolved', async () => {
-		await expect(
-			prepareVcdm2Presentation([envelopedVc()], 'nonce', 'aud'),
-		).rejects.toThrow(/Holder public key could not be resolved/);
+		await expect(prepareVcdm2Presentation([envelopedVc()], 'nonce', 'aud')).rejects.toThrow(
+			// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
+			/Holder public key could not be resolved/,
+		);
 	});
 
 	it('throws when credentials are bound to different holder keys', async () => {
 		const first = envelopedVc({ cnf: { jwk: holderJwk } });
 		const second = envelopedVc({ cnf: { jwk: { ...holderJwk, x: 'xyz' } } });
 
-		await expect(
-			prepareVcdm2Presentation([first, second], 'nonce', 'aud'),
-		).rejects.toThrow(/same holder key/);
+		await expect(prepareVcdm2Presentation([first, second], 'nonce', 'aud')).rejects.toThrow(
+			// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
+			/same holder key/,
+		);
 	});
 });

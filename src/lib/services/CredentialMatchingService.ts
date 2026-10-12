@@ -10,15 +10,15 @@
  * - Server only learns about credentials that match the request
  */
 
-import { ExtendedVcEntity } from '@/context/CredentialsContext';
-import { DcqlQuery, DcqlCredential, DcqlQueryResult } from 'dcql';
-import { logger } from '@/logger';
+import { type DcqlCredential, DcqlQuery, type DcqlQueryResult } from 'dcql';
 import { isVcdm2Credential, toTypeArray } from 'wallet-common';
+import type { ExtendedVcEntity } from '@/context/CredentialsContext';
 import {
 	decodeStoredMdoc,
 	mdocNameSpacesToClaims,
 	resolveMdocIssuerSigned,
 } from '@/lib/verifiable-credentials';
+import { logger } from '@/logger';
 
 export interface CredentialMatch {
 	input_descriptor_id: string;
@@ -37,9 +37,11 @@ export interface CredentialsMatchedResult {
 /**
  * Match local credentials against a DCQL query using the dcql library.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 export function matchCredentials(
 	credentials: ExtendedVcEntity[],
-	dcqlQuery: DcqlQuery.Input
+	dcqlQuery: DcqlQuery.Input,
 ): CredentialsMatchedResult {
 	// 1. Shape all credentials
 	const shaped: (DcqlCredential & { _batchId?: number })[] = [];
@@ -59,16 +61,19 @@ export function matchCredentials(
 	// rejected or why. These make a failed match self-explanatory in the
 	// console without having to reproduce it against a local build.
 	logger.debug('DCQL query requested:', JSON.stringify(dcqlQuery));
-	logger.debug('DCQL shaped credentials:', shaped.map((c) => {
-		const r = c as Record<string, unknown>;
-		return {
-			credential_format: r.credential_format,
-			vct: r.vct,
-			type: r.type,
-			doctype: r.doctype,
-			batchId: r._batchId,
-		};
-	}));
+	logger.debug(
+		'DCQL shaped credentials:',
+		shaped.map((c) => {
+			const r = c as Record<string, unknown>;
+			return {
+				credential_format: r.credential_format,
+				vct: r.vct,
+				type: r.type,
+				doctype: r.doctype,
+				batchId: r._batchId,
+			};
+		}),
+	);
 
 	if (shaped.length === 0) {
 		logger.error('DCQL: no credentials could be shaped', {
@@ -87,7 +92,10 @@ export function matchCredentials(
 		result = DcqlQuery.query(parsedQuery, shaped);
 	} catch (e) {
 		logger.error('DCQL query failed:', e);
-		return { matches: [], no_match_reason: `DCQL query error: ${e instanceof Error ? e.message : String(e)}` };
+		return {
+			matches: [],
+			no_match_reason: `DCQL query error: ${e instanceof Error ? e.message : String(e)}`,
+		};
 	}
 
 	// 3. Map results back to CredentialMatch format
@@ -95,13 +103,14 @@ export function matchCredentials(
 
 	for (const credReq of dcqlQuery.credentials) {
 		const match = result.credential_matches[credReq.id];
-		if (!match?.success || !match.valid_credentials) {
+		if (!(match?.success && match.valid_credentials)) {
 			// Why a query id matched nothing is the single most useful thing
 			// to know here, and dcql reports it per rejected credential.
 			logger.error('DCQL: no credential satisfied query', {
 				queryId: credReq.id,
 				requestedFormat: (credReq as Record<string, unknown>).format,
 				requestedMeta: (credReq as Record<string, unknown>).meta,
+				// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 				issues: (match as Record<string, any> | undefined)?.failed_credentials?.map((f: any) => ({
 					meta: f?.meta?.issues,
 					claims: f?.claims?.issues,
@@ -127,8 +136,16 @@ export function matchCredentials(
 
 	if (!result.can_be_satisfied) {
 		return matches.length > 0
-			? { matches: [], code: 'INSUFFICIENT_CREDENTIALS', no_match_reason: 'Not all required credentials are available' }
-			: { matches: [], code: 'NO_MATCHING_CREDENTIALS', no_match_reason: 'No credentials match DCQL query' };
+			? {
+					matches: [],
+					code: 'INSUFFICIENT_CREDENTIALS',
+					no_match_reason: 'Not all required credentials are available',
+				}
+			: {
+					matches: [],
+					code: 'NO_MATCHING_CREDENTIALS',
+					no_match_reason: 'No credentials match DCQL query',
+				};
 	}
 
 	return { matches };
@@ -141,7 +158,9 @@ export function matchCredentials(
  * Exported for direct unit testing of the mso_mdoc envelope-shape handling,
  * without needing to build a full DcqlQuery to exercise it via matchCredentials.
  */
-export function shapeCredential(credential: ExtendedVcEntity): (DcqlCredential & { _batchId?: number }) | null {
+export function shapeCredential(
+	credential: ExtendedVcEntity,
+): (DcqlCredential & { _batchId?: number }) | null {
 	const format = credential.format || 'vc+sd-jwt';
 
 	if (format === 'mso_mdoc') {
@@ -161,7 +180,6 @@ export function shapeCredential(credential: ExtendedVcEntity): (DcqlCredential &
 			return null;
 		}
 	}
-
 
 	// SD-JWT (vc+sd-jwt or dc+sd-jwt)
 	const signedClaims = credential.parsedCredential?.signedClaims;
@@ -210,11 +228,7 @@ export function extractAvailableClaims(credential: ExtendedVcEntity): string[] {
 /**
  * Recursively extract claim paths from a claims object, ignoring certain reserved keys.
  */
-function extractClaimPaths(
-	obj: Record<string, unknown>,
-	prefix: string,
-	paths: string[]
-): void {
+function extractClaimPaths(obj: Record<string, unknown>, prefix: string, paths: string[]): void {
 	for (const [key, value] of Object.entries(obj)) {
 		const path = prefix ? `${prefix}.${key}` : key;
 		if (key.startsWith('_') || key === 'iss' || key === 'iat' || key === 'exp') {

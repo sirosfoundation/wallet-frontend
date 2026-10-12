@@ -3,7 +3,9 @@
  */
 export function throttle(action: () => void, timeoutMillis: number): () => void {
 	let ready = true;
-	const setReady = () => { ready = true; };
+	const setReady = () => {
+		ready = true;
+	};
 	return () => {
 		if (ready) {
 			ready = false;
@@ -11,4 +13,4 @@ export function throttle(action: () => void, timeoutMillis: number): () => void 
 			setTimeout(setReady, timeoutMillis);
 		}
 	};
-};
+}

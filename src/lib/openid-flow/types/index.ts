@@ -5,8 +5,8 @@
  */
 
 export * from './IOIDFlowTransport';
-export * from './TrustTypes';
 export * from './OID4VCITypes';
 export * from './OID4VPTypes';
 export * from './OIDFlowTypes';
 export * from './ProtocolSteps';
+export * from './TrustTypes';

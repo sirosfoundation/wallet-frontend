@@ -1,6 +1,6 @@
-import { HttpClientError } from '../resources';
-import { HttpTransport } from '../types';
 import axios from 'axios';
+import { HttpClientError } from '../resources';
+import type { HttpTransport } from '../types';
 
 /**
  * Axios-based HTTP transport for the HttpClient.
@@ -28,6 +28,7 @@ export const axiosHttpTransport: HttpTransport = async ({
 			headers: response.headers as Record<string, unknown>,
 			body: new Uint8Array(response.data as ArrayBuffer),
 		};
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 	} catch (err: any) {
 		throw new HttpClientError(
 			method,

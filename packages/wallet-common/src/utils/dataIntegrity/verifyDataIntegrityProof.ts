@@ -1,9 +1,9 @@
-import type { JWK } from "jose";
-import type { HttpClient } from "../../interfaces";
-import type { DataIntegrityProof, Vcdm2Credential } from "../../schemas/Vcdm2CredentialSchema";
-import { canonicalizeJcs } from "./jcs";
-import { multibaseDecode } from "./multibase";
-import { createDocumentLoader } from "./documentLoader";
+import type { JWK } from 'jose';
+import type { HttpClient } from '../../interfaces';
+import type { DataIntegrityProof, Vcdm2Credential } from '../../schemas/Vcdm2CredentialSchema';
+import { createDocumentLoader } from './documentLoader';
+import { canonicalizeJcs } from './jcs';
+import { multibaseDecode } from './multibase';
 
 /**
  * Verification of a W3C Data Integrity proof (VC-DI), covering the
@@ -25,18 +25,18 @@ function errorMessage(err: unknown): string {
 }
 
 export type DataIntegrityFailure =
-	| { kind: "unsupported-cryptosuite"; cryptosuite: string }
-	| { kind: "canonicalization-failed"; message: string }
-	| { kind: "context-unresolvable"; message: string }
-	| { kind: "invalid-proof"; message: string }
-	| { kind: "invalid-signature" };
+	| { kind: 'unsupported-cryptosuite'; cryptosuite: string }
+	| { kind: 'canonicalization-failed'; message: string }
+	| { kind: 'context-unresolvable'; message: string }
+	| { kind: 'invalid-proof'; message: string }
+	| { kind: 'invalid-signature' };
 
 export type DataIntegrityResult =
 	| { success: true }
 	| { success: false; failure: DataIntegrityFailure };
 
-type Canonicalization = "rdfc" | "jcs";
-type KeyFamily = "ecdsa" | "eddsa";
+type Canonicalization = 'rdfc' | 'jcs';
+type KeyFamily = 'ecdsa' | 'eddsa';
 
 type Suite = {
 	canonicalization: Canonicalization;
@@ -44,10 +44,10 @@ type Suite = {
 };
 
 const SUITES: Record<string, Suite> = {
-	"ecdsa-rdfc-2019": { canonicalization: "rdfc", keyFamily: "ecdsa" },
-	"ecdsa-jcs-2019": { canonicalization: "jcs", keyFamily: "ecdsa" },
-	"eddsa-rdfc-2022": { canonicalization: "rdfc", keyFamily: "eddsa" },
-	"eddsa-jcs-2022": { canonicalization: "jcs", keyFamily: "eddsa" },
+	'ecdsa-rdfc-2019': { canonicalization: 'rdfc', keyFamily: 'ecdsa' },
+	'ecdsa-jcs-2019': { canonicalization: 'jcs', keyFamily: 'ecdsa' },
+	'eddsa-rdfc-2022': { canonicalization: 'rdfc', keyFamily: 'eddsa' },
+	'eddsa-jcs-2022': { canonicalization: 'jcs', keyFamily: 'eddsa' },
 };
 
 /**
@@ -55,7 +55,7 @@ const SUITES: Record<string, Suite> = {
  * separate `cryptosuite` member.
  */
 const LEGACY_PROOF_TYPES: Record<string, string> = {
-	Ed25519Signature2020: "eddsa-rdfc-2022",
+	Ed25519Signature2020: 'eddsa-rdfc-2022',
 };
 
 /**
@@ -66,11 +66,11 @@ const LEGACY_PROOF_TYPES: Record<string, string> = {
  * want to fail early have to ask separately.
  */
 export function isSupportedCryptosuite(name: string | undefined): boolean {
-	return typeof name === "string" && Object.prototype.hasOwnProperty.call(SUITES, name);
+	return typeof name === 'string' && Object.hasOwn(SUITES, name);
 }
 
 export function resolveCryptosuite(proof: DataIntegrityProof): string | undefined {
-	if (typeof proof.cryptosuite === "string" && proof.cryptosuite.length > 0) {
+	if (typeof proof.cryptosuite === 'string' && proof.cryptosuite.length > 0) {
 		return proof.cryptosuite;
 	}
 	return LEGACY_PROOF_TYPES[proof.type];
@@ -82,9 +82,9 @@ export function resolveCryptosuite(proof: DataIntegrityProof): string | undefine
  * The ECDSA suites tie the digest to the curve (P-256/SHA-256,
  * P-384/SHA-384); the EdDSA suites always use SHA-256.
  */
-function digestAlgorithmFor(suite: Suite, publicKey: JWK): "SHA-256" | "SHA-384" {
-	if (suite.keyFamily === "ecdsa" && publicKey.crv === "P-384") return "SHA-384";
-	return "SHA-256";
+function digestAlgorithmFor(suite: Suite, publicKey: JWK): 'SHA-256' | 'SHA-384' {
+	if (suite.keyFamily === 'ecdsa' && publicKey.crv === 'P-384') return 'SHA-384';
+	return 'SHA-256';
 }
 
 async function canonicalize(
@@ -92,16 +92,17 @@ async function canonicalize(
 	suite: Suite,
 	httpClient: HttpClient,
 ): Promise<string> {
-	if (suite.canonicalization === "jcs") {
+	if (suite.canonicalization === 'jcs') {
 		return canonicalizeJcs(document);
 	}
 
 	// Loaded lazily: jsonld is a heavy dependency and only the *-rdfc-*
 	// suites need it, so it stays out of the bundle's critical path.
-	const jsonld = (await import("jsonld")).default as any;
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+	const jsonld = (await import('jsonld')).default as any;
 
 	const options = {
-		format: "application/n-quads",
+		format: 'application/n-quads',
 		safe: true,
 		documentLoader: createDocumentLoader({ httpClient }),
 	};
@@ -109,10 +110,14 @@ async function canonicalize(
 	// "RDFC-1.0" is the current name for the algorithm jsonld 9 accepts;
 	// "URDNA2015" is the historical spelling jsonld 8 required. The
 	// dependency is pinned to ^9, so only the current name is used.
-	return jsonld.canonize(document, { ...options, algorithm: "RDFC-1.0" });
+	return jsonld.canonize(document, { ...options, algorithm: 'RDFC-1.0' });
 }
 
-async function sha(subtle: SubtleCrypto, algorithm: "SHA-256" | "SHA-384", data: Uint8Array): Promise<Uint8Array> {
+async function sha(
+	subtle: SubtleCrypto,
+	algorithm: 'SHA-256' | 'SHA-384',
+	data: Uint8Array,
+): Promise<Uint8Array> {
 	// Copy into a fresh buffer so a subarray view can't hand SubtleCrypto more
 	// bytes than intended.
 	const digest = await subtle.digest(algorithm, new Uint8Array(data).buffer as ArrayBuffer);
@@ -123,27 +128,29 @@ async function verifySignature(args: {
 	subtle: SubtleCrypto;
 	suite: Suite;
 	publicKey: JWK;
-	digestAlgorithm: "SHA-256" | "SHA-384";
+	digestAlgorithm: 'SHA-256' | 'SHA-384';
 	signature: Uint8Array;
 	data: Uint8Array;
 }): Promise<boolean> {
 	const { subtle, suite, publicKey, digestAlgorithm, signature, data } = args;
 
-	const importParams: EcKeyImportParams | Algorithm = suite.keyFamily === "ecdsa"
-		? { name: "ECDSA", namedCurve: (publicKey.crv as string) ?? "P-256" }
-		: { name: "Ed25519" };
+	const importParams: EcKeyImportParams | Algorithm =
+		suite.keyFamily === 'ecdsa'
+			? { name: 'ECDSA', namedCurve: (publicKey.crv as string) ?? 'P-256' }
+			: { name: 'Ed25519' };
 
 	const key = await subtle.importKey(
-		"jwk",
+		'jwk',
 		publicKey as JsonWebKey,
 		importParams as AlgorithmIdentifier,
 		false,
-		["verify"],
+		['verify'],
 	);
 
-	const verifyParams: EcdsaParams | Algorithm = suite.keyFamily === "ecdsa"
-		? { name: "ECDSA", hash: { name: digestAlgorithm } }
-		: { name: "Ed25519" };
+	const verifyParams: EcdsaParams | Algorithm =
+		suite.keyFamily === 'ecdsa'
+			? { name: 'ECDSA', hash: { name: digestAlgorithm } }
+			: { name: 'Ed25519' };
 
 	return subtle.verify(
 		verifyParams as AlgorithmIdentifier,
@@ -153,6 +160,7 @@ async function verifySignature(args: {
 	);
 }
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 export async function verifyDataIntegrityProof(args: {
 	credential: Vcdm2Credential;
 	proof: DataIntegrityProof;
@@ -164,15 +172,18 @@ export async function verifyDataIntegrityProof(args: {
 
 	const cryptosuiteName = resolveCryptosuite(proof);
 	const suite = cryptosuiteName ? SUITES[cryptosuiteName] : undefined;
-	if (!cryptosuiteName || !suite) {
+	if (!(cryptosuiteName && suite)) {
 		return {
 			success: false,
-			failure: { kind: "unsupported-cryptosuite", cryptosuite: cryptosuiteName ?? proof.type },
+			failure: { kind: 'unsupported-cryptosuite', cryptosuite: cryptosuiteName ?? proof.type },
 		};
 	}
 
-	if (typeof proof.proofValue !== "string") {
-		return { success: false, failure: { kind: "invalid-proof", message: "proof is missing proofValue" } };
+	if (typeof proof.proofValue !== 'string') {
+		return {
+			success: false,
+			failure: { kind: 'invalid-proof', message: 'proof is missing proofValue' },
+		};
 	}
 
 	let signature: Uint8Array;
@@ -180,7 +191,7 @@ export async function verifyDataIntegrityProof(args: {
 		signature = multibaseDecode(proof.proofValue);
 	} catch (err) {
 		const message = errorMessage(err);
-		return { success: false, failure: { kind: "invalid-proof", message } };
+		return { success: false, failure: { kind: 'invalid-proof', message } };
 	}
 
 	// The proof configuration is the proof without its own proofValue, and
@@ -189,7 +200,7 @@ export async function verifyDataIntegrityProof(args: {
 	const { proofValue: _omitted, ...proofConfig } = proof as Record<string, unknown>;
 	const proofConfigDocument: Record<string, unknown> = {
 		...proofConfig,
-		"@context": (credential as Record<string, unknown>)["@context"],
+		'@context': (credential as Record<string, unknown>)['@context'],
 	};
 
 	// The document being signed is the credential without any proof member.
@@ -202,9 +213,10 @@ export async function verifyDataIntegrityProof(args: {
 		canonicalDocument = await canonicalize(unsecuredCredential, suite, httpClient);
 	} catch (err) {
 		const message = errorMessage(err);
+		// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 		const kind = /context|documentLoader|allowlist|HTTP/i.test(message)
-			? "context-unresolvable" as const
-			: "canonicalization-failed" as const;
+			? ('context-unresolvable' as const)
+			: ('canonicalization-failed' as const);
 		return { success: false, failure: { kind, message } };
 	}
 
@@ -221,14 +233,21 @@ export async function verifyDataIntegrityProof(args: {
 
 	let valid: boolean;
 	try {
-		valid = await verifySignature({ subtle, suite, publicKey, digestAlgorithm, signature, data: verifyData });
+		valid = await verifySignature({
+			subtle,
+			suite,
+			publicKey,
+			digestAlgorithm,
+			signature,
+			data: verifyData,
+		});
 	} catch (err) {
 		const message = errorMessage(err);
-		return { success: false, failure: { kind: "invalid-proof", message } };
+		return { success: false, failure: { kind: 'invalid-proof', message } };
 	}
 
 	if (!valid) {
-		return { success: false, failure: { kind: "invalid-signature" } };
+		return { success: false, failure: { kind: 'invalid-signature' } };
 	}
 
 	return { success: true };

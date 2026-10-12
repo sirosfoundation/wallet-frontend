@@ -1,37 +1,33 @@
+import type { HttpClient } from '@sirosfoundation/http-client';
 import {
-	CLOCK_TOLERANCE,
-	VCT_REGISTRY_URL,
-	DELEGATE_TRUST_TO_BACKEND,
-} from '../config';
-import {
-	ParsingEngine,
-	SDJWTVCParser,
-	PublicKeyResolverEngine,
-	SDJWTVCVerifier,
-	MsoMdocParser,
-	MsoMdocVerifier,
+	createVctDocumentResolutionEngine,
+	err,
+	type IAuthZENClient,
 	JWTVCJSONParser,
 	JWTVCJSONVerifier,
+	MsoMdocParser,
+	MsoMdocVerifier,
+	ok,
+	ParsingEngine,
+	PublicKeyResolverEngine,
+	SDJWTVCParser,
+	SDJWTVCVerifier,
 	VCDM2JoseParser,
 	VCDM2JoseVerifier,
 	VCDM2LdpParser,
 	VCDM2LdpVerifier,
 	VCDM2SdJwtParser,
 	VCDM2SdJwtVerifier,
-	VerifyingEngine,
-	IAuthZENClient,
-} from 'wallet-common';
-import { IOpenID4VCIHelper } from './interfaces/IOpenID4VCIHelper';
-import {
-	createVctDocumentResolutionEngine,
-	VctDocumentProvider,
+	type VctDocumentProvider,
 	VctResolutionErrors,
-	ok,
-	err,
+	VerifyingEngine,
 } from 'wallet-common';
 import { logger } from '@/logger';
-import { HttpClient } from '@sirosfoundation/http-client';
+import { CLOCK_TOLERANCE, DELEGATE_TRUST_TO_BACKEND, VCT_REGISTRY_URL } from '../config';
+import type { IOpenID4VCIHelper } from './interfaces/IOpenID4VCIHelper';
 
+// biome-ignore lint/complexity/useMaxParams: baseline: pre-existing debt. should be fixed
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 export async function initializeCredentialEngine(
 	httpClient: HttpClient,
 	helper: IOpenID4VCIHelper,
@@ -40,6 +36,7 @@ export async function initializeCredentialEngine(
 	shouldUseCache: boolean = true,
 	onIssuerMetadataResolved?: (issuerIdentifier: string) => void,
 	authzenClient?: IAuthZENClient,
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 ): Promise<any> {
 	const provider: VctDocumentProvider = {
 		getVctMetadataDocument: async (vct: string) => {
@@ -47,13 +44,9 @@ export async function initializeCredentialEngine(
 				if (!VCT_REGISTRY_URL) return err(VctResolutionErrors.NotFound);
 				const url = new URL(VCT_REGISTRY_URL);
 				url.searchParams.set('vct', vct);
-				const res = await httpClient.get(
-					url.toString(),
-					{},
-					{ useCache: true },
-				);
-				if (!res?.data || res.status !== 200)
-					return err(VctResolutionErrors.NotFound);
+				const res = await httpClient.get(url.toString(), {}, { useCache: true });
+				if (!res?.data || res.status !== 200) return err(VctResolutionErrors.NotFound);
+				// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 				return ok(res.data as any);
 			} catch (e) {
 				logger.error('Error in VCT SDJWT Metadata retrieval:', e);
@@ -74,13 +67,10 @@ export async function initializeCredentialEngine(
 	};
 
 	await helper
-		.fetchIssuerMetadataAndCertificates(
-			getIssuers,
-			shouldUseCache,
-			(issuerIdentifier) => {
-				onIssuerMetadataResolved?.(issuerIdentifier);
-			},
-		)
+		.fetchIssuerMetadataAndCertificates(getIssuers, shouldUseCache, (issuerIdentifier) => {
+			onIssuerMetadataResolved?.(issuerIdentifier);
+		})
+		// biome-ignore lint/suspicious/noShadow: baseline: pre-existing debt. should be fixed
 		.catch((err) => {
 			logger.error('Failed to fetch issuer metadata asynchronously:', err);
 		});
@@ -90,27 +80,15 @@ export async function initializeCredentialEngine(
 	// v5) is advertised as `vc+sd-jwt`, the same identifier legacy SD-JWT VC
 	// uses, but has no `vct`. SDJWTVCParser would claim it and reject it for
 	// exactly that missing `vct`.
-	credentialParsingEngine.register(
-		VCDM2SdJwtParser({ context: ctx, httpClient, authzenClient }),
-	);
-	credentialParsingEngine.register(
-		SDJWTVCParser({ context: ctx, httpClient, authzenClient }),
-	);
-	credentialParsingEngine.register(
-		MsoMdocParser({ context: ctx, httpClient, authzenClient }),
-	);
+	credentialParsingEngine.register(VCDM2SdJwtParser({ context: ctx, httpClient, authzenClient }));
+	credentialParsingEngine.register(SDJWTVCParser({ context: ctx, httpClient, authzenClient }));
+	credentialParsingEngine.register(MsoMdocParser({ context: ctx, httpClient, authzenClient }));
 	// VCDM 2.0 before JWT_VC_JSON: an enveloped VCDM 2.0 credential is a
 	// plain JWS whose payload has no `vc` wrapper, so JWTVCJSONParser would
 	// otherwise reject it outright rather than deferring.
-	credentialParsingEngine.register(
-		VCDM2JoseParser({ context: ctx, httpClient, authzenClient }),
-	);
-	credentialParsingEngine.register(
-		VCDM2LdpParser({ context: ctx, httpClient, authzenClient }),
-	);
-	credentialParsingEngine.register(
-		JWTVCJSONParser({ context: ctx, httpClient, authzenClient }),
-	);
+	credentialParsingEngine.register(VCDM2JoseParser({ context: ctx, httpClient, authzenClient }));
+	credentialParsingEngine.register(VCDM2LdpParser({ context: ctx, httpClient, authzenClient }));
+	credentialParsingEngine.register(JWTVCJSONParser({ context: ctx, httpClient, authzenClient }));
 
 	const pkResolverEngine = PublicKeyResolverEngine();
 	const credentialVerifyingEngine = VerifyingEngine();

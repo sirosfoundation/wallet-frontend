@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Mutex } from './mutex';
 
 /**
@@ -41,6 +41,7 @@ describe('Mutex', () => {
 		const order: number[] = [];
 
 		const tasks = [1, 2, 3].map((n) =>
+			// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 			mutex.runExclusive(async () => {
 				order.push(n);
 			}),
@@ -56,6 +57,7 @@ describe('Mutex', () => {
 		const error = new Error('boom');
 
 		await expect(
+			// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 			mutex.runExclusive(async () => {
 				throw error;
 			}),
@@ -76,17 +78,14 @@ describe('Mutex', () => {
 			events.push('first:end');
 		});
 
+		// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 		const second = mutex.runExclusive(async () => {
 			events.push('second:start');
 		});
 
 		await Promise.all([first, second]);
 
-		expect(events).toEqual([
-			'first:start',
-			'first:end',
-			'second:start',
-		]);
+		expect(events).toEqual(['first:start', 'first:end', 'second:start']);
 	});
 
 	it('supports concurrent, independent mutex instances', async () => {
@@ -94,10 +93,7 @@ describe('Mutex', () => {
 		const b = new Mutex();
 		const fn = vi.fn(async () => 'done');
 
-		const [ra, rb] = await Promise.all([
-			a.runExclusive(fn),
-			b.runExclusive(fn),
-		]);
+		const [ra, rb] = await Promise.all([a.runExclusive(fn), b.runExclusive(fn)]);
 
 		expect(ra).toBe('done');
 		expect(rb).toBe('done');

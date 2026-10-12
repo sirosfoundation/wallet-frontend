@@ -1,4 +1,4 @@
-import { exportJWK, importJWK, KeyLike, type JWK } from 'jose';
+import { exportJWK, importJWK, type JWK, type KeyLike } from 'jose';
 
 export interface SerializedClientAuthMaterial {
 	dpopKeyId: string;
@@ -10,7 +10,7 @@ export interface SerializedClientAuthMaterial {
 export type ClientAuthKeyPair = {
 	privateKey: KeyLike | Uint8Array;
 	publicKeyJwk: JWK;
-}
+};
 
 /**
  * Represents a client auth key used in Open ID flows.
@@ -23,9 +23,12 @@ export class OIDFlowClientAuthMaterial {
 	/**
 	 * Creates OIDFlowClientAuthMaterial instance from a serialized representation.
 	 */
-	public static async fromSerialized(
-		{ dpopKeyId, privateJwk, publicJwk, wia }:
-		SerializedClientAuthMaterial): Promise<OIDFlowClientAuthMaterial> {
+	public static async fromSerialized({
+		dpopKeyId,
+		privateJwk,
+		publicJwk,
+		wia,
+	}: SerializedClientAuthMaterial): Promise<OIDFlowClientAuthMaterial> {
 		const keyPair: ClientAuthKeyPair = {
 			privateKey: await importJWK(privateJwk, 'ES256'),
 			publicKeyJwk: publicJwk,

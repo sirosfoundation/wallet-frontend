@@ -1,9 +1,9 @@
 import 'reflect-metadata';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { SignJWT, generateKeyPair, exportJWK, importJWK } from 'jose';
 import { X509CertificateGenerator } from '@peculiar/x509';
-import { DCAPIRequest } from './DCAPIRequest';
+import { exportJWK, generateKeyPair, importJWK, SignJWT } from 'jose';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { logger } from '@/logger';
+import { DCAPIRequest } from './DCAPIRequest';
 
 // Mock logger to test warning paths
 vi.mock('@/logger', () => ({
@@ -206,6 +206,7 @@ describe('DCAPIRequest', () => {
 			url.searchParams.set('request', jwt);
 			url.searchParams.set('client_id', 'https://verifier.example.com');
 
+			// biome-ignore lint/complexity/noVoid: baseline: pre-existing debt. should be fixed
 			void new DCAPIRequest(url);
 
 			expect(logger.warn).toHaveBeenCalledWith(
@@ -350,6 +351,7 @@ describe('DCAPIRequest', () => {
 			});
 
 			const parts = jwt.split('.');
+			// biome-ignore lint/style/useTemplate: baseline: pre-existing debt. should be fixed
 			parts[2] = parts[2].slice(0, -5) + 'XXXXX';
 			const tamperedJwt = parts.join('.');
 
@@ -447,6 +449,7 @@ async function createSignedJwt(
 		if (options.includeKid) headerOptions.kid = 'test-key-id';
 	}
 
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 	const builder = new SignJWT(payload).setProtectedHeader(headerOptions as any);
 
 	return {
@@ -477,6 +480,7 @@ async function createX5cSignedJwt(payload: Record<string, unknown>) {
 	const certBase64 = cert.toString('base64');
 
 	const josePrivateKey = await crypto.subtle.exportKey('jwk', keys.privateKey);
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 	const signingKey = await importJWK(josePrivateKey as any, alg);
 
 	const jwt = await new SignJWT(payload)

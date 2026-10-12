@@ -1,10 +1,10 @@
 // i18n.js
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
+// biome-ignore lint/performance/noNamespaceImport: baseline: pre-existing debt. should be fixed
 import * as config from './config';
-
-import enTranslation from './locales/en.json';
 import elTranslation from './locales/el.json';
+import enTranslation from './locales/en.json';
 import fiTranslation from './locales/fi.json';
 import ptTranslation from './locales/pt.json';
 import svTranslation from './locales/sv.json';
@@ -20,6 +20,8 @@ const resources = {
 };
 
 if (config.I18N_WALLET_NAME_OVERRIDE) {
+	// biome-ignore lint/suspicious/noForIn: baseline: pre-existing debt. should be fixed
+	// biome-ignore lint/suspicious/useGuardForIn: baseline: pre-existing debt. should be fixed
 	for (const lang in resources) {
 		resources[lang].translation.common.walletName = config.I18N_WALLET_NAME_OVERRIDE;
 	}
@@ -29,7 +31,9 @@ if (config.I18N_WALLET_NAME_OVERRIDE) {
 const isMultiLanguageEnabled = config.MULTI_LANGUAGE_DISPLAY;
 
 // Only keep the fallback language if multi-language is disabled
-const availableResources = isMultiLanguageEnabled ? resources : { [fallbackLng]: resources[fallbackLng] };
+const availableResources = isMultiLanguageEnabled
+	? resources
+	: { [fallbackLng]: resources[fallbackLng] };
 
 // Helper function to get only the language part and check if it exists
 export const getLanguage = (locale) => {

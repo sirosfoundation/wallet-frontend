@@ -1,41 +1,56 @@
-import { concat } from "./ohttpHelpers";
+import { concat } from './ohttpHelpers';
 
 // --- RFC 9292 / QUIC-style varint encoder (1/2/4/8 bytes) ---
 export function encVarint(v: number | bigint): Uint8Array {
 	const n = typeof v === 'bigint' ? v : BigInt(v);
-	if (n < 0n) throw new Error("varint must be non-negative");
+	if (n < 0n) throw new Error('varint must be non-negative');
 	if (n <= 63n) {
 		// 00xxxxxx
+		// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 		return Uint8Array.of(Number(n & 0x3fn));
 	} else if (n <= 16383n) {
 		// 01xxxxxx (2 bytes)
 		const val = Number(n);
+		// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 		const b0 = 0x40 | ((val >>> 8) & 0x3f);
+		// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 		const b1 = val & 0xff;
 		return Uint8Array.of(b0, b1);
 	} else if (n <= 1073741823n) {
 		// 10xxxxxx (4 bytes)
 		const val = Number(n);
+		// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 		const b0 = 0x80 | ((val >>> 24) & 0x3f);
+		// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 		const b1 = (val >>> 16) & 0xff;
+		// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 		const b2 = (val >>> 8) & 0xff;
+		// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 		const b3 = val & 0xff;
 		return Uint8Array.of(b0, b1, b2, b3);
 	} else if (n <= 4611686018427387903n) {
 		// 11xxxxxx (8 bytes)
-		let x = n;
+		const x = n;
 		const out = new Uint8Array(8);
-		out[0] = 0xC0 | Number((x >> 56n) & 0x3fn);
+		// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
+		out[0] = 0xc0 | Number((x >> 56n) & 0x3fn);
+		// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 		out[1] = Number((x >> 48n) & 0xffn);
+		// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 		out[2] = Number((x >> 40n) & 0xffn);
+		// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 		out[3] = Number((x >> 32n) & 0xffn);
+		// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 		out[4] = Number((x >> 24n) & 0xffn);
+		// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 		out[5] = Number((x >> 16n) & 0xffn);
+		// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 		out[6] = Number((x >> 8n) & 0xffn);
+		// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 		out[7] = Number(x & 0xffn);
 		return out;
 	} else {
-		throw new Error("varint too large (max 2^62-1)");
+		throw new Error('varint too large (max 2^62-1)');
 	}
 }
 
@@ -45,11 +60,11 @@ export function u8(s: string | Uint8Array): Uint8Array {
 
 // A single Field Line: NameLen(i), Name, ValueLen(i), Value
 export function encFieldLine(name: string, value: string | Uint8Array): Uint8Array {
-	if (!name || /[A-Z]/.test(name))
-		throw new Error("field name must be lowercase and non-empty");
+	// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
+	if (!name || /[A-Z]/.test(name)) throw new Error('field name must be lowercase and non-empty');
 	const n = u8(name);
 	const v = u8(value);
-	if (n.length < 1) throw new Error("field name must be at least 1 byte");
+	if (n.length < 1) throw new Error('field name must be at least 1 byte');
 	return concat(encVarint(n.length), n, encVarint(v.length), v);
 }
 
@@ -75,18 +90,22 @@ export function encIndetFieldSection(headers: Array<[string, string | Uint8Array
 export function encRequestControlData(
 	method: string,
 	scheme: string,
-	authority: string,   // can be ""
-	path: string         // e.g. "/foo?bar=baz"
+	authority: string, // can be ""
+	path: string, // e.g. "/foo?bar=baz"
 ): Uint8Array {
 	const m = u8(method);
 	const s = u8(scheme);
 	const a = u8(authority); // may be length 0
 	const p = u8(path);
 	return concat(
-		encVarint(m.length), m,
-		encVarint(s.length), s,
-		encVarint(a.length), a,
-		encVarint(p.length), p
+		encVarint(m.length),
+		m,
+		encVarint(s.length),
+		s,
+		encVarint(a.length),
+		a,
+		encVarint(p.length),
+		p,
 	);
 }
 
@@ -100,7 +119,7 @@ export function encKnownContent(body: Uint8Array): Uint8Array {
 export function encIndetContent(chunks: Uint8Array[]): Uint8Array {
 	const parts: Uint8Array[] = [];
 	for (const c of chunks) {
-		if (!c || c.length === 0) continue;  // skip empty
+		if (!c || c.length === 0) continue; // skip empty
 		parts.push(encVarint(c.length), c);
 	}
 	parts.push(encVarint(0)); // terminator
@@ -112,11 +131,11 @@ export function encIndetContent(chunks: Uint8Array[]): Uint8Array {
 // Known-Length Content, Known-Length Trailer Section, (optional) Padding(zeros)
 export function encodeKnownLengthRequest(opts: {
 	method: string;
-	scheme: string;            // e.g. "https"
-	authority: string;         // host[:port], "" allowed
-	path: string;              // absolute-path + query
+	scheme: string; // e.g. "https"
+	authority: string; // host[:port], "" allowed
+	path: string; // absolute-path + query
 	headers?: Array<[string, string | Uint8Array]>;
-	body?: Uint8Array;         // undefined = omit section; Uint8Array(0) = explicit empty
+	body?: Uint8Array; // undefined = omit section; Uint8Array(0) = explicit empty
 	trailers?: Array<[string, string | Uint8Array]>;
 	padBytes?: number;
 }): Uint8Array {
@@ -155,7 +174,7 @@ export function encodeIndeterminateLengthRequest(opts: {
 	authority: string;
 	path: string;
 	headers?: Array<[string, string | Uint8Array]>;
-	bodyChunks?: Uint8Array[];   // zero or more chunks
+	bodyChunks?: Uint8Array[]; // zero or more chunks
 	trailers?: Array<[string, string | Uint8Array]>;
 	padBytes?: number;
 }): Uint8Array {
@@ -172,7 +191,9 @@ export function encodeIndeterminateLengthRequest(opts: {
 }
 
 // --- Convenience: build headers from a JS object (lowercases keys) ---
-export function headersFromObject(obj: Record<string, string>): Array<[string, string | Uint8Array]> {
+export function headersFromObject(
+	obj: Record<string, string>,
+): Array<[string, string | Uint8Array]> {
 	if (obj) {
 		return Object.entries(obj).map(([k, v]) => [k.toLowerCase(), v]);
 	} else {
@@ -182,62 +203,88 @@ export function headersFromObject(obj: Record<string, string>): Array<[string, s
 
 const td = new TextDecoder();
 
+// biome-ignore lint/suspicious/noShadow: baseline: pre-existing debt. should be fixed
 export function decVarint(u8: Uint8Array, off: number): [number, number] {
-	if (off >= u8.length) throw new Error("varint: truncated");
+	if (off >= u8.length) throw new Error('varint: truncated');
 	const b0 = u8[off];
+	// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 	const tag = b0 >>> 6; // 0,1,2,3 -> 1,2,4,8 bytes
 	const size = [1, 2, 4, 8][tag];
-	if (off + size > u8.length) throw new Error("varint: truncated");
+	if (off + size > u8.length) throw new Error('varint: truncated');
 
+	// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 	if (size === 1) return [b0 & 0x3f, off + 1];
 	if (size === 2) {
+		// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 		const v = ((b0 & 0x3f) << 8) | u8[off + 1];
+		// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 		return [v >>> 0, off + 2];
 	}
 	if (size === 4) {
+		// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 		const v = ((b0 & 0x3f) * 2 ** 24) | (u8[off + 1] << 16) | (u8[off + 2] << 8) | u8[off + 3];
+		// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 		return [v >>> 0, off + 4]; // max 2^30-1
 	}
 	// size === 8 -> use BigInt then downcast safely
-	let v = (BigInt(b0 & 0x3f) << 56n)
-				| (BigInt(u8[off + 1]) << 48n)
-				| (BigInt(u8[off + 2]) << 40n)
-				| (BigInt(u8[off + 3]) << 32n)
-				| (BigInt(u8[off + 4]) << 24n)
-				| (BigInt(u8[off + 5]) << 16n)
-				| (BigInt(u8[off + 6]) << 8n)
-				| BigInt(u8[off + 7]);
+	const v =
+		// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
+		(BigInt(b0 & 0x3f) << 56n) |
+		// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
+		(BigInt(u8[off + 1]) << 48n) |
+		// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
+		(BigInt(u8[off + 2]) << 40n) |
+		// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
+		(BigInt(u8[off + 3]) << 32n) |
+		// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
+		(BigInt(u8[off + 4]) << 24n) |
+		// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
+		(BigInt(u8[off + 5]) << 16n) |
+		// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
+		(BigInt(u8[off + 6]) << 8n) |
+		BigInt(u8[off + 7]);
 	const max = BigInt(Number.MAX_SAFE_INTEGER);
-	if (v > max) throw new Error("varint too large for JS number");
+	if (v > max) throw new Error('varint too large for JS number');
 	return [Number(v), off + 8];
 }
 
+// biome-ignore lint/suspicious/noShadow: baseline: pre-existing debt. should be fixed
 export function decLenBytes(u8: Uint8Array, off: number): [Uint8Array, number] {
 	const [len, off2] = decVarint(u8, off);
 	const end = off2 + len;
-	if (end > u8.length) throw new Error("len-bytes: truncated");
+	if (end > u8.length) throw new Error('len-bytes: truncated');
 	return [u8.subarray(off2, end), end];
 }
 
+// biome-ignore lint/suspicious/noShadow: baseline: pre-existing debt. should be fixed
 export function decAscii(u8: Uint8Array): string {
 	return td.decode(u8);
 }
 
 type Header = [string, string];
 
-export function decFieldLine(u8: Uint8Array, off: number): [{ name: string; value: Uint8Array }, number] {
+export function decFieldLine(
+	// biome-ignore lint/suspicious/noShadow: baseline: pre-existing debt. should be fixed
+	u8: Uint8Array,
+	off: number,
+): [{ name: string; value: Uint8Array }, number] {
 	const [nameBytes, o1] = decLenBytes(u8, off);
-	if (nameBytes.length < 1) throw new Error("field name must be at least 1 byte");
+	if (nameBytes.length < 1) throw new Error('field name must be at least 1 byte');
 	const name = decAscii(nameBytes);
-	if (/[A-Z]/.test(name)) throw new Error("field name must be lowercase");
+	// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
+	if (/[A-Z]/.test(name)) throw new Error('field name must be lowercase');
 	const [valBytes, o2] = decLenBytes(u8, o1);
 	return [{ name, value: valBytes }, o2];
 }
 
-export function decKnownFieldSection(u8: Uint8Array, off: number): { headers: Header[]; off: number } {
+export function decKnownFieldSection(
+	// biome-ignore lint/suspicious/noShadow: baseline: pre-existing debt. should be fixed
+	u8: Uint8Array,
+	off: number,
+): { headers: Header[]; off: number } {
 	const [sectionLen, o1] = decVarint(u8, off);
 	const end = o1 + sectionLen;
-	if (end > u8.length) throw new Error("field section truncated");
+	if (end > u8.length) throw new Error('field section truncated');
 
 	const headers: Header[] = [];
 	let p = o1;
@@ -246,10 +293,11 @@ export function decKnownFieldSection(u8: Uint8Array, off: number): { headers: He
 		headers.push([name, decAscii(value)]);
 		p = p2;
 	}
-	if (p !== end) throw new Error("field section length mismatch");
+	if (p !== end) throw new Error('field section length mismatch');
 	return { headers, off: end };
 }
 
+// biome-ignore lint/suspicious/noShadow: baseline: pre-existing debt. should be fixed
 export function decRequestControlData(u8: Uint8Array, off: number) {
 	const [mBytes, o1] = decLenBytes(u8, off);
 	const [sBytes, o2] = decLenBytes(u8, o1);
@@ -289,7 +337,7 @@ export function decodeKnownLengthRequest(buf: Uint8Array) {
 		// Known-Length Content
 		const [contentLen, oC1] = decVarint(buf, off);
 		const cEnd = oC1 + contentLen;
-		if (cEnd > buf.length) throw new Error("content truncated");
+		if (cEnd > buf.length) throw new Error('content truncated');
 		body = buf.subarray(oC1, cEnd);
 		off = cEnd;
 
@@ -302,8 +350,9 @@ export function decodeKnownLengthRequest(buf: Uint8Array) {
 	// Optional padding: trailing zero bytes only
 	let padBytes = 0;
 	while (off < buf.length) {
-		if (buf[off] !== 0x00) throw new Error("non-zero bytes after end of message");
-		padBytes++; off++;
+		if (buf[off] !== 0x00) throw new Error('non-zero bytes after end of message');
+		padBytes++;
+		off++;
 	}
 
 	return {
@@ -312,13 +361,14 @@ export function decodeKnownLengthRequest(buf: Uint8Array) {
 		authority: r.authority,
 		path: r.path,
 		headers,
-		body,        // Uint8Array
-		trailers,    // Header[]
-		padBytes,    // number of zero padding bytes seen
+		body, // Uint8Array
+		trailers, // Header[]
+		padBytes, // number of zero padding bytes seen
 	};
 }
 
 // Response Control Data: status code (varint)
+// biome-ignore lint/suspicious/noShadow: baseline: pre-existing debt. should be fixed
 export function decResponseControlData(u8: Uint8Array, off: number): [number, number] {
 	const [status, o1] = decVarint(u8, off);
 	if (status < 100 || status > 599) throw new Error(`invalid status ${status}`);
@@ -340,6 +390,8 @@ export function decodeKnownLengthResponse(buf: Uint8Array) {
 		off = o1;
 		if (status >= 200) {
 			// final status → break with `status` already read
+			// biome-ignore lint/correctness/noInnerDeclarations: baseline: pre-existing debt. should be fixed
+			// biome-ignore lint/suspicious/noVar: baseline: pre-existing debt. should be fixed
 			var finalStatus = status;
 			break;
 		}
@@ -360,7 +412,7 @@ export function decodeKnownLengthResponse(buf: Uint8Array) {
 	if (off < buf.length) {
 		const [contentLen, oC1] = decVarint(buf, off);
 		const cEnd = oC1 + contentLen;
-		if (cEnd > buf.length) throw new Error("content truncated");
+		if (cEnd > buf.length) throw new Error('content truncated');
 		body = buf.subarray(oC1, cEnd);
 		off = cEnd;
 
@@ -372,8 +424,9 @@ export function decodeKnownLengthResponse(buf: Uint8Array) {
 	// Optional zero padding
 	let padBytes = 0;
 	while (off < buf.length) {
-		if (buf[off] !== 0x00) throw new Error("non-zero bytes after end of message");
-		padBytes++; off++;
+		if (buf[off] !== 0x00) throw new Error('non-zero bytes after end of message');
+		padBytes++;
+		off++;
 	}
 
 	return { status: finalStatus, infos, headers: headersObj, body, trailers, padBytes };

@@ -1,201 +1,232 @@
-import { describe, expect, it } from "vitest";
-import { b64url as enc, unsignedSdJwt } from "../testFixtures/vcdm2TestSupport";
+import { describe, expect, it } from 'vitest';
+import { b64url as enc, unsignedSdJwt } from '../testFixtures/vcdm2TestSupport';
 
 const credentialBody = {
-	"@context": ["https://www.w3.org/ns/credentials/v2"],
-	type: ["VerifiableCredential", "StudentCardCredential"],
-	issuer: "https://mbob.issuer.dev.eduwallet.nl",
-	credentialSubject: { id: "did:example:subject", given_name: "Alice" },
+	'@context': ['https://www.w3.org/ns/credentials/v2'],
+	type: ['VerifiableCredential', 'StudentCardCredential'],
+	issuer: 'https://mbob.issuer.dev.eduwallet.nl',
+	credentialSubject: { id: 'did:example:subject', given_name: 'Alice' },
 };
+
 import {
+	buildVcdm2Presentation,
 	ENVELOPED_VC_JWT_MEDIA_TYPE,
+	// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
 	ENVELOPED_VC_SDJWT_MEDIA_TYPE,
 	envelopedMediaTypeFor,
-	buildVcdm2Presentation,
 	holderIdFromCredential,
 	holderJwkFromCredential,
 	wrapCredentialForPresentation,
-} from "./vcdm2Presentation";
+} from './vcdm2Presentation';
 
 function b64url(value: object): string {
 	const bytes = new TextEncoder().encode(JSON.stringify(value));
-	let binary = "";
+	let binary = '';
 	for (const b of bytes) binary += String.fromCharCode(b);
-	return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+	// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
+	return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/[=]+$/, '');
 }
 
-const holderJwk = { kty: "EC", crv: "P-256", x: "abc", y: "def" };
+const holderJwk = { kty: 'EC', crv: 'P-256', x: 'abc', y: 'def' };
 
 const ldpCredential = {
-	"@context": ["https://www.w3.org/ns/credentials/v2"],
-	type: ["VerifiableCredential"],
-	issuer: "did:example:issuer",
-	credentialSubject: { id: "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK", name: "Alice" },
+	'@context': ['https://www.w3.org/ns/credentials/v2'],
+	type: ['VerifiableCredential'],
+	issuer: 'did:example:issuer',
+	credentialSubject: {
+		// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+		id: 'did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK',
+		name: 'Alice',
+	},
 };
 
 function envelopedVc(payloadExtras: Record<string, unknown> = {}): string {
 	const payload = {
-		"@context": ["https://www.w3.org/ns/credentials/v2"],
-		type: ["VerifiableCredential"],
-		issuer: "did:example:issuer",
-		credentialSubject: { id: "did:example:holder" },
+		'@context': ['https://www.w3.org/ns/credentials/v2'],
+		type: ['VerifiableCredential'],
+		issuer: 'did:example:issuer',
+		credentialSubject: { id: 'did:example:holder' },
 		...payloadExtras,
 	};
-	return `${b64url({ alg: "ES256", typ: "vc+jwt" })}.${b64url(payload)}.sig`;
+	return `${b64url({ alg: 'ES256', typ: 'vc+jwt' })}.${b64url(payload)}.sig`;
 }
 
-describe("wrapCredentialForPresentation", () => {
-	it("wraps an enveloped credential as an EnvelopedVerifiableCredential data URI", () => {
+describe('wrapCredentialForPresentation', () => {
+	it('wraps an enveloped credential as an EnvelopedVerifiableCredential data URI', () => {
 		const raw = envelopedVc();
 		const wrapped = wrapCredentialForPresentation(raw) as Record<string, unknown>;
 
-		expect(wrapped.type).toBe("EnvelopedVerifiableCredential");
-		expect(wrapped["@context"]).toBe("https://www.w3.org/ns/credentials/v2");
+		expect(wrapped.type).toBe('EnvelopedVerifiableCredential');
+		expect(wrapped['@context']).toBe('https://www.w3.org/ns/credentials/v2');
 		expect(wrapped.id).toBe(`data:${ENVELOPED_VC_JWT_MEDIA_TYPE},${raw}`);
 	});
 
-	it("embeds a Data Integrity credential object directly", () => {
+	it('embeds a Data Integrity credential object directly', () => {
 		expect(wrapCredentialForPresentation(ldpCredential)).toEqual(ldpCredential);
 	});
 
-	it("accepts a Data Integrity credential given as JSON text", () => {
+	it('accepts a Data Integrity credential given as JSON text', () => {
 		expect(wrapCredentialForPresentation(JSON.stringify(ldpCredential))).toEqual(ldpCredential);
 	});
 
-	it("rejects anything that is not a VCDM 2.0 credential", () => {
-		expect(() => wrapCredentialForPresentation("not-a-credential")).toThrow(/not a VCDM 2.0 credential/);
-		expect(() => wrapCredentialForPresentation({ foo: "bar" })).toThrow(/not a VCDM 2.0 credential/);
+	it('rejects anything that is not a VCDM 2.0 credential', () => {
+		expect(() => wrapCredentialForPresentation('not-a-credential')).toThrow(
+			// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
+			/not a VCDM 2.0 credential/,
+		);
+		expect(() => wrapCredentialForPresentation({ foo: 'bar' })).toThrow(
+			// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
+			/not a VCDM 2.0 credential/,
+		);
+		// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 		expect(() => wrapCredentialForPresentation(null)).toThrow(/not a VCDM 2.0 credential/);
 	});
 });
 
-describe("buildVcdm2Presentation", () => {
-	it("builds a presentation around a single credential", () => {
+// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+describe('buildVcdm2Presentation', () => {
+	it('builds a presentation around a single credential', () => {
 		const presentation = buildVcdm2Presentation([ldpCredential]);
 
-		expect(presentation["@context"]).toEqual(["https://www.w3.org/ns/credentials/v2"]);
-		expect(presentation.type).toEqual(["VerifiablePresentation"]);
+		expect(presentation['@context']).toEqual(['https://www.w3.org/ns/credentials/v2']);
+		expect(presentation.type).toEqual(['VerifiablePresentation']);
 		expect(presentation.verifiableCredential).toEqual([ldpCredential]);
 		expect(presentation.holder).toBeUndefined();
 	});
 
-	it("includes the holder when one is supplied", () => {
-		const presentation = buildVcdm2Presentation([ldpCredential], { holder: "did:example:holder" });
-		expect(presentation.holder).toBe("did:example:holder");
+	it('includes the holder when one is supplied', () => {
+		const presentation = buildVcdm2Presentation([ldpCredential], { holder: 'did:example:holder' });
+		expect(presentation.holder).toBe('did:example:holder');
 	});
 
-	it("omits an empty holder rather than emitting a blank claim", () => {
-		const presentation = buildVcdm2Presentation([ldpCredential], { holder: "" });
+	it('omits an empty holder rather than emitting a blank claim', () => {
+		const presentation = buildVcdm2Presentation([ldpCredential], { holder: '' });
 		expect(presentation.holder).toBeUndefined();
 	});
 
-	it("carries several credentials, mixing both securing mechanisms", () => {
+	it('carries several credentials, mixing both securing mechanisms', () => {
 		const presentation = buildVcdm2Presentation([envelopedVc(), ldpCredential]);
 		expect(presentation.verifiableCredential).toHaveLength(2);
-		expect((presentation.verifiableCredential[0] as any).type).toBe("EnvelopedVerifiableCredential");
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+		expect((presentation.verifiableCredential[0] as any).type).toBe(
+			'EnvelopedVerifiableCredential',
+		);
 		expect(presentation.verifiableCredential[1]).toEqual(ldpCredential);
 	});
 
-	it("refuses to build an empty presentation", () => {
+	it('refuses to build an empty presentation', () => {
+		// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 		expect(() => buildVcdm2Presentation([])).toThrow(/at least one credential/);
 	});
 });
 
-describe("holderJwkFromCredential", () => {
-	it("reads cnf.jwk from an enveloped credential", () => {
+describe('holderJwkFromCredential', () => {
+	it('reads cnf.jwk from an enveloped credential', () => {
 		const raw = envelopedVc({ cnf: { jwk: holderJwk } });
 		expect(holderJwkFromCredential(raw)).toEqual(holderJwk);
 	});
 
-	it("returns null when an enveloped credential has no cnf binding", () => {
+	it('returns null when an enveloped credential has no cnf binding', () => {
 		expect(holderJwkFromCredential(envelopedVc())).toBeNull();
 	});
 
-	it("returns null when cnf.jwk is not an object", () => {
-		expect(holderJwkFromCredential(envelopedVc({ cnf: { jwk: "nope" } }))).toBeNull();
+	it('returns null when cnf.jwk is not an object', () => {
+		expect(holderJwkFromCredential(envelopedVc({ cnf: { jwk: 'nope' } }))).toBeNull();
 	});
 
-	it("derives the key from a did:key subject on a Data Integrity credential", () => {
+	it('derives the key from a did:key subject on a Data Integrity credential', () => {
 		const jwk = holderJwkFromCredential(ldpCredential);
 		expect(jwk).not.toBeNull();
-		expect(jwk?.kty).toBe("OKP");
-		expect(jwk?.crv).toBe("Ed25519");
+		expect(jwk?.kty).toBe('OKP');
+		expect(jwk?.crv).toBe('Ed25519');
 	});
 
-	it("reads the first entry when credentialSubject is an array", () => {
+	it('reads the first entry when credentialSubject is an array', () => {
 		const jwk = holderJwkFromCredential({
 			...ldpCredential,
-			credentialSubject: [ldpCredential.credentialSubject, { id: "did:example:other" }],
+			credentialSubject: [ldpCredential.credentialSubject, { id: 'did:example:other' }],
 		});
-		expect(jwk?.crv).toBe("Ed25519");
+		expect(jwk?.crv).toBe('Ed25519');
 	});
 
-	it("returns null when the subject id is not a did:key", () => {
-		expect(holderJwkFromCredential({
-			...ldpCredential,
-			credentialSubject: { id: "did:example:subject" },
-		})).toBeNull();
+	it('returns null when the subject id is not a did:key', () => {
+		expect(
+			holderJwkFromCredential({
+				...ldpCredential,
+				credentialSubject: { id: 'did:example:subject' },
+			}),
+		).toBeNull();
 	});
 
-	it("returns null when the subject has no id at all", () => {
-		expect(holderJwkFromCredential({ ...ldpCredential, credentialSubject: { name: "Alice" } })).toBeNull();
+	it('returns null when the subject has no id at all', () => {
+		expect(
+			holderJwkFromCredential({ ...ldpCredential, credentialSubject: { name: 'Alice' } }),
+		).toBeNull();
 	});
 
-	it("returns null for a malformed did:key rather than throwing", () => {
-		expect(holderJwkFromCredential({
-			...ldpCredential,
-			credentialSubject: { id: "did:key:zNotValidBase58!!" },
-		})).toBeNull();
+	it('returns null for a malformed did:key rather than throwing', () => {
+		expect(
+			holderJwkFromCredential({
+				...ldpCredential,
+				// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+				credentialSubject: { id: 'did:key:zNotValidBase58!!' },
+			}),
+		).toBeNull();
 	});
 
-	it("returns null for anything that is not a VCDM 2.0 credential", () => {
-		expect(holderJwkFromCredential("plain string")).toBeNull();
+	it('returns null for anything that is not a VCDM 2.0 credential', () => {
+		expect(holderJwkFromCredential('plain string')).toBeNull();
 		expect(holderJwkFromCredential({ foo: 1 })).toBeNull();
 	});
 });
 
-describe("holderIdFromCredential", () => {
-	it("reads the subject id from an enveloped credential", () => {
-		expect(holderIdFromCredential(envelopedVc())).toBe("did:example:holder");
+describe('holderIdFromCredential', () => {
+	it('reads the subject id from an enveloped credential', () => {
+		expect(holderIdFromCredential(envelopedVc())).toBe('did:example:holder');
 	});
 
-	it("reads the subject id from a Data Integrity credential", () => {
+	it('reads the subject id from a Data Integrity credential', () => {
 		expect(holderIdFromCredential(ldpCredential)).toBe(ldpCredential.credentialSubject.id);
 	});
 
-	it("reads the first entry when credentialSubject is an array", () => {
-		expect(holderIdFromCredential({
-			...ldpCredential,
-			credentialSubject: [{ id: "did:example:first" }, { id: "did:example:second" }],
-		})).toBe("did:example:first");
+	it('reads the first entry when credentialSubject is an array', () => {
+		expect(
+			holderIdFromCredential({
+				...ldpCredential,
+				credentialSubject: [{ id: 'did:example:first' }, { id: 'did:example:second' }],
+			}),
+		).toBe('did:example:first');
 	});
 
-	it("returns undefined when there is no subject id", () => {
+	it('returns undefined when there is no subject id', () => {
 		expect(holderIdFromCredential({ ...ldpCredential, credentialSubject: {} })).toBeUndefined();
 	});
 
-	it("returns undefined for input that is not a credential", () => {
-		expect(holderIdFromCredential("nonsense")).toBeUndefined();
+	it('returns undefined for input that is not a credential', () => {
+		expect(holderIdFromCredential('nonsense')).toBeUndefined();
 		expect(holderIdFromCredential(null)).toBeUndefined();
 	});
 
-	it("returns undefined when the subject id is not a string", () => {
-		expect(holderIdFromCredential({ ...ldpCredential, credentialSubject: { id: 42 } })).toBeUndefined();
+	it('returns undefined when the subject id is not a string', () => {
+		expect(
+			holderIdFromCredential({ ...ldpCredential, credentialSubject: { id: 42 } }),
+		).toBeUndefined();
 	});
 });
 
-describe("presentation media type follows the credential", () => {
-	it("names application/vc+sd-jwt for an SD-JWT credential", () => {
+describe('presentation media type follows the credential', () => {
+	it('names application/vc+sd-jwt for an SD-JWT credential', () => {
 		const raw = unsignedSdJwt(credentialBody);
-		expect(envelopedMediaTypeFor(raw)).toBe("application/vc+sd-jwt");
+		expect(envelopedMediaTypeFor(raw)).toBe('application/vc+sd-jwt');
 		const wrapped = wrapCredentialForPresentation(raw) as Record<string, unknown>;
 		expect(wrapped.id).toBe(`data:application/vc+sd-jwt,${raw}`);
-		expect(wrapped.type).toBe("EnvelopedVerifiableCredential");
+		expect(wrapped.type).toBe('EnvelopedVerifiableCredential');
 	});
 
-	it("names application/vc+jwt for an enveloped JOSE credential", () => {
-		const raw = `${enc({ alg: "ES256", typ: "vc+jwt" })}.${enc(credentialBody)}.sig`;
-		expect(envelopedMediaTypeFor(raw)).toBe("application/vc+jwt");
+	it('names application/vc+jwt for an enveloped JOSE credential', () => {
+		const raw = `${enc({ alg: 'ES256', typ: 'vc+jwt' })}.${enc(credentialBody)}.sig`;
+		expect(envelopedMediaTypeFor(raw)).toBe('application/vc+jwt');
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 		expect((wrapCredentialForPresentation(raw) as any).id).toBe(`data:application/vc+jwt,${raw}`);
 	});
 });

@@ -1,6 +1,11 @@
 import { base64url } from 'jose';
 import { VerifiableCredentialFormat } from '../types';
-import { coerceCredentialObject, decodeVcdm2SdJwt, isVcdm2Credential, looksLikeEnvelopedVcdm2 } from './vcdm2';
+import {
+	coerceCredentialObject,
+	decodeVcdm2SdJwt,
+	isVcdm2Credential,
+	looksLikeEnvelopedVcdm2,
+} from './vcdm2';
 
 /**
  * Detects the format of a verifiable credential based on its raw string representation.
@@ -41,11 +46,11 @@ export function isMdoc(raw: string): boolean {
 	try {
 		const bytes = base64url.decode(raw.slice(0, 4));
 		return (
-			(bytes[0] === 0xA2 && bytes[1] === 0x6A) ||
-			(bytes[0] === 0xB9 && bytes[1] === 0x00) ||
-			(bytes[0] === 0xA3 && bytes[1] === 0x67) ||
-			(bytes[0] === 0xA3 && bytes[1] === 0x66) ||
-			(bytes[0] === 0xA3 && bytes[1] === 0x69)
+			(bytes[0] === 0xa2 && bytes[1] === 0x6a) ||
+			(bytes[0] === 0xb9 && bytes[1] === 0x00) ||
+			(bytes[0] === 0xa3 && bytes[1] === 0x67) ||
+			(bytes[0] === 0xa3 && bytes[1] === 0x66) ||
+			(bytes[0] === 0xa3 && bytes[1] === 0x69)
 		);
 	} catch {
 		return false;
@@ -83,6 +88,7 @@ export function detectSdJwtVariant(raw: string): VerifiableCredentialFormat {
 		const decodedHeader = new TextDecoder().decode(headerBuff);
 		const header = JSON.parse(decodedHeader);
 		if (header.typ === 'dc+sd-jwt') return VerifiableCredentialFormat.DC_SDJWT;
+		// biome-ignore lint/suspicious/noEmptyBlockStatements: baseline: pre-existing debt. should be fixed
 	} catch {}
 	return VerifiableCredentialFormat.VC_SDJWT;
 }

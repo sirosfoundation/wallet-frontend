@@ -1,44 +1,58 @@
-import { describe, it, expect } from "vitest";
-import { getSdJwtVcMetadata } from "./getSdJwtVcMetadata";
-import { Context, HttpClient } from "../interfaces";
+// biome-ignore lint/style/useNodejsImportProtocol: baseline: pre-existing debt. should be fixed
+import crypto from 'crypto';
+import { describe, expect, it } from 'vitest';
+import type { Context, HttpClient } from '../interfaces';
+import { getSdJwtVcMetadata } from './getSdJwtVcMetadata';
 
-
-import crypto from "crypto";
-
-export function generateSRIFromObject(obj: Record<string, any>, algorithm: "sha256" | "sha384" | "sha512" = "sha256"): string {
+// biome-ignore lint/suspicious/noExportsInTest: baseline: pre-existing debt. should be fixed
+export function generateSRIFromObject(
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+	obj: Record<string, any>,
+	algorithm: 'sha256' | 'sha384' | 'sha512' = 'sha256',
+): string {
 	const jsonString = JSON.stringify(obj);
-	const hash = crypto.createHash(algorithm).update(jsonString, "utf8").digest("base64");
+	const hash = crypto.createHash(algorithm).update(jsonString, 'utf8').digest('base64');
 	return `${algorithm}-${hash}`;
 }
 
-const encodeBase64Url = (obj) => Buffer.from(JSON.stringify(obj)).toString("base64url");
+const encodeBase64Url = (obj) => Buffer.from(JSON.stringify(obj)).toString('base64url');
 
 const parentMetadata = {
-	vct: "https://issuer.com/parent.json",
-	display: [{ locale: "en-US", name: "Parent Credential", description: "This is the parent metadata." }],
-	claims: [{ path: ["parent_id"], sd: "always", display: [{ locale: "en-US", label: "Parent ID" }] }]
+	vct: 'https://issuer.com/parent.json',
+	display: [
+		{ locale: 'en-US', name: 'Parent Credential', description: 'This is the parent metadata.' },
+	],
+	claims: [
+		{ path: ['parent_id'], sd: 'always', display: [{ locale: 'en-US', label: 'Parent ID' }] },
+	],
 };
 
 const parentIntegrity = generateSRIFromObject(parentMetadata);
 
 const childMetadata = {
-	vct: "https://issuer.com/child.json",
-	extends: "https://issuer.com/parent.json",
-	"extends#integrity": parentIntegrity,
-	display: [{ locale: "en-US", name: "Child Credential", description: "This is the child metadata." }],
-	claims: [{ path: ["child_id"], sd: "always", display: [{ locale: "en-US", label: "Child ID" }] }]
+	vct: 'https://issuer.com/child.json',
+	extends: 'https://issuer.com/parent.json',
+	'extends#integrity': parentIntegrity,
+	display: [
+		{ locale: 'en-US', name: 'Child Credential', description: 'This is the child metadata.' },
+	],
+	claims: [{ path: ['child_id'], sd: 'always', display: [{ locale: 'en-US', label: 'Child ID' }] }],
 };
 
-const childIntegrity = "sha256-ilSsfKQ7sIAV8o2aXWOxzotWG6mJNK8TwemSpdFB57k=";
-const childVct = "https://issuer.com/child.json";
+// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+const childIntegrity = 'sha256-ilSsfKQ7sIAV8o2aXWOxzotWG6mJNK8TwemSpdFB57k=';
+const childVct = 'https://issuer.com/child.json';
 
-describe("getSdJwtVcMetadata - vct url failure cases", () => {
+// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+describe('getSdJwtVcMetadata - vct url failure cases', () => {
+	// biome-ignore lint/suspicious/noShadow: baseline: pre-existing debt. should be fixed
 	function createHttpClient({
 		childMetadataOverride,
 		parentMetadataOverride,
-		wellKnownIssuer = "https://issuer.com",
+		// biome-ignore lint/correctness/noUnusedFunctionParameters: baseline: pre-existing debt. should be fixed
+		wellKnownIssuer = 'https://issuer.com',
 		failChild = false,
-		failParent = false
+		failParent = false,
 	}: {
 		childMetadataOverride?: object;
 		parentMetadataOverride?: object;
@@ -47,72 +61,83 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 		failParent?: boolean;
 	} = {}): HttpClient {
 		return {
+			// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
+			// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
 			get: async (url: string) => {
 				const baseResponse = { headers: {} };
 
-				if (url.endsWith("child.json")) {
+				if (url.endsWith('child.json')) {
 					if (failChild) return { status: 404, data: null };
 					return {
 						status: 200,
 						data: childMetadataOverride || childMetadata,
-						...baseResponse
+						...baseResponse,
 					};
 				}
 
-				if (url.endsWith("parent.json")) {
+				if (url.endsWith('parent.json')) {
 					if (failParent) return { status: 404, data: null };
 					return {
 						status: 200,
 						data: parentMetadataOverride || parentMetadata,
-						...baseResponse
+						...baseResponse,
 					};
 				}
 
 				return { status: 404, data: null, ...baseResponse };
 			},
+			// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 			post: async () => {
-				throw new Error("POST not implemented");
-			}
+				throw new Error('POST not implemented');
+			},
 		};
 	}
 
-	it("warning when fetching main vct fails", async () => {
-
+	it('warning when fetching main vct fails', async () => {
 		const httpClient = createHttpClient({ failChild: true });
 
-		const result = await getSdJwtVcMetadata(undefined,crypto.subtle, httpClient, childVct, childIntegrity);
+		const result = await getSdJwtVcMetadata(
+			undefined,
+			crypto.subtle,
+			httpClient,
+			childVct,
+			childIntegrity,
+		);
 		if ('warnings' in result) {
-			expect(result.warnings.some(w => w.code === 'NotFound')).toBe(true);
-
+			expect(result.warnings.some((w) => w.code === 'NotFound')).toBe(true);
 		} else {
 			throw new Error(`Expected result to be success with warnings`);
 		}
 	});
 
-	it("warning when fetching parent metadata (extends) not found", async () => {
-
+	it('warning when fetching parent metadata (extends) not found', async () => {
 		const httpClient = createHttpClient({
 			childMetadataOverride: {
 				...childMetadata,
-				extends: "https://issuer.com/parent.json",
-				"extends#integrity": parentIntegrity
+				extends: 'https://issuer.com/parent.json',
+				'extends#integrity': parentIntegrity,
 			},
-			failParent: true
+			failParent: true,
 		});
 
-		const result = await getSdJwtVcMetadata(undefined,crypto.subtle, httpClient, childVct, childIntegrity);
+		const result = await getSdJwtVcMetadata(
+			undefined,
+			crypto.subtle,
+			httpClient,
+			childVct,
+			childIntegrity,
+		);
 		if ('warnings' in result) {
-			expect(result.warnings.some(w => w.code === 'NotFoundExtends')).toBe(true);
-
+			expect(result.warnings.some((w) => w.code === 'NotFoundExtends')).toBe(true);
 		} else {
 			throw new Error(`Expected result to be success with warnings`);
 		}
 	});
 
-	it("fails with InfiniteRecursion when metadata extends each other", async () => {
+	it('fails with InfiniteRecursion when metadata extends each other', async () => {
 		const circularParent = {
 			...parentMetadata,
-			extends: "https://issuer.com/child.json"
+			extends: 'https://issuer.com/child.json',
 		};
 
 		// Generate integrity for parent with the circular extend
@@ -120,8 +145,8 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 
 		const circularChild = {
 			...childMetadata,
-			extends: "https://issuer.com/parent.json",
-			"extends#integrity": circularParentIntegrity
+			extends: 'https://issuer.com/parent.json',
+			'extends#integrity': circularParentIntegrity,
 		};
 
 		const circularChildIntegrity = generateSRIFromObject(circularChild);
@@ -130,186 +155,244 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 			parentMetadataOverride: circularParent,
 		});
 
-		const result = await getSdJwtVcMetadata(undefined, crypto.subtle, httpClient, "https://issuer.com/child.json", circularChildIntegrity);
-		expect(result).toMatchObject({ error: "InfiniteRecursion" });
+		const result = await getSdJwtVcMetadata(
+			undefined,
+			crypto.subtle,
+			httpClient,
+			'https://issuer.com/child.json',
+			circularChildIntegrity,
+		);
+		expect(result).toMatchObject({ error: 'InfiniteRecursion' });
 	});
 
-
-	it("warning on incorrect vct#integrity", async () => {
-		const badIntegrity = "sha256-invalidhash===";
+	it('warning on incorrect vct#integrity', async () => {
+		const badIntegrity = 'sha256-invalidhash===';
 
 		const httpClient = createHttpClient({
-			childMetadataOverride: childMetadata
+			childMetadataOverride: childMetadata,
 		});
 
-		const result = await getSdJwtVcMetadata(undefined,crypto.subtle, httpClient, "https://issuer.com/child.json",badIntegrity);
+		const result = await getSdJwtVcMetadata(
+			undefined,
+			crypto.subtle,
+			httpClient,
+			'https://issuer.com/child.json',
+			badIntegrity,
+		);
 		if ('warnings' in result) {
-			expect(result.warnings.some(w => w.code === 'IntegrityFail')).toBe(true);
-
+			expect(result.warnings.some((w) => w.code === 'IntegrityFail')).toBe(true);
 		} else {
 			throw new Error(`Expected result to be success with warnings`);
 		}
 	});
-
 });
 
 function createHttpClient(): HttpClient {
 	return {
+		// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 		get: async () => {
-			throw new Error("Should not be called for vct url or registry tests");
+			throw new Error('Should not be called for vct url or registry tests');
 		},
+		// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 		post: async () => {
-			throw new Error("POST not implemented");
-		}
+			throw new Error('POST not implemented');
+		},
 	};
 }
 
+// biome-ignore lint/correctness/noUnusedVariables: baseline: pre-existing debt. should be fixed
 const metadata1 = {
-	vct: "urn:eudi:pid:1",
-	display: [{ locale: "en-US", name: "PID", description: "Person ID" }],
-	claims: [{ path: ["pid"], sd: "always", display: [{ locale: "en-US", label: "PID" }] }]
+	vct: 'urn:eudi:pid:1',
+	display: [{ locale: 'en-US', name: 'PID', description: 'Person ID' }],
+	claims: [{ path: ['pid'], sd: 'always', display: [{ locale: 'en-US', label: 'PID' }] }],
 };
 
+// biome-ignore lint/correctness/noUnusedVariables: baseline: pre-existing debt. should be fixed
 const metadata2 = {
-	vct: "urn:eudi:nin:2",
-	display: [{ locale: "en-US", name: "NIN", description: "National ID" }],
-	claims: [{ path: ["nin"], sd: "always", display: [{ locale: "en-US", label: "NIN" }] }]
+	vct: 'urn:eudi:nin:2',
+	display: [{ locale: 'en-US', name: 'NIN', description: 'National ID' }],
+	claims: [{ path: ['nin'], sd: 'always', display: [{ locale: 'en-US', label: 'NIN' }] }],
 };
 
 /**
  * Decodes a base64url-encoded string to a parsed JSON object.
  */
+// biome-ignore lint/suspicious/noExportsInTest: baseline: pre-existing debt. should be fixed
 export function decodeBase64UrlToObject(base64url: string): unknown {
-	const json = Buffer.from(base64url, "base64url").toString("utf8");
+	const json = Buffer.from(base64url, 'base64url').toString('utf8');
 	return JSON.parse(json);
 }
 
 /**
  * Builds a JWT string from header and payload objects.
  */
+// biome-ignore lint/suspicious/noExportsInTest: baseline: pre-existing debt. should be fixed
+// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 export function buildJwtLikeCredential(header: any, payload: any): string {
-	return [
-		encodeBase64Url(header),
-		encodeBase64Url(payload),
-		"sig"
-	].join(".");
+	return [encodeBase64Url(header), encodeBase64Url(payload), 'sig'].join('.');
 }
 
-describe("getSdJwtVcTypeMetadata - failure cases", () => {
-
-	it("warning when vct is a URN and registry is missing", async () => {
-
-		const result = await getSdJwtVcMetadata(undefined,crypto.subtle, createHttpClient(), "urn:eudi:pid:1",undefined);
+// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+describe('getSdJwtVcTypeMetadata - failure cases', () => {
+	it('warning when vct is a URN and registry is missing', async () => {
+		const result = await getSdJwtVcMetadata(
+			undefined,
+			crypto.subtle,
+			createHttpClient(),
+			'urn:eudi:pid:1',
+			undefined,
+		);
 
 		if ('warnings' in result) {
-			expect(result.warnings.some(w => w.code === 'NotFound')).toBe(true);
-
+			expect(result.warnings.some((w) => w.code === 'NotFound')).toBe(true);
 		} else {
 			throw new Error(`Expected result to be success with warnings`);
 		}
 	});
 
-	describe("getSdJwtVcMetadata - rendering.simple validation", () => {
+	// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+	describe('getSdJwtVcMetadata - rendering.simple validation', () => {
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 		function httpWithSimpleRendering(child: any): HttpClient {
 			return {
+				// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 				get: async (url: string) => {
-					if (url.endsWith("child.json")) {
+					if (url.endsWith('child.json')) {
 						return { status: 200, data: child, headers: {} };
 					}
 					return { status: 404, data: null, headers: {} };
 				},
-				post: async () => { throw new Error("POST not implemented"); }
+				// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
+				post: async () => {
+					throw new Error('POST not implemented');
+				},
 			};
 		}
 
-		it("preserves simple rendering (logo, background_image, colors)", async () => {
+		it('preserves simple rendering (logo, background_image, colors)', async () => {
 			const childWithSimple = {
-				vct: "https://issuer.com/child.json",
-				display: [{
-					locale: "en-US",
-					name: "Child with Simple Rendering",
-					description: "desc",
-					rendering: {
-						simple: {
-							logo: { uri: "https://issuer.com/logo.svg" },
-							background_image: { uri: "https://issuer.com/bg.svg" },
-							background_color: "#112233",
-							text_color: "#ffffff"
-						}
-					}
-				}],
-				claims: [{ path: ["id"], sd: "always", display: [{ locale: "en-US", label: "ID" }] }]
+				vct: 'https://issuer.com/child.json',
+				display: [
+					{
+						locale: 'en-US',
+						name: 'Child with Simple Rendering',
+						description: 'desc',
+						rendering: {
+							simple: {
+								logo: { uri: 'https://issuer.com/logo.svg' },
+								background_image: { uri: 'https://issuer.com/bg.svg' },
+								background_color: '#112233',
+								text_color: '#ffffff',
+							},
+						},
+					},
+				],
+				claims: [{ path: ['id'], sd: 'always', display: [{ locale: 'en-US', label: 'ID' }] }],
 			};
 
-			const result = await getSdJwtVcMetadata(undefined,crypto.subtle, httpWithSimpleRendering(childWithSimple), "https://issuer.com/child.json",undefined);
+			const result = await getSdJwtVcMetadata(
+				undefined,
+				crypto.subtle,
+				httpWithSimpleRendering(childWithSimple),
+				'https://issuer.com/child.json',
+				undefined,
+			);
 
-			if ("error" in result) throw new Error(`Unexpected error: ${result.error}`);
-			expect(result.credentialMetadata?.display?.[0]?.rendering?.simple?.logo?.uri)
-				.toBe("https://issuer.com/logo.svg");
-			expect(result.credentialMetadata?.display?.[0]?.rendering?.simple?.background_image?.uri)
-				.toBe("https://issuer.com/bg.svg");
-			expect(result.credentialMetadata?.display?.[0]?.rendering?.simple?.background_color)
-				.toBe("#112233");
-			expect(result.credentialMetadata?.display?.[0]?.rendering?.simple?.text_color)
-				.toBe("#ffffff");
+			if ('error' in result) throw new Error(`Unexpected error: ${result.error}`);
+			expect(result.credentialMetadata?.display?.[0]?.rendering?.simple?.logo?.uri).toBe(
+				'https://issuer.com/logo.svg',
+			);
+			expect(
+				result.credentialMetadata?.display?.[0]?.rendering?.simple?.background_image?.uri,
+			).toBe('https://issuer.com/bg.svg');
+			expect(result.credentialMetadata?.display?.[0]?.rendering?.simple?.background_color).toBe(
+				'#112233',
+			);
+			expect(result.credentialMetadata?.display?.[0]?.rendering?.simple?.text_color).toBe(
+				'#ffffff',
+			);
 		});
 	});
 
-	describe("getSdJwtVcMetadata - rendering.svg_templates validation", () => {
+	// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+	describe('getSdJwtVcMetadata - rendering.svg_templates validation', () => {
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 		function http(child: any): HttpClient {
 			return {
+				// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 				get: async (url: string) => {
-					if (url.endsWith("child.json")) {
+					if (url.endsWith('child.json')) {
 						return { status: 200, data: child, headers: {} };
 					}
 					return { status: 404, data: null, headers: {} };
 				},
-				post: async () => { throw new Error("POST not implemented"); }
+				// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
+				post: async () => {
+					throw new Error('POST not implemented');
+				},
 			};
 		}
 
-		it("fails when >1 svg_templates and a template lacks properties", async () => {
+		it('fails when >1 svg_templates and a template lacks properties', async () => {
 			const bad = {
-				vct: "https://issuer.com/child.json",
-				display: [{
-					locale: "en-US",
-					name: "Bad SVG Templates",
-					rendering: {
-						svg_templates: [
-							{ uri: "https://issuer.com/t1.svg", properties: { orientation: "portrait" } },
-							{ uri: "https://issuer.com/t2.svg" } // ❌ missing properties
-						]
-					}
-				}],
-				claims: [{ path: ["id"], sd: "always", display: [{ locale: "en-US", label: "ID" }] }]
+				vct: 'https://issuer.com/child.json',
+				display: [
+					{
+						locale: 'en-US',
+						name: 'Bad SVG Templates',
+						rendering: {
+							svg_templates: [
+								{ uri: 'https://issuer.com/t1.svg', properties: { orientation: 'portrait' } },
+								{ uri: 'https://issuer.com/t2.svg' }, // ❌ missing properties
+							],
+						},
+					},
+				],
+				claims: [{ path: ['id'], sd: 'always', display: [{ locale: 'en-US', label: 'ID' }] }],
 			};
 
-			const result = await getSdJwtVcMetadata(undefined,crypto.subtle, http(bad), "https://issuer.com/child.json",undefined);
-			expect(result).toMatchObject({ error: "SchemaShapeFail" }); // schema rejects it
+			const result = await getSdJwtVcMetadata(
+				undefined,
+				crypto.subtle,
+				http(bad),
+				'https://issuer.com/child.json',
+				undefined,
+			);
+			expect(result).toMatchObject({ error: 'SchemaShapeFail' }); // schema rejects it
 		});
 
-		it("succeeds when >1 svg_templates and all have properties", async () => {
+		it('succeeds when >1 svg_templates and all have properties', async () => {
 			const ok = {
-				vct: "https://issuer.com/child.json",
-				display: [{
-					locale: "en-US",
-					name: "Good SVG Templates",
-					rendering: {
-						svg_templates: [
-							{ uri: "https://issuer.com/t1.svg", properties: { orientation: "portrait" } },
-							{ uri: "https://issuer.com/t2.svg", properties: { orientation: "landscape", contrast: "high" } }
-						]
-					}
-				}],
-				claims: [{ path: ["id"], sd: "always", display: [{ locale: "en-US", label: "ID" }] }]
+				vct: 'https://issuer.com/child.json',
+				display: [
+					{
+						locale: 'en-US',
+						name: 'Good SVG Templates',
+						rendering: {
+							svg_templates: [
+								{ uri: 'https://issuer.com/t1.svg', properties: { orientation: 'portrait' } },
+								{
+									uri: 'https://issuer.com/t2.svg',
+									properties: { orientation: 'landscape', contrast: 'high' },
+								},
+							],
+						},
+					},
+				],
+				claims: [{ path: ['id'], sd: 'always', display: [{ locale: 'en-US', label: 'ID' }] }],
 			};
 
-			const result = await getSdJwtVcMetadata(undefined,crypto.subtle, http(ok), "https://issuer.com/child.json",undefined);
-			if ("error" in result) throw new Error(`Unexpected error: ${result.error}`);
+			const result = await getSdJwtVcMetadata(
+				undefined,
+				crypto.subtle,
+				http(ok),
+				'https://issuer.com/child.json',
+				undefined,
+			);
+			if ('error' in result) throw new Error(`Unexpected error: ${result.error}`);
 			expect(result.credentialMetadata?.display?.[0]?.rendering?.svg_templates?.length).toBe(2);
 		});
 	});
-
 });
 
 /**
@@ -320,19 +403,21 @@ describe("getSdJwtVcTypeMetadata - failure cases", () => {
  * wallet hashed a re-serialisation of its own parse, which drops the
  * whitespace. Correct metadata, reported as tampered with.
  */
-describe("getSdJwtVcMetadata - integrity over the bytes as served", () => {
-	const prettyVct = "https://issuer.com/pretty.json";
+// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+describe('getSdJwtVcMetadata - integrity over the bytes as served', () => {
+	const prettyVct = 'https://issuer.com/pretty.json';
 	const prettyMetadata = {
 		vct: prettyVct,
-		display: [{ locale: "en-US", name: "Pretty Credential" }],
+		display: [{ locale: 'en-US', name: 'Pretty Credential' }],
 	};
 	const servedBytes = JSON.stringify(prettyMetadata, null, 2);
-	const servedIntegrity = `sha256-${crypto.createHash("sha256").update(servedBytes, "utf8").digest("base64")}`;
+	const servedIntegrity = `sha256-${crypto.createHash('sha256').update(servedBytes, 'utf8').digest('base64')}`;
 
 	function clientServing(raw: string | undefined): HttpClient {
 		return {
+			// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 			get: async (url: string) => {
-				if (url.endsWith("pretty.json")) {
+				if (url.endsWith('pretty.json')) {
 					return {
 						status: 200,
 						data: JSON.parse(servedBytes),
@@ -342,13 +427,16 @@ describe("getSdJwtVcMetadata - integrity over the bytes as served", () => {
 				}
 				return { status: 404, data: null, headers: {} };
 			},
-			post: async () => { throw new Error("POST not implemented"); },
+			// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
+			post: async () => {
+				throw new Error('POST not implemented');
+			},
 		};
 	}
 
 	const context = { subtle: crypto.webcrypto.subtle } as unknown as Context;
 
-	it("accepts a pretty-printed document when the raw body is available", async () => {
+	it('accepts a pretty-printed document when the raw body is available', async () => {
 		const result = await getSdJwtVcMetadata(
 			undefined,
 			context.subtle,
@@ -356,26 +444,27 @@ describe("getSdJwtVcMetadata - integrity over the bytes as served", () => {
 			prettyVct,
 			servedIntegrity,
 		);
-		expect("error" in result).toBe(false);
-		if (!("error" in result)) {
-			expect(result.warnings.some(w => w.code === "IntegrityFail")).toBe(false);
+		expect('error' in result).toBe(false);
+		if (!('error' in result)) {
+			expect(result.warnings.some((w) => w.code === 'IntegrityFail')).toBe(false);
 		}
 	});
 
-	it("still reports a real mismatch", async () => {
+	it('still reports a real mismatch', async () => {
 		const result = await getSdJwtVcMetadata(
 			undefined,
 			context.subtle,
 			clientServing(servedBytes),
 			prettyVct,
-			"sha256-ZG9lcyBub3QgbWF0Y2ggYW55dGhpbmcgYXQgYWxsAAAAAAA=",
+			// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+			'sha256-ZG9lcyBub3QgbWF0Y2ggYW55dGhpbmcgYXQgYWxsAAAAAAA=',
 		);
-		if (!("error" in result)) {
-			expect(result.warnings.some(w => w.code === "IntegrityFail")).toBe(true);
+		if (!('error' in result)) {
+			expect(result.warnings.some((w) => w.code === 'IntegrityFail')).toBe(true);
 		}
 	});
 
-	it("falls back to the parsed object when a client supplies no raw body", async () => {
+	it('falls back to the parsed object when a client supplies no raw body', async () => {
 		// Documented behaviour for implementations that predate `raw`: the
 		// compact case still verifies, the pretty-printed one cannot.
 		const result = await getSdJwtVcMetadata(
@@ -385,8 +474,8 @@ describe("getSdJwtVcMetadata - integrity over the bytes as served", () => {
 			prettyVct,
 			servedIntegrity,
 		);
-		if (!("error" in result)) {
-			expect(result.warnings.some(w => w.code === "IntegrityFail")).toBe(true);
+		if (!('error' in result)) {
+			expect(result.warnings.some((w) => w.code === 'IntegrityFail')).toBe(true);
 		}
 	});
 });

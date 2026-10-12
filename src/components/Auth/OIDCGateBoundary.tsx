@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTenant } from '@/context/TenantContext';
 import type { UseOIDCGateResult } from '@/hooks/useOIDCGate';
@@ -19,7 +19,11 @@ export default function OIDCGateBoundary({ gate, purpose, username = '', error, 
 	const showGate = gate.requiresGate && !gate.isGateComplete && !isLoading;
 
 	if (isLoading) {
-		return <div className="mb-4 text-center py-4"><p className="dark:text-white">{t('common.loading')}</p></div>;
+		return (
+			<div className="mb-4 text-center py-4">
+				<p className="dark:text-white">{t('common.loading')}</p>
+			</div>
+		);
 	}
 	if (showGate && !gate.providerConfig) {
 		return (
@@ -51,7 +55,9 @@ export default function OIDCGateBoundary({ gate, purpose, username = '', error, 
 
 	return (
 		<>
-			{gate.isGateComplete && gate.state.status === 'oidc-complete' && <div className="mb-4">{status}</div>}
+			{gate.isGateComplete && gate.state.status === 'oidc-complete' && (
+				<div className="mb-4">{status}</div>
+			)}
 			{children}
 		</>
 	);

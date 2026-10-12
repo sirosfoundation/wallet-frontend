@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import ErrorDialogContext, { ErrorDialogState } from './ErrorDialogContext';
+import ErrorDialogContext, { type ErrorDialogState } from './ErrorDialogContext';
 
 const MessagePopup = React.lazy(() => import('@/components/Popups/MessagePopup'));
 
@@ -24,7 +24,7 @@ export const ErrorDialogContextProvider = ({ children }: ErrorDialogContextProvi
 		}
 		const errorOnClose = error?.onClose;
 		clearError();
-		if (typeof errorOnClose === "function") {
+		if (typeof errorOnClose === 'function') {
 			errorOnClose();
 		}
 	};

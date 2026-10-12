@@ -1,8 +1,5 @@
-import {
-	ClaimMetadataEntry,
-	ClaimDisplayEntry,
-} from "../schemas/SdJwtVcTypeMetadataSchema";
-import { OpenIdClaim } from "../schemas";
+import type { OpenIdClaim } from '../schemas';
+import type { ClaimDisplayEntry, ClaimMetadataEntry } from '../schemas/SdJwtVcTypeMetadataSchema';
 
 /**
  * Converts SD-JWT VC type-metadata claims to OpenID4VCI claims.
@@ -20,10 +17,10 @@ export function convertSdjwtvcToOpenid4vciClaims(
 		const display = (claim.display ?? [])
 			.filter(
 				(d): d is ClaimDisplayEntry =>
-					typeof d?.locale === "string" &&
-					d.locale.trim() !== "" &&
-					typeof d?.label === "string" &&
-					d.label.trim() !== ""
+					typeof d?.locale === 'string' &&
+					d.locale.trim() !== '' &&
+					typeof d?.label === 'string' &&
+					d.label.trim() !== '',
 			)
 			.map((d) => ({
 				locale: d.locale.trim(),
@@ -31,11 +28,9 @@ export function convertSdjwtvcToOpenid4vciClaims(
 			}));
 
 		// Only include mandatory if explicitly present (true OR false)
-		const hasMandatory = Object.prototype.hasOwnProperty.call(
-			claim,
-			"mandatory",
-		);
+		const hasMandatory = Object.hasOwn(claim, 'mandatory');
 
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 		const result: any = {
 			path: claim.path,
 			...(display.length > 0 ? { display } : {}),
@@ -46,4 +41,5 @@ export function convertSdjwtvcToOpenid4vciClaims(
 	});
 }
 
+// biome-ignore lint/complexity/noRedundantDefaultExport: baseline: pre-existing debt. should be fixed
 export default convertSdjwtvcToOpenid4vciClaims;

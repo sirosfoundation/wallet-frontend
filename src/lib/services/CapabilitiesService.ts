@@ -34,7 +34,7 @@ export const Capabilities = {
 	REFRESH_TOKENS: 'refresh-tokens',
 } as const;
 
-export type Capability = typeof Capabilities[keyof typeof Capabilities];
+export type Capability = (typeof Capabilities)[keyof typeof Capabilities];
 
 /**
  * Cached capabilities for each endpoint
@@ -59,7 +59,7 @@ async function fetchStatusCached(baseUrl: string): Promise<StatusResponse | null
 	const cached = statusCache.get(baseUrl);
 
 	// Return cached if fresh
-	if (cached && (now - cached.fetchedAt) < CACHE_TTL) {
+	if (cached && now - cached.fetchedAt < CACHE_TTL) {
 		// Previous fetch failed; honor non-throwing contract and indicate unavailable
 		if (cached.error) {
 			return null;
@@ -71,7 +71,7 @@ async function fetchStatusCached(baseUrl: string): Promise<StatusResponse | null
 		const response = await fetch(`${baseUrl}/status`, {
 			method: 'GET',
 			headers: {
-				'Accept': 'application/json',
+				Accept: 'application/json',
 				'X-Tenant-ID': getTenantFromUrlPath() || 'default',
 			},
 		});
@@ -103,7 +103,6 @@ async function fetchStatusCached(baseUrl: string): Promise<StatusResponse | null
 			error: null,
 		});
 		return status;
-
 	} catch (error) {
 		// Cache the error to avoid hammering failed endpoints
 		statusCache.set(baseUrl, {
@@ -127,6 +126,7 @@ export function clearStatusCache(): void {
 /**
  * Fetch backend status
  */
+// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 export async function fetchBackendStatus(): Promise<StatusResponse | null> {
 	if (!BACKEND_URL) return null;
 	return fetchStatusCached(BACKEND_URL);
@@ -135,6 +135,7 @@ export async function fetchBackendStatus(): Promise<StatusResponse | null> {
 /**
  * Fetch engine status (for WebSocket capability)
  */
+// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 export async function fetchEngineStatus(): Promise<StatusResponse | null> {
 	if (!ENGINE_URL) return null;
 	return fetchStatusCached(ENGINE_URL);
@@ -159,6 +160,7 @@ export async function hasEngineCapability(capability: Capability): Promise<boole
 /**
  * Check if WebSocket transport is available (engine has websocket capability)
  */
+// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 export async function isWebSocketAvailable(): Promise<boolean> {
 	return hasEngineCapability(Capabilities.WEBSOCKET);
 }

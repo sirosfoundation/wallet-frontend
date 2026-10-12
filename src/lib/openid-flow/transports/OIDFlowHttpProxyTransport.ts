@@ -12,16 +12,12 @@
  * HTTP transport preserves the existing behavior.
  */
 
+import type { HttpClient } from '@sirosfoundation/http-client';
+import { logger } from '@/logger';
 import type { IOIDFlowTransport } from '../types/IOIDFlowTransport';
-import type {
-	OIDFlowRequest,
-	OIDFlowResponse,
-	OIDFlowProgressEvent
-} from '../types/OIDFlowTypes';
 import type { OID4VCIFlowParams, OID4VCIFlowResult } from '../types/OID4VCITypes';
 import type { OID4VPFlowParams, OID4VPFlowResult } from '../types/OID4VPTypes';
-import { logger } from '@/logger';
-import type { HttpClient } from '@sirosfoundation/http-client';
+import type { OIDFlowProgressEvent, OIDFlowRequest, OIDFlowResponse } from '../types/OIDFlowTypes';
 
 /**
  * HTTP Proxy Transport implementation
@@ -56,23 +52,25 @@ export class OIDFlowHttpProxyTransport implements IOIDFlowTransport {
 
 	// ===== OID4VCI Flow =====
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	async startOID4VCIFlow(_params: OID4VCIFlowParams): Promise<OID4VCIFlowResult> {
 		// HTTP transport delegates to existing hooks for full flow implementation
 		// This throws to indicate that the hybrid hook should use the existing
 		// OpenID4VCI hook directly instead of calling this method
 		throw new Error(
 			'HTTP transport does not implement OID4VCI flow directly. ' +
-			'Use the existing useOpenID4VCI hook via the hybrid flow hook.'
+				'Use the existing useOpenID4VCI hook via the hybrid flow hook.',
 		);
 	}
 
 	// ===== OID4VP Flow =====
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	async startOID4VPFlow(_params: OID4VPFlowParams): Promise<OID4VPFlowResult> {
 		// HTTP transport delegates to existing hooks for full flow implementation
 		throw new Error(
 			'HTTP transport does not implement OID4VP flow directly. ' +
-			'Use the existing useOpenID4VP hook via the hybrid flow hook.'
+				'Use the existing useOpenID4VP hook via the hybrid flow hook.',
 		);
 	}
 
@@ -97,6 +95,8 @@ export class OIDFlowHttpProxyTransport implements IOIDFlowTransport {
 		};
 
 		try {
+			// biome-ignore lint/suspicious/noEvolvingTypes: baseline: pre-existing debt. should be fixed
+			// biome-ignore lint/suspicious/noImplicitAnyLet: baseline: pre-existing debt. should be fixed
 			let response;
 
 			if (payload.method === 'GET') {
@@ -108,10 +108,13 @@ export class OIDFlowHttpProxyTransport implements IOIDFlowTransport {
 			return {
 				success: response.status >= 200 && response.status < 300,
 				data: response.data as T,
-				error: response.status >= 400 ? {
-					code: `HTTP_${response.status}`,
-					message: `HTTP request failed with status ${response.status}`,
-				} : undefined,
+				error:
+					response.status >= 400
+						? {
+								code: `HTTP_${response.status}`,
+								message: `HTTP request failed with status ${response.status}`,
+							}
+						: undefined,
 			};
 		} catch (error) {
 			const message = error instanceof Error ? error.message : 'Unknown error';
@@ -143,7 +146,8 @@ export class OIDFlowHttpProxyTransport implements IOIDFlowTransport {
 	// ===== Internal Helpers =====
 
 	private emitError(error: Error): void {
-		Array.from(this.errorCallbacks).forEach(callback => {
+		// biome-ignore lint/complexity/noForEach: baseline: pre-existing debt. should be fixed
+		Array.from(this.errorCallbacks).forEach((callback) => {
 			try {
 				callback(error);
 			} catch (e) {

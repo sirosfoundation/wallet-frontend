@@ -1,5 +1,6 @@
 // AddCredentialCard.js
 import { PlusCircle, QrCode } from 'lucide-react';
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -7,6 +8,7 @@ const AddCredentialCard = ({ onClick }) => {
 	const { t } = useTranslation();
 
 	return (
+		// biome-ignore lint/a11y/useButtonType: baseline: pre-existing debt. should be fixed
 		<button
 			id="add-credential-card"
 			onClick={onClick}

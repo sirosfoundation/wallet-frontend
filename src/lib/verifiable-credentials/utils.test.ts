@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
-import * as jose from 'jose';
-import { COSEKeyToJWK } from 'cose-kit';
 import { cborEncode, DataItem } from '@auth0/mdl/lib/cbor';
+import { COSEKeyToJWK } from 'cose-kit';
+// biome-ignore lint/performance/noNamespaceImport: baseline: pre-existing debt. should be fixed
+import * as jose from 'jose';
+import { describe, expect, it } from 'vitest';
 import { VerifiableCredentialFormat } from 'wallet-common';
 import { fromBase64Url, toBase64Url } from '@/lib/utils';
 import { deriveHolderKidFromCredential } from './utils';
@@ -96,8 +97,7 @@ describe('deriveHolderKidFromCredential', () => {
 });
 
 function buildJwtCredential(payloadObj: Record<string, unknown>): string {
-	const enc = (obj: unknown) =>
-		toBase64Url(new TextEncoder().encode(JSON.stringify(obj)));
+	const enc = (obj: unknown) => toBase64Url(new TextEncoder().encode(JSON.stringify(obj)));
 	return `${enc({ alg: 'ES256', typ: 'JWT' })}.${enc(payloadObj)}.signature`;
 }
 
@@ -105,16 +105,17 @@ async function generateEcKeyMaterial(): Promise<{
 	jwk: jose.JWK;
 	coseKey: Map<number, number | Uint8Array>;
 }> {
-	const keyPair = await crypto.subtle.generateKey(
-		{ name: 'ECDSA', namedCurve: 'P-256' },
-		true,
-		['sign', 'verify'],
-	);
+	const keyPair = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, [
+		'sign',
+		'verify',
+	]);
 	const jwk = (await crypto.subtle.exportKey('jwk', keyPair.publicKey)) as jose.JWK;
 	const coseKey = new Map<number, number | Uint8Array>([
 		[1, 2], // kty: EC2
 		[-1, 1], // crv: P-256
+		// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 		[-2, fromBase64Url(jwk.x!)], // x
+		// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 		[-3, fromBase64Url(jwk.y!)], // y
 	]);
 	return { jwk, coseKey };

@@ -1,10 +1,11 @@
-import { GenericStore } from "./Store";
+import type { GenericStore } from './Store';
 
 export class MemoryStore<TKey, TValue> implements GenericStore<TKey, TValue> {
 	private map = new Map<TKey, TValue>();
 
 	constructor(private maxEntries: number = 1000) {}
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	async get(key: TKey): Promise<TValue | undefined> {
 		const value = this.map.get(key);
 		if (value === undefined) return undefined;
@@ -16,10 +17,12 @@ export class MemoryStore<TKey, TValue> implements GenericStore<TKey, TValue> {
 		return value;
 	}
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	async delete(key: TKey): Promise<void> {
 		this.map.delete(key);
 	}
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	async set(key: TKey, value: TValue): Promise<void> {
 		// If key already exists, delete so reinsertion moves it to the end
 		if (this.map.has(key)) {
@@ -35,6 +38,7 @@ export class MemoryStore<TKey, TValue> implements GenericStore<TKey, TValue> {
 		}
 	}
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	async getAll(): Promise<TValue[]> {
 		return Array.from(this.map.values());
 	}

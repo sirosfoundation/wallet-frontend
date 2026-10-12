@@ -1,15 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { exportJWK, generateKeyPair, importJWK, type JWK, jwtVerify, SignJWT } from 'jose';
+import { describe, expect, it } from 'vitest';
 import {
-	generateKeyPair,
-	exportJWK,
-	importJWK,
-	SignJWT,
-	jwtVerify,
-	type JWK,
-} from 'jose';
-import {
-	OIDFlowClientAuthMaterial,
 	type ClientAuthKeyPair,
+	OIDFlowClientAuthMaterial,
 	type SerializedClientAuthMaterial,
 } from './OIDFlowClientAuthMaterial';
 
@@ -28,32 +21,24 @@ function coreJwk(jwk: JWK) {
 	return { kty, crv, x, y, d };
 }
 
+// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 describe('OIDFlowClientAuthMaterial', () => {
 	describe('serialize', () => {
 		it('produces a JSON-safe shape with the private key as a JWK', async () => {
 			const keyPair = await makeKeyPair();
-			const material = new OIDFlowClientAuthMaterial(
-				'dpop-id-1',
-				keyPair,
-				'wia.jwt',
-			);
+			const material = new OIDFlowClientAuthMaterial('dpop-id-1', keyPair, 'wia.jwt');
 
 			const serialized = await material.serialize();
 
 			expect(serialized.dpopKeyId).toBe('dpop-id-1');
 			expect(serialized.wia).toBe('wia.jwt');
-			expect(coreJwk(serialized.publicJwk)).toEqual(
-				coreJwk(keyPair.publicKeyJwk),
-			);
+			expect(coreJwk(serialized.publicJwk)).toEqual(coreJwk(keyPair.publicKeyJwk));
 			expect(serialized.privateJwk.d).toBeTruthy(); // carries the private scalar
 			expect(() => JSON.stringify(serialized)).not.toThrow();
 		});
 
 		it('omits wia when not set', async () => {
-			const material = new OIDFlowClientAuthMaterial(
-				'dpop-id-2',
-				await makeKeyPair(),
-			);
+			const material = new OIDFlowClientAuthMaterial('dpop-id-2', await makeKeyPair());
 			const serialized = await material.serialize();
 			expect(serialized.wia).toBeUndefined();
 		});
@@ -61,39 +46,24 @@ describe('OIDFlowClientAuthMaterial', () => {
 
 	describe('fromSerialized', () => {
 		it('round-trips: serialize -> fromSerialized -> serialize is stable', async () => {
-			const original = new OIDFlowClientAuthMaterial(
-				'dpop-id-3',
-				await makeKeyPair(),
-				'wia.jwt',
-			);
+			const original = new OIDFlowClientAuthMaterial('dpop-id-3', await makeKeyPair(), 'wia.jwt');
 
 			const serialized = await original.serialize();
-			const restored =
-				await OIDFlowClientAuthMaterial.fromSerialized(serialized);
+			const restored = await OIDFlowClientAuthMaterial.fromSerialized(serialized);
 			const reserialized = await restored.serialize();
 
 			expect(restored.dpopKeyId).toBe('dpop-id-3');
 			expect(restored.wia).toBe('wia.jwt');
-			expect(coreJwk(reserialized.privateJwk)).toEqual(
-				coreJwk(serialized.privateJwk),
-			);
-			expect(coreJwk(reserialized.publicJwk)).toEqual(
-				coreJwk(serialized.publicJwk),
-			);
+			expect(coreJwk(reserialized.privateJwk)).toEqual(coreJwk(serialized.privateJwk));
+			expect(coreJwk(reserialized.publicJwk)).toEqual(coreJwk(serialized.publicJwk));
 		});
 
 		it('round-trips through JSON (the sessionStorage path)', async () => {
-			const original = new OIDFlowClientAuthMaterial(
-				'dpop-id-4',
-				await makeKeyPair(),
-			);
+			const original = new OIDFlowClientAuthMaterial('dpop-id-4', await makeKeyPair());
 			const serialized = await original.serialize();
 
-			const throughJson = JSON.parse(
-				JSON.stringify(serialized),
-			) as SerializedClientAuthMaterial;
-			const restored =
-				await OIDFlowClientAuthMaterial.fromSerialized(throughJson);
+			const throughJson = JSON.parse(JSON.stringify(serialized)) as SerializedClientAuthMaterial;
+			const restored = await OIDFlowClientAuthMaterial.fromSerialized(throughJson);
 
 			expect(restored.dpopKeyId).toBe('dpop-id-4');
 			expect(restored.wia).toBeUndefined();
@@ -103,13 +73,9 @@ describe('OIDFlowClientAuthMaterial', () => {
 		});
 
 		it('restores a private key that can still sign, verifiable by the public JWK', async () => {
-			const original = new OIDFlowClientAuthMaterial(
-				'dpop-id-5',
-				await makeKeyPair(),
-			);
+			const original = new OIDFlowClientAuthMaterial('dpop-id-5', await makeKeyPair());
 			const serialized = await original.serialize();
-			const restored =
-				await OIDFlowClientAuthMaterial.fromSerialized(serialized);
+			const restored = await OIDFlowClientAuthMaterial.fromSerialized(serialized);
 
 			const jwt = await new SignJWT({ hello: 'world' })
 				.setProtectedHeader({ alg: 'ES256' })

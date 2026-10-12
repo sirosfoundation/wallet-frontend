@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { SignJWT, generateKeyPair, exportJWK, compactDecrypt } from 'jose';
+import { compactDecrypt, exportJWK, generateKeyPair, SignJWT } from 'jose';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DCAPISession } from './DCAPISession';
 import { DCAPIWalletCompanionMode } from './modes';
 
@@ -47,6 +47,7 @@ describe('DCAPISession', () => {
 	beforeEach(() => {
 		mockMode = createMockMode();
 		vi.mocked(DCAPIWalletCompanionMode).mockImplementation(function () {
+			// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 			return mockMode as any;
 		});
 		vi.stubGlobal('opener', {}); // Just needs to be truthy for mode detection
@@ -162,6 +163,7 @@ describe('DCAPISession', () => {
 		});
 	});
 
+	// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 	describe('verifierJwkThumbprint()', () => {
 		it('returns null for dc_api mode', async () => {
 			const url = new URL('https://wallet.example.com/dc');
@@ -231,6 +233,7 @@ describe('DCAPISession', () => {
 			const session = new DCAPISession(url);
 
 			const thumbprint = await session.verifierJwkThumbprint();
+			// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 			expect(thumbprint).toMatch(/^[A-Za-z0-9_-]{43}$/);
 		});
 	});

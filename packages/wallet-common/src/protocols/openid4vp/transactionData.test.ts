@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { TransactionDataRequestObject, parseTransactionData } from './transactionData';
+import { describe, expect, it } from 'vitest';
 import { toBase64Url } from '../../utils/util';
+import { parseTransactionData, TransactionDataRequestObject } from './transactionData';
 
 describe('TransactionDataRequestObject schema', () => {
 	describe('transaction_data_hashes_alg flexibility', () => {
@@ -141,6 +141,7 @@ describe('parseTransactionData', () => {
 		const result = parseTransactionData([encode(td)], dcql);
 		expect(result).not.toBeNull();
 		expect(result).toHaveLength(1);
+		// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 		expect(result![0].parsed.type).toBe('qes_authorization');
 	});
 

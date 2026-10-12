@@ -1,16 +1,17 @@
-import React, { useState, useEffect, useContext } from 'react';
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
+import React, { useContext, useEffect, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import { logger } from '@/logger';
-
-import StatusContext from '@/context/StatusContext';
-import SessionContext from '@/context/SessionContext';
-import RedirectPopup from '../../components/Popups/RedirectPopup';
-import { H1 } from '../../components/Shared/Heading';
-import QueryableList from '../../components/QueryableList/QueryableList';
-import PageDescription from '../../components/Shared/PageDescription';
 import EntityListItem from '@/components/QueryableList/EntityListItem';
+import SessionContext from '@/context/SessionContext';
+import StatusContext from '@/context/StatusContext';
 import { sanitizeRedirectUrl } from '@/lib/utils/sanitizeRedirectUrl';
+import { logger } from '@/logger';
+import RedirectPopup from '../../components/Popups/RedirectPopup';
+import QueryableList from '../../components/QueryableList/QueryableList';
+import { H1 } from '../../components/Shared/Heading';
+import PageDescription from '../../components/Shared/PageDescription';
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 const ShareCredentials = () => {
 	const { isOnline } = useContext(StatusContext);
 	const { api, keystore } = useContext(SessionContext);
@@ -28,20 +29,20 @@ const ShareCredentials = () => {
 		}
 		const u = keystore.getCachedUsers().filter((user) => user.userHandleB64u === userHandle)[0];
 		return u;
-	}
+	};
 
 	const syncPrivateData = async () => {
 		const cachedUser = getUser();
 		if (!cachedUser) {
-			throw new Error("Could not get cached user");
+			throw new Error('Could not get cached user');
 		}
 		const result = await api.syncPrivateData(cachedUser, keystore);
-		logger.debug("Result: ", result)
+		logger.debug('Result: ', result);
 		if (!result.ok) {
-			throw new Error("PrivateData needs synchronization");
+			throw new Error('PrivateData needs synchronization');
 		}
 		return {};
-	}
+	};
 
 	useEffect(() => {
 		const fetchVerifiers = async () => {
@@ -56,6 +57,7 @@ const ShareCredentials = () => {
 		fetchVerifiers();
 	}, [api]);
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	const handleVerifierClick = async (id) => {
 		const clickedVerifier = verifiers.find((verifier) => verifier.id === id);
 		if (clickedVerifier) {
@@ -70,18 +72,20 @@ const ShareCredentials = () => {
 	};
 
 	const handleContinue = () => {
-		syncPrivateData().then(() => {
-			setLoading(true);
+		syncPrivateData()
+			.then(() => {
+				setLoading(true);
 
-			logger.debug('Continue with:', selectedVerifier);
+				logger.debug('Continue with:', selectedVerifier);
 
-			if (selectedVerifier) {
-				window.location.href = sanitizeRedirectUrl(selectedVerifier.url);
-			}
+				if (selectedVerifier) {
+					window.location.href = sanitizeRedirectUrl(selectedVerifier.url);
+				}
 
-			setLoading(false);
-			setShowRedirectPopup(false);
-		}).catch((err) => logger.error(err));
+				setLoading(false);
+				setShowRedirectPopup(false);
+			})
+			.catch((err) => logger.error(err));
 	};
 
 	return (
@@ -109,7 +113,6 @@ const ShareCredentials = () => {
 						identifierField="id"
 						onClick={handleVerifierClick}
 					/>
-
 				)}
 			</div>
 
@@ -122,7 +125,7 @@ const ShareCredentials = () => {
 					popupMessage={
 						<Trans
 							i18nKey="pageShareCredentials.popup.message"
-							values={{ verifierName: selectedVerifier?.name ?? "Unknown" }}
+							values={{ verifierName: selectedVerifier?.name ?? 'Unknown' }}
 							components={{ strong: <strong /> }}
 						/>
 					}

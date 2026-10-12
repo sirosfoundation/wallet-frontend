@@ -1,20 +1,19 @@
+import { browserSupportsPreviewSign } from '../utils/browserSupportsPreviewSign';
 import {
-	ExportedWscdContainer,
+	type ExportedWscdContainer,
 	ExportedWscdContainerSchema,
-	WscdContainer,
+	type WscdContainer,
 	WscdContainerSchema,
 	WscdManagerError,
 	WscdPlugin,
 } from './resources';
-import type { WscdEligibilityRequirements, IWscdManagerHost } from './types';
-import { browserSupportsPreviewSign } from '../utils/browserSupportsPreviewSign';
+import type { IWscdManagerHost, WscdEligibilityRequirements } from './types';
 
 /**
  * Requirements for a given credential based on its key ID.
  */
-export function requirementsForCredential(
-	kid: string,
-): WscdEligibilityRequirements {
+export function requirementsForCredential(kid: string): WscdEligibilityRequirements {
+	// biome-ignore lint/complexity/noVoid: baseline: pre-existing debt. should be fixed
 	void kid;
 
 	// Currently, all credentials are assumed to require the softkey plugin
@@ -27,9 +26,7 @@ export function requirementsForCredential(
  *
  * Only softkey hosts require a container import.
  */
-export function hostNeedsContainerImportExport(
-	host: IWscdManagerHost,
-): boolean {
+export function hostNeedsContainerImportExport(host: IWscdManagerHost): boolean {
 	return host.supportedPlugins.has(WscdPlugin.SOFTKEY);
 }
 
@@ -37,9 +34,7 @@ export function hostNeedsContainerImportExport(
  * Ensures that the given WscdContainer is valid and returns it as
  * an encoded Uint8Array.
  */
-export function ensureEncodedWscdContainer(
-	container: WscdContainer,
-): Uint8Array {
+export function ensureEncodedWscdContainer(container: WscdContainer): Uint8Array {
 	const { success, error, data } = WscdContainerSchema.safeParse(container);
 
 	if (!success) {
@@ -53,9 +48,7 @@ export function ensureEncodedWscdContainer(
  * Ensures that the given WscdContainer is valid and returns it as
  * a decoded object.
  */
-export function ensureDecodedWscdContainer(
-	container: Uint8Array,
-): WscdContainer {
+export function ensureDecodedWscdContainer(container: Uint8Array): WscdContainer {
 	const { success, error, data } = WscdContainerSchema.safeParse(
 		JSON.parse(new TextDecoder().decode(container)),
 	);
@@ -87,12 +80,9 @@ export async function exportWscdContainerToKeystore(
 		}),
 	);
 
-	const { success, error, data } =
-		ExportedWscdContainerSchema.safeParse({ ...container, keys });
+	const { success, error, data } = ExportedWscdContainerSchema.safeParse({ ...container, keys });
 	if (!success) {
-		throw new WscdManagerError(
-			`Failed to parse ExportedWscdContainer: ${error}`,
-		);
+		throw new WscdManagerError(`Failed to parse ExportedWscdContainer: ${error}`);
 	}
 
 	return data;

@@ -1,11 +1,20 @@
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 export function formatDate(value: any, format = 'datetime') {
 	// Regex for ISO 8601 format like '2024-10-08T07:28:49.117Z'. milliseconds are optional.
+	// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 	const iso8601Regex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?Z$/;
 	// Regex for simple YYYY-MM-DD format
+	// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 	const simpleDateRegex = /^\d{4}-\d{2}-\d{2}$/;
 	// Regex for long-form date strings like 'Wed Dec 11 2024 14:46:19 GMT+0200'
-	const longFormDateRegex = /^[A-Z][a-z]{2} [A-Z][a-z]{2} \d{2} \d{4} \d{2}:\d{2}:\d{2} GMT[+-]\d{4}/;
+	const longFormDateRegex =
+		// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
+		/^[A-Z][a-z]{2} [A-Z][a-z]{2} \d{2} \d{4} \d{2}:\d{2}:\d{2} GMT[+-]\d{4}/;
 
+	// biome-ignore lint/suspicious/noImplicitAnyLet: baseline: pre-existing debt. should be fixed
+	// biome-ignore lint/suspicious/noEvolvingTypes: baseline: pre-existing debt. should be fixed
 	let date;
 	// A calendar date with no time of day (YYYY-MM-DD, or an mdoc full-date,
 	// which decoders turn into a Date at midnight UTC) is formatted in UTC.
@@ -17,12 +26,10 @@ export function formatDate(value: any, format = 'datetime') {
 		if (value.toString().length === 10) {
 			// Handle Unix timestamp (seconds) by converting to milliseconds
 			date = new Date(value * 1000);
-		}
-		else if (value.toString().length === 13) {
+		} else if (value.toString().length === 13) {
 			// Timestamp including milliseconds
 			date = new Date(value);
-		}
-		else {
+		} else {
 			// Unsupported timestamp formats
 			return value;
 		}
@@ -44,19 +51,32 @@ export function formatDate(value: any, format = 'datetime') {
 	} else if (value instanceof Date) {
 		// Handle Date objects directly
 		date = value;
-		dateOnly = format === 'date' && date.getUTCHours() === 0 && date.getUTCMinutes() === 0
-			&& date.getUTCSeconds() === 0 && date.getUTCMilliseconds() === 0;
+		dateOnly =
+			format === 'date' &&
+			date.getUTCHours() === 0 &&
+			date.getUTCMinutes() === 0 &&
+			date.getUTCSeconds() === 0 &&
+			date.getUTCMilliseconds() === 0;
 	} else {
 		// For unsupported types, return the original value
 		return value;
 	}
 
-	const options = format === 'datetime'
-		? { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }
-		: { day: '2-digit', month: '2-digit', year: 'numeric' };
+	const options =
+		format === 'datetime'
+			? {
+					day: '2-digit',
+					month: '2-digit',
+					year: 'numeric',
+					hour: '2-digit',
+					minute: '2-digit',
+					second: '2-digit',
+				}
+			: { day: '2-digit', month: '2-digit', year: 'numeric' };
 	if (dateOnly) {
 		(options as Intl.DateTimeFormatOptions).timeZone = 'UTC';
 	}
 
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 	return date.toLocaleDateString('en-GB', options as any);
 }

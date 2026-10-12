@@ -1,4 +1,4 @@
-import { base64url, calculateJwkThumbprint, JWK } from 'jose';
+import { base64url, calculateJwkThumbprint, type JWK } from 'jose';
 import {
 	buildVcdm2Presentation,
 	holderIdFromCredential,
@@ -16,14 +16,10 @@ export async function prepareVcdm2Presentation(
 ): Promise<{ kid: string; signingInput: string }> {
 	// One enveloping JWS has exactly one signer, so every credential in the
 	// presentation has to be bound to the same holder key.
-	const holderJwks = verifiableCredentials.map((credential) =>
-		holderJwkFromCredential(credential),
-	);
+	const holderJwks = verifiableCredentials.map((credential) => holderJwkFromCredential(credential));
 
 	if (holderJwks.some((jwk) => !jwk)) {
-		throw new Error(
-			'Holder public key could not be resolved from the VCDM 2.0 credential',
-		);
+		throw new Error('Holder public key could not be resolved from the VCDM 2.0 credential');
 	}
 
 	const kids = await Promise.all(

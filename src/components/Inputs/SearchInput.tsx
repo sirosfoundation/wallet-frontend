@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef } from 'react';
 
 type SearchInputProps = {
 	placeholder: string;
@@ -11,6 +11,8 @@ const SearchInput = ({ placeholder, searchCallback }: SearchInputProps) => {
 	const handleOnChange = (event: React.ChangeEvent<HTMLInputElement>) => {
 		const query = event.target.value;
 		inputRef.current.value = query;
+		// biome-ignore lint/suspicious/noUnusedExpressions: baseline: pre-existing debt. should be fixed
+		// biome-ignore lint/complexity/useOptionalChain: baseline: pre-existing debt. should be fixed
 		searchCallback && searchCallback(query);
 	};
 

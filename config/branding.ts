@@ -1,10 +1,10 @@
-import fs from "node:fs";
-import { copyFile, mkdir, readdir, writeFile } from "node:fs/promises";
-import path from "node:path";
-import crypto from "node:crypto";
-import sharp from "sharp";
-import { z } from "zod";
-import convert, { RGB } from "color-convert";
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import { copyFile, mkdir, readdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import convert, { type RGB } from 'color-convert';
+import sharp from 'sharp';
+import { z } from 'zod';
 
 // ============================================
 // TYPES
@@ -27,7 +27,7 @@ export type BrandingFile = {
 	 * Whether this file is the custom branding file.
 	 */
 	readonly isCustom: boolean;
-}
+};
 
 export type LogoFiles = Record<`logo_${'light' | 'dark'}`, BrandingFile>;
 
@@ -42,13 +42,13 @@ export type LogoFiles = Record<`logo_${'light' | 'dark'}`, BrandingFile>;
  * @param filePath Relative file path within branding directory.
  */
 export function findBrandingFile(baseDir: string, filePath: string): BrandingFile | null {
-	const defaultFilePath = path.join(baseDir, "default", filePath);
-	const customFilePath = path.join(baseDir, "custom", filePath);
+	const defaultFilePath = path.join(baseDir, 'default', filePath);
+	const customFilePath = path.join(baseDir, 'custom', filePath);
 
 	const hasDefault = fs.existsSync(defaultFilePath);
 	const hasCustom = fs.existsSync(customFilePath);
 
-	if (!hasDefault && !hasCustom) {
+	if (!(hasDefault || hasCustom)) {
 		return null;
 	}
 
@@ -60,7 +60,7 @@ export function findBrandingFile(baseDir: string, filePath: string): BrandingFil
 		filename,
 		isDefault: hasDefault && !hasCustom,
 		isCustom: hasCustom,
-	}
+	};
 }
 
 /**
@@ -70,8 +70,8 @@ export function findBrandingFile(baseDir: string, filePath: string): BrandingFil
  * @param name Logo name (e.g., "logo_light" or "logo_dark").
  */
 export function findLogoFile(baseDir: string, name: string): BrandingFile | null {
-	const svgFile = findBrandingFile(baseDir, path.join("logo", `${name}.svg`));
-	const pngFile = findBrandingFile(baseDir, path.join("logo", `${name}.png`));
+	const svgFile = findBrandingFile(baseDir, path.join('logo', `${name}.svg`));
+	const pngFile = findBrandingFile(baseDir, path.join('logo', `${name}.png`));
 
 	if (svgFile?.isCustom) return svgFile;
 	if (pngFile?.isCustom) return pngFile;
@@ -90,13 +90,13 @@ export function findLogoFile(baseDir: string, name: string): BrandingFile | null
 export function findLogoFiles(sourceDir: string): LogoFiles {
 	const files: Partial<LogoFiles> = {};
 
-	for (const logoId of ["logo_light", "logo_dark"] as const) {
+	for (const logoId of ['logo_light', 'logo_dark'] as const) {
 		const logoFile = findLogoFile(sourceDir, logoId);
 		if (!logoFile) {
 			throw new Error(`${logoId} not found in ${sourceDir}`);
 		}
 
-		files[logoId] = logoFile
+		files[logoId] = logoFile;
 	}
 
 	return files as LogoFiles;
@@ -113,7 +113,7 @@ export function findLogoFiles(sourceDir: string): LogoFiles {
  * @param brandingDir Branding source directory.
  */
 export function getBrandingHash(brandingDir: string): string {
-	const hash = crypto.createHash("sha256");
+	const hash = crypto.createHash('sha256');
 
 	function walk(dir: string) {
 		const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -133,7 +133,7 @@ export function getBrandingHash(brandingDir: string): string {
 	walk(brandingDir);
 
 	// 10 chars is enough to avoid collisions and keep URLs short
-	return hash.digest("hex").slice(0, 10);
+	return hash.digest('hex').slice(0, 10);
 }
 
 // ============================================
@@ -148,8 +148,8 @@ export function getBrandingHash(brandingDir: string): string {
  * @throws if not found.
  */
 export function findScreenshotFile(sourceDir: string, filename: string): string {
-	const customFile = path.join(sourceDir, "custom", "screenshots", filename);
-	const defaultFile = path.join(sourceDir, "default", "screenshots", filename);
+	const customFile = path.join(sourceDir, 'custom', 'screenshots', filename);
+	const defaultFile = path.join(sourceDir, 'default', 'screenshots', filename);
 
 	if (fs.existsSync(customFile)) return customFile;
 	if (fs.existsSync(defaultFile)) return defaultFile;
@@ -162,17 +162,18 @@ export function findScreenshotFile(sourceDir: string, filename: string): string 
  */
 export async function copyScreenshots(sourceDir: string, publicDir: string): Promise<void> {
 	const files = [
-		"screen_mobile_1.png",
-		"screen_mobile_2.png",
-		"screen_tablet_1.png",
-		"screen_tablet_2.png",
+		'screen_mobile_1.png',
+		'screen_mobile_2.png',
+		'screen_tablet_1.png',
+		'screen_tablet_2.png',
 	];
 
-	const screenshotsDir = path.join(publicDir, "screenshots");
+	const screenshotsDir = path.join(publicDir, 'screenshots');
 	fs.mkdirSync(screenshotsDir, { recursive: true });
 
 	for (const file of files) {
 		const source = findScreenshotFile(sourceDir, file);
+		// biome-ignore lint/performance/noAwaitInLoops: baseline: pre-existing debt. should be fixed
 		await copyFile(source, path.join(screenshotsDir, file));
 	}
 }
@@ -207,14 +208,19 @@ export type GenerateAllIconsOptions = {
 	 * @see getBrandingHash
 	 */
 	brandingHash?: string;
-}
+};
 
 export type Icons = Array<{
 	sizes?: string;
 	src: string;
 	type?: string;
-	purpose?: 'monochrome' | 'maskable' | 'any' | (string & {}) | ('monochrome' | 'maskable' | 'any')[];
-}>
+	purpose?:
+		| 'monochrome'
+		| 'maskable'
+		| 'any'
+		| (string & {})
+		| ('monochrome' | 'maskable' | 'any')[];
+}>;
 
 /**
  * Generates all icons (favicon, apple touch icon, manifest icons).
@@ -222,6 +228,7 @@ export type Icons = Array<{
  * @param options Generation options.
  * @trows if favicon or logos are not found.
  */
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 export async function generateAllIcons({
 	sourceDir,
 	publicDir,
@@ -232,32 +239,32 @@ export async function generateAllIcons({
 }: GenerateAllIconsOptions): Promise<Icons> {
 	const hashSuffix = brandingHash ? `?v=${brandingHash}` : '';
 
-	const favicon = findBrandingFile(sourceDir, path.join("favicon.ico"));
+	const favicon = findBrandingFile(sourceDir, path.join('favicon.ico'));
 
 	if (!favicon) {
-		throw new Error("favicon not found");
+		throw new Error('favicon not found');
 	}
 
-	const {
-		logo_light: logoLight,
-		logo_dark: logoDark,
-	} = findLogoFiles(sourceDir);
+	const { logo_light: logoLight, logo_dark: logoDark } = findLogoFiles(sourceDir);
 
 	// Full scale logos
 	if (copySource !== false) {
 		await Promise.all([
 			copyFile(logoLight.pathname, path.join(publicDir, logoLight.filename)),
 			copyFile(logoDark.pathname, path.join(publicDir, logoDark.filename)),
-			copyFile(favicon.pathname, path.join(publicDir, path.basename(favicon.filename))).catch(() => {
-				console.warn(`No file ${favicon} was found, skipping...`);
-			}),
+			copyFile(favicon.pathname, path.join(publicDir, path.basename(favicon.filename))).catch(
+				() => {
+					// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
+					console.warn(`No file ${favicon} was found, skipping...`);
+				},
+			),
 		]);
 	}
 
 	const iconsDir = path.join(publicDir, 'icons');
 
 	fs.mkdirSync(iconsDir, {
-		recursive: true
+		recursive: true,
 	});
 
 	// Apple touch icon
@@ -267,7 +274,7 @@ export async function generateAllIcons({
 
 		await sharp(logoLight.pathname)
 			.resize(ICON_SIZE - PADDING * 2, ICON_SIZE - PADDING * 2, {
-				fit: "contain",
+				fit: 'contain',
 			})
 			.flatten({ background: { r: 255, g: 255, b: 255, alpha: 1 } })
 			.extend({
@@ -297,7 +304,7 @@ export async function generateAllIcons({
 
 		// ---------- NO PURPOSE - CIRCLE WHITE BACKGROUND ----------
 		if (size === 192 || size === 512) {
-
+			// biome-ignore lint/performance/noAwaitInLoops: baseline: pre-existing debt. should be fixed
 			const bg = await sharp({
 				create: {
 					width: size,
@@ -319,7 +326,7 @@ export async function generateAllIcons({
 				.toBuffer();
 
 			const logo = await sharp(manifestLogoPathname)
-				.resize(logoSize, logoSize, { fit: "contain" })
+				.resize(logoSize, logoSize, { fit: 'contain' })
 				.png()
 				.toBuffer();
 
@@ -331,7 +338,7 @@ export async function generateAllIcons({
 			icons.push({
 				src: `icons/${noPurposeFile}${hashSuffix}`,
 				sizes: sizeStr,
-				type: "image/png",
+				type: 'image/png',
 			});
 
 			// ---------- MASKABLE - FULL WHITE BACKGROUND ----------
@@ -346,7 +353,7 @@ export async function generateAllIcons({
 				.composite([
 					{
 						input: await sharp(manifestLogoPathname)
-							.resize(logoSize, logoSize, { fit: "contain" })
+							.resize(logoSize, logoSize, { fit: 'contain' })
 							.png()
 							.toBuffer(),
 						left: logoOffset,
@@ -359,8 +366,8 @@ export async function generateAllIcons({
 			icons.push({
 				src: `icons/${maskableFile}${hashSuffix}`,
 				sizes: sizeStr,
-				type: "image/png",
-				purpose: "maskable",
+				type: 'image/png',
+				purpose: 'maskable',
 			});
 
 			continue;
@@ -368,14 +375,14 @@ export async function generateAllIcons({
 
 		// ---------- SMALL ICONS - NO PURPOSE ----------
 		await sharp(manifestLogoPathname)
-			.resize(size, size, { fit: "contain" })
+			.resize(size, size, { fit: 'contain' })
 			.png()
 			.toFile(path.join(iconsDir, noPurposeFile));
 
 		icons.push({
 			src: `icons/${noPurposeFile}${hashSuffix}`,
 			sizes: sizeStr,
-			type: "image/png",
+			type: 'image/png',
 		});
 	}
 
@@ -387,13 +394,15 @@ export async function generateAllIcons({
 // ============================================
 
 const themeSchema = z.object({
-	brand: z.object({
-		color: z.string(),
-		colorLight: z.string(),
-		colorLighter: z.string(),
-		colorDark: z.string(),
-		colorDarker: z.string(),
-	}).strict(),
+	brand: z
+		.object({
+			color: z.string(),
+			colorLight: z.string(),
+			colorLighter: z.string(),
+			colorDark: z.string(),
+			colorDarker: z.string(),
+		})
+		.strict(),
 });
 
 export type ThemeConfig = z.infer<typeof themeSchema>;
@@ -402,9 +411,10 @@ export function allThemeConfigPaths(sourceDir: string): Record<string, string> {
 	return {
 		customPath: path.join(sourceDir, 'custom', 'theme.json'),
 		defaultPath: path.join(sourceDir, 'default', 'theme.json'),
-	}
+	};
 }
 
+// biome-ignore lint/suspicious/noShadow: baseline: pre-existing debt. should be fixed
 export function getThemeFile(path: string): ThemeConfig {
 	const raw = fs.readFileSync(path, 'utf8');
 	const theme = themeSchema.parse(JSON.parse(raw));
@@ -417,7 +427,7 @@ export type GenerateThemeOptions = {
 	 * Source branding directory.
 	 */
 	sourceDir: string;
-}
+};
 
 /**
  * Generates CSS theme variables from theme.json.
@@ -432,25 +442,24 @@ export function generateThemeCSS({ sourceDir }: GenerateThemeOptions): string {
 	})();
 
 	if (!configPath) {
+		// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
 		console.warn('No theme.json found. Generating empty theme block');
 		return `:root {}`;
 	}
 
-	console.log(
-		`Using theme config: ${path.relative(
-			process.cwd(),
-			configPath
-		)}`
-	);
+	// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
+	console.log(`Using theme config: ${path.relative(process.cwd(), configPath)}`);
 
 	const theme = getThemeFile(configPath);
 
 	const rootVars: string[] = [];
 
 	// Generate variables for each group (example: "brand")
+	// biome-ignore lint/complexity/noForEach: baseline: pre-existing debt. should be fixed
 	Object.entries(theme).forEach(([groupName, groupValues]) => {
 		if (!groupValues || typeof groupValues !== 'object') return;
 
+		// biome-ignore lint/complexity/noForEach: baseline: pre-existing debt. should be fixed
 		Object.entries(groupValues).forEach(([key, value]) => {
 			const groupKebab = groupName.replace(/([A-Z])/g, '-$1').toLowerCase();
 			const keyKebab = key.replace(/([A-Z])/g, '-$1').toLowerCase();
@@ -481,20 +490,26 @@ ${rootVars.join('\n')}
  * @throws if the color is invalid.
  */
 export function parseColorToRgb(input: string): RGB | null {
-	const rgb = /^rgba?\(\s*(?<r>25[0-5]|2[0-4]\d|1\d{1,2}|\d\d?)\s*,\s*(?<g>25[0-5]|2[0-4]\d|1\d{1,2}|\d\d?)\s*,\s*(?<b>25[0-5]|2[0-4]\d|1\d{1,2}|\d\d?)\s*,?\s*(?<alpha>[01\.]\.?\d?)?\s*\)$/i.exec(input);
+	const rgb =
+		// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
+		/^rgba?\(\s*(?<r>25[0-5]|2[0-4]\d|1\d{1,2}|\d\d?)\s*,\s*(?<g>25[0-5]|2[0-4]\d|1\d{1,2}|\d\d?)\s*,\s*(?<b>25[0-5]|2[0-4]\d|1\d{1,2}|\d\d?)\s*,?\s*(?<alpha>[01.]\.?\d?)?\s*\)$/i.exec(
+			input,
+		);
+	// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 	const hex = /^\B#([a-fA-F0-9]{6}|[a-fA-F0-9]{3})\b/i.exec(input);
-	const hsl = /^hsla?\(\s*(?<h>[-+]?\d{1,3}(?:\.\d+)?)(deg|grad|rad|turn)?\s*(?:,\s*|\s+)\s*(?<s>[-+]?\d{1,3}(?:\.\d+)?)%\s*(?:,\s*|\s+)\s*(?<l>[-+]?\d{1,3}(?:\.\d+)?)%\s*(?:,\s*|\s+)?(?:\s*\/?\s*(?<alpha>[-+]?[\d.]+%?)\s*)?\)$/i.exec(input);
+	const hsl =
+		// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
+		/^hsla?\(\s*(?<h>[-+]?\d{1,3}(?:\.\d+)?)(deg|grad|rad|turn)?\s*(?:,\s*|\s+)\s*(?<s>[-+]?\d{1,3}(?:\.\d+)?)%\s*(?:,\s*|\s+)\s*(?<l>[-+]?\d{1,3}(?:\.\d+)?)%\s*(?:,\s*|\s+)?(?:\s*\/?\s*(?<alpha>[-+]?[\d.]+%?)\s*)?\)$/i.exec(
+			input,
+		);
 
 	if (rgb) {
 		if (!rgb.groups) {
-			throw new Error("Invalid RGB color");
+			throw new Error('Invalid RGB color');
 		}
 
-		return [
-			parseInt(rgb.groups.r),
-			parseInt(rgb.groups.g),
-			parseInt(rgb.groups.b),
-		];
+		// biome-ignore lint/correctness/useParseIntRadix: baseline: pre-existing debt. should be fixed
+		return [parseInt(rgb.groups.r), parseInt(rgb.groups.g), parseInt(rgb.groups.b)];
 	}
 
 	if (hex) {
@@ -503,14 +518,11 @@ export function parseColorToRgb(input: string): RGB | null {
 
 	if (hsl) {
 		if (!hsl.groups) {
-			throw new Error("Invalid HSL color");
+			throw new Error('Invalid HSL color');
 		}
 
-		return convert.hsl.rgb(
-			parseInt(hsl.groups.h),
-			parseInt(hsl.groups.s),
-			parseInt(hsl.groups.l),
-		);
+		// biome-ignore lint/correctness/useParseIntRadix: baseline: pre-existing debt. should be fixed
+		return convert.hsl.rgb(parseInt(hsl.groups.h), parseInt(hsl.groups.s), parseInt(hsl.groups.l));
 	}
 
 	return null;
@@ -523,6 +535,7 @@ export function parseColorToRgb(input: string): RGB | null {
  * @param rgb Background color in RGB format.
  */
 export function getOptimalForegroundColor(rgb: RGB): string {
+	// biome-ignore lint/suspicious/noEvolvingTypes: baseline: pre-existing debt. should be fixed
 	const correctedRgb = [];
 	for (const [index, component] of rgb.entries()) {
 		const normalizedComponent = component / 255;
@@ -531,7 +544,7 @@ export function getOptimalForegroundColor(rgb: RGB): string {
 			correctedRgb[index] = normalizedComponent / 12.92;
 		}
 
-		correctedRgb[index] =  Math.pow((normalizedComponent + 0.055) / 1.055, 2.4);
+		correctedRgb[index] = ((normalizedComponent + 0.055) / 1.055) ** 2.4;
 	}
 
 	const [red, green, blue] = correctedRgb;
@@ -540,7 +553,7 @@ export function getOptimalForegroundColor(rgb: RGB): string {
 	const contrastRatioForBlack = (relativeLuminance + 0.05) / 0.05;
 	const contrastRatioForWhite = 1.05 / (relativeLuminance + 0.05);
 
-	return contrastRatioForBlack > contrastRatioForWhite ? "hsl(220 20% 5.7%)" : "hsl(0 0% 100%)";
+	return contrastRatioForBlack > contrastRatioForWhite ? 'hsl(220 20% 5.7%)' : 'hsl(0 0% 100%)';
 }
 
 // ============================================
@@ -549,11 +562,12 @@ export function getOptimalForegroundColor(rgb: RGB): string {
 
 type MetadataImageOptions = {
 	title: string;
-}
+};
 
 /**
  * Generates a metadata image based on branding and theme.
  */
+// biome-ignore lint/complexity/noStaticOnlyClass: baseline: pre-existing debt. should be fixed
 export class MetadataImage {
 	// Image dimensions
 	private static readonly IMAGE_WIDTH = 1200;
@@ -576,9 +590,10 @@ export class MetadataImage {
 </fontconfig>
 `;
 
-	private static fontsConfDirName = "fonts";
+	private static fontsConfDirName = 'fonts';
 
 	public static getFontsConfigDir(baseDir: string): string {
+		// biome-ignore lint/complexity/noThisInStatic: baseline: pre-existing debt. should be fixed
 		const fontsConfDir = path.resolve(baseDir, this.fontsConfDirName);
 		process.env.FONTCONFIG_PATH = fontsConfDir;
 
@@ -589,15 +604,18 @@ export class MetadataImage {
 	 * Check if `baseDir` contains the files required for a font environment.
 	 */
 	public static async hasFontsEnvironment(baseDir: string): Promise<boolean> {
+		// biome-ignore lint/complexity/noThisInStatic: baseline: pre-existing debt. should be fixed
 		const fontsConfDir = this.getFontsConfigDir(baseDir);
 
 		try {
 			const dir = await readdir(fontsConfDir);
 
-			if (!dir.includes("fonts.conf")) return false;
-			if (dir.filter((name) => name.endsWith(".ttf")).length < 1) return false;
+			if (!dir.includes('fonts.conf')) return false;
+			if (dir.filter((name) => name.endsWith('.ttf')).length < 1) return false;
 
 			return true;
+			// biome-ignore lint/complexity/noUselessCatchBinding: baseline: pre-existing debt. should be fixed
+			// biome-ignore lint/correctness/noUnusedVariables: baseline: pre-existing debt. should be fixed
 		} catch (e) {
 			return false;
 		}
@@ -607,15 +625,15 @@ export class MetadataImage {
 	 * Sets up a self-contained font environment.
 	 */
 	public static async setupFontsEnvironment(baseDir: string) {
+		// biome-ignore lint/complexity/noThisInStatic: baseline: pre-existing debt. should be fixed
 		const fontsConfDir = this.getFontsConfigDir(baseDir);
 
 		await mkdir(fontsConfDir, { recursive: true });
 
-		const fontUrls = [
-			"https://cdn.jsdelivr.net/fontsource/fonts/inter@5.2.8/latin-600-normal.ttf",
-		];
+		const fontUrls = ['https://cdn.jsdelivr.net/fontsource/fonts/inter@5.2.8/latin-600-normal.ttf'];
 
 		for (const fontUrl of fontUrls) {
+			// biome-ignore lint/performance/noAwaitInLoops: baseline: pre-existing debt. should be fixed
 			const res = await fetch(fontUrl);
 			if (!res.ok) {
 				throw new Error(`Failed to fetch font: ${res.status} ${res.statusText}`);
@@ -624,10 +642,11 @@ export class MetadataImage {
 			const fontBuffer = Buffer.from(await res.arrayBuffer());
 
 			await writeFile(path.join(fontsConfDir, path.basename(fontUrl)), fontBuffer);
+			// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
 			console.log(`Font written: ${path.join(fontsConfDir, path.basename(fontUrl))}`);
 		}
 
-		await writeFile(path.join(fontsConfDir, "fonts.conf"), MetadataImage.FONTCONFIG_XML);
+		await writeFile(path.join(fontsConfDir, 'fonts.conf'), MetadataImage.FONTCONFIG_XML);
 	}
 
 	/**
@@ -635,21 +654,23 @@ export class MetadataImage {
 	 *
 	 * @throws if logo or theme files are missing or invalid.
 	 */
-	public static async generateMetadataImage({ title }: MetadataImageOptions): Promise<{ type: string; source: Buffer; }> {
-		const sourceDir = path.resolve("branding");
+	public static async generateMetadataImage({
+		title,
+	}: MetadataImageOptions): Promise<{ type: string; source: Buffer }> {
+		const sourceDir = path.resolve('branding');
 
-		const logoFile = findLogoFile(sourceDir, "logo_dark");
+		const logoFile = findLogoFile(sourceDir, 'logo_dark');
 		if (!logoFile) {
-			throw new Error("Logo not found");
+			throw new Error('Logo not found');
 		}
 
 		if (!title) {
-			throw new Error("No titleset");
+			throw new Error('No titleset');
 		}
 
-		const themeFile = findBrandingFile(sourceDir, "theme.json");
+		const themeFile = findBrandingFile(sourceDir, 'theme.json');
 		if (!themeFile) {
-			throw new Error("theme.json not found");
+			throw new Error('theme.json not found');
 		}
 
 		const theme = getThemeFile(themeFile.pathname);
@@ -658,28 +679,26 @@ export class MetadataImage {
 
 		const backgroundColorRgb = parseColorToRgb(backgroundColor);
 		if (!backgroundColorRgb) {
-			throw new Error("Invalid brand color");
+			throw new Error('Invalid brand color');
 		}
 
 		const textColor = getOptimalForegroundColor(backgroundColorRgb);
 
-		const logoB64 = (
-			await sharp(logoFile.pathname).png().toBuffer()
-		).toString("base64");
+		const logoB64 = (await sharp(logoFile.pathname).png().toBuffer()).toString('base64');
 
-		const svg = this.createSvgTemplate(
-			title,
-			`image/png;base64,${logoB64}`,
-			{ background: backgroundColor, text: textColor }
-		);
+		// biome-ignore lint/complexity/noThisInStatic: baseline: pre-existing debt. should be fixed
+		const svg = this.createSvgTemplate(title, `image/png;base64,${logoB64}`, {
+			background: backgroundColor,
+			text: textColor,
+		});
 
 		const svgBuffer = Buffer.from(svg);
-		const pngBuffer = await sharp(svgBuffer).png().toBuffer()
+		const pngBuffer = await sharp(svgBuffer).png().toBuffer();
 
 		return {
-			type: "image/png",
+			type: 'image/png',
 			source: pngBuffer,
-		}
+		};
 	}
 
 	private static wrapTextToLines(text: string, maxLineLength: number): string[] {
@@ -692,40 +711,76 @@ export class MetadataImage {
 				break;
 			}
 
-			const lastSpace = remainingText.lastIndexOf(" ", maxLineLength);
+			const lastSpace = remainingText.lastIndexOf(' ', maxLineLength);
 			const splitIndex = lastSpace === -1 ? maxLineLength : lastSpace;
 
 			lines.push(remainingText.substring(0, splitIndex));
-			remainingText = remainingText.substring(
-				splitIndex + (lastSpace === -1 ? 0 : 1)
-			);
+			remainingText = remainingText.substring(splitIndex + (lastSpace === -1 ? 0 : 1));
 		}
 
 		return lines;
 	}
 
-	private static createSvgTemplate(title: string, logoB64: string, colors: { background: string; text: string }): string {
+	private static createSvgTemplate(
+		title: string,
+		logoB64: string,
+		colors: { background: string; text: string },
+	): string {
 		// Calculate title layout
+		// biome-ignore lint/complexity/noThisInStatic: baseline: pre-existing debt. should be fixed
 		const lines = this.wrapTextToLines(title, this.MAX_TITLE_LENGTH);
-		const fontSize = title.length <= this.SHORT_TITLE_THRESHOLD ? this.LARGE_FONT_SIZE : this.BASE_FONT_SIZE;
-		const lineHeight = (fontSize * 0.8) + this.LINE_MARGIN;
-		const titleHeight = (lines.length * lineHeight) - this.LINE_MARGIN;
+		const fontSize =
+			// biome-ignore lint/complexity/noThisInStatic: baseline: pre-existing debt. should be fixed
+			title.length <= this.SHORT_TITLE_THRESHOLD ? this.LARGE_FONT_SIZE : this.BASE_FONT_SIZE;
+		// biome-ignore lint/complexity/noThisInStatic: baseline: pre-existing debt. should be fixed
+		const lineHeight = fontSize * 0.8 + this.LINE_MARGIN;
+		// biome-ignore lint/complexity/noThisInStatic: baseline: pre-existing debt. should be fixed
+		const titleHeight = lines.length * lineHeight - this.LINE_MARGIN;
 
 		// Build title tspans
 		const tspans = lines
-			.map((line, index) => `<tspan x="0" ${index > 0 ? `dy="${lineHeight}"` : ""}>${line}</tspan>`)
-			.join("");
+			.map((line, index) => `<tspan x="0" ${index > 0 ? `dy="${lineHeight}"` : ''}>${line}</tspan>`)
+			.join('');
 
 		// Calculate logo position
-		const logoY = (this.IMAGE_HEIGHT / 2) - (this.LOGO_SIZE / 2);
+		// biome-ignore lint/complexity/noThisInStatic: baseline: pre-existing debt. should be fixed
+		const logoY = this.IMAGE_HEIGHT / 2 - this.LOGO_SIZE / 2;
+		// biome-ignore lint/complexity/noThisInStatic: baseline: pre-existing debt. should be fixed
 		const logoX = this.IMAGE_WIDTH - this.MARGIN - this.LOGO_SIZE;
 
 		return `
-<svg width="${this.IMAGE_WIDTH}" height="${this.IMAGE_HEIGHT}" viewBox="0 0 ${this.IMAGE_WIDTH} ${this.IMAGE_HEIGHT}" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-	<rect x="0" y="0" width="${this.IMAGE_WIDTH}" height="${this.IMAGE_HEIGHT}" fill="${colors.background}" />
-	<image y="${logoY}" x="${logoX}" width="${this.LOGO_SIZE}" height="${this.LOGO_SIZE}" xlink:href="data:${logoB64}" />
+<svg width="${
+			// biome-ignore lint/complexity/noThisInStatic: baseline: pre-existing debt. should be fixed
+			this.IMAGE_WIDTH
+		}" height="${
+			// biome-ignore lint/complexity/noThisInStatic: baseline: pre-existing debt. should be fixed
+			this.IMAGE_HEIGHT
+		}" viewBox="0 0 ${
+			// biome-ignore lint/complexity/noThisInStatic: baseline: pre-existing debt. should be fixed
+			this.IMAGE_WIDTH
+		} ${
+			// biome-ignore lint/complexity/noThisInStatic: baseline: pre-existing debt. should be fixed
+			this.IMAGE_HEIGHT
+		}" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+	<rect x="0" y="0" width="${
+		// biome-ignore lint/complexity/noThisInStatic: baseline: pre-existing debt. should be fixed
+		this.IMAGE_WIDTH
+	}" height="${
+		// biome-ignore lint/complexity/noThisInStatic: baseline: pre-existing debt. should be fixed
+		this.IMAGE_HEIGHT
+	}" fill="${colors.background}" />
+	<image y="${logoY}" x="${logoX}" width="${
+		// biome-ignore lint/complexity/noThisInStatic: baseline: pre-existing debt. should be fixed
+		this.LOGO_SIZE
+	}" height="${
+		// biome-ignore lint/complexity/noThisInStatic: baseline: pre-existing debt. should be fixed
+		this.LOGO_SIZE
+	}" xlink:href="data:${logoB64}" />
 	<g fill="${colors.text}" font-family="Inter SemiBold">
-		<svg x="${this.MARGIN}" y="50%" transform="translate(0 ${-(titleHeight / 2)})">
+		<svg x="${
+			// biome-ignore lint/complexity/noThisInStatic: baseline: pre-existing debt. should be fixed
+			this.MARGIN
+		}" y="50%" transform="translate(0 ${-(titleHeight / 2)})">
 			<text y="1" dominant-baseline="hanging" font-size="${fontSize}">
 				${tspans}
 			</text>

@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { Logger } from '@sirosfoundation/browser-log';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HttpClient } from './HttpClient';
 import { HttpClientError } from './resources';
 import type { HttpTransport, HttpTransportResponse, IndexedDB } from './types';
-import type { Logger } from '@sirosfoundation/browser-log';
 
 const logger = {
 	warn: vi.fn(),
@@ -46,13 +46,10 @@ describe('HttpClient', () => {
 		});
 		const client = new HttpClient({ isOnline: true, logger, transport });
 
-		const res = await client.get(
-			'https://x.test/logo.png',
-			{},
-			{ wantRaw: true },
-		);
+		const res = await client.get('https://x.test/logo.png', {}, { wantRaw: true });
 
 		expect(res.data).toBeInstanceOf(Uint8Array);
+		// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 		expect(Array.from(res.raw!)).toEqual([1, 2, 3]);
 	});
 
@@ -143,9 +140,8 @@ describe('HttpClient', () => {
 
 	it('deduplicates concurrent identical requests', async () => {
 		let resolve!: (r: HttpTransportResponse) => void;
-		const transport = vi.fn(
-			() => new Promise<HttpTransportResponse>((r) => (resolve = r)),
-		);
+		// biome-ignore lint/suspicious/noReturnAssign: baseline: pre-existing debt. should be fixed
+		const transport = vi.fn(() => new Promise<HttpTransportResponse>((r) => (resolve = r)));
 		const client = new HttpClient({ isOnline: true, logger, transport });
 
 		const p1 = client.get('https://x.test/d');
@@ -159,6 +155,7 @@ describe('HttpClient', () => {
 	});
 
 	it('returns the error payload when the transport throws and no cache exists', async () => {
+		// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 		const transport = vi.fn(async () => {
 			throw new HttpClientError('GET', 503, { x: '1' }, 'nope');
 		});
@@ -186,6 +183,7 @@ describe('HttpClient', () => {
 
 		await client.get('https://x.test/f', {}, { useCache: true });
 		client.setTransport(
+			// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 			vi.fn(async () => {
 				throw new HttpClientError('GET', 500, {}, 'err');
 			}),
@@ -290,13 +288,10 @@ describe('HttpClient', () => {
 		});
 		const client = new HttpClient({ isOnline: true, logger, transport });
 
-		const res = await client.get(
-			'https://x.test/logo.png?v=2#frag',
-			{},
-			{ wantRaw: true },
-		);
+		const res = await client.get('https://x.test/logo.png?v=2#frag', {}, { wantRaw: true });
 
 		expect(res.data).toBeInstanceOf(Uint8Array);
+		// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 		expect(Array.from(res.raw!)).toEqual([1, 2, 3]);
 	});
 
@@ -324,6 +319,7 @@ function transportReturning(
 function memoryIndexedDB(): IndexedDB {
 	const store = new Map<string, unknown>();
 	return {
+		// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 		addItem: vi.fn(async (_s, key, value) => {
 			store.set(String(key), value);
 		}),
@@ -334,6 +330,7 @@ function memoryIndexedDB(): IndexedDB {
 // a pre-upgrade entry: no Uint8Array `bytes`
 function malformedIndexedDB(): IndexedDB {
 	return {
+		// biome-ignore lint/suspicious/noEmptyBlockStatements: baseline: pre-existing debt. should be fixed
 		addItem: vi.fn(async () => {}),
 		getItem: vi.fn(async () => ({
 			data: { status: 200, headers: {}, binary: false },

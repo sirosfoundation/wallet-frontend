@@ -95,7 +95,6 @@ export type ConformantCredentials = Map<
 	}
 >;
 
-
 /**
  * The view state of the Present Credentials Flow.
  */
@@ -106,11 +105,11 @@ export type PresentCredentialsFlowView =
 			request: PresentCredentialsRequest;
 			onAccept: (result: PresentCredentialsResult) => void;
 			onDecline: () => void;
-	}
+	  }
 	| { status: 'sharing'; messages?: string[]; onCancel?: () => void }
 	| {
 			status: 'shared';
 			result: PresentationResult;
 			onClose?: () => void;
-		}
+	  }
 	| { status: 'error'; state: PresentationErrorState };

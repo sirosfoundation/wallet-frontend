@@ -20,9 +20,9 @@
  */
 
 import type { IOIDFlowTransport } from '../types/IOIDFlowTransport';
-import type { OIDFlowRequest, OIDFlowResponse, OIDFlowProgressEvent } from '../types/OIDFlowTypes';
 import type { OID4VCIFlowParams, OID4VCIFlowResult } from '../types/OID4VCITypes';
 import type { OID4VPFlowParams, OID4VPFlowResult } from '../types/OID4VPTypes';
+import type { OIDFlowProgressEvent, OIDFlowRequest, OIDFlowResponse } from '../types/OIDFlowTypes';
 
 /**
  * Result of CORS capability check
@@ -51,12 +51,14 @@ export class OIDFlowDirectTransport implements IOIDFlowTransport {
 
 	// ===== Connection Lifecycle =====
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	async connect(): Promise<void> {
 		// For direct transport, "connect" validates browser capabilities
 		// In stub mode, we just mark as connected
 		this.connected = true;
 	}
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	async disconnect(): Promise<void> {
 		this.connected = false;
 	}
@@ -67,28 +69,31 @@ export class OIDFlowDirectTransport implements IOIDFlowTransport {
 
 	// ===== OID4VCI Flow (Stub) =====
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	async startOID4VCIFlow(_params: OID4VCIFlowParams): Promise<OID4VCIFlowResult> {
 		throw new Error(
 			'DirectTransport not implemented: OID4VCI direct browser requests ' +
-			'require ecosystem-wide CORS support. Use WebSocket or HTTP proxy transport.'
+				'require ecosystem-wide CORS support. Use WebSocket or HTTP proxy transport.',
 		);
 	}
 
 	// ===== OID4VP Flow (Stub) =====
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	async startOID4VPFlow(_params: OID4VPFlowParams): Promise<OID4VPFlowResult> {
 		throw new Error(
 			'DirectTransport not implemented: OID4VP direct browser requests ' +
-			'require ecosystem-wide CORS support. Use WebSocket or HTTP proxy transport.'
+				'require ecosystem-wide CORS support. Use WebSocket or HTTP proxy transport.',
 		);
 	}
 
 	// ===== Generic Request (Stub) =====
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	async request<T>(_flowRequest: OIDFlowRequest): Promise<OIDFlowResponse<T>> {
 		throw new Error(
 			'DirectTransport not implemented: Direct browser requests ' +
-			'require ecosystem-wide CORS support. Use WebSocket or HTTP proxy transport.'
+				'require ecosystem-wide CORS support. Use WebSocket or HTTP proxy transport.',
 		);
 	}
 
@@ -141,9 +146,8 @@ export class OIDFlowDirectTransport implements IOIDFlowTransport {
 
 			// Check if our origin is allowed
 			const currentOrigin = window.location.origin;
-			const isAllowed = allowOrigin === '*' ||
-				allowOrigin === currentOrigin ||
-				allowOrigin.includes(currentOrigin);
+			const isAllowed =
+				allowOrigin === '*' || allowOrigin === currentOrigin || allowOrigin.includes(currentOrigin);
 
 			if (!isAllowed) {
 				return {
@@ -154,8 +158,8 @@ export class OIDFlowDirectTransport implements IOIDFlowTransport {
 			}
 
 			// Verify required methods are allowed
-			const methods = allowMethods?.split(',').map(m => m.trim().toUpperCase()) ?? [];
-			if (!methods.includes('POST') && !methods.includes('*')) {
+			const methods = allowMethods?.split(',').map((m) => m.trim().toUpperCase()) ?? [];
+			if (!(methods.includes('POST') || methods.includes('*'))) {
 				return {
 					supported: false,
 					error: 'POST method not allowed',
@@ -202,6 +206,7 @@ export class OIDFlowDirectTransport implements IOIDFlowTransport {
 	 * @param verifierUrl - The verifier's authorization endpoint URL
 	 * @returns CorsCheckResult for the verifier's endpoint
 	 */
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	async checkVerifierCorsSupport(verifierUrl: string): Promise<CorsCheckResult> {
 		return this.checkCorsSupport(verifierUrl);
 	}

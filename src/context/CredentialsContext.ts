@@ -1,7 +1,8 @@
 // CredentialsContext.ts
-import { CurrentSchema } from '@/services/WalletStateSchema';
+
 import { createContext } from 'react';
-import { ParsedCredential, ParsingEngineI, CredentialVerifier } from 'wallet-common';
+import type { CredentialVerifier, ParsedCredential, ParsingEngineI } from 'wallet-common';
+import type { CurrentSchema } from '@/services/WalletStateSchema';
 
 type WalletStateCredential = CurrentSchema.WalletStateCredential;
 
@@ -14,14 +15,14 @@ type CredentialEngine = {
 export type Instance = {
 	instanceId: number;
 	sigCount: number;
-}
+};
 
 export type ExtendedVcEntity = WalletStateCredential & {
 	parsedCredential: ParsedCredential;
 	isExpired: boolean;
 	instances: Instance[];
 	sigCount: number; // calculate usage by parsing all presentation history
-}
+};
 
 export type CredentialsContextValue = {
 	/**
@@ -43,6 +44,7 @@ export type CredentialsContextValue = {
 	setCurrentSlide: (slide: number) => void;
 	parseCredential: (credential: WalletStateCredential) => Promise<ParsedCredential | null>;
 	credentialEngine: CredentialEngine | null;
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 	pendingTransactions: Record<string, any>;
 };
 
@@ -50,9 +52,11 @@ const defaultContextValue: CredentialsContextValue = {
 	vcEntityList: [],
 	latestCredentials: new Set<number>(),
 	fetchVcData: async () => [],
-	getData: async () => { },
+	// biome-ignore lint/suspicious/noEmptyBlockStatements: baseline: pre-existing debt. should be fixed
+	getData: async () => {},
 	currentSlide: 1,
-	setCurrentSlide: () => { },
+	// biome-ignore lint/suspicious/noEmptyBlockStatements: baseline: pre-existing debt. should be fixed
+	setCurrentSlide: () => {},
 	parseCredential: async () => null,
 	credentialEngine: null,
 	pendingTransactions: null,

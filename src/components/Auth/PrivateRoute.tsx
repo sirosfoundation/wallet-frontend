@@ -1,10 +1,17 @@
-import React, { useContext, useMemo, useEffect, useState } from 'react';
-import { Navigate, useParams, useLocation } from 'react-router';
+import type React from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
+import { Navigate, useLocation, useParams } from 'react-router';
 import SessionContext from '@/context/SessionContext';
-import { getStoredTenant, TENANT_PATH_PREFIX, isMultiTenant, buildTenantRoutePath } from '@/lib/tenant';
-import { logger } from '@/logger';
+import {
+	buildTenantRoutePath,
+	getStoredTenant,
+	isMultiTenant,
+	TENANT_PATH_PREFIX,
+} from '@/lib/tenant';
 import { setReturnToUrl } from '@/lib/utils/returnToUrl';
+import { logger } from '@/logger';
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 const PrivateRoute = ({ children }: { children?: React.ReactNode }): React.ReactElement => {
 	const { isLoggedIn, consumeSessionCleared, keystore } = useContext(SessionContext);
 	const cachedUsers = keystore.getCachedUsers();
@@ -20,11 +27,12 @@ const PrivateRoute = ({ children }: { children?: React.ReactNode }): React.React
 	const queryParams = new URLSearchParams(window.location.search);
 	const state = queryParams.get('state');
 
+	// biome-ignore lint/suspicious/noShadow: baseline: pre-existing debt. should be fixed
 	const userExistsInCache = (state: string) => {
 		if (!state) return false;
 		try {
 			const decodedState = JSON.parse(atob(state));
-			return cachedUsers.some(user => user.userHandleB64u === decodedState.userHandleB64u);
+			return cachedUsers.some((user) => user.userHandleB64u === decodedState.userHandleB64u);
 		} catch (error) {
 			logger.error('Error decoding state:', error);
 			return false;
@@ -32,8 +40,9 @@ const PrivateRoute = ({ children }: { children?: React.ReactNode }): React.React
 	};
 
 	// Calculate redirect path for tenant enforcement
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
 	const tenantRedirectPath = useMemo(() => {
-		if (!isLoggedIn || !storedTenantId || !isMultiTenant()) {
+		if (!(isLoggedIn && storedTenantId && isMultiTenant())) {
 			return null; // No redirect needed for unauthenticated users or no tenant
 		}
 
@@ -75,15 +84,15 @@ const PrivateRoute = ({ children }: { children?: React.ReactNode }): React.React
 
 	// Show nothing while doing a hard redirect
 	if (isHardRedirecting) {
+		// biome-ignore lint/complexity/noUselessFragments: baseline: pre-existing debt. should be fixed
 		return <></>;
 	}
 
 	// Handle unauthenticated users first
 	if (!isLoggedIn) {
 		// For unauthenticated users, preserve the tenant from URL if present
-		const loginTenantPath = urlTenantId && isMultiTenant()
-			? `/${TENANT_PATH_PREFIX}/${urlTenantId}`
-			: '';
+		const loginTenantPath =
+			urlTenantId && isMultiTenant() ? `/${TENANT_PATH_PREFIX}/${urlTenantId}` : '';
 
 		if (state && userExistsInCache(state)) {
 			return <Navigate to={`${loginTenantPath}/login-state${window.location.search}`} replace />;
@@ -91,21 +100,13 @@ const PrivateRoute = ({ children }: { children?: React.ReactNode }): React.React
 
 		// Remember where the user was headed so login can send them back afterwards
 		if (!consumeSessionCleared()) {
-			setReturnToUrl(
-				location.pathname +
-				location.search +
-				location.hash
-			);
+			setReturnToUrl(location.pathname + location.search + location.hash);
 		}
 
 		return <Navigate to={`${loginTenantPath}/login`} replace />;
 	}
 
-	return (
-		<>
-			{children}
-		</>
-	);
+	return <>{children}</>;
 };
 
 export default PrivateRoute;

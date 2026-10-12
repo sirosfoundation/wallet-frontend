@@ -1,15 +1,17 @@
-import React, { useEffect, useState, useContext, Suspense } from "react";
-import { useLocation, useNavigate } from "react-router";
-import StatusContext from "../context/StatusContext";
-import { logger } from "@/logger";
-import SessionContext from "../context/SessionContext";
-import { useTranslation } from "react-i18next";
-import { CachedUser } from "@/services/LocalStorageKeystore";
-import SyncPopup from "@/components/Popups/SyncPopup";
-import { useSessionStorage } from "@/hooks/useStorage";
-import { parseOIDFlowCallbackUrl } from "@/lib/openid-flow/utils/oidFlowCallbackUrl";
-import { useTenant } from "@/context/TenantContext";
+import type React from 'react';
+import { Suspense, useContext, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useLocation, useNavigate } from 'react-router';
+import SyncPopup from '@/components/Popups/SyncPopup';
+import { useTenant } from '@/context/TenantContext';
+import { useSessionStorage } from '@/hooks/useStorage';
+import { parseOIDFlowCallbackUrl } from '@/lib/openid-flow/utils/oidFlowCallbackUrl';
+import { logger } from '@/logger';
+import type { CachedUser } from '@/services/LocalStorageKeystore';
+import SessionContext from '../context/SessionContext';
+import StatusContext from '../context/StatusContext';
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	const { isOnline } = useContext(StatusContext);
 
@@ -21,7 +23,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	const [url, setUrl] = useState(window.location.href);
 
 	const [showSyncPopup, setSyncPopup] = useState<boolean>(false);
-	const [textSyncPopup, setTextSyncPopup] = useState<{ description: string }>({ description: "" });
+	const [textSyncPopup, setTextSyncPopup] = useState<{ description: string }>({ description: '' });
 
 	const { t } = useTranslation();
 	const navigate = useNavigate();
@@ -29,8 +31,11 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 
 	const [cachedUser, setCachedUser] = useState<CachedUser | null>(null);
 	const [synced, setSynced] = useState(false);
-	const [latestIsOnlineStatus, setLatestIsOnlineStatus,] = api.useClearOnClearSession(useSessionStorage('latestIsOnlineStatus', null));
+	const [latestIsOnlineStatus, setLatestIsOnlineStatus] = api.useClearOnClearSession(
+		useSessionStorage('latestIsOnlineStatus', null),
+	);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: baseline: pre-existing debt. should be fixed
 	useEffect(() => {
 		if (!keystore || cachedUser !== null || !isLoggedIn) {
 			return;
@@ -46,6 +51,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 		}
 	}, [keystore, getCachedUsers, getUserHandleB64u, setCachedUser, cachedUser, isLoggedIn]);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: baseline: pre-existing debt. should be fixed
 	useEffect(() => {
 		const params = new URLSearchParams(window.location.search);
 		if (window.location.search !== '' && params.get('sync') !== 'fail') {
@@ -69,7 +75,7 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 		latestIsOnlineStatus,
 		setLatestIsOnlineStatus,
 		cachedUser,
-		keystore
+		keystore,
 	]);
 
 	useEffect(() => {
@@ -79,13 +85,14 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 		}
 	}, [isLoggedIn]);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: baseline: pre-existing debt. should be fixed
 	useEffect(() => {
-		if (!getCalculatedWalletState || !cachedUser || !syncPrivateData) {
+		if (!(getCalculatedWalletState && cachedUser && syncPrivateData)) {
 			return;
 		}
 		const params = new URLSearchParams(location.search);
 		if (synced === false && getCalculatedWalletState() && params.get('sync') !== 'fail') {
-			logger.debug("Actually syncing...");
+			logger.debug('Actually syncing...');
 			(async () => {
 				const r = await syncPrivateData(cachedUser, keystore);
 				if (!r.ok) {
@@ -94,21 +101,29 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 				setSynced(true);
 			})();
 		}
+	}, [
+		cachedUser,
+		synced,
+		setSynced,
+		getCalculatedWalletState,
+		syncPrivateData,
+		location.search,
+		keystore,
+	]);
 
-	}, [cachedUser, synced, setSynced, getCalculatedWalletState, syncPrivateData, location.search, keystore]);
-
+	// biome-ignore lint/correctness/useExhaustiveDependencies: baseline: pre-existing debt. should be fixed
 	useEffect(() => {
 		if (synced === true && window.location.search !== '') {
 			setUrl(window.location.href);
 		}
 	}, [synced, setUrl, location]);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: baseline: pre-existing debt. should be fixed
 	useEffect(() => {
 		const params = new URLSearchParams(window.location.search);
 		if (synced === true && params.get('sync') === 'fail') {
 			setSynced(false);
-		}
-		else if (params.get('sync') === 'fail' && synced === false) {
+		} else if (params.get('sync') === 'fail' && synced === false) {
 			setTextSyncPopup({ description: 'syncPopup.description' });
 			setSyncPopup(true);
 		} else {
@@ -135,14 +150,15 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 	return (
 		<Suspense fallback={null}>
 			{children}
-			{showSyncPopup &&
-				<SyncPopup message={textSyncPopup}
+			{showSyncPopup && (
+				<SyncPopup
+					message={textSyncPopup}
 					onClose={() => {
 						setSyncPopup(false);
 						logout();
 					}}
 				/>
-			}
+			)}
 		</Suspense>
 	);
-}
+};

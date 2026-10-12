@@ -1,17 +1,12 @@
 /* eslint-disable no-restricted-globals */
 
-import { clientsClaim } from "workbox-core";
-import { ExpirationPlugin } from "workbox-expiration";
-import {
-	precacheAndRoute,
-	cleanupOutdatedCaches,
-	matchPrecache,
-} from "workbox-precaching";
-import { registerRoute } from "workbox-routing";
-import { StaleWhileRevalidate, CacheFirst } from "workbox-strategies";
+import { clientsClaim } from 'workbox-core';
+import { ExpirationPlugin } from 'workbox-expiration';
+import { cleanupOutdatedCaches, matchPrecache, precacheAndRoute } from 'workbox-precaching';
+import { registerRoute } from 'workbox-routing';
+import { CacheFirst, StaleWhileRevalidate } from 'workbox-strategies';
 
-const basePath =
-	new URL(self.registration.scope).pathname.replace(/\/?$/, "/") || "/";
+const basePath = new URL(self.registration.scope).pathname.replace(/\/?$/, '/') || '/';
 
 clientsClaim();
 cleanupOutdatedCaches();
@@ -30,20 +25,20 @@ precacheAndRoute(self.__WB_MANIFEST, {
 });
 
 const SPA_ROUTE_ALLOWLIST = [
-	/^\/$/,                              // Home
-	/^\/settings$/,                      // Settings
-	/^\/history$/,                       // History list
-	/^\/pending$/,                       // Pending
-	/^\/add$/,                           // Add credentials
-	/^\/send$/,                          // Send credentials
-	/^\/verification\/result$/,          // Verification result
-	/^\/login$/,                         // Login
-	/^\/login-state$/,                   // Login state
-	/^\/cb(\/.*)?$/,                     // Callback routes
-	/^\/credential\/[^/]+$/,             // Credential
-	/^\/credential\/[^/]+\/history$/,    // Credential history
-	/^\/credential\/[^/]+\/details$/,    // Credential details
-	/^\/history\/[^/]+$/,                // History detail
+	/^\/$/, // Home
+	/^\/settings$/, // Settings
+	/^\/history$/, // History list
+	/^\/pending$/, // Pending
+	/^\/add$/, // Add credentials
+	/^\/send$/, // Send credentials
+	/^\/verification\/result$/, // Verification result
+	/^\/login$/, // Login
+	/^\/login-state$/, // Login state
+	/^\/cb(\/.*)?$/, // Callback routes
+	/^\/credential\/[^/]+$/, // Credential
+	/^\/credential\/[^/]+\/history$/, // Credential history
+	/^\/credential\/[^/]+\/details$/, // Credential details
+	/^\/history\/[^/]+$/, // History detail
 ];
 
 /**
@@ -51,10 +46,12 @@ const SPA_ROUTE_ALLOWLIST = [
  */
 registerRoute(
 	({ request, url }) => {
-		if (request.mode !== "navigate") return false;
-		if (url.pathname.startsWith("/_")) return false;
+		if (request.mode !== 'navigate') return false;
+		if (url.pathname.startsWith('/_')) return false;
+		// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 		if (/\.[a-zA-Z0-9]+$/.test(url.pathname)) return false;
 
+		// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 		const pathname = url.pathname.replace(/^(\/id\/([a-z0-9-]+))/, '');
 
 		return SPA_ROUTE_ALLOWLIST.some((re) => re.test(pathname));
@@ -77,10 +74,10 @@ registerRoute(
  */
 registerRoute(
 	({ request, url }) =>
-		request.destination === "script" ||
-		request.destination === "style" ||
-		request.destination === "worker" ||
-		url.pathname.endsWith(".wasm"),
+		request.destination === 'script' ||
+		request.destination === 'style' ||
+		request.destination === 'worker' ||
+		url.pathname.endsWith('.wasm'),
 	async ({ request, event }) => {
 		const cached = await caches.match(request);
 		if (cached) return cached;
@@ -88,8 +85,8 @@ registerRoute(
 			const response = await fetch(request);
 			if (response.ok) {
 				event.waitUntil(
-					caches.open("assets").then((cache) => {
-						return cache.put(request, response.clone())
+					caches.open('assets').then((cache) => {
+						return cache.put(request, response.clone());
 					}),
 				);
 			}
@@ -102,25 +99,25 @@ registerRoute(
 
 registerRoute(
 	({ url }) =>
-		url.pathname.endsWith(".png") ||
-		url.pathname.endsWith(".jpg") ||
-		url.pathname.endsWith(".jpeg") ||
-		url.pathname.endsWith(".svg") ||
-		url.pathname.endsWith(".webp"),
+		url.pathname.endsWith('.png') ||
+		url.pathname.endsWith('.jpg') ||
+		url.pathname.endsWith('.jpeg') ||
+		url.pathname.endsWith('.svg') ||
+		url.pathname.endsWith('.webp'),
 	new StaleWhileRevalidate({
-		cacheName: "images",
+		cacheName: 'images',
 		plugins: [
 			new ExpirationPlugin({
 				maxEntries: 200,
 			}),
 		],
-	})
+	}),
 );
 
 registerRoute(
-	({ request }) => request.destination === "font",
+	({ request }) => request.destination === 'font',
 	new CacheFirst({
-		cacheName: "fonts",
+		cacheName: 'fonts',
 		plugins: [
 			new ExpirationPlugin({
 				maxEntries: 50,

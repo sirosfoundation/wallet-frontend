@@ -1,23 +1,23 @@
 // AppProvider.tsx
-import React, { ReactNode } from 'react';
+import type React from 'react';
+import type { ReactNode } from 'react';
 
 // Import i18next and set up translations
 import { I18nextProvider } from 'react-i18next';
-import i18n from './i18n';
-
-// Contexts
-import { StatusContextProvider } from './context/StatusContextProvider';
-import { SessionContextProvider } from './context/SessionContextProvider';
-import { CredentialsContextProvider } from './context/CredentialsContextProvider';
-import { OpenID4VPContextProvider } from './context/OpenID4VPContextProvider';
 import { AppSettingsProvider } from './context/AppSettingsProvider';
+import { CredentialsContextProvider } from './context/CredentialsContextProvider';
+import { ErrorDialogContextProvider } from './context/ErrorDialogContextProvider';
 import { NotificationProvider } from './context/NotificationProvider';
 import { OIDFlowTransportProvider } from './context/OIDFlowTransportContext';
-import { WebSocketSignHandlerProvider } from './context/WebSocketSignHandlerProvider';
-import { ErrorDialogContextProvider } from './context/ErrorDialogContextProvider';
+import { OpenID4VPContextProvider } from './context/OpenID4VPContextProvider';
+import { SessionContextProvider } from './context/SessionContextProvider';
+// Contexts
+import { StatusContextProvider } from './context/StatusContextProvider';
 import { TxCodeInputProvider } from './context/TxCodeInputContext';
 import { WalletCompanionProvider } from './context/WalletCompanionContext';
+import { WebSocketSignHandlerProvider } from './context/WebSocketSignHandlerProvider';
 import { WscdManagerClientContextProvider } from './context/WscdManagerClientContextProvider';
+import i18n from './i18n';
 
 type RootProviderProps = {
 	children: ReactNode;
@@ -37,9 +37,7 @@ const AppProvider: React.FC<RootProviderProps> = ({ children }) => {
 											<TxCodeInputProvider>
 												<NotificationProvider>
 													<WalletCompanionProvider>
-														<AppSettingsProvider>
-															{children}
-														</AppSettingsProvider>
+														<AppSettingsProvider>{children}</AppSettingsProvider>
 													</WalletCompanionProvider>
 												</NotificationProvider>
 											</TxCodeInputProvider>

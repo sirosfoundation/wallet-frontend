@@ -1,6 +1,6 @@
 import init, { WscdManagerJs } from '@sirosfoundation/wscd-manager-wasm';
 import wasmUrl from '@sirosfoundation/wscd-manager-wasm/siros_wscd_manager_bg.wasm?url';
-import { WorkerMessage } from './types';
+import type { WorkerMessage } from './types';
 
 const ready = (async () => {
 	await init({ module_or_path: wasmUrl });
@@ -36,12 +36,12 @@ globalThis.onmessage = async ({ data }: MessageEvent<WorkerMessage>) => {
 		}
 		globalThis.postMessage({
 			id: data.id,
-			result
+			result,
 		});
 	} catch (err) {
 		globalThis.postMessage({
 			id: data.id,
-			error: err instanceof Error ? err.message : String(err)
+			error: err instanceof Error ? err.message : String(err),
 		});
 	}
 };

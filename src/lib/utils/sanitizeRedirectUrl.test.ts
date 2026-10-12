@@ -1,5 +1,5 @@
 /* eslint-disable no-script-url -- intentional dangerous-scheme payloads for security tests */
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { sanitizeRedirectUrl } from './sanitizeRedirectUrl';
 
 describe('sanitizeRedirectUrl', () => {
@@ -26,14 +26,14 @@ describe('sanitizeRedirectUrl', () => {
 	it('should throw an error for ftp URLs', () => {
 		const url = 'ftp://example.com/';
 		expect(() => sanitizeRedirectUrl(url)).toThrowError(
-			'Prohibited URL scheme "ftp" in redirect URL "ftp://example.com/"'
+			'Prohibited URL scheme "ftp" in redirect URL "ftp://example.com/"',
 		);
 	});
 
 	it('should throw an error for javascript URLs', () => {
 		const url = 'javascript:alert("XSS")';
 		expect(() => sanitizeRedirectUrl(url)).toThrowError(
-			'Prohibited URL scheme "javascript" in redirect URL "javascript:alert("XSS")"'
+			'Prohibited URL scheme "javascript" in redirect URL "javascript:alert("XSS")"',
 		);
 	});
 
@@ -46,7 +46,9 @@ describe('sanitizeRedirectUrl', () => {
 		['j\ta\nv\ra\ts\ncript:alert(1)', 'javascript'],
 		['\u0000\u0001\u0002   javascript:alert(1)', 'javascript'],
 		['\t\n\r javascript:alert(1)', 'javascript'],
+		// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 		['data:text/html,<script>alert(document.domain)</script>', 'data'],
+		// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 		['data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==', 'data'],
 		['vbscript:msgbox(1)', 'vbscript'],
 		['file:///etc/passwd', 'file'],
@@ -54,15 +56,15 @@ describe('sanitizeRedirectUrl', () => {
 		['DaTa:text/html,x', 'data'],
 	])('should block sneaky payload %j (scheme %s)', (payload, scheme) => {
 		expect(() => sanitizeRedirectUrl(payload)).toThrowError(
-			new RegExp(`Prohibited URL scheme "${scheme}"`)
+			new RegExp(`Prohibited URL scheme "${scheme}"`),
 		);
 	});
 
-	it.each([
-		'//evil.com',
-		'java\u0000script:x',
-		'not a url',
-	])('throws generic parse error for %j', (payload) => {
-		expect(() => sanitizeRedirectUrl(payload)).toThrowError(/Invalid URL/);
-	});
+	it.each(['//evil.com', 'java\u0000script:x', 'not a url'])(
+		'throws generic parse error for %j',
+		(payload) => {
+			// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
+			expect(() => sanitizeRedirectUrl(payload)).toThrowError(/Invalid URL/);
+		},
+	);
 });

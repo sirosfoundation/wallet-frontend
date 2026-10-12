@@ -1,5 +1,5 @@
-import { PublicKeyResolutionError } from "./error";
-import { PublicKeyResolver, PublicKeyResolverEngineI } from "./interfaces";
+import { PublicKeyResolutionError } from './error';
+import type { PublicKeyResolver, PublicKeyResolverEngineI } from './interfaces';
 
 export function PublicKeyResolverEngine(): PublicKeyResolverEngineI {
 	const resolvers: PublicKeyResolver[] = [];
@@ -10,6 +10,7 @@ export function PublicKeyResolverEngine(): PublicKeyResolverEngineI {
 		},
 		async resolve({ identifier }: { identifier: string }) {
 			for (const r of resolvers) {
+				// biome-ignore lint/performance/noAwaitInLoops: baseline: pre-existing debt. should be fixed
 				const result = await r.resolve({ identifier });
 				if (result.success) {
 					return result;
@@ -17,6 +18,5 @@ export function PublicKeyResolverEngine(): PublicKeyResolverEngineI {
 			}
 			return { success: false, error: PublicKeyResolutionError.CannotResolvePublicKey };
 		},
-	}
+	};
 }
-

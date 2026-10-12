@@ -4,19 +4,28 @@
  * Tests for SVG sanitization utility
  */
 
-import { describe, it, expect } from 'vitest';
-import { sanitizeSvgDataUri, sanitizeSvgContent, isSvgDataUri, normalizeSvgImageDimensions } from './sanitizeSvg';
+import { describe, expect, it } from 'vitest';
+import {
+	isSvgDataUri,
+	normalizeSvgImageDimensions,
+	sanitizeSvgContent,
+	sanitizeSvgDataUri,
+} from './sanitizeSvg';
 
 describe('sanitizeSvg', () => {
+	// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 	describe('isSvgDataUri', () => {
 		it('should return true for SVG data URIs', () => {
 			expect(isSvgDataUri('data:image/svg+xml,<svg></svg>')).toBe(true);
+			// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 			expect(isSvgDataUri('data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=')).toBe(true);
+			// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 			expect(isSvgDataUri('data:image/svg+xml;charset=utf-8,%3Csvg%3E%3C%2Fsvg%3E')).toBe(true);
 		});
 
 		it('should return true for SVG data URIs with uppercase MIME type', () => {
 			expect(isSvgDataUri('data:image/SVG+XML,<svg></svg>')).toBe(true);
+			// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 			expect(isSvgDataUri('data:IMAGE/SVG+XML;base64,PHN2Zz48L3N2Zz4=')).toBe(true);
 		});
 
@@ -29,7 +38,8 @@ describe('sanitizeSvg', () => {
 
 	describe('sanitizeSvgContent', () => {
 		it('should preserve safe SVG content', () => {
-			const safeSvg = '<svg xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="red"/></svg>';
+			const safeSvg =
+				'<svg xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="red"/></svg>';
 			const result = sanitizeSvgContent(safeSvg);
 			expect(result).toContain('<svg');
 			expect(result).toContain('<rect');
@@ -37,7 +47,9 @@ describe('sanitizeSvg', () => {
 		});
 
 		it('should remove script elements', () => {
-			const maliciousSvg = '<svg xmlns="http://www.w3.org/2000/svg"><script>alert("XSS")</script></svg>';
+			const maliciousSvg =
+				// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+				'<svg xmlns="http://www.w3.org/2000/svg"><script>alert("XSS")</script></svg>';
 			const result = sanitizeSvgContent(maliciousSvg);
 			expect(result).not.toContain('<script');
 			expect(result).not.toContain('alert');
@@ -45,7 +57,9 @@ describe('sanitizeSvg', () => {
 		});
 
 		it('should remove foreignObject elements', () => {
-			const maliciousSvg = '<svg xmlns="http://www.w3.org/2000/svg"><foreignObject><body xmlns="http://www.w3.org/1999/xhtml"><script>alert(1)</script></body></foreignObject></svg>';
+			const maliciousSvg =
+				// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+				'<svg xmlns="http://www.w3.org/2000/svg"><foreignObject><body xmlns="http://www.w3.org/1999/xhtml"><script>alert(1)</script></body></foreignObject></svg>';
 			const result = sanitizeSvgContent(maliciousSvg);
 			expect(result).not.toContain('<foreignObject');
 			expect(result).not.toContain('<script');
@@ -53,7 +67,9 @@ describe('sanitizeSvg', () => {
 		});
 
 		it('should remove event handler attributes', () => {
-			const maliciousSvg = '<svg xmlns="http://www.w3.org/2000/svg"><rect onload="alert(1)" onclick="alert(2)" width="100" height="100"/></svg>';
+			const maliciousSvg =
+				// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+				'<svg xmlns="http://www.w3.org/2000/svg"><rect onload="alert(1)" onclick="alert(2)" width="100" height="100"/></svg>';
 			const result = sanitizeSvgContent(maliciousSvg);
 			expect(result).not.toContain('onload');
 			expect(result).not.toContain('onclick');
@@ -61,7 +77,8 @@ describe('sanitizeSvg', () => {
 		});
 
 		it('should remove iframe elements', () => {
-			const maliciousSvg = '<svg xmlns="http://www.w3.org/2000/svg"><iframe src="javascript:alert(1)"></iframe></svg>';
+			const maliciousSvg =
+				'<svg xmlns="http://www.w3.org/2000/svg"><iframe src="javascript:alert(1)"></iframe></svg>';
 			const result = sanitizeSvgContent(maliciousSvg);
 			expect(result).not.toContain('<iframe');
 		});
@@ -74,7 +91,9 @@ describe('sanitizeSvg', () => {
 		});
 
 		it('should sanitize URL-encoded SVG data URIs', () => {
-			const dangerousUri = 'data:image/svg+xml,%3Csvg%3E%3Cscript%3Ealert(1)%3C%2Fscript%3E%3C%2Fsvg%3E';
+			const dangerousUri =
+				// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+				'data:image/svg+xml,%3Csvg%3E%3Cscript%3Ealert(1)%3C%2Fscript%3E%3C%2Fsvg%3E';
 			const result = sanitizeSvgDataUri(dangerousUri);
 			expect(result).not.toBeNull();
 			expect(result).not.toContain('script');
@@ -83,14 +102,18 @@ describe('sanitizeSvg', () => {
 
 		it('should sanitize base64-encoded SVG data URIs', () => {
 			// Base64 of: <svg><script>alert(1)</script></svg>
-			const dangerousUri = 'data:image/svg+xml;base64,PHN2Zz48c2NyaXB0PmFsZXJ0KDEpPC9zY3JpcHQ+PC9zdmc+';
+			const dangerousUri =
+				// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+				'data:image/svg+xml;base64,PHN2Zz48c2NyaXB0PmFsZXJ0KDEpPC9zY3JpcHQ+PC9zdmc+';
 			const result = sanitizeSvgDataUri(dangerousUri);
 			expect(result).not.toBeNull();
 			expect(result).not.toContain('script');
 		});
 
 		it('should preserve safe SVG data URIs', () => {
-			const safeUri = 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20fill%3D%22red%22%2F%3E%3C%2Fsvg%3E';
+			const safeUri =
+				// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+				'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20fill%3D%22red%22%2F%3E%3C%2Fsvg%3E';
 			const result = sanitizeSvgDataUri(safeUri);
 			expect(result).not.toBeNull();
 			expect(result).toContain('svg');
@@ -98,6 +121,7 @@ describe('sanitizeSvg', () => {
 		});
 
 		it('should handle SVG with charset in data URI', () => {
+			// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 			const uriWithCharset = 'data:image/svg+xml;charset=utf-8,%3Csvg%3E%3C%2Fsvg%3E';
 			const result = sanitizeSvgDataUri(uriWithCharset);
 			expect(result).not.toBeNull();
@@ -106,7 +130,9 @@ describe('sanitizeSvg', () => {
 
 		it('should handle SVG with charset and base64 encoding', () => {
 			// Base64 of: <svg><rect fill="blue"/></svg>
-			const uriWithCharsetAndBase64 = 'data:image/svg+xml;charset=utf-8;base64,PHN2Zz48cmVjdCBmaWxsPSJibHVlIi8+PC9zdmc+';
+			const uriWithCharsetAndBase64 =
+				// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+				'data:image/svg+xml;charset=utf-8;base64,PHN2Zz48cmVjdCBmaWxsPSJibHVlIi8+PC9zdmc+';
 			const result = sanitizeSvgDataUri(uriWithCharsetAndBase64);
 			expect(result).not.toBeNull();
 			expect(result).toContain('data:image/svg+xml');
@@ -115,7 +141,9 @@ describe('sanitizeSvg', () => {
 
 		it('should sanitize uppercase MIME type SVG data URIs', () => {
 			// Base64 of: <svg><script>alert(1)</script></svg>
-			const upperCaseUri = 'data:image/SVG+XML;base64,PHN2Zz48c2NyaXB0PmFsZXJ0KDEpPC9zY3JpcHQ+PC9zdmc+';
+			const upperCaseUri =
+				// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+				'data:image/SVG+XML;base64,PHN2Zz48c2NyaXB0PmFsZXJ0KDEpPC9zY3JpcHQ+PC9zdmc+';
 			const result = sanitizeSvgDataUri(upperCaseUri);
 			expect(result).not.toBeNull();
 			expect(result).not.toContain('script');
@@ -132,15 +160,20 @@ describe('sanitizeSvg', () => {
 		it('defaults a missing <image> height to the root <svg> height', () => {
 			// Same shape as the real EHIC template that renders blank: an
 			// <image> with width but no height at all.
-			const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="829" height="504">' +
+			const svg =
+				// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+				'<svg xmlns="http://www.w3.org/2000/svg" width="829" height="504">' +
 				'<image x="0" y="0" width="100%" xlink:href="data:image/png;base64,AAAA"/>' +
 				'</svg>';
 			const result = normalizeSvgImageDimensions(svg);
+			// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 			expect(result).toContain('height="504"');
 		});
 
 		it('defaults a missing <image> width to the root <svg> width', () => {
-			const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="829" height="504">' +
+			const svg =
+				// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+				'<svg xmlns="http://www.w3.org/2000/svg" width="829" height="504">' +
 				'<image x="0" y="0" height="100%" xlink:href="data:image/png;base64,AAAA"/>' +
 				'</svg>';
 			const result = normalizeSvgImageDimensions(svg);
@@ -148,7 +181,9 @@ describe('sanitizeSvg', () => {
 		});
 
 		it('leaves an <image> with both dimensions already set untouched', () => {
-			const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="829" height="504">' +
+			const svg =
+				// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+				'<svg xmlns="http://www.w3.org/2000/svg" width="829" height="504">' +
 				'<image x="0" y="0" width="100" height="100" xlink:href="data:image/png;base64,AAAA"/>' +
 				'</svg>';
 			// No <image> lacked an attribute, so this must be a pure no-op -
@@ -164,20 +199,27 @@ describe('sanitizeSvg', () => {
 		});
 
 		it('is applied automatically by sanitizeSvgContent', () => {
-			const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="829" height="504">' +
+			const svg =
+				// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+				'<svg xmlns="http://www.w3.org/2000/svg" width="829" height="504">' +
 				'<image x="0" y="0" width="100%" xlink:href="data:image/png;base64,AAAA"/>' +
 				'</svg>';
 			const result = sanitizeSvgContent(svg);
+			// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 			expect(result).toContain('height="504"');
 		});
 
 		it('is applied automatically by sanitizeSvgDataUri', () => {
-			const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="829" height="504">' +
+			const svg =
+				// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+				'<svg xmlns="http://www.w3.org/2000/svg" width="829" height="504">' +
 				'<image x="0" y="0" width="100%" xlink:href="data:image/png;base64,AAAA"/>' +
 				'</svg>';
 			const dataUri = `data:image/svg+xml,${encodeURIComponent(svg)}`;
 			const result = sanitizeSvgDataUri(dataUri);
 			expect(result).not.toBeNull();
+			// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+			// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 			expect(decodeURIComponent(result!.slice(result!.indexOf(',') + 1))).toContain('height="504"');
 		});
 	});

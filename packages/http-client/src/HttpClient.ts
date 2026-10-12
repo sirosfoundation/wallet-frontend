@@ -1,22 +1,19 @@
-import { Logger } from '@sirosfoundation/browser-log';
-import {
+import type { Logger } from '@sirosfoundation/browser-log';
+import { HttpClientError } from './resources';
+import { axiosHttpTransport } from './transports/axios';
+import type {
 	CachedEntry,
 	HttpClientRequestOptions,
 	HttpResponse,
 	HttpTransport,
 	IndexedDB,
 } from './types';
-import { HttpClientError } from './resources';
-import { axiosHttpTransport } from './transports/axios';
 
 export type HttpClientOptions = {
 	isOnline: boolean;
 	logger: Logger;
 	transport?: HttpTransport;
-	decorateHeaders?: (req: {
-		url: string;
-		method: 'GET' | 'POST';
-	}) => Record<string, string>;
+	decorateHeaders?: (req: { url: string; method: 'GET' | 'POST' }) => Record<string, string>;
 	indexedDB?: IndexedDB;
 };
 
@@ -30,20 +27,11 @@ export class HttpClient {
 	#isOnline: boolean | null;
 	#logger: Logger;
 	#transport: HttpTransport;
-	#decorateHeaders?: (req: {
-		url: string;
-		method: 'GET' | 'POST';
-	}) => Record<string, string>;
+	#decorateHeaders?: (req: { url: string; method: 'GET' | 'POST' }) => Record<string, string>;
 	#indexedDB?: IndexedDB;
 	#inFlightRequests = new Map<string, Promise<HttpResponse>>();
 
-	constructor({
-		isOnline,
-		logger,
-		transport,
-		decorateHeaders,
-		indexedDB,
-	}: HttpClientOptions) {
+	constructor({ isOnline, logger, transport, decorateHeaders, indexedDB }: HttpClientOptions) {
 		this.#isOnline = isOnline;
 		this.#logger = logger;
 		this.#transport = transport ?? axiosHttpTransport;
@@ -59,6 +47,7 @@ export class HttpClient {
 		this.#transport = transport;
 	}
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	public async get(
 		url: string,
 		headers?: Record<string, string>,
@@ -67,6 +56,7 @@ export class HttpClient {
 		return this.#request('GET', url, undefined, headers, options);
 	}
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	public async post(
 		url: string,
 		body: string | object,
@@ -76,6 +66,7 @@ export class HttpClient {
 		return this.#request('POST', url, body, headers, options);
 	}
 
+	// biome-ignore lint/complexity/useMaxParams: baseline: pre-existing debt. should be fixed
 	async #request(
 		method: 'GET' | 'POST',
 		url: string,
@@ -110,6 +101,7 @@ export class HttpClient {
 		}
 
 		if (this.#inFlightRequests.has(cacheKey)) {
+			// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 			return this.#inFlightRequests.get(cacheKey)!;
 		}
 
@@ -128,6 +120,7 @@ export class HttpClient {
 		return requestPromise;
 	}
 
+	// biome-ignore lint/complexity/useMaxParams: baseline: pre-existing debt. should be fixed
 	async #executeRequest(
 		method: 'GET' | 'POST',
 		url: string,
@@ -210,11 +203,12 @@ export class HttpClient {
 	): Promise<HttpResponse | null> {
 		try {
 			const cached = await this.#getFromCache(cacheKey);
-			if (!cached?.data || !cached?.expiry) return null;
+			if (!(cached?.data && cached?.expiry)) return null;
 
 			const isFresh = now < cached.expiry;
 			if (!ignoreExpiry && this.#isOnline !== null && !isFresh) return null;
 
+			// biome-ignore lint/correctness/noUnusedVariables: baseline: pre-existing debt. should be fixed
 			const { status, headers, bytes, contentType, binary } = cached.data;
 			if (!(bytes instanceof Uint8Array)) return null;
 			const data = decodeBody(bytes, binary);
@@ -255,6 +249,7 @@ export class HttpClient {
 					.split('=')
 					.map((v) => v.trim());
 				const num = Number(value);
+				// biome-ignore lint/suspicious/noGlobalIsNan: baseline: pre-existing debt. should be fixed
 				return [key, isNaN(num) ? value : num];
 			}),
 		);
@@ -269,19 +264,13 @@ export class HttpClient {
 			.join('');
 	}
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	async #getFromCache(cacheKey: string): Promise<CachedEntry | null> {
-		return (
-			this.#indexedDB?.getItem('requestCache', cacheKey, 'requestCache') ?? null
-		);
+		return this.#indexedDB?.getItem('requestCache', cacheKey, 'requestCache') ?? null;
 	}
 
 	async #addToCache(cacheKey: string, cached: CachedEntry): Promise<void> {
-		await this.#indexedDB?.addItem(
-			'requestCache',
-			cacheKey,
-			cached,
-			'requestCache',
-		);
+		await this.#indexedDB?.addItem('requestCache', cacheKey, cached, 'requestCache');
 	}
 }
 

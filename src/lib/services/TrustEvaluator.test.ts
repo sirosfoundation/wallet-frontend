@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+// biome-ignore lint/performance/noNamespaceImport: baseline: pre-existing debt. should be fixed
 import * as walletCommon from 'wallet-common';
 import { createVerifierTrustEvaluator } from './TrustEvaluator';
 

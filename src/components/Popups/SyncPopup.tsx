@@ -1,9 +1,10 @@
 // MessagePopup.js
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
 import React, { useContext } from 'react';
-import { logger } from '@/logger';
-import SessionContext from '@/context/SessionContext';
 import { useLocation, useNavigate } from 'react-router';
-import { CachedUser } from '@/services/LocalStorageKeystore';
+import SessionContext from '@/context/SessionContext';
+import { logger } from '@/logger';
+import type { CachedUser } from '@/services/LocalStorageKeystore';
 import { UserAuthPopup } from './UserAuthPopup';
 
 const SyncPopup = ({ message, onClose }) => {
@@ -27,7 +28,12 @@ const SyncPopup = ({ message, onClose }) => {
 			try {
 				const decodedState = atob(state);
 				const stateObj = JSON.parse(decodedState);
-				return [cachedUsers.find(user => user.userHandleB64u === stateObj.userHandleB64u), false, authenticated === 'true'];
+				return [
+					// biome-ignore lint/suspicious/noShadow: baseline: pre-existing debt. should be fixed
+					cachedUsers.find((user) => user.userHandleB64u === stateObj.userHandleB64u),
+					false,
+					authenticated === 'true',
+				];
 			} catch (error) {
 				logger.error('Error decoding state:', error);
 			}
@@ -42,7 +48,7 @@ const SyncPopup = ({ message, onClose }) => {
 		params.delete('user');
 		params.delete('sync');
 		navigate(`${window.location.pathname}?${params.toString()}`, { replace: true });
-	}
+	};
 
 	if (!filteredUser) {
 		return;

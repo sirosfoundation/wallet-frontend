@@ -1,11 +1,12 @@
-import React, { useContext, useEffect } from 'react';
-import { useLocalStorageKeystore } from '../services/LocalStorageKeystore';
-import keystoreEvents from '../services/keystoreEvents';
+import type React from 'react';
+import { useContext, useEffect } from 'react';
+import { OPENID4VCI_REDIRECT_URI } from '@/config';
 import CredentialsContext from '@/context/CredentialsContext';
 import { prepareCredentialsForNativeWrapper } from '@/lib/native-wrapper';
+import type { NativeWrapper } from '@/lib/native-wrapper/types';
 import { logger } from '@/logger';
-import { OPENID4VCI_REDIRECT_URI } from '@/config';
-import { NativeWrapper } from '@/lib/native-wrapper/types';
+import keystoreEvents from '../services/keystoreEvents';
+import { useLocalStorageKeystore } from '../services/LocalStorageKeystore';
 
 declare global {
 	interface Window {
@@ -13,9 +14,7 @@ declare global {
 	}
 }
 
-export const NativeWrapperProvider = ({
-	children,
-}: React.PropsWithChildren) => {
+export const NativeWrapperProvider = ({ children }: React.PropsWithChildren) => {
 	const keystore = useLocalStorageKeystore(keystoreEvents);
 	const { vcEntityList } = useContext(CredentialsContext);
 
@@ -29,8 +28,7 @@ export const NativeWrapperProvider = ({
 		(async () => {
 			if (!window.nativeWrapper) return;
 
-			const registryEntries =
-				await prepareCredentialsForNativeWrapper(vcEntityList);
+			const registryEntries = await prepareCredentialsForNativeWrapper(vcEntityList);
 
 			logger.debug('Updated native wrapper with credentials and callback URL', {
 				registryEntries,

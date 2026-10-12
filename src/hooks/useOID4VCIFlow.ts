@@ -1,16 +1,19 @@
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { useOIDFlowTransportSafe } from '@/context/OIDFlowTransportContext';
 import { CredentialOfferSchema, VerifiableCredentialFormat } from 'wallet-common';
-import type { OID4VCIFlowResult } from '@/lib/openid-flow/types/OID4VCITypes';
-import type { OIDFlowActiveTransportType, OIDFlowProgressEvent } from '@/lib/openid-flow/types/OIDFlowTypes';
 import { DISPLAY_ISSUANCE_WARNINGS, OPENID4VCI_REDIRECT_URI } from '@/config';
-import SessionContext from '@/context/SessionContext';
-import { notify } from '@/context/notifier';
-import { deriveHolderKidFromCredential } from '@/lib/verifiable-credentials';
 import CredentialsContext from '@/context/CredentialsContext';
-import { logger } from '@/logger';
+import { notify } from '@/context/notifier';
+import { useOIDFlowTransportSafe } from '@/context/OIDFlowTransportContext';
+import SessionContext from '@/context/SessionContext';
 import { OIDFlowError } from '@/lib/openid-flow/errors';
-import { SerializedClientAuthMaterial } from '@/lib/openid-flow/OIDFlowClientAuthMaterial';
+import type { SerializedClientAuthMaterial } from '@/lib/openid-flow/OIDFlowClientAuthMaterial';
+import type { OID4VCIFlowResult } from '@/lib/openid-flow/types/OID4VCITypes';
+import type {
+	OIDFlowActiveTransportType,
+	OIDFlowProgressEvent,
+} from '@/lib/openid-flow/types/OIDFlowTypes';
+import { deriveHolderKidFromCredential } from '@/lib/verifiable-credentials';
+import { logger } from '@/logger';
 
 export interface UseOID4VCIFlowOptions {
 	/**
@@ -41,7 +44,7 @@ export interface UseOID4VCIFlowReturn {
 	 */
 	requestWithPreAuthorization: (
 		preAuthorizedCode: string,
-		txCodeInput?: string
+		txCodeInput?: string,
 	) => Promise<OID4VCIFlowResult>;
 	/**
 	 * Handle received credentials: validate, store in wallet, and notify
@@ -77,6 +80,7 @@ export interface UseOID4VCIFlowReturn {
  * - HTTP: Uses existing IOpenID4VCI implementation with HTTP proxy
  * - Direct: (Future) Browser makes direct CORS requests
  */
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIFlowReturn {
 	const { onProgress, onError, onIssuanceWarnings } = options;
 
@@ -106,7 +110,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		const controller = abortRef.current;
 		return () => {
 			controller.abort();
-		}
+		};
 	}, []);
 
 	/**
@@ -143,353 +147,390 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 	/**
 	 * Handle credential offer using the appropriate transport
 	 */
-	const handleCredentialOffer = useCallback(async (
-		credentialOfferUrl: URL
-	): Promise<OID4VCIFlowResult> => {
-		setIsLoading(true);
-		setError(null);
+	const handleCredentialOffer = useCallback(
+		// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+		// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
+		async (credentialOfferUrl: URL): Promise<OID4VCIFlowResult> => {
+			setIsLoading(true);
+			setError(null);
 
-		try {
-			// Validate inline offers before dispatching to any transport
-			validateCredentialOffer(credentialOfferUrl);
+			try {
+				// Validate inline offers before dispatching to any transport
+				validateCredentialOffer(credentialOfferUrl);
 
-			// WebSocket transport: delegate to backend
-			if (transportType === 'websocket' && transport) {
-				const credentialOfferUri = credentialOfferUrl.searchParams.get('credential_offer_uri') || undefined;
-				const credentialOffer = credentialOfferUrl.searchParams.get('credential_offer') || undefined;
+				// WebSocket transport: delegate to backend
+				if (transportType === 'websocket' && transport) {
+					const credentialOfferUri =
+						credentialOfferUrl.searchParams.get('credential_offer_uri') || undefined;
+					const credentialOffer =
+						credentialOfferUrl.searchParams.get('credential_offer') || undefined;
 
-				if (!credentialOfferUri && !credentialOffer) {
-					throw new Error('WebSocket transport requires credential_offer_uri or credential_offer parameter');
-				}
+					if (!(credentialOfferUri || credentialOffer)) {
+						throw new Error(
+							'WebSocket transport requires credential_offer_uri or credential_offer parameter',
+						);
+					}
 
-				if (credentialOfferUri && credentialOffer) {
-					throw new Error('WebSocket transport should not have both credential_offer_uri and credential_offer parameters');
-				}
+					if (credentialOfferUri && credentialOffer) {
+						throw new Error(
+							'WebSocket transport should not have both credential_offer_uri and credential_offer parameters',
+						);
+					}
 
-				// Subscribe to progress events for this flow
-				const unsubscribeProgress = onProgress
-					? transport.onProgress(onProgress)
-					: () => {};
-				const unsubscribeError = onError
-					? transport.onError(onError)
-					: () => {};
+					// Subscribe to progress events for this flow
+					// biome-ignore lint/suspicious/noEmptyBlockStatements: baseline: pre-existing debt. should be fixed
+					const unsubscribeProgress = onProgress ? transport.onProgress(onProgress) : () => {};
+					// biome-ignore lint/suspicious/noEmptyBlockStatements: baseline: pre-existing debt. should be fixed
+					const unsubscribeError = onError ? transport.onError(onError) : () => {};
 
-				try {
-					const result = await transport.startOID4VCIFlow({
-						credentialOfferUri,
-						credentialOffer,
-						redirectUri: OPENID4VCI_REDIRECT_URI,
-					});
-
-					assertNotAborted();
-
-					if (result.authorizationUrl && result.codeVerifier) {
-						// Persist the flow's client-held key (+ its WIA) so the
-						// post-redirect token leg reuses it: the issuer binds the
-						// WIA to the issuance session, so PAR and token must carry
-						// the same one. Survives the redirect via sessionStorage,
-						// the same channel code_verifier already uses.
-						const clientAuthKey = await oidFlowClientAuthMaterialManager.exportAuthMaterial();
-						// Save pending flow state for resumption after redirect
-						savePendingFlow({
-							flowId: result.transactionId,
-							codeVerifier: result.codeVerifier,
-							state: result.issuerState,
-							credentialOffer: result.credentialOffer
-								? JSON.stringify(result.credentialOffer)
-								: undefined,
-							clientAuthKey,
-							timestamp: Date.now(),
+					try {
+						const result = await transport.startOID4VCIFlow({
+							credentialOfferUri,
+							credentialOffer,
+							redirectUri: OPENID4VCI_REDIRECT_URI,
 						});
-					}
 
-					if (!result.success && result.error) {
-						throw new Error(result.error.message);
-					}
+						assertNotAborted();
 
-					return result;
-				} finally {
-					unsubscribeProgress();
-					unsubscribeError();
+						if (result.authorizationUrl && result.codeVerifier) {
+							// Persist the flow's client-held key (+ its WIA) so the
+							// post-redirect token leg reuses it: the issuer binds the
+							// WIA to the issuance session, so PAR and token must carry
+							// the same one. Survives the redirect via sessionStorage,
+							// the same channel code_verifier already uses.
+							const clientAuthKey = await oidFlowClientAuthMaterialManager.exportAuthMaterial();
+							// Save pending flow state for resumption after redirect
+							savePendingFlow({
+								flowId: result.transactionId,
+								codeVerifier: result.codeVerifier,
+								state: result.issuerState,
+								credentialOffer: result.credentialOffer
+									? JSON.stringify(result.credentialOffer)
+									: undefined,
+								clientAuthKey,
+								timestamp: Date.now(),
+							});
+						}
+
+						if (!result.success && result.error) {
+							throw new Error(result.error.message);
+						}
+
+						return result;
+					} finally {
+						unsubscribeProgress();
+						unsubscribeError();
+					}
 				}
-			}
 
-			// HTTP proxy transport: use existing implementation
-			if (transportType === 'http_proxy') {
-				throw new OIDFlowError({
-					code: 'DISCONTINUED_HTTP_PROXY_FLOW',
-					message: 'HTTP proxy transport flow is discontinued. Please use WebSocket transport instead.',
-				});
-			}
+				// HTTP proxy transport: use existing implementation
+				if (transportType === 'http_proxy') {
+					throw new OIDFlowError({
+						code: 'DISCONTINUED_HTTP_PROXY_FLOW',
+						message:
+							'HTTP proxy transport flow is discontinued. Please use WebSocket transport instead.',
+					});
+				}
 
-			throw new Error('No transport available for credential issuance');
-		} catch (err) {
-			if (abortRef.current.signal.aborted) {
-				return { success: false, error: { code: 'ABORTED', message: 'Flow cancelled' } };
-			}
+				throw new Error('No transport available for credential issuance');
+			} catch (err) {
+				if (abortRef.current.signal.aborted) {
+					return { success: false, error: { code: 'ABORTED', message: 'Flow cancelled' } };
+				}
 
-			const error = err instanceof Error ? err : new Error(String(err));
-			setError(error);
-			onError?.(error);
-			return {
-				success: false,
-				error: {
-					code: 'FLOW_ERROR',
-					message: error.message,
-				},
-			};
-		} finally {
-			setIsLoading(false);
-		}
-	}, [transportType, transport, onProgress, onError, validateCredentialOffer, assertNotAborted, oidFlowClientAuthMaterialManager]);
+				// biome-ignore lint/suspicious/noShadow: baseline: pre-existing debt. should be fixed
+				const error = err instanceof Error ? err : new Error(String(err));
+				setError(error);
+				onError?.(error);
+				return {
+					success: false,
+					error: {
+						code: 'FLOW_ERROR',
+						message: error.message,
+					},
+				};
+			} finally {
+				setIsLoading(false);
+			}
+		},
+		[
+			transportType,
+			transport,
+			onProgress,
+			onError,
+			validateCredentialOffer,
+			assertNotAborted,
+			oidFlowClientAuthMaterialManager,
+		],
+	);
 
 	/**
 	 * Handle authorization response (after OAuth redirect)
 	 */
-	const handleAuthorizationResponse = useCallback(async (
-		authCode: string,
-		state?: string
-	): Promise<OID4VCIFlowResult> => {
-		setIsLoading(true);
-		setError(null);
+	const handleAuthorizationResponse = useCallback(
+		// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+		// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
+		async (authCode: string, state?: string): Promise<OID4VCIFlowResult> => {
+			setIsLoading(true);
+			setError(null);
 
-		try {
-			// WebSocket transport: continue flow on backend
-			if (transportType === 'websocket' && transport) {
-				const unsubscribeProgress = onProgress
-					? transport.onProgress(onProgress)
-					: () => {};
+			try {
+				// WebSocket transport: continue flow on backend
+				if (transportType === 'websocket' && transport) {
+					// biome-ignore lint/suspicious/noEmptyBlockStatements: baseline: pre-existing debt. should be fixed
+					const unsubscribeProgress = onProgress ? transport.onProgress(onProgress) : () => {};
 
-				const storedFlow = loadAndClearPendingFlow();
+					const storedFlow = loadAndClearPendingFlow();
 
-				if (state !== storedFlow?.state) throw new Error('State mismatch in authorization response');
+					if (state !== storedFlow?.state)
+						throw new Error('State mismatch in authorization response');
 
-				// Reuse the PAR leg's client-held key + WIA so this token leg
-				// presents the identical attestation the issuer bound to the
-				// issuance session (see savePendingFlow above).
-				if (storedFlow?.clientAuthKey) {
-					oidFlowClientAuthMaterialManager.seedMaterial(storedFlow.clientAuthKey);
-				}
-
-				try {
-					// Resumption: pass saved offer + auth code to start fresh backend flow
-					const result = await transport.startOID4VCIFlow({
-						credentialOffer: storedFlow?.credentialOffer,
-						authorizationCode: authCode,
-						codeVerifier: storedFlow?.codeVerifier,
-						redirectUri: OPENID4VCI_REDIRECT_URI,
-					});
-
-					assertNotAborted();
-
-					if (!result.success && result.error) {
-						throw new Error(result.error.message);
+					// Reuse the PAR leg's client-held key + WIA so this token leg
+					// presents the identical attestation the issuer bound to the
+					// issuance session (see savePendingFlow above).
+					if (storedFlow?.clientAuthKey) {
+						oidFlowClientAuthMaterialManager.seedMaterial(storedFlow.clientAuthKey);
 					}
 
-					return result;
-				} finally {
-					unsubscribeProgress();
+					try {
+						// Resumption: pass saved offer + auth code to start fresh backend flow
+						const result = await transport.startOID4VCIFlow({
+							credentialOffer: storedFlow?.credentialOffer,
+							authorizationCode: authCode,
+							codeVerifier: storedFlow?.codeVerifier,
+							redirectUri: OPENID4VCI_REDIRECT_URI,
+						});
+
+						assertNotAborted();
+
+						if (!result.success && result.error) {
+							throw new Error(result.error.message);
+						}
+
+						return result;
+					} finally {
+						unsubscribeProgress();
+					}
 				}
+
+				// HTTP proxy transport: use existing implementation
+				if (transportType === 'http_proxy') {
+					throw new OIDFlowError({
+						code: 'DISCONTINUED_HTTP_PROXY_FLOW',
+						message:
+							'HTTP proxy transport flow is discontinued. Please use WebSocket transport instead.',
+					});
+				}
+
+				throw new Error('No transport available');
+			} catch (err) {
+				if (abortRef.current.signal.aborted) {
+					return { success: false, error: { code: 'ABORTED', message: 'Flow cancelled' } };
+				}
+
+				// biome-ignore lint/suspicious/noShadow: baseline: pre-existing debt. should be fixed
+				const error = err instanceof Error ? err : new Error(String(err));
+				setError(error);
+				onError?.(error);
+				return {
+					success: false,
+					error: {
+						code: 'AUTH_RESPONSE_ERROR',
+						message: error.message,
+					},
+				};
+			} finally {
+				setIsLoading(false);
 			}
-
-			// HTTP proxy transport: use existing implementation
-			if (transportType === 'http_proxy') {
-				throw new OIDFlowError({
-					code: 'DISCONTINUED_HTTP_PROXY_FLOW',
-					message: 'HTTP proxy transport flow is discontinued. Please use WebSocket transport instead.',
-				});
-			}
-
-			throw new Error('No transport available');
-
-		} catch (err) {
-			if (abortRef.current.signal.aborted) {
-				return { success: false, error: { code: 'ABORTED', message: 'Flow cancelled' } };
-			}
-
-			const error = err instanceof Error ? err : new Error(String(err));
-			setError(error);
-			onError?.(error);
-			return {
-				success: false,
-				error: {
-					code: 'AUTH_RESPONSE_ERROR',
-					message: error.message,
-				},
-			};
-		} finally {
-			setIsLoading(false);
-		}
-	}, [transportType, transport, onProgress, onError, assertNotAborted, oidFlowClientAuthMaterialManager]);
+		},
+		[
+			transportType,
+			transport,
+			onProgress,
+			onError,
+			assertNotAborted,
+			oidFlowClientAuthMaterialManager,
+		],
+	);
 
 	/**
 	 * Request credentials with pre-authorized code flow
 	 */
-	const requestWithPreAuthorization = useCallback(async (
-		preAuthorizedCode: string,
-		txCodeInput?: string
-	): Promise<OID4VCIFlowResult> => {
-		setIsLoading(true);
-		setError(null);
+	const requestWithPreAuthorization = useCallback(
+		// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+		async (preAuthorizedCode: string, txCodeInput?: string): Promise<OID4VCIFlowResult> => {
+			setIsLoading(true);
+			setError(null);
 
-		try {
-			// WebSocket transport
-			if (transportType === 'websocket' && transport) {
-				const unsubscribeProgress = onProgress
-					? transport.onProgress(onProgress)
-					: () => {};
+			try {
+				// WebSocket transport
+				if (transportType === 'websocket' && transport) {
+					// biome-ignore lint/suspicious/noEmptyBlockStatements: baseline: pre-existing debt. should be fixed
+					const unsubscribeProgress = onProgress ? transport.onProgress(onProgress) : () => {};
 
-				try {
-					const result = await transport.startOID4VCIFlow({
-						preAuthorizedCode,
-						txCodeInput,
-					});
+					try {
+						const result = await transport.startOID4VCIFlow({
+							preAuthorizedCode,
+							txCodeInput,
+						});
 
-					assertNotAborted();
+						assertNotAborted();
 
-					if (!result.success && result.error) {
-						throw new Error(result.error.message);
+						if (!result.success && result.error) {
+							throw new Error(result.error.message);
+						}
+
+						return result;
+					} finally {
+						unsubscribeProgress();
 					}
-
-					return result;
-				} finally {
-					unsubscribeProgress();
 				}
+
+				// HTTP proxy transport: use existing implementation
+				if (transportType === 'http_proxy') {
+					throw new OIDFlowError({
+						code: 'DISCONTINUED_HTTP_PROXY_FLOW',
+						message:
+							'HTTP proxy transport flow is discontinued. Please use WebSocket transport instead.',
+					});
+				}
+
+				throw new Error('No transport available');
+			} catch (err) {
+				if (abortRef.current.signal.aborted) {
+					return { success: false, error: { code: 'ABORTED', message: 'Flow cancelled' } };
+				}
+
+				// biome-ignore lint/suspicious/noShadow: baseline: pre-existing debt. should be fixed
+				const error = err instanceof Error ? err : new Error(String(err));
+				setError(error);
+				onError?.(error);
+				return {
+					success: false,
+					error: {
+						code: 'PREAUTH_ERROR',
+						message: error.message,
+					},
+				};
+			} finally {
+				offerStateRef.current = null;
+				setIsLoading(false);
 			}
-
-			// HTTP proxy transport: use existing implementation
-			if (transportType === 'http_proxy') {
-				throw new OIDFlowError({
-					code: 'DISCONTINUED_HTTP_PROXY_FLOW',
-					message: 'HTTP proxy transport flow is discontinued. Please use WebSocket transport instead.',
-				});
-			}
-
-			throw new Error('No transport available');
-
-		} catch (err) {
-			if (abortRef.current.signal.aborted) {
-				return { success: false, error: { code: 'ABORTED', message: 'Flow cancelled' } };
-			}
-
-			const error = err instanceof Error ? err : new Error(String(err));
-			setError(error);
-			onError?.(error);
-			return {
-				success: false,
-				error: {
-					code: 'PREAUTH_ERROR',
-					message: error.message,
-				},
-			};
-		} finally {
-			offerStateRef.current = null;
-			setIsLoading(false);
-		}
-	}, [transportType, transport, onProgress, onError, assertNotAborted]);
+		},
+		[transportType, transport, onProgress, onError, assertNotAborted],
+	);
 
 	/**
 	 * Handle received credentials: validate, store in wallet, and notify.
 	 */
-	const handleReceivedCredentials = useCallback(async (
-		credentials: OID4VCIFlowResult['credentials'],
-		credentialIssuerIdentifier?: OID4VCIFlowResult['credentialIssuerIdentifier'],
-		credentialConfigurationId?: OID4VCIFlowResult['selectedCredentialConfigurationId'],
+	const handleReceivedCredentials = useCallback(
+		// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
+		async (
+			credentials: OID4VCIFlowResult['credentials'],
+			credentialIssuerIdentifier?: OID4VCIFlowResult['credentialIssuerIdentifier'],
+			credentialConfigurationId?: OID4VCIFlowResult['selectedCredentialConfigurationId'],
+			// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+		): Promise<OID4VCIFlowResult> => {
+			setIsLoading(true);
+			setError(null);
 
-	): Promise<OID4VCIFlowResult> => {
-		setIsLoading(true);
-		setError(null);
+			const credentialIssuer = credentialIssuerIdentifier ?? '';
+			const credentialConfigId = credentialConfigurationId ?? '';
 
-		const credentialIssuer = credentialIssuerIdentifier ?? '';
-		const credentialConfigId = credentialConfigurationId ?? '';
+			try {
+				if (!credentials || credentials.length === 0) throw new Error('No credentials to store');
 
-		try {
-			if (!credentials || credentials.length === 0) throw new Error('No credentials to store');
+				const formats = credentials.map((c) =>
+					c.format
+						? (c.format as VerifiableCredentialFormat)
+						: inferFormatFromCredential(c.credential),
+				);
 
-			const formats = credentials.map(c =>
-				c.format ? c.format as VerifiableCredentialFormat : inferFormatFromCredential(c.credential)
-			);
+				const batchFormat = formats[0];
+				const batchId = Date.now();
 
-			const batchFormat = formats[0];
-			const batchId = Date.now();
-
-			if (formats.some(f => f !== batchFormat)) {
-				throw new Error('Mixed credential formats in a single batch are not supported');
-			}
-
-			const credentialsToStore = await Promise.all(credentials.map(async (c, idx) => {
-				let kid = '';
-
-				// Derive kid from credential based on format
-				if (
-					batchFormat === VerifiableCredentialFormat.VC_SDJWT ||
-					batchFormat === VerifiableCredentialFormat.DC_SDJWT ||
-					batchFormat === VerifiableCredentialFormat.MSO_MDOC
-				) {
-					kid = await deriveHolderKidFromCredential(c.credential, batchFormat) ?? '';
+				if (formats.some((f) => f !== batchFormat)) {
+					throw new Error('Mixed credential formats in a single batch are not supported');
 				}
 
-				return {
-					data: c.credential,
-					format: batchFormat,
-					kid: kid,
-					batchId,
-					credentialIssuerIdentifier: credentialIssuer,
-					credentialConfigurationId: credentialConfigId,
-					instanceId: idx,
-				};
-			}));
+				const credentialsToStore = await Promise.all(
+					credentials.map(async (c, idx) => {
+						let kid = '';
 
-			// We assume that all credentials in the batch are the same,
-			// so parsing one is sufficient for validation and metadata extraction.
-			const parseResult = await credentialEngine.credentialParsingEngine.parse({
-				rawCredential: credentialsToStore[0].data,
-				credentialIssuer: {
-					credentialIssuerIdentifier: credentialsToStore[0].credentialIssuerIdentifier,
-					credentialConfigurationId: credentialsToStore[0].credentialConfigurationId,
-				},
-			});
+						// Derive kid from credential based on format
+						if (
+							batchFormat === VerifiableCredentialFormat.VC_SDJWT ||
+							batchFormat === VerifiableCredentialFormat.DC_SDJWT ||
+							batchFormat === VerifiableCredentialFormat.MSO_MDOC
+						) {
+							kid = (await deriveHolderKidFromCredential(c.credential, batchFormat)) ?? '';
+						}
 
-			if (parseResult.success === false) {
+						return {
+							data: c.credential,
+							format: batchFormat,
+							kid: kid,
+							batchId,
+							credentialIssuerIdentifier: credentialIssuer,
+							credentialConfigurationId: credentialConfigId,
+							instanceId: idx,
+						};
+					}),
+				);
+
+				// We assume that all credentials in the batch are the same,
+				// so parsing one is sufficient for validation and metadata extraction.
+				const parseResult = await credentialEngine.credentialParsingEngine.parse({
+					rawCredential: credentialsToStore[0].data,
+					credentialIssuer: {
+						credentialIssuerIdentifier: credentialsToStore[0].credentialIssuerIdentifier,
+						credentialConfigurationId: credentialsToStore[0].credentialConfigurationId,
+					},
+				});
+
+				if (parseResult.success === false) {
 					throw new Error(`Credential parsing failed: ${parseResult.error}`);
-			}
-
-			if (parseResult.value.warnings?.length > 0) {
-				if (DISPLAY_ISSUANCE_WARNINGS && onIssuanceWarnings) {
-					const consent = await onIssuanceWarnings(parseResult.value.warnings);
-					if (!consent) throw new Error('User declined to store credential due to warnings');
 				}
+
+				if (parseResult.value.warnings?.length > 0) {
+					if (DISPLAY_ISSUANCE_WARNINGS && onIssuanceWarnings) {
+						const consent = await onIssuanceWarnings(parseResult.value.warnings);
+						if (!consent) throw new Error('User declined to store credential due to warnings');
+					}
+				}
+
+				assertNotAborted();
+				const [, privateData, commit] = await keystore.addCredentials(credentialsToStore);
+
+				assertNotAborted();
+				await api.updatePrivateData(privateData);
+				await commit();
+
+				notify('newCredential');
+
+				return { success: true };
+			} catch (err) {
+				if (abortRef.current.signal.aborted) {
+					return { success: false, error: { code: 'ABORTED', message: 'Flow cancelled' } };
+				}
+
+				// biome-ignore lint/suspicious/noShadow: baseline: pre-existing debt. should be fixed
+				const error = err instanceof Error ? err : new Error(String(err));
+				setError(error);
+				onError?.(error);
+				return {
+					success: false,
+					error: {
+						code: 'STORE_ERROR',
+						message: error.message,
+					},
+				};
+			} finally {
+				setIsLoading(false);
 			}
-
-			assertNotAborted();
-			const [, privateData, commit] = await keystore.addCredentials(credentialsToStore);
-
-			assertNotAborted();
-			await api.updatePrivateData(privateData);
-			await commit();
-
-			notify('newCredential');
-
-			return { success: true };
-		} catch (err) {
-			if (abortRef.current.signal.aborted) {
-				return { success: false, error: { code: 'ABORTED', message: 'Flow cancelled' } };
-			}
-
-			const error = err instanceof Error ? err : new Error(String(err));
-			setError(error);
-			onError?.(error);
-			return {
-				success: false,
-				error: {
-					code: 'STORE_ERROR',
-					message: error.message,
-				},
-			};
-		} finally {
-			setIsLoading(false);
-		}
-	}, [api, keystore,	credentialEngine, onError, onIssuanceWarnings, assertNotAborted]);
+		},
+		[api, keystore, credentialEngine, onError, onIssuanceWarnings, assertNotAborted],
+	);
 
 	return {
 		handleCredentialOffer,
@@ -554,17 +595,17 @@ function inferFormatFromCredential(credential: string): VerifiableCredentialForm
 
 		if (header.typ === 'dc+sd-jwt') return VerifiableCredentialFormat.DC_SDJWT;
 		if (header.typ === 'vc+sd-jwt') return VerifiableCredentialFormat.VC_SDJWT;
-		if (header.typ === 'JWT' || header.typ === 'jwt_vc_json') return VerifiableCredentialFormat.JWT_VC_JSON;
+		if (header.typ === 'JWT' || header.typ === 'jwt_vc_json')
+			return VerifiableCredentialFormat.JWT_VC_JSON;
 	} catch (error) {
 		logger.debug('Failed to parse credential as JWT for format inference', { error });
 	}
 
 	try {
-		const bytes = Uint8Array.from(atob(credential.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
-		if (
-			(bytes[0] === 0xA2 && bytes[1] === 0x6A) ||
-			(bytes[0] === 0xB9 && bytes[1] === 0x00)
-		) {
+		const bytes = Uint8Array.from(atob(credential.replace(/-/g, '+').replace(/_/g, '/')), (c) =>
+			c.charCodeAt(0),
+		);
+		if ((bytes[0] === 0xa2 && bytes[1] === 0x6a) || (bytes[0] === 0xb9 && bytes[1] === 0x00)) {
 			return VerifiableCredentialFormat.MSO_MDOC;
 		}
 	} catch (error) {
@@ -574,4 +615,5 @@ function inferFormatFromCredential(credential: string): VerifiableCredentialForm
 	throw new Error('Unable to infer credential format');
 }
 
+// biome-ignore lint/complexity/noRedundantDefaultExport: baseline: pre-existing debt. should be fixed
 export default useOID4VCIFlow;

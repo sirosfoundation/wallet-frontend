@@ -1,19 +1,18 @@
-import { describe, it, expect } from 'vitest';
-import {
-	detectImageMimeFromBytes,
-	ensureStringIsImageDataUri,
-	imageBytesToDataUri,
-} from './image';
+import { describe, expect, it } from 'vitest';
 import { fromBase64, fromBase64Url } from './binary';
+import { detectImageMimeFromBytes, ensureStringIsImageDataUri, imageBytesToDataUri } from './image';
 
 const SAMPLES = {
+	// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 	png: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNk+P+/HgAFhAJ/wlseKgAAAABJRU5ErkJggg==',
 	jpeg: '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACP/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AN//Z',
 	gif: 'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+	// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 	webp: 'UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==',
 } as const;
 
 const SAMPLES_URL = {
+	// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 	png: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNk-P-_HgAFhAJ_wlseKgAAAABJRU5ErkJggg',
 	jpeg: '_9j_4AAQSkZJRgABAQEAYABgAAD_2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL_wAALCAABAAEBAREA_8QAFAABAAAAAAAAAAAAAAAAAAAACP_EABQQAQAAAAAAAAAAAAAAAAAAAAD_2gAIAQEAAD8AN__Z',
 	gif: 'R0lGODlhAQABAIAAAAAAAP___yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
@@ -22,39 +21,28 @@ const SAMPLES_URL = {
 
 describe('detectImageMimeFromBytes', () => {
 	it('detects png', () => {
-		expect(detectImageMimeFromBytes(fromBase64Url(SAMPLES.png))).toBe(
-			'image/png',
-		);
+		expect(detectImageMimeFromBytes(fromBase64Url(SAMPLES.png))).toBe('image/png');
 	});
 
 	it('detects jpeg', () => {
-		expect(detectImageMimeFromBytes(fromBase64Url(SAMPLES.jpeg))).toBe(
-			'image/jpeg',
-		);
+		expect(detectImageMimeFromBytes(fromBase64Url(SAMPLES.jpeg))).toBe('image/jpeg');
 	});
 
 	it('detects jpg (same signature as jpeg)', () => {
-		expect(detectImageMimeFromBytes(fromBase64Url(SAMPLES.jpeg))).toBe(
-			'image/jpeg',
-		);
+		expect(detectImageMimeFromBytes(fromBase64Url(SAMPLES.jpeg))).toBe('image/jpeg');
 	});
 
 	it('detects gif', () => {
-		expect(detectImageMimeFromBytes(fromBase64Url(SAMPLES.gif))).toBe(
-			'image/gif',
-		);
+		expect(detectImageMimeFromBytes(fromBase64Url(SAMPLES.gif))).toBe('image/gif');
 	});
 
 	it('detects webp', () => {
-		expect(detectImageMimeFromBytes(fromBase64Url(SAMPLES.webp))).toBe(
-			'image/webp',
-		);
+		expect(detectImageMimeFromBytes(fromBase64Url(SAMPLES.webp))).toBe('image/webp');
 	});
 
 	it('returns null for an unknown signature', () => {
-		expect(
-			detectImageMimeFromBytes(fromBase64Url('aGVsbG8gd29ybGQ=')),
-		).toBeNull();
+		// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+		expect(detectImageMimeFromBytes(fromBase64Url('aGVsbG8gd29ybGQ='))).toBeNull();
 	});
 });
 
@@ -67,9 +55,7 @@ describe('ensureStringIsImageDataUri', () => {
 			['gif', SAMPLES.gif, 'image/gif'],
 			['webp', SAMPLES.webp, 'image/webp'],
 		])('wraps a %s into a data URI', (_label, b64, mime) => {
-			expect(ensureStringIsImageDataUri(b64)).toBe(
-				`data:${mime};base64,${b64}`,
-			);
+			expect(ensureStringIsImageDataUri(b64)).toBe(`data:${mime};base64,${b64}`);
 		});
 	});
 
@@ -99,12 +85,11 @@ describe('ensureStringIsImageDataUri', () => {
 
 	describe('invalid input', () => {
 		it('returns null for a non-image mime type', () => {
-			expect(
-				ensureStringIsImageDataUri('data:text/plain;base64,aGVsbG8='),
-			).toBeNull();
+			expect(ensureStringIsImageDataUri('data:text/plain;base64,aGVsbG8=')).toBeNull();
 		});
 
 		it('returns null for base64 with an unknown signature', () => {
+			// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 			expect(ensureStringIsImageDataUri('aGVsbG8gd29ybGQ=')).toBeNull();
 		});
 
@@ -124,17 +109,13 @@ describe('ensureStringIsImageDataUri', () => {
 			['jpg', SAMPLES_URL.jpeg, SAMPLES.jpeg, 'image/jpeg'],
 			['gif', SAMPLES_URL.gif, SAMPLES.gif, 'image/gif'],
 			['webp', SAMPLES_URL.webp, SAMPLES.webp, 'image/webp'],
-		])(
-			'wraps a base64url %s into a standard data URI',
-			(_label, urlB64, stdB64, mime) => {
-				expect(ensureStringIsImageDataUri(urlB64)).toBe(
-					`data:${mime};base64,${stdB64}`,
-				);
-			},
-		);
+		])('wraps a base64url %s into a standard data URI', (_label, urlB64, stdB64, mime) => {
+			expect(ensureStringIsImageDataUri(urlB64)).toBe(`data:${mime};base64,${stdB64}`);
+		});
 	});
 });
 
+// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 describe('imageBytesToDataUri', () => {
 	it.each([
 		['png', SAMPLES.png, 'image/png'],
@@ -142,12 +123,11 @@ describe('imageBytesToDataUri', () => {
 		['gif', SAMPLES.gif, 'image/gif'],
 		['webp', SAMPLES.webp, 'image/webp'],
 	])('converts %s bytes into a data URI', (_label, b64, mime) => {
-		expect(imageBytesToDataUri(fromBase64(b64))).toBe(
-			`data:${mime};base64,${b64}`,
-		);
+		expect(imageBytesToDataUri(fromBase64(b64))).toBe(`data:${mime};base64,${b64}`);
 	});
 
 	it('returns null when the bytes have an unknown signature', () => {
+		// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 		expect(imageBytesToDataUri(fromBase64Url('aGVsbG8gd29ybGQ='))).toBeNull();
 	});
 

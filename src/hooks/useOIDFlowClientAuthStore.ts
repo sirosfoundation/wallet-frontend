@@ -1,8 +1,8 @@
-import { useCallback, useRef, useMemo } from 'react';
 import { exportJWK, generateKeyPair } from 'jose';
+import { useCallback, useMemo, useRef } from 'react';
 import {
 	OIDFlowClientAuthMaterial,
-	SerializedClientAuthMaterial,
+	type SerializedClientAuthMaterial,
 } from '@/lib/openid-flow/OIDFlowClientAuthMaterial';
 import { generateRandomIdentifier } from '@/lib/utils/generateRandomIdentifier';
 
@@ -14,6 +14,7 @@ export type OIDFlowClientAuthStore = {
 	clear(): void;
 };
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 export function useOIDFlowClientAuthStore(): OIDFlowClientAuthStore {
 	const ref = useRef<{
 		flowId: string;
@@ -23,6 +24,7 @@ export function useOIDFlowClientAuthStore(): OIDFlowClientAuthStore {
 	// resumed flow starts and consumed once by the next getFlowClientAuthKey mint.
 	const seedRef = useRef<SerializedClientAuthMaterial | null>(null);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: baseline: pre-existing debt. should be fixed
 	const getAuthMaterial = useCallback(
 		async (flowId: string) => {
 			// Reuse a key persisted across an authorization-code redirect so the
@@ -44,10 +46,10 @@ export function useOIDFlowClientAuthStore(): OIDFlowClientAuthStore {
 				extractable: true,
 			});
 			const publicKeyJwk = await exportJWK(publicKey);
-			const material = new OIDFlowClientAuthMaterial(
-				generateRandomIdentifier(16),
-				{ privateKey, publicKeyJwk },
-			);
+			const material = new OIDFlowClientAuthMaterial(generateRandomIdentifier(16), {
+				privateKey,
+				publicKeyJwk,
+			});
 
 			ref.current = { flowId, material };
 
@@ -56,12 +58,15 @@ export function useOIDFlowClientAuthStore(): OIDFlowClientAuthStore {
 		[seedRef, ref],
 	);
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
+	// biome-ignore lint/correctness/useExhaustiveDependencies: baseline: pre-existing debt. should be fixed
 	const exportAuthMaterial = useCallback(async () => {
 		const material = ref.current?.material;
-		if (!material) return undefined;
+		if (!material) return;
 		return material.serialize();
 	}, [ref]);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: baseline: pre-existing debt. should be fixed
 	const attachWia = useCallback(
 		(flowId: string, wia: string) => {
 			const current = ref.current;
@@ -76,6 +81,7 @@ export function useOIDFlowClientAuthStore(): OIDFlowClientAuthStore {
 		[ref],
 	);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: baseline: pre-existing debt. should be fixed
 	const seedMaterial = useCallback(
 		(material: SerializedClientAuthMaterial) => {
 			seedRef.current = material;
@@ -83,6 +89,7 @@ export function useOIDFlowClientAuthStore(): OIDFlowClientAuthStore {
 		[seedRef],
 	);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: baseline: pre-existing debt. should be fixed
 	const clear = useCallback(() => {
 		ref.current = null;
 		seedRef.current = null;

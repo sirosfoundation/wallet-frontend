@@ -1,7 +1,7 @@
-import { JWK, KeyLike, SignJWT } from 'jose';
-import { generateRandomIdentifier } from '../utils/generateRandomIdentifier';
-import { logger } from '@/logger';
 import type { HttpClient } from '@sirosfoundation/http-client';
+import { type JWK, type KeyLike, SignJWT } from 'jose';
+import { logger } from '@/logger';
+import { generateRandomIdentifier } from '../utils/generateRandomIdentifier';
 
 export interface WIAKeyPair {
 	privateKey: KeyLike | Uint8Array;
@@ -22,6 +22,8 @@ export interface WIAKeyPair {
  * returns `undefined`, so that the request can carry on without a WIA, since
  * Tier 3 WIA is informative and must never block the request.
  */
+// biome-ignore lint/complexity/useMaxParams: baseline: pre-existing debt. should be fixed
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 export async function requestWIA(
 	httpClient: HttpClient,
 	authToken: string,
@@ -30,14 +32,17 @@ export async function requestWIA(
 	walletProviderURI: string,
 ): Promise<string | undefined> {
 	try {
-		const baseUrl = `${walletProviderURI.replace(/\/$/, '')}/wallet-provider/wia`;
+		const baseUrl = `${
+			// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
+			walletProviderURI.replace(/\/$/, '')
+		}/wallet-provider/wia`;
 
 		const challengeResponse = await httpClient.post(
 			`${baseUrl}/challenge`,
 			{},
 			{
 				Authorization: `Bearer ${authToken}`,
-			}
+			},
 		);
 		if (
 			!challengeResponse?.data ||
@@ -76,7 +81,7 @@ export async function requestWIA(
 			},
 			{
 				Authorization: `Bearer ${authToken}`,
-			}
+			},
 		);
 
 		if (
@@ -87,14 +92,13 @@ export async function requestWIA(
 			typeof generateResponse.data.wallet_instance_attestation !== 'string'
 		) {
 			logger.debug(
-				'Cannot parse wallet_instance_attestation from wallet-backend-server WIA generate response'
+				'Cannot parse wallet_instance_attestation from wallet-backend-server WIA generate response',
 			);
 			return undefined;
 		}
 		const wia = generateResponse.data.wallet_instance_attestation;
 		return wia;
-	}
-	catch (err) {
+	} catch (err) {
 		logger.debug(err);
 		return undefined;
 	}
@@ -144,6 +148,7 @@ export async function buildClientAttestationPop(
  * (see requestWIA's docs above); a retry within the same flow (e.g. on a
  * DPoP nonce challenge) must not mint a second WIA for the same flow.
  */
+// biome-ignore lint/complexity/useMaxParams: baseline: pre-existing debt. should be fixed
 export async function attestFlowIfEnabled(
 	httpClient: HttpClient,
 	authToken: string,

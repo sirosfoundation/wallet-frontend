@@ -9,40 +9,47 @@
  * before enabling WebSocket transport.
  */
 
-import React, { createContext, useContext, useMemo, useEffect, useState, useCallback } from 'react';
+import type React from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import {
+	BACKEND_URL,
+	DIRECT_TRANSPORT_ALLOWED,
+	HTTP_PROXY_TRANSPORT_ALLOWED,
+	TRANSPORT_PREFERENCE,
+	WEBSOCKET_TRANSPORT_ALLOWED,
+	WS_URL,
+} from '@/config';
+import { useHttpClient } from '@/hooks/useHttpClient';
+import type { TrustEvaluators } from '@/lib/openid-flow';
+import { OIDFlowError } from '@/lib/openid-flow/errors';
+import type {
+	MatchRequestHandler,
+	SignRequestHandler,
+} from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
+import { OIDFlowWebSocketTransport } from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
 import type { IOIDFlowTransport } from '@/lib/openid-flow/types/IOIDFlowTransport';
 import { nullOIDFlowTransport } from '@/lib/openid-flow/types/IOIDFlowTransport';
-import { OIDFlowWebSocketTransport } from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
-import type { SignRequestHandler, MatchRequestHandler } from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
+import type {
+	OIDFlowActiveTransportType,
+	OIDFlowTransportType,
+} from '@/lib/openid-flow/types/OIDFlowTypes';
+import { Capabilities, getEngineCapabilities } from '@/lib/services/CapabilitiesService';
 import {
-	Capabilities,
-	getEngineCapabilities,
-} from '@/lib/services/CapabilitiesService';
-import {
-	WS_URL,
-	HTTP_PROXY_TRANSPORT_ALLOWED,
-	WEBSOCKET_TRANSPORT_ALLOWED,
-	DIRECT_TRANSPORT_ALLOWED,
-	TRANSPORT_PREFERENCE,
-	BACKEND_URL,
-} from '@/config';
-import type { OIDFlowActiveTransportType, OIDFlowTransportType } from '@/lib/openid-flow/types/OIDFlowTypes';
-import { logger } from '@/logger';
-import { createIssuerTrustEvaluator, createVerifierTrustEvaluator } from '@/lib/services/TrustEvaluator';
-import { TrustEvaluators } from '@/lib/openid-flow';
-import { useHttpClient } from '@/hooks/useHttpClient';
-import SessionContext from './SessionContext';
+	createIssuerTrustEvaluator,
+	createVerifierTrustEvaluator,
+} from '@/lib/services/TrustEvaluator';
 import { getTenantFromUrlPath } from '@/lib/tenant';
-import { OIDFlowError } from '@/lib/openid-flow/errors';
+import { logger } from '@/logger';
+import SessionContext from './SessionContext';
 
 // Re-export sign and match types with WS prefix for clarity
 export type {
-	SignRequest as WSSignRequest,
-	SignResponse as WSSignResponse,
-	SignRequestHandler as WSSignRequestHandler,
 	MatchRequest as WSMatchRequest,
-	MatchResponse as WSMatchResponse,
 	MatchRequestHandler as WSMatchRequestHandler,
+	MatchResponse as WSMatchResponse,
+	SignRequest as WSSignRequest,
+	SignRequestHandler as WSSignRequestHandler,
+	SignResponse as WSSignResponse,
 } from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
 
 /**
@@ -88,9 +95,8 @@ interface OIDFlowTransportProviderProps {
 /**
  * Provider component for the transport context
  */
-export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> = ({
-	children,
-}) => {
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
+export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> = ({ children }) => {
 	const { authTokens } = useContext(SessionContext);
 	const httpClient = useHttpClient();
 
@@ -116,7 +122,9 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 				if (active) setAuthTokenSettled(true);
 			}
 		})();
-		return () => { active = false; };
+		return () => {
+			active = false;
+		};
 	}, [authTokens]);
 
 	const [isConnected, setIsConnected] = useState(false);
@@ -139,13 +147,23 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		//    authenticates it. Without this, a page load (e.g. the credential
 		//    offer callback) reports ready before the token resolves, and the
 		//    flow starts with no transport at all.
+		// biome-ignore lint/complexity/noImplicitCoercions: baseline: pre-existing debt. should be fixed
 		const wsPossible = WEBSOCKET_TRANSPORT_ALLOWED && wsCapabilityAvailable && !!WS_URL;
 		if (wsPossible && !authTokenSettled) return false;
 		// 4. If WebSocket is expected, wait for it to connect or fail
+		// biome-ignore lint/complexity/noImplicitCoercions: baseline: pre-existing debt. should be fixed
 		const wsExpected = wsPossible && !!authToken;
 		if (wsExpected && !isConnected && !lastError) return false;
 		return true;
-	}, [capabilitiesLoaded, pendingTransports, wsCapabilityAvailable, authToken, authTokenSettled, isConnected, lastError]);
+	}, [
+		capabilitiesLoaded,
+		pendingTransports,
+		wsCapabilityAvailable,
+		authToken,
+		authTokenSettled,
+		isConnected,
+		lastError,
+	]);
 
 	const trustEvaluators = useMemo((): TrustEvaluators => {
 		const evaluateIssuerTrust = createIssuerTrustEvaluator({
@@ -163,8 +181,8 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		});
 
 		return {
-		evaluateIssuerTrust,
-		evaluateVerifierTrust,
+			evaluateIssuerTrust,
+			evaluateVerifierTrust,
 		};
 	}, [tenantId, authToken, httpClient]);
 
@@ -203,7 +221,8 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		if (HTTP_PROXY_TRANSPORT_ALLOWED) {
 			throw new OIDFlowError({
 				code: 'DISCONTINUED_HTTP_PROXY_FLOW',
-				message: 'HTTP proxy transport flow is discontinued. Please use WebSocket transport instead.',
+				message:
+					'HTTP proxy transport flow is discontinued. Please use WebSocket transport instead.',
 			});
 		}
 
@@ -228,9 +247,10 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 	}, []);
 
 	// Create and manage WebSocket transport (only if capability is available)
+	// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 	useEffect(() => {
 		if (!capabilitiesLoaded) return;
-		if (!WEBSOCKET_TRANSPORT_ALLOWED || !wsCapabilityAvailable || !WS_URL || !authToken) {
+		if (!(WEBSOCKET_TRANSPORT_ALLOWED && wsCapabilityAvailable && WS_URL && authToken)) {
 			setWsTransport(null);
 			setIsConnected(false);
 			return;
@@ -241,7 +261,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		setWsTransport(ws);
 
 		// Mark this transport as pending connection
-		setPendingTransports(prev => new Set(prev).add('websocket'));
+		setPendingTransports((prev) => new Set(prev).add('websocket'));
 
 		const connectTimeout = setTimeout(() => {
 			if (cancelled) return;
@@ -253,7 +273,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 			setIsConnected(false);
 			setLastError(new Error('WebSocket connection timed out'));
 
-			setPendingTransports(prev => {
+			setPendingTransports((prev) => {
 				const next = new Set(prev);
 				next.delete('websocket');
 				return next;
@@ -275,9 +295,10 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 				setIsConnected(false);
 				setLastError(error);
 			} finally {
+				// biome-ignore lint/correctness/noUnsafeFinally: baseline: pre-existing debt. should be fixed
 				if (cancelled) return;
 				clearTimeout(connectTimeout);
-				setPendingTransports(prev => {
+				setPendingTransports((prev) => {
 					const next = new Set(prev);
 					next.delete('websocket');
 					return next;
@@ -293,7 +314,9 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 			if (error instanceof OIDFlowError && error.code === 'AUTH_FAILED') {
 				const shouldRetry = authTokens.registerBackendTokenRejection();
 				if (!shouldRetry) {
-					logger.error('Engine auth still failing after refresh; giving up (global handler notified)');
+					logger.error(
+						'Engine auth still failing after refresh; giving up (global handler notified)',
+					);
 					return;
 				}
 
@@ -308,7 +331,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 			unsubscribeError();
 			ws.disconnect();
 			// Clean up pending state for this transport on unmount/re-run
-			setPendingTransports(prev => {
+			setPendingTransports((prev) => {
 				const next = new Set(prev);
 				next.delete('websocket');
 				return next;
@@ -326,10 +349,11 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 	// Mobile WebViews can background the app during external redirects, causing
 	// WebSocket disconnects. Reconnect when page becomes visible or network returns.
 	useEffect(() => {
-		if (!wsTransport || !WEBSOCKET_TRANSPORT_ALLOWED || !authToken) return;
+		if (!(wsTransport && WEBSOCKET_TRANSPORT_ALLOWED && authToken)) return;
 
 		let cancelled = false;
 
+		// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
 		const attemptReconnect = async () => {
 			if (wsTransport.isConnected()) {
 				logger.debug('WebSocket reconnect skipped: already connected');
@@ -340,6 +364,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 				online: typeof navigator !== 'undefined' ? navigator.onLine : undefined,
 				visibilityState: typeof document !== 'undefined' ? document.visibilityState : 'unknown',
 				tenantId,
+				// biome-ignore lint/complexity/noImplicitCoercions: baseline: pre-existing debt. should be fixed
 				hasAuthToken: !!authToken,
 			});
 
@@ -365,12 +390,14 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 				online: typeof navigator !== 'undefined' ? navigator.onLine : undefined,
 			});
 			if (document.visibilityState === 'visible') {
+				// biome-ignore lint/complexity/noVoid: baseline: pre-existing debt. should be fixed
 				void attemptReconnect();
 			}
 		};
 
 		const onOnline = () => {
 			logger.debug('Online event observed for WebSocket reconnect');
+			// biome-ignore lint/complexity/noVoid: baseline: pre-existing debt. should be fixed
 			void attemptReconnect();
 		};
 
@@ -385,6 +412,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 	}, [wsTransport, authToken, tenantId]);
 
 	// Select active transport based on preference order and availability
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
 	const { transport, transportType } = useMemo(() => {
 		// Follow TRANSPORT_PREFERENCE order
 		for (const pref of TRANSPORT_PREFERENCE) {
@@ -431,43 +459,66 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 	}, []);
 
 	// Register sign handler on WebSocket transport
-	const registerSignHandler = useCallback((handler: SignRequestHandler): (() => void) => {
-		if (wsTransport) {
-			return wsTransport.onSignRequest(handler);
-		}
-		// Return no-op unsubscribe if no WebSocket transport
-		return () => {};
-	}, [wsTransport]);
+	const registerSignHandler = useCallback(
+		(handler: SignRequestHandler): (() => void) => {
+			if (wsTransport) {
+				return wsTransport.onSignRequest(handler);
+			}
+			// Return no-op unsubscribe if no WebSocket transport
+			// biome-ignore lint/suspicious/noEmptyBlockStatements: baseline: pre-existing debt. should be fixed
+			return () => {};
+		},
+		[wsTransport],
+	);
 
 	// Register match handler on WebSocket transport for client-side credential matching
-	const registerMatchHandler = useCallback((handler: MatchRequestHandler): (() => void) => {
-		if (wsTransport) {
-			return wsTransport.onMatchRequest(handler);
-		}
-		// Return no-op unsubscribe if no WebSocket transport
-		return () => {};
-	}, [wsTransport]);
+	const registerMatchHandler = useCallback(
+		(handler: MatchRequestHandler): (() => void) => {
+			if (wsTransport) {
+				return wsTransport.onMatchRequest(handler);
+			}
+			// Return no-op unsubscribe if no WebSocket transport
+			// biome-ignore lint/suspicious/noEmptyBlockStatements: baseline: pre-existing debt. should be fixed
+			return () => {};
+		},
+		[wsTransport],
+	);
 
-	const value = useMemo(() => ({
-		transport,
-		transportType,
-		isConnected: transportType === 'websocket' ? isConnected : transportType === 'http_proxy',
-		reconnect,
-		availableTransports,
-		lastError,
-		clearError,
-		capabilitiesLoaded,
-		engineCapabilities,
-		registerSignHandler,
-		registerMatchHandler,
-		transportReady,
-		trustEvaluators,
-	}), [transport, transportType, isConnected, reconnect, availableTransports, lastError, clearError, capabilitiesLoaded, engineCapabilities, registerSignHandler, registerMatchHandler, transportReady, trustEvaluators]);
+	const value = useMemo(
+		() => ({
+			transport,
+			transportType,
+			isConnected: transportType === 'websocket' ? isConnected : transportType === 'http_proxy',
+			reconnect,
+			availableTransports,
+			lastError,
+			clearError,
+			capabilitiesLoaded,
+			engineCapabilities,
+			registerSignHandler,
+			registerMatchHandler,
+			transportReady,
+			trustEvaluators,
+		}),
+		[
+			transport,
+			transportType,
+			isConnected,
+			reconnect,
+			availableTransports,
+			lastError,
+			clearError,
+			capabilitiesLoaded,
+			engineCapabilities,
+			registerSignHandler,
+			registerMatchHandler,
+			transportReady,
+			trustEvaluators,
+		],
+	);
 
 	return (
-		<OIDFlowTransportContext.Provider value={value}>
-			{children}
-		</OIDFlowTransportContext.Provider>
+		<OIDFlowTransportContext.Provider value={value}>{children}</OIDFlowTransportContext.Provider>
 	);
 };
 
@@ -480,6 +531,7 @@ export const useOIDFlowTransport = (): OIDFlowTransportContextValue => {
 	const context = useContext(OIDFlowTransportContext);
 
 	if (!context) {
+		// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 		throw new Error('useOIDFlowTransport must be used within OIDFlowTransportProvider');
 	}
 

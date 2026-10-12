@@ -1,6 +1,6 @@
 import { useContext } from 'react';
-import { AuthTokens } from '@/lib/auth';
 import SessionContext from '@/context/SessionContext';
+import type { AuthTokens } from '@/lib/auth';
 
 export function useAuthTokens(): AuthTokens {
 	const sessionContext = useContext(SessionContext);

@@ -2,44 +2,48 @@
 import localforage from 'localforage';
 import { getTenantScopedBasePath } from './lib/tenant';
 import { logger } from './logger';
+
 // import { UserId } from './api/types';
 // import { fromBase64Url } from '@/lib/utils/binary';
 
 const stores = {
 	users: localforage.createInstance({
+		// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 		name: 'AppDataSource',
 		storeName: 'users',
 	}),
 	UserHandleToUserID: localforage.createInstance({
+		// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 		name: 'AppDataSource',
+		// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 		storeName: 'UserHandleToUserID',
 	}),
 	externalEntities: localforage.createInstance({
+		// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 		name: 'AppDataSource',
 		storeName: 'externalEntities',
 	}),
 	accountInfo: localforage.createInstance({
+		// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 		name: 'AppDataSource',
 		storeName: 'accountInfo',
 	}),
 	requestCache: localforage.createInstance({
+		// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 		name: 'AppDataSource',
 		storeName: 'requestCache',
 	}),
 };
 
-
 /** Paths to exclude from IndexedDB cache logic */
-export const EXCLUDED_INDEXEDDB_PATHS = new Set([
-	'/user/session/private-data',
-]);
+export const EXCLUDED_INDEXEDDB_PATHS = new Set(['/user/session/private-data']);
 
 const storeNameMapping: { [key: string]: string } = {
-	'users': 'users',
+	users: 'users',
 	'/issuer/all': 'externalEntities',
 	'/verifier/all': 'externalEntities',
 	'/user/session/account-info': 'accountInfo',
-	'/helper/iaca-list': 'externalEntities'
+	'/helper/iaca-list': 'externalEntities',
 };
 
 function getMappedStoreName(storeName: string): string {
@@ -47,6 +51,7 @@ function getMappedStoreName(storeName: string): string {
 		return 'externalEntities';
 	}
 
+	// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 	if (/^\/issuer\/[^/]+\/metadata/.test(storeName)) {
 		return 'externalEntities';
 	}
@@ -107,6 +112,7 @@ function deleteStore(dbName: string, storeName: string) {
 			const upgradeReq = indexedDB.open(dbName, newVersion);
 
 			upgradeReq.onupgradeneeded = (event) => {
+				// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 				const upgradeDb = (event.target as any).result;
 
 				if (upgradeDb.objectStoreNames.contains(storeName)) {
@@ -123,16 +129,22 @@ function deleteStore(dbName: string, storeName: string) {
 }
 
 async function migrateDataSource() {
-	if (await storeExists("AppDataSource", "vc")) {
-		await deleteStore("AppDataSource", "vc");
+	// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+	if (await storeExists('AppDataSource', 'vc')) {
+		// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+		await deleteStore('AppDataSource', 'vc');
 	}
 
-	if (await storeExists("AppDataSource", "vp")) {
-		await deleteStore("AppDataSource", "vp");
+	// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+	if (await storeExists('AppDataSource', 'vp')) {
+		// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+		await deleteStore('AppDataSource', 'vp');
 	}
 
-	if (await storeExists("AppDataSource", "proxyCache")) {
-		await deleteStore("AppDataSource", "proxyCache");
+	// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+	if (await storeExists('AppDataSource', 'proxyCache')) {
+		// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+		await deleteStore('AppDataSource', 'proxyCache');
 	}
 }
 
@@ -186,7 +198,14 @@ async function migrateDataSource() {
 // 	await UserHandleToUserID.dropInstance();
 // }
 
-export async function addItem(storeName: string, key: any, value: any, forceMappedStoreName?: string): Promise<void> {
+export async function addItem(
+	storeName: string,
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+	key: any,
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+	value: any,
+	forceMappedStoreName?: string,
+): Promise<void> {
 	try {
 		const mappedStoreName = forceMappedStoreName ?? getMappedStoreName(storeName);
 		await stores[mappedStoreName].setItem(key, value);
@@ -195,7 +214,13 @@ export async function addItem(storeName: string, key: any, value: any, forceMapp
 	}
 }
 
-export async function getItem(storeName: string, key: any, forceMappedStoreName?: string): Promise<any> {
+export async function getItem(
+	storeName: string,
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+	key: any,
+	forceMappedStoreName?: string,
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+): Promise<any> {
 	try {
 		const mappedStoreName = forceMappedStoreName ?? getMappedStoreName(storeName);
 		const value = await stores[mappedStoreName].getItem(key);
@@ -206,9 +231,11 @@ export async function getItem(storeName: string, key: any, forceMappedStoreName?
 	}
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 export async function getAllItems(storeName: string): Promise<any[]> {
 	try {
 		const mappedStoreName = getMappedStoreName(storeName);
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 		const items: any[] = [];
 		await stores[mappedStoreName].iterate((value, key) => {
 			items.push({ key, value });
@@ -221,7 +248,12 @@ export async function getAllItems(storeName: string): Promise<any[]> {
 	}
 }
 
-export async function removeItem(storeName: string, key: any, forceMappedStoreName?: string): Promise<void> {
+export async function removeItem(
+	storeName: string,
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+	key: any,
+	forceMappedStoreName?: string,
+): Promise<void> {
 	try {
 		const mappedStoreName = forceMappedStoreName ?? getMappedStoreName(storeName);
 		await stores[mappedStoreName].removeItem(key);

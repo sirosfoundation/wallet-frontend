@@ -3,6 +3,7 @@
  * @param obj
  * @returns
  */
+// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 export function serializeDcqlQuery(obj: any): any {
 	if (Array.isArray(obj)) {
 		return obj.map(serializeDcqlQuery);
@@ -10,7 +11,7 @@ export function serializeDcqlQuery(obj: any): any {
 		return Object.fromEntries(
 			Object.entries(obj)
 				.filter(([key, _]) => !key.startsWith('_'))
-				.map(([key, value]) => [key, serializeDcqlQuery(value)])
+				.map(([key, value]) => [key, serializeDcqlQuery(value)]),
 		);
 	}
 	return obj;

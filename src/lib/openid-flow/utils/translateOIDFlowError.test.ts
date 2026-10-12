@@ -45,7 +45,8 @@ describe('translateOIDFlowError', () => {
 	});
 
 	it('falls back for non-OIDFlow errors', () => {
-		expect(translateOIDFlowError(i18n.t.bind(i18n), new Error('boom'), 'vpFlowError').title)
-			.toBe('Verification Error');
+		expect(translateOIDFlowError(i18n.t.bind(i18n), new Error('boom'), 'vpFlowError').title).toBe(
+			'Verification Error',
+		);
 	});
 });

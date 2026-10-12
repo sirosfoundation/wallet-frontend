@@ -1,13 +1,14 @@
-import React from 'react';
-import { Trans, useTranslation } from 'react-i18next';
 import { Info } from 'lucide-react';
+import type React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
+import LanguageSelector from '@/components/LanguageSelector/LanguageSelector';
+import useScreenType from '@/hooks/useScreenType';
+import { useStatusContext } from '@/hooks/useStatusContext';
+// biome-ignore lint/performance/noNamespaceImport: baseline: pre-existing debt. should be fixed
 import * as config from '../../config';
 import Logo from '../Logo/Logo';
 import PWAInstallPrompt from '../PWAInstall/PWAInstallPrompt';
-import useScreenType from '@/hooks/useScreenType';
 import PoweredBy from '../Shared/PoweredBy';
-import { useStatusContext } from '@/hooks/useStatusContext';
-import LanguageSelector from '@/components/LanguageSelector/LanguageSelector';
 
 type AuthLayoutProps = {
 	headingKey: string;
@@ -18,22 +19,30 @@ type AuthLayoutProps = {
 	cornerLeft?: React.ReactNode;
 };
 
-export default function AuthLayout({ headingKey, children, title, footer, belowCard, cornerLeft }: AuthLayoutProps) {
+export default function AuthLayout({
+	headingKey,
+	children,
+	title,
+	footer,
+	belowCard,
+	cornerLeft,
+}: AuthLayoutProps) {
 	const { t } = useTranslation();
 	const screenType = useScreenType();
 	const { isOnline } = useStatusContext();
 
 	return (
 		<section className="bg-lm-gray-100 dark:bg-dm-gray-900 min-h-dvh flex flex-col">
-			{config.SHOW_PWA_INSTALL_PROMPT && screenType !== 'desktop' && (
-				<PWAInstallPrompt />
-			)}
+			{config.SHOW_PWA_INSTALL_PROMPT && screenType !== 'desktop' && <PWAInstallPrompt />}
 
 			<div className="grow flex flex-col items-center justify-center px-6 py-8">
-				<Logo aClassName='mb-6' imgClassName='w-20' />
+				<Logo aClassName="mb-6" imgClassName="w-20" />
 
 				<h1 className="text-3xl mb-8 font-bold leading-tight tracking-tight text-lm-gray-900 text-center dark:text-white">
-					<Trans i18nKey={headingKey} components={{ highlight: <span className="text-primary dark:text-brand-light" /> }} />
+					<Trans
+						i18nKey={headingKey}
+						components={{ highlight: <span className="text-primary dark:text-brand-light" /> }}
+					/>
 				</h1>
 
 				<div className="relative w-full sm:max-w-md xl:p-0">
@@ -47,7 +56,7 @@ export default function AuthLayout({ headingKey, children, title, footer, belowC
 						</div>
 						{isOnline === false && (
 							<p className="text-sm text-red-600 dark:text-red-400">
-								<Info size={14} className= "text-md inline-block mr-1" />
+								<Info size={14} className="text-md inline-block mr-1" />
 								{t('loginSignup.messageOffline')}
 							</p>
 						)}
@@ -57,9 +66,7 @@ export default function AuthLayout({ headingKey, children, title, footer, belowC
 					{belowCard}
 				</div>
 
-				{config.SHOW_PWA_INSTALL_PROMPT && screenType === 'desktop' && (
-					<PWAInstallPrompt />
-				)}
+				{config.SHOW_PWA_INSTALL_PROMPT && screenType === 'desktop' && <PWAInstallPrompt />}
 			</div>
 
 			<footer className="py-4">

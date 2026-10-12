@@ -1,72 +1,96 @@
-import { SDJwt } from "@sd-jwt/core";
-import { cborDecode, cborEncode } from "@auth0/mdl/lib/cbor";
-import { parse } from "@auth0/mdl";
-import { base64url, EncryptJWT, importJWK, importX509, jwtVerify, KeyLike, JWK } from "jose";
-import { DcqlPresentationResult, DcqlQuery } from "dcql";
-import { generateRandomIdentifier } from "../../utils";
+import { parse } from '@auth0/mdl';
+import { cborDecode, cborEncode } from '@auth0/mdl/lib/cbor';
+import { SDJwt } from '@sd-jwt/core';
+import { DcqlPresentationResult, DcqlQuery } from 'dcql';
 import {
-	OpenID4VPClientMetadata,
-	OpenID4VPRelyingPartyState,
-	OpenID4VPServerLastUsedNonceStore,
-	OpenID4VPServerMessages,
-	OpenID4VPResponseMode,
-	TransactionDataResponseGenerator,
-	TransactionDataResponseGeneratorParams,
-	TransactionDataResponseParams,
-	OpenID4VPTrustEvaluator,
-	ClientIdScheme,
-	OpenID4VPKeyMaterial,
-	TrustEvaluationResult,
-	DIDResolver,
-	DIDDocument,
+	base64url,
+	EncryptJWT,
+	importJWK,
+	importX509,
+	type JWK,
+	jwtVerify,
+	type KeyLike,
+} from 'jose';
+import { VerifiableCredentialFormat } from '../../types';
+import { generateRandomIdentifier } from '../../utils';
+import { isVcdm2Credential, toTypeArray } from '../../utils/vcdm2';
+import {
+	type ClientIdScheme,
+	type DIDDocument,
+	type DIDResolver,
+	// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
 	DIDVerificationMethod,
-} from "./types";
-import { VerifiableCredentialFormat } from "../../types";
-import { isVcdm2Credential, toTypeArray } from "../../utils/vcdm2";
+	type OpenID4VPClientMetadata,
+	type OpenID4VPKeyMaterial,
+	type OpenID4VPRelyingPartyState,
+	OpenID4VPResponseMode,
+	type OpenID4VPServerLastUsedNonceStore,
+	type OpenID4VPServerMessages,
+	type OpenID4VPTrustEvaluator,
+	type TransactionDataResponseGenerator,
+	type TransactionDataResponseGeneratorParams,
+	type TransactionDataResponseParams,
+	type TrustEvaluationResult,
+} from './types';
 export const HandleAuthorizationRequestErrors = {
-	NON_SUPPORTED_CLIENT_ID_SCHEME: "non_supported_client_id_scheme",
-	INSUFFICIENT_CREDENTIALS: "insufficient_credentials",
-	MISSING_DCQL_QUERY: "missing_dcql_query",
-	NONTRUSTED_VERIFIER: "nontrusted_verifier",
-	INVALID_RESPONSE_MODE: "invalid_response_mode",
-	OLD_STATE: "old_state",
-	INVALID_TRANSACTION_DATA: "invalid_transaction_data",
-	INVALID_TYP: "invalid_jwt_typ",
-	COULD_NOT_RESOLVE_REQUEST: "could_not_resolve_request",
+	NON_SUPPORTED_CLIENT_ID_SCHEME: 'non_supported_client_id_scheme',
+	INSUFFICIENT_CREDENTIALS: 'insufficient_credentials',
+	MISSING_DCQL_QUERY: 'missing_dcql_query',
+	NONTRUSTED_VERIFIER: 'nontrusted_verifier',
+	INVALID_RESPONSE_MODE: 'invalid_response_mode',
+	OLD_STATE: 'old_state',
+	INVALID_TRANSACTION_DATA: 'invalid_transaction_data',
+	INVALID_TYP: 'invalid_jwt_typ',
+	COULD_NOT_RESOLVE_REQUEST: 'could_not_resolve_request',
 } as const;
 
-export type HandleAuthorizationRequestError = typeof HandleAuthorizationRequestErrors[keyof typeof HandleAuthorizationRequestErrors];
+export type HandleAuthorizationRequestError =
+	(typeof HandleAuthorizationRequestErrors)[keyof typeof HandleAuthorizationRequestErrors];
 
 type OpenID4VPServerKeystore = {
 	signJwtPresentation(
 		nonce: string,
 		audience: string,
 		presentations: string[],
-		transactionDataResponseParams?: TransactionDataResponseParams
+		transactionDataResponseParams?: TransactionDataResponseParams,
 	): Promise<{ vpjwt: string }>;
 	generateDeviceResponse(
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 		mdoc: any,
 		presentationDefinition: Record<string, unknown>,
 		nonce: string,
 		clientId: string,
 		responseUri: string,
 		verifierJwkThumbprint: string | null,
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 	): Promise<{ deviceResponseMDoc: any }>;
 };
 
 type OpenID4VPServerDeps<CredentialT extends OpenID4VPServerCredential, ParsedTransactionDataT> = {
-	httpClient: { get: (url: string, options?: Record<string, unknown>) => Promise<{ data: unknown }> };
+	httpClient: {
+		get: (url: string, options?: Record<string, unknown>) => Promise<{ data: unknown }>;
+	};
 	rpStateStore: {
 		store(stateObject: OpenID4VPRelyingPartyState): Promise<void>;
 		retrieve(): Promise<OpenID4VPRelyingPartyState>;
 	};
-	parseCredential: (credential: CredentialT) => Promise<{ signedClaims: Record<string, unknown> } | null>;
-	selectCredentialForBatch: (batchId: number, vcEntityList: CredentialT[]) => Promise<CredentialT | null>;
+	parseCredential: (
+		credential: CredentialT,
+	) => Promise<{ signedClaims: Record<string, unknown> } | null>;
+	selectCredentialForBatch: (
+		batchId: number,
+		vcEntityList: CredentialT[],
+	) => Promise<CredentialT | null>;
 	keystore: OpenID4VPServerKeystore;
 	strings: OpenID4VPServerMessages;
 	lastUsedNonceStore?: OpenID4VPServerLastUsedNonceStore;
-	parseTransactionData?: (transaction_data: string[], dcql_query: Record<string, unknown>) => ParsedTransactionDataT[] | null;
-	transactionDataResponseGenerator?: (params: TransactionDataResponseGeneratorParams) => TransactionDataResponseGenerator;
+	parseTransactionData?: (
+		transaction_data: string[],
+		dcql_query: Record<string, unknown>,
+	) => ParsedTransactionDataT[] | null;
+	transactionDataResponseGenerator?: (
+		params: TransactionDataResponseGeneratorParams,
+	) => TransactionDataResponseGenerator;
 	/**
 	 * Trust evaluator for verifier authentication.
 	 * Required - all trust evaluation is delegated to the AuthZEN backend.
@@ -94,16 +118,19 @@ export type OpenID4VPServerCredential = {
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();
 const certFromB64 = (certBase64: string) =>
-	`-----BEGIN CERTIFICATE-----\n${certBase64.match(/.{1,64}/g)?.join("\n")}\n-----END CERTIFICATE-----`;
+	`-----BEGIN CERTIFICATE-----\n${certBase64.match(/.{1,64}/g)?.join('\n')}\n-----END CERTIFICATE-----`;
 
 function isOpenID4VPResponseMode(value: unknown): value is OpenID4VPResponseMode {
-	return typeof value === "string" && Object.values(OpenID4VPResponseMode).includes(value as OpenID4VPResponseMode);
+	return (
+		typeof value === 'string' &&
+		Object.values(OpenID4VPResponseMode).includes(value as OpenID4VPResponseMode)
+	);
 }
 
 function getSubtleCrypto(subtle?: SubtleCrypto): SubtleCrypto {
 	if (subtle) return subtle;
 	if (globalThis.crypto?.subtle) return globalThis.crypto.subtle;
-	throw new Error("Missing SubtleCrypto implementation");
+	throw new Error('Missing SubtleCrypto implementation');
 }
 
 function getRandomUUID(randomUUID?: () => string): string {
@@ -199,26 +226,37 @@ function extractKeyMaterial(parsedHeader: Record<string, unknown>): OpenID4VPKey
 	};
 }
 
-const retrieveKeys = async (S: OpenID4VPRelyingPartyState, httpClient: { get: (url: string, options?: Record<string, unknown>) => Promise<{ data: unknown }> }) => {
+const retrieveKeys = async (
+	S: OpenID4VPRelyingPartyState,
+	httpClient: {
+		get: (url: string, options?: Record<string, unknown>) => Promise<{ data: unknown }>;
+	},
+) => {
 	if (S.client_metadata.jwks) {
-		const rp_eph_pub_jwk = S.client_metadata.jwks.keys.filter((k) => k.use === "enc")[0];
+		const rp_eph_pub_jwk = S.client_metadata.jwks.keys.filter((k) => k.use === 'enc')[0];
 		if (!rp_eph_pub_jwk) {
-			throw new Error("Could not find Relying Party public key for encryption");
+			throw new Error('Could not find Relying Party public key for encryption');
 		}
 		return { rp_eph_pub_jwk };
 	}
 	if (S.client_metadata.jwks_uri) {
 		const response = await httpClient.get(S.client_metadata.jwks_uri).catch(() => null);
-		if (response && typeof response.data === "object" && response.data && "keys" in (response.data as Record<string, unknown>)) {
+		if (
+			response &&
+			typeof response.data === 'object' &&
+			response.data &&
+			'keys' in (response.data as Record<string, unknown>)
+		) {
+			// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 			const keys = (response.data as { keys: any[] }).keys;
-			const rp_eph_pub_jwk = keys.filter((k) => k.use === "enc")[0];
+			const rp_eph_pub_jwk = keys.filter((k) => k.use === 'enc')[0];
 			if (!rp_eph_pub_jwk) {
-				throw new Error("Could not find Relying Party public key for encryption");
+				throw new Error('Could not find Relying Party public key for encryption');
 			}
 			return { rp_eph_pub_jwk };
 		}
 	}
-	throw new Error("Could not find Relying Party public key for encryption");
+	throw new Error('Could not find Relying Party public key for encryption');
 };
 
 /**
@@ -239,7 +277,10 @@ function dcqlCredentialFormat(format: string): string {
 		: format;
 }
 
-export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, ParsedTransactionDataT> {
+export class OpenID4VPServerAPI<
+	CredentialT extends OpenID4VPServerCredential,
+	ParsedTransactionDataT,
+> {
 	private deps: OpenID4VPServerDeps<CredentialT, ParsedTransactionDataT>;
 
 	constructor(deps: OpenID4VPServerDeps<CredentialT, ParsedTransactionDataT>) {
@@ -251,20 +292,20 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		const searchParams = authorizationRequest.searchParams;
 
 		return {
-			client_id: searchParams.get("client_id"),
-			response_uri: searchParams.get("response_uri"),
-			nonce: searchParams.get("nonce"),
-			state: searchParams.get("state") as string,
-			client_metadata: searchParams.get("client_metadata")
-				? JSON.parse(searchParams.get("client_metadata") as string)
+			client_id: searchParams.get('client_id'),
+			response_uri: searchParams.get('response_uri'),
+			nonce: searchParams.get('nonce'),
+			state: searchParams.get('state') as string,
+			client_metadata: searchParams.get('client_metadata')
+				? JSON.parse(searchParams.get('client_metadata') as string)
 				: null,
-			response_mode: searchParams.get("response_mode") ?? null,
-			transaction_data: searchParams.get("transaction_data")
-				? JSON.parse(searchParams.get("transaction_data") as string)
+			response_mode: searchParams.get('response_mode') ?? null,
+			transaction_data: searchParams.get('transaction_data')
+				? JSON.parse(searchParams.get('transaction_data') as string)
 				: null,
-			request_uri: searchParams.get("request_uri"),
-			dcql_query: searchParams.get("dcql_query")
-				? JSON.parse(searchParams.get("dcql_query") as string)
+			request_uri: searchParams.get('request_uri'),
+			dcql_query: searchParams.get('dcql_query')
+				? JSON.parse(searchParams.get('dcql_query') as string)
 				: null,
 		};
 	}
@@ -277,9 +318,11 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 	 * - jwk: Embedded JWK in header
 	 * - kid with DID reference: Resolves DID document and finds matching key
 	 */
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+	// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 	private async resolveVerificationKey(
 		parsedHeader: Record<string, unknown>,
-		clientId: string | undefined
+		clientId: string | undefined,
 	): Promise<{ key: KeyLike } | { error: HandleAuthorizationRequestError }> {
 		const alg = parsedHeader.alg as string;
 
@@ -289,18 +332,20 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				const publicKey = await importX509(certFromB64(parsedHeader.x5c[0]), alg);
 				return { key: publicKey };
 			} catch (e) {
-				console.error("Failed to import x5c certificate:", e);
+				// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
+				console.error('Failed to import x5c certificate:', e);
 				return { error: HandleAuthorizationRequestErrors.NONTRUSTED_VERIFIER };
 			}
 		}
 
 		// Case 2: Embedded JWK in header
-		if (parsedHeader.jwk && typeof parsedHeader.jwk === "object") {
+		if (parsedHeader.jwk && typeof parsedHeader.jwk === 'object') {
 			try {
 				const publicKey = await importJWK(parsedHeader.jwk as JWK, alg);
 				return { key: publicKey as KeyLike };
 			} catch (e) {
-				console.error("Failed to import embedded JWK:", e);
+				// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
+				console.error('Failed to import embedded JWK:', e);
 				return { error: HandleAuthorizationRequestErrors.NONTRUSTED_VERIFIER };
 			}
 		}
@@ -309,40 +354,48 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		const kid = parsedHeader.kid as string | undefined;
 		if (kid) {
 			// Check if client_id is a DID or if kid starts with did:
-			const didToResolve = kid.startsWith("did:") ? kid.split("#")[0] :
-				(clientId?.startsWith("did:") ? clientId : null);
+			const didToResolve = kid.startsWith('did:')
+				? kid.split('#')[0]
+				: clientId?.startsWith('did:')
+					? clientId
+					: null;
 
 			if (didToResolve) {
 				// Need DID resolution
 				if (!this.deps.resolveDid) {
-					console.error("DID resolution required but resolveDid dependency not provided");
+					// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
+					console.error('DID resolution required but resolveDid dependency not provided');
 					return { error: HandleAuthorizationRequestErrors.NONTRUSTED_VERIFIER };
 				}
 
 				try {
 					const resolution = await this.deps.resolveDid(didToResolve);
-					if (!resolution.resolved || !resolution.didDocument) {
-						console.error("Failed to resolve DID:", didToResolve);
+					if (!(resolution.resolved && resolution.didDocument)) {
+						// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
+						console.error('Failed to resolve DID:', didToResolve);
 						return { error: HandleAuthorizationRequestErrors.NONTRUSTED_VERIFIER };
 					}
 
 					const jwk = this.findKeyInDIDDocument(resolution.didDocument, kid);
 					if (!jwk) {
-						console.error("Key not found in DID document for kid:", kid);
+						// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
+						console.error('Key not found in DID document for kid:', kid);
 						return { error: HandleAuthorizationRequestErrors.NONTRUSTED_VERIFIER };
 					}
 
 					const publicKey = await importJWK(jwk as JWK, alg);
 					return { key: publicKey as KeyLike };
 				} catch (e) {
-					console.error("DID resolution or key import failed:", e);
+					// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
+					console.error('DID resolution or key import failed:', e);
 					return { error: HandleAuthorizationRequestErrors.NONTRUSTED_VERIFIER };
 				}
 			}
 		}
 
 		// No valid key material found
-		console.error("No valid key material in JWT header (need x5c, jwk, or kid with DID)");
+		// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
+		console.error('No valid key material in JWT header (need x5c, jwk, or kid with DID)');
 		return { error: HandleAuthorizationRequestErrors.NONTRUSTED_VERIFIER };
 	}
 
@@ -350,16 +403,18 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 	 * Find a verification key in a DID document by kid.
 	 * Searches verificationMethod, authentication, and assertionMethod.
 	 */
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+	// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 	private findKeyInDIDDocument(doc: DIDDocument, kid: string): JsonWebKey | null {
 		// Normalize kid - could be full DID#fragment or just fragment
-		const kidFragment = kid.includes("#") ? kid.split("#")[1] : kid;
-		const fullKid = kid.includes("#") ? kid : `${doc.id}#${kid}`;
+		const kidFragment = kid.includes('#') ? kid.split('#')[1] : kid;
+		const fullKid = kid.includes('#') ? kid : `${doc.id}#${kid}`;
 
 		// Helper to find a method in verificationMethod by reference ID
 		const findInVerificationMethod = (refId: string): JsonWebKey | null => {
 			if (!doc.verificationMethod) return null;
 			for (const vm of doc.verificationMethod) {
-				if (vm.id === refId || vm.id === `${doc.id}#${refId}` || vm.id.split("#")[1] === refId) {
+				if (vm.id === refId || vm.id === `${doc.id}#${refId}` || vm.id.split('#')[1] === refId) {
 					if (vm.publicKeyJwk) {
 						return vm.publicKeyJwk;
 					}
@@ -372,7 +427,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		if (doc.verificationMethod) {
 			for (const vm of doc.verificationMethod) {
 				const vmId = vm.id;
-				const vmFragment = vmId.includes("#") ? vmId.split("#")[1] : vmId;
+				const vmFragment = vmId.includes('#') ? vmId.split('#')[1] : vmId;
 
 				if (vmId === fullKid || vmId === kid || vmFragment === kidFragment) {
 					if (vm.publicKeyJwk) {
@@ -386,17 +441,17 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		if (doc.authentication) {
 			for (const auth of doc.authentication) {
 				// Handle string references to verificationMethod
-				if (typeof auth === "string") {
-					const authFragment = auth.includes("#") ? auth.split("#")[1] : auth;
+				if (typeof auth === 'string') {
+					const authFragment = auth.includes('#') ? auth.split('#')[1] : auth;
 					if (auth === fullKid || auth === kid || authFragment === kidFragment) {
 						const resolved = findInVerificationMethod(auth);
 						if (resolved) return resolved;
 					}
 				}
 				// Handle inline objects
-				if (typeof auth === "object" && "publicKeyJwk" in auth) {
+				if (typeof auth === 'object' && 'publicKeyJwk' in auth) {
 					const authId = auth.id;
-					const authFragment = authId.includes("#") ? authId.split("#")[1] : authId;
+					const authFragment = authId.includes('#') ? authId.split('#')[1] : authId;
 
 					if (authId === fullKid || authId === kid || authFragment === kidFragment) {
 						if (auth.publicKeyJwk) {
@@ -411,17 +466,17 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		if (doc.assertionMethod) {
 			for (const am of doc.assertionMethod) {
 				// Handle string references to verificationMethod
-				if (typeof am === "string") {
-					const amFragment = am.includes("#") ? am.split("#")[1] : am;
+				if (typeof am === 'string') {
+					const amFragment = am.includes('#') ? am.split('#')[1] : am;
 					if (am === fullKid || am === kid || amFragment === kidFragment) {
 						const resolved = findInVerificationMethod(am);
 						if (resolved) return resolved;
 					}
 				}
 				// Handle inline objects
-				if (typeof am === "object" && "publicKeyJwk" in am) {
+				if (typeof am === 'object' && 'publicKeyJwk' in am) {
 					const amId = am.id;
-					const amFragment = amId.includes("#") ? amId.split("#")[1] : amId;
+					const amFragment = amId.includes('#') ? amId.split('#')[1] : amId;
 
 					if (amId === fullKid || amId === kid || amFragment === kidFragment) {
 						if (am.publicKeyJwk) {
@@ -435,19 +490,21 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		return null;
 	}
 
-	private async handleRequestUri(request_uri: string): Promise<
-		{ payload: Record<string, unknown>; parsedHeader: Record<string, unknown> } |
-		{ error: HandleAuthorizationRequestError }
+	private async handleRequestUri(
+		request_uri: string,
+	): Promise<
+		| { payload: Record<string, unknown>; parsedHeader: Record<string, unknown> }
+		| { error: HandleAuthorizationRequestError }
 	> {
 		const requestUriResponse = await this.deps.httpClient.get(request_uri, {});
-		if (typeof requestUriResponse.data !== "string") {
+		if (typeof requestUriResponse.data !== 'string') {
 			return { error: HandleAuthorizationRequestErrors.COULD_NOT_RESOLVE_REQUEST };
 		}
 		const jwt = requestUriResponse.data;
-		const [header, payload] = jwt.split(".");
+		const [header, payload] = jwt.split('.');
 		const parsedHeader = JSON.parse(decoder.decode(base64url.decode(header)));
 
-		if (parsedHeader.typ !== "oauth-authz-req+jwt") {
+		if (parsedHeader.typ !== 'oauth-authz-req+jwt') {
 			return { error: HandleAuthorizationRequestErrors.INVALID_TYP };
 		}
 
@@ -457,41 +514,59 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 
 		// Resolve the verification key (supports x5c, jwk, and DID-based kid)
 		const keyResult = await this.resolveVerificationKey(parsedHeader, clientId);
-		if ("error" in keyResult) {
+		if ('error' in keyResult) {
 			return keyResult;
 		}
 
 		const verificationResult = await jwtVerify(jwt, keyResult.key).catch(() => null);
+		// biome-ignore lint/suspicious/noEqualsToNull: baseline: pre-existing debt. should be fixed
 		if (verificationResult == null) {
 			return { error: HandleAuthorizationRequestErrors.NONTRUSTED_VERIFIER };
 		}
 		return { payload: decodedPayload, parsedHeader };
 	}
 
-	private async matchCredentialsToDCQL(vcList: CredentialT[], dcqlJson: any): Promise<
-		| { mapping: Map<string, { credentials: number[]; requestedFields: { name: string; purpose: string; path?: (string | null)[] }[] }>; descriptorPurpose: string }
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+	// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
+	private async matchCredentialsToDCQL(
+		vcList: CredentialT[],
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+		dcqlJson: any,
+	): Promise<
+		| {
+				mapping: Map<
+					string,
+					{
+						credentials: number[];
+						requestedFields: { name: string; purpose: string; path?: (string | null)[] }[];
+					}
+				>;
+				descriptorPurpose: string;
+		  }
 		| { error: HandleAuthorizationRequestError }
 	> {
 		const descriptorPurpose = this.deps.strings.purposeNotSpecified ?? null;
 
 		// shape all credentials in the wallet
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 		const shapedCredentials: any[] = [];
 		for (const vc of vcList) {
+			// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 			let shaped: any = { credential_format: vc.format };
 			try {
 				if (vc.format === VerifiableCredentialFormat.MSO_MDOC) {
 					const credentialBytes = base64url.decode(vc.data);
 					const issuerSigned = cborDecode(credentialBytes);
-					const issuerAuth = issuerSigned.get("issuerAuth") as Array<Uint8Array>;
+					const issuerAuth = issuerSigned.get('issuerAuth') as Array<Uint8Array>;
 					const payload = issuerAuth?.[2];
 					const decodedIssuerAuthPayload = cborDecode(payload);
-					const docType = decodedIssuerAuthPayload.data.get("docType");
+					const docType = decodedIssuerAuthPayload.data.get('docType');
 					const envelope = {
-						version: "1.0",
+						version: '1.0',
 						documents: [
 							new Map([
-								["docType", docType],
-								["issuerSigned", issuerSigned],
+								['docType', docType],
+								['issuerSigned', issuerSigned],
 							]),
 						],
 						status: 0,
@@ -512,6 +587,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 						cryptographic_holder_binding: true,
 					};
 				} else {
+					// biome-ignore lint/performance/noAwaitInLoops: baseline: pre-existing debt. should be fixed
 					const parsed = await this.deps.parseCredential(vc);
 					if (!parsed) {
 						continue;
@@ -550,7 +626,8 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				}
 				shapedCredentials.push(shaped);
 			} catch (e) {
-				console.error("DCQL shaping error for this VC:", e);
+				// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
+				console.error('DCQL shaping error for this VC:', e);
 			}
 		}
 		if (shapedCredentials.length === 0) {
@@ -565,25 +642,40 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		function hasValidMatch(credId: string): boolean {
 			const match = matches[credId];
 			if (match?.success === false) {
+				// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+				// biome-ignore lint/complexity/noForEach: baseline: pre-existing debt. should be fixed
 				match.failed_credentials?.forEach((failedCreds: any) => {
 					if (failedCreds.meta.success === false) {
-						console.error("DCQL metadata issues: ", failedCreds.meta.issues);
+						// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
+						console.error('DCQL metadata issues: ', failedCreds.meta.issues);
 					}
 					if (!failedCreds.claims.success) {
-						console.error("DCQL failed claims: ", failedCreds.claims);
+						// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
+						console.error('DCQL failed claims: ', failedCreds.claims);
 					}
 				});
 			}
-			return match?.success === true && Array.isArray(match.valid_credentials) && match.valid_credentials.length > 0;
+			return (
+				match?.success === true &&
+				Array.isArray(match.valid_credentials) &&
+				match.valid_credentials.length > 0
+			);
 		}
 
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 		const satisfied = dcqlJson.credentials.every((cred: any) => hasValidMatch(cred.id));
 		if (!satisfied) {
 			return { error: HandleAuthorizationRequestErrors.INSUFFICIENT_CREDENTIALS };
 		}
 
 		// Build the mapping for each credential query
-		const mapping = new Map<string, { credentials: number[]; requestedFields: { name: string; purpose: string; path?: (string | null)[] }[] }>();
+		const mapping = new Map<
+			string,
+			{
+				credentials: number[];
+				requestedFields: { name: string; purpose: string; path?: (string | null)[] }[];
+			}
+		>();
 		for (const credReq of dcqlJson.credentials) {
 			const match = result.credential_matches[credReq.id];
 			const conforming: number[] = [];
@@ -599,12 +691,19 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				credentials: conforming,
 				requestedFields:
 					!credReq.claims || credReq.claims.length === 0
-						? [{ name: this.deps.strings.allClaimsRequested, purpose: descriptorPurpose, path: [null] }]
-						: credReq.claims.map((cl: any) => ({
-							name: cl.id || cl.path.join("."),
-							purpose: descriptorPurpose,
-							path: cl.path,
-						})),
+						? [
+								{
+									name: this.deps.strings.allClaimsRequested,
+									purpose: descriptorPurpose,
+									path: [null],
+								},
+							]
+						: // biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+							credReq.claims.map((cl: any) => ({
+								name: cl.id || cl.path.join('.'),
+								purpose: descriptorPurpose,
+								path: cl.path,
+							})),
 			});
 		}
 
@@ -615,18 +714,27 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		return { mapping, descriptorPurpose };
 	}
 
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 	private convertDcqlToPresentationDefinition(dcql_query: any) {
 		const pdId = getRandomUUID(this.deps.randomUUID);
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 		const input_descriptors = dcql_query.credentials.map((cred: any) => {
 			const descriptorId = cred.meta?.doctype_value;
 
+			// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 			const format: Record<string, any> = {};
-			if (cred.format === "mso_mdoc") {
-				format.mso_mdoc = { alg: ["ES256", "ES384", "EdDSA"] };
+			if (cred.format === 'mso_mdoc') {
+				format.mso_mdoc = { alg: ['ES256', 'ES384', 'EdDSA'] };
 			}
 
+			// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 			const fields = cred.claims.map((claim: any) => ({
-				path: [`$['${cred.meta?.doctype_value}']${claim.path.slice(1).map((p: string) => `['${p}']`).join("")}`],
+				path: [
+					`$['${cred.meta?.doctype_value}']${claim.path
+						.slice(1)
+						.map((p: string) => `['${p}']`)
+						.join('')}`,
+				],
 				intent_to_retain: claim.intent_to_retain ?? false,
 			}));
 
@@ -634,7 +742,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				id: descriptorId,
 				format,
 				constraints: {
-					limit_disclosure: "required",
+					limit_disclosure: 'required',
 					fields,
 				},
 			};
@@ -642,13 +750,15 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 
 		return {
 			id: pdId,
-			name: "DCQL-converted Presentation Definition",
-			purpose: dcql_query.credential_sets?.[0]?.purpose ?? "No purpose defined",
+			name: 'DCQL-converted Presentation Definition',
+			purpose: dcql_query.credential_sets?.[0]?.purpose ?? 'No purpose defined',
 			input_descriptors,
 		};
 	}
 
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 	private generatePresentationFrameForDCQLPaths(paths: string[][]): any {
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 		const frame: Record<string, any> = {};
 
 		for (const rawSegments of paths) {
@@ -666,16 +776,19 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		return frame;
 	}
 
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+	// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 	private async handleDCQLFlow(
 		S: OpenID4VPRelyingPartyState,
 		selectionMap: Map<string, number>,
-		vcEntityList: CredentialT[]
+		vcEntityList: CredentialT[],
 	) {
 		const { dcql_query, client_id, nonce, response_uri, transaction_data } = S;
 		const generatedVPs: string[] = [];
 		const originalVCs: CredentialT[] = [];
 
 		for (const [selectionKey, batchId] of selectionMap) {
+			// biome-ignore lint/performance/noAwaitInLoops: baseline: pre-existing debt. should be fixed
 			const credential = await this.deps.selectCredentialForBatch(batchId, vcEntityList);
 			if (!credential) continue;
 
@@ -683,13 +796,14 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				credential.format === VerifiableCredentialFormat.VC_SDJWT ||
 				credential.format === VerifiableCredentialFormat.DC_SDJWT
 			) {
+				// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 				const descriptor = (dcql_query as any).credentials.find((c: any) => c.id === selectionKey);
 				if (!descriptor) {
 					throw new Error(`No DCQL descriptor for id ${selectionKey}`);
 				}
 				const parsed = await this.deps.parseCredential(credential);
 				if (!parsed) {
-					throw new Error("Failed to parse credential");
+					throw new Error('Failed to parse credential');
 				}
 				const { signedClaims } = parsed;
 
@@ -697,8 +811,10 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 
 				if (!descriptor.claims || descriptor.claims.length === 0) {
 					paths = [];
+					// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+					// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
 					const getNestedPaths = (val: any, path: string[]) => {
-						if (val === null || typeof val !== "object") {
+						if (val === null || typeof val !== 'object') {
 							if (path.length) paths.push(path);
 							return;
 						}
@@ -721,37 +837,43 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 					};
 					getNestedPaths(signedClaims, []);
 				} else {
+					// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 					paths = descriptor.claims.map((cl: any) => cl.path);
 				}
 
 				const frame = this.generatePresentationFrameForDCQLPaths(paths);
 				const subtle = getSubtleCrypto(this.deps.subtle);
 				const hasher = (data: string | ArrayBuffer, alg: string) => {
-					const bytes = typeof data === "string" ? encoder.encode(data) : new Uint8Array(data);
+					const bytes = typeof data === 'string' ? encoder.encode(data) : new Uint8Array(data);
 					return subtle.digest(alg, bytes).then((buf) => new Uint8Array(buf));
 				};
 
 				const sdJwt = await SDJwt.fromEncode(credential.data, hasher);
-				const presentation = credential.data.split("~").length - 1 > 1
-					? await sdJwt.present(frame, hasher)
-					: credential.data;
+				const presentation =
+					credential.data.split('~').length - 1 > 1
+						? await sdJwt.present(frame, hasher)
+						: credential.data;
 
 				const shaped = {
 					credential_format: credential.format,
+					// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 					vct: (signedClaims as any).vct,
 					cryptographic_holder_binding: true,
 					claims:
 						!descriptor.claims || descriptor.claims.length === 0
 							? signedClaims
 							: Object.fromEntries(
-								Object.entries(signedClaims).filter(([k]) =>
-									descriptor.claims.some((cl: any) => cl.path.includes(k))
-								)
-							)
+									Object.entries(signedClaims).filter(([k]) =>
+										// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+										descriptor.claims.some((cl: any) => cl.path.includes(k)),
+									),
+								),
 				};
 				const presResult = DcqlPresentationResult.fromDcqlPresentation(
+					// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 					{ [selectionKey]: [shaped] } as any,
-					{ dcqlQuery: dcql_query as any }
+					// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+					{ dcqlQuery: dcql_query as any },
 				);
 				if (!presResult.credential_matches[selectionKey]?.success) {
 					throw new Error(`Presentation for '${selectionKey}' did not satisfy DCQL`);
@@ -774,12 +896,13 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 					nonce,
 					client_id,
 					[presentation],
-					transactionDataResponseParams
+					transactionDataResponseParams,
 				);
 
 				generatedVPs.push(vpjwt);
 				originalVCs.push(credential);
 			} else if (credential.format === VerifiableCredentialFormat.MSO_MDOC) {
+				// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 				const descriptor = (dcql_query as any).credentials.find((c: any) => c.id === selectionKey);
 				if (!descriptor) {
 					throw new Error(`No DCQL descriptor for id ${selectionKey}`);
@@ -789,12 +912,12 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				const issuerSignedPayload = cborDecode(credentialBytes);
 
 				const mdocStructure = {
-					version: "1.0",
+					version: '1.0',
 					documentErrors: [],
 					documents: [
 						new Map([
-							["docType", descriptorId],
-							["issuerSigned", issuerSignedPayload],
+							['docType', descriptorId],
+							['issuerSigned', issuerSignedPayload],
 						]),
 					],
 					status: 0,
@@ -802,29 +925,38 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				const encoded = cborEncode(mdocStructure);
 				const mdoc = parse(encoded);
 
+				// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 				let dcqlQueryWithClaims: any;
 				if (!descriptor.claims || descriptor.claims.length === 0) {
 					dcqlQueryWithClaims = JSON.parse(JSON.stringify(dcql_query));
 					const nsName = mdoc.documents[0].issuerSignedNameSpaces[0];
 					const ns = mdoc.documents[0].getIssuerNameSpace(nsName);
 
-					const descriptorIndex = dcqlQueryWithClaims.credentials.findIndex((c: any) => c.id === selectionKey);
+					const descriptorIndex = dcqlQueryWithClaims.credentials.findIndex(
+						// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+						(c: any) => c.id === selectionKey,
+					);
 					if (descriptorIndex !== -1) {
-						dcqlQueryWithClaims.credentials[descriptorIndex].claims = Object.keys(ns).map((key) => ({
-							id: key,
-							path: [descriptorId, key],
-						}));
+						dcqlQueryWithClaims.credentials[descriptorIndex].claims = Object.keys(ns).map(
+							(key) => ({
+								id: key,
+								path: [descriptorId, key],
+							}),
+						);
 					}
 				} else {
 					dcqlQueryWithClaims = dcql_query;
 				}
 
-				const presentationDefinition = this.convertDcqlToPresentationDefinition(dcqlQueryWithClaims);
+				const presentationDefinition =
+					this.convertDcqlToPresentationDefinition(dcqlQueryWithClaims);
 
 				// Compute verifier JWK thumbprint for direct_post.jwt, null otherwise
 				let verifierJwkThumbprint: string | null = null;
 				if (
-					[OpenID4VPResponseMode.DIRECT_POST_JWT, OpenID4VPResponseMode.DC_API_JWT].includes(S.response_mode) &&
+					[OpenID4VPResponseMode.DIRECT_POST_JWT, OpenID4VPResponseMode.DC_API_JWT].includes(
+						S.response_mode,
+					) &&
 					S.client_metadata.authorization_encrypted_response_alg
 				) {
 					const { rp_eph_pub_jwk } = await retrieveKeys(S, this.deps.httpClient);
@@ -848,7 +980,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		}
 
 		const vpTokenObject = Object.fromEntries(
-			Array.from(selectionMap.keys()).map((key, idx) => [key, [generatedVPs[idx]]])
+			Array.from(selectionMap.keys()).map((key, idx) => [key, [generatedVPs[idx]]]),
 		);
 
 		const presentationSubmission = {
@@ -858,12 +990,20 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 
 		const formData = new URLSearchParams();
 
-		if ([OpenID4VPResponseMode.DIRECT_POST_JWT, OpenID4VPResponseMode.DC_API_JWT].includes(S.response_mode) && S.client_metadata.authorization_encrypted_response_alg) {
+		if (
+			[OpenID4VPResponseMode.DIRECT_POST_JWT, OpenID4VPResponseMode.DC_API_JWT].includes(
+				S.response_mode,
+			) &&
+			S.client_metadata.authorization_encrypted_response_alg
+		) {
 			if (!S.client_metadata.authorization_encrypted_response_enc) {
-				throw new Error("Missing authorization_encrypted_response_enc");
+				throw new Error('Missing authorization_encrypted_response_enc');
 			}
 			const { rp_eph_pub_jwk } = await retrieveKeys(S, this.deps.httpClient);
-			const rp_eph_pub = await importJWK(rp_eph_pub_jwk, S.client_metadata.authorization_encrypted_response_alg);
+			const rp_eph_pub = await importJWK(
+				rp_eph_pub_jwk,
+				S.client_metadata.authorization_encrypted_response_alg,
+			);
 
 			const jwePayload = {
 				vp_token: vpTokenObject,
@@ -878,26 +1018,29 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				})
 				.encrypt(rp_eph_pub);
 
-			formData.append("response", jwe);
+			formData.append('response', jwe);
 		} else {
-			formData.append("vp_token", JSON.stringify(vpTokenObject));
-			if (S.state) formData.append("state", S.state);
+			formData.append('vp_token', JSON.stringify(vpTokenObject));
+			if (S.state) formData.append('state', S.state);
 		}
 
 		return { formData, generatedVPs, presentationSubmission, filteredVCEntities: originalVCs };
 	}
 
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+	// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 	async handleAuthorizationRequest(
 		url: string,
-		vcEntityList: CredentialT[]
+		vcEntityList: CredentialT[],
 	): Promise<
 		| {
+				// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 				conformantCredentialsMap: Map<string, any>;
 				verifierDomainName: string;
 				verifierPurpose: string;
 				parsedTransactionData: ParsedTransactionDataT[] | null;
 				trustInfo?: TrustEvaluationResult;
-			}
+		  }
 		| { error: HandleAuthorizationRequestError }
 	> {
 		let {
@@ -925,7 +1068,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		if (request_uri) {
 			try {
 				const result = await this.handleRequestUri(request_uri);
-				if ("error" in result) {
+				if ('error' in result) {
 					return result;
 				}
 				const { payload, parsedHeader } = result;
@@ -936,7 +1079,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 
 				dcql_query = payload.dcql_query ?? dcql_query;
 				response_uri = (payload.response_uri ?? payload.redirect_uri) as string;
-				if (response_uri && !response_uri.startsWith("http")) {
+				if (response_uri && !response_uri.startsWith('http')) {
 					response_uri = `https://${response_uri}`;
 				}
 				client_metadata = payload.client_metadata as OpenID4VPClientMetadata;
@@ -944,7 +1087,10 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				if (payload.transaction_data) {
 					transaction_data = payload.transaction_data as string[];
 					if (this.deps.parseTransactionData) {
-						parsedTransactionData = this.deps.parseTransactionData(transaction_data, dcql_query as Record<string, unknown>);
+						parsedTransactionData = this.deps.parseTransactionData(
+							transaction_data,
+							dcql_query as Record<string, unknown>,
+						);
 						if (parsedTransactionData === null) {
 							return { error: HandleAuthorizationRequestErrors.INVALID_TRANSACTION_DATA };
 						}
@@ -964,11 +1110,13 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				});
 
 				if (!trustInfo.trusted) {
-					console.error("Trust evaluation failed for verifier", client_id);
+					// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
+					console.error('Trust evaluation failed for verifier', client_id);
 					return { error: HandleAuthorizationRequestErrors.NONTRUSTED_VERIFIER };
 				}
 			} catch (e) {
-				console.error("Failed to handle request_uri", e);
+				// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
+				console.error('Failed to handle request_uri', e);
 				return { error: HandleAuthorizationRequestErrors.NONTRUSTED_VERIFIER };
 			}
 		}
@@ -985,29 +1133,33 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		if (!isOpenID4VPResponseMode(response_mode)) {
 			return { error: HandleAuthorizationRequestErrors.INVALID_RESPONSE_MODE };
 		}
-		console.log("VC entity list = ", vcEntityList)
+		// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
+		console.log('VC entity list = ', vcEntityList);
 		const vcList = vcEntityList.filter((cred) => cred.instanceId === 0);
 
 		await this.deps.rpStateStore.store({
-			nonce: nonce ?? "",
-			response_uri: response_uri ?? "",
-			client_id: client_id ?? "",
-			state: state ?? "",
+			nonce: nonce ?? '',
+			response_uri: response_uri ?? '',
+			client_id: client_id ?? '',
+			state: state ?? '',
 			client_metadata: client_metadata ?? { vp_formats: {} },
 			response_mode,
 			transaction_data: transaction_data ?? [],
 			dcql_query,
 		});
 
+		// biome-ignore lint/suspicious/noEvolvingTypes: baseline: pre-existing debt. should be fixed
+		// biome-ignore lint/suspicious/noImplicitAnyLet: baseline: pre-existing debt. should be fixed
 		let matchResult;
 		if (dcql_query) {
 			matchResult = await this.matchCredentialsToDCQL(vcList, dcql_query);
 		}
-		if (matchResult && "error" in matchResult) {
+		if (matchResult && 'error' in matchResult) {
 			return { error: matchResult.error };
 		}
 
 		const { mapping, descriptorPurpose } = matchResult as {
+			// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 			mapping: Map<string, any>;
 			descriptorPurpose: string;
 		};
@@ -1016,7 +1168,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		let verifierDomainName: string;
 		if (trustInfo?.name) {
 			verifierDomainName = trustInfo.name;
-		} else if (client_id.includes("http")) {
+		} else if (client_id.includes('http')) {
 			verifierDomainName = new URL(client_id).hostname;
 		} else if (clientIdScheme.scheme === 'did') {
 			// For DID, extract domain from did:web: or use the full DID
@@ -1045,19 +1197,19 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		};
 	}
 
-	async createAuthorizationResponse(selectionMap: Map<string, number>, vcEntityList: CredentialT[]) {
+	async createAuthorizationResponse(
+		selectionMap: Map<string, number>,
+		vcEntityList: CredentialT[],
+	) {
 		const S = await this.deps.rpStateStore.retrieve();
 
-		if (!S || S.nonce === "" || (this.deps.lastUsedNonceStore?.get?.() ?? null) === S.nonce) {
+		if (!S || S.nonce === '' || (this.deps.lastUsedNonceStore?.get?.() ?? null) === S.nonce) {
 			return {};
 		}
 		this.deps.lastUsedNonceStore?.set?.(S.nonce);
 
-		const { formData, generatedVPs, presentationSubmission, filteredVCEntities } = await this.handleDCQLFlow(
-			S,
-			selectionMap,
-			vcEntityList
-		);
+		const { formData, generatedVPs, presentationSubmission, filteredVCEntities } =
+			await this.handleDCQLFlow(S, selectionMap, vcEntityList);
 
 		return {
 			formData,

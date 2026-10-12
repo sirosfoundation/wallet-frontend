@@ -1,7 +1,7 @@
-import { assert, afterEach, beforeEach, describe, it, vi } from "vitest";
-import { throttle } from "./throttle";
+import { afterEach, assert, beforeEach, describe, it, vi } from 'vitest';
+import { throttle } from './throttle';
 
-describe("throttle", () => {
+describe('throttle', () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
 	});
@@ -9,13 +9,13 @@ describe("throttle", () => {
 		vi.useRealTimers();
 	});
 
-	it("invokes the action on the first call", () => {
+	it('invokes the action on the first call', () => {
 		const action = vi.fn();
 		throttle(action, 1000)();
 		assert.equal(action.mock.calls.length, 1);
 	});
 
-	it("ignores calls made before the timeout elapses", () => {
+	it('ignores calls made before the timeout elapses', () => {
 		const action = vi.fn();
 		const throttled = throttle(action, 1000);
 		throttled();
@@ -24,7 +24,7 @@ describe("throttle", () => {
 		assert.equal(action.mock.calls.length, 1);
 	});
 
-	it("still blocks a call made just before the timeout elapses", () => {
+	it('still blocks a call made just before the timeout elapses', () => {
 		const action = vi.fn();
 		const throttled = throttle(action, 1000);
 		throttled();
@@ -33,7 +33,7 @@ describe("throttle", () => {
 		assert.equal(action.mock.calls.length, 1);
 	});
 
-	it("allows the action to run again once the timeout has elapsed", () => {
+	it('allows the action to run again once the timeout has elapsed', () => {
 		const action = vi.fn();
 		const throttled = throttle(action, 1000);
 		throttled();

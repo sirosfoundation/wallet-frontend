@@ -1,8 +1,9 @@
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import Button from '../Buttons/Button';
 import HistoryDetailContent from '../History/HistoryDetailContent';
 import PopupLayout from './PopupLayout';
-import Button from '../Buttons/Button';
 
 const HistoryDetailPopup = ({ isOpen, onClose, historyItem }) => {
 	const { t } = useTranslation();
@@ -13,11 +14,7 @@ const HistoryDetailPopup = ({ isOpen, onClose, historyItem }) => {
 				<h2 className="right text-lg font-bold text-lm-gray-900 dark:text-dm-gray-100">
 					{t('pageHistory.popupTitle')}
 				</h2>
-				<Button
-					id="dismiss-history-detail-popup"
-					square={true}
-					onClick={onClose}
-				>
+				<Button id="dismiss-history-detail-popup" square={true} onClick={onClose}>
 					<svg
 						className="w-3 h-3"
 						aria-hidden="true"

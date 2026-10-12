@@ -1,14 +1,11 @@
-import React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { decodeJwt, decodeProtectedHeader } from 'jose';
+import type React from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SessionContext from '@/context/SessionContext';
 import StatusContext from '@/context/StatusContext';
 
-import {
-	useOIDFlowSignHandler,
-	type OIDFlowSignResponse,
-} from './useOIDFlowSignHandler';
+import { type OIDFlowSignResponse, useOIDFlowSignHandler } from './useOIDFlowSignHandler';
 
 const mockPost = vi.fn();
 
@@ -45,19 +42,14 @@ vi.mock('./useWscdManagerClient', () => ({
 }));
 
 vi.mock('@/context/SessionContext', async () => {
-	const { createContext } =
-		await vi.importActual<typeof import('react')>('react');
-	const { generateKeyPair, exportJWK } =
-		await vi.importActual<typeof import('jose')>('jose');
+	const { createContext } = await vi.importActual<typeof import('react')>('react');
+	const { generateKeyPair, exportJWK } = await vi.importActual<typeof import('jose')>('jose');
 	const { generateRandomIdentifier } = await vi.importActual<
 		typeof import('@/lib/utils/generateRandomIdentifier')
 	>('@/lib/utils/generateRandomIdentifier');
 
 	// Module-scoped store; each test uses a unique flowId (see note below).
-	const store = new Map<
-		string,
-		{ dpopKeyId: string; keyPair: unknown; wia?: string }
-	>();
+	const store = new Map<string, { dpopKeyId: string; keyPair: unknown; wia?: string }>();
 	const oidFlowClientAuthMaterialManager = {
 		async getAuthMaterial(flowId: string) {
 			const existing = store.get(flowId);
@@ -88,23 +80,21 @@ vi.mock('@/context/SessionContext', async () => {
 });
 
 vi.mock('@/context/StatusContext', async () => {
-	const { createContext } =
-		await vi.importActual<typeof import('react')>('react');
+	const { createContext } = await vi.importActual<typeof import('react')>('react');
 	return { default: createContext({ isOnline: true }) };
 });
 
 function primeWiaResponses() {
-	mockPost
-		.mockResolvedValueOnce({ data: { challenge: 'test-challenge' } })
-		.mockResolvedValueOnce({
-			data: { wallet_instance_attestation: 'signed.wia.jwt' },
-		});
+	mockPost.mockResolvedValueOnce({ data: { challenge: 'test-challenge' } }).mockResolvedValueOnce({
+		data: { wallet_instance_attestation: 'signed.wia.jwt' },
+	});
 }
 
 function renderSignHandler() {
 	return renderHook(() => useOIDFlowSignHandler());
 }
 
+// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 describe('useOIDFlowSignHandler / sign_client_auth', () => {
 	beforeEach(() => {
 		mockPost.mockReset();
@@ -138,6 +128,7 @@ describe('useOIDFlowSignHandler / sign_client_auth', () => {
 		expect(res?.clientAttestationPoP).toBeTruthy();
 
 		// per-flow attestation PoP: iss = client_id, aud = the AS.
+		// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 		const pop = decodeJwt(res!.clientAttestationPoP!);
 		expect(pop.iss).toBe('https://wallet.example.com/cb');
 		expect(pop.aud).toBe('https://as.example.com');
@@ -162,6 +153,7 @@ describe('useOIDFlowSignHandler / sign_client_auth', () => {
 		});
 
 		// The key that signs the DPoP proof...
+		// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 		const dpopJwk = decodeProtectedHeader(res!.dpopProof!).jwk;
 		// ...must be the same key the WIA was bound to (the WIA-request PoP,
 		// posted to /wallet-provider/wia/generate, carries that key in its jwk
@@ -199,10 +191,11 @@ describe('useOIDFlowSignHandler / sign_client_auth', () => {
 		expect(mockPost).toHaveBeenCalledTimes(2);
 
 		// ...but every proof and PoP is freshly signed (distinct jti).
-		expect(decodeJwt(first!.dpopProof!).jti).not.toBe(
-			decodeJwt(second!.dpopProof!).jti,
-		);
+		// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
+		expect(decodeJwt(first!.dpopProof!).jti).not.toBe(decodeJwt(second!.dpopProof!).jti);
+		// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 		expect(decodeJwt(first!.clientAttestationPoP!).jti).not.toBe(
+			// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 			decodeJwt(second!.clientAttestationPoP!).jti,
 		);
 	});
@@ -231,9 +224,7 @@ describe('useOIDFlowSignHandler / sign_client_auth', () => {
 			{ Authorization: 'Bearer test-token' },
 		);
 		const [path, body] = mockPost.mock.calls[1];
-		expect(path).toBe(
-			'https://wallet-provider.example/wallet-provider/wia/generate',
-		);
+		expect(path).toBe('https://wallet-provider.example/wallet-provider/wia/generate');
 		expect(decodeJwt(body.pop).aud).toBe('https://wallet-provider.example');
 	});
 
@@ -255,6 +246,7 @@ describe('useOIDFlowSignHandler / sign_client_auth', () => {
 			});
 		});
 
+		// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 		const proof = decodeJwt(res!.dpopProof!);
 		expect(proof.htm).toBe('GET');
 		expect(proof.ath).toBe('access-token-hash');
@@ -328,7 +320,9 @@ describe('useOIDFlowSignHandler / sign_client_auth', () => {
 		});
 
 		expect(a?.dpopKeyId).not.toBe(b?.dpopKeyId);
+		// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 		expect(decodeProtectedHeader(a!.dpopProof!).jwk).not.toEqual(
+			// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 			decodeProtectedHeader(b!.dpopProof!).jwk,
 		);
 	});
@@ -340,10 +334,8 @@ function enc(value: object): string {
 	const bytes = new TextEncoder().encode(JSON.stringify(value));
 	let binary = '';
 	for (const b of bytes) binary += String.fromCharCode(b);
-	return btoa(binary)
-		.replace(/\+/g, '-')
-		.replace(/\//g, '_')
-		.replace(/=+$/, '');
+	// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
+	return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/[=]+$/, '');
 }
 
 const vcdm2Credential = {
@@ -370,10 +362,10 @@ const ldpVcdm2 = JSON.stringify({
 
 function renderSignHandlerWithKeystore(keystore: unknown) {
 	const wrapper = ({ children }: { children: React.ReactNode }) => (
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 		<StatusContext.Provider value={{ isOnline: true } as any}>
-			<SessionContext.Provider value={{ keystore } as any}>
-				{children}
-			</SessionContext.Provider>
+			{/** biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed */}
+			<SessionContext.Provider value={{ keystore } as any}>{children}</SessionContext.Provider>
 		</StatusContext.Provider>
 	);
 
@@ -385,14 +377,11 @@ const baseParams = {
 	audience: 'https://verifier.example',
 };
 
+// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 describe('useOIDFlowSignHandler — VCDM 2.0 presentation', () => {
 	beforeEach(() => {
-		wscdMock.signVcdm2Presentation
-			.mockReset()
-			.mockResolvedValue('vcdm2-vp-token');
-		wscdMock.signSdJwtPresentation
-			.mockReset()
-			.mockResolvedValue('sdjwt-vp-token');
+		wscdMock.signVcdm2Presentation.mockReset().mockResolvedValue('vcdm2-vp-token');
+		wscdMock.signSdJwtPresentation.mockReset().mockResolvedValue('sdjwt-vp-token');
 	});
 
 	it('routes an enveloped VCDM 2.0 credential to signVcdm2Presentation', async () => {
@@ -420,6 +409,7 @@ describe('useOIDFlowSignHandler — VCDM 2.0 presentation', () => {
 		expect(audience).toBe('https://verifier.example');
 		expect(verifiableCredentials).toEqual([envelopedVcdm2]);
 
+		// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 		expect(JSON.parse(response.vpToken!)).toEqual({ q1: ['vcdm2-vp-token'] });
 	});
 
@@ -437,8 +427,7 @@ describe('useOIDFlowSignHandler — VCDM 2.0 presentation', () => {
 			],
 		});
 
-		const [{ verifiableCredentials }] =
-			wscdMock.signVcdm2Presentation.mock.calls[0];
+		const [{ verifiableCredentials }] = wscdMock.signVcdm2Presentation.mock.calls[0];
 		// An object, not the JSON string: embedding the string would
 		// double-encode the credential inside the presentation.
 		expect(typeof verifiableCredentials[0]).toBe('object');
@@ -460,8 +449,7 @@ describe('useOIDFlowSignHandler — VCDM 2.0 presentation', () => {
 			],
 		});
 
-		const [{ verifiableCredentials }] =
-			wscdMock.signVcdm2Presentation.mock.calls[0];
+		const [{ verifiableCredentials }] = wscdMock.signVcdm2Presentation.mock.calls[0];
 		expect(verifiableCredentials).toEqual([envelopedVcdm2]);
 	});
 
@@ -471,9 +459,7 @@ describe('useOIDFlowSignHandler — VCDM 2.0 presentation', () => {
 
 		await result.current.signPresentation({
 			...baseParams,
-			credentialsToInclude: [
-				{ credentialId: 'c4', credentialQueryId: 'q4', credentialRaw: sdJwt },
-			],
+			credentialsToInclude: [{ credentialId: 'c4', credentialQueryId: 'q4', credentialRaw: sdJwt }],
 		});
 
 		expect(wscdMock.signSdJwtPresentation).toHaveBeenCalledTimes(1);
@@ -500,6 +486,7 @@ describe('useOIDFlowSignHandler — VCDM 2.0 presentation', () => {
 		});
 
 		expect(wscdMock.signVcdm2Presentation).toHaveBeenCalledTimes(2);
+		// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 		expect(JSON.parse(response.vpToken!)).toEqual({
 			q5: ['vcdm2-vp-token'],
 			q6: ['vcdm2-vp-token'],
@@ -520,6 +507,7 @@ describe('useOIDFlowSignHandler — VCDM 2.0 presentation', () => {
 					},
 				],
 			}),
+			// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 		).rejects.toThrow(/Unsupported credential format for presentation signing/);
 	});
 
@@ -537,6 +525,7 @@ describe('useOIDFlowSignHandler — VCDM 2.0 presentation', () => {
 					},
 				],
 			}),
+			// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 		).rejects.toThrow(/Missing audience or nonce/);
 
 		await expect(
@@ -550,6 +539,7 @@ describe('useOIDFlowSignHandler — VCDM 2.0 presentation', () => {
 					},
 				],
 			}),
+			// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 		).rejects.toThrow(/Missing audience or nonce/);
 	});
 
@@ -561,6 +551,7 @@ describe('useOIDFlowSignHandler — VCDM 2.0 presentation', () => {
 				...baseParams,
 				credentialsToInclude: [],
 			}),
+			// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 		).rejects.toThrow(/No credentials to include/);
 	});
 
@@ -572,6 +563,7 @@ describe('useOIDFlowSignHandler — VCDM 2.0 presentation', () => {
 				...baseParams,
 				credentialsToInclude: [{ credentialId: 'c8', credentialQueryId: 'q8' }],
 			}),
+			// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 		).rejects.toThrow(/Credential not in cache: c8/);
 	});
 
@@ -581,10 +573,9 @@ describe('useOIDFlowSignHandler — VCDM 2.0 presentation', () => {
 		await expect(
 			result.current.signPresentation({
 				...baseParams,
-				credentialsToInclude: [
-					{ credentialId: 'c9', credentialRaw: envelopedVcdm2 },
-				],
+				credentialsToInclude: [{ credentialId: 'c9', credentialRaw: envelopedVcdm2 }],
 			}),
+			// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 		).rejects.toThrow(/Missing credentialQueryId for credential: c9/);
 	});
 
@@ -606,6 +597,7 @@ describe('useOIDFlowSignHandler — VCDM 2.0 presentation', () => {
 					],
 				},
 			}),
+			// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 		).rejects.toThrow(/Keystore not available/);
 	});
 
@@ -628,6 +620,7 @@ describe('useOIDFlowSignHandler — VCDM 2.0 presentation', () => {
 		});
 
 		expect(wscdMock.signVcdm2Presentation).toHaveBeenCalledTimes(1);
+		// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 		expect(JSON.parse(response.vpToken!)).toEqual({ q: ['vcdm2-vp-token'] });
 	});
 
@@ -637,9 +630,11 @@ describe('useOIDFlowSignHandler — VCDM 2.0 presentation', () => {
 		await expect(
 			result.current.handleSignRequest({
 				flowId: 'flow-1',
+				// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 				action: 'something_else' as any,
 				params: {},
 			}),
+			// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 		).rejects.toThrow(/Unknown sign action/);
 	});
 });
@@ -653,16 +648,13 @@ describe('useOIDFlowSignHandler — VCDM 2.0 presentation', () => {
  * `vc+sd-jwt` expects a VCDM 2.0 VerifiablePresentation, not a bare SD-JWT
  * with a key-binding JWT.
  */
+// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 describe('useOIDFlowSignHandler — VCDM 2.0 carried in an SD-JWT', () => {
 	const vcdm2SdJwt = `${enc({ alg: 'ES256', typ: 'vc+sd-jwt' })}.${enc(vcdm2Credential)}.sig~`;
 
 	beforeEach(() => {
-		wscdMock.signVcdm2Presentation
-			.mockReset()
-			.mockResolvedValue('vcdm2-vp-token');
-		wscdMock.signSdJwtPresentation
-			.mockReset()
-			.mockResolvedValue('sdjwt-vp-token');
+		wscdMock.signVcdm2Presentation.mockReset().mockResolvedValue('vcdm2-vp-token');
+		wscdMock.signSdJwtPresentation.mockReset().mockResolvedValue('sdjwt-vp-token');
 	});
 
 	it('presents it as a VCDM 2.0 presentation, not through the SD-JWT signer', async () => {
@@ -681,6 +673,7 @@ describe('useOIDFlowSignHandler — VCDM 2.0 carried in an SD-JWT', () => {
 
 		expect(wscdMock.signVcdm2Presentation).toHaveBeenCalledTimes(1);
 		expect(wscdMock.signSdJwtPresentation).not.toHaveBeenCalled();
+		// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 		expect(JSON.parse(response.vpToken!)).toEqual({ q1: ['vcdm2-vp-token'] });
 	});
 
@@ -700,8 +693,7 @@ describe('useOIDFlowSignHandler — VCDM 2.0 carried in an SD-JWT', () => {
 
 		// The compact SD-JWT goes through as a string: wallet-common wraps it
 		// as an EnvelopedVerifiableCredential naming `application/vc+sd-jwt`.
-		const [{ verifiableCredentials }] =
-			wscdMock.signVcdm2Presentation.mock.calls[0];
+		const [{ verifiableCredentials }] = wscdMock.signVcdm2Presentation.mock.calls[0];
 		expect(verifiableCredentials).toEqual([vcdm2SdJwt]);
 	});
 

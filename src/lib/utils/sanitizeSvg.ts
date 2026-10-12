@@ -56,6 +56,7 @@ function decodeSvgDataUri(dataUri: string): string | null {
 	const metadataParts = metadata.split(';');
 	const mediaType = metadataParts[0];
 
+	// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 	if (!/^data:image\/svg\+xml$/i.test(mediaType)) {
 		logger.warn('Unknown SVG data URI format');
 		return null;
@@ -103,6 +104,7 @@ function encodeSvgDataUri(svgContent: string): string {
  */
 export function sanitizeSvgDataUri(dataUri: string): string | null {
 	// Only process SVG data URIs (case-insensitive MIME type check)
+	// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 	if (!/^data:image\/svg\+xml/i.test(dataUri)) {
 		logger.debug('sanitizeSvgDataUri: Not an SVG data URI, skipping');
 		return dataUri;
@@ -143,6 +145,7 @@ export function sanitizeSvgContent(svgContent: string): string {
  * Check if a data URI is an SVG
  */
 export function isSvgDataUri(dataUri: string): boolean {
+	// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 	return /^data:image\/svg\+xml/i.test(dataUri);
 }
 
@@ -173,11 +176,12 @@ export function normalizeSvgImageDimensions(svgContent: string): string {
 		const root = doc.documentElement;
 		const rootWidth = root.getAttribute('width');
 		const rootHeight = root.getAttribute('height');
-		if (!rootWidth && !rootHeight) {
+		if (!(rootWidth || rootHeight)) {
 			return svgContent;
 		}
 
 		let changed = false;
+		// biome-ignore lint/complexity/noForEach: baseline: pre-existing debt. should be fixed
 		doc.querySelectorAll('image').forEach((image) => {
 			if (!image.hasAttribute('width') && rootWidth) {
 				image.setAttribute('width', rootWidth);

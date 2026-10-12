@@ -1,5 +1,5 @@
-import StatusContext from "@/context/StatusContext";
-import { useContext } from "react";
+import { useContext } from 'react';
+import StatusContext from '@/context/StatusContext';
 
 export function useStatusContext() {
 	const context = useContext(StatusContext);

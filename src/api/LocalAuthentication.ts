@@ -1,7 +1,10 @@
+// biome-ignore lint/performance/noNamespaceImport: baseline: pre-existing debt. should be fixed
 import * as config from '../config';
 
-
-export function loginWebAuthnBeginOffline(): { challengeId?: string; getOptions: { publicKey: PublicKeyCredentialRequestOptions } } {
+export function loginWebAuthnBeginOffline(): {
+	challengeId?: string;
+	getOptions: { publicKey: PublicKeyCredentialRequestOptions };
+} {
 	return {
 		getOptions: {
 			publicKey: {
@@ -9,7 +12,7 @@ export function loginWebAuthnBeginOffline(): { challengeId?: string; getOptions:
 				// Throwaway challenge, we won't actually verify this for offline login
 				challenge: window.crypto.getRandomValues(new Uint8Array(32)),
 				allowCredentials: [],
-				userVerification: "required",
+				userVerification: 'required',
 			},
 		},
 	};

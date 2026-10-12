@@ -1,13 +1,10 @@
-import type { MdocRegistryEntry, SdJwtRegistryEntry } from './types';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { prepareCredentialsForNativeWrapper } from './credentials';
-import {
-	shapeCredential,
-	extractAvailableClaims,
-} from '@/lib/services/CredentialMatchingService';
-import { getElementPropValue } from '@/lib/utils';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ExtendedVcEntity } from '@/context/CredentialsContext';
+import { extractAvailableClaims, shapeCredential } from '@/lib/services/CredentialMatchingService';
+import { getElementPropValue } from '@/lib/utils';
 import { getCredentialType } from '../utils/getCredentialType';
+import { prepareCredentialsForNativeWrapper } from './credentials';
+import type { MdocRegistryEntry, SdJwtRegistryEntry } from './types';
 
 vi.mock('@/lib/services/CredentialMatchingService', () => ({
 	shapeCredential: vi.fn(),
@@ -24,7 +21,7 @@ vi.mock('@/lib/utils', () => ({
 
 vi.mock('@/lib/utils/getCredentialType', () => ({
 	getCredentialType: vi.fn(),
-}))
+}));
 
 const mockShapeCredential = vi.mocked(shapeCredential);
 const mockExtractAvailableClaims = vi.mocked(extractAvailableClaims);
@@ -56,9 +53,7 @@ function makeCredential(
 						? { claims: overrides.typeMetadataClaims }
 						: undefined,
 				},
-				issuer: overrides.issuerName
-					? { name: overrides.issuerName }
-					: undefined,
+				issuer: overrides.issuerName ? { name: overrides.issuerName } : undefined,
 			},
 			signedClaims: overrides.signedClaims ?? {},
 		},
@@ -70,9 +65,7 @@ beforeEach(() => {
 	// Sensible defaults; individual tests override as needed.
 	mockGetCredentialType.mockReturnValue('Fallback Type');
 	mockExtractAvailableClaims.mockReturnValue([]);
-	mockGetElementPropValue.mockImplementation(
-		(_claims, path) => `value:${path}`,
-	);
+	mockGetElementPropValue.mockImplementation((_claims, path) => `value:${path}`);
 });
 
 describe('prepareCredentialsForNativeWrapper', () => {
@@ -99,6 +92,7 @@ describe('prepareCredentialsForNativeWrapper', () => {
 						age_over_18: true,
 					},
 				},
+				// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 			} as any);
 		});
 
@@ -168,14 +162,12 @@ describe('prepareCredentialsForNativeWrapper', () => {
 			mockShapeCredential.mockReturnValue({
 				credential_format: 'dc+sd-jwt',
 				vct: 'https://example.com/id-card',
+				// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 			} as any);
 		});
 
 		it('maps available claims and uses batchId as id and vct as type', async () => {
-			mockExtractAvailableClaims.mockReturnValue([
-				'given_name',
-				'address.locality',
-			]);
+			mockExtractAvailableClaims.mockReturnValue(['given_name', 'address.locality']);
 			const credential = makeCredential({ batchId: 7 });
 
 			const [entry] = await prepareCredentialsForNativeWrapper([credential]);
@@ -204,9 +196,7 @@ describe('prepareCredentialsForNativeWrapper', () => {
 				'address.country', // root "address" is not reserved -> kept
 			]);
 
-			const [entry] = await prepareCredentialsForNativeWrapper([
-				makeCredential(),
-			]);
+			const [entry] = await prepareCredentialsForNativeWrapper([makeCredential()]);
 
 			expect('claims' in entry).toBe(true);
 
@@ -244,6 +234,7 @@ describe('prepareCredentialsForNativeWrapper', () => {
 			mockShapeCredential.mockReturnValue({
 				credential_format: 'dc+sd-jwt',
 				vct: 'https://example.com/id-card',
+				// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 			} as any);
 		});
 
@@ -251,10 +242,7 @@ describe('prepareCredentialsForNativeWrapper', () => {
 			const nameFn = vi.fn().mockResolvedValue('Localized Name');
 			const credential = makeCredential({ nameFn, issuerName: 'Acme Corp' });
 
-			const [entry] = await prepareCredentialsForNativeWrapper(
-				[credential],
-				['sv-SE'],
-			);
+			const [entry] = await prepareCredentialsForNativeWrapper([credential], ['sv-SE']);
 
 			expect(nameFn).toHaveBeenCalledWith(['sv-SE']);
 			expect(entry.display).toEqual({
@@ -266,9 +254,7 @@ describe('prepareCredentialsForNativeWrapper', () => {
 		it('falls back to getCredentialType when no name function is present', async () => {
 			mockGetCredentialType.mockReturnValue('Identity Card');
 
-			const [entry] = await prepareCredentialsForNativeWrapper([
-				makeCredential(),
-			]);
+			const [entry] = await prepareCredentialsForNativeWrapper([makeCredential()]);
 
 			expect(entry.display.title).toBe('Identity Card');
 		});
@@ -276,17 +262,13 @@ describe('prepareCredentialsForNativeWrapper', () => {
 		it('falls back to "Credential" when no name and no type are available', async () => {
 			mockGetCredentialType.mockReturnValue('');
 
-			const [entry] = await prepareCredentialsForNativeWrapper([
-				makeCredential(),
-			]);
+			const [entry] = await prepareCredentialsForNativeWrapper([makeCredential()]);
 
 			expect(entry.display.title).toBe('Credential');
 		});
 
 		it('omits the subtitle when the issuer name is missing', async () => {
-			const [entry] = await prepareCredentialsForNativeWrapper([
-				makeCredential(),
-			]);
+			const [entry] = await prepareCredentialsForNativeWrapper([makeCredential()]);
 
 			expect(entry.display.subtitle).toBeUndefined();
 		});
@@ -297,12 +279,14 @@ describe('prepareCredentialsForNativeWrapper', () => {
 			.mockReturnValueOnce({
 				credential_format: 'dc+sd-jwt',
 				vct: 'https://example.com/a',
+				// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 			} as any)
 			.mockReturnValueOnce(null)
 			.mockReturnValueOnce({
 				credential_format: 'mso_mdoc',
 				doctype: 'doc.type',
 				namespaces: {},
+				// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 			} as any);
 
 		const result = await prepareCredentialsForNativeWrapper([

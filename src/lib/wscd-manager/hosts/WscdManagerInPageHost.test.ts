@@ -21,6 +21,7 @@ function requirements(
 	};
 }
 
+// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 describe('WscdManagerInPageHost', () => {
 	let host: WscdManagerInPageHost;
 
@@ -37,25 +38,20 @@ describe('WscdManagerInPageHost', () => {
 	describe('isEligible', () => {
 		it('supports every plugin', async () => {
 			for (const plugin of Object.values(WscdPlugin)) {
-				await expect(host.isEligible(requirements({ plugin }))).resolves.toBe(
-					true,
-				);
+				// biome-ignore lint/performance/noAwaitInLoops: baseline: pre-existing debt. should be fixed
+				await expect(host.isEligible(requirements({ plugin }))).resolves.toBe(true);
 			}
 		});
 
 		it('satisfies the none and opaque-pin factors', async () => {
 			await expect(
-				host.isEligible(
-					requirements({ factors: [{ kind: 'none' }, { kind: 'opaque-pin' }] }),
-				),
+				host.isEligible(requirements({ factors: [{ kind: 'none' }, { kind: 'opaque-pin' }] })),
 			).resolves.toBe(true);
 		});
 
 		it('satisfies a webauthn factor bound to its own RP id', async () => {
 			await expect(
-				host.isEligible(
-					requirements({ factors: [{ kind: 'webauthn', rpId: RPID }] }),
-				),
+				host.isEligible(requirements({ factors: [{ kind: 'webauthn', rpId: RPID }] })),
 			).resolves.toBe(true);
 		});
 
@@ -74,9 +70,7 @@ describe('WscdManagerInPageHost', () => {
 				{ kind: 'none' },
 				{ kind: 'webauthn', rpId: 'evil.example.com' },
 			];
-			await expect(host.isEligible(requirements({ factors }))).resolves.toBe(
-				false,
-			);
+			await expect(host.isEligible(requirements({ factors }))).resolves.toBe(false);
 		});
 
 		it('is eligible for a fully-specified valid request', async () => {

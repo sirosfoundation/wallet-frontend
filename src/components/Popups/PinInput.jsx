@@ -1,14 +1,17 @@
 // PinInput.js
-import React, { useState, useRef, useEffect, useContext } from 'react';
-import { useNavigate } from 'react-router';
+
+import { Lock } from 'lucide-react';
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import Button from '../Buttons/Button';
+import { useNavigate } from 'react-router';
 import SessionContext from '@/context/SessionContext';
 import { useTenant } from '@/context/TenantContext';
-import PopupLayout from './PopupLayout';
 import { last } from '@/lib/utils/array';
-import { Lock } from 'lucide-react';
+import Button from '../Buttons/Button';
+import PopupLayout from './PopupLayout';
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 function PinInput({ isOpen, setIsOpen }) {
 	const { api } = useContext(SessionContext);
 	const navigate = useNavigate();
@@ -17,12 +20,7 @@ function PinInput({ isOpen, setIsOpen }) {
 	const [pin, setPin] = useState(['', '', '', '']);
 	const { t } = useTranslation();
 
-	const inputRefs = [
-		useRef(null),
-		useRef(null),
-		useRef(null),
-		useRef(null)
-	];
+	const inputRefs = [useRef(null), useRef(null), useRef(null), useRef(null)];
 	const firstInputRef = inputRefs[0];
 
 	useEffect(() => {
@@ -41,13 +39,17 @@ function PinInput({ isOpen, setIsOpen }) {
 			const userPin = pin.join('');
 			await api.post('/communication/handle', { user_pin: userPin });
 			setIsOpen(false);
+			// biome-ignore lint/complexity/noUselessCatchBinding: baseline: pre-existing debt. should be fixed
+			// biome-ignore lint/correctness/noUnusedVariables: baseline: pre-existing debt. should be fixed
 		} catch (err) {
 			setErrMessage(`${t('PinInputPopup.errMessage')}`);
 		}
 	};
 
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
 	const handleInputChange = (index, value) => {
 		setErrMessage('');
+		// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 		if (/^\d*$/.test(value) && value.length <= 1) {
 			const newPin = [...pin];
 			newPin[index] = value;
@@ -90,11 +92,11 @@ function PinInput({ isOpen, setIsOpen }) {
 		const newPin = [...pin];
 		newPin[index] = '';
 		setPin(newPin);
-
 	};
 
 	const handleInputPaste = (pastedValue) => {
 		setErrMessage('');
+		// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 		if (/^\d{1,4}$/.test(pastedValue)) {
 			const newPin = Array.from(pastedValue, (char) => char);
 
@@ -129,13 +131,12 @@ function PinInput({ isOpen, setIsOpen }) {
 				{t('PinInputPopup.description')}
 			</p>
 
-			{errMessage && (
-				<p className='text-sm text-lm-red dark:text-dm-red'>aaa{errMessage}</p>
-			)}
-			<div className='mt-2 flex flex-wrap justify-center overflow-y-auto max-h-[50vh]'>
+			{errMessage && <p className="text-sm text-lm-red dark:text-dm-red">aaa{errMessage}</p>}
+			<div className="mt-2 flex flex-wrap justify-center overflow-y-auto max-h-[50vh]">
 				{pin.map((digit, index) => (
 					<input
 						type="text"
+						// biome-ignore lint/suspicious/noArrayIndexKey: baseline: pre-existing debt. should be fixed
 						key={index}
 						value={digit}
 						onChange={(e) => handleInputChange(index, e.target.value)}
@@ -150,17 +151,10 @@ function PinInput({ isOpen, setIsOpen }) {
 			</div>
 
 			<div className="flex justify-end space-x-2 pt-4">
-				<Button
-					id="cancel-pin-input"
-					onClick={handleCancel}
-				>
+				<Button id="cancel-pin-input" onClick={handleCancel}>
 					{t('common.cancel')}
 				</Button>
-				<Button
-					id="submit-pin-input"
-					variant="primary"
-					onClick={handleSubmit}
-				>
+				<Button id="submit-pin-input" variant="primary" onClick={handleSubmit}>
 					{t('common.submit')}
 				</Button>
 			</div>

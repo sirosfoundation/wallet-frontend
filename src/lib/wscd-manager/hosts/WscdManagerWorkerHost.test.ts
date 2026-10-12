@@ -1,15 +1,16 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { JWK } from 'jose';
-import { WscdManagerWorkerHost } from './WscdManagerWorkerHost';
-import { WscdManagerError, WscdPlugin, type WscdContainer } from '../resources';
-import { ensureEncodedWscdContainer } from '../utils';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { type WscdContainer, WscdManagerError, WscdPlugin } from '../resources';
 import type { WorkerMessage, WorkerResponse } from '../types';
+import { ensureEncodedWscdContainer } from '../utils';
+import { WscdManagerWorkerHost } from './WscdManagerWorkerHost';
 
 const WSCD_WORKER_TIMEOUT_MS = 5000;
 
 // A fake Worker that records every postMessage and lets the test drive the
 // response back through the host's onmessage handler.
 const { FakeWorker, workerInstances } = vi.hoisted(() => {
+	// biome-ignore lint/suspicious/noShadow: baseline: pre-existing debt. should be fixed
 	class FakeWorker {
 		onmessage: ((event: { data: unknown }) => void) | null = null;
 		onerror: ((event: { message?: string }) => void) | null = null;
@@ -21,8 +22,10 @@ const { FakeWorker, workerInstances } = vi.hoisted(() => {
 		postMessage(message: WorkerMessage & { id: number }) {
 			this.posted.push(message);
 		}
+		// biome-ignore lint/suspicious/noEmptyBlockStatements: baseline: pre-existing debt. should be fixed
 		terminate() {}
 	}
+	// biome-ignore lint/suspicious/noShadow: baseline: pre-existing debt. should be fixed
 	const workerInstances: FakeWorker[] = [];
 	return { FakeWorker, workerInstances };
 });
@@ -43,10 +46,13 @@ vi.mock('@/logger', () => ({
 const publicKeyJwk: JWK = {
 	kty: 'EC',
 	crv: 'P-256',
+	// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 	x: 'hvLS5qgKNmpKnA46YSRft2AHyDk9QZGIuq2t8SXmtsE',
+	// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 	y: '_O6ZbDIE6K_jmzgORF3DW-sSGVuigXIP9XMdPyGSOS0',
 };
 
+// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 const publicKeyKid = 'q95J3MNIjVVGXyrmJVm5Vfr6E-iGfIF0Bo4XZAGhFf4';
 
 beforeEach(() => {
@@ -120,9 +126,7 @@ describe('WscdManagerWorkerHost.importContainer', () => {
 		const message = lastPosted(worker);
 		expect(message.action).toBe('import_container');
 
-		const posted = (
-			message as Extract<WorkerMessage, { action: 'import_container' }>
-		).container;
+		const posted = (message as Extract<WorkerMessage, { action: 'import_container' }>).container;
 		expect(posted).toBeInstanceOf(Uint8Array);
 		expect(JSON.parse(new TextDecoder().decode(posted))).toEqual(container);
 
@@ -268,9 +272,7 @@ describe('WscdManagerWorkerHost failure handling', () => {
 
 		worker.onmessageerror?.({});
 
-		await expect(promise).rejects.toThrow(
-			'Worker message deserialization failed',
-		);
+		await expect(promise).rejects.toThrow('Worker message deserialization failed');
 	});
 
 	it('falls back to a generic message when the error carries none', async () => {
@@ -291,9 +293,7 @@ describe('WscdManagerWorkerHost failure handling', () => {
 		await expect(promise).rejects.toThrow('boom');
 
 		// the map was cleared, so a stray late response must be a no-op
-		expect(() =>
-			worker.onmessage?.({ data: { id, result: publicKeyKid } }),
-		).not.toThrow();
+		expect(() => worker.onmessage?.({ data: { id, result: publicKeyKid } })).not.toThrow();
 	});
 });
 
@@ -306,6 +306,7 @@ describe('WscdManagerWorkerHost request timeout', () => {
 		const promise = host.generateKey();
 
 		// Subscribe to the rejection before it fires, so the timeout isn't briefly unhandled.
+		// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 		const expectation = expect(promise).rejects.toThrow(/timed out/);
 		await vi.advanceTimersByTimeAsync(WSCD_WORKER_TIMEOUT_MS);
 		await expectation;
@@ -324,9 +325,7 @@ describe('WscdManagerWorkerHost request timeout', () => {
 
 function makeContainer(): WscdContainer {
 	return {
-		keys: [
-			{ kid: publicKeyKid, algorithm: 'ES256', d: 'ZmFrZQ', created_at: 0 },
-		],
+		keys: [{ kid: publicKeyKid, algorithm: 'ES256', d: 'ZmFrZQ', created_at: 0 }],
 		lifecycle: {},
 	};
 }
@@ -335,10 +334,7 @@ function lastPosted(worker: FakeWorkerInstance) {
 	return worker.posted[worker.posted.length - 1];
 }
 
-function respondToLast(
-	worker: FakeWorkerInstance,
-	response: Partial<WorkerResponse>,
-) {
+function respondToLast(worker: FakeWorkerInstance, response: Partial<WorkerResponse>) {
 	worker.onmessage?.({ data: { id: lastPosted(worker).id, ...response } });
 }
 

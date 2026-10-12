@@ -1,10 +1,7 @@
 /* eslint-disable no-script-url -- intentional dangerous-scheme payloads for security tests */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import {
-	setReturnToUrl,
-	getReturnToUrl,
-} from './returnToUrl';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { getReturnToUrl, setReturnToUrl } from './returnToUrl';
 
 /**
  * Simulate base path.
@@ -25,29 +22,36 @@ function roundTrip(raw: string): string | null {
 	return getReturnToUrl();
 }
 
-const credentialOffer = encodeURIComponent(JSON.stringify({
-	credential_issuer: 'https://issuer.example.com',
-	credential_configuration_ids: ['eu.europa.ec.eudi.pid_vc_sd_jwt'],
-	grants: {
-		'urn:ietf:params:oauth:grant-type:pre-authorized_code': {
-			'pre-authorized_code': 'adhjhdjajkdkhjhdj',
+const credentialOffer = encodeURIComponent(
+	JSON.stringify({
+		credential_issuer: 'https://issuer.example.com',
+		credential_configuration_ids: ['eu.europa.ec.eudi.pid_vc_sd_jwt'],
+		grants: {
+			'urn:ietf:params:oauth:grant-type:pre-authorized_code': {
+				'pre-authorized_code': 'adhjhdjajkdkhjhdj',
+			},
 		},
-	},
-}));
+	}),
+);
 
 const credentialOfferUri = encodeURIComponent('https://issuer.example.com/offer/123');
 
 const jwt = [
+	// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 	'eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9',
+	// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 	'eyJpc3MiOiJodHRwczovL2lzc3Vlci5leGFtcGxlLmNvbSJ9',
+	// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 	'MEUCIQDx1Hn0aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789ab',
 ].join('.');
 
-const presentationSubmission = encodeURIComponent(JSON.stringify({
-	id: 'submission-1',
-	definition_id: 'pid-request',
-	descriptor_map: [{ id: 'pid', format: 'vc+sd-jwt', path: '$' }],
-}));
+const presentationSubmission = encodeURIComponent(
+	JSON.stringify({
+		id: 'submission-1',
+		definition_id: 'pid-request',
+		descriptor_map: [{ id: 'pid', format: 'vc+sd-jwt', path: '$' }],
+	}),
+);
 
 describe('returnToUrl', () => {
 	beforeEach(() => {
@@ -64,6 +68,7 @@ describe('returnToUrl', () => {
 		`/cb?credential_offer=${credentialOffer}`,
 		`/cb?credential_offer_uri=${credentialOfferUri}`,
 		'/cb?credential_offer_uri=https://issuer.example.com/offer/123',
+		// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 		'/cb?code=SplxlOBeZQQYbYS6WxSbIA&state=af0ifjsldkj',
 		`/cb?response=${jwt}`,
 		`/cb?vp_token=${jwt}&presentation_submission=${presentationSubmission}`,
@@ -109,6 +114,7 @@ describe('returnToUrl', () => {
 		// Query/hash must not smuggle an auth route back in.
 		'/login?foo=bar',
 		'/login-state#section',
+		// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 		'/oidc/cb?code=SplxlOBeZQQYbYS6WxSbIA&state=af0ifjsldkj',
 	])('rejects auth route %j under every tenant', (path) => {
 		mockBasePath = '/';
@@ -124,12 +130,12 @@ describe('returnToUrl', () => {
 		});
 
 		// A custom tenant's namespace is off-limits from the default tenant.
-		it.each([
-			'/id/acme/settings',
-			'/id/../id/evil/settings',
-		])('rejects cross-tenant path %j', (raw) => {
-			expect(roundTrip(raw)).toBeNull();
-		});
+		it.each(['/id/acme/settings', '/id/../id/evil/settings'])(
+			'rejects cross-tenant path %j',
+			(raw) => {
+				expect(roundTrip(raw)).toBeNull();
+			},
+		);
 	});
 
 	describe('custom tenant only', () => {
@@ -153,6 +159,7 @@ describe('returnToUrl', () => {
 		});
 	});
 
+	// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 	describe('getReturnToUrl consumes the stored value', () => {
 		it('removes the value after a successful read', () => {
 			setReturnToUrl('/settings');

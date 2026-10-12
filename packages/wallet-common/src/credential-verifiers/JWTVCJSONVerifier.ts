@@ -1,24 +1,34 @@
-import { Context, CredentialVerifier, PublicKeyResolverEngineI, HttpClient } from "../interfaces";
-import { CredentialVerificationError } from "../error";
-import { CustomResult, VerifiableCredentialFormat } from "../types";
-import { importJWK, importX509, JWK, jwtVerify, KeyLike } from "jose";
-import { fromBase64Url } from "../utils/util";
-import { verifyCertificate } from "../utils/verifyCertificate";
+import { importJWK, importX509, type JWK, jwtVerify, type KeyLike } from 'jose';
+import { CredentialVerificationError } from '../error';
+import type {
+	Context,
+	CredentialVerifier,
+	HttpClient,
+	PublicKeyResolverEngineI,
+} from '../interfaces';
+import { type CustomResult, VerifiableCredentialFormat } from '../types';
+import { fromBase64Url } from '../utils/util';
+import { verifyCertificate } from '../utils/verifyCertificate';
 
-export function JWTVCJSONVerifier(args: { context: Context, pkResolverEngine: PublicKeyResolverEngineI, httpClient: HttpClient }): CredentialVerifier {
-	let errors: { error: CredentialVerificationError, message: string }[] = [];
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
+export function JWTVCJSONVerifier(args: {
+	context: Context;
+	pkResolverEngine: PublicKeyResolverEngineI;
+	httpClient: HttpClient;
+}): CredentialVerifier {
+	let errors: { error: CredentialVerificationError; message: string }[] = [];
 	const logError = (error: CredentialVerificationError, message: string): void => {
 		errors.push({ error, message });
-	}
+	};
 
 	const decoder = new TextDecoder();
 
 	function canVerifyJwtVcJson(raw: unknown): raw is string {
-		if (typeof raw !== "string") return false;
+		if (typeof raw !== 'string') return false;
 
-		const parts = raw.split(".");
+		const parts = raw.split('.');
 		if (parts.length !== 3) return false;
-		if (raw.includes("~")) return false;
+		if (raw.includes('~')) return false;
 
 		try {
 			const header = JSON.parse(decoder.decode(fromBase64Url(parts[0])));
@@ -34,8 +44,13 @@ export function JWTVCJSONVerifier(args: { context: Context, pkResolverEngine: Pu
 		}
 	}
 
-	const getHolderPublicKey = async (rawCredential: string): Promise<CustomResult<KeyLike | Uint8Array, CredentialVerificationError>> => {
-		const parts = rawCredential.split(".");
+	// biome-ignore lint/correctness/noUnusedVariables: baseline: pre-existing debt. should be fixed
+	const getHolderPublicKey = async (
+		rawCredential: string,
+	): Promise<CustomResult<KeyLike | Uint8Array, CredentialVerificationError>> => {
+		const parts = rawCredential.split('.');
+		// biome-ignore lint/suspicious/noEvolvingTypes: baseline: pre-existing debt. should be fixed
+		// biome-ignore lint/suspicious/noImplicitAnyLet: baseline: pre-existing debt. should be fixed
 		let payload;
 		try {
 			payload = JSON.parse(decoder.decode(fromBase64Url(parts[1])));
@@ -45,6 +60,8 @@ export function JWTVCJSONVerifier(args: { context: Context, pkResolverEngine: Pu
 
 		const cnf = payload.cnf as { jwk?: JWK } | undefined;
 		if (cnf?.jwk) {
+			// biome-ignore lint/suspicious/noEvolvingTypes: baseline: pre-existing debt. should be fixed
+			// biome-ignore lint/suspicious/noImplicitAnyLet: baseline: pre-existing debt. should be fixed
 			let header;
 			try {
 				header = JSON.parse(decoder.decode(fromBase64Url(parts[0])));
@@ -56,7 +73,10 @@ export function JWTVCJSONVerifier(args: { context: Context, pkResolverEngine: Pu
 				return { success: true, value: holderPublicKey };
 			} catch (err: unknown) {
 				const message = err instanceof Error ? err.message : String(err);
-				logError(CredentialVerificationError.CannotImportHolderPublicKey, `Could not import holder public key: ${message}`);
+				logError(
+					CredentialVerificationError.CannotImportHolderPublicKey,
+					`Could not import holder public key: ${message}`,
+				);
 				return { success: false, error: CredentialVerificationError.CannotImportHolderPublicKey };
 			}
 		}
@@ -64,30 +84,43 @@ export function JWTVCJSONVerifier(args: { context: Context, pkResolverEngine: Pu
 		return { success: false, error: CredentialVerificationError.CannotExtractHolderPublicKey };
 	};
 
-	const verifyIssuerSignature = async (rawCredential: string): Promise<CustomResult<{}, CredentialVerificationError>> => {
-		const parts = rawCredential.split(".");
+	// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
+	const verifyIssuerSignature = async (
+		rawCredential: string,
+		// biome-ignore lint/complexity/noBannedTypes: baseline: pre-existing debt. should be fixed
+	): Promise<CustomResult<{}, CredentialVerificationError>> => {
+		const parts = rawCredential.split('.');
+		// biome-ignore lint/suspicious/noEvolvingTypes: baseline: pre-existing debt. should be fixed
+		// biome-ignore lint/suspicious/noImplicitAnyLet: baseline: pre-existing debt. should be fixed
 		let header;
 		try {
 			header = JSON.parse(decoder.decode(fromBase64Url(parts[0])));
 		} catch {
-			logError(CredentialVerificationError.InvalidFormat, "Invalid JWT header");
+			logError(CredentialVerificationError.InvalidFormat, 'Invalid JWT header');
 			return { success: false, error: CredentialVerificationError.InvalidFormat };
 		}
 
+		// biome-ignore lint/suspicious/noEvolvingTypes: baseline: pre-existing debt. should be fixed
+		// biome-ignore lint/suspicious/noImplicitAnyLet: baseline: pre-existing debt. should be fixed
 		let payload;
 		try {
 			payload = JSON.parse(decoder.decode(fromBase64Url(parts[1])));
 		} catch {
-			logError(CredentialVerificationError.InvalidFormat, "Invalid JWT payload");
+			logError(CredentialVerificationError.InvalidFormat, 'Invalid JWT payload');
 			return { success: false, error: CredentialVerificationError.InvalidFormat };
 		}
 
 		const alg = header.alg as string | undefined;
 
 		// Try x5c certificate chain first
-		const getIssuerPublicKey = async (): Promise<CustomResult<Uint8Array | KeyLike, CredentialVerificationError>> => {
+		// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
+		const getIssuerPublicKey = async (): Promise<
+			CustomResult<Uint8Array | KeyLike, CredentialVerificationError>
+			// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+		> => {
 			const x5c = header.x5c as string[] | undefined;
-			if (x5c && x5c instanceof Array && x5c.length > 0 && typeof alg === "string") {
+			// biome-ignore lint/suspicious/useIsArray: baseline: pre-existing debt. should be fixed
+			if (x5c && x5c instanceof Array && x5c.length > 0 && typeof alg === 'string') {
 				// Only validate certificate chain if not delegating to backend
 				// Trust evaluation is now delegated to AuthZEN at the protocol level
 				const delegateTrustToBackend = args.context.delegateTrustToBackend ?? true;
@@ -96,11 +129,16 @@ export function JWTVCJSONVerifier(args: { context: Context, pkResolverEngine: Pu
 				if (!delegateTrustToBackend && trustedCertificates.length > 0) {
 					const lastCertificate: string = x5c[x5c.length - 1];
 					const lastCertificatePem = `-----BEGIN CERTIFICATE-----\n${lastCertificate}\n-----END CERTIFICATE-----`;
-					const certificateValidationResult = await verifyCertificate(lastCertificatePem, trustedCertificates);
-					const lastCertificateIsRootCa = trustedCertificates.map((c) => c.trim()).includes(lastCertificatePem);
+					const certificateValidationResult = await verifyCertificate(
+						lastCertificatePem,
+						trustedCertificates,
+					);
+					const lastCertificateIsRootCa = trustedCertificates
+						.map((c) => c.trim())
+						.includes(lastCertificatePem);
 					const rootCertIsTrusted = certificateValidationResult === true || lastCertificateIsRootCa;
 					if (!rootCertIsTrusted) {
-						logError(CredentialVerificationError.NotTrustedIssuer, "Issuer is not trusted");
+						logError(CredentialVerificationError.NotTrustedIssuer, 'Issuer is not trusted');
 						return { success: false, error: CredentialVerificationError.NotTrustedIssuer };
 					}
 				}
@@ -110,29 +148,48 @@ export function JWTVCJSONVerifier(args: { context: Context, pkResolverEngine: Pu
 					const issuerPublicKey = await importX509(issuerPemCert, alg);
 					return { success: true, value: issuerPublicKey };
 				} catch (err) {
-					logError(CredentialVerificationError.CannotImportIssuerPublicKey, `Cannot import issuer public key from x5c: ${err}`);
+					logError(
+						CredentialVerificationError.CannotImportIssuerPublicKey,
+						`Cannot import issuer public key from x5c: ${err}`,
+					);
 					return { success: false, error: CredentialVerificationError.CannotImportIssuerPublicKey };
 				}
 			}
 
 			// Try kid / iss resolution via public key resolver
-			if (typeof payload.iss === "string" && typeof alg === "string") {
-				const publicKeyResolutionResult = await args.pkResolverEngine.resolve({ identifier: payload.iss });
+			if (typeof payload.iss === 'string' && typeof alg === 'string') {
+				const publicKeyResolutionResult = await args.pkResolverEngine.resolve({
+					identifier: payload.iss,
+				});
 				if (!publicKeyResolutionResult.success) {
-					logError(CredentialVerificationError.CannotResolveIssuerPublicKey, "CannotResolveIssuerPublicKey");
-					return { success: false, error: CredentialVerificationError.CannotResolveIssuerPublicKey };
+					logError(
+						CredentialVerificationError.CannotResolveIssuerPublicKey,
+						// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+						'CannotResolveIssuerPublicKey',
+					);
+					return {
+						success: false,
+						error: CredentialVerificationError.CannotResolveIssuerPublicKey,
+					};
 				}
 				try {
 					const publicKey = await importJWK(publicKeyResolutionResult.value.jwk, alg);
 					return { success: true, value: publicKey };
 				} catch (err: unknown) {
 					const message = err instanceof Error ? err.message : String(err);
-					logError(CredentialVerificationError.CannotImportIssuerPublicKey, `Cannot import resolved issuer public key: ${message}`);
+					logError(
+						CredentialVerificationError.CannotImportIssuerPublicKey,
+						`Cannot import resolved issuer public key: ${message}`,
+					);
 					return { success: false, error: CredentialVerificationError.CannotImportIssuerPublicKey };
 				}
 			}
 
-			logError(CredentialVerificationError.CannotResolveIssuerPublicKey, "CannotResolveIssuerPublicKey");
+			logError(
+				CredentialVerificationError.CannotResolveIssuerPublicKey,
+				// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+				'CannotResolveIssuerPublicKey',
+			);
 			return { success: false, error: CredentialVerificationError.CannotResolveIssuerPublicKey };
 		};
 
@@ -146,11 +203,14 @@ export function JWTVCJSONVerifier(args: { context: Context, pkResolverEngine: Pu
 				clockTolerance: args.context.clockTolerance,
 			});
 		} catch (err: unknown) {
-			if (err instanceof Error && err.name === "JWTExpired") {
+			if (err instanceof Error && err.name === 'JWTExpired') {
 				logError(CredentialVerificationError.ExpiredCredential, `Credential is expired: ${err}`);
 				return { success: false, error: CredentialVerificationError.ExpiredCredential };
 			}
-			logError(CredentialVerificationError.InvalidSignature, `Issuer signature verification failed: ${err}`);
+			logError(
+				CredentialVerificationError.InvalidSignature,
+				`Issuer signature verification failed: ${err}`,
+			);
 			return { success: false, error: CredentialVerificationError.InvalidSignature };
 		}
 
@@ -158,6 +218,7 @@ export function JWTVCJSONVerifier(args: { context: Context, pkResolverEngine: Pu
 	};
 
 	return {
+		// biome-ignore lint/correctness/noUnusedFunctionParameters: baseline: pre-existing debt. should be fixed
 		async verify({ rawCredential, opts }) {
 			errors = [];
 
@@ -179,7 +240,7 @@ export function JWTVCJSONVerifier(args: { context: Context, pkResolverEngine: Pu
 			// Extract holder public key JWK directly from cnf claim to avoid
 			// importing and re-exporting through Web Crypto (jose importJWK
 			// creates non-extractable CryptoKeys in browsers by default).
-			const parts = rawCredential.split(".");
+			const parts = rawCredential.split('.');
 			let holderJwk: JWK = {} as JWK;
 			try {
 				const payload = JSON.parse(decoder.decode(fromBase64Url(parts[1])));

@@ -1,18 +1,9 @@
-import {
-	FC,
-	PropsWithChildren,
-	useEffect,
-	useContext,
-	useState,
-	useMemo,
-} from 'react';
-import { WscdManagerClientContext } from './WscdManagerClientContext';
+import { type FC, type PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
 import { WscdManagerClient } from '@/lib/wscd-manager';
 import SessionContext from './SessionContext';
+import { WscdManagerClientContext } from './WscdManagerClientContext';
 
-export const WscdManagerClientContextProvider: FC<PropsWithChildren> = ({
-	children,
-}) => {
+export const WscdManagerClientContextProvider: FC<PropsWithChildren> = ({ children }) => {
 	const { api, keystore } = useContext(SessionContext);
 	const [client, setClient] = useState<WscdManagerClient | null>(null);
 
@@ -22,6 +13,7 @@ export const WscdManagerClientContextProvider: FC<PropsWithChildren> = ({
 
 		return () => {
 			setClient(null);
+			// biome-ignore lint/complexity/noVoid: baseline: pre-existing debt. should be fixed
 			void c.dispose();
 		};
 	}, []);
@@ -30,8 +22,7 @@ export const WscdManagerClientContextProvider: FC<PropsWithChildren> = ({
 		if (!client) return;
 		client.setContainerImporter(() => keystore.exportToWscdContainer());
 		client.setContainerExporter(async (container) => {
-			const [, newPrivateData, commit] =
-				await keystore.importFromWscdContainer(container);
+			const [, newPrivateData, commit] = await keystore.importFromWscdContainer(container);
 			await api.updatePrivateData(newPrivateData);
 			await commit();
 		});
@@ -40,8 +31,6 @@ export const WscdManagerClientContextProvider: FC<PropsWithChildren> = ({
 	const value = useMemo(() => ({ wscdManagerClient: client }), [client]);
 
 	return (
-		<WscdManagerClientContext.Provider value={value}>
-			{children}
-		</WscdManagerClientContext.Provider>
+		<WscdManagerClientContext.Provider value={value}>{children}</WscdManagerClientContext.Provider>
 	);
 };

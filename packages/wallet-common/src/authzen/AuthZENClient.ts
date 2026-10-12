@@ -26,16 +26,16 @@
  * ```
  */
 
-import { HttpClient } from '../interfaces';
-import { Result, ok, err } from '../core/Result';
+import { err, ok, type Result } from '../core/Result';
+import type { HttpClient } from '../interfaces';
 import {
-	AuthZENEvaluationRequest,
-	AuthZENEvaluationResponse,
-	AuthZENResolveRequest,
+	type AuthZENError,
 	AuthZENErrorCode,
-	AuthZENError,
+	type AuthZENEvaluationRequest,
+	type AuthZENEvaluationResponse,
+	type AuthZENResolveRequest,
+	type TrustInfo,
 	TrustStatus,
-	TrustInfo,
 } from './types';
 
 /**
@@ -139,7 +139,9 @@ export interface IAuthZENClient {
 	/**
 	 * Send a raw AuthZEN evaluation request.
 	 */
-	evaluate(request: AuthZENEvaluationRequest): Promise<Result<AuthZENEvaluationResponse, AuthZENError>>;
+	evaluate(
+		request: AuthZENEvaluationRequest,
+	): Promise<Result<AuthZENEvaluationResponse, AuthZENError>>;
 
 	/**
 	 * Resolve metadata for a subject (DID document, entity config, etc.).
@@ -147,7 +149,10 @@ export interface IAuthZENClient {
 	 * @param subjectId - The subject identifier (DID, URL, etc.)
 	 * @param options - Optional subject_type and resource_type hints
 	 */
-	resolve(subjectId: string, options?: { subjectType?: string; resourceType?: string; useCache?: boolean }): Promise<Result<AuthZENEvaluationResponse, AuthZENError>>;
+	resolve(
+		subjectId: string,
+		options?: { subjectType?: string; resourceType?: string; useCache?: boolean },
+	): Promise<Result<AuthZENEvaluationResponse, AuthZENError>>;
 
 	/**
 	 * Evaluate a verifier's trust status.
@@ -163,10 +168,19 @@ export interface IAuthZENClient {
 /**
  * Creates an AuthZEN client for trust evaluation.
  */
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 export function AuthZENClient(config: AuthZENClientConfig): IAuthZENClient {
-	const { httpClient, baseUrl, getAuthToken, tenantId, timeout = 30000, resolveCacheTtl = 300_000 } = config;
+	const {
+		httpClient,
+		baseUrl,
+		getAuthToken,
+		tenantId,
+		timeout = 30000,
+		resolveCacheTtl = 300_000,
+	} = config;
 
 	// Normalize base URL (remove trailing slash)
+	// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 	const normalizedBaseUrl = baseUrl.replace(/\/$/, '');
 
 	// Local resolve cache: key → { value, expiry }
@@ -178,7 +192,7 @@ export function AuthZENClient(config: AuthZENClientConfig): IAuthZENClient {
 	async function buildHeaders(): Promise<Record<string, string>> {
 		const token = await Promise.resolve(getAuthToken());
 		return {
-			'Authorization': `Bearer ${token}`,
+			Authorization: `Bearer ${token}`,
 			'X-Tenant-ID': tenantId,
 			'Content-Type': 'application/json',
 		};
@@ -224,6 +238,7 @@ export function AuthZENClient(config: AuthZENClientConfig): IAuthZENClient {
 	/**
 	 * Convert evaluation response to TrustInfo.
 	 */
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
 	function toTrustInfo(response: AuthZENEvaluationResponse): TrustInfo {
 		const info: TrustInfo = {
 			status: response.decision ? TrustStatus.TRUSTED : TrustStatus.UNTRUSTED,
@@ -250,7 +265,10 @@ export function AuthZENClient(config: AuthZENClientConfig): IAuthZENClient {
 			// OIDF Entity Statement organization name
 			if (meta.metadata && typeof meta.metadata === 'object') {
 				const entityMeta = meta.metadata as Record<string, unknown>;
-				const orgInfo = entityMeta.openid_credential_issuer || entityMeta.openid_relying_party || entityMeta.federation_entity;
+				const orgInfo =
+					entityMeta.openid_credential_issuer ||
+					entityMeta.openid_relying_party ||
+					entityMeta.federation_entity;
 				if (orgInfo && typeof orgInfo === 'object') {
 					const org = orgInfo as Record<string, unknown>;
 					if (org.organization_name && typeof org.organization_name === 'string') {
@@ -267,14 +285,16 @@ export function AuthZENClient(config: AuthZENClientConfig): IAuthZENClient {
 	}
 
 	return {
-		async evaluate(request: AuthZENEvaluationRequest): Promise<Result<AuthZENEvaluationResponse, AuthZENError>> {
+		async evaluate(
+			request: AuthZENEvaluationRequest,
+		): Promise<Result<AuthZENEvaluationResponse, AuthZENError>> {
 			try {
 				const headers = await buildHeaders();
 				const response = await httpClient.post(
 					`${normalizedBaseUrl}/v1/evaluate`,
 					request,
 					headers,
-					{ timeout }
+					{ timeout },
 				);
 
 				if (response.status === 200) {
@@ -290,10 +310,15 @@ export function AuthZENClient(config: AuthZENClientConfig): IAuthZENClient {
 			}
 		},
 
-		async resolve(subjectId: string, options?: { subjectType?: string; resourceType?: string, useCache?: boolean }): Promise<Result<AuthZENEvaluationResponse, AuthZENError>> {
+		// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+		async resolve(
+			subjectId: string,
+			options?: { subjectType?: string; resourceType?: string; useCache?: boolean },
+		): Promise<Result<AuthZENEvaluationResponse, AuthZENError>> {
 			// Auto-detect subject_type from the identifier when not explicitly set:
 			// DID identifiers use "key", URLs use "url".
-			const effectiveSubjectType = options?.subjectType ?? (subjectId.startsWith('did:') ? 'key' : 'url');
+			const effectiveSubjectType =
+				options?.subjectType ?? (subjectId.startsWith('did:') ? 'key' : 'url');
 			const cacheKey = `${subjectId}\0${effectiveSubjectType}\0${options?.resourceType ?? ''}`;
 
 			// Check cache
@@ -318,7 +343,7 @@ export function AuthZENClient(config: AuthZENClientConfig): IAuthZENClient {
 					`${normalizedBaseUrl}/v1/resolve`,
 					request,
 					headers,
-					{ timeout, useCache: options?.useCache === true }
+					{ timeout, useCache: options?.useCache === true },
 				);
 
 				if (response.status === 200) {
@@ -338,7 +363,9 @@ export function AuthZENClient(config: AuthZENClientConfig): IAuthZENClient {
 			}
 		},
 
-		async evaluateVerifier(options: EvaluateVerifierOptions): Promise<Result<TrustInfo, AuthZENError>> {
+		async evaluateVerifier(
+			options: EvaluateVerifierOptions,
+		): Promise<Result<TrustInfo, AuthZENError>> {
 			const request: AuthZENEvaluationRequest = {
 				subject: {
 					type: 'key',

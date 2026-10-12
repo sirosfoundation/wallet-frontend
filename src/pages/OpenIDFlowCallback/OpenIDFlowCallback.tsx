@@ -1,31 +1,39 @@
-import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router';
+import type { DcqlQuery } from 'dcql';
+import type React from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { jsonToLog, logger } from '@/logger';
-import { OIDFlowError } from '@/lib/openid-flow/errors';
-import { translateOIDFlowError } from '@/lib/openid-flow/utils/translateOIDFlowError';
-import { OIDFlowCallbackURL, OIDFlowProgressEvent } from '@/lib/openid-flow/types/OIDFlowTypes';
-import useErrorDialog from '@/hooks/useErrorDialog';
-import useOID4VCIFlow from '@/hooks/useOID4VCIFlow';
-import OpenID4VPContext from '@/context/OpenID4VPContext';
-import useOID4VPFlow from '@/hooks/useOID4VPFlow';
-import { useTxCodeInput } from '@/context/TxCodeInputContext';
+import { Navigate, useNavigate } from 'react-router';
+import {
+	type ConformantCredentials,
+	PresentCredentialsFlow,
+	usePresentCredentialsFlow,
+} from '@/components/flows/PresentCredentialsFlow';
+import IssuanceWarningPopup from '@/components/Popups/IssuanceWarningPopup';
 import { TxCodeInputPopup } from '@/components/Popups/TxCodeInputPopup';
 import Spinner from '@/components/Shared/Spinner';
 import { useOIDFlowTransport } from '@/context/OIDFlowTransportContext';
+import OpenID4VPContext from '@/context/OpenID4VPContext';
 import { useTenant } from '@/context/TenantContext';
-import { parseOIDFlowCallbackUrl } from '@/lib/openid-flow/utils/oidFlowCallbackUrl';
-import IssuanceWarningPopup from '@/components/Popups/IssuanceWarningPopup';
-import { DCAPISession } from '@/lib/openid-flow/platforms/dc-api';
-import { sanitizeRedirectUrl } from '@/lib/utils/sanitizeRedirectUrl';
-import { ConformantCredentials, PresentCredentialsFlow, usePresentCredentialsFlow } from '@/components/flows/PresentCredentialsFlow';
-import { DcqlQuery } from 'dcql';
-import { OID4VPVerifierInfo } from '@/lib/openid-flow/types/OID4VPTypes';
+import { useTxCodeInput } from '@/context/TxCodeInputContext';
+import useErrorDialog from '@/hooks/useErrorDialog';
+import useOID4VCIFlow from '@/hooks/useOID4VCIFlow';
+import useOID4VPFlow from '@/hooks/useOID4VPFlow';
 import { useStatusContext } from '@/hooks/useStatusContext';
+import { OIDFlowError } from '@/lib/openid-flow/errors';
+import { DCAPISession } from '@/lib/openid-flow/platforms/dc-api';
+import type { OID4VPVerifierInfo } from '@/lib/openid-flow/types/OID4VPTypes';
+import type {
+	OIDFlowCallbackURL,
+	OIDFlowProgressEvent,
+} from '@/lib/openid-flow/types/OIDFlowTypes';
+import { parseOIDFlowCallbackUrl } from '@/lib/openid-flow/utils/oidFlowCallbackUrl';
+import { translateOIDFlowError } from '@/lib/openid-flow/utils/translateOIDFlowError';
+import { sanitizeRedirectUrl } from '@/lib/utils/sanitizeRedirectUrl';
+import { jsonToLog, logger } from '@/logger';
 
 type OpenIDFlowCallbackProps = {
 	callbackUrl: OIDFlowCallbackURL;
-}
+};
 
 type OpenIDFlowCallbackHandler = React.FC<OpenIDFlowCallbackProps>;
 
@@ -79,7 +87,7 @@ const OpenIDFlowRouter: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			case 'unknown':
 				return { handler: OpenIDUnknownFlow };
 			default:
-				return null
+				return null;
 		}
 	}, [callbackUrl]);
 
@@ -91,11 +99,12 @@ const OpenIDFlowRouter: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	// If no handler found, we assume the user isn't meant to be here,
 	// and redirect to home.
 	return <Navigate to={buildPath()} />;
-}
+};
 
 /**
  * OpenID4VCIFlow - Handles OID4VCI credential offer and authorization code callbacks.
  */
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	const { blockUpdates } = useStatusContext();
 	const { displayError } = useErrorDialog();
@@ -107,7 +116,10 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		handleCancel: handleTxCodeCancel,
 	} = useTxCodeInput();
 	const navigateHome = useNavigateHome();
-	const [warningState, setWarningState] = useState<{ isOpen: boolean; warnings: Array<{ code: string }> }>({ isOpen: false, warnings: [] });
+	const [warningState, setWarningState] = useState<{
+		isOpen: boolean;
+		warnings: Array<{ code: string }>;
+	}>({ isOpen: false, warnings: [] });
 	const warningResolverRef = useRef<((proceed: boolean) => void) | null>(null);
 	const flowIsActive = useRef(false);
 
@@ -126,20 +138,18 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		logger.debug('OID4VCI flow progress:', event);
 	}, []);
 
-	const handleIssuanceWarnings = useCallback(
-		async (warnings: Array<{ code: string }>) => {
-			logger.warn('Credential issuance warnings:', jsonToLog(warnings));
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
+	const handleIssuanceWarnings = useCallback(async (warnings: Array<{ code: string }>) => {
+		logger.warn('Credential issuance warnings:', jsonToLog(warnings));
 
-			return new Promise<boolean>((resolve) => {
-				warningResolverRef.current = resolve;
-				setWarningState({
-					isOpen: true,
-					warnings,
-				});
+		return new Promise<boolean>((resolve) => {
+			warningResolverRef.current = resolve;
+			setWarningState({
+				isOpen: true,
+				warnings,
 			});
-		},
-		[],
-	);
+		});
+	}, []);
 
 	const {
 		handleCredentialOffer,
@@ -152,6 +162,7 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		onIssuanceWarnings: handleIssuanceWarnings,
 	});
 
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
 	const processCredentialOffer = async (url: URL) => {
 		const offer = await handleCredentialOffer(url);
 		logger.debug('Received credential offer:', offer);
@@ -179,8 +190,7 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				txCodeInput = await requestTxCode({
 					description: offer.txCode.description ?? undefined,
 					length: offer.txCode.length ?? undefined,
-					inputMode:
-						offer.txCode.inputMode === 'numeric' ? 'numeric' : 'text',
+					inputMode: offer.txCode.inputMode === 'numeric' ? 'numeric' : 'text',
 				});
 			} catch {
 				logger.info('User cancelled transaction code input');
@@ -188,10 +198,7 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			}
 		}
 
-		const preAuthResult = await requestWithPreAuthorization(
-			offer.preAuthorizedCode,
-			txCodeInput,
-		);
+		const preAuthResult = await requestWithPreAuthorization(offer.preAuthorizedCode, txCodeInput);
 
 		if (preAuthResult.success && preAuthResult.credentials?.length) {
 			await handleReceivedCredentials(
@@ -231,6 +238,7 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		setWarningState({ isOpen: false, warnings: [] });
 	}, []);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: baseline: pre-existing debt. should be fixed
 	useEffect(() => {
 		if (flowIsActive.current) return;
 		flowIsActive.current = true;
@@ -301,6 +309,7 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 /**
  * OpenID4VPFlow - Handles OID4VP presentation request callbacks.
  */
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	const { blockUpdates } = useStatusContext();
 	const { displayError } = useErrorDialog();
@@ -320,55 +329,65 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	/**
 	 * Handle errors thrown during OID4VP flows.
 	 */
-	const handleOID4VPError = useCallback((err: Error) => {
-		logger.error("Error in OID4VP flow:", err);
-		const message = translateOIDFlowError(t, err, 'vpFlowError');
-		if (!(err instanceof OIDFlowError)) {
-			displayError(message);
-			return;
-		}
+	const handleOID4VPError = useCallback(
+		(err: Error) => {
+			logger.error('Error in OID4VP flow:', err);
+			const message = translateOIDFlowError(t, err, 'vpFlowError');
+			if (!(err instanceof OIDFlowError)) {
+				displayError(message);
+				return;
+			}
 
-		displayErrorScreen({
-			...message,
-			err,
-			onClose: () => {
-				navigateHome();
-			},
-		});
-	}, [displayError, displayErrorScreen, navigateHome, t]);
+			displayErrorScreen({
+				...message,
+				err,
+				onClose: () => {
+					navigateHome();
+				},
+			});
+		},
+		[displayError, displayErrorScreen, navigateHome, t],
+	);
 
 	/**
 	 * Handle OID4VP flow progress events.
 	 * For now, just debug logging.
 	 */
 	const handleOID4VPProgress = useCallback((event: OIDFlowProgressEvent) => {
-		logger.debug("OID4VP flow progress:", event);
+		logger.debug('OID4VP flow progress:', event);
 	}, []);
 
 	/**
 	 * Handle credential selection during OID4VP flows by showing the configured UI and returning the user's selection.
 	 */
-	const handleOID4VPCredentialSelection = useCallback(async (
-		verifierInfo: OID4VPVerifierInfo,
-		dcqlQuery: DcqlQuery.Input,
-		conformantCredentialsMap: ConformantCredentials
-	) => {
-		// Only log the count
-		const conformantMatchCounts = Object.fromEntries(
-			[...conformantCredentialsMap].map(([id, { credentials }]) => [id, credentials.length]),
-		);
-		logger.debug("Prompting for credential selection...", { conformantMatchCounts, verifierInfo, dcqlQuery });
+	const handleOID4VPCredentialSelection = useCallback(
+		async (
+			verifierInfo: OID4VPVerifierInfo,
+			dcqlQuery: DcqlQuery.Input,
+			conformantCredentialsMap: ConformantCredentials,
+		) => {
+			// Only log the count
+			const conformantMatchCounts = Object.fromEntries(
+				[...conformantCredentialsMap].map(([id, { credentials }]) => [id, credentials.length]),
+			);
+			logger.debug('Prompting for credential selection...', {
+				conformantMatchCounts,
+				verifierInfo,
+				dcqlQuery,
+			});
 
-		const selection = await displayRequestOverviewScreen(
-			verifierInfo,
-			dcqlQuery,
-			conformantCredentialsMap,
-		);
+			const selection = await displayRequestOverviewScreen(
+				verifierInfo,
+				dcqlQuery,
+				conformantCredentialsMap,
+			);
 
-		logger.debug("User selection:", selection);
+			logger.debug('User selection:', selection);
 
-		return new Map(selection.map(({ queryId, batchId }) => [queryId, batchId])	);
-	}, [displayRequestOverviewScreen]);
+			return new Map(selection.map(({ queryId, batchId }) => [queryId, batchId]));
+		},
+		[displayRequestOverviewScreen],
+	);
 
 	const {
 		handleAuthorizationRequest,
@@ -382,6 +401,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		onCredentialSelection: handleOID4VPCredentialSelection,
 	});
 
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
 	const processAuthorizationRequest = async (url: URL) => {
 		const result = await handleAuthorizationRequest(url);
 
@@ -417,21 +437,17 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 
 		displaySendingScreen();
 
-		const sendResult = await sendAuthorizationResponse(
-			credSelectResult.selectedCredentials,
-		);
+		const sendResult = await sendAuthorizationResponse(credSelectResult.selectedCredentials);
 		logger.debug('Authorization response sent:', sendResult);
 
-		const redirectUri = 'redirectUri' in sendResult
-			? sendResult.redirectUri
-			: undefined;
+		const redirectUri = 'redirectUri' in sendResult ? sendResult.redirectUri : undefined;
 
 		if (sendResult.success) {
 			await displayCompletedScreen(
 				{
 					verifierName: result.verifierInfo.name,
 				},
-				!redirectUri ? navigateHome : undefined
+				!redirectUri ? navigateHome : undefined,
 			);
 		}
 
@@ -473,10 +489,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 
 			displaySendingScreen();
 
-			const sendResult = await sendDCAPIResponse(
-				session,
-				credSelectResult.selectedCredentials
-			);
+			const sendResult = await sendDCAPIResponse(session, credSelectResult.selectedCredentials);
 			logger.debug('DC API response sent:', sendResult);
 
 			if (sendResult.success) {
@@ -499,6 +512,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		}
 	};
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: baseline: pre-existing debt. should be fixed
 	useEffect(() => {
 		if (flowIsActive.current) return;
 		flowIsActive.current = true;
@@ -548,6 +562,7 @@ const OpenIDUnknownFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	const { t } = useTranslation();
 	const navigateHome = useNavigateHome();
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: baseline: pre-existing debt. should be fixed
 	useEffect(
 		() => {
 			if (callbackUrl.type === 'authorization_error') {
@@ -574,11 +589,12 @@ const OpenIDUnknownFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		},
 		// Only run once on mount. The callbackUrl is stable for the lifetime of this component, and re-running would cause duplicate error popups.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-		[]
+		[],
 	);
 
+	// biome-ignore lint/complexity/noUselessFragments: baseline: pre-existing debt. should be fixed
 	return <></>;
-}
+};
 
 const useNavigateHome = () => {
 	const navigate = useNavigate();

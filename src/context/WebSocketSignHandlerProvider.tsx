@@ -5,7 +5,7 @@
  * It should be placed inside both SessionContext and OIDFlowTransportContext.
  */
 
-import React from 'react';
+import type React from 'react';
 import { useWebSocketSignHandler } from '@/hooks/useWebSocketSignHandler';
 
 interface WebSocketSignHandlerProviderProps {
@@ -25,4 +25,5 @@ export const WebSocketSignHandlerProvider: React.FC<WebSocketSignHandlerProvider
 	return <>{children}</>;
 };
 
+// biome-ignore lint/complexity/noRedundantDefaultExport: baseline: pre-existing debt. should be fixed
 export default WebSocketSignHandlerProvider;

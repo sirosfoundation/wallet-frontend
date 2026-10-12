@@ -15,7 +15,9 @@ export const OpenidAuthorizationServerMetadataSchema = z.object({
 	scopes_supported: z.array(z.string()).optional(),
 	grant_types_supported: z.array(z.string()).optional(),
 	jwks_uri: z.string().optional(),
-	"pre-authorized_grant_anonymous_access_supported": z.boolean().optional()
+	'pre-authorized_grant_anonymous_access_supported': z.boolean().optional(),
 });
 
-export type OpenidAuthorizationServerMetadata = z.infer<typeof OpenidAuthorizationServerMetadataSchema>;
+export type OpenidAuthorizationServerMetadata = z.infer<
+	typeof OpenidAuthorizationServerMetadataSchema
+>;

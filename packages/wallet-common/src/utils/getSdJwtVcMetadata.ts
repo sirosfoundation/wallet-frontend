@@ -1,16 +1,17 @@
-import { HttpClient } from '../interfaces';
-import { verifySRI } from './verifySRIFromObject';
-import { MetadataError, MetadataWarning } from '../types';
+import type { VctDocumentProvider } from '../core';
 import { CredentialParsingError, isCredentialParsingWarnings } from '../error';
-import { TypeMetadata as TypeMetadataSchema } from "../schemas/SdJwtVcTypeMetadataSchema";
-import { VctDocumentProvider } from '../core';
+import type { HttpClient } from '../interfaces';
+import { TypeMetadata as TypeMetadataSchema } from '../schemas/SdJwtVcTypeMetadataSchema';
+import type { MetadataError, MetadataWarning } from '../types';
+import { verifySRI } from './verifySRIFromObject';
 
 function validateTypeMetadataShape(
 	metadata: unknown,
 ): { ok: true; data: TypeMetadataSchema } | { ok: false; code: CredentialParsingError } {
 	const res = TypeMetadataSchema.safeParse(metadata);
 	if (!res.success) {
-		console.error("❌ Type Metadata shape validation failed:", res.error.issues);
+		// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
+		console.error('❌ Type Metadata shape validation failed:', res.error.issues);
 		return { ok: false, code: CredentialParsingError.SchemaShapeFail };
 	}
 	return { ok: true, data: res.data };
@@ -18,23 +19,26 @@ function validateTypeMetadataShape(
 
 function handleMetadataCode(
 	code: CredentialParsingError,
-	warnings: MetadataWarning[]
+	warnings: MetadataWarning[],
 ): MetadataError | undefined {
-
 	if (isCredentialParsingWarnings(code)) {
 		warnings.push({ code });
 		return undefined; // continue flow
 	} else {
+		// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
 		console.warn(`❌ Metadata Error [${code}]`);
 		return { error: code }; // now error
 	}
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 function deepMerge(parent: any, child: any): any {
-
 	if (Array.isArray(parent) && Array.isArray(child)) {
 		// Merge display[] by locale
 		if (parent[0]?.locale && child[0]?.locale) {
+			// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 			const map = new Map<string, any>();
 
 			for (const item of parent) {
@@ -54,6 +58,7 @@ function deepMerge(parent: any, child: any): any {
 
 		// Merge claims[] by path
 		if (parent[0]?.path && child[0]?.path) {
+			// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 			const map = new Map<string, any>();
 
 			for (const item of parent) {
@@ -82,10 +87,15 @@ function deepMerge(parent: any, child: any): any {
 
 		// Otherwise, merge arrays of objects (default behavior)
 		return [...parent, ...child];
-
 	}
 
-	if (typeof parent === 'object' && typeof child === 'object' && parent !== null && child !== null) {
+	if (
+		typeof parent === 'object' &&
+		typeof child === 'object' &&
+		parent !== null &&
+		child !== null
+	) {
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 		const result: Record<string, any> = { ...parent };
 		for (const key of Object.keys(child)) {
 			if (key in parent) {
@@ -101,6 +111,9 @@ function deepMerge(parent: any, child: any): any {
 	return child;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+// biome-ignore lint/complexity/useMaxParams: baseline: pre-existing debt. should be fixed
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 async function fetchAndMergeMetadata(
 	vctResolutionEngine: VctDocumentProvider | undefined,
 	subtle: SubtleCrypto,
@@ -108,9 +121,8 @@ async function fetchAndMergeMetadata(
 	metadataId: string,
 	visited = new Set<string>(),
 	integrity?: string,
-	warnings: MetadataWarning[] = []
+	warnings: MetadataWarning[] = [],
 ): Promise<TypeMetadataSchema | MetadataError | undefined> {
-
 	if (visited.has(metadataId)) {
 		const resultCode = handleMetadataCode(CredentialParsingError.InfiniteRecursion, warnings);
 		if (resultCode) return resultCode;
@@ -128,7 +140,7 @@ async function fetchAndMergeMetadata(
 		const maybe = await vctResolutionEngine.getVctMetadataDocument(metadataId);
 		if (maybe?.ok) {
 			metadata = maybe.value as TypeMetadataSchema;
-		} else if (maybe?.error === "invalid_schema") {
+		} else if (maybe?.error === 'invalid_schema') {
 			const resultCode = handleMetadataCode(CredentialParsingError.SchemaShapeFail, warnings);
 			if (resultCode) return resultCode;
 		}
@@ -138,13 +150,18 @@ async function fetchAndMergeMetadata(
 	if (!metadata && isValidHttpUrl(metadataId)) {
 		// wantRaw only when there is a digest to check against: it changes how
 		// the body is parsed, and no other caller needs that.
-		const res = await httpClient.get(metadataId, {}, { useCache: true, wantRaw: Boolean(integrity) });
+		const res = await httpClient.get(
+			metadataId,
+			{},
+			{ useCache: true, wantRaw: Boolean(integrity) },
+		);
 
 		if (
 			res &&
 			res.status === 200 &&
 			typeof res.data === 'object' &&
 			res.data !== null &&
+			// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 			'vct' in (res.data as any)
 		) {
 			const validated = validateTypeMetadataShape(res.data);
@@ -152,7 +169,6 @@ async function fetchAndMergeMetadata(
 			if (!validated.ok) {
 				const resultCode = handleMetadataCode(validated.code, warnings);
 				if (resultCode) return resultCode;
-
 			} else {
 				metadata = validated.data as TypeMetadataSchema;
 				rawMetadata = res.raw;
@@ -170,11 +186,21 @@ async function fetchAndMergeMetadata(
 		}
 	}
 
+	// biome-ignore lint/suspicious/noImplicitAnyLet: baseline: pre-existing debt. should be fixed
+	// biome-ignore lint/suspicious/noEvolvingTypes: baseline: pre-existing debt. should be fixed
 	let merged;
 
 	if (typeof metadata.extends === 'string') {
 		const childIntegrity = metadata['extends#integrity'] as string | undefined;
-		const parent = await fetchAndMergeMetadata(vctResolutionEngine, subtle, httpClient, metadata.extends, visited, childIntegrity, warnings);
+		const parent = await fetchAndMergeMetadata(
+			vctResolutionEngine,
+			subtle,
+			httpClient,
+			metadata.extends,
+			visited,
+			childIntegrity,
+			warnings,
+		);
 		if (parent === undefined) {
 			const resultCode = handleMetadataCode(CredentialParsingError.NotFoundExtends, warnings);
 			if (resultCode) return resultCode;
@@ -188,32 +214,48 @@ async function fetchAndMergeMetadata(
 	return merged;
 }
 
-export async function resolveIssuerMetadata(httpClient: any, issuerUrl: string): Promise<{ code: CredentialParsingError } | undefined> {
+export async function resolveIssuerMetadata(
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+	httpClient: any,
+	issuerUrl: string,
+): Promise<{ code: CredentialParsingError } | undefined> {
 	try {
 		const issUrl = new URL(issuerUrl);
 
 		// RFC 8414 well-known URI construction
-		const result = await httpClient.get(`${issUrl.origin}/.well-known/jwt-vc-issuer${issUrl.pathname}`, {}, { useCache: true }) as {
+		const result = (await httpClient.get(
+			`${issUrl.origin}/.well-known/jwt-vc-issuer${issUrl.pathname}`,
+			{},
+			{ useCache: true },
+		)) as {
 			data: { issuer: string };
 		};
 
 		if (
 			result &&
 			typeof result === 'object' &&
-			('data' in result) &&
+			'data' in result &&
+			// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 			typeof (result as any).data === 'object' &&
+			// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 			typeof (result as any).data.issuer === 'string'
 		) {
 			// Compare against the full issuer identifier (origin + path), not just origin.
 			// A path-scoped issuer (e.g. https://host/issuer/) will advertise
 			// that full identifier in the metadata document.
+			// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 			const normalizedIssuer = issUrl.origin + issUrl.pathname.replace(/\/$/, '');
-			if (result.data.issuer !== normalizedIssuer && result.data.issuer !== issUrl.origin + issUrl.pathname) {
+			if (
+				result.data.issuer !== normalizedIssuer &&
+				result.data.issuer !== issUrl.origin + issUrl.pathname
+			) {
 				return { code: CredentialParsingError.JwtVcIssuerMismatch };
 			}
 		}
 
 		return undefined;
+		// biome-ignore lint/complexity/noUselessCatchBinding: baseline: pre-existing debt. should be fixed
+		// biome-ignore lint/correctness/noUnusedVariables: baseline: pre-existing debt. should be fixed
 	} catch (err) {
 		return { code: CredentialParsingError.JwtVcIssuerFail };
 	}
@@ -228,10 +270,20 @@ function isValidHttpUrl(value: string): boolean {
 	}
 }
 
-export async function getSdJwtVcMetadata(vctResolutionEngine: VctDocumentProvider | undefined, subtle : SubtleCrypto, httpClient: HttpClient, vct: string, vctIntegrity: string | undefined, warnings: MetadataWarning[] = []): Promise<{ credentialMetadata: TypeMetadataSchema | undefined; warnings: MetadataWarning[] } | MetadataError> {
+// biome-ignore lint/complexity/useMaxParams: baseline: pre-existing debt. should be fixed
+export async function getSdJwtVcMetadata(
+	vctResolutionEngine: VctDocumentProvider | undefined,
+	subtle: SubtleCrypto,
+	httpClient: HttpClient,
+	vct: string,
+	vctIntegrity: string | undefined,
+	warnings: MetadataWarning[] = [],
+): Promise<
+	| { credentialMetadata: TypeMetadataSchema | undefined; warnings: MetadataWarning[] }
+	| MetadataError
+> {
 	try {
 		if (vct && typeof vct === 'string') {
-
 			// TODO: Move to SDJWTVCVerifier
 			// Check jwt-vc-issuer by iss
 			// if (isValidHttpUrl(vct)) {
@@ -243,15 +295,24 @@ export async function getSdJwtVcMetadata(vctResolutionEngine: VctDocumentProvide
 			// }
 
 			try {
-				const mergedMetadata = await fetchAndMergeMetadata(vctResolutionEngine, subtle, httpClient, vct, new Set(), vctIntegrity, warnings);
+				const mergedMetadata = await fetchAndMergeMetadata(
+					vctResolutionEngine,
+					subtle,
+					httpClient,
+					vct,
+					new Set(),
+					vctIntegrity,
+					warnings,
+				);
 				if (mergedMetadata) {
 					if ('error' in mergedMetadata) {
-						return { error: mergedMetadata.error }
+						return { error: mergedMetadata.error };
 					} else {
 						return { credentialMetadata: mergedMetadata, warnings };
 					}
 				}
 			} catch (e) {
+				// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
 				console.warn('Invalid vct URL:', vct, e);
 			}
 		}
@@ -260,8 +321,8 @@ export async function getSdJwtVcMetadata(vctResolutionEngine: VctDocumentProvide
 		warnings.push({ code: CredentialParsingError.NotFound });
 
 		return { credentialMetadata: undefined, warnings };
-	}
-	catch (err) {
+	} catch (err) {
+		// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
 		console.log(err);
 		return { error: CredentialParsingError.UnknownError };
 	}

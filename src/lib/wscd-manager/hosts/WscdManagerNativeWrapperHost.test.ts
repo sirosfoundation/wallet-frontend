@@ -1,11 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 import type { NativeWrapper } from '@/lib/native-wrapper/types';
-import {
-	WscdHostStrength,
-	WscdManagerHosts,
-	WscdPlugin,
-	type WscdContainer,
-} from '../resources';
+import { type WscdContainer, WscdHostStrength, WscdManagerHosts, WscdPlugin } from '../resources';
 import type { AuthFactor, WscdEligibilityRequirements } from '../types';
 import { ensureEncodedWscdContainer } from '../utils';
 import { WscdManagerNativeWrapperHost } from './WscdManagerNativeWrapperHost';
@@ -86,25 +81,20 @@ describe('WscdManagerNativeWrapperHost', () => {
 	describe('isEligible', () => {
 		it('supports every plugin', async () => {
 			for (const plugin of Object.values(WscdPlugin)) {
-				await expect(host.isEligible(requirements({ plugin }))).resolves.toBe(
-					true,
-				);
+				// biome-ignore lint/performance/noAwaitInLoops: baseline: pre-existing debt. should be fixed
+				await expect(host.isEligible(requirements({ plugin }))).resolves.toBe(true);
 			}
 		});
 
 		it('satisfies the none and opaque-pin factors', async () => {
 			await expect(
-				host.isEligible(
-					requirements({ factors: [{ kind: 'none' }, { kind: 'opaque-pin' }] }),
-				),
+				host.isEligible(requirements({ factors: [{ kind: 'none' }, { kind: 'opaque-pin' }] })),
 			).resolves.toBe(true);
 		});
 
 		it('satisfies a webauthn factor bound to its own RP id', async () => {
 			await expect(
-				host.isEligible(
-					requirements({ factors: [{ kind: 'webauthn', rpId: RPID }] }),
-				),
+				host.isEligible(requirements({ factors: [{ kind: 'webauthn', rpId: RPID }] })),
 			).resolves.toBe(true);
 		});
 
@@ -123,9 +113,7 @@ describe('WscdManagerNativeWrapperHost', () => {
 				{ kind: 'none' },
 				{ kind: 'webauthn', rpId: 'evil.example.com' },
 			];
-			await expect(host.isEligible(requirements({ factors }))).resolves.toBe(
-				false,
-			);
+			await expect(host.isEligible(requirements({ factors }))).resolves.toBe(false);
 		});
 	});
 
@@ -150,9 +138,7 @@ describe('WscdManagerNativeWrapperHost', () => {
 
 		it('propagates a bridge rejection', async () => {
 			callWscd.mockRejectedValue(new Error('bridge boom'));
-			await expect(host.sign('sw-1234', new Uint8Array())).rejects.toThrow(
-				'bridge boom',
-			);
+			await expect(host.sign('sw-1234', new Uint8Array())).rejects.toThrow('bridge boom');
 		});
 	});
 
@@ -176,9 +162,7 @@ describe('WscdManagerNativeWrapperHost', () => {
 
 		it('propagates a bridge rejection', async () => {
 			callWscd.mockRejectedValue(new Error('bridge boom'));
-			await expect(host.importContainer(container)).rejects.toThrow(
-				'bridge boom',
-			);
+			await expect(host.importContainer(container)).rejects.toThrow('bridge boom');
 		});
 	});
 

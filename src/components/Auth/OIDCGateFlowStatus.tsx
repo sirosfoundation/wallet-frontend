@@ -8,14 +8,15 @@
  * - error: Shows error message with retry option
  */
 
+import { AlertCircle, CheckCircle, LoaderCircle } from 'lucide-react';
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle, AlertCircle, LoaderCircle } from 'lucide-react';
+import type { OIDCProviderConfig } from '../../api/types';
+import type { OIDCGateState } from '../../hooks/useOIDCGate';
+import type { OIDCGatePurpose } from '../../lib/oidc';
 import Button from '../Buttons/Button';
 import OIDCGateButton from './OIDCGateButton';
-import type { OIDCGateState } from '../../hooks/useOIDCGate';
-import type { OIDCProviderConfig } from '../../api/types';
-import type { OIDCGatePurpose } from '../../lib/oidc';
 
 export interface OIDCGateFlowStatusProps {
 	/** Current state of the OIDC gate flow */
@@ -58,16 +59,11 @@ export default function OIDCGateFlowStatus({
 	if (state.status === 'idle') {
 		return (
 			<div className="space-y-4">
-				<OIDCGateButton
-					provider={provider}
-					purpose={purpose}
-					onClick={onStart}
-				/>
+				<OIDCGateButton provider={provider} purpose={purpose} onClick={onStart} />
 				<p className="text-sm text-lm-gray-600 dark:text-dm-gray-400 text-center">
 					{purpose === 'registration'
 						? t('oidcGate.registrationExplanation', { tenant: orgDisplayName })
-						: t('oidcGate.loginExplanation', { tenant: orgDisplayName })
-					}
+						: t('oidcGate.loginExplanation', { tenant: orgDisplayName })}
 				</p>
 			</div>
 		);
@@ -78,11 +74,12 @@ export default function OIDCGateFlowStatus({
 		return (
 			<div className="text-center py-4 space-y-4">
 				<div className="flex justify-center">
-					<LoaderCircle size={36} className="rounded-full text-brand-base dark:text-white animate-spin" />
+					<LoaderCircle
+						size={36}
+						className="rounded-full text-brand-base dark:text-white animate-spin"
+					/>
 				</div>
-				<p className="dark:text-white">
-					{t('oidcGate.awaitingAuth')}
-				</p>
+				<p className="dark:text-white">{t('oidcGate.awaitingAuth')}</p>
 				<p className="text-sm text-lm-gray-600 dark:text-dm-gray-400">
 					{t('oidcGate.awaitingAuthHint')}
 				</p>

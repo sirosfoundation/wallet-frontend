@@ -1,11 +1,15 @@
+import { act, renderHook } from '@testing-library/react';
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
 import React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import CredentialsContext, { type CredentialsContextValue, type ExtendedVcEntity } from '@/context/CredentialsContext';
+import CredentialsContext, {
+	type CredentialsContextValue,
+	type ExtendedVcEntity,
+} from '@/context/CredentialsContext';
+import { OIDFlowError } from '@/lib/openid-flow/errors';
 import { usePresentCredentialsFlow } from './usePresentCredentialsFlow';
 import { resolveCredentialPresentationRequest } from './utils';
-import { OIDFlowError } from '@/lib/openid-flow/errors';
 
 vi.mock('./utils', () => ({
 	resolveCredentialPresentationRequest: vi.fn(async () => ({ verifier: {}, queries: [] })),
@@ -25,9 +29,11 @@ function renderFlow(overrides: Partial<CredentialsContextValue>) {
 		vcEntityList: null,
 		latestCredentials: new Set<number>(),
 		fetchVcData: async () => null,
-		getData: async () => { },
+		// biome-ignore lint/suspicious/noEmptyBlockStatements: baseline: pre-existing debt. should be fixed
+		getData: async () => {},
 		currentSlide: 1,
-		setCurrentSlide: () => { },
+		// biome-ignore lint/suspicious/noEmptyBlockStatements: baseline: pre-existing debt. should be fixed
+		setCurrentSlide: () => {},
 		parseCredential: async () => null,
 		credentialEngine: null,
 		pendingTransactions: {},
@@ -49,12 +55,13 @@ function renderFlow(overrides: Partial<CredentialsContextValue>) {
  */
 async function startOverview(result: ReturnType<typeof renderFlow>) {
 	let rejection: unknown;
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	await act(async () => {
-		result.result.current.displayRequestOverviewScreen(
-			{} as never,
-			{ credentials: [] } as never,
-			new Map() as never,
-		).catch((err) => { rejection = err; });
+		result.result.current
+			.displayRequestOverviewScreen({} as never, { credentials: [] } as never, new Map() as never)
+			.catch((err) => {
+				rejection = err;
+			});
 	});
 	return () => rejection;
 }

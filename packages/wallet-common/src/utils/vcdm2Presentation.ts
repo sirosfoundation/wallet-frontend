@@ -1,12 +1,12 @@
-import { VCDM2_CONTEXT_V2 } from "../schemas/Vcdm2CredentialSchema";
+import { VCDM2_CONTEXT_V2 } from '../schemas/Vcdm2CredentialSchema';
+import { didKeyToJwk } from './dataIntegrity/multibase';
 import {
 	coerceCredentialObject,
 	decodeCompactJws,
 	decodeVcdm2SdJwt,
 	isVcdm2Credential,
 	looksLikeEnvelopedVcdm2,
-} from "./vcdm2";
-import { didKeyToJwk } from "./dataIntegrity/multibase";
+} from './vcdm2';
 
 /**
  * Building blocks for presenting W3C VCDM 2.0 credentials.
@@ -19,10 +19,10 @@ import { didKeyToJwk } from "./dataIntegrity/multibase";
  */
 
 /** Media type of a VCDM 2.0 credential secured with an enveloping JOSE proof. */
-export const ENVELOPED_VC_JWT_MEDIA_TYPE = "application/vc+jwt";
+export const ENVELOPED_VC_JWT_MEDIA_TYPE = 'application/vc+jwt';
 
 /** Media type of a VCDM 2.0 credential carried inside an SD-JWT. */
-export const ENVELOPED_VC_SDJWT_MEDIA_TYPE = "application/vc+sd-jwt";
+export const ENVELOPED_VC_SDJWT_MEDIA_TYPE = 'application/vc+sd-jwt';
 
 /**
  * The media type to name in an EnvelopedVerifiableCredential's `data:` URI.
@@ -58,7 +58,7 @@ export type HolderPublicJwk = {
 };
 
 export type Vcdm2Presentation = {
-	"@context": string[];
+	'@context': string[];
 	type: string[];
 	holder?: string;
 	verifiableCredential: unknown[];
@@ -75,9 +75,9 @@ export type Vcdm2Presentation = {
 export function wrapCredentialForPresentation(rawCredential: unknown): unknown {
 	if (looksLikeEnvelopedVcdm2(rawCredential) || decodeVcdm2SdJwt(rawCredential) !== null) {
 		return {
-			"@context": VCDM2_CONTEXT_V2,
+			'@context': VCDM2_CONTEXT_V2,
 			id: `data:${envelopedMediaTypeFor(rawCredential)},${rawCredential as string}`,
-			type: "EnvelopedVerifiableCredential",
+			type: 'EnvelopedVerifiableCredential',
 		};
 	}
 
@@ -86,7 +86,7 @@ export function wrapCredentialForPresentation(rawCredential: unknown): unknown {
 		return candidate;
 	}
 
-	throw new Error("Credential is not a VCDM 2.0 credential");
+	throw new Error('Credential is not a VCDM 2.0 credential');
 }
 
 /**
@@ -101,12 +101,12 @@ export function buildVcdm2Presentation(
 	options: { holder?: string } = {},
 ): Vcdm2Presentation {
 	if (rawCredentials.length === 0) {
-		throw new Error("A presentation must contain at least one credential");
+		throw new Error('A presentation must contain at least one credential');
 	}
 
 	const presentation: Vcdm2Presentation = {
-		"@context": [VCDM2_CONTEXT_V2],
-		type: ["VerifiablePresentation"],
+		'@context': [VCDM2_CONTEXT_V2],
+		type: ['VerifiablePresentation'],
 		verifiableCredential: rawCredentials.map(wrapCredentialForPresentation),
 	};
 
@@ -137,7 +137,7 @@ export function holderJwkFromCredential(rawCredential: unknown): HolderPublicJwk
 
 	if (jwtPayload) {
 		const jwk = jwtPayload?.cnf?.jwk;
-		return jwk && typeof jwk === "object" ? jwk as HolderPublicJwk : null;
+		return jwk && typeof jwk === 'object' ? (jwk as HolderPublicJwk) : null;
 	}
 
 	const candidate = coerceCredentialObject(rawCredential);
@@ -148,7 +148,7 @@ export function holderJwkFromCredential(rawCredential: unknown): HolderPublicJwk
 		? (subject[0] as Record<string, unknown> | undefined)?.id
 		: (subject as Record<string, unknown> | undefined)?.id;
 
-	if (typeof subjectId !== "string" || !subjectId.startsWith("did:key:")) return null;
+	if (typeof subjectId !== 'string' || !subjectId.startsWith('did:key:')) return null;
 
 	try {
 		return didKeyToJwk(subjectId) as HolderPublicJwk;
@@ -164,14 +164,14 @@ export function holderJwkFromCredential(rawCredential: unknown): HolderPublicJwk
 export function holderIdFromCredential(rawCredential: unknown): string | undefined {
 	const candidate = looksLikeEnvelopedVcdm2(rawCredential)
 		? decodeCompactJws(rawCredential)?.payload
-		: decodeVcdm2SdJwt(rawCredential)?.payload ?? coerceCredentialObject(rawCredential);
+		: (decodeVcdm2SdJwt(rawCredential)?.payload ?? coerceCredentialObject(rawCredential));
 
-	if (candidate === null || typeof candidate !== "object") return undefined;
+	if (candidate === null || typeof candidate !== 'object') return undefined;
 
 	const subject = (candidate as Record<string, unknown>).credentialSubject;
 	const subjectId = Array.isArray(subject)
 		? (subject[0] as Record<string, unknown> | undefined)?.id
 		: (subject as Record<string, unknown> | undefined)?.id;
 
-	return typeof subjectId === "string" ? subjectId : undefined;
+	return typeof subjectId === 'string' ? subjectId : undefined;
 }

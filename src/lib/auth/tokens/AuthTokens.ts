@@ -1,13 +1,13 @@
 import { logger } from '@/logger';
-import type { AccessTokenInterface, TokenRejectionInfo, TokenRejectionListener } from './types';
+import type { AuthServerClient } from '../auth-server/AuthServerClient';
 import { AccessToken } from './AccessToken';
-import { AuthServerClient } from '../auth-server/AuthServerClient';
+import type { AccessTokenInterface, TokenRejectionInfo, TokenRejectionListener } from './types';
 
 type AuthTokensOptions = {
-	authServerClient: AuthServerClient,
+	authServerClient: AuthServerClient;
 	tenantId: string;
-	storage: Storage,
-}
+	storage: Storage;
+};
 
 type AuthTokensManifest = typeof AuthTokens.MANIFEST;
 
@@ -29,7 +29,9 @@ export class AuthTokens {
 	readonly #tokenStoragePrefix = 'authToken';
 	readonly #tokenStorage = {
 		get: (tokenId: string): string | undefined => {
-			return this.#tokenStorageBackend.getItem(`${this.#tokenStoragePrefix}:${tokenId}`) ?? undefined;
+			return (
+				this.#tokenStorageBackend.getItem(`${this.#tokenStoragePrefix}:${tokenId}`) ?? undefined
+			);
 		},
 		store: (tokenId: string, token: AccessTokenInterface): void => {
 			this.#tokenStorageBackend.setItem(`${this.#tokenStoragePrefix}:${tokenId}`, token.raw);
@@ -38,7 +40,7 @@ export class AuthTokens {
 			this.#tokenStorageBackend.removeItem(`${this.#tokenStoragePrefix}:${tokenId}`);
 			this.#tokens.delete(tokenId);
 		},
-	}
+	};
 
 	/**
 	 * Manifest of available auth tokens.
@@ -46,16 +48,16 @@ export class AuthTokens {
 	 * expects to be able to request from the backend.
 	 */
 	static readonly MANIFEST = {
-		'backend': {
+		backend: {
 			audience: 'wallet-backend',
 			tac: 'rwlid',
 		},
-		'anonymous': {
+		anonymous: {
 			audience: 'wallet-backend',
 			tac: 'rl',
 			anonymous: true,
 		},
-	}
+	};
 
 	constructor({ authServerClient, tenantId, storage }: AuthTokensOptions) {
 		this.#authServerClient = authServerClient;
@@ -98,8 +100,9 @@ export class AuthTokens {
 	 */
 	public registerTokenRejection(name: keyof AuthTokensManifest): boolean {
 		const now = Date.now();
-		const times = (this.#tokenRejectionTimes.get(name) ?? [])
-			.filter(t => now - t < this.#tokenRejectionWindowMs);
+		const times = (this.#tokenRejectionTimes.get(name) ?? []).filter(
+			(t) => now - t < this.#tokenRejectionWindowMs,
+		);
 		times.push(now);
 
 		// Always invalidate the cached token so a retry mints a new one.
@@ -134,6 +137,7 @@ export class AuthTokens {
 	 *
 	 * @see {@link AuthTokens.ensureToken}
 	 */
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	public async ensureBackendToken(): Promise<AccessTokenInterface> {
 		return this.ensureToken('backend');
 	}
@@ -143,6 +147,7 @@ export class AuthTokens {
 	 *
 	 * @see {@link AuthTokens.ensureToken}
 	 */
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	public async ensureAnonymousToken(): Promise<AccessTokenInterface> {
 		return this.ensureToken('anonymous');
 	}
@@ -186,9 +191,12 @@ export class AuthTokens {
 	 * This checks both the in-memory cache and local storage for a token with the given name.
 	 * If `checkExpiration` is true, it will also check if the token is expired.
 	 */
-	public tokenExists(name: keyof typeof AuthTokens.MANIFEST, checkExpiration: boolean = true): boolean {
+	public tokenExists(
+		name: keyof typeof AuthTokens.MANIFEST,
+		checkExpiration: boolean = true,
+	): boolean {
 		const existing = this.#tokens.get(name);
-		if (existing && (!checkExpiration || !existing.isExpired())) return true;
+		if (existing && !(checkExpiration && existing.isExpired())) return true;
 
 		const jwt = this.#tokenStorage.get(name);
 		if (!jwt) return false;
@@ -227,7 +235,10 @@ export class AuthTokens {
 	 *
 	 * @param name The name of the token to refresh. Must be present in the {@link AuthTokens.MANIFEST}.
 	 */
-	public async forceRefreshToken(name: keyof typeof AuthTokens.MANIFEST): Promise<AccessTokenInterface> {
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
+	public async forceRefreshToken(
+		name: keyof typeof AuthTokens.MANIFEST,
+	): Promise<AccessTokenInterface> {
 		this.#tokenStorage.clear(name);
 		return this.ensureToken(name);
 	}
@@ -237,6 +248,7 @@ export class AuthTokens {
 	 * This is typically called on logout or when the session is cleared.
 	 * It does not notify listeners of token rejections.
 	 */
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	async clear(): Promise<void> {
 		for (const name of this.#tokens.keys()) {
 			this.#tokenStorage.clear(name);
@@ -258,16 +270,14 @@ export class AuthTokens {
 			);
 
 			return new AccessToken(data.access_token);
-		}
+		};
 		try {
 			return await task();
 		} catch (error) {
 			if (
 				error?.response?.status === 401 &&
-				(
-					error?.response?.data?.error === 'invalid or expired session' ||
-					error?.response?.data?.error === 'authentication required'
-				)
+				(error?.response?.data?.error === 'invalid or expired session' ||
+					error?.response?.data?.error === 'authentication required')
 			) {
 				await this.#recoverSession();
 				return await task();
@@ -284,11 +294,12 @@ export class AuthTokens {
 			try {
 				this.#tokens.set(name, new AccessToken(jwt));
 			} catch {
-				logger.error(`Failed to parse access token: ${name}`)
+				logger.error(`Failed to parse access token: ${name}`);
 			}
 		}
 	}
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	async #recoverSession(): Promise<void> {
 		if (this.#sessionRecoveryInFlight instanceof Promise) {
 			return this.#sessionRecoveryInFlight;
@@ -296,9 +307,7 @@ export class AuthTokens {
 
 		this.#sessionRecoveryInFlight = (async () => {
 			try {
-				await Promise.all(
-					[...this.#sessionRecoveryListeners].map(listener => listener())
-				);
+				await Promise.all([...this.#sessionRecoveryListeners].map((listener) => listener()));
 			} finally {
 				this.#sessionRecoveryInFlight = null;
 			}

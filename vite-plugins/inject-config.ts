@@ -1,8 +1,9 @@
 import { resolve } from 'node:path';
-import { Plugin } from 'vite';
+import type { Plugin } from 'vite';
 import { EnvConfigMapSchema, getBrandingHash, injectConfigFiles, injectHtml } from '../config';
-import { Tag } from '../config/utils/resources';
+import type { Tag } from '../config/utils/resources';
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 export function InjectConfigPlugin(env: Record<string, string>): Plugin {
 	const config = EnvConfigMapSchema.parse(env);
 
@@ -12,11 +13,12 @@ export function InjectConfigPlugin(env: Record<string, string>): Plugin {
 	process.env.BRANDING_HASH = brandingHash; // import.meta.env.BRANDING_HASH works in TS/JS
 	env.BRANDING_HASH = brandingHash; // BRANDING_HASH% works in index.html
 
-	const runInjectConfigFiles = () => injectConfigFiles({
-		destDir: resolve('public'),
-		config,
-		tagsToInject,
-	});
+	const runInjectConfigFiles = () =>
+		injectConfigFiles({
+			destDir: resolve('public'),
+			config,
+			tagsToInject,
+		});
 
 	return {
 		name: 'inject-config',
@@ -28,12 +30,12 @@ export function InjectConfigPlugin(env: Record<string, string>): Plugin {
 					config,
 					brandingHash: env.BRANDING_HASH,
 					tagsToInject,
-				})
+				});
 
 				return {
 					html,
 					tags: [], // No additional tags to inject since we're directly modifying the HTML string
-				}
+				};
 			},
 		},
 		async buildStart() {
@@ -44,6 +46,7 @@ export function InjectConfigPlugin(env: Record<string, string>): Plugin {
 
 			server.watcher.on('change', async (file) => {
 				if (file.endsWith('.env')) {
+					// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
 					console.log('Environment file changed. Reinjecting config...');
 					await runInjectConfigFiles();
 				}

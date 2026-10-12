@@ -1,6 +1,6 @@
-import { resolve } from 'node:path';
-import { EnvConfigMap } from '../config';
 import { writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import type { EnvConfigMap } from '../config';
 
 /**
  * Generates a sitemap.xml file.

@@ -1,27 +1,42 @@
-import { CredentialParsingError } from "../error";
-import { Context, CredentialParser, HttpClient, CredentialIssuerInfo } from "../interfaces";
-import { MetadataWarning, TypeMetadataResult, VerifiableCredentialFormat } from "../types";
-import { JwtVcJsonHeaderSchema, JwtVcJsonPayloadSchema } from "../schemas/JwtVcJsonPayloadSchema";
-import { CustomCredentialSvg } from "../functions/CustomCredentialSvg";
-import { getIssuerMetadata } from "../utils/getIssuerMetadata";
-import { convertOpenid4vciToSdjwtvcClaims } from "../functions/convertOpenid4vciToSdjwtvcClaims";
-import { dataUriResolver } from "../resolvers/dataUriResolver";
-import { friendlyNameResolver } from "../resolvers/friendlyNameResolver";
-import { renderingResolver } from "../resolvers/renderingResolver";
-import { fromBase64Url } from "../utils";
-import type { IAuthZENClient } from "../authzen/AuthZENClient";
+import type { IAuthZENClient } from '../authzen/AuthZENClient';
+import { CredentialParsingError } from '../error';
+import { CustomCredentialSvg } from '../functions/CustomCredentialSvg';
+import { convertOpenid4vciToSdjwtvcClaims } from '../functions/convertOpenid4vciToSdjwtvcClaims';
+import {
+	type Context,
+	// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
+	CredentialIssuerInfo,
+	type CredentialParser,
+	type HttpClient,
+} from '../interfaces';
+import { dataUriResolver } from '../resolvers/dataUriResolver';
+import { friendlyNameResolver } from '../resolvers/friendlyNameResolver';
+import { renderingResolver } from '../resolvers/renderingResolver';
+import { JwtVcJsonHeaderSchema, JwtVcJsonPayloadSchema } from '../schemas/JwtVcJsonPayloadSchema';
+import {
+	type MetadataWarning,
+	type TypeMetadataResult,
+	VerifiableCredentialFormat,
+} from '../types';
+import { fromBase64Url } from '../utils';
+import { getIssuerMetadata } from '../utils/getIssuerMetadata';
 
-export function JWTVCJSONParser(args: { context: Context, httpClient: HttpClient, authzenClient?: IAuthZENClient }): CredentialParser {
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
+export function JWTVCJSONParser(args: {
+	context: Context;
+	httpClient: HttpClient;
+	authzenClient?: IAuthZENClient;
+}): CredentialParser {
 	const decoder = new TextDecoder();
 
 	function canParseJwtVcJson(raw: unknown): raw is string {
-		if (typeof raw !== "string") return false;
+		if (typeof raw !== 'string') return false;
 
-		const parts = raw.split(".");
+		const parts = raw.split('.');
 		if (parts.length !== 3) return false;
 
 		// Exclude SD-JWT (contains ~) — the SDJWTVCParser handles those
-		if (raw.includes("~")) return false;
+		if (raw.includes('~')) return false;
 
 		try {
 			const header = JSON.parse(decoder.decode(fromBase64Url(parts[0])));
@@ -36,7 +51,7 @@ export function JWTVCJSONParser(args: { context: Context, httpClient: HttpClient
 			// JWT VC JSON must have a vc claim with non-empty type array
 			// This prevents matching generic JWTs (ID tokens, access tokens, etc.)
 			const payload = JSON.parse(decoder.decode(fromBase64Url(parts[1])));
-			if (!payload.vc || !Array.isArray(payload.vc.type) || payload.vc.type.length === 0) {
+			if (!(payload.vc && Array.isArray(payload.vc.type)) || payload.vc.type.length === 0) {
 				return false;
 			}
 
@@ -46,8 +61,10 @@ export function JWTVCJSONParser(args: { context: Context, httpClient: HttpClient
 		}
 	}
 
-	function extractValidityInfo(payload: { exp?: number, iat?: number, nbf?: number }): {
-		validUntil?: Date, validFrom?: Date, signed?: Date
+	function extractValidityInfo(payload: { exp?: number; iat?: number; nbf?: number }): {
+		validUntil?: Date;
+		validFrom?: Date;
+		signed?: Date;
 	} {
 		const obj: { validUntil?: Date; validFrom?: Date; signed?: Date } = {};
 		if (payload.exp) {
@@ -63,8 +80,9 @@ export function JWTVCJSONParser(args: { context: Context, httpClient: HttpClient
 	}
 
 	return {
+		// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+		// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 		async parse({ rawCredential, credentialIssuer }) {
-
 			if (!canParseJwtVcJson(rawCredential)) {
 				return {
 					success: false,
@@ -74,7 +92,9 @@ export function JWTVCJSONParser(args: { context: Context, httpClient: HttpClient
 
 			const warnings: MetadataWarning[] = [];
 
-			const parts = rawCredential.split(".");
+			const parts = rawCredential.split('.');
+			// biome-ignore lint/suspicious/noImplicitAnyLet: baseline: pre-existing debt. should be fixed
+			// biome-ignore lint/suspicious/noEvolvingTypes: baseline: pre-existing debt. should be fixed
 			let header, payload;
 			try {
 				header = JSON.parse(decoder.decode(fromBase64Url(parts[0])));
@@ -110,15 +130,25 @@ export function JWTVCJSONParser(args: { context: Context, httpClient: HttpClient
 			const vcTypes: string[] = validatedPayload.vc?.type ?? [];
 
 			// Fetch issuer metadata if available
-			const { metadata: issuerMetadata } = await getIssuerMetadata(args.httpClient, validatedPayload.iss, warnings, true, args.authzenClient);
+			const { metadata: issuerMetadata } = await getIssuerMetadata(
+				args.httpClient,
+				validatedPayload.iss,
+				warnings,
+				true,
+				args.authzenClient,
+			);
 
 			const credentialIssuerMetadata = credentialIssuer?.credentialConfigurationId
-				? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]
+				? issuerMetadata?.credential_configurations_supported?.[
+						credentialIssuer.credentialConfigurationId
+					]
 				: undefined;
 
 			let TypeMetadata: TypeMetadataResult = {};
 			if (credentialIssuerMetadata?.credential_metadata?.claims) {
-				const convertedClaims = convertOpenid4vciToSdjwtvcClaims(credentialIssuerMetadata.credential_metadata.claims);
+				const convertedClaims = convertOpenid4vciToSdjwtvcClaims(
+					credentialIssuerMetadata.credential_metadata.claims,
+				);
 				if (convertedClaims?.length) {
 					TypeMetadata = { claims: convertedClaims };
 				}
@@ -129,14 +159,14 @@ export function JWTVCJSONParser(args: { context: Context, httpClient: HttpClient
 
 			const friendlyName = friendlyNameResolver({
 				issuerDisplayArray,
-				fallbackName: "JWT Verifiable Credential",
+				fallbackName: 'JWT Verifiable Credential',
 			});
 
 			const dataUri = dataUriResolver({
 				httpClient: args.httpClient,
 				customRenderer: renderer,
 				issuerDisplayArray,
-				fallbackName: "JWT Verifiable Credential",
+				fallbackName: 'JWT Verifiable Credential',
 			});
 
 			const rendering = renderingResolver({ issuerDisplayArray });
@@ -157,8 +187,8 @@ export function JWTVCJSONParser(args: { context: Context, httpClient: HttpClient
 							name: friendlyName,
 						},
 						issuer: {
-							id: validatedPayload.iss ?? "UnknownIssuer",
-							name: validatedPayload.iss ?? "UnknownIssuer",
+							id: validatedPayload.iss ?? 'UnknownIssuer',
+							name: validatedPayload.iss ?? 'UnknownIssuer',
 						},
 					},
 					validityInfo: {

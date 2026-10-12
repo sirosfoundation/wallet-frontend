@@ -1,12 +1,18 @@
 import { SDJwt } from '@sd-jwt/core';
+// biome-ignore lint/performance/noNamespaceImport: baseline: pre-existing debt. should be fixed
 import * as jose from 'jose';
-import { fromPemToPKIJSCertificate, toPem, validateChain, getPublicKeyFromB64Cert } from '../../utils/pki';
 import { logger } from '@/logger';
+import {
+	fromPemToPKIJSCertificate,
+	getPublicKeyFromB64Cert,
+	toPem,
+	validateChain,
+} from '../../utils/pki';
 
 export async function verifySdJwtBasedOnTrustAnchors(credential: string) {
-	let cred = credential.split('~')[0];
+	const cred = credential.split('~')[0];
 
-	const { x5c } = JSON.parse(new TextDecoder().decode(jose.base64url.decode(cred.split('.')[0])))
+	const { x5c } = JSON.parse(new TextDecoder().decode(jose.base64url.decode(cred.split('.')[0])));
 	const chain = x5c.map((c) => {
 		const cert = fromPemToPKIJSCertificate(toPem(c));
 		return cert;
@@ -38,7 +44,10 @@ export async function verifySdJwtBasedOnTrustAnchors(credential: string) {
  * @param requestedClaims - Dot-separated claim paths, e.g. ["email", "address.street"]
  * @returns SD-JWT string with only the requested disclosures
  */
-export async function applySelectiveDisclosure(rawCredential: string, requestedClaims: string[]): Promise<string> {
+export async function applySelectiveDisclosure(
+	rawCredential: string,
+	requestedClaims: string[],
+): Promise<string> {
 	const hasDisclosures = rawCredential.split('~').length - 1 > 1;
 	if (!hasDisclosures) {
 		return rawCredential;
@@ -62,9 +71,7 @@ export async function prepareSdJwtPresentation(
 ): Promise<{ kid: string; sdJwt: string; signingInput: string }> {
 	const { cnf, kid } = await resolveHolderKey(rawCredential);
 
-	const sdJwt = rawCredential.endsWith('~')
-		? rawCredential
-		: `${rawCredential}~`;
+	const sdJwt = rawCredential.endsWith('~') ? rawCredential : `${rawCredential}~`;
 
 	const sdHash = await resolveSdHash(sdJwt);
 
@@ -82,15 +89,14 @@ export async function prepareSdJwtPresentation(
 		...transactionDataResponseParams,
 	};
 
-	const signingInput = [header, payload].map(
-		(obj) => {
-			const
-				json = JSON.stringify(obj),
+	const signingInput = [header, payload]
+		.map((obj) => {
+			const json = JSON.stringify(obj),
 				input = new TextEncoder().encode(json),
 				encoded = jose.base64url.encode(input);
 			return encoded;
-		}
-	).join('.');
+		})
+		.join('.');
 
 	return { kid, sdJwt, signingInput };
 }
@@ -115,8 +121,7 @@ async function resolveHolderKey(rawCredential: string): Promise<HolderKeyResolut
  * Resolves the SD-JWT hash from the raw credential.
  */
 async function resolveSdHash(rawCredential: string): Promise<string> {
-	const
-		data = new TextEncoder().encode(rawCredential),
+	const data = new TextEncoder().encode(rawCredential),
 		digest = await crypto.subtle.digest('SHA-256', data),
 		hash = new Uint8Array(digest);
 	return jose.base64url.encode(hash);
@@ -156,8 +161,6 @@ function claimPathsToFrame(claimPaths: string[]): Record<string, unknown> {
 
 /** SHA-256 hasher compatible with @sd-jwt/core */
 async function sha256Hasher(data: string | ArrayBuffer, alg: string): Promise<Uint8Array> {
-	const bytes = typeof data === 'string'
-		? new TextEncoder().encode(data)
-		: new Uint8Array(data);
+	const bytes = typeof data === 'string' ? new TextEncoder().encode(data) : new Uint8Array(data);
 	return new Uint8Array(await crypto.subtle.digest(alg, bytes));
 }

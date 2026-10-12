@@ -1,12 +1,10 @@
-import { describe, expect, it, beforeEach, vi, type Mock } from 'vitest';
-import * as jose from 'jose';
 import { SDJwt } from '@sd-jwt/core';
-import { validateChain } from '../../utils/pki';
+// biome-ignore lint/performance/noNamespaceImport: baseline: pre-existing debt. should be fixed
+import * as jose from 'jose';
+import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 import { logger } from '@/logger';
-import {
-	verifySdJwtBasedOnTrustAnchors,
-	applySelectiveDisclosure,
-} from './sd-jwt';
+import { validateChain } from '../../utils/pki';
+import { applySelectiveDisclosure, verifySdJwtBasedOnTrustAnchors } from './sd-jwt';
 
 vi.mock('../../utils/pki', () => ({
 	fromPemToPKIJSCertificate: vi.fn(() => ({})),
@@ -35,6 +33,7 @@ const mockJwtVerify = jose.jwtVerify as Mock;
 const mockFromEncode = SDJwt.fromEncode as unknown as Mock;
 const mockLoggerError = logger.error as Mock;
 
+// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 describe('verifySdJwtBasedOnTrustAnchors', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -91,10 +90,10 @@ describe('applySelectiveDisclosure', () => {
 		const present = vi.fn().mockResolvedValue('presented-sd-jwt');
 		mockFromEncode.mockResolvedValue({ present });
 
-		const result = await applySelectiveDisclosure(
-			'header.payload.sig~disclosure1~disclosure2~',
-			['email', 'address.street'],
-		);
+		const result = await applySelectiveDisclosure('header.payload.sig~disclosure1~disclosure2~', [
+			'email',
+			'address.street',
+		]);
 
 		expect(result).toBe('presented-sd-jwt');
 		expect(present).toHaveBeenCalledWith(

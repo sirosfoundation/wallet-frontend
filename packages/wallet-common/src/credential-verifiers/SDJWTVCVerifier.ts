@@ -1,11 +1,16 @@
-import { SDJwt } from "@sd-jwt/core";
-import type { HasherAndAlg } from "@sd-jwt/types";
-import { Context, CredentialVerifier, PublicKeyResolverEngineI, HttpClient } from "../interfaces";
-import { CredentialVerificationError } from "../error";
-import { CustomResult } from "../types";
-import { importJWK, importX509, JWK, jwtVerify, KeyLike } from "jose";
-import { fromBase64Url, toBase64Url } from "../utils/util";
-import { verifyCertificate } from "../utils/verifyCertificate";
+import { SDJwt } from '@sd-jwt/core';
+import type { HasherAndAlg } from '@sd-jwt/types';
+import { importJWK, importX509, type JWK, jwtVerify, type KeyLike } from 'jose';
+import { CredentialVerificationError } from '../error';
+import type {
+	Context,
+	CredentialVerifier,
+	HttpClient,
+	PublicKeyResolverEngineI,
+} from '../interfaces';
+import type { CustomResult } from '../types';
+import { fromBase64Url, toBase64Url } from '../utils/util';
+import { verifyCertificate } from '../utils/verifyCertificate';
 
 type ParsedSdJwtVcWithPrettyClaims = Record<string, unknown> & {
 	cnf?: {
@@ -13,11 +18,16 @@ type ParsedSdJwtVcWithPrettyClaims = Record<string, unknown> & {
 	};
 };
 
-export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: PublicKeyResolverEngineI, httpClient: HttpClient }): CredentialVerifier {
-	let errors: { error: CredentialVerificationError, message: string }[] = [];
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
+export function SDJWTVCVerifier(args: {
+	context: Context;
+	pkResolverEngine: PublicKeyResolverEngineI;
+	httpClient: HttpClient;
+}): CredentialVerifier {
+	let errors: { error: CredentialVerificationError; message: string }[] = [];
 	const logError = (error: CredentialVerificationError, message: string): void => {
 		errors.push({ error, message });
-	}
+	};
 
 	const encoder = new TextEncoder();
 	const decoder = new TextDecoder();
@@ -25,8 +35,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 	// Encoding the string into a Uint8Array
 	const hasherAndAlgorithm: HasherAndAlg = {
 		hasher: (data: string | ArrayBuffer, alg: string) => {
-			const encoded =
-				typeof data === 'string' ? encoder.encode(data) : new Uint8Array(data);
+			const encoded = typeof data === 'string' ? encoder.encode(data) : new Uint8Array(data);
 
 			return args.context.subtle.digest(alg, encoded).then((v) => new Uint8Array(v));
 		},
@@ -36,77 +45,105 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 	const parse = async (rawCredential: string) => {
 		try {
 			const credential = await SDJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher);
-			const parsedSdJwtWithPrettyClaims = await (await SDJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher)).getClaims<ParsedSdJwtVcWithPrettyClaims>(hasherAndAlgorithm.hasher);
+			const parsedSdJwtWithPrettyClaims = await (
+				await SDJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher)
+			).getClaims<ParsedSdJwtVcWithPrettyClaims>(hasherAndAlgorithm.hasher);
 			return { credential, parsedSdJwtWithPrettyClaims };
-		}
-		catch (err) {
+		} catch (err) {
 			if (err instanceof Error) {
-				logError(CredentialVerificationError.InvalidFormat, "Invalid format. Error: " + err.name + ": " + err.message);
+				logError(
+					CredentialVerificationError.InvalidFormat,
+					// biome-ignore lint/style/useTemplate: baseline: pre-existing debt. should be fixed
+					'Invalid format. Error: ' + err.name + ': ' + err.message,
+				);
 			}
 			return CredentialVerificationError.InvalidFormat;
 		}
+	};
 
-	}
-
-	const getHolderPublicKey = async (rawCredential: string): Promise<CustomResult<Uint8Array | KeyLike, CredentialVerificationError>> => {
+	const getHolderPublicKey = async (
+		rawCredential: string,
+	): Promise<CustomResult<Uint8Array | KeyLike, CredentialVerificationError>> => {
 		const parseResult = await parse(rawCredential);
 		if (parseResult === CredentialVerificationError.InvalidFormat) {
 			return {
 				success: false,
 				error: CredentialVerificationError.InvalidFormat,
-			}
+			};
 		}
 		const cnf = parseResult.parsedSdJwtWithPrettyClaims.cnf;
 
-		if (cnf?.jwk && parseResult.credential.jwt && parseResult.credential.jwt.header && typeof parseResult.credential.jwt.header["alg"] === 'string') {
+		if (
+			// biome-ignore lint/complexity/useOptionalChain: baseline: pre-existing debt. should be fixed
+			cnf?.jwk &&
+			parseResult.credential.jwt &&
+			parseResult.credential.jwt.header &&
+			// biome-ignore lint/complexity/useLiteralKeys: baseline: pre-existing debt. should be fixed
+			typeof parseResult.credential.jwt.header['alg'] === 'string'
+		) {
 			try {
-				const holderPublicKey = await importJWK(cnf.jwk, parseResult.credential.jwt.header["alg"]);
+				// biome-ignore lint/complexity/useLiteralKeys: baseline: pre-existing debt. should be fixed
+				const holderPublicKey = await importJWK(cnf.jwk, parseResult.credential.jwt.header['alg']);
 				return {
 					success: true,
 					value: holderPublicKey,
-				}
-			}
-			catch (err: any) {
-				logError(CredentialVerificationError.CannotImportHolderPublicKey, `Error on getHolderPublicKey(): Could not import holder's public key. Cause: ${err.message}`);
+				};
+				// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+			} catch (err: any) {
+				logError(
+					CredentialVerificationError.CannotImportHolderPublicKey,
+					`Error on getHolderPublicKey(): Could not import holder's public key. Cause: ${err.message}`,
+				);
 				return {
 					success: false,
 					error: CredentialVerificationError.CannotImportHolderPublicKey,
-				}
+				};
 			}
-
 		}
 		return {
 			success: false,
-			error: CredentialVerificationError.CannotExtractHolderPublicKey
-		}
+			error: CredentialVerificationError.CannotExtractHolderPublicKey,
+		};
+	};
 
-	}
-
-	const verifyIssuerSignature = async (rawCredential: string): Promise<CustomResult<{}, CredentialVerificationError>> => {
+	// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
+	const verifyIssuerSignature = async (
+		rawCredential: string,
+		// biome-ignore lint/complexity/noBannedTypes: baseline: pre-existing debt. should be fixed
+	): Promise<CustomResult<{}, CredentialVerificationError>> => {
 		const parsedSdJwt = await (async () => {
 			try {
 				return (await SDJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher)).jwt;
-			}
-			catch (err) {
+			} catch (err) {
 				if (err instanceof Error) {
-					logError(CredentialVerificationError.InvalidFormat, "Invalid format. Error: " + err.name + ": " + err.message);
+					logError(
+						CredentialVerificationError.InvalidFormat,
+						// biome-ignore lint/style/useTemplate: baseline: pre-existing debt. should be fixed
+						'Invalid format. Error: ' + err.name + ': ' + err.message,
+					);
 				}
 				return CredentialVerificationError.InvalidFormat;
 			}
 		})();
 
 		if (parsedSdJwt === CredentialVerificationError.InvalidFormat) {
-			logError(CredentialVerificationError.InvalidFormat, "Invalid format");
+			logError(CredentialVerificationError.InvalidFormat, 'Invalid format');
 			return {
 				success: false,
-				error: CredentialVerificationError.InvalidFormat
-			}
+				error: CredentialVerificationError.InvalidFormat,
+			};
 		}
 
-		const getIssuerPublicKey = async (): Promise<CustomResult<Uint8Array | KeyLike, CredentialVerificationError>> => {
-			const x5c = (parsedSdJwt?.header?.x5c as string[]) ?? "";
-			const alg = (parsedSdJwt?.header?.alg as string) ?? "";
-			if (x5c && x5c instanceof Array && x5c.length > 0 && typeof alg === 'string') { // extract public key from certificate
+		// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
+		const getIssuerPublicKey = async (): Promise<
+			CustomResult<Uint8Array | KeyLike, CredentialVerificationError>
+			// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+		> => {
+			const x5c = (parsedSdJwt?.header?.x5c as string[]) ?? '';
+			const alg = (parsedSdJwt?.header?.alg as string) ?? '';
+			// biome-ignore lint/suspicious/useIsArray: baseline: pre-existing debt. should be fixed
+			if (x5c && x5c instanceof Array && x5c.length > 0 && typeof alg === 'string') {
+				// extract public key from certificate
 				// Only validate certificate chain if not delegating to backend
 				// Trust evaluation is now delegated to AuthZEN at the protocol level
 				const delegateTrustToBackend = args.context.delegateTrustToBackend ?? true;
@@ -115,11 +152,19 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 				if (!delegateTrustToBackend && trustedCertificates.length > 0) {
 					const lastCertificate: string = x5c[x5c.length - 1];
 					const lastCertificatePem = `-----BEGIN CERTIFICATE-----\n${lastCertificate}\n-----END CERTIFICATE-----`;
-					const certificateValidationResult = await verifyCertificate(lastCertificatePem, trustedCertificates);
-					const lastCertificateIsRootCa = trustedCertificates.map((c) => c.trim()).includes(lastCertificatePem);
+					const certificateValidationResult = await verifyCertificate(
+						lastCertificatePem,
+						trustedCertificates,
+					);
+					const lastCertificateIsRootCa = trustedCertificates
+						.map((c) => c.trim())
+						.includes(lastCertificatePem);
 					const rootCertIsTrusted = certificateValidationResult === true || lastCertificateIsRootCa;
 					if (!rootCertIsTrusted) {
-						logError(CredentialVerificationError.NotTrustedIssuer, "Error on getIssuerPublicKey(): Issuer is not trusted");
+						logError(
+							CredentialVerificationError.NotTrustedIssuer,
+							'Error on getIssuerPublicKey(): Issuer is not trusted',
+						);
 						return {
 							success: false,
 							error: CredentialVerificationError.NotTrustedIssuer,
@@ -134,143 +179,209 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 						success: true,
 						value: issuerPublicKey,
 					};
-				}
-				catch (err) {
-					logError(CredentialVerificationError.CannotImportIssuerPublicKey, `Error on getIssuerPublicKey(): Importing key failed because: ${err}`);
+				} catch (err) {
+					logError(
+						CredentialVerificationError.CannotImportIssuerPublicKey,
+						`Error on getIssuerPublicKey(): Importing key failed because: ${err}`,
+					);
 					return {
 						success: false,
 						error: CredentialVerificationError.CannotImportIssuerPublicKey,
-					}
+					};
 				}
 			}
-			if (parsedSdJwt && parsedSdJwt.payload && typeof parsedSdJwt.payload.iss === 'string' && typeof alg === 'string') {
-				const publicKeyResolutionResult = await args.pkResolverEngine.resolve({ identifier: parsedSdJwt.payload.iss });
+			if (
+				// biome-ignore lint/complexity/useOptionalChain: baseline: pre-existing debt. should be fixed
+				parsedSdJwt &&
+				parsedSdJwt.payload &&
+				typeof parsedSdJwt.payload.iss === 'string' &&
+				typeof alg === 'string'
+			) {
+				const publicKeyResolutionResult = await args.pkResolverEngine.resolve({
+					identifier: parsedSdJwt.payload.iss,
+				});
 				if (!publicKeyResolutionResult.success) {
-					logError(CredentialVerificationError.CannotResolveIssuerPublicKey, "CannotResolveIssuerPublicKey");
+					logError(
+						CredentialVerificationError.CannotResolveIssuerPublicKey,
+						// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+						'CannotResolveIssuerPublicKey',
+					);
 					return {
 						success: false,
 						error: CredentialVerificationError.CannotResolveIssuerPublicKey,
-					}
+					};
 				}
 				try {
 					const publicKey = await importJWK(publicKeyResolutionResult.value.jwk, alg);
 					return {
 						success: true,
 						value: publicKey,
-					}
-				}
-				catch (err: any) {
-					logError(CredentialVerificationError.CannotImportIssuerPublicKey, `Error on getIssuerPublicKey(): Cannot import issuer's public key after resolved from the resolver. Cause ${err.message}`)
+					};
+					// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+				} catch (err: any) {
+					logError(
+						CredentialVerificationError.CannotImportIssuerPublicKey,
+						`Error on getIssuerPublicKey(): Cannot import issuer's public key after resolved from the resolver. Cause ${err.message}`,
+					);
 					return {
 						success: false,
 						error: CredentialVerificationError.CannotImportIssuerPublicKey,
-					}
+					};
 				}
 			}
-			logError(CredentialVerificationError.CannotResolveIssuerPublicKey, "CannotResolveIssuerPublicKey");
+			logError(
+				CredentialVerificationError.CannotResolveIssuerPublicKey,
+				// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+				'CannotResolveIssuerPublicKey',
+			);
 			return {
 				success: false,
 				error: CredentialVerificationError.CannotResolveIssuerPublicKey,
-			}
+			};
 		};
 
 		const issuerPublicKeyResult = await getIssuerPublicKey();
 
 		if (!issuerPublicKeyResult.success) {
-			logError(CredentialVerificationError.CannotResolveIssuerPublicKey, "CannotResolveIssuerPublicKey");
+			logError(
+				CredentialVerificationError.CannotResolveIssuerPublicKey,
+				// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+				'CannotResolveIssuerPublicKey',
+			);
 			return {
 				success: false,
 				error: issuerPublicKeyResult.error,
-			}
+			};
 		}
 		const publicKey = issuerPublicKeyResult.value;
 
 		try {
-			await jwtVerify(rawCredential.split('~')[0], publicKey, { clockTolerance: args.context.clockTolerance });
-		}
-		catch (err: unknown) {
-			if (err instanceof Error && err.name == "JWTExpired") {
-				logError(CredentialVerificationError.ExpiredCredential, `Error on verifyIssuerSignature(): Credential is expired. Cause: ${err}`);
+			await jwtVerify(rawCredential.split('~')[0], publicKey, {
+				clockTolerance: args.context.clockTolerance,
+			});
+		} catch (err: unknown) {
+			// biome-ignore lint/suspicious/noDoubleEquals: baseline: pre-existing debt. should be fixed
+			if (err instanceof Error && err.name == 'JWTExpired') {
+				logError(
+					CredentialVerificationError.ExpiredCredential,
+					`Error on verifyIssuerSignature(): Credential is expired. Cause: ${err}`,
+				);
 				return {
 					success: false,
 					error: CredentialVerificationError.ExpiredCredential,
-				}
+				};
 			}
 
-			logError(CredentialVerificationError.InvalidSignature, `Error on verifyIssuerSignature(): Issuer signature verification failed. Cause: ${err}`);
+			logError(
+				CredentialVerificationError.InvalidSignature,
+				`Error on verifyIssuerSignature(): Issuer signature verification failed. Cause: ${err}`,
+			);
 			return {
 				success: false,
 				error: CredentialVerificationError.InvalidSignature,
-			}
+			};
 		}
 
 		return {
 			success: true,
 			value: {},
-		}
-	}
+		};
+	};
 
-	const verifyKbJwt = async (rawPresentation: string, opts: {
-		expectedNonce?: string;
-		expectedAudience?: string;
-	}): Promise<CustomResult<{}, CredentialVerificationError>> => {
+	// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
+	const verifyKbJwt = async (
+		rawPresentation: string,
+		opts: {
+			expectedNonce?: string;
+			expectedAudience?: string;
+		},
+		// biome-ignore lint/complexity/noBannedTypes: baseline: pre-existing debt. should be fixed
+	): Promise<CustomResult<{}, CredentialVerificationError>> => {
 		const kbJwt = rawPresentation.split('~')[rawPresentation.split('~').length - 1];
 		let temp = rawPresentation.split('~');
 		temp = temp.slice(0, temp.length - 1);
+		// biome-ignore lint/style/useTemplate: baseline: pre-existing debt. should be fixed
 		const rawCredentialWithoutKbJwt = temp.join('~') + '~';
 
 		const publicKeyResult = await getHolderPublicKey(rawCredentialWithoutKbJwt);
 		if (!publicKeyResult.success) {
-			logError(CredentialVerificationError.CannotExtractHolderPublicKey, "CannotExtractHolderPublicKey");
+			logError(
+				CredentialVerificationError.CannotExtractHolderPublicKey,
+				// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+				'CannotExtractHolderPublicKey',
+			);
 			return {
 				success: false,
 				error: publicKeyResult.error,
-			}
+			};
 		}
 		const holderPublicKey = publicKeyResult.value;
-		const kbJwtDecodedPayload: Record<string, unknown> = JSON.parse(decoder.decode(fromBase64Url(kbJwt.split('.')[1])));
-		if (!kbJwtDecodedPayload.sd_hash || !kbJwtDecodedPayload.nonce || !kbJwtDecodedPayload.aud) {
-			logError(CredentialVerificationError.KbJwtVerificationFailedMissingParameters, "Error on verifyKbJwt(): Once of sd_hash, nonce and aud are missing from the kbjwt payload");
+		const kbJwtDecodedPayload: Record<string, unknown> = JSON.parse(
+			decoder.decode(fromBase64Url(kbJwt.split('.')[1])),
+		);
+		if (!(kbJwtDecodedPayload.sd_hash && kbJwtDecodedPayload.nonce && kbJwtDecodedPayload.aud)) {
+			logError(
+				CredentialVerificationError.KbJwtVerificationFailedMissingParameters,
+				'Error on verifyKbJwt(): Once of sd_hash, nonce and aud are missing from the kbjwt payload',
+			);
 			return {
 				success: false,
 				error: CredentialVerificationError.KbJwtVerificationFailedMissingParameters,
-			}
+			};
 		}
-		const { sd_hash, nonce, aud } = kbJwtDecodedPayload as { sd_hash: string, nonce: string, aud: string };
+		const { sd_hash, nonce, aud } = kbJwtDecodedPayload as {
+			sd_hash: string;
+			nonce: string;
+			aud: string;
+		};
 
 		const data = encoder.encode(rawCredentialWithoutKbJwt);
 
 		const hashBuffer = await args.context.subtle.digest('SHA-256', data);
 		const calculatedSdHash = toBase64Url(hashBuffer);
 		if (calculatedSdHash !== sd_hash) {
-			logError(CredentialVerificationError.KbJwtVerificationFailedWrongSdHash, "Error on verifyKbJwt(): Invalid sd_hash");
+			logError(
+				CredentialVerificationError.KbJwtVerificationFailedWrongSdHash,
+				'Error on verifyKbJwt(): Invalid sd_hash',
+			);
 			return {
 				success: false,
 				error: CredentialVerificationError.KbJwtVerificationFailedWrongSdHash,
-			}
+			};
 		}
 
 		if (opts.expectedAudience && opts.expectedAudience !== aud) {
-			logError(CredentialVerificationError.KbJwtVerificationFailedUnexpectedAudience, "Error on verifyKbJwt(): Invalid aud");
+			logError(
+				CredentialVerificationError.KbJwtVerificationFailedUnexpectedAudience,
+				'Error on verifyKbJwt(): Invalid aud',
+			);
 			return {
 				success: false,
 				error: CredentialVerificationError.KbJwtVerificationFailedUnexpectedAudience,
-			}
+			};
 		}
 
 		if (opts.expectedNonce && opts.expectedNonce !== nonce) {
-			logError(CredentialVerificationError.KbJwtVerificationFailedUnexpectedNonce, "Error on verifyKbJwt(): Invalid nonce");
+			logError(
+				CredentialVerificationError.KbJwtVerificationFailedUnexpectedNonce,
+				'Error on verifyKbJwt(): Invalid nonce',
+			);
 			return {
 				success: false,
 				error: CredentialVerificationError.KbJwtVerificationFailedUnexpectedNonce,
-			}
+			};
 		}
 
 		try {
 			await jwtVerify(kbJwt, holderPublicKey, { clockTolerance: args.context.clockTolerance });
-		}
-		catch (err: any) {
-			logError(CredentialVerificationError.KbJwtVerificationFailedSignatureValidation, "Error on verifyKbJwt(): Invalid KB-JWT signature");
+			// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+			// biome-ignore lint/complexity/noUselessCatchBinding: baseline: pre-existing debt. should be fixed
+			// biome-ignore lint/correctness/noUnusedVariables: baseline: pre-existing debt. should be fixed
+		} catch (err: any) {
+			logError(
+				CredentialVerificationError.KbJwtVerificationFailedSignatureValidation,
+				'Error on verifyKbJwt(): Invalid KB-JWT signature',
+			);
 			return {
 				success: false,
 				error: CredentialVerificationError.KbJwtVerificationFailedSignatureValidation,
@@ -279,10 +390,11 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 		return {
 			success: true,
 			value: {},
-		}
-	}
+		};
+	};
 
 	return {
+		// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
 		async verify({ rawCredential, opts }) {
 			errors = []; // re-initialize error array
 			if (typeof rawCredential !== 'string') {
@@ -298,17 +410,18 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 				return {
 					success: false,
 					error: errors.length > 0 ? errors[0].error : CredentialVerificationError.UnknownProblem,
-				}
+				};
 			}
 
 			// KB-JWT validation
-			if (!rawCredential.endsWith('~')) { // contains kbjwt
+			if (!rawCredential.endsWith('~')) {
+				// contains kbjwt
 				const verifyKbJwtResult = await verifyKbJwt(rawCredential, opts);
 				if (!verifyKbJwtResult.success) {
 					return {
 						success: false,
 						error: errors.length > 0 ? errors[0].error : CredentialVerificationError.UnknownProblem,
-					}
+					};
 				}
 			}
 
@@ -316,12 +429,18 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 			// importing and re-exporting through Web Crypto (jose importJWK
 			// creates non-extractable CryptoKeys in browsers by default).
 			const parseResult = await parse(rawCredential);
-			if (parseResult === CredentialVerificationError.InvalidFormat || !parseResult.parsedSdJwtWithPrettyClaims.cnf?.jwk) {
-				logError(CredentialVerificationError.CannotExtractHolderPublicKey, "Could not extract holder public key");
+			if (
+				parseResult === CredentialVerificationError.InvalidFormat ||
+				!parseResult.parsedSdJwtWithPrettyClaims.cnf?.jwk
+			) {
+				logError(
+					CredentialVerificationError.CannotExtractHolderPublicKey,
+					'Could not extract holder public key',
+				);
 				return {
 					success: false,
 					error: errors.length > 0 ? errors[0].error : CredentialVerificationError.UnknownProblem,
-				}
+				};
 			}
 
 			return {
@@ -330,7 +449,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 					valid: true,
 					holderPublicKey: parseResult.parsedSdJwtWithPrettyClaims.cnf.jwk,
 				},
-			}
+			};
 		},
-	}
+	};
 }

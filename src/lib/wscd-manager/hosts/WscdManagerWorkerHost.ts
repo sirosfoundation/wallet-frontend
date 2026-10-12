@@ -1,7 +1,14 @@
+import type { JWK } from 'jose';
 import { WEBAUTHN_RPID } from '@/config';
-import WscdManagerWorker from '../worker?worker';
-import { WscdManagerHosts, WscdHostStrength, WscdPlugin, WscdContainer, WscdManagerError } from '../resources';
+import { logger } from '@/logger';
 import {
+	type WscdContainer,
+	WscdHostStrength,
+	WscdManagerError,
+	WscdManagerHosts,
+	WscdPlugin,
+} from '../resources';
+import type {
 	AuthFactor,
 	IWscdManagerHost,
 	WorkerMessage,
@@ -9,9 +16,8 @@ import {
 	WorkerResult,
 	WscdEligibilityRequirements,
 } from '../types';
-import { logger } from '@/logger';
 import { ensureDecodedWscdContainer, ensureEncodedWscdContainer } from '../utils';
-import { JWK } from 'jose';
+import WscdManagerWorker from '../worker?worker';
 
 const WSCD_WORKER_TIMEOUT_MS = 5000;
 
@@ -29,6 +35,7 @@ export class WscdManagerWorkerHost implements IWscdManagerHost {
 	#nextId = 0;
 	#pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: unknown) => void }>();
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	public async initialize(): Promise<void> {
 		this.#worker = new WscdManagerWorker();
 
@@ -36,13 +43,13 @@ export class WscdManagerWorkerHost implements IWscdManagerHost {
 			const pending = this.#pending.get(data.id);
 			if (!pending) return;
 			this.#pending.delete(data.id);
+			// biome-ignore lint/suspicious/noUnusedExpressions: baseline: pre-existing debt. should be fixed
 			'error' in data
 				? pending.reject(new WscdManagerError(data.error))
 				: pending.resolve(data.result);
 		};
 
-		this.#worker.onerror = (event) =>
-			this.#failAllPending(event.message ?? 'Worker error');
+		this.#worker.onerror = (event) => this.#failAllPending(event.message ?? 'Worker error');
 
 		this.#worker.onmessageerror = () =>
 			this.#failAllPending('Worker message deserialization failed');
@@ -56,10 +63,8 @@ export class WscdManagerWorkerHost implements IWscdManagerHost {
 		return pong === true;
 	}
 
-	public async isEligible({
-		plugin,
-		factors,
-	}: WscdEligibilityRequirements) {
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
+	public async isEligible({ plugin, factors }: WscdEligibilityRequirements) {
 		const supported = this.supportedPlugins.has(plugin);
 		const satisfiesFactors = factors.every((f) => this.#canSatisfyFactor(f));
 
@@ -82,6 +87,7 @@ export class WscdManagerWorkerHost implements IWscdManagerHost {
 		return ensureDecodedWscdContainer(result);
 	}
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	public async sign(kid: string, data: Uint8Array): Promise<Uint8Array> {
 		return this.#messageWorker({
 			action: 'sign_request',
@@ -90,12 +96,14 @@ export class WscdManagerWorkerHost implements IWscdManagerHost {
 		});
 	}
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	public async generateKey(): Promise<string> {
 		return this.#messageWorker({
 			action: 'generate_key',
 		});
 	}
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	public async exportPublicKey(kid: string): Promise<JWK> {
 		return this.#messageWorker({
 			action: 'export_public_key',
@@ -103,6 +111,7 @@ export class WscdManagerWorkerHost implements IWscdManagerHost {
 		});
 	}
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	public async dispose(): Promise<void> {
 		this.#worker?.terminate();
 		this.#failAllPending('Worker terminated');
@@ -122,8 +131,14 @@ export class WscdManagerWorkerHost implements IWscdManagerHost {
 			}, WSCD_WORKER_TIMEOUT_MS);
 
 			this.#pending.set(id, {
-				resolve: (v: unknown) => { clearTimeout(timer); resolveUnknown(v); },
-				reject: (e: unknown) => { clearTimeout(timer); reject(e); },
+				resolve: (v: unknown) => {
+					clearTimeout(timer);
+					resolveUnknown(v);
+				},
+				reject: (e: unknown) => {
+					clearTimeout(timer);
+					reject(e);
+				},
 			});
 			this.#worker.postMessage({ id, ...message });
 		});

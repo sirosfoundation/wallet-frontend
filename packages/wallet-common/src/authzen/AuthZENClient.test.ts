@@ -1,11 +1,7 @@
-import { describe, it, expect, vi } from 'vitest';
-import { AuthZENClient, AuthZENClientConfig, KeyMaterial } from './AuthZENClient';
-import {
-	AuthZENErrorCode,
-	TrustStatus,
-	AuthZENEvaluationResponse,
-} from './types';
-import { HttpClient } from '../interfaces';
+import { describe, expect, it, vi } from 'vitest';
+import type { HttpClient } from '../interfaces';
+import { AuthZENClient, type AuthZENClientConfig, type KeyMaterial } from './AuthZENClient';
+import { AuthZENErrorCode, type AuthZENEvaluationResponse, TrustStatus } from './types';
 
 /**
  * HTTP response type for testing.
@@ -21,11 +17,13 @@ interface HttpResponse {
  */
 function createMockHttpClient(responses: Map<string, HttpResponse>): HttpClient {
 	return {
+		// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 		get: vi.fn().mockImplementation(async (url: string) => {
 			const response = responses.get(url);
 			if (response) return response;
 			return { status: 404, headers: {}, data: { error: 'not_found' } };
 		}),
+		// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 		post: vi.fn().mockImplementation(async (url: string) => {
 			const response = responses.get(url);
 			if (response) return response;
@@ -431,10 +429,10 @@ describe('AuthZENClient', () => {
 				'https://example.com/v1/evaluate',
 				expect.anything(),
 				expect.objectContaining({
-					'Authorization': 'Bearer token',
+					Authorization: 'Bearer token',
 					'X-Tenant-ID': 'tenant',
 				}),
-				expect.anything()
+				expect.anything(),
 			);
 		});
 
@@ -467,9 +465,9 @@ describe('AuthZENClient', () => {
 				expect.anything(),
 				expect.anything(),
 				expect.objectContaining({
-					'Authorization': 'Bearer async-token',
+					Authorization: 'Bearer async-token',
 				}),
-				expect.anything()
+				expect.anything(),
 			);
 		});
 	});

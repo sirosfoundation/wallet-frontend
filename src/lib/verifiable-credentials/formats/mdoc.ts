@@ -1,15 +1,15 @@
-import { base64url, calculateJwkThumbprint } from 'jose';
 import { cborDecode, cborEncode, DataItem } from '@auth0/mdl/lib/cbor';
 import {
-	DeviceRequest,
-	DocRequest,
-	ItemsRequest,
-	IssuerSigned,
-	MdocContext,
-	SessionTranscript,
-	DeviceResponse,
 	CoseKey,
+	DeviceRequest,
+	DeviceResponse,
+	DocRequest,
+	IssuerSigned,
+	ItemsRequest,
+	type MdocContext,
+	SessionTranscript,
 } from '@owf/mdoc';
+import { base64url, calculateJwkThumbprint } from 'jose';
 
 /**
  * Issuer-signed data resolved from a stored mdoc: its docType and namespaces.
@@ -24,13 +24,13 @@ export type PreparedMdocDeviceResponse = {
 	kid: string;
 	deviceRequest: DeviceRequest;
 	issuerSigned: IssuerSigned;
-}
+};
 
 export type SessionTranscriptOptions = {
-	clientId: string,
-	responseUri: string,
-	nonce: string,
-	jwkThumbprint: string | null,
+	clientId: string;
+	responseUri: string;
+	nonce: string;
+	jwkThumbprint: string | null;
 };
 
 export type SessionTranscriptDcApiOptions = {
@@ -46,21 +46,21 @@ export async function prepareMdocDeviceResponse(
 	credential: string,
 	disclosedClaims: string[],
 ): Promise<PreparedMdocDeviceResponse> {
-	const issuerSigned = IssuerSigned.fromEncodedForOid4Vci(
-		extractIssuerSignedB64(credential),
-	);
+	const issuerSigned = IssuerSigned.fromEncodedForOid4Vci(extractIssuerSignedB64(credential));
 
 	const mso = issuerSigned.issuerAuth.mobileSecurityObject;
 	const deviceKey = mso.deviceKeyInfo.deviceKey;
 	const kid = await calculateJwkThumbprint(deviceKey.jwk, 'sha256');
 
 	const deviceRequest = DeviceRequest.create({
-		docRequests: [DocRequest.create({
-			itemsRequest: ItemsRequest.create({
-				docType: mso.docType,
-				namespaces: claimsToNamespaces(disclosedClaims),
+		docRequests: [
+			DocRequest.create({
+				itemsRequest: ItemsRequest.create({
+					docType: mso.docType,
+					namespaces: claimsToNamespaces(disclosedClaims),
+				}),
 			}),
-		})],
+		],
 	});
 
 	return { kid, deviceRequest, issuerSigned };
@@ -80,17 +80,15 @@ export async function generateMdocDeviceResponse(
 		credential,
 		disclosedClaims,
 	);
-	const deviceKeyJwk =
-		issuerSigned.issuerAuth.mobileSecurityObject.deviceKeyInfo.deviceKey.jwk;
+	const deviceKeyJwk = issuerSigned.issuerAuth.mobileSecurityObject.deviceKeyInfo.deviceKey.jwk;
 	const algByCrv: Record<string, string> = {
 		'P-256': 'ES256',
 		'P-384': 'ES384',
 		'P-521': 'ES512',
-		'Ed25519': 'EdDSA'
+		Ed25519: 'EdDSA',
 	};
 	const alg = algByCrv[deviceKeyJwk.crv as string] ?? 'ES256';
 	const signingKey = CoseKey.fromJwk({ ...deviceKeyJwk, alg });
-
 
 	const deviceResponse = await DeviceResponse.createWithDeviceRequest(
 		{
@@ -109,11 +107,20 @@ export async function generateMdocDeviceResponse(
 			cose: {
 				sign1: {
 					sign: async ({ toBeSigned }) => sign(kid, toBeSigned),
-					verify: async () => { throw new Error('Signature verification not implemented'); },
+					// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
+					verify: async () => {
+						throw new Error('Signature verification not implemented');
+					},
 				},
 				mac0: {
-					authenticate: async () => { throw new Error('MAC0 device auth unsupported; signature-based only'); },
-					verify: async () => { throw new Error('MAC0 device auth unsupported; signature-based only'); },
+					// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
+					authenticate: async () => {
+						throw new Error('MAC0 device auth unsupported; signature-based only');
+					},
+					// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
+					verify: async () => {
+						throw new Error('MAC0 device auth unsupported; signature-based only');
+					},
 				},
 			},
 		},
@@ -198,18 +205,13 @@ export function extractIssuerSignedB64(raw: string): string {
 		return raw;
 	}
 	if (!Array.isArray(documents) || documents.length === 0) {
-		throw new Error(
-			'Malformed DeviceResponse: `documents` is present but empty',
-		);
+		throw new Error('Malformed DeviceResponse: `documents` is present but empty');
 	}
 
 	const first = documents[0];
-	const issuerSigned =
-		first instanceof Map ? first.get('issuerSigned') : undefined;
+	const issuerSigned = first instanceof Map ? first.get('issuerSigned') : undefined;
 	if (!issuerSigned) {
-		throw new Error(
-			'Malformed DeviceResponse: first document has no `issuerSigned`',
-		);
+		throw new Error('Malformed DeviceResponse: first document has no `issuerSigned`');
 	}
 
 	return base64url.encode(cborEncode(issuerSigned));
@@ -238,9 +240,7 @@ export function decodeStoredMdoc(raw: string): Map<string, unknown> {
  * either a full DeviceResponse envelope (`documents[]`) or a bare `IssuerSigned`
  * (`nameSpaces` + `issuerAuth`), both shapes are seen from different issuers.
  */
-export function resolveMdocIssuerSigned(
-	mdoc: Map<string, unknown>,
-): MdocIssuerSigned {
+export function resolveMdocIssuerSigned(mdoc: Map<string, unknown>): MdocIssuerSigned {
 	const documents = mdoc.get('documents');
 
 	if (Array.isArray(documents) && documents.length > 0) {
@@ -257,9 +257,7 @@ export function resolveMdocIssuerSigned(
 	if (mdoc.get('nameSpaces') && mdoc.get('issuerAuth')) {
 		// Bare IssuerSigned has no docType field; read it from the MSO in issuerAuth.
 		return {
-			docType: extractDocTypeFromIssuerAuth(
-				mdoc.get('issuerAuth') as unknown[],
-			),
+			docType: extractDocTypeFromIssuerAuth(mdoc.get('issuerAuth') as unknown[]),
 			nameSpaces: mdoc.get('nameSpaces') as Map<string, unknown[]>,
 			issuerAuth: mdoc.get('issuerAuth') as unknown[],
 		};
@@ -311,15 +309,12 @@ export function mdocNameSpacesToClaims(
 
 		for (const rawItem of items) {
 			const item = (
-				rawItem instanceof Map
-					? rawItem
-					: (rawItem as { data?: Map<string, unknown> })?.data
+				rawItem instanceof Map ? rawItem : (rawItem as { data?: Map<string, unknown> })?.data
 			) as Map<string, unknown> | undefined;
 
 			if (!item) continue;
 
-			claims[item.get('elementIdentifier') as string] =
-				item.get('elementValue');
+			claims[item.get('elementIdentifier') as string] = item.get('elementValue');
 		}
 
 		namespaces[nsName] = claims;
@@ -352,6 +347,7 @@ export function mdocCrypto(): MdocContext['crypto'] {
 		random: (n) => crypto.getRandomValues(new Uint8Array(n)),
 		digest: async ({ digestAlgorithm, bytes }) =>
 			new Uint8Array(await crypto.subtle.digest(digestAlgorithm, bytes as BufferSource)),
+		// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 		hdkf: async () => {
 			throw new Error('HKDF not needed for signature-based device auth');
 		},

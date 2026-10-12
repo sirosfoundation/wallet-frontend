@@ -1,8 +1,7 @@
-import { resolve } from 'node:path';
 import { access, mkdir, rm, writeFile } from 'node:fs/promises';
-import { type FileToWrite } from '../utils/resources';
-import { type EnvConfigMap } from '../config';
-
+import { resolve } from 'node:path';
+import type { EnvConfigMap } from '../config';
+import type { FileToWrite } from '../utils/resources';
 
 /**
  * Generates .well-known files.
@@ -11,13 +10,15 @@ export default async function wellKnownFiles(destDir: string, config: EnvConfigM
 	// Remove existing .well-known directory in dist if it exists to ensure old files are cleared out
 	await rm(resolve(destDir, '.well-known'), { recursive: true }).catch(() => null);
 
-	const assetLinks = generateAndroidAssetLinks(config.WELLKNOWN_ANDROID_PACKAGE_NAMES_AND_FINGERPRINTS);
+	const assetLinks = generateAndroidAssetLinks(
+		config.WELLKNOWN_ANDROID_PACKAGE_NAMES_AND_FINGERPRINTS,
+	);
 	const appLinks = generateAppleAppLinks(config.WELLKNOWN_APPLE_APPIDS);
 
-	const filesToWrite = [assetLinks, appLinks]
-		.filter((file) => file !== undefined);
+	const filesToWrite = [assetLinks, appLinks].filter((file) => file !== undefined);
 
 	if (!filesToWrite || filesToWrite.length < 1) {
+		// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
 		console.info('No .well-known files to write.');
 		return;
 	}
@@ -32,7 +33,7 @@ type AndroidAssetLinks = Array<{
 		package_name: string;
 		sha256_cert_fingerprints: string[];
 	};
-}>
+}>;
 
 /**
  * Generates the assetlinks.json file for Android App Links based on the provided packages string.
@@ -48,9 +49,9 @@ function generateAndroidAssetLinks(packages: unknown): FileToWrite<AndroidAssetL
 	const pkgsList = new Map<string, string[]>();
 
 	for (const pkg of packages.split(',')) {
-		const [pkgName, fingerprint] = pkg.split('::').map(str => str.trim());
+		const [pkgName, fingerprint] = pkg.split('::').map((str) => str.trim());
 
-		if (!pkgName || !fingerprint) continue;
+		if (!(pkgName && fingerprint)) continue;
 
 		if (!pkgsList.has(pkgName)) {
 			pkgsList.set(pkgName, []);
@@ -61,17 +62,20 @@ function generateAndroidAssetLinks(packages: unknown): FileToWrite<AndroidAssetL
 
 	if (pkgsList.size < 1) return;
 
-	const tmpl = pkgsList.entries().map(([pkgName, fingerprints]) => ({
-		'relation': [
-			'delegate_permission/common.handle_all_urls',
-			'delegate_permission/common.get_login_creds'
-		],
-		'target': {
-			'namespace': 'android_app',
-			'package_name': pkgName,
-			'sha256_cert_fingerprints': fingerprints,
-		}
-	})).toArray() satisfies AndroidAssetLinks;
+	const tmpl = pkgsList
+		.entries()
+		.map(([pkgName, fingerprints]) => ({
+			relation: [
+				'delegate_permission/common.handle_all_urls',
+				'delegate_permission/common.get_login_creds',
+			],
+			target: {
+				namespace: 'android_app',
+				package_name: pkgName,
+				sha256_cert_fingerprints: fingerprints,
+			},
+		}))
+		.toArray() satisfies AndroidAssetLinks;
 
 	return {
 		filename: 'assetlinks.json',
@@ -93,7 +97,7 @@ export type AppleAppLinks = {
 	webcredentials: {
 		apps: string[];
 	};
-}
+};
 
 /**
  * Generates the apple-app-site-association file for Apple App Links based on the provided apps string.
@@ -107,28 +111,28 @@ function generateAppleAppLinks(apps: unknown): FileToWrite<AppleAppLinks> | unde
 
 	const appsList = apps
 		.split(',')
-		.map(app => app.trim())
-		.filter(app => app.length > 0);
+		.map((app) => app.trim())
+		.filter((app) => app.length > 0);
 
 	if (appsList.length < 1) return;
 
 	const tmpl = {
-		'applinks': {
-			'details': [
+		applinks: {
+			details: [
 				{
-					'appIDs': appsList,
-					'components': [
+					appIDs: appsList,
+					components: [
 						{
 							'/': '/*',
-							'comment': 'Matches any URL with a path that starts with /.'
-						}
-					]
-				}
-			]
+							comment: 'Matches any URL with a path that starts with /.',
+						},
+					],
+				},
+			],
 		},
-		'webcredentials': {
-				'apps': appsList
-		}
+		webcredentials: {
+			apps: appsList,
+		},
 	} satisfies AppleAppLinks;
 
 	return {
@@ -149,18 +153,26 @@ function generateAppleAppLinks(apps: unknown): FileToWrite<AppleAppLinks> | unde
 async function writeWellKnownFiles(rootDir: string, files: FileToWrite[]) {
 	const wellKnownDir = resolve(rootDir, '.well-known');
 
-	if (await access(wellKnownDir).then(() => true).catch(() => false)) {
+	if (
+		await access(wellKnownDir)
+			.then(() => true)
+			.catch(() => false)
+	) {
+		// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
 		console.info('.well-known directory already exists');
 	}
 
 	if (files.length < 1) {
+		// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
 		console.info('No .well-known files to write.');
 		return;
-	};
+	}
 
 	await mkdir(wellKnownDir, { recursive: true });
-	await Promise.all(files.map(async ({ filename, content }) => {
-		const filePath = resolve(wellKnownDir, filename);
-		await writeFile(filePath, content);
-	}));
+	await Promise.all(
+		files.map(async ({ filename, content }) => {
+			const filePath = resolve(wellKnownDir, filename);
+			await writeFile(filePath, content);
+		}),
+	);
 }

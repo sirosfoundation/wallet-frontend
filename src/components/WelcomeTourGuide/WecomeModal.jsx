@@ -1,8 +1,9 @@
-import React from 'react';
-import Modal from 'react-modal';
-import { useTranslation, Trans } from 'react-i18next';
-import Button from '../Buttons/Button';
 import { Handshake } from 'lucide-react';
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
+import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
+import Modal from 'react-modal';
+import Button from '../Buttons/Button';
 
 const WecomeModal = ({ isOpen, onStartTour, onClose }) => {
 	const { t } = useTranslation();
@@ -22,10 +23,7 @@ const WecomeModal = ({ isOpen, onStartTour, onClose }) => {
 			</div>
 			<div className="px-4 py-2 sm:px-6">
 				<p className="pt-2 text-md text-center text-lm-gray-800 dark:text-dm-gray-50">
-					<Trans
-						i18nKey="welcomeModal.description"
-						components={{ strong: <strong /> }}
-					/>
+					<Trans i18nKey="welcomeModal.description" components={{ strong: <strong /> }} />
 				</p>
 			</div>
 			<p className="text-center text-lm-gray-800 dark:text-dm-gray-50 mb-4">
@@ -33,18 +31,11 @@ const WecomeModal = ({ isOpen, onStartTour, onClose }) => {
 			</p>
 
 			<div className="flex justify-center gap-2 pt-4">
-				<Button
-					id="close-welcome-modal"
-					onClick={onClose}
-				>
-					{t("welcomeModal.dismissButton")}
+				<Button id="close-welcome-modal" onClick={onClose}>
+					{t('welcomeModal.dismissButton')}
 				</Button>
-				<Button
-					id="start-tour-welcome-modal"
-					variant="primary"
-					onClick={onStartTour}
-				>
-					{t("welcomeModal.startTourButton")}
+				<Button id="start-tour-welcome-modal" variant="primary" onClick={onStartTour}>
+					{t('welcomeModal.startTourButton')}
 				</Button>
 			</div>
 		</Modal>

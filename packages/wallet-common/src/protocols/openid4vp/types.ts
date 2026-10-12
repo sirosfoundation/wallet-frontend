@@ -1,5 +1,5 @@
-import type { JWK } from "jose";
-import type { TrustStatus } from "../../authzen/types";
+import type { JWK } from 'jose';
+import type { TrustStatus } from '../../authzen/types';
 
 export type ClaimRecord = {
 	key: string;
@@ -11,7 +11,7 @@ export type PresentationClaims = Record<string, ClaimRecord[]>;
 
 export type PresentationInfo = {
 	[descriptor_id: string]: Array<string>;
-}
+};
 
 export interface RPState {
 	session_id: string;
@@ -63,8 +63,8 @@ export type CredentialEngineOptions = {
 };
 
 export type OpenID4VPOptions = {
-	credentialEngineOptions: CredentialEngineOptions,
-	redirectUri: string
+	credentialEngineOptions: CredentialEngineOptions;
+	redirectUri: string;
 };
 
 export type CredentialIssuerMetadata = {
@@ -76,20 +76,21 @@ export type IacasResponse = {
 };
 
 export enum OpenID4VPResponseMode {
-	DIRECT_POST = "direct_post",
-	DIRECT_POST_JWT = "direct_post.jwt",
-	DC_API = "dc_api",
-	DC_API_JWT = "dc_api.jwt",
+	DIRECT_POST = 'direct_post',
+	DIRECT_POST_JWT = 'direct_post.jwt',
+	DC_API = 'dc_api',
+	DC_API_JWT = 'dc_api.jwt',
 }
 
 export type VPFormatAlgorithms = {
 	alg_values_supported?: string[];
-	"sd-jwt_alg_values"?: string[];
-	"kb-jwt_alg_values"?: string[];
+	'sd-jwt_alg_values'?: string[];
+	'kb-jwt_alg_values'?: string[];
 	alg?: string[];
 };
 
 export type OpenID4VPClientMetadata = {
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 	jwks?: { keys: any[] };
 	jwks_uri?: string;
 	authorization_encrypted_response_alg?: string;
@@ -134,7 +135,9 @@ export type TransactionDataResponseParams = {
 };
 
 export type TransactionDataResponseGenerator = {
-	generateTransactionDataResponse(transaction_data: string[]): Promise<[TransactionDataResponseParams | null, Error | null]>;
+	generateTransactionDataResponse(
+		transaction_data: string[],
+	): Promise<[TransactionDataResponseParams | null, Error | null]>;
 };
 
 export type TransactionDataResponseGeneratorParams = {

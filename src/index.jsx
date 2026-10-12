@@ -1,11 +1,12 @@
 // Index.jsx
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
 import React from 'react';
 import { createRoot } from 'react-dom/client';
+import Modal from 'react-modal';
 import { BrowserRouter } from 'react-router';
 import App from './App';
-import { logger } from './logger';
 import { initializeDataSource } from './indexedDB';
-import Modal from 'react-modal';
+import { logger } from './logger';
 import '@fontsource/inter/400.css';
 import '@fontsource/inter/500.css';
 import '@fontsource/inter/600.css';
@@ -52,5 +53,5 @@ root.render(
 				<App />
 			</AppProvider>
 		</GlobalErrorBoundary>
-	</BrowserRouter>
+	</BrowserRouter>,
 );

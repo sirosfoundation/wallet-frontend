@@ -35,7 +35,7 @@ export type OIDFlowCheckpoint =
 	| 'credential_received'
 	// OID4VP stages
 	| 'request_fetched'
-	| 'client_matching'  // Client-side credential matching for privacy
+	| 'client_matching' // Client-side credential matching for privacy
 	| 'awaiting_selection'
 	| 'selection_made'
 	| 'presentation_submitted'
@@ -87,6 +87,7 @@ export class OIDFlowStateStore {
 
 	constructor(options: OIDFlowRecoveryOptions = {}) {
 		this.options = {
+			// biome-ignore lint/suspicious/noEmptyBlockStatements: baseline: pre-existing debt. should be fixed
 			onResumable: options.onResumable ?? (() => {}),
 			maxAgeMs: options.maxAgeMs ?? MAX_AGE_MS,
 		};
@@ -99,7 +100,7 @@ export class OIDFlowStateStore {
 		flowId: string,
 		protocol: OIDFlowProtocol,
 		entryUri: string,
-		initialData: Record<string, unknown> = {}
+		initialData: Record<string, unknown> = {},
 	): OIDFlowState {
 		this.cleanupExpired();
 		const now = Date.now();
@@ -124,7 +125,7 @@ export class OIDFlowStateStore {
 	updateCheckpoint(
 		flowId: string,
 		checkpoint: OIDFlowCheckpoint,
-		additionalData?: Record<string, unknown>
+		additionalData?: Record<string, unknown>,
 	): OIDFlowState | null {
 		const state = this.get(flowId);
 		if (!state) {
@@ -257,9 +258,7 @@ export class OIDFlowStateStore {
 	 * Find flows that can be resumed (have recoverable errors)
 	 */
 	getResumableFlows(): OIDFlowState[] {
-		return this.getActiveFlows().filter(
-			state => state.lastError?.recoverable === true
-		);
+		return this.getActiveFlows().filter((state) => state.lastError?.recoverable === true);
 	}
 
 	/**
@@ -319,7 +318,9 @@ export class OIDFlowStateStore {
 					keysToDelete.push(key);
 				}
 			}
-			keysToDelete.forEach(key => sessionStorage.removeItem(key));
+			// biome-ignore lint/complexity/noForEach: baseline: pre-existing debt. should be fixed
+			// biome-ignore lint/suspicious/useIterableCallbackReturn: baseline: pre-existing debt. should be fixed
+			keysToDelete.forEach((key) => sessionStorage.removeItem(key));
 		} catch (e) {
 			logger.error('Failed to clear flow states:', e);
 		}
@@ -392,10 +393,7 @@ export class OIDFlowStateStore {
 		// But some require rolling back to a safe point
 
 		// If we were waiting for user action, stay there
-		const userActionCheckpoints: OIDFlowCheckpoint[] = [
-			'awaiting_consent',
-			'awaiting_selection',
-		];
+		const userActionCheckpoints: OIDFlowCheckpoint[] = ['awaiting_consent', 'awaiting_selection'];
 		if (userActionCheckpoints.includes(state.checkpoint)) {
 			return state.checkpoint;
 		}

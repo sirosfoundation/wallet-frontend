@@ -31,9 +31,10 @@ export default defineConfig(async ({ mode, command }) => {
 			tailwindcss(),
 			svgr(),
 			checker({
-				eslint: {
-					lintCommand: 'eslint "./src/**/*.{js,jsx,ts,tsx}"',
-				}
+				biome: {
+					command: 'lint',
+				},
+				enableBuild: false,
 			}),
 			VitePWA({
 				registerType: 'autoUpdate',
@@ -43,14 +44,13 @@ export default defineConfig(async ({ mode, command }) => {
 				strategies: 'injectManifest', // Uses `src/service-worker.js` for caching
 				manifest: false, // Vite will use `public/manifest.json` automatically
 				injectManifest: {
-					globPatterns: ['**/*.{js,css,html,ico,jpg,jpeg,png,svg,webp,woff,woff2,wasm}'],
+					globPatterns: ['src/**/*.{js,css,html,ico,jpg,jpeg,png,svg,webp,woff,woff2,wasm}'],
 					maximumFileSizeToCacheInBytes: env.GENERATE_SOURCEMAP === 'true' ? 16 * 1024 * 1024 : 8 * 1024 * 1024,
 					additionalManifestEntries: [
 						{ url: './manifest.json', revision: env.BRANDING_HASH },
 					],
 				},
 			}),
-
 		],
 		resolve: {
 			alias: {

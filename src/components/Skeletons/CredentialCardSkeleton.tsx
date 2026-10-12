@@ -4,6 +4,7 @@
  */
 
 // External dependencies
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
 import React from 'react';
 
 const CredentialCardSkeleton = () => (

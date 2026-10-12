@@ -1,6 +1,6 @@
-export { DCAPISession } from './DCAPISession';
 export { DCAPIRequest } from './DCAPIRequest';
+export { DCAPISession } from './DCAPISession';
 export type {
-	DCApiResponseMode,
 	DCAPIMode,
+	DCApiResponseMode,
 } from './resources';

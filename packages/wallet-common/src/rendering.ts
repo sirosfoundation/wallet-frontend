@@ -1,8 +1,8 @@
 import jsonpointer from 'jsonpointer';
 import { formatDate } from './functions/formatDate';
-import { CredentialRendering } from './interfaces';
+import type { CredentialRendering } from './interfaces';
+import type { CredentialClaimPath } from './types';
 import { escapeSVG } from './utils/escapeSVG';
-import { CredentialClaimPath } from './types';
 import { toBase64 } from './utils/util';
 
 // Image signatures an mdoc byte-string claim (e.g. an ISO 18013-5 / 23220
@@ -32,18 +32,35 @@ function imageDataUri(value: unknown): string | undefined {
 	return `data:${match[0]};base64,${toBase64(value.slice())}`;
 }
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 export function CredentialRenderingService(): CredentialRendering {
-	const renderSvgTemplate = async ({ json, credentialImageSvgTemplate, vcMetadataClaims, filter }: { json: any, credentialImageSvgTemplate: string, vcMetadataClaims: any, filter?: Array<CredentialClaimPath> }) => {
-
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
+	const renderSvgTemplate = async ({
+		json,
+		credentialImageSvgTemplate,
+		vcMetadataClaims,
+		filter,
+	}: {
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+		json: any;
+		credentialImageSvgTemplate: string;
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+		vcMetadataClaims: any;
+		filter?: Array<CredentialClaimPath>;
+	}) => {
+		// biome-ignore lint/suspicious/noEvolvingTypes: baseline: pre-existing debt. should be fixed
 		let svgContent = null;
 		try {
 			svgContent = credentialImageSvgTemplate;
+			// biome-ignore lint/complexity/noUselessCatchBinding: baseline: pre-existing debt. should be fixed
+			// biome-ignore lint/correctness/noUnusedVariables: baseline: pre-existing debt. should be fixed
 		} catch (error) {
 			return null; // Return null if fetching fails
 		}
 
 		if (svgContent) {
 			// Build pathMap from credentialHeader.vctm.claims
+			// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 			const pathMap = (vcMetadataClaims ?? []).reduce((acc: any, claim: any) => {
 				if (claim.svg_id && claim.path) {
 					acc[claim.svg_id] = claim.path;
@@ -53,11 +70,16 @@ export function CredentialRenderingService(): CredentialRendering {
 
 			// Regular expression to match {{svg_id}} placeholders
 			const regex = /{{([^}]+)}}/g;
+			// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
 			const replacedSvgText = svgContent.replace(regex, (_match, svgId) => {
 				// Retrieve the path array for the current svgId from pathMap
 				const pathArray = pathMap[svgId];
 
-				if (Array.isArray(pathArray) && filter && !filter.map(f => f.join('.')).includes(pathArray.join('.'))) {
+				if (
+					Array.isArray(pathArray) &&
+					filter &&
+					!filter.map((f) => f.join('.')).includes(pathArray.join('.'))
+				) {
 					return '-';
 				}
 				// If pathArray exists, convert it to a JSON pointer path
@@ -88,5 +110,5 @@ export function CredentialRenderingService(): CredentialRendering {
 
 	return {
 		renderSvgTemplate,
-	}
+	};
 }

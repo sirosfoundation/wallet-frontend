@@ -18,8 +18,8 @@
  *   6. Flow entry-points & callback
  */
 
-import type { OIDCProviderConfig } from '../api/types';
 import { createLocalJWKSet, jwtVerify } from 'jose';
+import type { OIDCProviderConfig } from '../api/types';
 
 // ---------------------------------------------------------------------------
 // 1. Types & constants
@@ -79,14 +79,16 @@ function storeOIDCState(purpose: OIDCGatePurpose, state: OIDCState, verifier: st
 	sessionStorage.setItem(getStorageKey(purpose, VERIFIER_KEY_SUFFIX), verifier);
 }
 
-function retrieveOIDCState(purpose: OIDCGatePurpose): { state: OIDCState; verifier: string } | null {
+function retrieveOIDCState(
+	purpose: OIDCGatePurpose,
+): { state: OIDCState; verifier: string } | null {
 	const stateKey = getStorageKey(purpose, STATE_KEY_SUFFIX);
 	const verifierKey = getStorageKey(purpose, VERIFIER_KEY_SUFFIX);
 
 	const stateJson = sessionStorage.getItem(stateKey);
 	const verifier = sessionStorage.getItem(verifierKey);
 
-	if (!stateJson || !verifier) {
+	if (!(stateJson && verifier)) {
 		return null;
 	}
 
@@ -124,7 +126,8 @@ export function clearOIDCState(purpose: OIDCGatePurpose): void {
 
 function base64UrlEncode(buffer: Uint8Array): string {
 	const base64 = btoa(String.fromCharCode(...buffer));
-	return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+	// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
+	return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/[=]+$/, '');
 }
 
 function generateRandomString(length: number): string {
@@ -162,8 +165,9 @@ export async function validateIdToken(
 	idToken: string,
 	config: OIDCFlowConfig,
 	expectedNonce: string,
-	jwksUri: string
+	jwksUri: string,
 ): Promise<void> {
+	// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 	const issuer = config.issuer.replace(/\/$/, '');
 
 	// Fetch JWKS and create a local key set for verification
@@ -225,10 +229,7 @@ export function getDisplayNameFromToken(idToken: string): string | null {
 // 5. Configuration & discovery
 // ---------------------------------------------------------------------------
 
-export function buildOIDCConfig(
-	provider: OIDCProviderConfig,
-	redirectUri: string
-): OIDCFlowConfig {
+export function buildOIDCConfig(provider: OIDCProviderConfig, redirectUri: string): OIDCFlowConfig {
 	return {
 		issuer: provider.issuer,
 		clientId: provider.client_id,
@@ -249,7 +250,10 @@ async function discoverOIDCEndpoints(issuer: string): Promise<{
 	tokenEndpoint: string;
 	jwksUri: string;
 }> {
-	const wellKnownUrl = `${issuer.replace(/\/$/, '')}/.well-known/openid-configuration`;
+	const wellKnownUrl = `${
+		// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
+		issuer.replace(/\/$/, '')
+	}/.well-known/openid-configuration`;
 	const response = await fetch(wellKnownUrl);
 
 	if (!response.ok) {
@@ -271,7 +275,7 @@ async function discoverOIDCEndpoints(issuer: string): Promise<{
 
 async function startNativeBridgeFlow(
 	config: OIDCFlowConfig,
-	purpose: OIDCGatePurpose
+	purpose: OIDCGatePurpose,
 ): Promise<{ idToken: string }> {
 	if (!window.NativeOIDCBridge) {
 		throw new Error('Native OIDC bridge not available');
@@ -291,7 +295,7 @@ async function startBrowserRedirectFlow(
 	config: OIDCFlowConfig,
 	purpose: OIDCGatePurpose,
 	returnPath: string,
-	formData?: Record<string, string>
+	formData?: Record<string, string>,
 ): Promise<void> {
 	const endpoints = await discoverOIDCEndpoints(config.issuer);
 
@@ -323,13 +327,15 @@ async function startBrowserRedirectFlow(
 	window.location.href = authUrl.toString();
 }
 
+// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 export async function startOIDCFlow(
 	config: OIDCFlowConfig,
 	purpose: OIDCGatePurpose,
 	options?: {
 		returnPath?: string;
 		formData?: Record<string, string>;
-	}
+	},
+	// biome-ignore lint/suspicious/noConfusingVoidType: baseline: pre-existing debt. should be fixed
 ): Promise<{ idToken: string } | void> {
 	const mode = getOIDCFlowMode();
 
@@ -345,9 +351,8 @@ export async function startOIDCFlow(
  * Handle OIDC callback (browser redirect mode only).
  * Should be called on the callback page (/oidc/cb or /id/:tenantId/oidc/cb).
  */
-export async function handleOIDCCallback(
-	config: OIDCFlowConfig
-): Promise<{
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
+export async function handleOIDCCallback(config: OIDCFlowConfig): Promise<{
 	idToken: string;
 	purpose: OIDCGatePurpose;
 	returnPath: string;
@@ -363,7 +368,7 @@ export async function handleOIDCCallback(
 		throw new Error(errorDescription || error);
 	}
 
-	if (!code || !stateParam) {
+	if (!(code && stateParam)) {
 		throw new Error('Missing authorization code or state');
 	}
 

@@ -14,6 +14,7 @@ const PoweredBy = ({ className, linkClassName }: PoweredByProps) => {
 				i18nKey="sidebar.poweredBy"
 				components={{
 					docLinkWalletGithub: (
+						// biome-ignore lint/a11y/useAnchorContent: baseline: pre-existing debt. should be fixed
 						<a
 							href="https://github.com/sirosfoundation"
 							rel="noreferrer"
@@ -21,7 +22,7 @@ const PoweredBy = ({ className, linkClassName }: PoweredByProps) => {
 							className={linkClassName}
 							aria-label={t('sidebar.poweredByAriaLabel')}
 						/>
-					)
+					),
 				}}
 			/>
 		</p>

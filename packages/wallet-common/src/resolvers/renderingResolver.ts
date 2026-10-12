@@ -1,12 +1,11 @@
-import type { RenderingCallback } from "../types";
-import { matchDisplayByLocale } from "../utils/matchLocalizedDisplay";
-import type { TypeDisplayEntry } from "../schemas/SdJwtVcTypeMetadataSchema";
-import type { CredentialConfigurationSupported } from "../schemas/CredentialConfigurationSupportedSchema";
+import type { CredentialConfigurationSupported } from '../schemas/CredentialConfigurationSupportedSchema';
+import type { TypeDisplayEntry } from '../schemas/SdJwtVcTypeMetadataSchema';
+import type { RenderingCallback } from '../types';
+import { matchDisplayByLocale } from '../utils/matchLocalizedDisplay';
 
-type IssuerDisplayEntry =
-	NonNullable<
-		NonNullable<CredentialConfigurationSupported["credential_metadata"]>["display"]
-	>[number];
+type IssuerDisplayEntry = NonNullable<
+	NonNullable<CredentialConfigurationSupported['credential_metadata']>['display']
+>[number];
 
 type RenderingResolverOptions = {
 	credentialDisplayArray?: TypeDisplayEntry[];
@@ -21,7 +20,8 @@ export function renderingResolver({
 	credentialDisplayArray,
 	issuerDisplayArray,
 }: RenderingResolverOptions): RenderingCallback {
-	return async (preferredLangs: string[] = ["en-US"]) => {
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
+	return async (preferredLangs: string[] = ['en-US']) => {
 		const credential = matchDisplayByLocale(credentialDisplayArray, preferredLangs);
 		const issuer = matchDisplayByLocale(issuerDisplayArray, preferredLangs);
 
@@ -31,6 +31,7 @@ export function renderingResolver({
 		const textColor = simple?.text_color ?? issuer?.text_color;
 		const logo = simple?.logo?.uri ?? issuer?.logo?.uri;
 
+		// biome-ignore lint/suspicious/noEqualsToNull: baseline: pre-existing debt. should be fixed
 		if (backgroundColor == null && textColor == null && logo == null) {
 			return null;
 		}

@@ -1,15 +1,29 @@
+import { CircleCheckIcon, CircleXIcon, IdCardIcon } from 'lucide-react';
 import {
+	type FC,
+	type PropsWithChildren,
+	type ReactElement,
 	useContext,
 	useEffect,
 	useId,
 	useRef,
 	useState,
-	type FC,
-	type PropsWithChildren,
-	type ReactElement,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Navigate } from 'react-router';
-import { CircleCheckIcon, CircleXIcon, IdCardIcon } from 'lucide-react';
+import { formatDate } from 'wallet-common';
+import Button from '@/components/Buttons/Button';
+import Header from '@/components/Layout/Header';
+import {
+	SwitchCredentialPopup,
+	type SwitchCredentialPopupState,
+} from '@/components/Popups/SwitchCredentialPopup';
+import { H1 } from '@/components/Shared/Heading';
+import Spinner from '@/components/Shared/Spinner';
+import SessionContext from '@/context/SessionContext';
+import { useTenant } from '@/context/TenantContext';
+import { ensureStringIsImageDataUri, imageBytesToDataUri, truncateByWords } from '@/lib/utils';
+import { logger } from '@/logger';
 import type {
 	PresentationErrorState,
 	PresentationResult,
@@ -17,24 +31,6 @@ import type {
 	PresentCredentialsRequest,
 	PresentCredentialsResult,
 } from './types';
-import Spinner from '@/components/Shared/Spinner';
-import { useTenant } from '@/context/TenantContext';
-import Button from '@/components/Buttons/Button';
-import { H1 } from '@/components/Shared/Heading';
-import Header from '@/components/Layout/Header';
-import {
-	SwitchCredentialPopup,
-	type SwitchCredentialPopupState
-} from '@/components/Popups/SwitchCredentialPopup';
-import { useTranslation } from 'react-i18next';
-import {
-	truncateByWords,
-	ensureStringIsImageDataUri,
-	imageBytesToDataUri,
-} from '@/lib/utils';
-import { logger } from '@/logger';
-import SessionContext from '@/context/SessionContext';
-import { formatDate } from 'wallet-common';
 
 type PresentCredentialsFlowProps = {
 	view: PresentCredentialsFlowView;
@@ -45,9 +41,7 @@ type PresentCredentialsFlowProps = {
  *
  * Renders the flow for presenting credentials to a verifier.
  */
-export const PresentCredentialsFlow: FC<PresentCredentialsFlowProps> = ({
-	view,
-}) => {
+export const PresentCredentialsFlow: FC<PresentCredentialsFlowProps> = ({ view }) => {
 	return (
 		<FlowContainer>
 			<PresentCredentialsFlowRouter view={view} />
@@ -62,9 +56,7 @@ type PresentCredentialsFlowRouterProps = {
 /**
  * Router for the Present Credentials Flow.
  */
-const PresentCredentialsFlowRouter: FC<PresentCredentialsFlowRouterProps> = ({
-	view,
-}) => {
+const PresentCredentialsFlowRouter: FC<PresentCredentialsFlowRouterProps> = ({ view }) => {
 	switch (view.status) {
 		case 'loading':
 			return <PresentationLoadingScreen />;
@@ -109,6 +101,7 @@ type PresentationOverviewScreenProps = {
  * Screen that shows the overview of the presentation request,
  * including the verifier information, purpose, and requested credentials.
  */
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 	request,
 	onAccept,
@@ -130,14 +123,11 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 		Object.fromEntries(requested.map((q) => [q.id, q.matches[0]?.batchId])),
 	);
 
-	const [
-		switchCredentialState,
-		setSwitchCredentialState,
-	] = useState<SwitchCredentialPopupState | null>(null);
+	const [switchCredentialState, setSwitchCredentialState] =
+		useState<SwitchCredentialPopupState | null>(null);
 
 	const swap = (queryId: string, batchId: number) =>
 		setSelection((prev) => ({ ...prev, [queryId]: batchId }));
-
 
 	// Derived, display-ready. The render map just reads this.
 	const view = requested.map((q) => ({
@@ -155,9 +145,7 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 				onClick={() =>
 					onAccept(
 						view.flatMap((entry) =>
-							entry.selected
-								? [{ queryId: entry.id, batchId: entry.selected.batchId }]
-								: [],
+							entry.selected ? [{ queryId: entry.id, batchId: entry.selected.batchId }] : [],
 						),
 					)
 				}
@@ -171,8 +159,8 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 		</>
 	);
 
-	const singlePurpose =
-		sets.length === 1 && sets[0].purpose != null ? sets[0].purpose : null;
+	// biome-ignore lint/suspicious/noEqualsToNull: baseline: pre-existing debt. should be fixed
+	const singlePurpose = sets.length === 1 && sets[0].purpose != null ? sets[0].purpose : null;
 
 	return (
 		<FlowScreen buttons={buttons}>
@@ -180,7 +168,9 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 				<H1 heading={t('presentCredentialsFlow.overview.title')} />
 			</div>
 			<dl>
-				<dt className="font-bold not-first:mt-4">{t('presentCredentialsFlow.overview.requester')}</dt>
+				<dt className="font-bold not-first:mt-4">
+					{t('presentCredentialsFlow.overview.requester')}
+				</dt>
 				{[verifier.name, verifier.domain].map((info) => (
 					<dd key={info} className="mt-2">
 						{info}
@@ -188,7 +178,9 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 				))}
 				{singlePurpose && (
 					<>
-						<dt className="font-bold not-first:mt-4">{t('presentCredentialsFlow.overview.purpose')}</dt>
+						<dt className="font-bold not-first:mt-4">
+							{t('presentCredentialsFlow.overview.purpose')}
+						</dt>
 						<dd className="mt-2">
 							<Purpose purpose={singlePurpose} />
 						</dd>
@@ -196,10 +188,9 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 				)}
 			</dl>
 			<div className="mt-4">
-				<h2 className="font-bold">
-					{t('presentCredentialsFlow.overview.requestedInformation')}
-				</h2>
+				<h2 className="font-bold">{t('presentCredentialsFlow.overview.requestedInformation')}</h2>
 				<ul>
+					{/** biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed */}
 					{view.map((entry) => (
 						<li key={entry.id} className="mt-2">
 							<div className="border border-lm-gray-700 dark:border-dm-gray-400 rounded-md p-4 flex flex-col gap-4">
@@ -209,12 +200,13 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 										{
 											'--bg-color':
 												entry.selected?.display.backgroundColor ?? 'var(--color-primary)',
-											'--text-color':
-												entry.selected?.display.textColor ?? '#fff',
+											'--text-color': entry.selected?.display.textColor ?? '#fff',
 										} as React.CSSProperties
 									}
 								>
-									<h3 className="font-bold" aria-live="polite" aria-atomic="true">{entry.selected.display.name}</h3>
+									<h3 className="font-bold" aria-live="polite" aria-atomic="true">
+										{entry.selected.display.name}
+									</h3>
 									{entry.selected?.display.logo ? (
 										<img className="max-h-8 max-w-8" src={entry.selected.display.logo} alt="" />
 									) : (
@@ -244,10 +236,38 @@ const PresentationOverviewScreen: FC<PresentationOverviewScreenProps> = ({
 											}
 										>
 											{t('presentCredentialsFlow.overview.switchCredential')}
-											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} className="w-6 h-6" aria-hidden="true" >
-												<rect x="4" y="4" width="19" height="14" rx="2" fill="transparent" className="stroke-lm-gray-700 dark:stroke-dm-gray-300" />
-												<rect x="2" y="7" width="19" height="14" rx="2" className="fill-lm-gray-700 dark:fill-dm-gray-300" />
-												<text x="11" y="18" textAnchor="middle" fontSize="12" fontWeight="600" className="fill-white dark:fill-black">
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												viewBox="0 0 24 24"
+												strokeWidth={2}
+												className="w-6 h-6"
+												aria-hidden="true"
+											>
+												<rect
+													x="4"
+													y="4"
+													width="19"
+													height="14"
+													rx="2"
+													fill="transparent"
+													className="stroke-lm-gray-700 dark:stroke-dm-gray-300"
+												/>
+												<rect
+													x="2"
+													y="7"
+													width="19"
+													height="14"
+													rx="2"
+													className="fill-lm-gray-700 dark:fill-dm-gray-300"
+												/>
+												<text
+													x="11"
+													y="18"
+													textAnchor="middle"
+													fontSize="12"
+													fontWeight="600"
+													className="fill-white dark:fill-black"
+												>
 													{entry.alternatives.length}
 												</text>
 											</svg>
@@ -282,20 +302,14 @@ type PresentationSharingScreenProps = {
 /**
  * Screen that shows the sharing progress of the presentation request.
  */
-const PresentationSharingScreen: FC<PresentationSharingScreenProps> = ({
-	onCancel,
-	messages,
-}) => {
+const PresentationSharingScreen: FC<PresentationSharingScreenProps> = ({ onCancel, messages }) => {
 	const { t } = useTranslation();
 	const items = messages?.length ? messages : [t('common.loading')];
 	const [index, setIndex] = useState(0);
 
 	useEffect(() => {
 		if (items.length <= 1) return;
-		const id = setInterval(
-			() => setIndex((i) => (i + 1) % items.length),
-			1000 * 8,
-		);
+		const id = setInterval(() => setIndex((i) => (i + 1) % items.length), 1000 * 8);
 		return () => clearInterval(id);
 	}, [items.length]);
 
@@ -331,10 +345,7 @@ type PresentationCompleteScreenProps = {
 /**
  * Screen that shows the completion of the presentation request.
  */
-const PresentationCompleteScreen: FC<PresentationCompleteScreenProps> = ({
-	result,
-	onClose,
-}) => {
+const PresentationCompleteScreen: FC<PresentationCompleteScreenProps> = ({ result, onClose }) => {
 	const { t } = useTranslation();
 	const closable = typeof onClose === 'function';
 	const buttons = closable ? (
@@ -353,7 +364,9 @@ const PresentationCompleteScreen: FC<PresentationCompleteScreenProps> = ({
 			/>
 			<div className="pt-6 space-y-4" role="status">
 				<h1 className="text-2xl font-bold">{t('presentCredentialsFlow.completed.title')}</h1>
-				<p>{t('presentCredentialsFlow.completed.description', { verifierName: result.verifierName })}</p>
+				<p>
+					{t('presentCredentialsFlow.completed.description', { verifierName: result.verifierName })}
+				</p>
 				<hr className="border-lm-gray-300 dark:border-dm-gray-700" />
 				{!closable && <p>{t('presentCredentialsFlow.completed.redirecting')}</p>}
 			</div>
@@ -362,15 +375,13 @@ const PresentationCompleteScreen: FC<PresentationCompleteScreenProps> = ({
 };
 
 type PresentationErrorScreenProps = {
-	state: PresentationErrorState
+	state: PresentationErrorState;
 };
 
 /**
  * Screen that shows the error state of the presentation request.
  */
-const PresentationErrorScreen: FC<PresentationErrorScreenProps> = ({
-	state,
-}) => {
+const PresentationErrorScreen: FC<PresentationErrorScreenProps> = ({ state }) => {
 	const { t } = useTranslation();
 	return (
 		<FlowScreen
@@ -407,10 +418,7 @@ const FlowContainer: FC<PropsWithChildren> = ({ children }) => {
 	);
 };
 
-const FlowScreen: FC<PropsWithChildren<{ buttons?: ReactElement }>> = ({
-	children,
-	buttons,
-}) => {
+const FlowScreen: FC<PropsWithChildren<{ buttons?: ReactElement }>> = ({ children, buttons }) => {
 	const ref = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
@@ -419,11 +427,7 @@ const FlowScreen: FC<PropsWithChildren<{ buttons?: ReactElement }>> = ({
 
 	return (
 		<>
-			<div
-				ref={ref}
-				tabIndex={-1}
-				className="max-w-[500px] mx-6 mb-[25vh] focus:outline-none"
-			>
+			<div ref={ref} tabIndex={-1} className="max-w-[500px] mx-6 mb-[25vh] focus:outline-none">
 				{children}
 			</div>
 			{buttons && (
@@ -448,16 +452,14 @@ const Purpose: FC<{ purpose: string }> = ({ purpose }) => {
 
 	return (
 		<p>
-			<span id={id}>
-				{expanded ? purpose : text}
-			</span>
+			<span id={id}>{expanded ? purpose : text}</span>
 			{truncated && (
 				<>
 					{' '}
 					{expanded && <br />}
 					<Button
 						onClick={() => setExpanded(!expanded)}
-						variant='link'
+						variant="link"
 						aria-expanded={expanded}
 						aria-controls={id}
 					>
@@ -479,6 +481,7 @@ const ClaimDetails: FC<{ name?: string; value: unknown }> = ({ name, value }) =>
 			return (
 				<ul>
 					{value.map((item, index) => (
+						// biome-ignore lint/suspicious/noArrayIndexKey: baseline: pre-existing debt. should be fixed
 						<li key={index}>
 							<ClaimDetails value={item} />
 						</li>
@@ -489,9 +492,8 @@ const ClaimDetails: FC<{ name?: string; value: unknown }> = ({ name, value }) =>
 
 		if (value instanceof Date) return formatDate(value, 'date');
 
-		const imageSrc = typeof value === 'string'
-			? ensureStringIsImageDataUri(value)
-			: imageBytesToDataUri(value);
+		const imageSrc =
+			typeof value === 'string' ? ensureStringIsImageDataUri(value) : imageBytesToDataUri(value);
 		if (imageSrc) {
 			return <img className="max-w-xs" src={imageSrc} alt={name ?? 'image'} />;
 		}
@@ -501,14 +503,17 @@ const ClaimDetails: FC<{ name?: string; value: unknown }> = ({ name, value }) =>
 				<table className="text-sm">
 					<tbody>
 						{Object.entries(value).map(([key, val]) => (
-							<tr key={key} className="not-first:mt-1 not-first:pt-1 not-first:border-t not-first:border-t-lm-gray-300 dark:not-first:border-t-dm-gray-700">
+							<tr
+								key={key}
+								className="not-first:mt-1 not-first:pt-1 not-first:border-t not-first:border-t-lm-gray-300 dark:not-first:border-t-dm-gray-700"
+							>
 								<td className="font-bold p-1 pr-2">{key}</td>
 								<td className="p-1">
-									{
-										typeof val === 'object' || Array.isArray(val)
-											? <ClaimDetails value={val} />
-											: String(val)
-									}
+									{typeof val === 'object' || Array.isArray(val) ? (
+										<ClaimDetails value={val} />
+									) : (
+										String(val)
+									)}
 								</td>
 							</tr>
 						))}
@@ -520,14 +525,14 @@ const ClaimDetails: FC<{ name?: string; value: unknown }> = ({ name, value }) =>
 		return String(value);
 	})();
 
-
 	return (
 		<>
 			{name && <dt className="font-bold not-first:mt-2 not-first:pt-2">{name}</dt>}
-			{name
-				? <dd className="mt-2 wrap-break-word">{resolvedValue}</dd>
-				: <div className="mt-2 wrap-break-word">{resolvedValue}</div>
-			}
+			{name ? (
+				<dd className="mt-2 wrap-break-word">{resolvedValue}</dd>
+			) : (
+				<div className="mt-2 wrap-break-word">{resolvedValue}</div>
+			)}
 		</>
 	);
 };

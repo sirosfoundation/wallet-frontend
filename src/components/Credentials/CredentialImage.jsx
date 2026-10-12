@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
-import ExpiredRibbon from './ExpiredRibbon';
-import UsagesRibbon from "./UsagesRibbon";
+import { useEffect, useState } from 'react';
 import { logger } from '@/logger';
-import DefaultCred from "../../assets/images/cred.png";
+import DefaultCred from '../../assets/images/cred.png';
 import { CredentialCardSkeleton } from '../Skeletons';
+import ExpiredRibbon from './ExpiredRibbon';
+import UsagesRibbon from './UsagesRibbon';
 
 const CredentialImage = ({
 	vcEntity,
@@ -13,14 +13,15 @@ const CredentialImage = ({
 	vcEntityInstances = null,
 	filter = null,
 	onLoad,
-	borderColor = undefined,
-	fixedRatio = true
+	borderColor,
+	fixedRatio = true,
 }) => {
 	const [imageSrc, setImageSrc] = useState(undefined);
 
 	useEffect(() => {
 		let isMounted = true;
 
+		// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
 		async function loadImage() {
 			const imageFn = vcEntity?.parsedCredential?.metadata?.credential?.image?.dataUri;
 			if (!imageFn) {
@@ -48,26 +49,29 @@ const CredentialImage = ({
 
 		loadImage();
 
-		return () => { isMounted = false };
+		return () => {
+			isMounted = false;
+		};
 	}, [vcEntity, filter, onLoad]);
 
 	return (
 		<>
 			{vcEntity && imageSrc ? (
+				// biome-ignore lint/complexity/noUselessFragments: baseline: pre-existing debt. should be fixed
 				<>
 					<div className={`relative w-full overflow-visible ${fixedRatio ? 'aspect-[1.6]' : ''}`}>
+						{/** biome-ignore lint/a11y/noNoninteractiveElementInteractions: baseline: pre-existing debt. should be fixed */}
+						{/** biome-ignore lint/a11y/useKeyWithClickEvents: baseline: pre-existing debt. should be fixed */}
 						<img
 							src={imageSrc}
 							alt="Credential"
 							className={`w-full h-full w-full h-full object-cover object-top ${className ?? ''}`}
 							onClick={onClick}
 						/>
-						{showRibbon &&
-							<ExpiredRibbon vcEntity={vcEntity} borderColor={borderColor} />
-						}
-						{showRibbon &&
+						{showRibbon && <ExpiredRibbon vcEntity={vcEntity} borderColor={borderColor} />}
+						{showRibbon && (
 							<UsagesRibbon vcEntityInstances={vcEntityInstances} borderColor={borderColor} />
-						}
+						)}
 					</div>
 				</>
 			) : (

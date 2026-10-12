@@ -14,10 +14,10 @@
  */
 function canonicalizeNumber(value: number): string {
 	if (!Number.isFinite(value)) {
-		throw new Error("JCS: NaN and Infinity are not serializable");
+		throw new Error('JCS: NaN and Infinity are not serializable');
 	}
 	// -0 serializes as "0" per the spec's reference to Number::toString.
-	if (Object.is(value, -0)) return "0";
+	if (Object.is(value, -0)) return '0';
 	return JSON.stringify(value) as string;
 }
 
@@ -42,16 +42,16 @@ function sortKeys(keys: string[]): string[] {
 }
 
 export function canonicalizeJcs(value: unknown): string {
-	if (value === null) return "null";
+	if (value === null) return 'null';
 
 	switch (typeof value) {
-		case "boolean":
-			return value ? "true" : "false";
-		case "number":
+		case 'boolean':
+			return value ? 'true' : 'false';
+		case 'number':
 			return canonicalizeNumber(value);
-		case "string":
+		case 'string':
 			return canonicalizeString(value);
-		case "object":
+		case 'object':
 			break;
 		default:
 			// undefined, function, symbol, bigint have no JSON representation.
@@ -59,7 +59,7 @@ export function canonicalizeJcs(value: unknown): string {
 	}
 
 	if (Array.isArray(value)) {
-		return `[${value.map((item) => canonicalizeJcs(item)).join(",")}]`;
+		return `[${value.map((item) => canonicalizeJcs(item)).join(',')}]`;
 	}
 
 	const record = value as Record<string, unknown>;
@@ -68,5 +68,5 @@ export function canonicalizeJcs(value: unknown): string {
 		.filter((key) => record[key] !== undefined)
 		.map((key) => `${canonicalizeString(key)}:${canonicalizeJcs(record[key])}`);
 
-	return `{${entries.join(",")}}`;
+	return `{${entries.join(',')}}`;
 }
