@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { detectImageMimeFromBytes, ensureStringIsImageDataUri } from './image';
-import { fromBase64Url } from './binary';
+import {
+	detectImageMimeFromBytes,
+	ensureStringIsImageDataUri,
+	imageBytesToDataUri,
+} from './image';
+import { fromBase64, fromBase64Url } from './binary';
 
 const SAMPLES = {
 	png: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNk+P+/HgAFhAJ/wlseKgAAAABJRU5ErkJggg==',
@@ -18,27 +22,39 @@ const SAMPLES_URL = {
 
 describe('detectImageMimeFromBytes', () => {
 	it('detects png', () => {
-		expect(detectImageMimeFromBytes(fromBase64Url(SAMPLES.png))).toBe('image/png');
+		expect(detectImageMimeFromBytes(fromBase64Url(SAMPLES.png))).toBe(
+			'image/png',
+		);
 	});
 
 	it('detects jpeg', () => {
-		expect(detectImageMimeFromBytes(fromBase64Url(SAMPLES.jpeg))).toBe('image/jpeg');
+		expect(detectImageMimeFromBytes(fromBase64Url(SAMPLES.jpeg))).toBe(
+			'image/jpeg',
+		);
 	});
 
 	it('detects jpg (same signature as jpeg)', () => {
-		expect(detectImageMimeFromBytes(fromBase64Url(SAMPLES.jpeg))).toBe('image/jpeg');
+		expect(detectImageMimeFromBytes(fromBase64Url(SAMPLES.jpeg))).toBe(
+			'image/jpeg',
+		);
 	});
 
 	it('detects gif', () => {
-		expect(detectImageMimeFromBytes(fromBase64Url(SAMPLES.gif))).toBe('image/gif');
+		expect(detectImageMimeFromBytes(fromBase64Url(SAMPLES.gif))).toBe(
+			'image/gif',
+		);
 	});
 
 	it('detects webp', () => {
-		expect(detectImageMimeFromBytes(fromBase64Url(SAMPLES.webp))).toBe('image/webp');
+		expect(detectImageMimeFromBytes(fromBase64Url(SAMPLES.webp))).toBe(
+			'image/webp',
+		);
 	});
 
 	it('returns null for an unknown signature', () => {
-		expect(detectImageMimeFromBytes(fromBase64Url('aGVsbG8gd29ybGQ='))).toBeNull();
+		expect(
+			detectImageMimeFromBytes(fromBase64Url('aGVsbG8gd29ybGQ=')),
+		).toBeNull();
 	});
 });
 
@@ -108,8 +124,46 @@ describe('ensureStringIsImageDataUri', () => {
 			['jpg', SAMPLES_URL.jpeg, SAMPLES.jpeg, 'image/jpeg'],
 			['gif', SAMPLES_URL.gif, SAMPLES.gif, 'image/gif'],
 			['webp', SAMPLES_URL.webp, SAMPLES.webp, 'image/webp'],
-		])('wraps a base64url %s into a standard data URI', (_label, urlB64, stdB64, mime) => {
-			expect(ensureStringIsImageDataUri(urlB64)).toBe(`data:${mime};base64,${stdB64}`);
-		});
+		])(
+			'wraps a base64url %s into a standard data URI',
+			(_label, urlB64, stdB64, mime) => {
+				expect(ensureStringIsImageDataUri(urlB64)).toBe(
+					`data:${mime};base64,${stdB64}`,
+				);
+			},
+		);
+	});
+});
+
+describe('imageBytesToDataUri', () => {
+	it.each([
+		['png', SAMPLES.png, 'image/png'],
+		['jpeg', SAMPLES.jpeg, 'image/jpeg'],
+		['gif', SAMPLES.gif, 'image/gif'],
+		['webp', SAMPLES.webp, 'image/webp'],
+	])('converts %s bytes into a data URI', (_label, b64, mime) => {
+		expect(imageBytesToDataUri(fromBase64(b64))).toBe(
+			`data:${mime};base64,${b64}`,
+		);
+	});
+
+	it('returns null when the bytes have an unknown signature', () => {
+		expect(imageBytesToDataUri(fromBase64Url('aGVsbG8gd29ybGQ='))).toBeNull();
+	});
+
+	it('returns null for an empty Uint8Array', () => {
+		expect(imageBytesToDataUri(new Uint8Array())).toBeNull();
+	});
+
+	it.each([
+		['a string', 'not bytes'],
+		['null', null],
+		['undefined', undefined],
+		['a number', 42],
+		['a plain object', {}],
+		['an ArrayBuffer', new ArrayBuffer(8)],
+		['a number array', [0x89, 0x50, 0x4e, 0x47]],
+	])('returns null for %s', (_label, value) => {
+		expect(imageBytesToDataUri(value)).toBeNull();
 	});
 });
