@@ -99,9 +99,9 @@ export type ProtocolState =
 
 // Re-export runtime constants and helpers for backwards compatibility
 export {
+	getStepInfo,
 	OID4VCI_STEP_INFO,
 	OID4VP_STEP_INFO,
-	getStepInfo,
 	requiresUserInput,
 } from '../protocolStepInfo';
 

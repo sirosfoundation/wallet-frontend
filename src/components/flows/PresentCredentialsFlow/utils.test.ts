@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest';
-import { getValueByPath, resolveClaimLabel, resolveCredentialPresentationRequest } from './utils';
-import type { ConformantCredentials } from './types';
+import { describe, expect, it } from 'vitest';
 import type { OID4VPVerifierInfo } from '@/lib/openid-flow/types/OID4VPTypes';
+import type { ConformantCredentials } from './types';
+import { getValueByPath, resolveClaimLabel, resolveCredentialPresentationRequest } from './utils';
 
-
+// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 describe('getValueByPath', () => {
 	it('reads a simple nested value', () => {
 		expect(getValueByPath(['a', 'b'], { a: { b: 1 } })).toBe(1);
@@ -71,21 +71,19 @@ describe('resolveClaimLabel', () => {
 	});
 
 	it('falls back to the first display when no preferred locale matches', () => {
-		expect(
-			resolveClaimLabel(claims, { path: ['family_name'] }, ['fr-FR']),
-		).toBe('Last name');
+		expect(resolveClaimLabel(claims, { path: ['family_name'] }, ['fr-FR'])).toBe('Last name');
 	});
 
 	it('falls back to field.name when the claim has no display', () => {
-		expect(
-			resolveClaimLabel(claims, { name: 'Custom', path: ['no_display'] }, ['en-US']),
-		).toBe('Custom');
+		expect(resolveClaimLabel(claims, { name: 'Custom', path: ['no_display'] }, ['en-US'])).toBe(
+			'Custom',
+		);
 	});
 
 	it('falls back to a joined path when no claim matches and no name is given', () => {
-		expect(
-			resolveClaimLabel(claims, { path: ['address', 'locality'] }, ['en-US']),
-		).toBe('address › locality');
+		expect(resolveClaimLabel(claims, { path: ['address', 'locality'] }, ['en-US'])).toBe(
+			'address › locality',
+		);
 	});
 
 	it('returns "Unknown" when nothing resolves', () => {
@@ -96,9 +94,7 @@ describe('resolveClaimLabel', () => {
 		const withNull = [
 			{ path: ['nationalities', null], display: [{ locale: 'en-US', label: 'Nationality' }] },
 		];
-		expect(
-			resolveClaimLabel(withNull, { path: ['nationalities'] }, ['en-US']),
-		).toBe('Nationality');
+		expect(resolveClaimLabel(withNull, { path: ['nationalities'] }, ['en-US'])).toBe('Nationality');
 	});
 });
 
@@ -109,10 +105,13 @@ const verifierInfo = {
 } as OID4VPVerifierInfo;
 
 const conformant: ConformantCredentials = new Map([
-	['eduID', {
-		credentials: [7],
-		requestedFields: [{ name: 'email', path: ['email'] }],
-	}],
+	[
+		'eduID',
+		{
+			credentials: [7],
+			requestedFields: [{ name: 'email', path: ['email'] }],
+		},
+	],
 ]);
 
 describe('resolveCredentialPresentationRequest without a DCQL query', () => {
@@ -155,7 +154,9 @@ describe('resolveCredentialPresentationRequest without a DCQL query', () => {
 			verifierInfo,
 			{
 				credentials: [{ id: 'eduID', format: 'dc+sd-jwt' }],
-				credential_sets: [{ options: [['eduID']], purpose: 'Proeftuin requires the credential content' }],
+				credential_sets: [
+					{ options: [['eduID']], purpose: 'Proeftuin requires the credential content' },
+				],
 			} as never,
 			conformant,
 			[],

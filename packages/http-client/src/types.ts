@@ -25,22 +25,13 @@ export type HttpTransportResponse = {
 	body: Uint8Array<ArrayBuffer>;
 };
 
-export type HttpTransport = (
-	req: HttpTransportRequest,
-) => Promise<HttpTransportResponse>;
+export type HttpTransport = (req: HttpTransportRequest) => Promise<HttpTransportResponse>;
 
 export type IndexedDB = {
-	addItem(
-		storeName: string,
-		key: any,
-		value: any,
-		forceMappedStoreName?: string,
-	): Promise<void>;
-	getItem(
-		storeName: string,
-		key: any,
-		forceMappedStoreName?: string,
-	): Promise<any>;
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+	addItem(storeName: string, key: any, value: any, forceMappedStoreName?: string): Promise<void>;
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+	getItem(storeName: string, key: any, forceMappedStoreName?: string): Promise<any>;
 };
 
 export type CachedData = {

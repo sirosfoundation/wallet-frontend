@@ -1,3 +1,4 @@
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
 import React, { useEffect, useState } from 'react';
 import Snowfall from 'react-snowfall';
 
@@ -18,18 +19,16 @@ const Snowfalling = () => {
 			const newYearEnd = new Date(currentYear, 0, 6); // January 6
 
 			// Check if today is within either part of the Christmas season
-			return (today >= christmasStart && today <= christmasEnd) ||
-				(today >= newYearStart && today <= newYearEnd);
+			return (
+				(today >= christmasStart && today <= christmasEnd) ||
+				(today >= newYearStart && today <= newYearEnd)
+			);
 		};
 
 		setIsChristmasSeason(checkSeason());
 	}, []);
 
-	return (
-		<>
-			{isChristmasSeason && <Snowfall snowflakeCount={50} />}
-		</>
-	);
-}
+	return <>{isChristmasSeason && <Snowfall snowflakeCount={50} />}</>;
+};
 
 export default Snowfalling;

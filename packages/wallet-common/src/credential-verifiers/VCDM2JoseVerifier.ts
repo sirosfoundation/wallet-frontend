@@ -1,8 +1,13 @@
-import { Context, CredentialVerifier, PublicKeyResolverEngineI, HttpClient } from "../interfaces";
-import { CredentialVerificationError } from "../error";
-import { JWK, jwtVerify } from "jose";
-import { decodeEnvelopedVcdm2, parseVcdm2Credential } from "../utils/vcdm2";
-import { resolveVcdm2IssuerPublicKey } from "./vcdm2IssuerKey";
+import { type JWK, jwtVerify } from 'jose';
+import { CredentialVerificationError } from '../error';
+import type {
+	Context,
+	CredentialVerifier,
+	HttpClient,
+	PublicKeyResolverEngineI,
+} from '../interfaces';
+import { decodeEnvelopedVcdm2, parseVcdm2Credential } from '../utils/vcdm2';
+import { resolveVcdm2IssuerPublicKey } from './vcdm2IssuerKey';
 
 /**
  * Verifier for W3C VCDM 2.0 credentials secured with an enveloping JOSE proof.
@@ -13,7 +18,11 @@ import { resolveVcdm2IssuerPublicKey } from "./vcdm2IssuerKey";
  * JWTVCJSONVerifier matters: that verifier claims *any* non-SD-JWT compact
  * JWS, so it would otherwise swallow these and resolve the wrong key.
  */
-export function VCDM2JoseVerifier(args: { context: Context, pkResolverEngine: PublicKeyResolverEngineI, httpClient: HttpClient }): CredentialVerifier {
+export function VCDM2JoseVerifier(args: {
+	context: Context;
+	pkResolverEngine: PublicKeyResolverEngineI;
+	httpClient: HttpClient;
+}): CredentialVerifier {
 	return {
 		async verify({ rawCredential }) {
 			const decoded = decodeEnvelopedVcdm2(rawCredential);
@@ -31,7 +40,11 @@ export function VCDM2JoseVerifier(args: { context: Context, pkResolverEngine: Pu
 				return { success: false, error: CredentialVerificationError.InvalidFormat };
 			}
 
-			const issuerPublicKey = await resolveVcdm2IssuerPublicKey(args, decoded.header, decoded.payload);
+			const issuerPublicKey = await resolveVcdm2IssuerPublicKey(
+				args,
+				decoded.header,
+				decoded.payload,
+			);
 			if (!issuerPublicKey.success) {
 				return { success: false, error: issuerPublicKey.error };
 			}
@@ -41,7 +54,7 @@ export function VCDM2JoseVerifier(args: { context: Context, pkResolverEngine: Pu
 					clockTolerance: args.context.clockTolerance,
 				});
 			} catch (err: unknown) {
-				if (err instanceof Error && err.name === "JWTExpired") {
+				if (err instanceof Error && err.name === 'JWTExpired') {
 					return { success: false, error: CredentialVerificationError.ExpiredCredential };
 				}
 				return { success: false, error: CredentialVerificationError.InvalidSignature };

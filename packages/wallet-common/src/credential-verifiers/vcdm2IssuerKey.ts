@@ -1,9 +1,9 @@
-import { importJWK, importX509, KeyLike } from "jose";
-import { Context, PublicKeyResolverEngineI } from "../interfaces";
-import { CredentialVerificationError } from "../error";
-import { CustomResult } from "../types";
-import { verifyCertificate } from "../utils/verifyCertificate";
-import { issuerIdentifier } from "../utils/vcdm2";
+import { importJWK, importX509, type KeyLike } from 'jose';
+import { CredentialVerificationError } from '../error';
+import type { Context, PublicKeyResolverEngineI } from '../interfaces';
+import type { CustomResult } from '../types';
+import { issuerIdentifier } from '../utils/vcdm2';
+import { verifyCertificate } from '../utils/verifyCertificate';
 
 /**
  * Resolve the issuer's public key for a VCDM 2.0 credential secured with a
@@ -12,13 +12,17 @@ import { issuerIdentifier } from "../utils/vcdm2";
  * Shared by VCDM2JoseVerifier and VCDM2SdJwtVerifier, which differ only in
  * whether a JWT `iss` claim participates in identifier resolution.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 export async function resolveVcdm2IssuerPublicKey(
 	args: { context: Context; pkResolverEngine: PublicKeyResolverEngineI },
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 	header: any,
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 	payload: any,
 	options: { useIssClaim?: boolean } = {},
 ): Promise<CustomResult<Uint8Array | KeyLike, CredentialVerificationError>> {
-	const alg = typeof header?.alg === "string" ? header.alg : undefined;
+	const alg = typeof header?.alg === 'string' ? header.alg : undefined;
 	if (!alg) {
 		return { success: false, error: CredentialVerificationError.InvalidFormat };
 	}
@@ -45,12 +49,17 @@ export async function resolveVcdm2IssuerPublicKey(
 			// whole verifying engine, which does not catch.
 			let certificateValidationResult: unknown = false;
 			try {
-				certificateValidationResult = await verifyCertificate(lastCertificatePem, trustedCertificates);
+				certificateValidationResult = await verifyCertificate(
+					lastCertificatePem,
+					trustedCertificates,
+				);
 			} catch {
 				return { success: false, error: CredentialVerificationError.NotTrustedIssuer };
 			}
 
-			const lastCertificateIsRootCa = trustedCertificates.map((c) => c.trim()).includes(lastCertificatePem);
+			const lastCertificateIsRootCa = trustedCertificates
+				.map((c) => c.trim())
+				.includes(lastCertificatePem);
 			if (!(certificateValidationResult === true || lastCertificateIsRootCa)) {
 				return { success: false, error: CredentialVerificationError.NotTrustedIssuer };
 			}
@@ -68,11 +77,12 @@ export async function resolveVcdm2IssuerPublicKey(
 	// method and wins; a VCDM 2.0 credential need not duplicate its issuer
 	// into a registered JWT claim, so the credential's own `issuer` is the
 	// last resort.
-	const identifier = typeof header.kid === "string"
-		? header.kid
-		: options.useIssClaim && typeof payload?.iss === "string"
-			? payload.iss
-			: issuerIdentifier(payload?.issuer);
+	const identifier =
+		typeof header.kid === 'string'
+			? header.kid
+			: options.useIssClaim && typeof payload?.iss === 'string'
+				? payload.iss
+				: issuerIdentifier(payload?.issuer);
 
 	if (!identifier) {
 		return { success: false, error: CredentialVerificationError.CannotResolveIssuerPublicKey };

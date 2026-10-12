@@ -5,12 +5,13 @@
  * Shows "Sign up with {IdP}" or "Sign in with {IdP}" based on purpose.
  */
 
+import { Building2 } from 'lucide-react';
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import Button from '../Buttons/Button';
-import { Building2 } from 'lucide-react';
 import type { OIDCProviderConfig } from '../../api/types';
 import type { OIDCGatePurpose } from '../../lib/oidc';
+import Button from '../Buttons/Button';
 
 export interface OIDCGateButtonProps {
 	/** OIDC provider configuration */
@@ -35,9 +36,10 @@ export default function OIDCGateButton({
 	const { t } = useTranslation();
 
 	const displayName = provider.display_name || 'Identity Provider';
-	const buttonLabel = purpose === 'registration'
-		? t('oidcGate.signUpWith', { provider: displayName })
-		: t('oidcGate.signInWith', { provider: displayName });
+	const buttonLabel =
+		purpose === 'registration'
+			? t('oidcGate.signUpWith', { provider: displayName })
+			: t('oidcGate.signInWith', { provider: displayName });
 
 	return (
 		<Button

@@ -1,31 +1,37 @@
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
 import React from 'react';
 import { highlightBestSequence } from '@/components/QueryableList/highlightBestSequence';
 import { useRemoteImage } from '@/hooks/useRemoteImage';
+
 type EntityListItemProps = {
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 	primaryData: any;
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 	secondaryData?: any;
 	searchQuery: string;
 };
 
 const DisplayNode = ({ primaryData, secondaryData, searchQuery }: EntityListItemProps) => {
-
 	const primaryLogoSrc = useRemoteImage(primaryData?.logo?.uri);
 	const secondaryImageSrc = useRemoteImage(secondaryData?.logo?.uri);
 
+	// biome-ignore lint/complexity/noImplicitCoercions: baseline: pre-existing debt. should be fixed
 	const hasTextColor = !!primaryData.text_color;
+	// biome-ignore lint/complexity/noImplicitCoercions: baseline: pre-existing debt. should be fixed
 	const hasBackgroundColor = !!primaryData.background_color;
 	const shouldUseCustomStyle = hasTextColor && hasBackgroundColor;
 
 	const logoStyle = shouldUseCustomStyle
 		? {
-			backgroundColor: primaryData.background_color,
-			color: primaryData.text_color,
-		}
+				backgroundColor: primaryData.background_color,
+				color: primaryData.text_color,
+			}
 		: {
-			backgroundColor: '#939393',
-			color: 'white',
-		};
+				backgroundColor: '#939393',
+				color: 'white',
+			};
 
+	// biome-ignore lint/complexity/noImplicitCoercions: baseline: pre-existing debt. should be fixed
 	const issuerHasBackgroundColor = !!secondaryData?.background_color;
 	const issuerLogoStyle = issuerHasBackgroundColor
 		? { backgroundColor: secondaryData.background_color }
@@ -48,10 +54,7 @@ const DisplayNode = ({ primaryData, secondaryData, searchQuery }: EntityListItem
 						<p className="font-bold">{primaryData.name?.charAt(0)}</p>
 					)}
 				</div>
-				<span
-					className="line-clamp-2 max-w-full"
-					title={primaryData.name}
-				>
+				<span className="line-clamp-2 max-w-full" title={primaryData.name}>
 					{highlightBestSequence(primaryData.name, searchQuery)}
 				</span>
 			</span>

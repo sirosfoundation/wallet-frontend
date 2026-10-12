@@ -1,19 +1,38 @@
-import { JWK } from "jose";
-import { CredentialParsingError, CredentialVerificationError, PublicKeyResolutionError, CredentialRenderingError, ValidatePresentationRequirementsError } from "./error";
-import { CustomResult, ParsedCredential, CredentialClaims, ParserResult, CredentialClaimPath } from "./types";
-import { VctDocumentProvider } from "./core";
+import type { JWK } from 'jose';
+import type { VctDocumentProvider } from './core';
+import {
+	type CredentialParsingError,
+	// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
+	CredentialRenderingError,
+	type CredentialVerificationError,
+	type PublicKeyResolutionError,
+	ValidatePresentationRequirementsError,
+} from './error';
+import type {
+	CredentialClaimPath,
+	CredentialClaims,
+	CustomResult,
+	ParsedCredential,
+	ParserResult,
+} from './types';
 
 export interface CredentialRendering {
 	renderSvgTemplate(args: {
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 		json: any;
 		credentialImageSvgTemplate: string;
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 		vcMetadataClaims?: any;
 		filter?: Array<CredentialClaimPath>;
-	}): Promise<string | null>
+	}): Promise<string | null>;
 }
 
 export interface CustomCredentialSvgI {
-	renderCustomSvgTemplate(args: { signedClaims: CredentialClaims, displayConfig: any }): Promise<string>;
+	renderCustomSvgTemplate(args: {
+		signedClaims: CredentialClaims;
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+		displayConfig: any;
+	}): Promise<string>;
 }
 
 export interface CredentialIssuerInfo {
@@ -23,24 +42,42 @@ export interface CredentialIssuerInfo {
 
 export interface ParsingEngineI {
 	register(parser: CredentialParser): void;
-	parse({ rawCredential, credentialIssuer }: {
-		rawCredential: unknown,
+	parse({
+		rawCredential,
+		credentialIssuer,
+	}: {
+		rawCredential: unknown;
 		credentialIssuer?: CredentialIssuerInfo;
 	}): Promise<CustomResult<ParsedCredential, CredentialParsingError>>;
 }
 
 export interface VerifyingEngineI {
 	register(credentialVerifier: CredentialVerifier): void;
-	verify({ rawCredential, opts }: { rawCredential: unknown, opts: { expectedNonce?: string, expectedAudience?: string, holderNonce?: string, responseUri?: string } }): Promise<CustomResult<{ holderPublicKey: JWK; }, CredentialVerificationError>>;
+	verify({
+		rawCredential,
+		opts,
+	}: {
+		rawCredential: unknown;
+		opts: {
+			expectedNonce?: string;
+			expectedAudience?: string;
+			holderNonce?: string;
+			responseUri?: string;
+		};
+	}): Promise<CustomResult<{ holderPublicKey: JWK }, CredentialVerificationError>>;
 }
 
 export interface PublicKeyResolverEngineI {
 	register(resolver: PublicKeyResolver): void;
-	resolve(args: { identifier: string }): Promise<CustomResult<{
-		jwk: JWK
-	}, PublicKeyResolutionError>>;
+	resolve(args: { identifier: string }): Promise<
+		CustomResult<
+			{
+				jwk: JWK;
+			},
+			PublicKeyResolutionError
+		>
+	>;
 }
-
 
 export interface CredentialParser {
 	parse(args: {
@@ -50,21 +87,46 @@ export interface CredentialParser {
 }
 
 export interface CredentialVerifier {
-	verify(args: { rawCredential: unknown, opts: { expectedNonce?: string, expectedAudience?: string, holderNonce?: string, responseUri?: string } }): Promise<CustomResult<{
-		holderPublicKey: JWK,
-	}, CredentialVerificationError>>;
+	verify(args: {
+		rawCredential: unknown;
+		opts: {
+			expectedNonce?: string;
+			expectedAudience?: string;
+			holderNonce?: string;
+			responseUri?: string;
+		};
+	}): Promise<
+		CustomResult<
+			{
+				holderPublicKey: JWK;
+			},
+			CredentialVerificationError
+		>
+	>;
 }
 
-
 export interface PublicKeyResolver {
-	resolve(args: { identifier: string }): Promise<CustomResult<{
-		jwk: JWK
-	}, PublicKeyResolutionError>>;
+	resolve(args: { identifier: string }): Promise<
+		CustomResult<
+			{
+				jwk: JWK;
+			},
+			PublicKeyResolutionError
+		>
+	>;
 }
 
 export interface HttpClient {
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 	get(url: string, headers?: Record<string, unknown>, options?: any): Promise<HttpResponse>;
-	post(url: string, body: any, headers?: Record<string, unknown>, options?: any): Promise<HttpResponse>;
+	post(
+		url: string,
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+		body: any,
+		headers?: Record<string, unknown>,
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+		options?: any,
+	): Promise<HttpResponse>;
 }
 
 export interface HttpResponse {
@@ -84,9 +146,6 @@ export interface HttpResponse {
 	 */
 	raw?: Uint8Array;
 }
-
-
-
 
 export interface Context {
 	clockTolerance: number;

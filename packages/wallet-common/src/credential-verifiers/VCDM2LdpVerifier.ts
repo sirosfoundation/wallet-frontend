@@ -1,19 +1,24 @@
-import type { JWK } from "jose";
-import { Context, CredentialVerifier, PublicKeyResolverEngineI, HttpClient } from "../interfaces";
-import { CredentialVerificationError } from "../error";
-import type { DataIntegrityProof } from "../schemas/Vcdm2CredentialSchema";
+import type { JWK } from 'jose';
+import { CredentialVerificationError } from '../error';
+import type {
+	Context,
+	CredentialVerifier,
+	HttpClient,
+	PublicKeyResolverEngineI,
+} from '../interfaces';
+import type { DataIntegrityProof } from '../schemas/Vcdm2CredentialSchema';
+import { didKeyToJwk } from '../utils/dataIntegrity/multibase';
+import {
+	isSupportedCryptosuite,
+	resolveCryptosuite,
+	verifyDataIntegrityProof,
+} from '../utils/dataIntegrity/verifyDataIntegrityProof';
 import {
 	coerceCredentialObject,
 	isVcdm2Credential,
 	parseVcdm2Credential,
 	proofsOf,
-} from "../utils/vcdm2";
-import { didKeyToJwk } from "../utils/dataIntegrity/multibase";
-import {
-	isSupportedCryptosuite,
-	resolveCryptosuite,
-	verifyDataIntegrityProof,
-} from "../utils/dataIntegrity/verifyDataIntegrityProof";
+} from '../utils/vcdm2';
 
 /**
  * Verifier for W3C VCDM 2.0 credentials secured with an embedded Data
@@ -23,11 +28,15 @@ import {
  * verifies, matching VC-DI's treatment of a proof set. Proof *chains*
  * (`previousProof`) are not evaluated as chains.
  */
-export function VCDM2LdpVerifier(args: { context: Context, pkResolverEngine: PublicKeyResolverEngineI, httpClient: HttpClient }): CredentialVerifier {
-
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
+export function VCDM2LdpVerifier(args: {
+	context: Context;
+	pkResolverEngine: PublicKeyResolverEngineI;
+	httpClient: HttpClient;
+}): CredentialVerifier {
 	const resolveVerificationMethodKey = async (verificationMethod: string): Promise<JWK | null> => {
 		// did:key encodes the key in the identifier, so no resolution needed.
-		if (verificationMethod.startsWith("did:key:")) {
+		if (verificationMethod.startsWith('did:key:')) {
 			try {
 				return didKeyToJwk(verificationMethod);
 			} catch {
@@ -40,7 +49,7 @@ export function VCDM2LdpVerifier(args: { context: Context, pkResolverEngine: Pub
 
 		// Some issuers name a fragment on a controller document; retry
 		// against the bare controller identifier.
-		const withoutFragment = verificationMethod.split("#")[0];
+		const withoutFragment = verificationMethod.split('#')[0];
 		if (withoutFragment !== verificationMethod) {
 			const fallback = await args.pkResolverEngine.resolve({ identifier: withoutFragment });
 			if (fallback.success) return fallback.value.jwk;
@@ -50,6 +59,8 @@ export function VCDM2LdpVerifier(args: { context: Context, pkResolverEngine: Pub
 	};
 
 	return {
+		// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+		// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 		async verify({ rawCredential }) {
 			const candidate = coerceCredentialObject(rawCredential);
 			if (candidate === null || !isVcdm2Credential(candidate)) {
@@ -84,6 +95,7 @@ export function VCDM2LdpVerifier(args: { context: Context, pkResolverEngine: Pub
 					continue;
 				}
 
+				// biome-ignore lint/performance/noAwaitInLoops: baseline: pre-existing debt. should be fixed
 				const publicKey = await resolveVerificationMethodKey(proof.verificationMethod);
 				if (!publicKey) {
 					lastError = CredentialVerificationError.CannotResolveIssuerPublicKey;
@@ -109,13 +121,13 @@ export function VCDM2LdpVerifier(args: { context: Context, pkResolverEngine: Pub
 				// the supported set before this point, so verifyDataIntegrityProof
 				// can no longer report one here.
 				switch (result.failure.kind) {
-					case "canonicalization-failed":
+					case 'canonicalization-failed':
 						lastError = CredentialVerificationError.CanonicalizationFailed;
 						break;
-					case "context-unresolvable":
+					case 'context-unresolvable':
 						lastError = CredentialVerificationError.UnresolvableJsonLdContext;
 						break;
-					case "invalid-proof":
+					case 'invalid-proof':
 						lastError = CredentialVerificationError.InvalidFormat;
 						break;
 					default:

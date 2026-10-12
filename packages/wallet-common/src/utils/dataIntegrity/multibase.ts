@@ -1,4 +1,4 @@
-import type { JWK } from "jose";
+import type { JWK } from 'jose';
 
 /**
  * Multibase / Multikey decoding, as used by Data Integrity `proofValue`s and
@@ -8,7 +8,8 @@ import type { JWK } from "jose";
  * base58btc (`z`) and base64url-no-pad (`u`).
  */
 
-const BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
 const BASE58_LOOKUP: Record<string, number> = (() => {
 	const table: Record<string, number> = {};
@@ -35,17 +36,21 @@ export function base58Decode(input: string): Uint8Array {
 		let carry = value;
 		for (let j = 0; j < bytes.length; j += 1) {
 			carry += bytes[j] * 58;
+			// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 			bytes[j] = carry & 0xff;
+			// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 			carry >>= 8;
 		}
 		while (carry > 0) {
+			// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 			bytes.push(carry & 0xff);
+			// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 			carry >>= 8;
 		}
 	}
 
 	// Each leading '1' encodes a leading zero byte.
-	for (let k = 0; k < input.length && input[k] === "1"; k += 1) {
+	for (let k = 0; k < input.length && input[k] === '1'; k += 1) {
 		bytes.push(0);
 	}
 
@@ -53,8 +58,8 @@ export function base58Decode(input: string): Uint8Array {
 }
 
 function base64UrlDecode(input: string): Uint8Array {
-	const padded = input + "=".repeat((4 - (input.length % 4)) % 4);
-	const binary = atob(padded.replace(/-/g, "+").replace(/_/g, "/"));
+	const padded = input + '='.repeat((4 - (input.length % 4)) % 4);
+	const binary = atob(padded.replace(/-/g, '+').replace(/_/g, '/'));
 	const out = new Uint8Array(binary.length);
 	for (let i = 0; i < binary.length; i += 1) out[i] = binary.charCodeAt(i);
 	return out;
@@ -62,22 +67,23 @@ function base64UrlDecode(input: string): Uint8Array {
 
 /** Decode a multibase string. Supports base58btc ('z') and base64url ('u'). */
 export function multibaseDecode(input: string): Uint8Array {
-	if (typeof input !== "string" || input.length < 2) {
-		throw new Error("multibase: value is too short");
+	if (typeof input !== 'string' || input.length < 2) {
+		throw new Error('multibase: value is too short');
 	}
 	const prefix = input[0];
 	const body = input.slice(1);
 
-	if (prefix === "z") return base58Decode(body);
-	if (prefix === "u") return base64UrlDecode(body);
+	if (prefix === 'z') return base58Decode(body);
+	if (prefix === 'u') return base64UrlDecode(body);
 
 	throw new Error(`multibase: unsupported prefix '${prefix}'`);
 }
 
 function base64UrlEncode(bytes: Uint8Array): string {
-	let binary = "";
+	let binary = '';
 	for (const byte of bytes) binary += String.fromCharCode(byte);
-	return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+	// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
+	return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/[=]+$/, '');
 }
 
 /**
@@ -102,35 +108,50 @@ function hasPrefix(bytes: Uint8Array, prefix: readonly number[]): boolean {
  * the fact that p ≡ 3 (mod 4) for both curves, so the square root is
  * y = (y²)^((p+1)/4).
  */
-function decompressPoint(compressed: Uint8Array, curve: "P-256" | "P-384"): { x: Uint8Array; y: Uint8Array } {
-	const params = curve === "P-256"
-		? {
-			p: BigInt("0xffffffff00000001000000000000000000000000ffffffffffffffffffffffff"),
-			b: BigInt("0x5ac635d8aa3a93e7b3ebbd55769886bc651d06b0cc53b0f63bce3c3e27d2604b"),
-			size: 32,
-		}
-		: {
-			p: BigInt("0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffeffffffff0000000000000000ffffffff"),
-			b: BigInt("0xb3312fa7e23ee7e4988e056be3f82d19181d9c6efe8141120314088f5013875ac656398d8a2ed19d2a85c8edd3ec2aef"),
-			size: 48,
-		};
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
+function decompressPoint(
+	compressed: Uint8Array,
+	curve: 'P-256' | 'P-384',
+): { x: Uint8Array; y: Uint8Array } {
+	const params =
+		curve === 'P-256'
+			? {
+					p: BigInt('0xffffffff00000001000000000000000000000000ffffffffffffffffffffffff'),
+					// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+					b: BigInt('0x5ac635d8aa3a93e7b3ebbd55769886bc651d06b0cc53b0f63bce3c3e27d2604b'),
+					size: 32,
+				}
+			: {
+					p: BigInt(
+						'0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffeffffffff0000000000000000ffffffff',
+					),
+					b: BigInt(
+						// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+						'0xb3312fa7e23ee7e4988e056be3f82d19181d9c6efe8141120314088f5013875ac656398d8a2ed19d2a85c8edd3ec2aef',
+					),
+					size: 48,
+				};
 
 	const sign = compressed[0];
 	if (sign !== 0x02 && sign !== 0x03) {
-		throw new Error("multikey: not a compressed EC point");
+		throw new Error('multikey: not a compressed EC point');
 	}
 
 	const toBigInt = (bytes: Uint8Array): bigint => {
 		let value = 0n;
+		// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 		for (const byte of bytes) value = (value << 8n) | BigInt(byte);
 		return value;
 	};
 
+	// biome-ignore lint/suspicious/noShadow: baseline: pre-existing debt. should be fixed
 	const toBytes = (value: bigint, size: number): Uint8Array => {
 		const out = new Uint8Array(size);
 		let v = value;
 		for (let i = size - 1; i >= 0; i -= 1) {
+			// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 			out[i] = Number(v & 0xffn);
+			// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 			v >>= 8n;
 		}
 		return out;
@@ -141,8 +162,10 @@ function decompressPoint(compressed: Uint8Array, curve: "P-256" | "P-384"): { x:
 		let b = base % modulus;
 		let e = exponent;
 		while (e > 0n) {
+			// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 			if (e & 1n) result = (result * b) % modulus;
 			b = (b * b) % modulus;
+			// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 			e >>= 1n;
 		}
 		return result;
@@ -157,7 +180,8 @@ function decompressPoint(compressed: Uint8Array, curve: "P-256" | "P-384"): { x:
 
 	// Pick the root whose parity matches the sign byte.
 	const wantOdd = sign === 0x03;
-	if ((y & 1n) === 1n !== wantOdd) {
+	// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
+	if (((y & 1n) === 1n) !== wantOdd) {
 		y = p - y;
 	}
 
@@ -170,13 +194,16 @@ function decompressPoint(compressed: Uint8Array, curve: "P-256" | "P-384"): { x:
 export function multikeyToJwk(bytes: Uint8Array): JWK {
 	if (hasPrefix(bytes, MULTICODEC.ED25519_PUB)) {
 		return {
-			kty: "OKP",
-			crv: "Ed25519",
+			kty: 'OKP',
+			crv: 'Ed25519',
 			x: base64UrlEncode(bytes.slice(MULTICODEC.ED25519_PUB.length)),
 		};
 	}
 
-	for (const [curve, prefix] of [["P-256", MULTICODEC.P256_PUB], ["P-384", MULTICODEC.P384_PUB]] as const) {
+	for (const [curve, prefix] of [
+		['P-256', MULTICODEC.P256_PUB],
+		['P-384', MULTICODEC.P384_PUB],
+	] as const) {
 		if (!hasPrefix(bytes, prefix)) continue;
 
 		const keyBytes = bytes.slice(prefix.length);
@@ -185,7 +212,7 @@ export function multikeyToJwk(bytes: Uint8Array): JWK {
 		if (keyBytes[0] === 0x04) {
 			const size = (keyBytes.length - 1) / 2;
 			return {
-				kty: "EC",
+				kty: 'EC',
 				crv: curve,
 				x: base64UrlEncode(keyBytes.slice(1, 1 + size)),
 				y: base64UrlEncode(keyBytes.slice(1 + size)),
@@ -194,14 +221,14 @@ export function multikeyToJwk(bytes: Uint8Array): JWK {
 
 		const { x, y } = decompressPoint(keyBytes, curve);
 		return {
-			kty: "EC",
+			kty: 'EC',
 			crv: curve,
 			x: base64UrlEncode(x),
 			y: base64UrlEncode(y),
 		};
 	}
 
-	throw new Error("multikey: unsupported key type");
+	throw new Error('multikey: unsupported key type');
 }
 
 /**
@@ -209,10 +236,10 @@ export function multikeyToJwk(bytes: Uint8Array): JWK {
  * identifier is a multibase-encoded Multikey.
  */
 export function didKeyToJwk(did: string): JWK {
-	const withoutFragment = did.split("#")[0];
-	const prefix = "did:key:";
+	const withoutFragment = did.split('#')[0];
+	const prefix = 'did:key:';
 	if (!withoutFragment.startsWith(prefix)) {
-		throw new Error("did:key: unexpected identifier");
+		throw new Error('did:key: unexpected identifier');
 	}
 	return multikeyToJwk(multibaseDecode(withoutFragment.slice(prefix.length)));
 }

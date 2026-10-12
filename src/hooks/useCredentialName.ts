@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 export function useCredentialName(
 	credentialNameFn?: (langs?: string[]) => Promise<string | null>,
 	credentialId?: string,
-	preferredLangs: string[] = ['en-US']
+	preferredLangs: string[] = ['en-US'],
 ): string | null {
 	const [name, setName] = useState<string | null>(null);
 
@@ -12,6 +12,7 @@ export function useCredentialName(
 		return credentialNameFn(preferredLangs);
 	}, [credentialNameFn, preferredLangs]);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: baseline: pre-existing debt. should be fixed
 	useEffect(() => {
 		let isMounted = true;
 		(async () => {

@@ -9,7 +9,7 @@
  * - For 'sign_presentation': Generates a VP JWT for OID4VP
  */
 
-import { useEffect, useContext } from 'react';
+import { useContext, useEffect } from 'react';
 import { useOIDFlowTransportSafe } from '@/context/OIDFlowTransportContext';
 import SessionContext from '@/context/SessionContext';
 import { logger } from '@/logger';
@@ -43,4 +43,5 @@ export function useWebSocketSignHandler(): void {
 	}, [transportType, registerSignHandler, keystore, handleSignRequest]);
 }
 
+// biome-ignore lint/complexity/noRedundantDefaultExport: baseline: pre-existing debt. should be fixed
 export default useWebSocketSignHandler;

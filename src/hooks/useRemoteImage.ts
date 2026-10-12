@@ -1,16 +1,14 @@
 import { useEffect, useState } from 'react';
-import { useHttpClient } from './useHttpClient';
-import {
-	sanitizeSvgDataUri,
-	sanitizeSvgContent,
-	isSvgDataUri,
-} from '@/lib/utils/sanitizeSvg';
+import { isSvgDataUri, sanitizeSvgContent, sanitizeSvgDataUri } from '@/lib/utils/sanitizeSvg';
 import { logger } from '@/logger';
+import { useHttpClient } from './useHttpClient';
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 export const useRemoteImage = (uri?: string | null) => {
 	const httpClient = useHttpClient();
 	const [src, setSrc] = useState<string | null>(null);
 
+	// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 	useEffect(() => {
 		if (!uri || typeof uri !== 'string' || !uri.trim()) {
 			setSrc(null);
@@ -34,26 +32,19 @@ export const useRemoteImage = (uri?: string | null) => {
 			let objectUrl: string | null = null;
 			let active = true;
 
+			// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
 			(async () => {
 				try {
-					const res = await httpClient.get(
-						uri,
-						{},
-						{ useCache: true, wantRaw: true },
-					);
+					const res = await httpClient.get(uri, {}, { useCache: true, wantRaw: true });
 					if (!active || res.status !== 200) return;
 
 					const contentType = String(
-						res.headers?.['content-type'] ||
-							res.headers?.['Content-Type'] ||
-							'',
+						res.headers?.['content-type'] || res.headers?.['Content-Type'] || '',
 					);
 
 					if (contentType.includes('svg')) {
 						const svgText =
-							typeof res.data === 'string'
-								? res.data
-								: new TextDecoder().decode(res.raw);
+							typeof res.data === 'string' ? res.data : new TextDecoder().decode(res.raw);
 						const sanitizedSvg = sanitizeSvgContent(svgText);
 						const encoded = btoa(
 							new TextEncoder()

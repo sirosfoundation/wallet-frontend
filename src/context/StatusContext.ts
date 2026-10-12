@@ -35,10 +35,13 @@ const StatusContext = createContext<StatusContextValue>({
 	updateAvailable: false,
 	connectivity: { navigatorOnline: null, Internet: null, speed: null },
 	pwaInstallable: null,
-	dismissPwaPrompt: () => { },
+	// biome-ignore lint/suspicious/noEmptyBlockStatements: baseline: pre-existing debt. should be fixed
+	dismissPwaPrompt: () => {},
 	hidePwaPrompt: false,
-	updateOnlineStatus: async () => { },
-	blockUpdates: () => () => { },
+	// biome-ignore lint/suspicious/noEmptyBlockStatements: baseline: pre-existing debt. should be fixed
+	updateOnlineStatus: async () => {},
+	// biome-ignore lint/suspicious/noEmptyBlockStatements: baseline: pre-existing debt. should be fixed
+	blockUpdates: () => () => {},
 });
 
 export default StatusContext;

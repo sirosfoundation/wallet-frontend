@@ -1,3 +1,4 @@
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
 import React from 'react';
 import useScreenType from '../../hooks/useScreenType';
 
@@ -11,6 +12,6 @@ const PageDescription = ({ description }) => {
 			)}
 		</>
 	);
-}
+};
 
 export default PageDescription;

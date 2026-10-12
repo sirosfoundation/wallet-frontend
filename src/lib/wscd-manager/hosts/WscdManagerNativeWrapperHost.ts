@@ -1,12 +1,14 @@
+import type { JWK } from 'jose';
 import { WEBAUTHN_RPID } from '@/config';
-import { WscdManagerHosts, WscdHostStrength, WscdPlugin, WscdContainer, WscdManagerError } from '../resources';
 import {
-	AuthFactor,
-	IWscdManagerHost,
-	WscdEligibilityRequirements,
-} from '../types';
+	type WscdContainer,
+	WscdHostStrength,
+	WscdManagerError,
+	WscdManagerHosts,
+	WscdPlugin,
+} from '../resources';
+import type { AuthFactor, IWscdManagerHost, WscdEligibilityRequirements } from '../types';
 import { ensureDecodedWscdContainer, ensureEncodedWscdContainer } from '../utils';
-import { JWK } from 'jose';
 
 export class WscdManagerNativeWrapperHost implements IWscdManagerHost {
 	readonly supportedPlugins: ReadonlySet<WscdPlugin> = new Set([
@@ -22,16 +24,13 @@ export class WscdManagerNativeWrapperHost implements IWscdManagerHost {
 		// no-op
 	}
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	public async isAvailable() {
-		return (
-			typeof window.nativeWrapper?.callWscd === 'function'
-		)
+		return typeof window.nativeWrapper?.callWscd === 'function';
 	}
 
-	public async isEligible({
-		plugin,
-		factors,
-	}: WscdEligibilityRequirements) {
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
+	public async isEligible({ plugin, factors }: WscdEligibilityRequirements) {
 		const supported = this.supportedPlugins.has(plugin);
 		const satisfiesFactors = factors.every((f) => this.#canSatisfyFactor(f));
 
@@ -39,16 +38,11 @@ export class WscdManagerNativeWrapperHost implements IWscdManagerHost {
 	}
 
 	public async importContainer(container: WscdContainer): Promise<void> {
-		await window.nativeWrapper.callWscd(
-			'importContainer',
-			ensureEncodedWscdContainer(container)
-		);
+		await window.nativeWrapper.callWscd('importContainer', ensureEncodedWscdContainer(container));
 	}
 
 	public async exportContainer(): Promise<WscdContainer> {
-		const result = await window.nativeWrapper.callWscd(
-			'exportContainer',
-		);
+		const result = await window.nativeWrapper.callWscd('exportContainer');
 
 		if (!(result instanceof Uint8Array)) {
 			throw new WscdManagerError('Invalid container exported from native wrapper');

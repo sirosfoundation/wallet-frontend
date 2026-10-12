@@ -7,10 +7,11 @@
  * Designed to work with the useTxCodeInput hook for promise-based async/await usage.
  */
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import type React from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import PopupLayout from './PopupLayout';
 import Button from '../Buttons/Button';
+import PopupLayout from './PopupLayout';
 
 export interface TxCodeConfig {
 	/** Description to display to the user */
@@ -32,6 +33,7 @@ export interface TxCodeInputPopupProps {
 	onCancel: () => void;
 }
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 export function TxCodeInputPopup({
 	isOpen,
 	txCodeConfig,
@@ -69,7 +71,7 @@ export function TxCodeInputPopup({
 
 		if (length && code.length !== length) {
 			setError(
-				t('txCodeInput.errorLength', 'Transaction code must be {{length}} characters', { length })
+				t('txCodeInput.errorLength', 'Transaction code must be {{length}} characters', { length }),
 			);
 			return;
 		}
@@ -88,15 +90,11 @@ export function TxCodeInputPopup({
 				onCancel();
 			}
 		},
-		[handleSubmit, onCancel]
+		[handleSubmit, onCancel],
 	);
 
 	return (
-		<PopupLayout
-			isOpen={isOpen}
-			onClose={onCancel}
-			shouldCloseOnOverlayClick={false}
-		>
+		<PopupLayout isOpen={isOpen} onClose={onCancel} shouldCloseOnOverlayClick={false}>
 			{/* Header */}
 			<h2
 				id="txcode-dialog-title"
@@ -106,11 +104,12 @@ export function TxCodeInputPopup({
 			</h2>
 
 			{/* Description */}
-			<p
-				id="txcode-dialog-description"
-				className="text-lm-gray-700 dark:text-dm-gray-300 mb-4"
-			>
-				{description || t('txCodeInput.defaultDescription', 'Enter the transaction code displayed on your screen')}
+			<p id="txcode-dialog-description" className="text-lm-gray-700 dark:text-dm-gray-300 mb-4">
+				{description ||
+					t(
+						'txCodeInput.defaultDescription',
+						'Enter the transaction code displayed on your screen',
+					)}
 			</p>
 
 			{/* Length hint */}
@@ -149,21 +148,21 @@ export function TxCodeInputPopup({
 
 			{/* Error message */}
 			{error && (
-				<p id="txcode-error" role="alert" className="mt-2 text-sm text-lm-red-light dark:text-dm-red-light">{error}</p>
+				<p
+					id="txcode-error"
+					role="alert"
+					className="mt-2 text-sm text-lm-red-light dark:text-dm-red-light"
+				>
+					{error}
+				</p>
 			)}
 
 			{/* Buttons */}
 			<div className="mt-6 flex justify-end space-x-3">
-				<Button
-					variant="outline"
-					onClick={onCancel}
-				>
+				<Button variant="outline" onClick={onCancel}>
 					{t('common.cancel', 'Cancel')}
 				</Button>
-				<Button
-					variant="primary"
-					onClick={handleSubmit}
-				>
+				<Button variant="primary" onClick={handleSubmit}>
 					{t('common.submit', 'Submit')}
 				</Button>
 			</div>
@@ -171,4 +170,5 @@ export function TxCodeInputPopup({
 	);
 }
 
+// biome-ignore lint/complexity/noRedundantDefaultExport: baseline: pre-existing debt. should be fixed
 export default TxCodeInputPopup;

@@ -10,17 +10,17 @@
  * which routes requests to the configured AuthZEN PDP (go-trust service).
  */
 
+import type { HttpClient } from 'wallet-common';
 import {
 	AuthZENClient,
-	AuthZENClientConfig,
+	type AuthZENClientConfig,
+	type ClientIdScheme,
+	type DIDDocument,
+	type DIDResolutionResult,
+	type DIDResolver,
+	type KeyMaterial,
 	TrustStatus,
-	KeyMaterial,
-	DIDResolutionResult,
-	DIDDocument,
-	DIDResolver,
-	ClientIdScheme,
 } from 'wallet-common';
-import type { HttpClient } from 'wallet-common';
 import { logger } from '@/logger';
 
 /**
@@ -115,7 +115,9 @@ export interface VerifierTrustResult {
  * Verifier trust evaluator function type.
  * @todo consider moving to wallet-common.
  */
-export type VerifierTrustEvaluator = (params: VerifierTrustEvaluationParams) => Promise<VerifierTrustResult>;
+export type VerifierTrustEvaluator = (
+	params: VerifierTrustEvaluationParams,
+) => Promise<VerifierTrustResult>;
 
 /**
  * Create an OpenID4VP trust evaluator using the AuthZEN client.
@@ -260,7 +262,9 @@ export interface IssuerTrustResult {
  * Issuer trust evaluator function type.
  * @todo consider moving to wallet-common.
  */
-export type IssuerTrustEvaluator = (params: IssuerTrustEvaluationParams) => Promise<IssuerTrustResult>;
+export type IssuerTrustEvaluator = (
+	params: IssuerTrustEvaluationParams,
+) => Promise<IssuerTrustResult>;
 
 /**
  * Create an issuer trust evaluator using the AuthZEN client.
@@ -390,7 +394,8 @@ export function createDIDResolver(config: TrustEvaluatorConfig): DIDResolver {
 		// Extract DID document from trust_metadata
 		const didDocument = response.context?.trust_metadata as DIDDocument | undefined;
 
-		if (!didDocument || !didDocument.id) {
+		// biome-ignore lint/complexity/useOptionalChain: baseline: pre-existing debt. should be fixed
+		if (!(didDocument && didDocument.id)) {
 			logger.warn('DID resolved but no document returned for:', did);
 			return {
 				resolved: false,

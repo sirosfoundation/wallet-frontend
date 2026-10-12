@@ -1,9 +1,10 @@
+import { AlertCircle, Send } from 'lucide-react';
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
 import React from 'react';
-import Logo from '@/components/Logo/Logo';
 import { useTranslation } from 'react-i18next';
 import Button from '@/components/Buttons/Button';
+import Logo from '@/components/Logo/Logo';
 import { APP_VERSION, STATIC_NAME } from '@/config';
-import { AlertCircle, Send } from 'lucide-react';
 
 const REPORT_ISSUE_EMAIL = 'support@siros.org';
 
@@ -12,7 +13,7 @@ type GlobalErrorScreenProps = {
 };
 
 const GlobalErrorScreen = ({ error }: GlobalErrorScreenProps) => {
-	const {t} = useTranslation()
+	const { t } = useTranslation();
 
 	const handleReportIssue = () => {
 		const subject = `Wallet crash report${error?.name ? `: ${error.name}` : ''}`;
@@ -26,7 +27,7 @@ const GlobalErrorScreen = ({ error }: GlobalErrorScreenProps) => {
 			`Time Stamp: ${new Date().toISOString()}`,
 			`URL: ${window.location.href}`,
 			`App Version: ${APP_VERSION ?? 'unknown'}`,
-			`Browser: ${navigator.userAgent}`
+			`Browser: ${navigator.userAgent}`,
 		].join('\n');
 
 		window.location.href = `mailto:${REPORT_ISSUE_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
@@ -50,9 +51,7 @@ const GlobalErrorScreen = ({ error }: GlobalErrorScreenProps) => {
 							<h1 className="text-2xl font-bold leading-tight tracking-tight text-lm-gray-900 md:text-4xl text-center dark:text-dm-gray-100">
 								{t('globalError.title')}
 							</h1>
-							<p className="text-center">
-								{t('globalError.message')}
-							</p>
+							<p className="text-center">{t('globalError.message')}</p>
 							<div className="pt-4">
 								<Button onClick={handleReportIssue} variant="outline" additionalClassName="w-full">
 									<span className="flex items-center justify-center gap-2">
@@ -61,9 +60,7 @@ const GlobalErrorScreen = ({ error }: GlobalErrorScreenProps) => {
 									</span>
 								</Button>
 							</div>
-							<p className="text-center pt-2">
-								{t('globalError.contactSupport')}
-							</p>
+							<p className="text-center pt-2">{t('globalError.contactSupport')}</p>
 						</div>
 					</div>
 				</div>

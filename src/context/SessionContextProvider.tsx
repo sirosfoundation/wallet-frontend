@@ -1,31 +1,34 @@
-import React, { useContext, useEffect, useCallback, useRef, useMemo, useState } from 'react';
+import type React from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import StatusContext from './StatusContext';
-import { useApi } from '../api';
-import { KeystoreEvent, useLocalStorageKeystore } from '../services/LocalStorageKeystore';
-import keystoreEvents from '../services/keystoreEvents';
-import SessionContext, { SessionContextValue } from './SessionContext';
-import { useLocalStorage, useSessionStorage } from '@/hooks/useStorage';
-import { fetchKeyConfig, HpkeConfig } from '@/lib/utils/ohttpHelpers';
+import { SessionRecoveryPopup } from '@/components/Popups/SessionRecoveryPopup';
 import { OHTTP_KEY_CONFIG } from '@/config';
-import { logger } from '../logger';
+import { useAuthServerClient } from '@/hooks/useAuthServerClient';
 import useErrorDialog from '@/hooks/useErrorDialog';
 import { useOIDFlowClientAuthStore } from '@/hooks/useOIDFlowClientAuthStore';
-import { useAuthServerClient } from '@/hooks/useAuthServerClient';
-import { getTenantFromUrlPath } from '@/lib/tenant';
+import { useLocalStorage, useSessionStorage } from '@/hooks/useStorage';
 import { AuthTokens } from '@/lib/auth';
-import { SessionRecoveryPopup } from '@/components/Popups/SessionRecoveryPopup';
+import { getTenantFromUrlPath } from '@/lib/tenant';
+import { fetchKeyConfig, type HpkeConfig } from '@/lib/utils/ohttpHelpers';
+import { useApi } from '../api';
+import { logger } from '../logger';
+import keystoreEvents from '../services/keystoreEvents';
+import { KeystoreEvent, useLocalStorageKeystore } from '../services/LocalStorageKeystore';
+import SessionContext, { type SessionContextValue } from './SessionContext';
+import StatusContext from './StatusContext';
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 export const SessionContextProvider = ({ children }: React.PropsWithChildren) => {
 	const { isOnline } = useContext(StatusContext);
 	const authServerClient = useAuthServerClient();
 	const tenantId = getTenantFromUrlPath();
 	const authTokens = useMemo(
-		() => AuthTokens.fromStorage({
-			authServerClient,
-			tenantId,
-			storage: window.sessionStorage,
-		}),
+		() =>
+			AuthTokens.fromStorage({
+				authServerClient,
+				tenantId,
+				storage: window.sessionStorage,
+			}),
 		[authServerClient, tenantId],
 	);
 	const api = useApi({ isOnline, authTokens });
@@ -44,8 +47,8 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	} | null>(null);
 
 	// A unique id for each logged in tab
-	const [globalTabId] = useLocalStorage<string | null>("globalTabId", null);
-	const [tabId] = useSessionStorage<string | null>("tabId", null);
+	const [globalTabId] = useLocalStorage<string | null>('globalTabId', null);
+	const [tabId] = useSessionStorage<string | null>('tabId', null);
 
 	const loginIsOnlineRef = useRef<boolean | null>(null);
 	const sessionClearedRef = useRef(false);
@@ -61,6 +64,7 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	const clearSessionRef = useRef<() => void>(null);
 
 	// Memoize clearSession using useCallback
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	const clearSession = useCallback(async () => {
 		window.history.replaceState({}, '', `${window.location.pathname}`);
 		sessionClearedRef.current = true;
@@ -81,6 +85,7 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 		await keystore.close();
 	}, [keystore, oidFlowClientAuthMaterialManager]);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: baseline: pre-existing debt. should be fixed
 	useEffect(() => {
 		return authTokens.onTokenRejection(() => {
 			displayError({
@@ -92,13 +97,20 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	}, [displayError, clearSession, authTokens, t]);
 
 	useEffect(() => {
-		return authTokens.onSessionExpired(() =>
-			new Promise<void>((resolve, reject) => {
-				setSessionRecovery({
-					resolve: () => { setSessionRecovery(null); resolve(); },
-					reject: (e) => { setSessionRecovery(null); reject(e); },
-				});
-			}),
+		return authTokens.onSessionExpired(
+			() =>
+				new Promise<void>((resolve, reject) => {
+					setSessionRecovery({
+						resolve: () => {
+							setSessionRecovery(null);
+							resolve();
+						},
+						reject: (e) => {
+							setSessionRecovery(null);
+							reject(e);
+						},
+					});
+				}),
 		);
 	}, [authTokens]);
 
@@ -122,7 +134,8 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	useEffect(() => {
 		const S = getCalculatedWalletState();
 		if (S) {
-			if (S.settings['useOblivious'] === "true") {
+			// biome-ignore lint/complexity/useLiteralKeys: baseline: pre-existing debt. should be fixed
+			if (S.settings['useOblivious'] === 'true') {
 				// To use oblivious, keys must be fetched.
 				// Delay setWalletStateLoaded till then.
 				async function fetchKeyConfigAndUpdate() {
@@ -138,28 +151,37 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 		}
 	}, [getCalculatedWalletState]);
 
-	const value: SessionContextValue = useMemo(() => ({
-		api,
-		isLoggedIn: isLoggedIn,
-		keystore,
-		logout,
-		obliviousKeyConfig,
-		consumeSessionCleared,
-		oidFlowClientAuthMaterialManager,
-		authTokens,
-	}), [
-		api,
-		keystore,
-		logout,
-		isLoggedIn,
-		obliviousKeyConfig,
-		consumeSessionCleared,
-		oidFlowClientAuthMaterialManager,
-		authTokens
-	]);
+	const value: SessionContextValue = useMemo(
+		() => ({
+			api,
+			isLoggedIn: isLoggedIn,
+			keystore,
+			logout,
+			obliviousKeyConfig,
+			consumeSessionCleared,
+			oidFlowClientAuthMaterialManager,
+			authTokens,
+		}),
+		[
+			api,
+			keystore,
+			logout,
+			isLoggedIn,
+			obliviousKeyConfig,
+			consumeSessionCleared,
+			oidFlowClientAuthMaterialManager,
+			authTokens,
+		],
+	);
 
 	useEffect(() => {
-		if (api && keystore && api.isLoggedIn() === true && keystore.isOpen() === false && ((tabId && globalTabId && tabId !== globalTabId) || (!tabId && globalTabId))) {
+		if (
+			api &&
+			keystore &&
+			api.isLoggedIn() === true &&
+			keystore.isOpen() === false &&
+			((tabId && globalTabId && tabId !== globalTabId) || (!tabId && globalTabId))
+		) {
 			clearSession();
 		}
 	}, [globalTabId, tabId, clearSession, api, keystore]);
@@ -176,17 +198,15 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 		}
 	}, [isLoggedIn, isOnline, logout]);
 
-	if ((api.isLoggedIn() === true && (keystore.isOpen() === false || !walletStateLoaded))) {
-		return <></>
+	if (api.isLoggedIn() === true && (keystore.isOpen() === false || !walletStateLoaded)) {
+		// biome-ignore lint/complexity/noUselessFragments: baseline: pre-existing debt. should be fixed
+		return <></>;
 	}
 	return (
 		<SessionContext.Provider value={value}>
 			{children}
 			{sessionRecovery && (
-				<SessionRecoveryPopup
-					recovery={sessionRecovery}
-					onLogout={() => logout()}
-				/>
+				<SessionRecoveryPopup recovery={sessionRecovery} onLogout={() => logout()} />
 			)}
 		</SessionContext.Provider>
 	);

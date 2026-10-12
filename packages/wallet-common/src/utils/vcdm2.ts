@@ -1,11 +1,11 @@
 import {
+	type DataIntegrityProof,
 	VCDM2_CONTEXT_V2,
-	Vcdm2Credential,
+	type Vcdm2Credential,
 	Vcdm2CredentialSchema,
-	Vcdm2Issuer,
-	DataIntegrityProof,
-} from "../schemas/Vcdm2CredentialSchema";
-import { fromBase64Url } from "./util";
+	type Vcdm2Issuer,
+} from '../schemas/Vcdm2CredentialSchema';
+import { fromBase64Url } from './util';
 
 /**
  * Shared helpers for W3C VCDM 2.0, used by both the JOSE (enveloping proof)
@@ -15,7 +15,7 @@ import { fromBase64Url } from "./util";
 const decoder = new TextDecoder();
 
 /** `typ` values that identify an enveloped VCDM 2.0 credential. */
-const VCDM2_JOSE_TYPES = new Set(["vc+jwt", "vc-ld+jwt", "vc+ld+jwt"]);
+const VCDM2_JOSE_TYPES = new Set(['vc+jwt', 'vc-ld+jwt', 'vc+ld+jwt']);
 
 /**
  * True when `value` is shaped like a VCDM 2.0 credential.
@@ -25,9 +25,9 @@ const VCDM2_JOSE_TYPES = new Set(["vc+jwt", "vc-ld+jwt", "vc+ld+jwt"]);
  * `https://www.w3.org/2018/credentials/v1`.
  */
 export function isVcdm2Credential(value: unknown): value is Vcdm2Credential {
-	if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+	if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
 
-	const ctx = (value as Record<string, unknown>)["@context"];
+	const ctx = (value as Record<string, unknown>)['@context'];
 	if (!Array.isArray(ctx) || ctx.length === 0) return false;
 	if (ctx[0] !== VCDM2_CONTEXT_V2) return false;
 
@@ -45,18 +45,19 @@ export function isVcdm2Credential(value: unknown): value is Vcdm2Credential {
  * as a fallback — see `looksLikeEnvelopedVcdm2`.
  */
 export function isVcdm2JoseHeaderType(typ: unknown): boolean {
-	return typeof typ === "string" && VCDM2_JOSE_TYPES.has(typ.toLowerCase());
+	return typeof typ === 'string' && VCDM2_JOSE_TYPES.has(typ.toLowerCase());
 }
 
 /**
  * Decode a compact JWS without verifying it.
  * Returns null when `raw` is not a well-formed three-part compact JWS.
  */
+// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 export function decodeCompactJws(raw: unknown): { header: any; payload: any } | null {
-	if (typeof raw !== "string") return null;
-	if (raw.includes("~")) return null; // SD-JWT, not ours
+	if (typeof raw !== 'string') return null;
+	if (raw.includes('~')) return null; // SD-JWT, not ours
 
-	const parts = raw.split(".");
+	const parts = raw.split('.');
 	if (parts.length !== 3) return null;
 
 	try {
@@ -80,6 +81,7 @@ export function decodeCompactJws(raw: unknown): { header: any; payload: any } | 
  * Callers get the decoded value back so they need not decode a second time,
  * which would leave them with an unreachable "failed to decode" branch.
  */
+// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 export function decodeEnvelopedVcdm2(raw: unknown): { header: any; payload: any } | null {
 	const decoded = decodeCompactJws(raw);
 	if (!decoded) return null;
@@ -88,7 +90,7 @@ export function decodeEnvelopedVcdm2(raw: unknown): { header: any; payload: any 
 
 	// No/unknown `typ`: fall back to the payload shape, but never claim
 	// something that is really a VCDM 1.1 `vc`-wrapped credential.
-	if (decoded.payload && typeof decoded.payload === "object" && "vc" in decoded.payload) {
+	if (decoded.payload && typeof decoded.payload === 'object' && 'vc' in decoded.payload) {
 		return null;
 	}
 	return isVcdm2Credential(decoded.payload) ? decoded : null;
@@ -102,15 +104,21 @@ export function decodeEnvelopedVcdm2(raw: unknown): { header: any; payload: any 
  * typically empty and `raw` is just a JWT with a trailing `~`.
  */
 export function splitSdJwt(raw: unknown): { issuerJwt: string; rest: string[] } | null {
-	if (typeof raw !== "string") return null;
+	if (typeof raw !== 'string') return null;
 
-	const tilde = raw.indexOf("~");
+	const tilde = raw.indexOf('~');
 	if (tilde === -1) return null;
 
 	const issuerJwt = raw.slice(0, tilde);
-	if (issuerJwt.split(".").length !== 3) return null;
+	if (issuerJwt.split('.').length !== 3) return null;
 
-	return { issuerJwt, rest: raw.slice(tilde + 1).split("~").filter((part) => part !== "") };
+	return {
+		issuerJwt,
+		rest: raw
+			.slice(tilde + 1)
+			.split('~')
+			.filter((part) => part !== ''),
+	};
 }
 
 /**
@@ -126,9 +134,12 @@ export function splitSdJwt(raw: unknown): { issuerJwt: string; rest: string[] } 
  * The media type of a VCDM 2.0 credential secured as an SD-JWT. Distinct from
  * `dc+sd-jwt`, which is an IETF SD-JWT VC.
  */
-const VCDM2_SDJWT_TYPE = "vc+sd-jwt";
+const VCDM2_SDJWT_TYPE = 'vc+sd-jwt';
 
-export function decodeVcdm2SdJwt(raw: unknown): { header: any; payload: any; issuerJwt: string } | null {
+export function decodeVcdm2SdJwt(
+	raw: unknown,
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+): { header: any; payload: any; issuerJwt: string } | null {
 	const split = splitSdJwt(raw);
 	if (!split) return null;
 
@@ -141,7 +152,7 @@ export function decodeVcdm2SdJwt(raw: unknown): { header: any; payload: any; iss
 	// shape alone. An absent `typ` still falls through to the heuristic,
 	// since not every issuer sets one.
 	const typ = decoded.header?.typ;
-	if (typeof typ === "string" && typ.toLowerCase() !== VCDM2_SDJWT_TYPE) return null;
+	if (typeof typ === 'string' && typ.toLowerCase() !== VCDM2_SDJWT_TYPE) return null;
 
 	if (decoded.payload?.vct !== undefined) return null;
 	if (!isVcdm2Credential(decoded.payload)) return null;
@@ -155,8 +166,9 @@ export function looksLikeEnvelopedVcdm2(raw: unknown): raw is string {
 }
 
 /** Parse and validate a credential object against the VCDM 2.0 schema. */
-export function parseVcdm2Credential(value: unknown):
-	{ success: true; value: Vcdm2Credential } | { success: false } {
+export function parseVcdm2Credential(
+	value: unknown,
+): { success: true; value: Vcdm2Credential } | { success: false } {
 	const result = Vcdm2CredentialSchema.safeParse(value);
 	if (!result.success) return { success: false };
 	return { success: true, value: result.data };
@@ -164,8 +176,8 @@ export function parseVcdm2Credential(value: unknown):
 
 /** Normalise `type` (string | string[]) to an array. */
 export function toTypeArray(type: unknown): string[] {
-	if (typeof type === "string") return [type];
-	if (Array.isArray(type)) return type.filter((t): t is string => typeof t === "string");
+	if (typeof type === 'string') return [type];
+	if (Array.isArray(type)) return type.filter((t): t is string => typeof t === 'string');
 	return [];
 }
 
@@ -174,7 +186,7 @@ export function toTypeArray(type: unknown): string[] {
  * i.e. the first that isn't the generic `VerifiableCredential`.
  */
 export function primaryCredentialType(type: unknown): string | undefined {
-	return toTypeArray(type).find((t) => t !== "VerifiableCredential");
+	return toTypeArray(type).find((t) => t !== 'VerifiableCredential');
 }
 
 /**
@@ -185,7 +197,7 @@ export function primaryCredentialType(type: unknown): string | undefined {
  * input and may return undefined.
  */
 export function validatedIssuerIdentifier(issuer: Vcdm2Issuer): string {
-	return typeof issuer === "string" ? issuer : issuer.id;
+	return typeof issuer === 'string' ? issuer : issuer.id;
 }
 
 /** Human-readable name of a schema-validated issuer, else its identifier. */
@@ -198,8 +210,10 @@ export function validatedIssuerDisplayName(issuer: Vcdm2Issuer): string {
 
 /** Resolve `issuer` (string | { id }) to its identifier. */
 export function issuerIdentifier(issuer: unknown): string | undefined {
-	if (typeof issuer === "string") return issuer;
-	if (issuer && typeof issuer === "object" && typeof (issuer as any).id === "string") {
+	if (typeof issuer === 'string') return issuer;
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+	if (issuer && typeof issuer === 'object' && typeof (issuer as any).id === 'string') {
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 		return (issuer as any).id;
 	}
 	return undefined;
@@ -207,13 +221,16 @@ export function issuerIdentifier(issuer: unknown): string | undefined {
 
 /** Resolve a human-readable issuer name, falling back to its identifier. */
 export function issuerDisplayName(issuer: unknown): string | undefined {
-	if (issuer && typeof issuer === "object") {
+	if (issuer && typeof issuer === 'object') {
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 		const name = (issuer as any).name;
-		if (typeof name === "string") return name;
+		if (typeof name === 'string') return name;
 		// `name` may be a language map or an array of language objects.
 		if (Array.isArray(name)) {
-			const first = name.find((n) => typeof n?.["@value"] === "string" || typeof n?.value === "string");
-			if (first) return first["@value"] ?? first.value;
+			const first = name.find(
+				(n) => typeof n?.['@value'] === 'string' || typeof n?.value === 'string',
+			);
+			if (first) return first['@value'] ?? first.value;
 		}
 	}
 	return issuerIdentifier(issuer);
@@ -233,7 +250,7 @@ export function extractVcdm2ValidityInfo(
 	const result: { validFrom?: Date; validUntil?: Date; signed?: Date } = {};
 
 	const fromIso = (value: unknown): Date | undefined => {
-		if (typeof value !== "string") return undefined;
+		if (typeof value !== 'string') return undefined;
 		const date = new Date(value);
 		return Number.isNaN(date.getTime()) ? undefined : date;
 	};
@@ -266,11 +283,11 @@ export function proofsOf(credential: Vcdm2Credential): DataIntegrityProof[] {
  * serialisation, since credentials arrive from storage as strings.
  */
 export function coerceCredentialObject(raw: unknown): unknown | null {
-	if (typeof raw === "object" && raw !== null && !Array.isArray(raw)) return raw;
-	if (typeof raw !== "string") return null;
+	if (typeof raw === 'object' && raw !== null && !Array.isArray(raw)) return raw;
+	if (typeof raw !== 'string') return null;
 
 	const trimmed = raw.trim();
-	if (!trimmed.startsWith("{")) return null;
+	if (!trimmed.startsWith('{')) return null;
 	try {
 		return JSON.parse(trimmed);
 	} catch {

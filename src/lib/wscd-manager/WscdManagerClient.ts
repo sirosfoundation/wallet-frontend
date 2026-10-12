@@ -1,12 +1,19 @@
+import { base64url } from 'jose';
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
+import { holderJwkFromCredential } from 'wallet-common';
+import { logger } from '@/logger';
+import { Mutex } from '../utils';
+import {
+	buildOid4vpDcApiSessionTranscript,
+	buildOid4vpSessionTranscript,
+	generateMdocDeviceResponse,
+	prepareSdJwtPresentation,
+} from '../verifiable-credentials';
+import { prepareVcdm2Presentation } from '../verifiable-credentials/formats/vcdm2';
 import { WscdManagerInPageHost } from './hosts/WscdManagerInPageHost';
 import { WscdManagerWorkerHost } from './hosts/WscdManagerWorkerHost';
-import {
-	exportWscdContainerToKeystore,
-	hostNeedsContainerImportExport,
-	requirementsForCredential,
-} from './utils';
-import { WscdContainer, WscdPlugin } from './resources';
-import {
+import { type WscdContainer, WscdPlugin } from './resources';
+import type {
 	AuthFactor,
 	GenerateDeviceResponseForDCAPIRequest,
 	GenerateDeviceResponseRequest,
@@ -20,16 +27,10 @@ import {
 	WscdEligibilityRequirements,
 } from './types';
 import {
-	buildOid4vpDcApiSessionTranscript,
-	buildOid4vpSessionTranscript,
-	generateMdocDeviceResponse,
-	prepareSdJwtPresentation,
-} from '../verifiable-credentials';
-import { base64url } from 'jose';
-import { logger } from '@/logger';
-import { Mutex } from '../utils';
-import { holderJwkFromCredential } from 'wallet-common';
-import { prepareVcdm2Presentation } from '../verifiable-credentials/formats/vcdm2';
+	exportWscdContainerToKeystore,
+	hostNeedsContainerImportExport,
+	requirementsForCredential,
+} from './utils';
 
 export class WscdManagerClient implements IWscdManagerClient {
 	#ready: Promise<void>;
@@ -39,10 +40,7 @@ export class WscdManagerClient implements IWscdManagerClient {
 	#containerExportCallback: (container: WscdContainer) => Promise<void>;
 
 	constructor(
-		hosts: IWscdManagerHost[] = [
-			new WscdManagerInPageHost(),
-			new WscdManagerWorkerHost(),
-		],
+		hosts: IWscdManagerHost[] = [new WscdManagerInPageHost(), new WscdManagerWorkerHost()],
 	) {
 		this.#ready = this.#initialize(hosts);
 	}
@@ -55,9 +53,7 @@ export class WscdManagerClient implements IWscdManagerClient {
 		this.#containerImportCallback = callback;
 	}
 
-	public setContainerExporter(
-		callback: (container: WscdContainer) => Promise<void>,
-	): void {
+	public setContainerExporter(callback: (container: WscdContainer) => Promise<void>): void {
 		this.#containerExportCallback = callback;
 	}
 
@@ -74,10 +70,7 @@ export class WscdManagerClient implements IWscdManagerClient {
 			transactionDataResponseParams,
 		);
 
-		const sig = await this.#dispatchSignRequest(
-			kid,
-			new TextEncoder().encode(signingInput),
-		);
+		const sig = await this.#dispatchSignRequest(kid, new TextEncoder().encode(signingInput));
 
 		const kbJwt = `${signingInput}.${base64url.encode(sig)}`;
 		return sdJwt + kbJwt;
@@ -90,7 +83,7 @@ export class WscdManagerClient implements IWscdManagerClient {
 		transactionDataResponseParams,
 	}: SignVcdm2PresentationRequest): Promise<string> {
 		if (verifiableCredentials.length === 0) {
-			throw new Error("A presentation must contain at least one credential");
+			throw new Error('A presentation must contain at least one credential');
 		}
 
 		const { kid, signingInput } = await prepareVcdm2Presentation(
@@ -100,10 +93,7 @@ export class WscdManagerClient implements IWscdManagerClient {
 			transactionDataResponseParams,
 		);
 
-		const sig = await this.#dispatchSignRequest(
-			kid,
-			new TextEncoder().encode(signingInput),
-		);
+		const sig = await this.#dispatchSignRequest(kid, new TextEncoder().encode(signingInput));
 
 		return `${signingInput}.${base64url.encode(sig)}`;
 	}
@@ -115,11 +105,8 @@ export class WscdManagerClient implements IWscdManagerClient {
 	}: GenerateDeviceResponseRequest): Promise<Uint8Array> {
 		const transcript = await buildOid4vpSessionTranscript(sessionTranscript);
 
-		return generateMdocDeviceResponse(
-			credential,
-			disclosedClaims,
-			transcript,
-			(kid, data) => this.#dispatchSignRequest(kid, data),
+		return generateMdocDeviceResponse(credential, disclosedClaims, transcript, (kid, data) =>
+			this.#dispatchSignRequest(kid, data),
 		);
 	}
 
@@ -128,17 +115,14 @@ export class WscdManagerClient implements IWscdManagerClient {
 		disclosedClaims,
 		sessionTranscript,
 	}: GenerateDeviceResponseForDCAPIRequest): Promise<Uint8Array> {
-		const transcript =
-			await buildOid4vpDcApiSessionTranscript(sessionTranscript);
+		const transcript = await buildOid4vpDcApiSessionTranscript(sessionTranscript);
 
-		return generateMdocDeviceResponse(
-			credential,
-			disclosedClaims,
-			transcript,
-			(kid, data) => this.#dispatchSignRequest(kid, data),
+		return generateMdocDeviceResponse(credential, disclosedClaims, transcript, (kid, data) =>
+			this.#dispatchSignRequest(kid, data),
 		);
 	}
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	public async generateDeviceResponseWithProximity({
 		credential,
 		disclosedClaims,
@@ -162,6 +146,7 @@ export class WscdManagerClient implements IWscdManagerClient {
 
 			const keys: Keypair[] = [];
 			for (let i = 0; i < count; i++) {
+				// biome-ignore lint/performance/noAwaitInLoops: baseline: pre-existing debt. should be fixed
 				const kid = await host.generateKey(),
 					publicKey = await host.exportPublicKey(kid);
 
@@ -187,6 +172,7 @@ export class WscdManagerClient implements IWscdManagerClient {
 
 			const proofs: string[] = [];
 			for (const { nonce, audience, issuer } of requests) {
+				// biome-ignore lint/performance/noAwaitInLoops: baseline: pre-existing debt. should be fixed
 				const kid = await host.generateKey();
 				const publicKey = await host.exportPublicKey(kid);
 
@@ -220,10 +206,7 @@ export class WscdManagerClient implements IWscdManagerClient {
 		await Promise.all(this.#availableHosts.map((h) => h.dispose?.()));
 	}
 
-	async #dispatchSignRequest(
-		kid: string,
-		data: Uint8Array,
-	): Promise<Uint8Array> {
+	async #dispatchSignRequest(kid: string, data: Uint8Array): Promise<Uint8Array> {
 		await this.#ready;
 
 		return this.#lock.runExclusive(async () => {
@@ -235,9 +218,10 @@ export class WscdManagerClient implements IWscdManagerClient {
 
 			logger.debug(`Completed sign request with host '${host.id}'`);
 			return result;
-		})
+		});
 	}
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	async #determineElegibilityRequirements(): Promise<WscdEligibilityRequirements> {
 		return {
 			plugin: WscdPlugin.SOFTKEY,
@@ -248,9 +232,7 @@ export class WscdManagerClient implements IWscdManagerClient {
 	async #registerHosts(hosts: IWscdManagerHost[]): Promise<void> {
 		await Promise.all(hosts.map((host) => host.initialize()));
 
-		const availability = await Promise.all(
-			hosts.map((host) => host.isAvailable()),
-		);
+		const availability = await Promise.all(hosts.map((host) => host.isAvailable()));
 
 		this.#availableHosts = hosts.filter((_, i) => availability[i]);
 	}
@@ -258,20 +240,15 @@ export class WscdManagerClient implements IWscdManagerClient {
 	/**
 	 * Selects the most eligible host based on the given requirements.
 	 */
-	async #selectHost(
-		req: WscdEligibilityRequirements,
-	): Promise<IWscdManagerHost> {
+	async #selectHost(req: WscdEligibilityRequirements): Promise<IWscdManagerHost> {
 		const eligible = (
 			await Promise.all(
-				this.#availableHosts.map(async (host) =>
-					(await host.isEligible(req)) ? host : null,
-				),
+				this.#availableHosts.map(async (host) => ((await host.isEligible(req)) ? host : null)),
 			)
 		).filter((h): h is IWscdManagerHost => h !== null);
 
 		const [strongest] = eligible.toSorted((a, b) => b.strength - a.strength);
-		if (!strongest)
-			throw new Error('No eligible WSCD host for these requirements');
+		if (!strongest) throw new Error('No eligible WSCD host for these requirements');
 
 		return strongest;
 	}
@@ -318,10 +295,7 @@ export class WscdManagerClient implements IWscdManagerClient {
 			throw new Error('Container export did not return any bytes');
 		}
 
-		const exportedContainer = await exportWscdContainerToKeystore(
-			host,
-			container,
-		);
+		const exportedContainer = await exportWscdContainerToKeystore(host, container);
 
 		await this.#containerExportCallback(exportedContainer);
 	}
@@ -336,10 +310,7 @@ export class WscdManagerClient implements IWscdManagerClient {
 		payload: Record<string, unknown>,
 	): Promise<string> {
 		const signingInput = `${base64url.encode(JSON.stringify(header))}.${base64url.encode(JSON.stringify(payload))}`;
-		const sig = await host.sign(
-			kid,
-			new TextEncoder().encode(signingInput),
-		);
+		const sig = await host.sign(kid, new TextEncoder().encode(signingInput));
 		return `${signingInput}.${base64url.encode(sig)}`;
 	}
 }

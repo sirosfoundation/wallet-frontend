@@ -1,3 +1,4 @@
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
 import React from 'react';
 
 /**
@@ -33,6 +34,7 @@ export default function CounterBadge({
 				: '';
 
 	return (
+		// biome-ignore lint/a11y/useAriaPropsSupportedByRole: baseline: pre-existing debt. should be fixed
 		<span
 			className={[base, scheme, posClass, className].join(' ')}
 			aria-label={`${text} ${ariaLabel}`}

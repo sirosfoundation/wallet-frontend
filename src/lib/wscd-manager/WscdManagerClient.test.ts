@@ -1,4 +1,3 @@
-import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import {
 	base64url,
 	calculateJwkThumbprint,
@@ -6,23 +5,20 @@ import {
 	decodeProtectedHeader,
 	type JWK,
 } from 'jose';
+import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 import {
 	buildOid4vpDcApiSessionTranscript,
 	buildOid4vpSessionTranscript,
 	generateMdocDeviceResponse,
 	prepareSdJwtPresentation,
 } from '../verifiable-credentials';
-import { WscdManagerClient } from './WscdManagerClient';
-import {
-	WscdHostStrength,
-	WscdManagerHosts,
-	WscdPlugin,
-	type WscdContainer,
-} from './resources';
+import { type WscdContainer, WscdHostStrength, WscdManagerHosts, WscdPlugin } from './resources';
 import type { GenerateDeviceResponseRequest, IWscdManagerHost } from './types';
+import { WscdManagerClient } from './WscdManagerClient';
 
 // Keep the real host modules (wasm/worker imports) out of the test; hosts are
 // injected via the constructor instead. vi.mock is hoisted above imports.
+// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 vi.mock('./hosts/WscdManagerInPageHost', () => ({
 	WscdManagerInPageHost: class {},
 }));
@@ -42,11 +38,14 @@ vi.mock('../verifiable-credentials', () => ({
 const publicKeyJwk: JWK = {
 	kty: 'EC',
 	crv: 'P-256',
+	// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 	x: 'hvLS5qgKNmpKnA46YSRft2AHyDk9QZGIuq2t8SXmtsE',
+	// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 	y: '_O6ZbDIE6K_jmzgORF3DW-sSGVuigXIP9XMdPyGSOS0',
 };
 
-const publicKeyKid = 'q95J3MNIjVVGXyrmJVm5Vfr6E-iGfIF0Bo4XZAGhFf4'
+// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+const publicKeyKid = 'q95J3MNIjVVGXyrmJVm5Vfr6E-iGfIF0Bo4XZAGhFf4';
 
 function makeContainer(): WscdContainer {
 	return {
@@ -107,6 +106,7 @@ describe('generateKeypairs', () => {
 	});
 });
 
+// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 describe('generateOpenid4vciProofs', () => {
 	it('returns a signed openid4vci-proof+jwt per request', async () => {
 		const signature = new Uint8Array([9, 9, 9]);
@@ -166,8 +166,7 @@ describe('generateDeviceResponse', () => {
 		(generateMdocDeviceResponse as Mock).mockResolvedValue(bytes);
 		const { client } = makeClient([fakeHost()]);
 
-		const sessionTranscript =
-			{} as GenerateDeviceResponseRequest['sessionTranscript'];
+		const sessionTranscript = {} as GenerateDeviceResponseRequest['sessionTranscript'];
 		const result = await client.generateDeviceResponse({
 			credential: 'cred',
 			disclosedClaims: ['ns.field'],
@@ -175,9 +174,7 @@ describe('generateDeviceResponse', () => {
 		});
 
 		expect(result).toBe(bytes);
-		expect(buildOid4vpSessionTranscript).toHaveBeenCalledWith(
-			sessionTranscript,
-		);
+		expect(buildOid4vpSessionTranscript).toHaveBeenCalledWith(sessionTranscript);
 		expect(generateMdocDeviceResponse).toHaveBeenCalledWith(
 			'cred',
 			['ns.field'],
@@ -187,11 +184,10 @@ describe('generateDeviceResponse', () => {
 	});
 });
 
+// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 describe('generateDeviceResponseForDCAPI', () => {
 	it('builds the DC API transcript', async () => {
-		(buildOid4vpDcApiSessionTranscript as Mock).mockResolvedValue(
-			'dcapi-transcript',
-		);
+		(buildOid4vpDcApiSessionTranscript as Mock).mockResolvedValue('dcapi-transcript');
 		const bytes = new Uint8Array([1]);
 		(generateMdocDeviceResponse as Mock).mockResolvedValue(bytes);
 		const { client } = makeClient([fakeHost()]);
@@ -229,26 +225,20 @@ describe('#selectHost', () => {
 		const host = fakeHost({ isEligible: vi.fn().mockResolvedValue(false) });
 		const { client } = makeClient([host]);
 
-		await expect(client.generateKeypairs(1)).rejects.toThrow(
-			'No eligible WSCD host',
-		);
+		await expect(client.generateKeypairs(1)).rejects.toThrow('No eligible WSCD host');
 	});
 });
 
 describe('container callbacks', () => {
 	it('throws when the import callback is missing', async () => {
 		const client = new WscdManagerClient([fakeHost()]);
-		await expect(client.generateKeypairs(1)).rejects.toThrow(
-			'Container import callback not set',
-		);
+		await expect(client.generateKeypairs(1)).rejects.toThrow('Container import callback not set');
 	});
 
 	it('throws when the export callback is missing', async () => {
 		const client = new WscdManagerClient([fakeHost()]);
 		client.setContainerImporter(vi.fn().mockResolvedValue(makeContainer()));
-		await expect(client.generateKeypairs(1)).rejects.toThrow(
-			'Container export callback not set',
-		);
+		await expect(client.generateKeypairs(1)).rejects.toThrow('Container export callback not set');
 	});
 
 	it('skips import/export for a host that does not hold a container', async () => {

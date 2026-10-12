@@ -1,4 +1,4 @@
-import type { HttpClient } from "../../interfaces";
+import type { HttpClient } from '../../interfaces';
 
 /**
  * JSON-LD document loader for Data Integrity verification.
@@ -19,14 +19,14 @@ import type { HttpClient } from "../../interfaces";
 
 /** Context URLs a VCDM 2.0 credential may legitimately reference. */
 const ALLOWED_CONTEXT_URLS = new Set<string>([
-	"https://www.w3.org/ns/credentials/v2",
-	"https://www.w3.org/ns/credentials/examples/v2",
-	"https://www.w3.org/ns/credentials/undefined-terms/v2",
-	"https://www.w3.org/ns/did/v1",
-	"https://w3id.org/security/data-integrity/v2",
-	"https://w3id.org/security/multikey/v1",
-	"https://w3id.org/security/suites/ed25519-2020/v1",
-	"https://w3id.org/security/jwk/v1",
+	'https://www.w3.org/ns/credentials/v2',
+	'https://www.w3.org/ns/credentials/examples/v2',
+	'https://www.w3.org/ns/credentials/undefined-terms/v2',
+	'https://www.w3.org/ns/did/v1',
+	'https://w3id.org/security/data-integrity/v2',
+	'https://w3id.org/security/multikey/v1',
+	'https://w3id.org/security/suites/ed25519-2020/v1',
+	'https://w3id.org/security/jwk/v1',
 ]);
 
 export type LoadedDocument = {
@@ -60,7 +60,9 @@ export function createDocumentLoader(args: {
 			throw new Error(`jsonld: refusing to load context outside the allowlist: ${url}`);
 		}
 
-		const response = await args.httpClient.get(url, { Accept: "application/ld+json, application/json" });
+		const response = await args.httpClient.get(url, {
+			Accept: 'application/ld+json, application/json',
+		});
 		if (response.status < 200 || response.status >= 300) {
 			throw new Error(`jsonld: could not load context ${url} (HTTP ${response.status})`);
 		}

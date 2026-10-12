@@ -1,9 +1,11 @@
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
 import React, { useMemo, useState } from 'react';
+import { EffectCreative, Keyboard, Mousewheel } from 'swiper/modules';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { EffectCreative, Mousewheel, Keyboard } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/effect-creative';
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 const VerticalSlider = ({
 	items,
 	renderSlideContent,
@@ -62,11 +64,11 @@ const VerticalSlider = ({
 						>
 							<div
 								className={[
-									"w-full rounded-xl p-2 transition-all duration-300",
-									isFar ? "pointer-events-none" : "pointer-events-auto",
-									isActive ? "opacity-100" : "opacity-90",
-									isActive ? "" : "filter-[brightness(0.9)]",
-								].join(" ")}
+									'w-full rounded-xl p-2 transition-all duration-300',
+									isFar ? 'pointer-events-none' : 'pointer-events-auto',
+									isActive ? 'opacity-100' : 'opacity-90',
+									isActive ? '' : 'filter-[brightness(0.9)]',
+								].join(' ')}
 							>
 								{renderSlideContent(item, i)}
 							</div>

@@ -9,7 +9,8 @@
  *   const code = await requestTxCode({ description: '...', length: 6 });
  */
 
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
+import type React from 'react';
+import { createContext, useCallback, useContext, useRef, useState } from 'react';
 import type { TxCodeConfig } from '@/components/Popups/TxCodeInputPopup';
 
 export interface TxCodeInputState {
@@ -33,6 +34,7 @@ const TxCodeInputContext = createContext<TxCodeInputContextValue | null>(null);
 export function useTxCodeInput(): TxCodeInputContextValue {
 	const context = useContext(TxCodeInputContext);
 	if (!context) {
+		// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 		throw new Error('useTxCodeInput must be used within TxCodeInputProvider');
 	}
 	return context;
@@ -99,11 +101,7 @@ export function TxCodeInputProvider({ children }: { children: React.ReactNode })
 		handleCancel,
 	};
 
-	return (
-		<TxCodeInputContext.Provider value={value}>
-			{children}
-		</TxCodeInputContext.Provider>
-	);
+	return <TxCodeInputContext.Provider value={value}>{children}</TxCodeInputContext.Provider>;
 }
 
 export default TxCodeInputContext;

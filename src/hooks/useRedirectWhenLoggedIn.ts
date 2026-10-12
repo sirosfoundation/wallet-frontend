@@ -16,14 +16,17 @@ export function useRedirectWhenLoggedIn(honourReturnTo: boolean) {
 
 		const redirect = async () => {
 			const returnTo = getReturnToUrl();
-			const target = (honourReturnTo ? returnTo : null)
-				?? buildTenantRoutePath(effectiveTenantId, `/${location.search}`);
+			const target =
+				(honourReturnTo ? returnTo : null) ??
+				buildTenantRoutePath(effectiveTenantId, `/${location.search}`);
 
-			if (matchesTenantFromUrl(effectiveTenantId, urlTenantId)) { await navigate(target, { replace: true }); }
-			else {
+			if (matchesTenantFromUrl(effectiveTenantId, urlTenantId)) {
+				await navigate(target, { replace: true });
+			} else {
 				window.location.href = target;
 			}
 		};
+		// biome-ignore lint/complexity/noVoid: baseline: pre-existing debt. should be fixed
 		void redirect();
 	}, [isLoggedIn, honourReturnTo, effectiveTenantId, urlTenantId, navigate, location.search]);
 }

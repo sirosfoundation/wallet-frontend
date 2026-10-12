@@ -1,8 +1,10 @@
 import { CheckCircle } from 'lucide-react';
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
 import React from 'react';
 
 const VerificationResult = () => {
 	return (
+		// biome-ignore lint/complexity/noUselessFragments: baseline: pre-existing debt. should be fixed
 		<>
 			<div className="flex flex-col items-center justify-center min-h-screen">
 				<CheckCircle size={100} className="text-lm-green dark:text-dm-green" />

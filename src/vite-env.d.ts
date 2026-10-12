@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import { ViteEnvConfig } from "../config";
+import { ViteEnvConfig } from '../config';
 import type { Logger } from './logger';
 
 declare global {

@@ -1,16 +1,16 @@
-import axios, { AxiosResponse } from 'axios';
+import axios, { type AxiosResponse } from 'axios';
 import { jsonStringifyTaggedBinary, transformTaggedResponse } from '@/lib/utils';
+import { type TokenResponse, TokenResponseSchema } from '../resources';
 import {
-	LoginBeginResponse,
+	type LoginBeginResponse,
 	LoginBeginResponseSchema,
-	LoginFinishResponse,
+	type LoginFinishResponse,
 	LoginFinishResponseSchema,
-	RegisterBeginResponse,
+	type RegisterBeginResponse,
 	RegisterBeginResponseSchema,
-	RegisterFinishResponse,
+	type RegisterFinishResponse,
 	RegisterFinishResponseSchema,
 } from './resources';
-import { TokenResponse, TokenResponseSchema } from '../resources';
 
 export type AuthServerClientOptions = {
 	baseUrl: string;
@@ -32,23 +32,17 @@ export class AuthServerClient {
 		this.#baseUrl = baseUrl;
 	}
 
-	async loginBegin(
-		tenantId: string,
-		oidcIdToken?: string,
-	): Promise<LoginBeginResponse> {
+	async loginBegin(tenantId: string, oidcIdToken?: string): Promise<LoginBeginResponse> {
 		const headers: Record<string, string> = {
 			'X-Token-Mode': 'session',
 			'X-Tenant-ID': tenantId,
 		};
 		if (oidcIdToken) {
+			// biome-ignore lint/complexity/useLiteralKeys: baseline: pre-existing debt. should be fixed
 			headers['Authorization'] = `Bearer ${oidcIdToken}`;
 		}
 
-		const res = await this.#post(
-			this.#endpointLoginBegin,
-			{},
-			headers,
-		);
+		const res = await this.#post(this.#endpointLoginBegin, {}, headers);
 
 		const { success, data } = LoginBeginResponseSchema.safeParse(res.data);
 		if (!success) {
@@ -69,6 +63,7 @@ export class AuthServerClient {
 			'X-Tenant-ID': tenantId,
 		};
 		if (oidcIdToken) {
+			// biome-ignore lint/complexity/useLiteralKeys: baseline: pre-existing debt. should be fixed
 			headers['Authorization'] = `Bearer ${oidcIdToken}`;
 		}
 
@@ -113,14 +108,11 @@ export class AuthServerClient {
 			'X-Tenant-ID': tenantId,
 		};
 		if (oidcIdToken) {
+			// biome-ignore lint/complexity/useLiteralKeys: baseline: pre-existing debt. should be fixed
 			headers['Authorization'] = `Bearer ${oidcIdToken}`;
 		}
 
-		const res = await this.#post(
-			this.#endpointRegisterBegin,
-			{ tenantId, inviteCode },
-			headers,
-		);
+		const res = await this.#post(this.#endpointRegisterBegin, { tenantId, inviteCode }, headers);
 
 		const { success, data } = RegisterBeginResponseSchema.safeParse(res.data);
 		if (!success) {
@@ -130,6 +122,7 @@ export class AuthServerClient {
 		return data;
 	}
 
+	// biome-ignore lint/complexity/useMaxParams: baseline: pre-existing debt. should be fixed
 	async registerFinish(
 		challengeId: string,
 		credential: PublicKeyCredential,
@@ -143,6 +136,7 @@ export class AuthServerClient {
 			'X-Tenant-ID': tenantId,
 		};
 		if (oidcIdToken) {
+			// biome-ignore lint/complexity/useLiteralKeys: baseline: pre-existing debt. should be fixed
 			headers['Authorization'] = `Bearer ${oidcIdToken}`;
 		}
 
@@ -177,9 +171,15 @@ export class AuthServerClient {
 		return data;
 	}
 
-	async requestAccessToken(aud: string, tenantId: string, tac?: string, anonymous?: boolean): Promise<TokenResponse> {
+	async requestAccessToken(
+		aud: string,
+		tenantId: string,
+		tac?: string,
+		anonymous?: boolean,
+	): Promise<TokenResponse> {
 		const key = `${tenantId}::${aud}::${tac ?? ''}::${anonymous ?? false}`;
 		if (this.#pendingTokenRequests.has(key)) {
+			// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 			return this.#pendingTokenRequests.get(key)!;
 		}
 
@@ -221,6 +221,7 @@ export class AuthServerClient {
 		});
 	}
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	async #post(
 		path: string,
 		body: object,
@@ -229,13 +230,12 @@ export class AuthServerClient {
 		return this.#request('POST', path, headers, body);
 	}
 
-	async #delete(
-		path: string,
-		headers: Record<string, string> = {},
-	): Promise<AxiosResponse> {
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
+	async #delete(path: string, headers: Record<string, string> = {}): Promise<AxiosResponse> {
 		return this.#request('DELETE', path, headers);
 	}
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	async #request(
 		method: 'GET' | 'POST' | 'DELETE',
 		path: string,

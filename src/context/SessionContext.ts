@@ -1,19 +1,20 @@
-import React, { createContext } from 'react';
-import { BackendApi } from '../api';
+import type React from 'react';
+import { createContext } from 'react';
+import type { OIDFlowClientAuthStore } from '@/hooks/useOIDFlowClientAuthStore';
+import type { AuthTokens } from '@/lib/auth';
+import type { HpkeConfig } from '@/lib/utils/ohttpHelpers';
+import type { BackendApi } from '../api';
 import type { LocalStorageKeystore } from '../services/LocalStorageKeystore';
-import { HpkeConfig } from '@/lib/utils/ohttpHelpers';
-import { OIDFlowClientAuthStore } from '@/hooks/useOIDFlowClientAuthStore';
-import { AuthTokens } from '@/lib/auth';
 
 export type SessionContextValue = {
-	api: BackendApi,
-	isLoggedIn: boolean,
-	keystore: LocalStorageKeystore,
-	logout: () => Promise<void>,
-	consumeSessionCleared: () => boolean,
-	obliviousKeyConfig: HpkeConfig,
-	oidFlowClientAuthMaterialManager: OIDFlowClientAuthStore,
-	authTokens: AuthTokens,
+	api: BackendApi;
+	isLoggedIn: boolean;
+	keystore: LocalStorageKeystore;
+	logout: () => Promise<void>;
+	consumeSessionCleared: () => boolean;
+	obliviousKeyConfig: HpkeConfig;
+	oidFlowClientAuthMaterialManager: OIDFlowClientAuthStore;
+	authTokens: AuthTokens;
 };
 
 const SessionContext: React.Context<SessionContextValue> = createContext({
@@ -21,7 +22,8 @@ const SessionContext: React.Context<SessionContextValue> = createContext({
 	isLoggedIn: false,
 	keystore: undefined,
 	obliviousKeyConfig: null,
-	logout: async () => { },
+	// biome-ignore lint/suspicious/noEmptyBlockStatements: baseline: pre-existing debt. should be fixed
+	logout: async () => {},
 	consumeSessionCleared: () => false,
 	oidFlowClientAuthMaterialManager: undefined,
 	authTokens: undefined,

@@ -12,5 +12,5 @@
  */
 export function sanitizeId(value: string | number): string {
 	const str = String(value);
-	return str.replace(/[^a-zA-Z0-9-_]/g, "");
+	return str.replace(/[^a-zA-Z0-9-_]/g, '');
 }

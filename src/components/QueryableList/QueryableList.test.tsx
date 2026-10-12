@@ -1,6 +1,7 @@
+import { fireEvent, render, screen } from '@testing-library/react';
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
 import React from 'react';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import i18n from '@/i18n';
 import QueryableList from './QueryableList';
 
@@ -29,7 +30,7 @@ describe('QueryableList extraSection', () => {
 				translationPrefix="pageAddCredentials"
 				identifierField="id"
 				extraSection={<div data-testid="extra">Scan Physical ID entry</div>}
-			/>
+			/>,
 		);
 
 		expect(screen.getByTestId('extra')).toBeInTheDocument();
@@ -44,7 +45,7 @@ describe('QueryableList extraSection', () => {
 				translationPrefix="pageAddCredentials"
 				identifierField="id"
 				extraSection={<div data-testid="extra">Scan Physical ID entry</div>}
-			/>
+			/>,
 		);
 
 		expect(screen.getByTestId('extra')).toBeInTheDocument();
@@ -64,7 +65,7 @@ describe('QueryableList extraSection', () => {
 				isOnline={true}
 				translationPrefix="pageAddCredentials"
 				identifierField="id"
-			/>
+			/>,
 		);
 
 		expect(screen.queryByTestId('extra')).not.toBeInTheDocument();

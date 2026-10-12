@@ -1,17 +1,17 @@
 // External libraries
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
 import React, { useContext } from 'react';
 import { useTranslation } from 'react-i18next';
 
 // Context
 import SessionContext from '@/context/SessionContext';
-
-// Hooks
-import useFetchPresentations from '../../hooks/useFetchPresentations';
+import HistoryList from '../../components/History/HistoryList';
 
 // Components
 import { H1 } from '../../components/Shared/Heading';
-import HistoryList from '../../components/History/HistoryList';
 import PageDescription from '../../components/Shared/PageDescription';
+// Hooks
+import useFetchPresentations from '../../hooks/useFetchPresentations';
 
 const History = () => {
 	const { keystore } = useContext(SessionContext);
@@ -25,11 +25,9 @@ const History = () => {
 			<PageDescription description={t('pageHistory.description')} />
 
 			{history.length === 0 ? (
-				<p className="text-lm-gray-800 dark:text-dm-gray-200 mt-4">
-					{t('pageHistory.noFound')}
-				</p>
+				<p className="text-lm-gray-800 dark:text-dm-gray-200 mt-4">{t('pageHistory.noFound')}</p>
 			) : (
-				<HistoryList history={history}/>
+				<HistoryList history={history} />
 			)}
 		</div>
 	);

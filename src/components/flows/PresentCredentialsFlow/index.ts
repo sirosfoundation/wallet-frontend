@@ -1,6 +1,6 @@
 export * from './PresentCredentialsFlow';
-export * from './usePresentCredentialsFlow';
 export type * from './types';
+export * from './usePresentCredentialsFlow';
 
 /**
  * @todo - Refactor this directory structure

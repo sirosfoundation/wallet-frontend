@@ -1,35 +1,60 @@
+import {
+	Bell,
+	Building2Icon,
+	CircleArrowRightIcon,
+	History,
+	LogOut,
+	PlusCircle,
+	Settings,
+	ShieldHalf,
+	UserCircle,
+	Wallet,
+} from 'lucide-react';
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
 import React, { useContext } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router';
+import CounterBadge from '@/components/Shared/CounterBadge';
+import PoweredBy from '@/components/Shared/PoweredBy';
+import TenantSelector from '@/components/TenantSelector';
+import CredentialsContext from '@/context/CredentialsContext';
+import SessionContext from '@/context/SessionContext';
+import StatusContext from '@/context/StatusContext';
+import { useTenant } from '@/context/TenantContext';
 import useScreenType from '../../../hooks/useScreenType';
 import Logo from '../../Logo/Logo';
-import { useTranslation } from 'react-i18next';
-import StatusContext from '@/context/StatusContext';
-import PoweredBy from '@/components/Shared/PoweredBy';
-import SessionContext from '@/context/SessionContext';
-import { useTenant } from '@/context/TenantContext';
-import TenantSelector from '@/components/TenantSelector';
 import ConnectionStatusIcon from './ConnectionStatusIcon';
-import CredentialsContext from '@/context/CredentialsContext';
-import CounterBadge from '@/components/Shared/CounterBadge';
-import { Bell, Building2Icon, CircleArrowRightIcon, History, LogOut, PlusCircle, Settings, ShieldHalf, UserCircle, Wallet } from 'lucide-react';
 
-const NavItem = ({ icon: Icon, id, label, handleNavigate, location, path, alias, counter, notificationIcon, className = '' }) => {
+const NavItem = ({
+	icon: Icon,
+	id,
+	label,
+	handleNavigate,
+	location,
+	path,
+	alias,
+	counter,
+	notificationIcon,
+	className = '',
+}) => {
 	const isActive = location.pathname === path || location.pathname === alias;
 
 	return (
+		// biome-ignore lint/a11y/useButtonType: baseline: pre-existing debt. should be fixed
 		<button
 			id={`sidebar-item-${id}`}
 			onClick={() => handleNavigate(path)}
 			className={`relative cursor-pointer flex items-center justify-between space-x-2 mb-2 p-2 rounded-lg w-full hover:bg-lm-gray-500 dark:hover:bg-dm-gray-500 ${isActive ? 'bg-lm-gray-400 dark:bg-dm-gray-600' : 'transition-colors'} ${className}`}
 		>
 			{isActive && (
-				<div role="presentation" className="absolute left-[-8px] top-[50%] h-[90%] translate-y-[-50%] w-1 rounded-sm bg-brand-base dark:bg-brand-light"></div>
+				<div
+					role="presentation"
+					className="absolute left-[-8px] top-[50%] h-[90%] translate-y-[-50%] w-1 rounded-sm bg-brand-base dark:bg-brand-light"
+				></div>
 			)}
 			<div className="flex items-center space-x-2 text-left">
 				{Icon && <Icon className="shrink-0 m-1" size={20} />}
-				<span>
-					{label}
-				</span>
+				<span>{label}</span>
 			</div>
 			{(notificationIcon || typeof counter === 'number') && (
 				<div className="relative flex items-center gap-2">
@@ -41,6 +66,7 @@ const NavItem = ({ icon: Icon, id, label, handleNavigate, location, path, alias,
 	);
 };
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 const Sidebar = ({ isOpen, toggle }) => {
 	const { updateAvailable } = useContext(StatusContext);
 	const { api, logout, obliviousKeyConfig } = useContext(SessionContext);
@@ -69,29 +95,29 @@ const Sidebar = ({ isOpen, toggle }) => {
 
 	return (
 		<div
-			className={`${isOpen && screenType !== 'desktop'
-				? 'w-full flex flex-col justify-between fixed h-dvh z-30 bg-primary-dark dark:bg-primary-dark-hover  p-4 pb-24 md:pb-0 overflow-y-auto'
-				: 'hidden w-64 md:flex md:flex-col justify-between sticky top-0 bg-primary-dark dark:bg-primary-dark-hover  h-dvh py-8 px-8 overflow-y-auto border-r border-r-lm-gray-400 dark:border-r-dm-gray-600'
-				}`}
+			className={`${
+				isOpen && screenType !== 'desktop'
+					? 'w-full flex flex-col justify-between fixed h-dvh z-30 bg-primary-dark dark:bg-primary-dark-hover  p-4 pb-24 md:pb-0 overflow-y-auto'
+					: 'hidden w-64 md:flex md:flex-col justify-between sticky top-0 bg-primary-dark dark:bg-primary-dark-hover  h-dvh py-8 px-8 overflow-y-auto border-r border-r-lm-gray-400 dark:border-r-dm-gray-600'
+			}`}
 		>
 			{/* Header and Nav */}
-			<div style={{ display: 'flex', flexDirection: 'column' }} className="flex flex-col space-between">
+			<div
+				style={{ display: 'flex', flexDirection: 'column' }}
+				className="flex flex-col space-between"
+			>
 				<div className="md:hidden flex items-center justify-between mb-4">
-					<div className='flex items-center'>
-						<Logo aClassName='mr-2' imgClassName='w-10 h-auto' />
-						<a href={buildPath()}
-							className=" text-xl font-bold cursor-pointer"
-						>
+					<div className="flex items-center">
+						<Logo aClassName="mr-2" imgClassName="w-10 h-auto" />
+						<a href={buildPath()} className=" text-xl font-bold cursor-pointer">
 							{t('common.walletName')}
 						</a>
 					</div>
 				</div>
 				<div>
 					<div className="hidden md:flex md:gap-4 justify-between items-center mb-4">
-						<Logo aClassName='w-4/12' imgClassName='object-contain' />
-						<a href={buildPath()}
-							className=" text-xl font-bold cursor-pointer w-8/12"
-						>
+						<Logo aClassName="w-4/12" imgClassName="object-contain" />
+						<a href={buildPath()} className=" text-xl font-bold cursor-pointer w-8/12">
 							{t('common.walletName')}
 						</a>
 					</div>
@@ -100,12 +126,16 @@ const Sidebar = ({ isOpen, toggle }) => {
 
 					{/* User */}
 					<ul>
-						<div className='flex items-center space-x-2 mb-2 p-2 rounded-r-xl'>
-							<div className='pr-2 border-r border-r-lm-gray-400 dark:border-r-dm-gray-600'>
-								<ConnectionStatusIcon size='small' />
+						<div className="flex items-center space-x-2 mb-2 p-2 rounded-r-xl">
+							<div className="pr-2 border-r border-r-lm-gray-400 dark:border-r-dm-gray-600">
+								<ConnectionStatusIcon size="small" />
 							</div>
-							{ obliviousKeyConfig !== null && (
-								<ShieldHalf size={28} className="shrink-0 pr-2 border-r border-lm-gray-400 dark:border-dm-gray-600" title={t('sidebar.obliviousEnabled')}/>
+							{obliviousKeyConfig !== null && (
+								<ShieldHalf
+									size={28}
+									className="shrink-0 pr-2 border-r border-lm-gray-400 dark:border-dm-gray-600"
+									title={t('sidebar.obliviousEnabled')}
+								/>
 							)}
 
 							<UserCircle className="shrink-0" size={20} title={displayName || username} />
@@ -125,7 +155,7 @@ const Sidebar = ({ isOpen, toggle }) => {
 							location={location}
 							handleNavigate={handleNavigate}
 							icon={Wallet}
-							label={t("common.navItemCredentials")}
+							label={t('common.navItemCredentials')}
 							className="step-2 hidden md:flex"
 							counter={pendingTransactions?.length ?? undefined}
 						/>
@@ -136,7 +166,7 @@ const Sidebar = ({ isOpen, toggle }) => {
 							location={location}
 							handleNavigate={handleNavigate}
 							icon={PlusCircle}
-							label={t("common.navItemAddCredentials")}
+							label={t('common.navItemAddCredentials')}
 							className="step-3 hidden md:flex"
 						/>
 
@@ -146,7 +176,7 @@ const Sidebar = ({ isOpen, toggle }) => {
 							location={location}
 							handleNavigate={handleNavigate}
 							icon={CircleArrowRightIcon}
-							label={t("common.navItemShareCredentials")}
+							label={t('common.navItemShareCredentials')}
 							className="step-5 hidden md:flex"
 						/>
 
@@ -156,7 +186,7 @@ const Sidebar = ({ isOpen, toggle }) => {
 							location={location}
 							handleNavigate={handleNavigate}
 							icon={History}
-							label={t("common.navItemHistory")}
+							label={t('common.navItemHistory')}
 							className="step-6"
 						/>
 
@@ -166,26 +196,23 @@ const Sidebar = ({ isOpen, toggle }) => {
 							location={location}
 							handleNavigate={handleNavigate}
 							icon={Settings}
-							label={t("common.navItemSettings")}
+							label={t('common.navItemSettings')}
 							notificationIcon={
-								updateAvailable && (
-									<Bell size={22} className="text-lm-green dark:text-dm-green" />
-								)
+								updateAvailable && <Bell size={22} className="text-lm-green dark:text-dm-green" />
 							}
 							className="step-7"
 						/>
 
 						<hr className="my-2 border-t border-lm-gray-400 dark:border-dm-gray-600" />
 
+						{/** biome-ignore lint/a11y/useButtonType: baseline: pre-existing debt. should be fixed */}
 						<button
 							id="sidebar-item-logout"
 							onClick={handleLogout}
 							className={`cursor-pointer flex items-center space-x-2 mb-4 p-2 rounded-lg hover:bg-lm-gray-400 dark:hover:bg-dm-gray-500 transition-colors w-full`}
 						>
 							<LogOut size={20} className="m-1" />
-							<span className='text-left'>
-								{t("sidebar.navItemLogout")}
-							</span>
+							<span className="text-left">{t('sidebar.navItemLogout')}</span>
 						</button>
 					</ul>
 				</div>
@@ -197,6 +224,7 @@ const Sidebar = ({ isOpen, toggle }) => {
 					currentTenantId={effectiveTenantId}
 					isAuthenticated={true}
 					button={
+						// biome-ignore lint/a11y/useButtonType: baseline: pre-existing debt. should be fixed
 						<button className="cursor-pointer flex items-center space-x-2 p-2 rounded-lg hover:bg-lm-gray-400 dark:hover:bg-dm-gray-500 transition-colors w-full">
 							<Building2Icon size={20} className="m-1" /> {t('tenantSelector.label')}
 						</button>

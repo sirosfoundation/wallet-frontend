@@ -1,13 +1,12 @@
-import type { HttpClient, CredentialRendering, CustomCredentialSvgI } from "../interfaces";
-import type { CredentialClaimPath, ImageDataUriCallback } from "../types";
-import { matchDisplayByLocale } from "../utils/matchLocalizedDisplay";
-import type { TypeDisplayEntry,ClaimMetadataEntry } from "../schemas/SdJwtVcTypeMetadataSchema";
-import type { CredentialConfigurationSupported } from "../schemas/CredentialConfigurationSupportedSchema";
+import type { CredentialRendering, CustomCredentialSvgI, HttpClient } from '../interfaces';
+import type { CredentialConfigurationSupported } from '../schemas/CredentialConfigurationSupportedSchema';
+import type { ClaimMetadataEntry, TypeDisplayEntry } from '../schemas/SdJwtVcTypeMetadataSchema';
+import type { CredentialClaimPath, ImageDataUriCallback } from '../types';
+import { matchDisplayByLocale } from '../utils/matchLocalizedDisplay';
 
-type IssuerDisplayEntry =
-	NonNullable<
-		NonNullable<CredentialConfigurationSupported["credential_metadata"]>["display"]
-	>[number];
+type IssuerDisplayEntry = NonNullable<
+	NonNullable<CredentialConfigurationSupported['credential_metadata']>['display']
+>[number];
 
 type DataUriResolverOptions = {
 	httpClient: HttpClient;
@@ -24,6 +23,7 @@ type DataUriResolverOptions = {
 	fallbackName?: string;
 };
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 export function dataUriResolver({
 	customRenderer,
 	signedClaims = {},
@@ -32,28 +32,21 @@ export function dataUriResolver({
 	httpClient,
 	vcRenderer,
 	vcMetadataClaims,
-	fallbackName = "Verifiable Credential",
+	fallbackName = 'Verifiable Credential',
 }: DataUriResolverOptions): ImageDataUriCallback {
-	return async (
-		filter?: Array<CredentialClaimPath>,
-		preferredLangs: string[] = ["en-US"]
-	) => {
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+	// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
+	return async (filter?: Array<CredentialClaimPath>, preferredLangs: string[] = ['en-US']) => {
 		try {
 			// Localize display configs
 			const credentialDisplayLocalized = matchDisplayByLocale(
 				credentialDisplayArray,
-				preferredLangs
+				preferredLangs,
 			);
-			const issuerDisplayLocalized = matchDisplayByLocale(
-				issuerDisplayArray,
-				preferredLangs
-			);
+			const issuerDisplayLocalized = matchDisplayByLocale(issuerDisplayArray, preferredLangs);
 
-			const svgTemplateUri =
-				credentialDisplayLocalized?.rendering?.svg_templates?.[0]
-					?.uri || null;
-			const simpleDisplayConfig =
-				credentialDisplayLocalized?.rendering?.simple || null;
+			const svgTemplateUri = credentialDisplayLocalized?.rendering?.svg_templates?.[0]?.uri || null;
+			const simpleDisplayConfig = credentialDisplayLocalized?.rendering?.simple || null;
 
 			// 1. Try SVG template rendering (SD-JWT VC)
 			if (svgTemplateUri && vcRenderer) {
@@ -61,7 +54,7 @@ export function dataUriResolver({
 
 				if (svgTemplateUri.startsWith('data:')) {
 					const res = await fetch(svgTemplateUri);
-					const blob = await res.blob()
+					const blob = await res.blob();
 
 					if (blob.type === 'image/svg+xml') {
 						const text = await blob.text();
@@ -70,6 +63,7 @@ export function dataUriResolver({
 							credentialImageSvgTemplate = text;
 						}
 					} else {
+						// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
 						console.warn(`Unsupported SVG template data URI type: ${blob.type}`);
 					}
 				} else if (svgTemplateUri.startsWith('http')) {

@@ -1,13 +1,13 @@
-import { DcqlQuery } from "dcql";
-import { MBOB_ACADEMIC_ENROLLMENT } from "../../testFixtures/realCredentials";
-import { decodeVcdm2SdJwt, isVcdm2Credential, toTypeArray } from "../../utils/vcdm2";
-import { assert, describe, expect, it } from "vitest";
-import Crypto from "node:crypto";
-import { Jwt, SDJwt } from "@sd-jwt/core";
-import { OpenID4VPServerAPI, parseClientIdScheme } from "./OpenID4VPServerAPI";
-import { OpenID4VPResponseMode, TrustEvaluationResult } from "./types";
-import { VerifiableCredentialFormat } from "../../types";
-import { TrustStatus } from "../../authzen/types";
+import Crypto from 'node:crypto';
+import { Jwt, SDJwt } from '@sd-jwt/core';
+import { DcqlQuery } from 'dcql';
+import { assert, describe, expect, it } from 'vitest';
+import { TrustStatus } from '../../authzen/types';
+import { MBOB_ACADEMIC_ENROLLMENT } from '../../testFixtures/realCredentials';
+import { VerifiableCredentialFormat } from '../../types';
+import { decodeVcdm2SdJwt, isVcdm2Credential, toTypeArray } from '../../utils/vcdm2';
+import { OpenID4VPServerAPI, parseClientIdScheme } from './OpenID4VPServerAPI';
+import { OpenID4VPResponseMode, type TrustEvaluationResult } from './types';
 
 // Mock trust evaluator for tests - always returns trusted
 const mockEvaluateTrust = async (): Promise<TrustEvaluationResult> => ({
@@ -47,33 +47,44 @@ Decoded issuerSignedB64U (for reference):
 */
 
 const buildSdJwt = async (payload: Record<string, unknown>) => {
-	const { privateKey } = Crypto.generateKeyPairSync("ed25519");
+	const { privateKey } = Crypto.generateKeyPairSync('ed25519');
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	const signer = async (data: string) => {
 		const sig = Crypto.sign(null, Buffer.from(data), privateKey);
-		return Buffer.from(sig).toString("base64url");
+		return Buffer.from(sig).toString('base64url');
 	};
-	const jwt = new Jwt({ header: { alg: "EdDSA" }, payload });
+	const jwt = new Jwt({ header: { alg: 'EdDSA' }, payload });
 	await jwt.sign(signer);
 	const sdJwt = new SDJwt({ jwt, disclosures: [] });
 	return sdJwt.encodeSDJwt();
 };
 
-describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
-	it("should store rpState and return mapping for an sd-jwt DCQL query", async () => {
-		const signedClaimsPid = { vct: "urn:eudi:pid:1", given_name: "Alice", family_name: "Doe" };
-		const signedClaimsOther = { vct: "urn:eudi:ehic:1", given_name: "Bob" };
+describe('OpenID4VPServerAPI.handleAuthorizationRequest', () => {
+	it('should store rpState and return mapping for an sd-jwt DCQL query', async () => {
+		const signedClaimsPid = { vct: 'urn:eudi:pid:1', given_name: 'Alice', family_name: 'Doe' };
+		const signedClaimsOther = { vct: 'urn:eudi:ehic:1', given_name: 'Bob' };
 		const sdJwtPid = await buildSdJwt(signedClaimsPid);
 		const sdJwtOther = await buildSdJwt(signedClaimsOther);
 		const mdocPid = issuerSignedB64U;
 
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 		const storedState: { value: any | null } = { value: null };
 		const helper = new OpenID4VPServerAPI({
 			evaluateTrust: mockEvaluateTrust,
-			httpClient: { get: async () => { throw new Error("unexpected http call"); } },
+			httpClient: {
+				// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
+				get: async () => {
+					throw new Error('unexpected http call');
+				},
+			},
 			rpStateStore: {
-				store: async (state) => { storedState.value = state; },
+				// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
+				store: async (state) => {
+					storedState.value = state;
+				},
 				retrieve: async () => storedState.value,
 			},
+			// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 			parseCredential: async (credential) => {
 				if (credential.data === sdJwtPid) {
 					return { signedClaims: signedClaimsPid };
@@ -85,34 +96,34 @@ describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
 			},
 			selectCredentialForBatch: async () => null,
 			keystore: {
-				signJwtPresentation: async () => ({ vpjwt: "vp-jwt" }),
+				signJwtPresentation: async () => ({ vpjwt: 'vp-jwt' }),
 				generateDeviceResponse: async () => ({ deviceResponseMDoc: {} }),
 			},
 			strings: {
-				purposeNotSpecified: "No purpose provided",
-				allClaimsRequested: "All claims",
+				purposeNotSpecified: 'No purpose provided',
+				allClaimsRequested: 'All claims',
 			},
 		});
 
 		const dcql_query = {
 			credentials: [
 				{
-					id: "testCredential",
+					id: 'testCredential',
 					format: VerifiableCredentialFormat.DC_SDJWT,
-					meta: { vct_values: ["urn:eudi:pid:1"] },
-					claims: [{ path: ["given_name"] }],
+					meta: { vct_values: ['urn:eudi:pid:1'] },
+					claims: [{ path: ['given_name'] }],
 				},
 			],
 		};
 
-		const url = new URL("openid4vp://authorize");
-		url.searchParams.set("client_id", "x509_san_dns:verifier.example.com");
-		url.searchParams.set("response_uri", "https://verifier.example.com/cb");
-		url.searchParams.set("nonce", "nonce-123");
-		url.searchParams.set("state", "state-123");
-		url.searchParams.set("client_metadata", JSON.stringify({ vp_formats: {} }));
-		url.searchParams.set("response_mode", OpenID4VPResponseMode.DIRECT_POST);
-		url.searchParams.set("dcql_query", JSON.stringify(dcql_query));
+		const url = new URL('openid4vp://authorize');
+		url.searchParams.set('client_id', 'x509_san_dns:verifier.example.com');
+		url.searchParams.set('response_uri', 'https://verifier.example.com/cb');
+		url.searchParams.set('nonce', 'nonce-123');
+		url.searchParams.set('state', 'state-123');
+		url.searchParams.set('client_metadata', JSON.stringify({ vp_formats: {} }));
+		url.searchParams.set('response_mode', OpenID4VPResponseMode.DIRECT_POST);
+		url.searchParams.set('dcql_query', JSON.stringify(dcql_query));
 
 		const vcEntityList = [
 			{ format: VerifiableCredentialFormat.DC_SDJWT, data: sdJwtPid, batchId: 7, instanceId: 0 },
@@ -121,62 +132,73 @@ describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
 		];
 
 		const result = await helper.handleAuthorizationRequest(url.toString(), vcEntityList);
-		assert(!("error" in result));
+		assert(!('error' in result));
 		assert(result.parsedTransactionData === null);
-		assert(result.verifierDomainName === "verifier.example.com");
-		const entry = result.conformantCredentialsMap.get("testCredential");
+		assert(result.verifierDomainName === 'verifier.example.com');
+		const entry = result.conformantCredentialsMap.get('testCredential');
 		assert(entry?.credentials?.includes(7));
-		assert(entry?.requestedFields?.some((f: { path?: string[] }) => f.path?.join(".") === "given_name"));
-		assert(storedState.value?.nonce === "nonce-123");
+		assert(
+			entry?.requestedFields?.some((f: { path?: string[] }) => f.path?.join('.') === 'given_name'),
+		);
+		assert(storedState.value?.nonce === 'nonce-123');
 		assert(storedState.value?.response_mode === OpenID4VPResponseMode.DIRECT_POST);
 		assert(Array.isArray(storedState.value?.transaction_data));
 		assert(storedState.value?.transaction_data.length === 0);
 	});
 
-	it("should return mapping for an mso_mdoc DCQL query", async () => {
-		const signedClaimsPid = { vct: "urn:eudi:pid:1", given_name: "Alice" };
+	it('should return mapping for an mso_mdoc DCQL query', async () => {
+		const signedClaimsPid = { vct: 'urn:eudi:pid:1', given_name: 'Alice' };
 		const sdJwtPid = await buildSdJwt(signedClaimsPid);
 		const mdocPid = issuerSignedB64U;
 
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 		const storedState: { value: any | null } = { value: null };
 		const helper = new OpenID4VPServerAPI({
 			evaluateTrust: mockEvaluateTrust,
-			httpClient: { get: async () => { throw new Error("unexpected http call"); } },
+			httpClient: {
+				// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
+				get: async () => {
+					throw new Error('unexpected http call');
+				},
+			},
 			rpStateStore: {
-				store: async (state) => { storedState.value = state; },
+				// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
+				store: async (state) => {
+					storedState.value = state;
+				},
 				retrieve: async () => storedState.value,
 			},
 			parseCredential: async () => ({ signedClaims: signedClaimsPid }),
 			selectCredentialForBatch: async () => null,
 			keystore: {
-				signJwtPresentation: async () => ({ vpjwt: "vp-jwt" }),
+				signJwtPresentation: async () => ({ vpjwt: 'vp-jwt' }),
 				generateDeviceResponse: async () => ({ deviceResponseMDoc: {} }),
 			},
 			strings: {
-				purposeNotSpecified: "No purpose provided",
-				allClaimsRequested: "All claims",
+				purposeNotSpecified: 'No purpose provided',
+				allClaimsRequested: 'All claims',
 			},
 		});
 
 		const dcql_query = {
 			credentials: [
 				{
-					id: "pidMdoc",
-					format: "mso_mdoc",
-					meta: { doctype_value: "eu.europa.ec.eudi.pid.1" },
-					claims: [{ path: ["eu.europa.ec.eudi.pid.1", "family_name"] }],
+					id: 'pidMdoc',
+					format: 'mso_mdoc',
+					meta: { doctype_value: 'eu.europa.ec.eudi.pid.1' },
+					claims: [{ path: ['eu.europa.ec.eudi.pid.1', 'family_name'] }],
 				},
 			],
 		};
 
-		const url = new URL("openid4vp://authorize");
-		url.searchParams.set("client_id", "x509_san_dns:verifier.example.com");
-		url.searchParams.set("response_uri", "https://verifier.example.com/cb");
-		url.searchParams.set("nonce", "nonce-456");
-		url.searchParams.set("state", "state-456");
-		url.searchParams.set("client_metadata", JSON.stringify({ vp_formats: {} }));
-		url.searchParams.set("response_mode", OpenID4VPResponseMode.DIRECT_POST);
-		url.searchParams.set("dcql_query", JSON.stringify(dcql_query));
+		const url = new URL('openid4vp://authorize');
+		url.searchParams.set('client_id', 'x509_san_dns:verifier.example.com');
+		url.searchParams.set('response_uri', 'https://verifier.example.com/cb');
+		url.searchParams.set('nonce', 'nonce-456');
+		url.searchParams.set('state', 'state-456');
+		url.searchParams.set('client_metadata', JSON.stringify({ vp_formats: {} }));
+		url.searchParams.set('response_mode', OpenID4VPResponseMode.DIRECT_POST);
+		url.searchParams.set('dcql_query', JSON.stringify(dcql_query));
 
 		const vcEntityList = [
 			{ format: VerifiableCredentialFormat.DC_SDJWT, data: sdJwtPid, batchId: 7, instanceId: 0 },
@@ -184,54 +206,61 @@ describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
 		];
 
 		const result = await helper.handleAuthorizationRequest(url.toString(), vcEntityList);
-		assert(!("error" in result));
-		const entry = result.conformantCredentialsMap.get("pidMdoc");
+		assert(!('error' in result));
+		const entry = result.conformantCredentialsMap.get('pidMdoc');
 		assert(entry?.credentials?.[0] === 9);
 	});
 
-	it("should return insufficient credentials when request asks for missing vct", async () => {
-		const signedClaimsPid = { vct: "urn:eudi:pid:1", given_name: "Alice" };
+	it('should return insufficient credentials when request asks for missing vct', async () => {
+		const signedClaimsPid = { vct: 'urn:eudi:pid:1', given_name: 'Alice' };
 		const sdJwtPid = await buildSdJwt(signedClaimsPid);
 		const mdocPid = issuerSignedB64U;
 
 		const helper = new OpenID4VPServerAPI({
 			evaluateTrust: mockEvaluateTrust,
-			httpClient: { get: async () => { throw new Error("unexpected http call"); } },
+			httpClient: {
+				// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
+				get: async () => {
+					throw new Error('unexpected http call');
+				},
+			},
 			rpStateStore: {
+				// biome-ignore lint/suspicious/noEmptyBlockStatements: baseline: pre-existing debt. should be fixed
 				store: async () => {},
+				// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 				retrieve: async () => ({}) as any,
 			},
 			parseCredential: async () => ({ signedClaims: signedClaimsPid }),
 			selectCredentialForBatch: async () => null,
 			keystore: {
-				signJwtPresentation: async () => ({ vpjwt: "vp-jwt" }),
+				signJwtPresentation: async () => ({ vpjwt: 'vp-jwt' }),
 				generateDeviceResponse: async () => ({ deviceResponseMDoc: {} }),
 			},
 			strings: {
-				purposeNotSpecified: "No purpose provided",
-				allClaimsRequested: "All claims",
+				purposeNotSpecified: 'No purpose provided',
+				allClaimsRequested: 'All claims',
 			},
 		});
 
 		const dcql_query = {
 			credentials: [
 				{
-					id: "missingCredential",
+					id: 'missingCredential',
 					format: VerifiableCredentialFormat.DC_SDJWT,
-					meta: { vct_values: ["urn:eudi:ehic:1"] },
-					claims: [{ path: ["given_name"] }],
+					meta: { vct_values: ['urn:eudi:ehic:1'] },
+					claims: [{ path: ['given_name'] }],
 				},
 			],
 		};
 
-		const url = new URL("openid4vp://authorize");
-		url.searchParams.set("client_id", "x509_san_dns:verifier.example.com");
-		url.searchParams.set("response_uri", "https://verifier.example.com/cb");
-		url.searchParams.set("nonce", "nonce-789");
-		url.searchParams.set("state", "state-789");
-		url.searchParams.set("client_metadata", JSON.stringify({ vp_formats: {} }));
-		url.searchParams.set("response_mode", OpenID4VPResponseMode.DIRECT_POST);
-		url.searchParams.set("dcql_query", JSON.stringify(dcql_query));
+		const url = new URL('openid4vp://authorize');
+		url.searchParams.set('client_id', 'x509_san_dns:verifier.example.com');
+		url.searchParams.set('response_uri', 'https://verifier.example.com/cb');
+		url.searchParams.set('nonce', 'nonce-789');
+		url.searchParams.set('state', 'state-789');
+		url.searchParams.set('client_metadata', JSON.stringify({ vp_formats: {} }));
+		url.searchParams.set('response_mode', OpenID4VPResponseMode.DIRECT_POST);
+		url.searchParams.set('dcql_query', JSON.stringify(dcql_query));
 
 		const vcEntityList = [
 			{ format: VerifiableCredentialFormat.DC_SDJWT, data: sdJwtPid, batchId: 7, instanceId: 0 },
@@ -239,63 +268,78 @@ describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
 		];
 
 		const result = await helper.handleAuthorizationRequest(url.toString(), vcEntityList);
-		assert("error" in result);
-		assert(result.error === "insufficient_credentials");
+		assert('error' in result);
+		assert(result.error === 'insufficient_credentials');
 	});
 
-	it("should return missing_dcql_query when dcql_query is omitted", async () => {
+	it('should return missing_dcql_query when dcql_query is omitted', async () => {
 		const helper = new OpenID4VPServerAPI({
 			evaluateTrust: mockEvaluateTrust,
-			httpClient: { get: async () => { throw new Error("unexpected http call"); } },
+			httpClient: {
+				// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
+				get: async () => {
+					throw new Error('unexpected http call');
+				},
+			},
 			rpStateStore: {
+				// biome-ignore lint/suspicious/noEmptyBlockStatements: baseline: pre-existing debt. should be fixed
 				store: async () => {},
+				// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 				retrieve: async () => ({}) as any,
 			},
 			parseCredential: async () => null,
 			selectCredentialForBatch: async () => null,
 			keystore: {
-				signJwtPresentation: async () => ({ vpjwt: "vp-jwt" }),
+				signJwtPresentation: async () => ({ vpjwt: 'vp-jwt' }),
 				generateDeviceResponse: async () => ({ deviceResponseMDoc: {} }),
 			},
 			strings: {
-				purposeNotSpecified: "No purpose provided",
-				allClaimsRequested: "All claims",
+				purposeNotSpecified: 'No purpose provided',
+				allClaimsRequested: 'All claims',
 			},
 		});
 
-		const url = new URL("openid4vp://authorize");
-		url.searchParams.set("client_id", "x509_san_dns:verifier.example.com");
-		url.searchParams.set("response_uri", "https://verifier.example.com/cb");
-		url.searchParams.set("nonce", "nonce-000");
-		url.searchParams.set("state", "state-000");
-		url.searchParams.set("client_metadata", JSON.stringify({ vp_formats: {} }));
-		url.searchParams.set("response_mode", OpenID4VPResponseMode.DIRECT_POST);
+		const url = new URL('openid4vp://authorize');
+		url.searchParams.set('client_id', 'x509_san_dns:verifier.example.com');
+		url.searchParams.set('response_uri', 'https://verifier.example.com/cb');
+		url.searchParams.set('nonce', 'nonce-000');
+		url.searchParams.set('state', 'state-000');
+		url.searchParams.set('client_metadata', JSON.stringify({ vp_formats: {} }));
+		url.searchParams.set('response_mode', OpenID4VPResponseMode.DIRECT_POST);
 
 		const result = await helper.handleAuthorizationRequest(url.toString(), []);
-		assert("error" in result);
-		assert(result.error === "missing_dcql_query");
+		assert('error' in result);
+		assert(result.error === 'missing_dcql_query');
 	});
 
-	it("should return old_state when nonce was already used", async () => {
+	it('should return old_state when nonce was already used', async () => {
 		const helper = new OpenID4VPServerAPI({
 			evaluateTrust: mockEvaluateTrust,
-			httpClient: { get: async () => { throw new Error("unexpected http call"); } },
+			httpClient: {
+				// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
+				get: async () => {
+					throw new Error('unexpected http call');
+				},
+			},
 			rpStateStore: {
+				// biome-ignore lint/suspicious/noEmptyBlockStatements: baseline: pre-existing debt. should be fixed
 				store: async () => {},
+				// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 				retrieve: async () => ({}) as any,
 			},
 			parseCredential: async () => null,
 			selectCredentialForBatch: async () => null,
 			keystore: {
-				signJwtPresentation: async () => ({ vpjwt: "vp-jwt" }),
+				signJwtPresentation: async () => ({ vpjwt: 'vp-jwt' }),
 				generateDeviceResponse: async () => ({ deviceResponseMDoc: {} }),
 			},
 			strings: {
-				purposeNotSpecified: "No purpose provided",
-				allClaimsRequested: "All claims",
+				purposeNotSpecified: 'No purpose provided',
+				allClaimsRequested: 'All claims',
 			},
 			lastUsedNonceStore: {
-				get: () => "nonce-reused",
+				get: () => 'nonce-reused',
+				// biome-ignore lint/suspicious/noEmptyBlockStatements: baseline: pre-existing debt. should be fixed
 				set: () => {},
 			},
 		});
@@ -303,37 +347,37 @@ describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
 		const dcql_query = {
 			credentials: [
 				{
-					id: "testCredential",
+					id: 'testCredential',
 					format: VerifiableCredentialFormat.DC_SDJWT,
-					meta: { vct_values: ["urn:eudi:pid:1"] },
-					claims: [{ path: ["given_name"] }],
+					meta: { vct_values: ['urn:eudi:pid:1'] },
+					claims: [{ path: ['given_name'] }],
 				},
 			],
 		};
 
-		const url = new URL("openid4vp://authorize");
-		url.searchParams.set("client_id", "x509_san_dns:verifier.example.com");
-		url.searchParams.set("response_uri", "https://verifier.example.com/cb");
-		url.searchParams.set("nonce", "nonce-reused");
-		url.searchParams.set("state", "state-002");
-		url.searchParams.set("client_metadata", JSON.stringify({ vp_formats: {} }));
-		url.searchParams.set("response_mode", OpenID4VPResponseMode.DIRECT_POST);
-		url.searchParams.set("dcql_query", JSON.stringify(dcql_query));
+		const url = new URL('openid4vp://authorize');
+		url.searchParams.set('client_id', 'x509_san_dns:verifier.example.com');
+		url.searchParams.set('response_uri', 'https://verifier.example.com/cb');
+		url.searchParams.set('nonce', 'nonce-reused');
+		url.searchParams.set('state', 'state-002');
+		url.searchParams.set('client_metadata', JSON.stringify({ vp_formats: {} }));
+		url.searchParams.set('response_mode', OpenID4VPResponseMode.DIRECT_POST);
+		url.searchParams.set('dcql_query', JSON.stringify(dcql_query));
 
 		const result = await helper.handleAuthorizationRequest(url.toString(), []);
-		assert("error" in result);
-		assert(result.error === "old_state");
+		assert('error' in result);
+		assert(result.error === 'old_state');
 	});
 });
 
-describe("parseClientIdScheme", () => {
-	it("should parse decentralized_identifier DID client IDs as did scheme", () => {
-		const clientId = "decentralized_identifier:did:web:verifier.example.com";
+describe('parseClientIdScheme', () => {
+	it('should parse decentralized_identifier DID client IDs as did scheme', () => {
+		const clientId = 'decentralized_identifier:did:web:verifier.example.com';
 		const parsed = parseClientIdScheme(clientId);
 
-		assert(parsed.scheme === "did");
+		assert(parsed.scheme === 'did');
 		assert(parsed.clientId === clientId);
-		assert(parsed.identifier === "did:web:verifier.example.com");
+		assert(parsed.identifier === 'did:web:verifier.example.com');
 	});
 });
 
@@ -344,45 +388,53 @@ describe("parseClientIdScheme", () => {
  * discriminator as the format -- cannot match any query, which surfaced in the
  * wallet as a failure during credential selection.
  */
-describe("DCQL shaping for a VCDM 2.0 credential carried in an SD-JWT", () => {
+describe('DCQL shaping for a VCDM 2.0 credential carried in an SD-JWT', () => {
 	const decoded = decodeVcdm2SdJwt(MBOB_ACADEMIC_ENROLLMENT);
+	// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 	const claims = decoded!.payload as Record<string, unknown>;
 
 	// What a verifier asking for this credential sends.
 	const query = {
-		credentials: [{
-			id: "enrollment",
-			format: "vc+sd-jwt",
-			meta: { type_values: [["AcademicEnrollmentCredential"]] },
-		}],
+		credentials: [
+			{
+				id: 'enrollment',
+				format: 'vc+sd-jwt',
+				meta: { type_values: [['AcademicEnrollmentCredential']] },
+			},
+		],
 	};
 
 	const runQuery = (shaped: unknown) => {
 		const parsed = DcqlQuery.parse(query as never);
-		return DcqlQuery.query(parsed, [shaped] as never).credential_matches["enrollment"];
+		// biome-ignore lint/complexity/useLiteralKeys: baseline: pre-existing debt. should be fixed
+		return DcqlQuery.query(parsed, [shaped] as never).credential_matches['enrollment'];
 	};
 
-	it("the credential really has no vct to match on", () => {
+	it('the credential really has no vct to match on', () => {
 		expect(claims.vct).toBeUndefined();
-		expect(toTypeArray(claims.type)).toContain("AcademicEnrollmentCredential");
+		expect(toTypeArray(claims.type)).toContain('AcademicEnrollmentCredential');
 	});
 
-	it("shaped the old way, it matches nothing", () => {
-		expect(runQuery({
-			credential_format: "vcdm2+sd-jwt", // internal discriminator
-			vct: claims.vct,                   // undefined
-			claims,
-			cryptographic_holder_binding: true,
-		})?.success).not.toBe(true);
+	it('shaped the old way, it matches nothing', () => {
+		expect(
+			runQuery({
+				credential_format: 'vcdm2+sd-jwt', // internal discriminator
+				vct: claims.vct, // undefined
+				claims,
+				cryptographic_holder_binding: true,
+			})?.success,
+		).not.toBe(true);
 	});
 
-	it("shaped as a W3C credential, it matches", () => {
-		expect(runQuery({
-			credential_format: "vc+sd-jwt",
-			type: toTypeArray(claims.type),
-			claims,
-			cryptographic_holder_binding: true,
-		})?.success).toBe(true);
+	it('shaped as a W3C credential, it matches', () => {
+		expect(
+			runQuery({
+				credential_format: 'vc+sd-jwt',
+				type: toTypeArray(claims.type),
+				claims,
+				cryptographic_holder_binding: true,
+			})?.success,
+		).toBe(true);
 	});
 
 	/**
@@ -391,14 +443,14 @@ describe("DCQL shaping for a VCDM 2.0 credential carried in an SD-JWT", () => {
 	 * VC also uses. So the stored label cannot decide the shaping; only the
 	 * payload can. This is the case that actually failed against the proeftuin.
 	 */
-	it("is recognised from its payload, not its stored format label", () => {
+	it('is recognised from its payload, not its stored format label', () => {
 		expect(isVcdm2Credential(claims)).toBe(true);
 		expect(claims.vct).toBeUndefined();
 	});
 
-	it("a genuine SD-JWT VC is not mistaken for VCDM 2.0", () => {
+	it('a genuine SD-JWT VC is not mistaken for VCDM 2.0', () => {
 		// The guard has to hold in both directions: an SD-JWT VC carries a
 		// vct and must keep its vct-based shaping.
-		expect(isVcdm2Credential({ vct: "urn:eduid", iss: "https://example" })).toBe(false);
+		expect(isVcdm2Credential({ vct: 'urn:eduid', iss: 'https://example' })).toBe(false);
 	});
 });

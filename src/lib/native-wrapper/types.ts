@@ -1,4 +1,4 @@
-import { WscdManagerJs } from '@sirosfoundation/wscd-manager-wasm';
+import type { WscdManagerJs } from '@sirosfoundation/wscd-manager-wasm';
 
 /**
  * Display properties for credential UI in Android's credential selector
@@ -18,7 +18,6 @@ export type SdJwtClaim = {
 	display: Record<string, string>;
 };
 
-
 /**
  * SD-JWT credential entry for OpenId4VpRegistry
  */
@@ -35,7 +34,7 @@ export type MdocField = {
 	identifier: string;
 	value: unknown;
 	display: Record<string, string>;
-}
+};
 
 /**
  * mDOC credential entry for OpenId4VpRegistry

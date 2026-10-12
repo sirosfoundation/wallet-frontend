@@ -1,8 +1,13 @@
-import { Context, CredentialVerifier, PublicKeyResolverEngineI, HttpClient } from "../interfaces";
-import { CredentialVerificationError } from "../error";
-import { JWK, jwtVerify } from "jose";
-import { decodeVcdm2SdJwt, parseVcdm2Credential } from "../utils/vcdm2";
-import { resolveVcdm2IssuerPublicKey } from "./vcdm2IssuerKey";
+import { type JWK, jwtVerify } from 'jose';
+import { CredentialVerificationError } from '../error';
+import type {
+	Context,
+	CredentialVerifier,
+	HttpClient,
+	PublicKeyResolverEngineI,
+} from '../interfaces';
+import { decodeVcdm2SdJwt, parseVcdm2Credential } from '../utils/vcdm2';
+import { resolveVcdm2IssuerPublicKey } from './vcdm2IssuerKey';
 
 /**
  * Verifier for a W3C VCDM 2.0 credential carried inside an SD-JWT (DIIP v5).
@@ -16,7 +21,11 @@ import { resolveVcdm2IssuerPublicKey } from "./vcdm2IssuerKey";
  * from an `iss` claim, which a VCDM 2.0 credential need not carry — its
  * issuer lives in the credential's own `issuer` member.
  */
-export function VCDM2SdJwtVerifier(args: { context: Context, pkResolverEngine: PublicKeyResolverEngineI, httpClient: HttpClient }): CredentialVerifier {
+export function VCDM2SdJwtVerifier(args: {
+	context: Context;
+	pkResolverEngine: PublicKeyResolverEngineI;
+	httpClient: HttpClient;
+}): CredentialVerifier {
 	return {
 		async verify({ rawCredential }) {
 			const decoded = decodeVcdm2SdJwt(rawCredential);
@@ -33,7 +42,10 @@ export function VCDM2SdJwtVerifier(args: { context: Context, pkResolverEngine: P
 			}
 
 			const issuerPublicKey = await resolveVcdm2IssuerPublicKey(
-				args, decoded.header, decoded.payload, { useIssClaim: true },
+				args,
+				decoded.header,
+				decoded.payload,
+				{ useIssClaim: true },
 			);
 			if (!issuerPublicKey.success) {
 				return { success: false, error: issuerPublicKey.error };
@@ -44,7 +56,7 @@ export function VCDM2SdJwtVerifier(args: { context: Context, pkResolverEngine: P
 					clockTolerance: args.context.clockTolerance,
 				});
 			} catch (err: unknown) {
-				if (err instanceof Error && err.name === "JWTExpired") {
+				if (err instanceof Error && err.name === 'JWTExpired') {
 					return { success: false, error: CredentialVerificationError.ExpiredCredential };
 				}
 				return { success: false, error: CredentialVerificationError.InvalidSignature };

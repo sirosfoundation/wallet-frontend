@@ -1,2 +1,1 @@
-export { default as TenantSelector } from './TenantSelector';
-export { default } from './TenantSelector';
+export { default as TenantSelector, default } from './TenantSelector';

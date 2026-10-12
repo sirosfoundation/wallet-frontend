@@ -1,4 +1,4 @@
-import { fromBase64Url, isBase64, base64UrlToBase64, toBase64 } from './binary';
+import { base64UrlToBase64, fromBase64Url, isBase64, toBase64 } from './binary';
 
 type MimeBytes = { offset: number; signature: number[] };
 
@@ -22,9 +22,7 @@ const ALLOWED_MIMES = Object.keys(BYTE_MIME_SIGNATURES);
 /**
  * Detects the MIME type of an image based on its byte signature.
  */
-export function detectImageMimeFromBytes(
-	bytes: Uint8Array<ArrayBufferLike>,
-): string | null {
+export function detectImageMimeFromBytes(bytes: Uint8Array<ArrayBufferLike>): string | null {
 	for (const [mime, value] of Object.entries(BYTE_MIME_SIGNATURES)) {
 		const segments = Array.isArray(value) ? value : [value];
 
@@ -47,6 +45,7 @@ export function detectImageMimeFromBytes(
  */
 export function ensureStringIsImageDataUri(input: string): string | null {
 	try {
+		// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 		const isPrefixed = /^(data:)?image\/[a-zA-Z]+;base64,/.test(input);
 		if (!isPrefixed) {
 			const normalized = base64UrlToBase64(input);
@@ -61,6 +60,7 @@ export function ensureStringIsImageDataUri(input: string): string | null {
 		const isDataLess = !input.startsWith('data:');
 		if (isDataLess) input = `data:${input}`;
 
+		// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 		const mime = input.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,/)?.[1];
 		return mime && ALLOWED_MIMES.includes(mime) ? input : null;
 	} catch {

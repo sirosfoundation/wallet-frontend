@@ -1,10 +1,12 @@
 // @vitest-environment happy-dom
+
+import { act, render, screen } from '@testing-library/react';
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
 import React, { useState } from 'react';
-import { describe, expect, it, vi } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import CredentialLayout from './CredentialLayout';
+import { describe, expect, it, vi } from 'vitest';
 import CredentialsContext from '@/context/CredentialsContext';
+import CredentialLayout from './CredentialLayout';
 
 /**
  * happy-dom provides a `window` but no Web Storage, and modules in this
@@ -14,16 +16,30 @@ import CredentialsContext from '@/context/CredentialsContext';
 vi.hoisted(() => {
 	class MemoryStorage {
 		#entries = new Map();
-		get length() { return this.#entries.size; }
-		key(i) { return [...this.#entries.keys()][i] ?? null; }
-		getItem(k) { return this.#entries.has(k) ? this.#entries.get(k) : null; }
-		setItem(k, v) { this.#entries.set(k, String(v)); }
-		removeItem(k) { this.#entries.delete(k); }
-		clear() { this.#entries.clear(); }
+		get length() {
+			return this.#entries.size;
+		}
+		key(i) {
+			return [...this.#entries.keys()][i] ?? null;
+		}
+		getItem(k) {
+			return this.#entries.has(k) ? this.#entries.get(k) : null;
+		}
+		setItem(k, v) {
+			this.#entries.set(k, String(v));
+		}
+		removeItem(k) {
+			this.#entries.delete(k);
+		}
+		clear() {
+			this.#entries.clear();
+		}
 	}
 	for (const name of ['localStorage', 'sessionStorage']) {
 		Object.defineProperty(window, name, {
-			value: new MemoryStorage(), configurable: true, writable: true,
+			value: new MemoryStorage(),
+			configurable: true,
+			writable: true,
 		});
 	}
 });
@@ -46,13 +62,11 @@ vi.mock('../Popups/FullscreenImg', () => ({
 vi.mock('@/hooks/useCredentialName', () => ({ useCredentialName: () => 'Test Credential' }));
 vi.mock('@/context/TenantContext', () => ({ useTenant: () => ({ buildPath: (p) => `/${p}` }) }));
 
-
 /** A child that owns state, standing in for CredentialTabsPanel. */
 function StatefulChild() {
 	const [value, setValue] = useState('initial');
-	return (
-		<button onClick={() => setValue('changed')}>{value}</button>
-	);
+	// biome-ignore lint/a11y/useButtonType: baseline: pre-existing debt. should be fixed
+	return <button onClick={() => setValue('changed')}>{value}</button>;
 }
 
 function renderLayout({ screenType = 'desktop', fixedRatioImage } = {}) {

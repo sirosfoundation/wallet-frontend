@@ -1,19 +1,18 @@
 // External libraries
-import React, { useState, useEffect, useContext } from 'react';
-import { useParams, useNavigate } from 'react-router';
+
+import { ArrowLeft } from 'lucide-react';
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
+import React, { useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { logger } from '@/logger';
-
-// Contexts
-import SessionContext from '@/context/SessionContext';
-
-// Hooks
-import useFetchPresentations from '@/hooks/useFetchPresentations';
-
+import { useNavigate, useParams } from 'react-router';
 // Components
 import HistoryDetailContent from '@/components/History/HistoryDetailContent';
 import { H1 } from '@/components/Shared/Heading';
-import { ArrowLeft } from 'lucide-react';
+// Contexts
+import SessionContext from '@/context/SessionContext';
+// Hooks
+import useFetchPresentations from '@/hooks/useFetchPresentations';
+import { logger } from '@/logger';
 
 const HistoryDetail = () => {
 	const { transactionId } = useParams();
@@ -25,7 +24,7 @@ const HistoryDetail = () => {
 	const [selectedHistoryItem, setSelectedHistoryItem] = useState([]);
 	const { t } = useTranslation();
 
-	logger.debug('history', history)
+	logger.debug('history', history);
 
 	useEffect(() => {
 		if (transactionId && history && Object.keys(history).length > 0) {
@@ -34,9 +33,11 @@ const HistoryDetail = () => {
 	}, [history, transactionId]);
 
 	return (
+		// biome-ignore lint/complexity/noUselessFragments: baseline: pre-existing debt. should be fixed
 		<>
 			<div className="px-6 sm:px-12 w-full">
-				<div className='flex'>
+				<div className="flex">
+					{/** biome-ignore lint/a11y/useButtonType: baseline: pre-existing debt. should be fixed */}
 					<button
 						id="go-previous"
 						onClick={() => navigate(-1)}

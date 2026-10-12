@@ -1,18 +1,37 @@
-import React, { useContext } from 'react';
-import { useTranslation } from 'react-i18next';
 import { KeyRoundIcon } from 'lucide-react';
+import type React from 'react';
+import { useContext } from 'react';
+import { useTranslation } from 'react-i18next';
 import { UsbStickDotIcon } from '@/components/Shared/CustomIcons';
 import StatusContext from '@/context/StatusContext';
-import Button, { Variant } from '../Buttons/Button';
+import Button, { type Variant } from '../Buttons/Button';
 
-export default function PasskeyButtons({ mode, isSubmitting }: { mode: 'login' | 'signup'; isSubmitting: boolean }) {
+export default function PasskeyButtons({
+	mode,
+	isSubmitting,
+}: {
+	mode: 'login' | 'signup';
+	isSubmitting: boolean;
+}) {
 	const { t } = useTranslation();
 	const { isOnline } = useContext(StatusContext);
 	const isLogin = mode === 'login';
 
 	const buttons: { label: string; Icon: React.ElementType; variant: Variant; hint?: string }[] = [
-		{ label: isLogin ? t('loginSignup.loginWithPasskey') : t('loginSignup.signUpWithPasskey'), Icon: KeyRoundIcon, variant: 'primary' },
-		{ label: isLogin ? t('loginSignup.loginWithSecurityKey') : t('loginSignup.signUpWithSecurityKey'), Icon: UsbStickDotIcon, variant: 'outline', hint: 'security-key' },
+		{
+			label: isLogin ? t('loginSignup.loginWithPasskey') : t('loginSignup.signUpWithPasskey'),
+			Icon: KeyRoundIcon,
+			variant: 'primary',
+		},
+		{
+			label: isLogin
+				? t('loginSignup.loginWithSecurityKey')
+				: // biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+					t('loginSignup.signUpWithSecurityKey'),
+			Icon: UsbStickDotIcon,
+			variant: 'outline',
+			hint: 'security-key',
+		},
 	];
 
 	let buttonIdPrefix: string;
@@ -36,7 +55,7 @@ export default function PasskeyButtons({ mode, isSubmitting }: { mode: 'login' |
 						size="lg"
 						textSize="md"
 						additionalClassName={`items-center justify-center relative passkey-button-${hint}`}
-						title={!isLogin && !isOnline && t('common.offlineTitle')}
+						title={!(isLogin || isOnline) && t('common.offlineTitle')}
 						value={hint}
 					>
 						<div className="flex flex-row items-center justify-center w-full">

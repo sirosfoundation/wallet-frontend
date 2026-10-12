@@ -1,13 +1,10 @@
-import { encryptedHttpRequest, HpkeConfig } from '@/lib/utils/ohttpHelpers';
-import { HttpTransport, HttpClientError } from '@sirosfoundation/http-client';
+import { HttpClientError, type HttpTransport } from '@sirosfoundation/http-client';
+import { encryptedHttpRequest, type HpkeConfig } from '@/lib/utils/ohttpHelpers';
 
 /**
  * Creates an HTTP transport that uses OHTTP for encrypted requests.
  */
-export function createOhttpTransport(
-	ohttpRelay: string,
-	keyConfig: HpkeConfig,
-): HttpTransport {
+export function createOhttpTransport(ohttpRelay: string, keyConfig: HpkeConfig): HttpTransport {
 	return async ({ method, url, body, headers }) => {
 		try {
 			const res = await encryptedHttpRequest(ohttpRelay, keyConfig, {
@@ -21,13 +18,9 @@ export function createOhttpTransport(
 				headers: res.headers || {},
 				body: new Uint8Array(res.body),
 			};
+			// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 		} catch (err: any) {
-			throw new HttpClientError(
-				method,
-				500,
-				{},
-				err.message || `${method} request failed`,
-			);
+			throw new HttpClientError(method, 500, {}, err.message || `${method} request failed`);
 		}
 	};
 }

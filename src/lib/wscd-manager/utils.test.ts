@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
 import { calculateJwkThumbprint, type JWK } from 'jose';
-import { WscdManagerError, WscdPlugin, type WscdContainer } from './resources';
+import { describe, expect, it, vi } from 'vitest';
+import { type WscdContainer, WscdManagerError, WscdPlugin } from './resources';
 import type { IWscdManagerHost } from './types';
 import {
 	ensureDecodedWscdContainer,
@@ -14,10 +14,13 @@ import {
 const publicKeyJwk: JWK = {
 	kty: 'EC',
 	crv: 'P-256',
+	// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 	x: 'hvLS5qgKNmpKnA46YSRft2AHyDk9QZGIuq2t8SXmtsE',
+	// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 	y: '_O6ZbDIE6K_jmzgORF3DW-sSGVuigXIP9XMdPyGSOS0',
 };
 
+// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 const publicKeyKid = 'q95J3MNIjVVGXyrmJVm5Vfr6E-iGfIF0Bo4XZAGhFf4';
 
 function makeContainer(): WscdContainer {
@@ -78,10 +81,7 @@ describe('ensureEncodedWscdContainer / ensureDecodedWscdContainer', () => {
 
 describe('exportWscdContainerToKeystore', () => {
 	it('enriches each key with its public key and thumbprint kid', async () => {
-		const result = await exportWscdContainerToKeystore(
-			fakeHost(),
-			makeContainer(),
-		);
+		const result = await exportWscdContainerToKeystore(fakeHost(), makeContainer());
 
 		const expectedKid = await calculateJwkThumbprint(publicKeyJwk, 'sha256');
 		expect(result.keys[0].publicKey).toEqual(publicKeyJwk);
@@ -105,8 +105,6 @@ describe('exportWscdContainerToKeystore', () => {
 
 	it('rejects when the exported public key is not a usable JWK', async () => {
 		const host = fakeHost({ exportPublicKey: vi.fn().mockResolvedValue({}) });
-		await expect(
-			exportWscdContainerToKeystore(host, makeContainer()),
-		).rejects.toThrow();
+		await expect(exportWscdContainerToKeystore(host, makeContainer())).rejects.toThrow();
 	});
 });

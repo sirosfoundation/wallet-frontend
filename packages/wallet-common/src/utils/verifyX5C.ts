@@ -1,4 +1,4 @@
-import { verifyCertificate } from "./verifyCertificate";
+import { verifyCertificate } from './verifyCertificate';
 
 /**
  * Verify an X.509 certificate chain (x5c) against trusted root certificates.
@@ -19,10 +19,15 @@ export async function verifyX5C(x5c: string[], trustedCertificates: string[]): P
 	}
 	const lastCertificate: string = x5c[x5c.length - 1];
 	const lastCertificatePem = `-----BEGIN CERTIFICATE-----\n${lastCertificate}\n-----END CERTIFICATE-----`;
-	const certificateValidationResult = await verifyCertificate(lastCertificatePem, trustedCertificates);
-	const lastCertificateIsRootCa = trustedCertificates.map((c) => c.trim()).includes(lastCertificatePem);
+	const certificateValidationResult = await verifyCertificate(
+		lastCertificatePem,
+		trustedCertificates,
+	);
+	const lastCertificateIsRootCa = trustedCertificates
+		.map((c) => c.trim())
+		.includes(lastCertificatePem);
 
-	if (!certificateValidationResult && !lastCertificateIsRootCa) {
+	if (!(certificateValidationResult || lastCertificateIsRootCa)) {
 		return false;
 	}
 

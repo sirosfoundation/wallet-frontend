@@ -1,9 +1,13 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { X } from 'lucide-react';
+import type React from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import NotificationContext, { NotificationType, NotifyPayload } from "./NotificationContext";
-import { setNotify } from "./notifier";
-import { X } from "lucide-react";
+import NotificationContext, {
+	type NotificationType,
+	type NotifyPayload,
+} from './NotificationContext';
+import { setNotify } from './notifier';
 
 type NotificationItem = {
 	id: string;
@@ -20,6 +24,7 @@ const DEFAULTS: Record<NotificationType, { duration: number }> = {
 	newCredential: { duration: 4000 },
 };
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 export const NotificationProvider = ({ children }: React.PropsWithChildren) => {
 	const { t } = useTranslation();
 	const [items, setItems] = useState<NotificationItem[]>([]);
@@ -39,7 +44,7 @@ export const NotificationProvider = ({ children }: React.PropsWithChildren) => {
 			if (timersRef.current[id]) clearTimeout(timersRef.current[id]);
 			timersRef.current[id] = window.setTimeout(() => remove(id), duration) as unknown as number;
 		},
-		[remove]
+		[remove],
 	);
 
 	const add = useCallback(
@@ -56,17 +61,18 @@ export const NotificationProvider = ({ children }: React.PropsWithChildren) => {
 			setTimeout(() => schedule(id, duration), 0);
 			return id;
 		},
-		[schedule, t]
+		[schedule, t],
 	);
 
 	const notify = useCallback(
 		(type: NotificationType, payload?: NotifyPayload) => add(type, payload),
-		[add]
+		[add],
 	);
 
 	// Register imperative bridge for non-React usage
 	useEffect(() => {
 		setNotify((type, payload) => {
+			// biome-ignore lint/complexity/noVoid: baseline: pre-existing debt. should be fixed
 			void notify(type, payload);
 		});
 	}, [notify]);
@@ -74,6 +80,9 @@ export const NotificationProvider = ({ children }: React.PropsWithChildren) => {
 	// Cleanup timers on unmount
 	useEffect(() => {
 		return () => {
+			// biome-ignore lint/complexity/noForEach: baseline: pre-existing debt. should be fixed
+			// biome-ignore lint/suspicious/useIterableCallbackReturn: baseline: pre-existing debt. should be fixed
+			// biome-ignore lint/suspicious/noShadow: baseline: pre-existing debt. should be fixed
 			Object.values(timersRef.current).forEach((t) => clearTimeout(t));
 			timersRef.current = {};
 		};
@@ -103,7 +112,7 @@ export const NotificationProvider = ({ children }: React.PropsWithChildren) => {
 						))}
 					</div>
 				</div>,
-				document.body
+				document.body,
 			)}
 		</NotificationContext.Provider>
 	);
@@ -124,17 +133,18 @@ const Toast: React.FC<{
 	}, []);
 
 	const base =
-		"pointer-events-auto w-[340px] xm:w-full rounded-xl shadow-2xl border p-3 flex items-center gap-2 " +
-		"transform transition-all duration-1000 ease-out " +
-		(enter ? "translate-y-0 opacity-100" : "-translate-y-60 opacity-0");
+		'pointer-events-auto w-[340px] xm:w-full rounded-xl shadow-2xl border p-3 flex items-center gap-2 ' +
+		'transform transition-all duration-1000 ease-out ' +
+		(enter ? 'translate-y-0 opacity-100' : '-translate-y-60 opacity-0');
 
 	const byType: Record<NotificationType, string> = {
-		success: "bg-lm-green-bg dark:bg-dm-green-bg border-transparent text-white",
+		success: 'bg-lm-green-bg dark:bg-dm-green-bg border-transparent text-white',
 		newCredential:
-			"bg-lm-gray-100 dark:bg-dm-gray-900 border-lm-gray-400 dark:border-dm-gray-600 text-ln-gray-900 dark:text-dm-gray-100",
+			'bg-lm-gray-100 dark:bg-dm-gray-900 border-lm-gray-400 dark:border-dm-gray-600 text-ln-gray-900 dark:text-dm-gray-100',
 	};
 
 	return (
+		// biome-ignore lint/a11y/noNoninteractiveElementInteractions: baseline: pre-existing debt. should be fixed
 		<div
 			role="status"
 			aria-live="polite"

@@ -1,4 +1,4 @@
-import { JWK, KeyLike, SignJWT } from 'jose';
+import { type JWK, type KeyLike, SignJWT } from 'jose';
 import { generateRandomIdentifier } from '../utils/generateRandomIdentifier';
 
 /**
@@ -52,10 +52,23 @@ export async function buildDPoPProof(
 /**
  * @deprecated - Use `buildDPoPProof` instead.
  */
-export async function generateDPoP(privateKey: KeyLike, publicKeyJwk: JWK, targetMethod: string, targetUri: string, nonce?: string, access_token?: string) {
+// biome-ignore lint/complexity/useMaxParams: baseline: pre-existing debt. should be fixed
+export async function generateDPoP(
+	privateKey: KeyLike,
+	publicKeyJwk: JWK,
+	targetMethod: string,
+	targetUri: string,
+	nonce?: string,
+	access_token?: string,
+) {
 	return buildDPoPProof(
 		{ privateKey, publicKeyJwk },
-		{ htm: targetMethod, htu: targetUri, nonce, ath: access_token ? await calculateAth(access_token) : undefined }
+		{
+			htm: targetMethod,
+			htu: targetUri,
+			nonce,
+			ath: access_token ? await calculateAth(access_token) : undefined,
+		},
 	);
 }
 
@@ -75,6 +88,7 @@ export async function calculateAth(accessToken: string) {
 
 function arrayBufferToBase64Url(buffer) {
 	const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
-	const base64Url = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+	// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
+	const base64Url = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/[=]+$/, '');
 	return base64Url;
 }

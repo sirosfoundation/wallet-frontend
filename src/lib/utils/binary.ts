@@ -18,7 +18,7 @@ export function toBase64(binary: BufferSource): string {
 }
 
 export function toBase64Url(binary: BufferSource): string {
-	return toBase64(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+	return toBase64(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/[=]/g, '');
 }
 
 export function byteArrayEquals(a: BufferSource, b: BufferSource): boolean {
@@ -30,20 +30,22 @@ function base64pad(s: string): string {
 	if (m === 0) {
 		return s;
 	} else if (m === 2) {
-		return s + "==";
+		// biome-ignore lint/style/useTemplate: baseline: pre-existing debt. should be fixed
+		return s + '==';
 	} else if (m === 3) {
-		return s + "=";
+		// biome-ignore lint/style/useTemplate: baseline: pre-existing debt. should be fixed
+		return s + '=';
 	} else {
-		throw Error("Invalid length of Base64 encoded data");
+		throw Error('Invalid length of Base64 encoded data');
 	}
 }
 
 export function fromBase64(s: string): Uint8Array {
-	return new Uint8Array(Array.from(atob(base64pad(s))).map(c => c.charCodeAt(0)));
+	return new Uint8Array(Array.from(atob(base64pad(s))).map((c) => c.charCodeAt(0)));
 }
 
 export function fromBase64Url(s: string): Uint8Array {
-	return fromBase64(s.replace(/-/g, "+").replace(/_/g, "/"));
+	return fromBase64(s.replace(/-/g, '+').replace(/_/g, '/'));
 }
 
 export function isBase64(s: string): boolean {
@@ -58,30 +60,37 @@ export function base64UrlToBase64(s: string): string {
 	return base64pad(s.replaceAll('-', '+').replaceAll('_', '/'));
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 function replacerUint8ArrayToTaggedBase64Url(key: string, value: any): any {
 	if (this[key] instanceof Uint8Array || this[key] instanceof ArrayBuffer) {
-		return { '$b64u': toBase64Url(toU8(this[key])) };
+		return { $b64u: toBase64Url(toU8(this[key])) };
 	} else {
 		return value;
 	}
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 export function jsonStringifyTaggedBinary(value: any): string {
 	return JSON.stringify(value, replacerUint8ArrayToTaggedBase64Url);
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+// biome-ignore lint/correctness/noUnusedFunctionParameters: baseline: pre-existing debt. should be fixed
 function reviverTaggedBinaryToUint8Array(key: string, value: any): any {
 	if (value?.$b64u !== undefined) {
-		return fromBase64Url(value["$b64u"]);
+		// biome-ignore lint/complexity/useLiteralKeys: baseline: pre-existing debt. should be fixed
+		return fromBase64Url(value['$b64u']);
 	} else {
 		return value;
 	}
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 export function jsonParseTaggedBinary(json: string): any {
 	return JSON.parse(json, reviverTaggedBinaryToUint8Array);
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 export function transformTaggedResponse(data: any): any {
 	return data ? jsonParseTaggedBinary(data) : data;
 }

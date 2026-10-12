@@ -1,18 +1,15 @@
-import { ExtendedVcEntity } from '@/context/CredentialsContext';
-import {
-	CredentialDisplayProperties,
-	CredentialRegistryEntry,
-	SdJwtClaim,
-	SdJwtRegistryEntry,
-	MdocRegistryEntry,
-	MdocField,
-} from './types';
-import {
-	shapeCredential,
-	extractAvailableClaims,
-} from '@/lib/services/CredentialMatchingService';
+import type { ExtendedVcEntity } from '@/context/CredentialsContext';
+import { extractAvailableClaims, shapeCredential } from '@/lib/services/CredentialMatchingService';
 import { getElementPropValue } from '@/lib/utils';
 import { getCredentialType } from '../utils/getCredentialType';
+import type {
+	CredentialDisplayProperties,
+	CredentialRegistryEntry,
+	MdocField,
+	MdocRegistryEntry,
+	SdJwtClaim,
+	SdJwtRegistryEntry,
+} from './types';
 
 const REGISTRY_RESERVED_CLAIMS = new Set([
 	'iss',
@@ -42,14 +39,18 @@ export async function prepareCredentialsForNativeWrapper(
 		const shaped = shapeCredential(credential);
 		if (!shaped) continue;
 
+		// biome-ignore lint/performance/noAwaitInLoops: baseline: pre-existing debt. should be fixed
 		const display = await getCredentialDisplayInfo(credential, preferredLangs);
 
 		const metadataByPath = getMetadataByPath(credential);
 
 		entries.push(
-			(shaped.credential_format === 'mso_mdoc'
-				? shapeMdocEntry
-				: shapeJwtClaims)(credential, shaped, metadataByPath, display),
+			(shaped.credential_format === 'mso_mdoc' ? shapeMdocEntry : shapeJwtClaims)(
+				credential,
+				shaped,
+				metadataByPath,
+				display,
+			),
 		);
 	}
 
@@ -60,14 +61,11 @@ async function getCredentialDisplayInfo(
 	credential: ExtendedVcEntity,
 	preferredLangs: string[],
 ): Promise<CredentialDisplayProperties> {
-	const credentialNameFn =
-		credential.parsedCredential?.metadata?.credential?.name;
+	const credentialNameFn = credential.parsedCredential?.metadata?.credential?.name;
 	const title = credentialNameFn
 		? await credentialNameFn(preferredLangs)
 		: getCredentialType(credential.parsedCredential) || 'Credential';
-	const issuerName = getReadableIssuerName(
-		credential.parsedCredential?.metadata?.issuer?.name,
-	);
+	const issuerName = getReadableIssuerName(credential.parsedCredential?.metadata?.issuer?.name);
 
 	return {
 		title: title ?? 'Credential',
@@ -80,8 +78,7 @@ function getMetadataByPath(
 ): Map<string, { locale: string; label: string }[]> {
 	const metadataByPath = new Map<string, { locale: string; label: string }[]>();
 	const claimMetadata =
-		credential.parsedCredential?.metadata?.credential?.TypeMetadata?.claims ??
-		[];
+		credential.parsedCredential?.metadata?.credential?.TypeMetadata?.claims ?? [];
 
 	for (const claim of claimMetadata) {
 		if (Array.isArray(claim.path) && Array.isArray(claim.display)) {
@@ -92,8 +89,10 @@ function getMetadataByPath(
 	return metadataByPath;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
 function shapeMdocEntry(
 	credential: ExtendedVcEntity,
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 	shaped: any,
 	metadataByPath: Map<string, { locale: string; label: string }[]>,
 	display: CredentialDisplayProperties,
@@ -115,6 +114,7 @@ function shapeMdocEntry(
 			}
 
 			if (Object.keys(displayLabels).length < 1) {
+				// biome-ignore lint/complexity/useLiteralKeys: baseline: pre-existing debt. should be fixed
 				displayLabels['en'] = humanReadableClaimFromPath(identifier);
 			}
 
@@ -133,6 +133,7 @@ function shapeMdocEntry(
 
 function shapeJwtClaims(
 	credential: ExtendedVcEntity,
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 	shaped: any,
 	metadataByPath: Map<string, { locale: string; label: string }[]>,
 	display: CredentialDisplayProperties,

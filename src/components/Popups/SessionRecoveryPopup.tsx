@@ -1,26 +1,23 @@
-import { FC, useContext, useMemo, useEffect } from 'react';
-import { UserAuthPopup } from './UserAuthPopup';
+import { type FC, useContext, useEffect, useMemo } from 'react';
 import SessionContext from '@/context/SessionContext';
+import { UserAuthPopup } from './UserAuthPopup';
 
 export type SessionRecoveryPopupProps = {
 	onLogout: () => void;
 	recovery: {
 		resolve: () => void;
-		reject: (error: Error) => void
+		reject: (error: Error) => void;
 	};
 };
 
-export const SessionRecoveryPopup: FC<SessionRecoveryPopupProps> = ({
-	recovery,
-	onLogout,
-}) => {
+export const SessionRecoveryPopup: FC<SessionRecoveryPopupProps> = ({ recovery, onLogout }) => {
 	const { keystore } = useContext(SessionContext);
 	const { getCachedUsers, getUserHandleB64u } = keystore;
 
 	const recoveryUser = useMemo(() => {
 		if (!recovery) return null;
 		const handle = getUserHandleB64u();
-		return getCachedUsers().find(u => u.userHandleB64u === handle) ?? null;
+		return getCachedUsers().find((u) => u.userHandleB64u === handle) ?? null;
 	}, [recovery, getCachedUsers, getUserHandleB64u]);
 
 	const handleLogout = () => {
@@ -39,13 +36,13 @@ export const SessionRecoveryPopup: FC<SessionRecoveryPopupProps> = ({
 
 	return (
 		<UserAuthPopup
-				user={recoveryUser}
-				message={{ description: 'sessionRecoveryPopup.sessionExpired' }}
-				onSuccess={() => {
-					recovery.resolve();
-				}}
-				onLogout={handleLogout}
-				onDismiss={handleLogout}
+			user={recoveryUser}
+			message={{ description: 'sessionRecoveryPopup.sessionExpired' }}
+			onSuccess={() => {
+				recovery.resolve();
+			}}
+			onLogout={handleLogout}
+			onDismiss={handleLogout}
 		/>
 	);
 };

@@ -29,8 +29,10 @@ const algoMap: Record<Algorithm, string> = {
  * check" is not "checked and passed", and the caller decides what to do about
  * it.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
 export async function verifySRI(
 	subtle: SubtleCrypto,
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 	content: Uint8Array | string | Record<string, any>,
 	expectedIntegrity: string,
 ): Promise<boolean> {
@@ -44,10 +46,12 @@ export async function verifySRI(
 
 	// SRI permits several space-separated digests, strongest first. Any one
 	// matching is a match.
+	// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 	const candidates = expectedIntegrity.trim().split(/\s+/).filter(Boolean);
 	if (candidates.length === 0) return false;
 	if (candidates.length > 1) {
 		for (const candidate of candidates) {
+			// biome-ignore lint/performance/noAwaitInLoops: baseline: pre-existing debt. should be fixed
 			if (await verifySRI(subtle, raw, candidate)) return true;
 		}
 		return false;
@@ -63,20 +67,19 @@ export async function verifySRI(
 	const algorithm = single.slice(0, dash).toLowerCase() as Algorithm;
 	const expectedHash = single.slice(dash + 1);
 	const subtleAlgo = algoMap[algorithm];
-	if (!subtleAlgo || !expectedHash) return false;
+	if (!(subtleAlgo && expectedHash)) return false;
 
 	const expectedBytes = decodeBase64(expectedHash);
 	if (!expectedBytes) return false;
 
-	const digest = new Uint8Array(
-		await subtle.digest(subtleAlgo, raw),
-	);
+	const digest = new Uint8Array(await subtle.digest(subtleAlgo, raw));
 
 	// Compared as bytes, not as base64 text, so the standard and URL-safe
 	// spellings of the same digest are not reported as different.
 	if (digest.length !== expectedBytes.length) return false;
 	let difference = 0;
 	for (let i = 0; i < digest.length; i++) {
+		// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
 		difference |= digest[i] ^ expectedBytes[i];
 	}
 	return difference === 0;
@@ -86,8 +89,10 @@ export async function verifySRI(
  * @deprecated Prefer {@link verifySRI} with the raw response body. Hashing a
  * parsed object cannot reproduce the served bytes in general - see verifySRI.
  */
+// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 export async function verifySRIFromObject(
 	subtle: SubtleCrypto,
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 	obj: Record<string, any>,
 	expectedIntegrity: string,
 ): Promise<boolean> {

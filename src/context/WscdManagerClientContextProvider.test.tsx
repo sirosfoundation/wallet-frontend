@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { act, render } from '@testing-library/react';
 import React from 'react';
-import { render, act } from '@testing-library/react';
-import { WscdManagerClientContextProvider } from './WscdManagerClientContextProvider';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import SessionContext, { type SessionContextValue } from './SessionContext';
 import { WscdManagerClientContext } from './WscdManagerClientContext';
-import SessionContext, { SessionContextValue } from './SessionContext';
+import { WscdManagerClientContextProvider } from './WscdManagerClientContextProvider';
 
 const hoisted = vi.hoisted(() => ({
 	instance: null as null | {
@@ -42,18 +42,21 @@ beforeEach(() => {
 	hoisted.instance = null;
 	order.length = 0;
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	commit = vi.fn(async () => {
 		order.push('commit');
 	});
 
 	session = {
 		api: {
+			// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 			updatePrivateData: vi.fn(async () => {
 				order.push('update');
 			}),
 		},
 		keystore: {
 			exportToWscdContainer: vi.fn(async () => ({ container: true })),
+			// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 			importFromWscdContainer: vi.fn(async () => {
 				order.push('import');
 				return [null, { private: 'data' }, commit];
@@ -82,6 +85,7 @@ function renderProvider() {
 	return { ...utils, seen };
 }
 
+// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 describe('WscdManagerClientContextProvider', () => {
 	it('exposes null on first render and the client after the init effect', () => {
 		const { seen } = renderProvider();
@@ -94,6 +98,7 @@ describe('WscdManagerClientContextProvider', () => {
 		renderProvider();
 
 		await act(async () => {
+			// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 			await hoisted.instance!.importer!();
 		});
 
@@ -104,6 +109,7 @@ describe('WscdManagerClientContextProvider', () => {
 		renderProvider();
 
 		await act(async () => {
+			// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 			await hoisted.instance!.exporter!({ container: true });
 		});
 
@@ -114,6 +120,7 @@ describe('WscdManagerClientContextProvider', () => {
 
 	it('disposes the client on unmount', () => {
 		const { unmount } = renderProvider();
+		// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 		const { dispose } = hoisted.instance!;
 
 		act(() => {

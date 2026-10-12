@@ -1,67 +1,56 @@
 import 'reflect-metadata';
-import { beforeAll, describe, expect, it } from 'vitest';
-import * as cbor from 'cbor-x';
-import { base64url, calculateJwkThumbprint } from 'jose';
 import { cborDecode, cborEncode, DataItem } from '@auth0/mdl/lib/cbor';
 import {
 	CoseKey,
 	DeviceKey,
 	IssuerSignedBuilder,
-	SignatureAlgorithm,
 	type MdocContext,
+	SignatureAlgorithm,
 } from '@owf/mdoc';
 import { X509CertificateGenerator } from '@peculiar/x509';
+// biome-ignore lint/performance/noNamespaceImport: baseline: pre-existing debt. should be fixed
+import * as cbor from 'cbor-x';
+import { base64url, calculateJwkThumbprint } from 'jose';
+import { beforeAll, describe, expect, it } from 'vitest';
 import {
+	buildOid4vpDcApiSessionTranscript,
+	buildOid4vpSessionTranscript,
+	claimsToNamespaces,
 	decodeStoredMdoc,
 	extractDocTypeFromIssuerAuth,
 	extractIssuerSignedB64,
 	generateMdocDeviceResponse,
-	buildOid4vpSessionTranscript,
-	buildOid4vpDcApiSessionTranscript,
-	claimsToNamespaces,
 	mdocCrypto,
 	mdocNameSpacesToClaims,
 	resolveMdocIssuerSigned,
 } from './mdoc';
 
+// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 describe('extractDocTypeFromIssuerAuth', () => {
 	it('extracts docType from a tag-24-wrapped MSO payload', () => {
 		const issuerAuth = buildIssuerAuth('org.iso.18013.5.1.mDL');
-		expect(extractDocTypeFromIssuerAuth(issuerAuth)).toBe(
-			'org.iso.18013.5.1.mDL',
-		);
+		expect(extractDocTypeFromIssuerAuth(issuerAuth)).toBe('org.iso.18013.5.1.mDL');
 	});
 
 	it('works for any docType, not just mDL', () => {
 		const issuerAuth = buildIssuerAuth('eu.europa.ec.eudi.pid.1');
-		expect(extractDocTypeFromIssuerAuth(issuerAuth)).toBe(
-			'eu.europa.ec.eudi.pid.1',
-		);
+		expect(extractDocTypeFromIssuerAuth(issuerAuth)).toBe('eu.europa.ec.eudi.pid.1');
 	});
 
 	it('also accepts an MSO payload without the tag-24 wrapper', () => {
 		const msoBytes = cbor.encode({ docType: 'org.iso.23220.photoid.1' });
 		const issuerAuth = [new Uint8Array(0), {}, msoBytes, new Uint8Array(64)];
-		expect(extractDocTypeFromIssuerAuth(issuerAuth)).toBe(
-			'org.iso.23220.photoid.1',
-		);
+		expect(extractDocTypeFromIssuerAuth(issuerAuth)).toBe('org.iso.23220.photoid.1');
 	});
 
 	it('throws when issuerAuth has no payload', () => {
-		expect(() =>
-			extractDocTypeFromIssuerAuth([new Uint8Array(0), {}]),
-		).toThrow();
+		expect(() => extractDocTypeFromIssuerAuth([new Uint8Array(0), {}])).toThrow();
 	});
 
 	it('throws when the MSO is missing docType', () => {
 		const msoBytes = cbor.encode({ somethingElse: 'value' });
 		const taggedMsoBytes = cbor.encode(new cbor.Tag(msoBytes, 24));
-		const issuerAuth = [
-			new Uint8Array(0),
-			{},
-			taggedMsoBytes,
-			new Uint8Array(64),
-		];
+		const issuerAuth = [new Uint8Array(0), {}, taggedMsoBytes, new Uint8Array(64)];
 		expect(() => extractDocTypeFromIssuerAuth(issuerAuth)).toThrow();
 	});
 });
@@ -78,15 +67,14 @@ describe('extractDocTypeFromIssuerAuth', () => {
  * verifier looking for the certificate chain found none. The unprotected
  * header is not covered by the COSE signature, so nothing upstream noticed.
  */
+// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 describe('extractIssuerSignedB64', () => {
 	/** Builds a base64url IssuerSigned whose x5chain label is the integer 33. */
 	function buildIssuerSignedB64(): string {
 		const issuerAuth = [
 			cborEncode(new Map<number, number>([[1, -7]])), // protected: alg ES256
 			new Map<number, Uint8Array[]>([[33, [new Uint8Array([1, 2, 3])]]]), // x5chain
-			cborEncode(
-				DataItem.fromData(new Map([['docType', 'org.iso.18013.5.1.mDL']])),
-			),
+			cborEncode(DataItem.fromData(new Map([['docType', 'org.iso.18013.5.1.mDL']]))),
 			new Uint8Array(64),
 		];
 		const issuerSigned = new Map<string, unknown>([
@@ -98,10 +86,7 @@ describe('extractIssuerSignedB64', () => {
 
 	/** Reads back the label type of issuerAuth's unprotected header key. */
 	function unprotectedLabels(b64: string): unknown[] {
-		const issuerSigned = cborDecode(base64url.decode(b64)) as Map<
-			string,
-			unknown
-		>;
+		const issuerSigned = cborDecode(base64url.decode(b64)) as Map<string, unknown>;
 		const issuerAuth = issuerSigned.get('issuerAuth') as unknown[];
 		const unprotected = issuerAuth[1] as Map<unknown, unknown>;
 		return [...unprotected.keys()];
@@ -160,13 +145,11 @@ describe('extractIssuerSignedB64', () => {
 	it('throws when a document carries no issuerSigned', () => {
 		const envelope = new Map<string, unknown>([
 			['version', '1.0'],
-			[
-				'documents',
-				[new Map<string, unknown>([['docType', 'org.iso.18013.5.1.mDL']])],
-			],
+			['documents', [new Map<string, unknown>([['docType', 'org.iso.18013.5.1.mDL']])]],
 			['status', 0],
 		]);
 		const input = base64url.encode(cborEncode(envelope));
+		// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 		expect(() => extractIssuerSignedB64(input)).toThrow(/no `issuerSigned`/);
 	});
 
@@ -177,6 +160,7 @@ describe('extractIssuerSignedB64', () => {
 			['status', 0],
 		]);
 		const input = base64url.encode(cborEncode(envelope));
+		// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 		expect(() => extractIssuerSignedB64(input)).toThrow(/present but empty/);
 	});
 
@@ -205,16 +189,13 @@ describe('decodeStoredMdoc', () => {
 	});
 
 	it('decodes a full DeviceResponse envelope to a Map', () => {
-		const mdoc = decodeStoredMdoc(
-			deviceResponseB64('org.iso.18013.5.1.mDL', buildNameSpaces({})),
-		);
+		const mdoc = decodeStoredMdoc(deviceResponseB64('org.iso.18013.5.1.mDL', buildNameSpaces({})));
 		expect(Array.isArray(mdoc.get('documents'))).toBe(true);
 	});
 
 	it('throws when the payload does not decode to a CBOR map', () => {
-		expect(() =>
-			decodeStoredMdoc(base64url.encode(cborEncode('not a map'))),
-		).toThrow(/CBOR map/);
+		// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
+		expect(() => decodeStoredMdoc(base64url.encode(cborEncode('not a map')))).toThrow(/CBOR map/);
 	});
 });
 
@@ -247,9 +228,7 @@ describe('resolveMdocIssuerSigned', () => {
 	});
 
 	it('throws for a DeviceResponse whose documents[] is empty', () => {
-		expect(() =>
-			resolveMdocIssuerSigned(new Map<string, unknown>([['documents', []]])),
-		).toThrow();
+		expect(() => resolveMdocIssuerSigned(new Map<string, unknown>([['documents', []]]))).toThrow();
 	});
 });
 
@@ -302,9 +281,7 @@ describe('mdocNameSpacesToClaims', () => {
 
 	it('skips items that are neither a DataItem nor a Map', () => {
 		expect(
-			mdocNameSpacesToClaims(
-				new Map<string, unknown[]>([['ns1', [null, undefined, 42]]]),
-			),
+			mdocNameSpacesToClaims(new Map<string, unknown[]>([['ns1', [null, undefined, 42]]])),
 		).toEqual({ ns1: {} });
 	});
 });
@@ -337,9 +314,7 @@ function buildIssuerAuthMdl(docType: string): unknown[] {
 	return [
 		new Uint8Array(0), // protected headers
 		new Map(), // unprotected headers
-		cborEncode(
-			DataItem.fromData(new Map<string, unknown>([['docType', docType]])),
-		),
+		cborEncode(DataItem.fromData(new Map<string, unknown>([['docType', docType]]))),
 		new Uint8Array(64), // signature
 	];
 }
@@ -355,16 +330,11 @@ function buildItem(elementIdentifier: string, elementValue: unknown): DataItem {
 	);
 }
 
-function buildNameSpaces(
-	entries: Record<string, unknown[]>,
-): Map<string, unknown[]> {
+function buildNameSpaces(entries: Record<string, unknown[]>): Map<string, unknown[]> {
 	return new Map(Object.entries(entries));
 }
 
-function bareIssuerSignedB64(
-	docType: string,
-	nameSpaces: Map<string, unknown[]>,
-): string {
+function bareIssuerSignedB64(docType: string, nameSpaces: Map<string, unknown[]>): string {
 	return base64url.encode(
 		cborEncode(
 			new Map<string, unknown>([
@@ -375,10 +345,7 @@ function bareIssuerSignedB64(
 	);
 }
 
-function deviceResponseB64(
-	docType: string,
-	nameSpaces: Map<string, unknown[]>,
-): string {
+function deviceResponseB64(docType: string, nameSpaces: Map<string, unknown[]>): string {
 	const issuerSigned = new Map<string, unknown>([
 		['nameSpaces', nameSpaces],
 		['issuerAuth', buildIssuerAuthMdl(docType)],
@@ -430,6 +397,7 @@ describe('generateMdocDeviceResponse (real @owf/mdoc integration)', () => {
 			credential,
 			[`${NAMESPACE}.family_name`],
 			await oid4vpTranscript(),
+			// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 			async (kid, toBeSigned) => {
 				seen.kid = kid;
 				seen.toBeSigned = toBeSigned;
@@ -439,6 +407,7 @@ describe('generateMdocDeviceResponse (real @owf/mdoc integration)', () => {
 
 		expect(seen.kid).toBe(await calculateJwkThumbprint(deviceJwk, 'sha256'));
 		expect(seen.toBeSigned).toBeInstanceOf(Uint8Array);
+		// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 		expect(seen.toBeSigned!.length).toBeGreaterThan(0);
 	});
 
@@ -479,14 +448,14 @@ describe('generateMdocDeviceResponse (real @owf/mdoc integration)', () => {
 		const issuerKeys = await generateEcKeyPair();
 		const deviceKeys = await generateEcKeyPair();
 
-		const issuerPrivJwk = (await crypto.subtle.exportKey(
-			'jwk',
-			issuerKeys.privateKey,
-		)) as Record<string, unknown>;
-		const devicePubJwk = (await crypto.subtle.exportKey(
-			'jwk',
-			deviceKeys.publicKey,
-		)) as Record<string, unknown>;
+		const issuerPrivJwk = (await crypto.subtle.exportKey('jwk', issuerKeys.privateKey)) as Record<
+			string,
+			unknown
+		>;
+		const devicePubJwk = (await crypto.subtle.exportKey('jwk', deviceKeys.publicKey)) as Record<
+			string,
+			unknown
+		>;
 		delete devicePubJwk.alg;
 
 		const cert = await X509CertificateGenerator.createSelfSigned({
@@ -534,16 +503,14 @@ describe('claimsToNamespaces', () => {
 
 	it('merges multiple elements in the same namespace', () => {
 		expect(
-			claimsToNamespaces([
-				'org.iso.18013.5.1.family_name',
-				'org.iso.18013.5.1.given_name',
-			]),
+			claimsToNamespaces(['org.iso.18013.5.1.family_name', 'org.iso.18013.5.1.given_name']),
 		).toEqual({
 			'org.iso.18013.5.1': { family_name: false, given_name: false },
 		});
 	});
 });
 
+// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 describe('buildOid4vpSessionTranscript', () => {
 	const base = {
 		clientId: 'x509_san_dns:verifier.example.com',
@@ -573,6 +540,7 @@ describe('buildOid4vpSessionTranscript', () => {
 	});
 });
 
+// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 describe('buildOid4vpDcApiSessionTranscript', () => {
 	const base = { origin: 'https://verifier.example.com', nonce: 'nonce-123' };
 	const thumbprint = base64url.encode(new Uint8Array(32).fill(7));
@@ -617,6 +585,7 @@ describe('mdocCrypto', () => {
 				salt: new Uint8Array(0),
 				info: new Uint8Array(0),
 			}),
+			// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 		).rejects.toThrow(/not needed/);
 	});
 
@@ -670,9 +639,8 @@ function fixtureCryptoContext(): MdocContext['crypto'] {
 	return {
 		random: (n) => crypto.getRandomValues(new Uint8Array(n)),
 		digest: async ({ digestAlgorithm, bytes }) =>
-			new Uint8Array(
-				await crypto.subtle.digest(digestAlgorithm, bytes as BufferSource),
-			),
+			new Uint8Array(await crypto.subtle.digest(digestAlgorithm, bytes as BufferSource)),
+		// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 		hdkf: async () => {
 			throw new Error('HKDF not needed for the issuer signature');
 		},

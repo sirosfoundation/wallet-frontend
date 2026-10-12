@@ -1,20 +1,19 @@
+import { UserLock } from 'lucide-react';
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
 import React, { useCallback, useContext, useState } from 'react';
-import { useNavigate, useLocation, Navigate } from 'react-router';
 import { Trans, useTranslation } from 'react-i18next';
-import { logger } from '@/logger';
+import { Navigate, useLocation, useNavigate } from 'react-router';
 
 import SessionContext from '@/context/SessionContext';
 import { useTenant } from '@/context/TenantContext';
-
-import Button from '../../components/Buttons/Button';
+import { logger } from '@/logger';
 import AuthLayout from '../../components/Auth/AuthLayout';
-import checkForUpdates from '../../offlineUpdateSW';
+import Button from '../../components/Buttons/Button';
 import ConnectionStatusIcon from '../../components/Layout/Navigation/ConnectionStatusIcon';
-import { UserLock } from 'lucide-react';
+import checkForUpdates from '../../offlineUpdateSW';
 
-const WebauthnLogin = ({
-	filteredUser,
-}) => {
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
+const WebauthnLogin = ({ filteredUser }) => {
 	const { api, keystore } = useContext(SessionContext);
 	const [error, setError] = useState('');
 	const navigate = useNavigate();
@@ -28,15 +27,19 @@ const WebauthnLogin = ({
 	const onLogin = useCallback(
 		async (cachedUser) => {
 			// Pass the tenantId from URL path to ensure proper tenant-scoped login
-			const result = await api.loginWebauthn(keystore, async () => false, [], cachedUser, effectiveTenantId);
+			const result = await api.loginWebauthn(
+				keystore,
+				async () => false,
+				[],
+				cachedUser,
+				effectiveTenantId,
+			);
 			if (result.ok) {
 				const params = new URLSearchParams(from);
 				params.append('authenticated', 'true');
 				navigate(`?${params.toString()}`, { replace: true });
-
 			} else {
 				const err = result.val;
-
 
 				// Using a switch here so the t() argument can be a literal, to ease searching
 				switch (err) {
@@ -48,6 +51,7 @@ const WebauthnLogin = ({
 						setError(t('loginSignup.passkeyInvalid'));
 						break;
 
+					// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 					case 'passkeyLoginFailedTryAgain':
 						setError(t('loginSignup.passkeyLoginFailedTryAgain'));
 						break;
@@ -75,12 +79,12 @@ const WebauthnLogin = ({
 	return (
 		<>
 			<ul className=" p-2">
-				<div className='flex flex-row gap-4 justify-center mr-2'>
+				<div className="flex flex-row gap-4 justify-center mr-2">
 					<Button
 						id="cancel-login-state"
 						onClick={() => navigate(buildPath())}
 						disabled={isSubmitting}
-						additionalClassName='w-full'
+						additionalClassName="w-full"
 					>
 						{t('common.cancel')}
 					</Button>
@@ -89,12 +93,10 @@ const WebauthnLogin = ({
 						onClick={() => onLoginCachedUser(filteredUser)}
 						variant="primary"
 						disabled={isSubmitting}
-						additionalClassName='w-full'
+						additionalClassName="w-full"
 					>
 						<UserLock className="inline text-xl mr-2" />
-						{isSubmitting
-							? t('loginSignup.submitting')
-							: t('common.continue')}
+						{isSubmitting ? t('loginSignup.submitting') : t('common.continue')}
 					</Button>
 				</div>
 			</ul>
@@ -125,7 +127,12 @@ const LoginState = () => {
 				logger.debug('state', state);
 				const decodedState = atob(state);
 				const stateObj = JSON.parse(decodedState);
-				return [cachedUsers.find(user => user.userHandleB64u === stateObj.userHandleB64u), false, authenticated === 'true'];
+				return [
+					// biome-ignore lint/suspicious/noShadow: baseline: pre-existing debt. should be fixed
+					cachedUsers.find((user) => user.userHandleB64u === stateObj.userHandleB64u),
+					false,
+					authenticated === 'true',
+				];
 			} catch (error) {
 				logger.error('Error decoding state:', error);
 			}
@@ -152,10 +159,8 @@ const LoginState = () => {
 			</p>
 
 			<WebauthnLogin filteredUser={filteredUser} />
-
 		</AuthLayout>
 	);
-
 };
 
 export default LoginState;

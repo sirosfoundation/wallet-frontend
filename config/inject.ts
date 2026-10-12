@@ -2,16 +2,16 @@ import { readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { JSDOM } from 'jsdom';
 import { findLogoFiles } from './branding';
-import { EnvConfigMap, getMetaConfigFromEnvConfig } from './config';
-import robotsTxt from './files/robots';
-import wellKnownFiles from './files/well-known';
-import sitemapXml from './files/sitemap';
+import { type EnvConfigMap, getMetaConfigFromEnvConfig } from './config';
 import brandingManifest from './files/manifest';
-import themeCSS from './files/theme';
 import metadataImage from './files/metadata-image';
-import { Tag, TagsMap } from './utils/resources';
-import { configMetaTag, getTagSortingPriority, insertTag } from './utils/tags';
+import robotsTxt from './files/robots';
+import sitemapXml from './files/sitemap';
+import themeCSS from './files/theme';
+import wellKnownFiles from './files/well-known';
 import { pathWithBase } from './utils/paths';
+import type { Tag, TagsMap } from './utils/resources';
+import { configMetaTag, getTagSortingPriority, insertTag } from './utils/tags';
 
 export type InjectConfigOptions = {
 	/**
@@ -26,11 +26,11 @@ export type InjectConfigOptions = {
 	 * Map of tags to later be injected into the HTML file.
 	 * Used to pass tags generated during file injection (e.g. manifest icons) to the HTML injection step.
 	 */
-	tagsToInject?: TagsMap
-}
+	tagsToInject?: TagsMap;
+};
 
 export async function injectConfigFiles({ destDir, config, tagsToInject }: InjectConfigOptions) {
-	if (await readdir(destDir).catch(() => false) === false) {
+	if ((await readdir(destDir).catch(() => false)) === false) {
 		throw new Error(`Destination directory ${destDir} does not exist or is not readable.`);
 	}
 
@@ -58,17 +58,24 @@ export type InjectHtmlOptions = {
 	/**
 	 * Optional map of additional tags to inject into the HTML.
 	 */
-	tagsToInject?: TagsMap
+	tagsToInject?: TagsMap;
 	/**
 	 * Optional branding hash for cache-busting branding assets.
 	 */
 	brandingHash?: string;
-}
+};
 
 /**
  * Injects meta tags into the built HTML file based on environment variables and branding assets.
  */
-export async function injectHtml({ html, config, tagsToInject, brandingHash }: InjectHtmlOptions): Promise<string> {
+// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
+export async function injectHtml({
+	html,
+	config,
+	tagsToInject,
+	brandingHash,
+}: InjectHtmlOptions): Promise<string> {
 	const dom = new JSDOM(html);
 	const document = dom.window.document;
 	const head = document.head;
@@ -80,14 +87,51 @@ export async function injectHtml({ html, config, tagsToInject, brandingHash }: I
 	(function injectSocialMetaTags() {
 		const tags: Tag[] = [
 			{ tag: 'title', textContent: config.STATIC_NAME, props: {} },
-			{ tag: 'meta', props: { name: 'description', content: `${config.STATIC_NAME} is a secure web wallet for storing and managing verifiable credentials.` } },
-			{ tag: 'meta', props: { name: 'keywords', content: 'wwWallet, web wallet, wallet, secure storage, verifiable credentials, digital credentials, credentials management' } },
-			{ tag: 'meta', props: { property: 'og:title', content: `${config.STATIC_NAME}: Secure Storage and Management of Verifiable Credentials` } },
-			{ tag: 'meta', props: { property: 'og:description', content: `${config.STATIC_NAME} is a secure web wallet for storing and managing verifiable credentials.` } },
+			{
+				tag: 'meta',
+				props: {
+					name: 'description',
+					content: `${config.STATIC_NAME} is a secure web wallet for storing and managing verifiable credentials.`,
+				},
+			},
+			{
+				tag: 'meta',
+				props: {
+					name: 'keywords',
+					content:
+						'wwWallet, web wallet, wallet, secure storage, verifiable credentials, digital credentials, credentials management',
+				},
+			},
+			{
+				tag: 'meta',
+				props: {
+					property: 'og:title',
+					content: `${config.STATIC_NAME}: Secure Storage and Management of Verifiable Credentials`,
+				},
+			},
+			{
+				tag: 'meta',
+				props: {
+					property: 'og:description',
+					content: `${config.STATIC_NAME} is a secure web wallet for storing and managing verifiable credentials.`,
+				},
+			},
 			{ tag: 'meta', props: { property: 'og:url', content: config.STATIC_PUBLIC_URL || '' } },
 			{ tag: 'meta', props: { property: 'og:type', content: 'website' } },
-			{ tag: 'meta', props: { name: 'twitter:title', content: `${config.STATIC_NAME}: Secure Storage and Management of Verifiable Credentials` } },
-			{ tag: 'meta', props: { name: 'twitter:description', content: `${config.STATIC_NAME} is a secure web wallet for storing and managing verifiable credentials.` } },
+			{
+				tag: 'meta',
+				props: {
+					name: 'twitter:title',
+					content: `${config.STATIC_NAME}: Secure Storage and Management of Verifiable Credentials`,
+				},
+			},
+			{
+				tag: 'meta',
+				props: {
+					name: 'twitter:description',
+					content: `${config.STATIC_NAME} is a secure web wallet for storing and managing verifiable credentials.`,
+				},
+			},
 			{ tag: 'meta', props: { name: 'twitter:card', content: 'summary_large_image' } },
 		];
 
@@ -112,8 +156,14 @@ export async function injectHtml({ html, config, tagsToInject, brandingHash }: I
 		const { logo_light, logo_dark } = findLogoFiles(resolve('branding'));
 
 		metaConfig.branding = {
-			logo_light: pathWithBase(config.BASE_PATH, `${logo_light.filename}${brandingHash ? `?v=${brandingHash}` : ''}`),
-			logo_dark: pathWithBase(config.BASE_PATH, `${logo_dark.filename}${brandingHash ? `?v=${brandingHash}` : ''}`),
+			logo_light: pathWithBase(
+				config.BASE_PATH,
+				`${logo_light.filename}${brandingHash ? `?v=${brandingHash}` : ''}`,
+			),
+			logo_dark: pathWithBase(
+				config.BASE_PATH,
+				`${logo_dark.filename}${brandingHash ? `?v=${brandingHash}` : ''}`,
+			),
 		};
 
 		insertTag(document, head, configMetaTag(metaConfig));

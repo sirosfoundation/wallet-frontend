@@ -3,8 +3,8 @@
  */
 
 import type { DcqlQuery } from 'dcql';
+import type { TrustStatus } from 'wallet-common';
 import type { TrustEvaluation } from './TrustTypes';
-import { TrustStatus } from 'wallet-common';
 
 // Note: These types are defined locally to avoid coupling to wallet-common exports
 // which may vary between versions. The transport layer handles conversion.
@@ -63,10 +63,13 @@ export interface OID4VPFlowResult {
 	presentationDefinition?: unknown;
 
 	/** Map of descriptor ID to matching credentials */
-	conformantCredentials?: Map<string, {
-	credentials: number[];
-	requestedFields: Array<{ name?: string; purpose?: string; path?: (string | null)[] }>
-}>;
+	conformantCredentials?: Map<
+		string,
+		{
+			credentials: number[];
+			requestedFields: Array<{ name?: string; purpose?: string; path?: (string | null)[] }>;
+		}
+	>;
 
 	/** Verifier information */
 	verifierInfo?: OID4VPVerifierInfo;
@@ -132,8 +135,4 @@ export interface OID4VPTransactionData {
 /**
  * Response mode for OID4VP flows
  */
-export type OID4VPResponseMode =
-	| 'direct_post'
-	| 'direct_post.jwt'
-	| 'fragment'
-	| 'query';
+export type OID4VPResponseMode = 'direct_post' | 'direct_post.jwt' | 'fragment' | 'query';

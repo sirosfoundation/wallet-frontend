@@ -1,14 +1,15 @@
-import React, { type FC, type Dispatch, type SetStateAction, useId } from 'react';
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
+import React, { type Dispatch, type FC, type SetStateAction, useId } from 'react';
 import { useTranslation } from 'react-i18next';
-import PopupLayout from './PopupLayout';
-import { PresentCredentialsMatch } from '../flows/PresentCredentialsFlow';
 import Button from '../Buttons/Button';
 import { CredentialTypeCard } from '../Credentials/CredentialTypeCard';
+import type { PresentCredentialsMatch } from '../flows/PresentCredentialsFlow';
+import PopupLayout from './PopupLayout';
 
 export type SwitchCredentialPopupState = {
 	id: string;
 	selected: PresentCredentialsMatch;
-	alternatives: PresentCredentialsMatch[]
+	alternatives: PresentCredentialsMatch[];
 };
 
 type SwitchCredentialPopupProps = {
@@ -37,24 +38,43 @@ export const SwitchCredentialPopup: FC<SwitchCredentialPopupProps> = ({
 		>
 			<div className="flex items-start justify-between mb-2">
 				<h2 id={headingId} className={`text-lg font-bold flex items-center`}>
+					{/** biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed */}
 					{t('switchCredentialPopup.title')}
 				</h2>
 				<Button
 					square={true}
 					variant="invisible"
+					// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 					aria-label={t('switchCredentialPopup.close')}
 					onClick={() => setSwitchCredentialState(null)}
 				>
-					<svg className="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
-						<path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6" />
+					<svg
+						className="w-3 h-3"
+						aria-hidden="true"
+						xmlns="http://www.w3.org/2000/svg"
+						fill="none"
+						viewBox="0 0 14 14"
+					>
+						<path
+							stroke="currentColor"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							strokeWidth="2"
+							d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"
+						/>
 					</svg>
 				</Button>
 			</div>
+			{/** biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed */}
 			<p className="mb-6">{t('switchCredentialPopup.description')}</p>
+			{/** biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed */}
 			<h3 className="mb-2 font-semibold">{t('switchCredentialPopup.selectedCredential')}</h3>
 			<CredentialTypeCard display={selected.display} />
 			<hr className="my-2 border-t border-lm-gray-400 dark:border-dm-gray-600" />
-			<h3 className="mt-4 mb-2 font-semibold">{t('switchCredentialPopup.alternativeCredentials')}</h3>
+			<h3 className="mt-4 mb-2 font-semibold">
+				{/** biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed */}
+				{t('switchCredentialPopup.alternativeCredentials')}
+			</h3>
 			<ul className="space-y-2">
 				{alternatives.map(({ batchId, display }) => (
 					<li key={batchId}>

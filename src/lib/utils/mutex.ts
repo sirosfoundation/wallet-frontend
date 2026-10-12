@@ -23,6 +23,7 @@ export class Mutex {
 		try {
 			return await task();
 		} finally {
+			// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 			release!();
 		}
 	}

@@ -27,30 +27,28 @@
  * ```
  */
 
+export {
+	// Client
+	AuthZENClient,
+	type AuthZENClientConfig,
+	type EvaluateIssuerOptions,
+	type EvaluateVerifierOptions,
+	type IAuthZENClient,
+	type KeyMaterial,
+} from './AuthZENClient';
 export type {
+	AuthZENAction,
+	AuthZENError,
+	AuthZENEvaluationRequest,
+	AuthZENEvaluationResponse,
+	AuthZENEvaluationResponseContext,
+	AuthZENResolveRequest,
+	AuthZENResource,
 	// Types
 	AuthZENSubject,
-	AuthZENResource,
-	AuthZENAction,
-	AuthZENEvaluationRequest,
-	AuthZENEvaluationResponseContext,
-	AuthZENEvaluationResponse,
-	AuthZENResolveRequest,
-	AuthZENError,
 	TrustInfo,
 } from './types';
-
 export {
 	AuthZENErrorCode,
 	TrustStatus,
 } from './types';
-
-export {
-	// Client
-	AuthZENClient,
-	type IAuthZENClient,
-	type AuthZENClientConfig,
-	type KeyMaterial,
-	type EvaluateVerifierOptions,
-	type EvaluateIssuerOptions,
-} from './AuthZENClient';

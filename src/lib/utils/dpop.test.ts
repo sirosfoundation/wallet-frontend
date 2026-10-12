@@ -1,6 +1,13 @@
-import { describe, it, expect } from 'vitest';
-import { generateKeyPair, exportJWK, importJWK, jwtVerify, decodeProtectedHeader, decodeJwt } from 'jose';
-import { buildDPoPProof, DPoPKeyPair } from './dpop';
+import {
+	decodeJwt,
+	decodeProtectedHeader,
+	exportJWK,
+	generateKeyPair,
+	importJWK,
+	jwtVerify,
+} from 'jose';
+import { describe, expect, it } from 'vitest';
+import { buildDPoPProof, type DPoPKeyPair } from './dpop';
 
 async function makeKeyPair(): Promise<DPoPKeyPair> {
 	const { privateKey, publicKey } = await generateKeyPair('ES256', { extractable: true });
@@ -98,6 +105,7 @@ describe('buildDPoPProof', () => {
 		});
 
 		const header = decodeProtectedHeader(proof);
+		// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 		const publicKey = await importJWK(header.jwk!, 'ES256');
 		const { payload } = await jwtVerify(proof, publicKey);
 		expect(payload.htm).toBe('POST');

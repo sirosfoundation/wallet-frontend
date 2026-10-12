@@ -1,9 +1,9 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { getBrandingHash } from './branding';
-import { injectConfigFiles, injectHtml } from './inject';
 import { EnvConfigMapSchema } from './config';
-import { Tag } from './utils/resources';
+import { injectConfigFiles, injectHtml } from './inject';
+import type { Tag } from './utils/resources';
 
 /**
  * Entry point of the CLI script to inject configuration-dependent files and HTML meta tags.

@@ -1,8 +1,10 @@
-import React from 'react';
-import Button from './Button';
-import useScreenType from '../../hooks/useScreenType';
 import { QrCode } from 'lucide-react';
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
+import React from 'react';
+import useScreenType from '../../hooks/useScreenType';
+import Button from './Button';
 
+// biome-ignore lint/correctness/noUnusedFunctionParameters: baseline: pre-existing debt. should be fixed
 const QRButton = ({ openQRScanner, isSmallScreen }) => {
 	const screenType = useScreenType();
 
@@ -18,7 +20,6 @@ const QRButton = ({ openQRScanner, isSmallScreen }) => {
 					<QrCode size={20} className="text-inherit" />
 				</Button>
 			</div>
-
 		);
 	}
 

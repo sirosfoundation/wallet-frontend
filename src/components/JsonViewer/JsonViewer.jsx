@@ -1,9 +1,12 @@
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatDate } from 'wallet-common';
 
 const MAX_STRING_LENGTH = 100;
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 const JsonViewer = ({ name, value, depth = 0 }) => {
 	const { t } = useTranslation();
 	const [expanded, setExpanded] = useState(depth === 0);
@@ -20,12 +23,20 @@ const JsonViewer = ({ name, value, depth = 0 }) => {
 	if (isArray(value)) {
 		return (
 			<div className={`${indentClass}`}>
-				<span className="cursor-pointer text-lm-gray-900 dark:text-dm-gray-100" onClick={toggleExpanded}>
+				{/** biome-ignore lint/a11y/noNoninteractiveElementInteractions: baseline: pre-existing debt. should be fixed */}
+				{/** biome-ignore lint/a11y/useKeyWithClickEvents: baseline: pre-existing debt. should be fixed */}
+				{/** biome-ignore lint/a11y/noStaticElementInteractions: baseline: pre-existing debt. should be fixed */}
+				<span
+					className="cursor-pointer text-lm-gray-900 dark:text-dm-gray-100"
+					onClick={toggleExpanded}
+				>
 					{expanded ? '▼' : '▶'} {name && `"${name}"`}: [Array({value.length})]
 				</span>
-				{expanded && value.map((item, idx) => (
-					<JsonViewer key={idx} name={String(idx)} value={item} depth={depth + 1} />
-				))}
+				{expanded &&
+					value.map((item, idx) => (
+						// biome-ignore lint/suspicious/noArrayIndexKey: baseline: pre-existing debt. should be fixed
+						<JsonViewer key={idx} name={String(idx)} value={item} depth={depth + 1} />
+					))}
 			</div>
 		);
 	}
@@ -43,12 +54,19 @@ const JsonViewer = ({ name, value, depth = 0 }) => {
 		const keys = Object.keys(value);
 		return (
 			<div className={`${indentClass}`}>
-				<span className="cursor-pointer text-lm-gray-900 dark:text-dm-gray-100" onClick={toggleExpanded}>
-					{expanded ? '▼' : '▶'} {name && `"${name}"`}: {"{"}Object({keys.length}){"}"}
+				{/** biome-ignore lint/a11y/noNoninteractiveElementInteractions: baseline: pre-existing debt. should be fixed */}
+				{/** biome-ignore lint/a11y/useKeyWithClickEvents: baseline: pre-existing debt. should be fixed */}
+				{/** biome-ignore lint/a11y/noStaticElementInteractions: baseline: pre-existing debt. should be fixed */}
+				<span
+					className="cursor-pointer text-lm-gray-900 dark:text-dm-gray-100"
+					onClick={toggleExpanded}
+				>
+					{expanded ? '▼' : '▶'} {name && `"${name}"`}: {'{'}Object({keys.length}){'}'}
 				</span>
-				{expanded && keys.map((key) => (
-					<JsonViewer key={key} name={key} value={value[key]} depth={depth + 1} />
-				))}
+				{expanded &&
+					keys.map((key) => (
+						<JsonViewer key={key} name={key} value={value[key]} depth={depth + 1} />
+					))}
 			</div>
 		);
 	}
@@ -58,15 +76,17 @@ const JsonViewer = ({ name, value, depth = 0 }) => {
 
 	if (typeof value === 'string') {
 		const shouldTruncate = value.length > MAX_STRING_LENGTH;
-		displayValue = showFullString || !shouldTruncate
-			? `"${value}"`
-			: `"${value.slice(0, MAX_STRING_LENGTH)}..."`;
+		displayValue =
+			showFullString || !shouldTruncate
+				? `"${value}"`
+				: `"${value.slice(0, MAX_STRING_LENGTH)}..."`;
 
 		return (
 			<div className={`${indentClass} break-all`}>
 				<span className="text-lm-gray-800 dark:text-dm-gray-200">{name && `"${name}"`}:</span>{' '}
 				<span className={valueClass}>{displayValue}</span>
 				{shouldTruncate && (
+					// biome-ignore lint/a11y/useButtonType: baseline: pre-existing debt. should be fixed
 					<button
 						onClick={toggleString}
 						className="ml-2 text-xs text-lm-gray-900 dark:text-dm-gray-100 underline"

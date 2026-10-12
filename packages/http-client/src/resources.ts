@@ -3,12 +3,7 @@ export class HttpClientError extends Error {
 	headers: Record<string, unknown>;
 	responseData: unknown;
 
-	constructor(
-		method: string,
-		status: number,
-		headers: Record<string, unknown>,
-		data: unknown,
-	) {
+	constructor(method: string, status: number, headers: Record<string, unknown>, data: unknown) {
 		super(`${method} request failed`);
 		this.status = status;
 		this.headers = headers;

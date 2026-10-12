@@ -1,6 +1,7 @@
+import { fireEvent, render, screen } from '@testing-library/react';
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
 import React from 'react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '@/i18n';
 import ScanPhysicalID from './ScanPhysicalID';
 
@@ -53,11 +54,15 @@ describe('ScanPhysicalID', () => {
 		expect(screen.getByText('Scan Physical ID')).toBeInTheDocument();
 
 		expect(screen.getByText('Step 1')).toBeInTheDocument();
-		expect(screen.getByText('Scan your face to show you are a real, live human')).toBeInTheDocument();
+		expect(
+			screen.getByText('Scan your face to show you are a real, live human'),
+		).toBeInTheDocument();
 		expect(screen.getByText('Step 2')).toBeInTheDocument();
 		expect(screen.getByText('Scan your document')).toBeInTheDocument();
 		expect(screen.getByText('Step 3')).toBeInTheDocument();
-		expect(screen.getByText('Place your phone on your document to read the NFC-chip')).toBeInTheDocument();
+		expect(
+			screen.getByText('Place your phone on your document to read the NFC-chip'),
+		).toBeInTheDocument();
 
 		expect(screen.getByText('Before you begin')).toBeInTheDocument();
 		expect(screen.getByText('Have passport ready')).toBeInTheDocument();
@@ -74,6 +79,7 @@ describe('ScanPhysicalID', () => {
 
 		const links = screen.getAllByRole('link', { name: 'Privacy Policy' });
 		expect(links.length).toBeGreaterThan(0);
+		// biome-ignore lint/complexity/noForEach: baseline: pre-existing debt. should be fixed
 		links.forEach((link) => {
 			expect(link).toHaveAttribute('href', 'https://siros.org/policies/privacy-policy');
 			expect(link).toHaveAttribute('target', '_blank');
@@ -95,6 +101,8 @@ describe('ScanPhysicalID', () => {
 		render(<ScanPhysicalID />);
 
 		const startButtons = screen.getAllByRole('button', { name: 'Start Scan' });
+		// biome-ignore lint/complexity/noForEach: baseline: pre-existing debt. should be fixed
+		// biome-ignore lint/suspicious/useIterableCallbackReturn: baseline: pre-existing debt. should be fixed
 		startButtons.forEach((button) => expect(button).toBeDisabled());
 	});
 
@@ -102,9 +110,13 @@ describe('ScanPhysicalID', () => {
 		render(<ScanPhysicalID />);
 
 		const checkboxes = screen.getAllByRole('checkbox');
+		// biome-ignore lint/complexity/noForEach: baseline: pre-existing debt. should be fixed
+		// biome-ignore lint/suspicious/useIterableCallbackReturn: baseline: pre-existing debt. should be fixed
 		checkboxes.forEach((checkbox) => fireEvent.click(checkbox));
 
 		const startButtons = screen.getAllByRole('button', { name: 'Start Scan' });
+		// biome-ignore lint/complexity/noForEach: baseline: pre-existing debt. should be fixed
+		// biome-ignore lint/suspicious/useIterableCallbackReturn: baseline: pre-existing debt. should be fixed
 		startButtons.forEach((button) => expect(button).toBeDisabled());
 	});
 
@@ -130,9 +142,13 @@ describe('ScanPhysicalID', () => {
 		render(<ScanPhysicalID />);
 
 		const checkboxes = screen.getAllByRole('checkbox');
+		// biome-ignore lint/complexity/noForEach: baseline: pre-existing debt. should be fixed
+		// biome-ignore lint/suspicious/useIterableCallbackReturn: baseline: pre-existing debt. should be fixed
 		checkboxes.forEach((checkbox) => fireEvent.click(checkbox));
 
 		const startButtons = screen.getAllByRole('button', { name: 'Start Scan' });
+		// biome-ignore lint/complexity/noForEach: baseline: pre-existing debt. should be fixed
+		// biome-ignore lint/suspicious/useIterableCallbackReturn: baseline: pre-existing debt. should be fixed
 		startButtons.forEach((button) => expect(button).toBeDisabled());
 	});
 

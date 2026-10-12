@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
-import React from 'react';
 import { renderHook } from '@testing-library/react';
+import type React from 'react';
+import { describe, expect, it } from 'vitest';
 import { WscdManagerClientContext } from '@/context/WscdManagerClientContext';
-import { IWscdManagerClient } from '@/lib/wscd-manager';
+import type { IWscdManagerClient } from '@/lib/wscd-manager';
 import { useWscdManagerClient } from './useWscdManagerClient';
 
 function wrapperWith(value: IWscdManagerClient | null) {
@@ -16,6 +16,7 @@ function wrapperWith(value: IWscdManagerClient | null) {
 describe('useWscdManagerClient', () => {
 	it('throws when used outside a provider', () => {
 		expect(() => renderHook(() => useWscdManagerClient())).toThrow(
+			// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 			'useWscdManagerClient must be used within a WscdManagerClientContextProvider',
 		);
 	});

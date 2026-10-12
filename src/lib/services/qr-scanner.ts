@@ -23,7 +23,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-import workerUrl from "./worker.ts?worker&url";
+import workerUrl from './worker.ts?worker&url';
 
 type TrustedTypePolicy = {
 	createScriptURL(url: string): string;
@@ -31,36 +31,39 @@ type TrustedTypePolicy = {
 
 class QrScanner {
 	static readonly DEFAULT_CANVAS_SIZE = 400;
-	static readonly NO_QR_CODE_FOUND = "No QR code found";
+	static readonly NO_QR_CODE_FOUND = 'No QR code found';
 	private static _disableBarcodeDetector = false;
 	private static _workerMessageId = 0;
 	private static _scanRegionHighlightTemplate?: SVGSVGElement;
 	private static _trustedTypesPolicy?: TrustedTypePolicy;
 
 	/** @deprecated */
+	// biome-ignore lint/correctness/noUnusedFunctionParameters: baseline: pre-existing debt. should be fixed
 	static set WORKER_PATH(workerPath: string) {
+		// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
 		console.warn(
-			"Setting QrScanner.WORKER_PATH is not required and not supported anymore. " +
-				"Have a look at the README for new setup instructions.",
+			'Setting QrScanner.WORKER_PATH is not required and not supported anymore. ' +
+				'Have a look at the README for new setup instructions.',
 		);
 	}
 
 	static async hasCamera(): Promise<boolean> {
 		try {
+			// biome-ignore lint/complexity/noImplicitCoercions: baseline: pre-existing debt. should be fixed
 			return !!(await QrScanner.listCameras(false)).length;
+			// biome-ignore lint/complexity/noUselessCatchBinding: baseline: pre-existing debt. should be fixed
+			// biome-ignore lint/correctness/noUnusedVariables: baseline: pre-existing debt. should be fixed
 		} catch (e) {
 			return false;
 		}
 	}
 
-	static async listCameras(
-		requestLabels = false,
-	): Promise<Array<QrScanner.Camera>> {
+	static async listCameras(requestLabels = false): Promise<Array<QrScanner.Camera>> {
 		if (!navigator.mediaDevices) return [];
 
 		const enumerateCameras = async (): Promise<Array<MediaDeviceInfo>> =>
 			(await navigator.mediaDevices.enumerateDevices()).filter(
-				(device) => device.kind === "videoinput",
+				(device) => device.kind === 'videoinput',
 			);
 
 		// Note that enumerateDevices can always be called and does not prompt the user for permission.
@@ -69,15 +72,14 @@ class QrScanner {
 		// ask for camera permission by opening a stream.
 		let openedStream: MediaStream | undefined;
 		try {
-			if (
-				requestLabels &&
-				(await enumerateCameras()).every((camera) => !camera.label)
-			) {
+			if (requestLabels && (await enumerateCameras()).every((camera) => !camera.label)) {
 				openedStream = await navigator.mediaDevices.getUserMedia({
 					audio: false,
 					video: true,
 				});
 			}
+			// biome-ignore lint/complexity/noUselessCatchBinding: baseline: pre-existing debt. should be fixed
+			// biome-ignore lint/correctness/noUnusedVariables: baseline: pre-existing debt. should be fixed
 		} catch (e) {
 			// Fail gracefully, especially if the device has no camera or on mobile when the camera is already in use
 			// and some browsers disallow a second stream.
@@ -86,14 +88,15 @@ class QrScanner {
 		try {
 			return (await enumerateCameras()).map((camera, i) => ({
 				id: camera.deviceId,
-				label: camera.label || (i === 0 ? "Default Camera" : `Camera ${i + 1}`),
+				label: camera.label || (i === 0 ? 'Default Camera' : `Camera ${i + 1}`),
 			}));
 		} finally {
 			// close the stream we just opened for getting camera access for listing the device labels
 			if (openedStream) {
+				// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
 				console.warn(
-					"Call listCameras after successfully starting a QR scanner to avoid creating " +
-						"a temporary video stream",
+					'Call listCameras after successfully starting a QR scanner to avoid creating ' +
+						'a temporary video stream',
 				);
 				QrScanner._stopVideoStream(openedStream);
 			}
@@ -107,8 +110,7 @@ class QrScanner {
 	private readonly _onDecode?: (result: QrScanner.ScanResult) => void;
 	private readonly _legacyOnDecode?: (result: string) => void;
 	private readonly _legacyCanvasSize: number = QrScanner.DEFAULT_CANVAS_SIZE;
-	private _preferredCamera: QrScanner.FacingMode | QrScanner.DeviceId =
-		"environment";
+	private _preferredCamera: QrScanner.FacingMode | QrScanner.DeviceId = 'environment';
 	private readonly _maxScansPerSecond: number = 25;
 	private _lastScanTimestamp: number = -1;
 	private _scanRegion: QrScanner.ScanRegion;
@@ -151,24 +153,19 @@ class QrScanner {
 		preferredCamera?: QrScanner.FacingMode | QrScanner.DeviceId,
 	);
 	/** @deprecated */
+	constructor(video: HTMLVideoElement, onDecode: (result: string) => void, canvasSize?: number);
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+	// biome-ignore lint/complexity/useMaxParams: baseline: pre-existing debt. should be fixed
+	// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 	constructor(
 		video: HTMLVideoElement,
-		onDecode: (result: string) => void,
-		canvasSize?: number,
-	);
-	constructor(
-		video: HTMLVideoElement,
-		onDecode:
-			| ((result: QrScanner.ScanResult) => void)
-			| ((result: string) => void),
+		onDecode: ((result: QrScanner.ScanResult) => void) | ((result: string) => void),
 		canvasSizeOrOnDecodeErrorOrOptions?:
 			| number
 			| ((error: Error | string) => void)
 			| {
 					onDecodeError?: (error: Error | string) => void;
-					calculateScanRegion?: (
-						video: HTMLVideoElement,
-					) => QrScanner.ScanRegion;
+					calculateScanRegion?: (video: HTMLVideoElement) => QrScanner.ScanRegion;
 					preferredCamera?: QrScanner.FacingMode | QrScanner.DeviceId;
 					maxScansPerSecond?: number;
 					highlightScanRegion?: boolean;
@@ -176,30 +173,29 @@ class QrScanner {
 					overlay?: HTMLDivElement;
 					/** just a temporary flag until we switch entirely to the new api */
 					returnDetailedScanResult?: true;
-			},
-		canvasSizeOrCalculateScanRegion?:
-			| number
-			| ((video: HTMLVideoElement) => QrScanner.ScanRegion),
+			  },
+		canvasSizeOrCalculateScanRegion?: number | ((video: HTMLVideoElement) => QrScanner.ScanRegion),
 		preferredCamera?: QrScanner.FacingMode | QrScanner.DeviceId,
 	) {
 		this.$video = video;
-		this.$canvas = document.createElement("canvas");
+		this.$canvas = document.createElement('canvas');
 
 		if (
 			canvasSizeOrOnDecodeErrorOrOptions &&
-			typeof canvasSizeOrOnDecodeErrorOrOptions === "object"
+			typeof canvasSizeOrOnDecodeErrorOrOptions === 'object'
 		) {
 			// we got an options object using the new api
-			this._onDecode = onDecode as QrScanner["_onDecode"];
+			this._onDecode = onDecode as QrScanner['_onDecode'];
 		} else {
 			if (
 				canvasSizeOrOnDecodeErrorOrOptions ||
 				canvasSizeOrCalculateScanRegion ||
 				preferredCamera
 			) {
+				// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
 				console.warn(
 					"You're using a deprecated version of the QrScanner constructor which will be removed in " +
-						"the future",
+						'the future',
 				);
 			} else {
 				// Only video and onDecode were specified and we can't distinguish between new or old api usage. For
@@ -207,49 +203,48 @@ class QrScanner {
 				// optional in the parameter list above to make clear that ScanResult instead of string is only passed
 				// if an options object was provided. However, in the future once legacy support is removed, the options
 				// object should become optional.
+				// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
 				console.warn(
-					"Note that the type of the scan result passed to onDecode will change in the future. " +
-						"To already switch to the new api today, you can pass returnDetailedScanResult: true.",
+					'Note that the type of the scan result passed to onDecode will change in the future. ' +
+						'To already switch to the new api today, you can pass returnDetailedScanResult: true.',
 				);
 			}
-			this._legacyOnDecode = onDecode as QrScanner["_legacyOnDecode"];
+			this._legacyOnDecode = onDecode as QrScanner['_legacyOnDecode'];
 		}
 
 		const options =
-			typeof canvasSizeOrOnDecodeErrorOrOptions === "object"
+			typeof canvasSizeOrOnDecodeErrorOrOptions === 'object'
 				? canvasSizeOrOnDecodeErrorOrOptions
 				: {};
 		this._onDecodeError =
 			options.onDecodeError ||
-			(typeof canvasSizeOrOnDecodeErrorOrOptions === "function"
+			(typeof canvasSizeOrOnDecodeErrorOrOptions === 'function'
 				? canvasSizeOrOnDecodeErrorOrOptions
 				: this._onDecodeError);
 		this._calculateScanRegion =
 			options.calculateScanRegion ||
-			(typeof canvasSizeOrCalculateScanRegion === "function"
+			(typeof canvasSizeOrCalculateScanRegion === 'function'
 				? canvasSizeOrCalculateScanRegion
 				: this._calculateScanRegion);
-		this._preferredCamera =
-			options.preferredCamera || preferredCamera || this._preferredCamera;
+		this._preferredCamera = options.preferredCamera || preferredCamera || this._preferredCamera;
 		this._legacyCanvasSize =
-			typeof canvasSizeOrOnDecodeErrorOrOptions === "number"
+			typeof canvasSizeOrOnDecodeErrorOrOptions === 'number'
 				? canvasSizeOrOnDecodeErrorOrOptions
-				: typeof canvasSizeOrCalculateScanRegion === "number"
+				: typeof canvasSizeOrCalculateScanRegion === 'number'
 					? canvasSizeOrCalculateScanRegion
 					: this._legacyCanvasSize;
-		this._maxScansPerSecond =
-			options.maxScansPerSecond || this._maxScansPerSecond;
+		this._maxScansPerSecond = options.maxScansPerSecond || this._maxScansPerSecond;
 
 		this._onPlay = this._onPlay.bind(this);
 		this._onLoadedMetaData = this._onLoadedMetaData.bind(this);
 		this._onVisibilityChange = this._onVisibilityChange.bind(this);
 		this._updateOverlay = this._updateOverlay.bind(this);
 
-		// @ts-ignore
+		// @ts-expect-error
 		video.disablePictureInPicture = true;
 		// Allow inline playback on iPhone instead of requiring full screen playback,
 		// see https://webkit.org/blog/6784/new-video-policies-for-ios/
-		// @ts-ignore
+		// @ts-expect-error
 		video.playsInline = true;
 		// Allow play() on iPhone without requiring a user gesture. Should not really be needed as camera stream
 		// includes no audio, but just to be safe.
@@ -266,29 +261,33 @@ class QrScanner {
 			document.body.appendChild(video);
 			shouldHideVideo = true;
 		}
+		// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 		const videoContainer = video.parentElement!;
 
 		if (options.highlightScanRegion || options.highlightCodeOutline) {
+			// biome-ignore lint/complexity/noImplicitCoercions: baseline: pre-existing debt. should be fixed
 			const gotExternalOverlay = !!options.overlay;
-			this.$overlay = options.overlay || document.createElement("div");
+			this.$overlay = options.overlay || document.createElement('div');
 			const overlayStyle = this.$overlay.style;
-			overlayStyle.position = "absolute";
-			overlayStyle.display = "none";
-			overlayStyle.pointerEvents = "none";
-			this.$overlay.classList.add("scan-region-highlight");
+			overlayStyle.position = 'absolute';
+			overlayStyle.display = 'none';
+			overlayStyle.pointerEvents = 'none';
+			this.$overlay.classList.add('scan-region-highlight');
 			if (!gotExternalOverlay && options.highlightScanRegion) {
 				const overlaySvgElement = QrScanner._createOverlaySvgElement();
 				this.$overlay.appendChild(overlaySvgElement);
 				try {
 					overlaySvgElement.animate(
-						{ transform: ["scale(.98)", "scale(1.01)"] },
+						{ transform: ['scale(.98)', 'scale(1.01)'] },
 						{
 							duration: 400,
 							iterations: Infinity,
-							direction: "alternate",
-							easing: "ease-in-out",
+							direction: 'alternate',
+							easing: 'ease-in-out',
 						},
 					);
+					// biome-ignore lint/complexity/noUselessCatchBinding: baseline: pre-existing debt. should be fixed
+					// biome-ignore lint/correctness/noUnusedVariables: baseline: pre-existing debt. should be fixed
 				} catch (e) {
 					// Web Animations API not supported in this browser
 				}
@@ -296,26 +295,20 @@ class QrScanner {
 			}
 			if (options.highlightCodeOutline) {
 				// default style; can be overwritten via css
-				const codeOutline = document.createElementNS(
-					"http://www.w3.org/2000/svg",
-					"svg",
-				);
-				codeOutline.classList.add("code-outline-highlight");
-				codeOutline.setAttribute("preserveAspectRatio", "none");
+				const codeOutline = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+				codeOutline.classList.add('code-outline-highlight');
+				codeOutline.setAttribute('preserveAspectRatio', 'none');
 				const codeOutlineStyle = codeOutline.style;
-				codeOutlineStyle.display = "none";
-				codeOutlineStyle.width = "100%";
-				codeOutlineStyle.height = "100%";
-				codeOutlineStyle.fill = "none";
-				codeOutlineStyle.stroke = "#e9b213";
-				codeOutlineStyle.strokeWidth = "5";
-				codeOutlineStyle.strokeDasharray = "25";
-				codeOutlineStyle.strokeLinecap = "round";
-				codeOutlineStyle.strokeLinejoin = "round";
-				const polygon = document.createElementNS(
-					"http://www.w3.org/2000/svg",
-					"polygon",
-				);
+				codeOutlineStyle.display = 'none';
+				codeOutlineStyle.width = '100%';
+				codeOutlineStyle.height = '100%';
+				codeOutlineStyle.fill = 'none';
+				codeOutlineStyle.stroke = '#e9b213';
+				codeOutlineStyle.strokeWidth = '5';
+				codeOutlineStyle.strokeDasharray = '25';
+				codeOutlineStyle.strokeLinecap = 'round';
+				codeOutlineStyle.strokeLinejoin = 'round';
+				const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
 				codeOutline.appendChild(polygon);
 				this.$overlay.appendChild(codeOutline);
 				this.$codeOutlineHighlight = codeOutline;
@@ -326,28 +319,32 @@ class QrScanner {
 		requestAnimationFrame(() => {
 			// Checking in requestAnimationFrame which should avoid a potential additional re-flow for getComputedStyle.
 			const videoStyle = window.getComputedStyle(video);
-			if (videoStyle.display === "none") {
-				video.style.setProperty("display", "block", "important");
+			if (videoStyle.display === 'none') {
+				video.style.setProperty('display', 'block', 'important');
 				shouldHideVideo = true;
 			}
-			if (videoStyle.visibility !== "visible") {
-				video.style.setProperty("visibility", "visible", "important");
+			if (videoStyle.visibility !== 'visible') {
+				video.style.setProperty('visibility', 'visible', 'important');
 				shouldHideVideo = true;
 			}
 			if (shouldHideVideo) {
 				// Hide the video in a way that doesn't cause Safari to stop the playback.
+				// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
 				console.warn(
-					"QrScanner has overwritten the video hiding style to avoid Safari stopping the playback.",
+					'QrScanner has overwritten the video hiding style to avoid Safari stopping the playback.',
 				);
-				video.style.opacity = "0";
-				video.style.width = "0";
-				video.style.height = "0";
+				video.style.opacity = '0';
+				video.style.width = '0';
+				video.style.height = '0';
+				// biome-ignore lint/complexity/useOptionalChain: baseline: pre-existing debt. should be fixed
 				if (this.$overlay && this.$overlay.parentElement) {
 					this.$overlay.parentElement.removeChild(this.$overlay);
 				}
-				// @ts-ignore
+				// @ts-expect-error
+				// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 				delete this.$overlay!;
-				// @ts-ignore
+				// @ts-expect-error
+				// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 				delete this.$codeOutlineHighlight!;
 			}
 
@@ -356,10 +353,10 @@ class QrScanner {
 			}
 		});
 
-		video.addEventListener("play", this._onPlay);
-		video.addEventListener("loadedmetadata", this._onLoadedMetaData);
-		document.addEventListener("visibilitychange", this._onVisibilityChange);
-		window.addEventListener("resize", this._updateOverlay);
+		video.addEventListener('play', this._onPlay);
+		video.addEventListener('loadedmetadata', this._onLoadedMetaData);
+		document.addEventListener('visibilitychange', this._onVisibilityChange);
+		window.addEventListener('resize', this._updateOverlay);
 
 		this._qrEnginePromise = QrScanner.createQrEngine();
 	}
@@ -373,15 +370,18 @@ class QrScanner {
 			} else {
 				stream = (await this._getCameraStream()).stream;
 			}
-			return "torch" in stream.getVideoTracks()[0].getSettings();
+			return 'torch' in stream.getVideoTracks()[0].getSettings();
+			// biome-ignore lint/complexity/noUselessCatchBinding: baseline: pre-existing debt. should be fixed
+			// biome-ignore lint/correctness/noUnusedVariables: baseline: pre-existing debt. should be fixed
 		} catch (e) {
 			return false;
 		} finally {
 			// close the stream we just opened for detecting whether it supports flash
 			if (stream && stream !== this.$video.srcObject) {
+				// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
 				console.warn(
-					"Call hasFlash after successfully starting the scanner to avoid creating " +
-						"a temporary video stream",
+					'Call hasFlash after successfully starting the scanner to avoid creating ' +
+						'a temporary video stream',
 				);
 				QrScanner._stopVideoStream(stream);
 			}
@@ -405,14 +405,12 @@ class QrScanner {
 		this._flashOn = true;
 		if (!this._active || this._paused) return; // flash will be turned on later on .start()
 		try {
-			if (!(await this.hasFlash())) throw new Error("No flash available");
+			if (!(await this.hasFlash())) throw new Error('No flash available');
 			// Note that the video track is guaranteed to exist and to be a MediaStream due to the check in hasFlash
-			await (this.$video.srcObject as MediaStream)
-				.getVideoTracks()[0]
-				.applyConstraints({
-					// @ts-ignore: constraint 'torch' is unknown to ts
-					advanced: [{ torch: true }],
-				});
+			await (this.$video.srcObject as MediaStream).getVideoTracks()[0].applyConstraints({
+				// @ts-expect-error: constraint 'torch' is unknown to ts
+				advanced: [{ torch: true }],
+			});
 		} catch (e) {
 			this._flashOn = false;
 			throw e;
@@ -429,29 +427,26 @@ class QrScanner {
 	}
 
 	destroy(): void {
-		this.$video.removeEventListener("loadedmetadata", this._onLoadedMetaData);
-		this.$video.removeEventListener("play", this._onPlay);
-		document.removeEventListener("visibilitychange", this._onVisibilityChange);
-		window.removeEventListener("resize", this._updateOverlay);
+		this.$video.removeEventListener('loadedmetadata', this._onLoadedMetaData);
+		this.$video.removeEventListener('play', this._onPlay);
+		document.removeEventListener('visibilitychange', this._onVisibilityChange);
+		window.removeEventListener('resize', this._updateOverlay);
 
 		this._destroyed = true;
 		this._flashOn = false;
 		this.stop(); // sets this._paused = true and this._active = false
-		QrScanner._postWorkerMessage(this._qrEnginePromise, "close");
+		QrScanner._postWorkerMessage(this._qrEnginePromise, 'close');
 	}
 
 	async start(): Promise<void> {
 		if (this._destroyed)
-			throw new Error(
-				"The QR scanner can not be started as it had been destroyed.",
-			);
+			throw new Error('The QR scanner can not be started as it had been destroyed.');
 		if (this._active && !this._paused) return;
 
-		if (window.location.protocol !== "https:") {
+		if (window.location.protocol !== 'https:') {
 			// warn but try starting the camera anyways
-			console.warn(
-				"The camera stream is only accessible if the page is transferred via https.",
-			);
+			// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
+			console.warn('The camera stream is only accessible if the page is transferred via https.');
 		}
 
 		this._active = true;
@@ -477,6 +472,7 @@ class QrScanner {
 			// Restart the flash if it was previously on
 			if (this._flashOn) {
 				this._flashOn = false; // force turnFlashOn to restart the flash
+				// biome-ignore lint/suspicious/noEmptyBlockStatements: baseline: pre-existing debt. should be fixed
 				this.turnFlashOn().catch(() => {});
 			}
 		} catch (e) {
@@ -497,7 +493,7 @@ class QrScanner {
 		this.$video.pause();
 
 		if (this.$overlay) {
-			this.$overlay.style.display = "none";
+			this.$overlay.style.display = 'none';
 		}
 
 		const stopStream = () => {
@@ -519,9 +515,7 @@ class QrScanner {
 		return true;
 	}
 
-	async setCamera(
-		facingModeOrDeviceId: QrScanner.FacingMode | QrScanner.DeviceId,
-	): Promise<void> {
+	async setCamera(facingModeOrDeviceId: QrScanner.FacingMode | QrScanner.DeviceId): Promise<void> {
 		if (facingModeOrDeviceId === this._preferredCamera) return;
 		this._preferredCamera = facingModeOrDeviceId;
 		// Restart the scanner with the new camera which will also update the video mirror and the scan region.
@@ -539,14 +533,10 @@ class QrScanner {
 			| File
 			| Blob
 			| URL
-			| String,
+			| string,
 		options: {
 			scanRegion?: QrScanner.ScanRegion | null;
-			qrEngine?:
-				| Worker
-				| BarcodeDetector
-				| Promise<Worker | BarcodeDetector>
-				| null;
+			qrEngine?: Worker | BarcodeDetector | Promise<Worker | BarcodeDetector> | null;
 			canvas?: HTMLCanvasElement | null;
 			disallowCanvasResizing?: boolean;
 			alsoTryWithoutScanRegion?: boolean;
@@ -566,17 +556,16 @@ class QrScanner {
 			| File
 			| Blob
 			| URL
-			| String,
+			| string,
 		scanRegion?: QrScanner.ScanRegion | null,
-		qrEngine?:
-			| Worker
-			| BarcodeDetector
-			| Promise<Worker | BarcodeDetector>
-			| null,
+		qrEngine?: Worker | BarcodeDetector | Promise<Worker | BarcodeDetector> | null,
 		canvas?: HTMLCanvasElement | null,
 		disallowCanvasResizing?: boolean,
 		alsoTryWithoutScanRegion?: boolean,
 	): Promise<string>;
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+	// biome-ignore lint/complexity/useMaxParams: baseline: pre-existing debt. should be fixed
+	// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 	static async scanImage(
 		imageOrFileOrBlobOrUrl:
 			| HTMLImageElement
@@ -588,28 +577,20 @@ class QrScanner {
 			| File
 			| Blob
 			| URL
-			| String,
+			| string,
 		scanRegionOrOptions?:
 			| QrScanner.ScanRegion
 			| {
 					scanRegion?: QrScanner.ScanRegion | null;
-					qrEngine?:
-						| Worker
-						| BarcodeDetector
-						| Promise<Worker | BarcodeDetector>
-						| null;
+					qrEngine?: Worker | BarcodeDetector | Promise<Worker | BarcodeDetector> | null;
 					canvas?: HTMLCanvasElement | null;
 					disallowCanvasResizing?: boolean;
 					alsoTryWithoutScanRegion?: boolean;
 					/** just a temporary flag until we switch entirely to the new api */
 					returnDetailedScanResult?: true;
-			}
+			  }
 			| null,
-		qrEngine?:
-			| Worker
-			| BarcodeDetector
-			| Promise<Worker | BarcodeDetector>
-			| null,
+		qrEngine?: Worker | BarcodeDetector | Promise<Worker | BarcodeDetector> | null,
 		canvas?: HTMLCanvasElement | null,
 		disallowCanvasResizing: boolean = false,
 		alsoTryWithoutScanRegion: boolean = false,
@@ -618,21 +599,20 @@ class QrScanner {
 		let returnDetailedScanResult = false;
 		if (
 			scanRegionOrOptions &&
-			("scanRegion" in scanRegionOrOptions ||
-				"qrEngine" in scanRegionOrOptions ||
-				"canvas" in scanRegionOrOptions ||
-				"disallowCanvasResizing" in scanRegionOrOptions ||
-				"alsoTryWithoutScanRegion" in scanRegionOrOptions ||
-				"returnDetailedScanResult" in scanRegionOrOptions)
+			('scanRegion' in scanRegionOrOptions ||
+				'qrEngine' in scanRegionOrOptions ||
+				'canvas' in scanRegionOrOptions ||
+				'disallowCanvasResizing' in scanRegionOrOptions ||
+				// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+				'alsoTryWithoutScanRegion' in scanRegionOrOptions ||
+				'returnDetailedScanResult' in scanRegionOrOptions)
 		) {
 			// we got an options object using the new api
 			scanRegion = scanRegionOrOptions.scanRegion;
 			qrEngine = scanRegionOrOptions.qrEngine;
 			canvas = scanRegionOrOptions.canvas;
-			disallowCanvasResizing =
-				scanRegionOrOptions.disallowCanvasResizing || false;
-			alsoTryWithoutScanRegion =
-				scanRegionOrOptions.alsoTryWithoutScanRegion || false;
+			disallowCanvasResizing = scanRegionOrOptions.disallowCanvasResizing || false;
+			alsoTryWithoutScanRegion = scanRegionOrOptions.alsoTryWithoutScanRegion || false;
 			returnDetailedScanResult = true;
 		} else if (
 			scanRegionOrOptions ||
@@ -641,6 +621,7 @@ class QrScanner {
 			disallowCanvasResizing ||
 			alsoTryWithoutScanRegion
 		) {
+			// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
 			console.warn(
 				"You're using a deprecated api for scanImage which will be removed in the future.",
 			);
@@ -650,12 +631,14 @@ class QrScanner {
 			// optional in the parameter list above to make clear that ScanResult instead of string is only returned if
 			// an options object was provided. However, in the future once legacy support is removed, the options object
 			// should become optional.
+			// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
 			console.warn(
-				"Note that the return type of scanImage will change in the future. To already switch to the " +
-					"new api today, you can pass returnDetailedScanResult: true.",
+				'Note that the return type of scanImage will change in the future. To already switch to the ' +
+					'new api today, you can pass returnDetailedScanResult: true.',
 			);
 		}
 
+		// biome-ignore lint/complexity/noImplicitCoercions: baseline: pre-existing debt. should be fixed
 		const gotExternalEngine = !!qrEngine;
 
 		try {
@@ -683,11 +666,7 @@ class QrScanner {
 				const qrEngineWorker = qrEngine; // for ts to know that it's still a worker later in the event listeners
 				if (!gotExternalEngine) {
 					// Enable scanning of inverted color qr codes.
-					QrScanner._postWorkerMessageSync(
-						qrEngineWorker,
-						"inversionMode",
-						"both",
-					);
+					QrScanner._postWorkerMessageSync(qrEngineWorker, 'inversionMode', 'both');
 				}
 				detailedScanResult = await new Promise((resolve, reject) => {
 					let timeout: ReturnType<typeof setTimeout>;
@@ -698,64 +677,56 @@ class QrScanner {
 						if (event.data.id !== expectedResponseId) {
 							return;
 						}
-						qrEngineWorker.removeEventListener("message", onMessage);
-						qrEngineWorker.removeEventListener("error", onError);
+						qrEngineWorker.removeEventListener('message', onMessage);
+						qrEngineWorker.removeEventListener('error', onError);
 						clearTimeout(timeout);
 						if (event.data.data !== null) {
 							resolve({
 								data: event.data.data,
-								cornerPoints: QrScanner._convertPoints(
-									event.data.cornerPoints,
-									scanRegion,
-								),
+								cornerPoints: QrScanner._convertPoints(event.data.cornerPoints, scanRegion),
 							});
 						} else {
 							reject(QrScanner.NO_QR_CODE_FOUND);
 						}
 					};
 					onError = (error: ErrorEvent | string) => {
-						qrEngineWorker.removeEventListener("message", onMessage);
-						qrEngineWorker.removeEventListener("error", onError);
+						qrEngineWorker.removeEventListener('message', onMessage);
+						qrEngineWorker.removeEventListener('error', onError);
 						clearTimeout(timeout);
-						const errorMessage = !error
-							? "Unknown Error"
-							: (error as ErrorEvent).message || error;
-						reject("Scanner error: " + errorMessage);
+						const errorMessage = !error ? 'Unknown Error' : (error as ErrorEvent).message || error;
+						// biome-ignore lint/style/useTemplate: baseline: pre-existing debt. should be fixed
+						reject('Scanner error: ' + errorMessage);
 					};
-					qrEngineWorker.addEventListener("message", onMessage);
-					qrEngineWorker.addEventListener("error", onError);
-					timeout = setTimeout(() => onError("timeout"), 10000);
-					const imageData = canvasContext.getImageData(
-						0,
-						0,
-						canvas!.width,
-						canvas!.height,
-					);
+					qrEngineWorker.addEventListener('message', onMessage);
+					qrEngineWorker.addEventListener('error', onError);
+					timeout = setTimeout(() => onError('timeout'), 10000);
+					// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
+					const imageData = canvasContext.getImageData(0, 0, canvas!.width, canvas!.height);
 					expectedResponseId = QrScanner._postWorkerMessageSync(
 						qrEngineWorker,
-						"decode",
+						'decode',
 						imageData,
 						[imageData.data.buffer],
 					);
 				});
 			} else {
 				detailedScanResult = await Promise.race([
+					// biome-ignore lint/correctness/noUnusedFunctionParameters: baseline: pre-existing debt. should be fixed
 					new Promise<QrScanner.ScanResult>((resolve, reject) =>
-						window.setTimeout(() => reject("Scanner error: timeout"), 10000),
+						window.setTimeout(() => reject('Scanner error: timeout'), 10000),
 					),
 					(async (): Promise<QrScanner.ScanResult> => {
 						try {
+							// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 							const [scanResult] = await qrEngine.detect(canvas!);
 							if (!scanResult) throw QrScanner.NO_QR_CODE_FOUND;
 							return {
 								data: scanResult.rawValue,
-								cornerPoints: QrScanner._convertPoints(
-									scanResult.cornerPoints,
-									scanRegion,
-								),
+								cornerPoints: QrScanner._convertPoints(scanResult.cornerPoints, scanRegion),
 							};
 						} catch (e) {
 							const errorMessage = (e as Error).message || (e as string);
+							// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 							if (/not implemented|service unavailable/.test(errorMessage)) {
 								// Not implemented can apparently for some reason happen even though getSupportedFormats
 								// in createQrScanner reported that it's supported, see issue #98.
@@ -779,21 +750,19 @@ class QrScanner {
 					})(),
 				]);
 			}
-			return returnDetailedScanResult
-				? detailedScanResult
-				: detailedScanResult.data;
+			return returnDetailedScanResult ? detailedScanResult : detailedScanResult.data;
 		} catch (e) {
-			if (!scanRegion || !alsoTryWithoutScanRegion) throw e;
-			const detailedScanResult = await QrScanner.scanImage(
-				imageOrFileOrBlobOrUrl,
-				{ qrEngine, canvas, disallowCanvasResizing },
-			);
-			return returnDetailedScanResult
-				? detailedScanResult
-				: detailedScanResult.data;
+			if (!(scanRegion && alsoTryWithoutScanRegion)) throw e;
+			const detailedScanResult = await QrScanner.scanImage(imageOrFileOrBlobOrUrl, {
+				qrEngine,
+				canvas,
+				disallowCanvasResizing,
+			});
+			return returnDetailedScanResult ? detailedScanResult : detailedScanResult.data;
 		} finally {
 			if (!gotExternalEngine) {
-				QrScanner._postWorkerMessage(qrEngine!, "close");
+				// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
+				QrScanner._postWorkerMessage(qrEngine!, 'close');
 			}
 		}
 	}
@@ -806,7 +775,7 @@ class QrScanner {
 	): void {
 		// Note that for the native BarcodeDecoder or if the worker was destroyed, this is a no-op. However, the native
 		// implementations work also well with colored qr codes.
-		QrScanner._postWorkerMessage(this._qrEnginePromise, "grayscaleWeights", {
+		QrScanner._postWorkerMessage(this._qrEnginePromise, 'grayscaleWeights', {
 			red,
 			green,
 			blue,
@@ -817,49 +786,40 @@ class QrScanner {
 	setInversionMode(inversionMode: QrScanner.InversionMode): void {
 		// Note that for the native BarcodeDecoder or if the worker was destroyed, this is a no-op. However, the native
 		// implementations scan normal and inverted qr codes by default
-		QrScanner._postWorkerMessage(
-			this._qrEnginePromise,
-			"inversionMode",
-			inversionMode,
-		);
+		QrScanner._postWorkerMessage(this._qrEnginePromise, 'inversionMode', inversionMode);
 	}
 
 	static async createQrEngine(): Promise<Worker | BarcodeDetector>;
 	/** @deprecated */
-	static async createQrEngine(
-		workerPath: string,
-	): Promise<Worker | BarcodeDetector>;
-	static async createQrEngine(
-		workerPath?: string,
-	): Promise<Worker | BarcodeDetector> {
+	static async createQrEngine(workerPath: string): Promise<Worker | BarcodeDetector>;
+	// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
+	static async createQrEngine(workerPath?: string): Promise<Worker | BarcodeDetector> {
 		if (workerPath) {
-			console.warn(
-				"Specifying a worker path is not required and not supported anymore.",
-			);
+			// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
+			console.warn('Specifying a worker path is not required and not supported anymore.');
 		}
 
 		const createWorker = () => {
-			/* @ts-ignore */
+			/* @ts-expect-error */
 			const trustedTypesFactory = window.trustedTypes;
 			if (trustedTypesFactory && !QrScanner._trustedTypesPolicy) {
-				QrScanner._trustedTypesPolicy = trustedTypesFactory.createPolicy(
-					"qr-scanner#worker",
-					{ createScriptURL: (url) => url },
-				);
+				QrScanner._trustedTypesPolicy = trustedTypesFactory.createPolicy('qr-scanner#worker', {
+					createScriptURL: (url) => url,
+				});
 			}
 			const workerScriptUrl = QrScanner._trustedTypesPolicy
 				? QrScanner._trustedTypesPolicy.createScriptURL(workerUrl)
 				: workerUrl;
 			return new Worker(workerScriptUrl as unknown as string, {
-				type: "module",
+				type: 'module',
 			});
 		};
 
 		const useBarcodeDetector =
 			!QrScanner._disableBarcodeDetector &&
-			"BarcodeDetector" in window &&
+			'BarcodeDetector' in window &&
 			BarcodeDetector.getSupportedFormats &&
-			(await BarcodeDetector.getSupportedFormats()).includes("qr_code");
+			(await BarcodeDetector.getSupportedFormats()).includes('qr_code');
 
 		if (!useBarcodeDetector) return createWorker();
 
@@ -870,18 +830,22 @@ class QrScanner {
 		// TODO update this once the issue in macOS is fixed
 		const userAgentData = navigator.userAgentData;
 		const isChromiumOnMacWithArmVentura =
+			// biome-ignore lint/complexity/useOptionalChain: baseline: pre-existing debt. should be fixed
 			userAgentData && // all Chromium browsers support userAgentData
+			// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 			userAgentData.brands.some(({ brand }) => /Chromium/i.test(brand)) &&
+			// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 			/mac ?OS/i.test(userAgentData.platform) &&
 			// Does it have an ARM chip (e.g. M1/M2) and Ventura? Check this last as getHighEntropyValues can
 			// theoretically trigger a browser prompt, although no browser currently does seem to show one.
 			// If browser or user refused to return the requested values, assume broken ARM Ventura, to be safe.
 			(await userAgentData
-				.getHighEntropyValues(["architecture", "platformVersion"])
+				.getHighEntropyValues(['architecture', 'platformVersion'])
 				.then(({ architecture, platformVersion }) => {
-					const normalizedArchitecture = architecture || "arm";
-					const normalizedPlatformVersion = platformVersion || "13";
+					const normalizedArchitecture = architecture || 'arm';
+					const normalizedPlatformVersion = platformVersion || '13';
 					return (
+						// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 						/arm/i.test(normalizedArchitecture) &&
 						parseInt(normalizedPlatformVersion, 10) >= /* Ventura */ 13
 					);
@@ -889,14 +853,14 @@ class QrScanner {
 				.catch(() => true));
 		if (isChromiumOnMacWithArmVentura) return createWorker();
 
-		return new BarcodeDetector({ formats: ["qr_code"] });
+		return new BarcodeDetector({ formats: ['qr_code'] });
 	}
 
 	private _onPlay(): void {
 		this._scanRegion = this._calculateScanRegion(this.$video);
 		this._updateOverlay();
 		if (this.$overlay) {
-			this.$overlay.style.display = "";
+			this.$overlay.style.display = '';
 		}
 		this._scanFrame();
 	}
@@ -928,7 +892,10 @@ class QrScanner {
 		};
 	}
 
+	// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 	private _updateOverlay(): void {
+		// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+		// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 		requestAnimationFrame(() => {
 			// Running in requestAnimationFrame which should avoid a potential additional re-flow for getComputedStyle
 			// and offsetWidth, offsetHeight, offsetLeft, offsetTop.
@@ -948,17 +915,17 @@ class QrScanner {
 			let videoScaledWidth: number;
 			let videoScaledHeight: number;
 			switch (videoObjectFit) {
-				case "none":
+				case 'none':
 					videoScaledWidth = videoWidth;
 					videoScaledHeight = videoHeight;
 					break;
-				case "fill":
+				case 'fill':
 					videoScaledWidth = elementWidth;
 					videoScaledHeight = elementHeight;
 					break;
 				default: // 'cover', 'contains', 'scale-down'
 					if (
-						videoObjectFit === "cover"
+						videoObjectFit === 'cover'
 							? videoAspectRatio > elementAspectRatio
 							: videoAspectRatio < elementAspectRatio
 					) {
@@ -973,7 +940,7 @@ class QrScanner {
 						videoScaledWidth = elementWidth;
 						videoScaledHeight = videoScaledWidth / videoAspectRatio;
 					}
-					if (videoObjectFit === "scale-down") {
+					if (videoObjectFit === 'scale-down') {
 						// for 'scale-down' the dimensions are the minimum of 'contains' and 'none'
 						videoScaledWidth = Math.min(videoScaledWidth, videoWidth);
 						videoScaledHeight = Math.min(videoScaledHeight, videoHeight);
@@ -983,18 +950,14 @@ class QrScanner {
 			// getComputedStyle is so nice to convert keywords (left, center, right, top, bottom) to percent and makes
 			// sure to set the default of 50% if only one or no component was provided, therefore we can be sure that
 			// both components are set. Additionally, it converts units other than px (e.g. rem) to px.
-			const [videoX, videoY] = videoStyle.objectPosition
-				.split(" ")
-				.map((length, i) => {
-					const lengthValue = parseFloat(length);
-					return length.endsWith("%")
-						? ((!i
-								? elementWidth - videoScaledWidth
-								: elementHeight - videoScaledHeight) *
-								lengthValue) /
-								100
-						: lengthValue;
-				});
+			const [videoX, videoY] = videoStyle.objectPosition.split(' ').map((length, i) => {
+				const lengthValue = parseFloat(length);
+				return length.endsWith('%')
+					? ((!i ? elementWidth - videoScaledWidth : elementHeight - videoScaledHeight) *
+							lengthValue) /
+							100
+					: lengthValue;
+			});
 
 			const regionWidth = this._scanRegion.width || videoWidth;
 			const regionHeight = this._scanRegion.height || videoHeight;
@@ -1005,12 +968,13 @@ class QrScanner {
 			overlayStyle.width = `${(regionWidth / videoWidth) * videoScaledWidth}px`;
 			overlayStyle.height = `${(regionHeight / videoHeight) * videoScaledHeight}px`;
 			overlayStyle.top = `${elementY + videoY + (regionY / videoHeight) * videoScaledHeight}px`;
+			// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
+			// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 			const isVideoMirrored = /scaleX\(-1\)/.test(video.style.transform!);
 			overlayStyle.left = `${
 				elementX +
 				(isVideoMirrored ? elementWidth - videoX - videoScaledWidth : videoX) +
-				((isVideoMirrored ? videoWidth - regionX - regionWidth : regionX) /
-					videoWidth) *
+				((isVideoMirrored ? videoWidth - regionX - regionWidth : regionX) / videoWidth) *
 					videoScaledWidth
 			}px`;
 			// apply same mirror as on video
@@ -1042,38 +1006,34 @@ class QrScanner {
 
 	private static _createOverlaySvgElement(): SVGSVGElement {
 		if (!QrScanner._scanRegionHighlightTemplate) {
-			const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-			svg.classList.add("scan-region-highlight-svg");
-			svg.setAttribute("viewBox", "0 0 238 238");
-			svg.setAttribute("preserveAspectRatio", "none");
+			const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+			svg.classList.add('scan-region-highlight-svg');
+			svg.setAttribute('viewBox', '0 0 238 238');
+			svg.setAttribute('preserveAspectRatio', 'none');
 			const svgStyle = svg.style;
-			svgStyle.position = "absolute";
-			svgStyle.width = "100%";
-			svgStyle.height = "100%";
-			svgStyle.left = "0";
-			svgStyle.top = "0";
-			svgStyle.fill = "none";
-			svgStyle.stroke = "#e9b213";
-			svgStyle.strokeWidth = "4";
-			svgStyle.strokeLinecap = "round";
-			svgStyle.strokeLinejoin = "round";
+			svgStyle.position = 'absolute';
+			svgStyle.width = '100%';
+			svgStyle.height = '100%';
+			svgStyle.left = '0';
+			svgStyle.top = '0';
+			svgStyle.fill = 'none';
+			svgStyle.stroke = '#e9b213';
+			svgStyle.strokeWidth = '4';
+			svgStyle.strokeLinecap = 'round';
+			svgStyle.strokeLinejoin = 'round';
 
-			const path = document.createElementNS(
-				"http://www.w3.org/2000/svg",
-				"path",
-			);
+			const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
 			path.setAttribute(
-				"d",
-				"M31 2H10a8 8 0 0 0-8 8v21M207 2h21a8 8 0 0 1 8 8v21m0 176v21a8 8 0 0 1-8 8h-21m-176 0H10a8 8 0 0 1-8-8v-21",
+				'd',
+				'M31 2H10a8 8 0 0 0-8 8v21M207 2h21a8 8 0 0 1 8 8v21m0 176v21a8 8 0 0 1-8 8h-21m-176 0H10a8 8 0 0 1-8-8v-21',
 			);
 			svg.appendChild(path);
 			QrScanner._scanRegionHighlightTemplate = svg;
 		}
-		return QrScanner._scanRegionHighlightTemplate.cloneNode(
-			true,
-		) as SVGSVGElement;
+		return QrScanner._scanRegionHighlightTemplate.cloneNode(true) as SVGSVGElement;
 	}
 
+	// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 	private _scanFrame(): void {
 		if (!this._active || this.$video.paused || this.$video.ended) return;
 		// If requestVideoFrameCallback is available use that to avoid unnecessary scans on the same frame as the
@@ -1081,10 +1041,13 @@ class QrScanner {
 		// settings where the exposure time is longer. Both, requestVideoFrameCallback and requestAnimationFrame are not
 		// being fired if the tab is in the background, which is what we want.
 		const requestFrame =
-			"requestVideoFrameCallback" in this.$video
+			// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+			'requestVideoFrameCallback' in this.$video
 				? // @ts-ignore
 					this.$video.requestVideoFrameCallback.bind(this.$video)
 				: requestAnimationFrame;
+		// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
+		// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 		requestFrame(async () => {
 			if (this.$video.readyState <= 1) {
 				// Skip scans until the video is ready as drawImage() only works correctly on a video with readyState
@@ -1117,10 +1080,7 @@ class QrScanner {
 				this._onDecodeError(error as Error | string);
 			}
 
-			if (
-				QrScanner._disableBarcodeDetector &&
-				!((await this._qrEnginePromise) instanceof Worker)
-			) {
+			if (QrScanner._disableBarcodeDetector && !((await this._qrEnginePromise) instanceof Worker)) {
 				// replace the disabled BarcodeDetector
 				this._qrEnginePromise = QrScanner.createQrEngine();
 			}
@@ -1136,26 +1096,26 @@ class QrScanner {
 					clearTimeout(this._codeOutlineHighlightRemovalTimeout);
 					this._codeOutlineHighlightRemovalTimeout = undefined;
 					this.$codeOutlineHighlight.setAttribute(
-						"viewBox",
+						'viewBox',
 						`${this._scanRegion.x || 0} ` +
 							`${this._scanRegion.y || 0} ` +
 							`${this._scanRegion.width || this.$video.videoWidth} ` +
 							`${this._scanRegion.height || this.$video.videoHeight}`,
 					);
+					// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
 					const polygon = this.$codeOutlineHighlight.firstElementChild!;
 					polygon.setAttribute(
-						"points",
-						result.cornerPoints.map(({ x, y }) => `${x},${y}`).join(" "),
+						'points',
+						result.cornerPoints.map(({ x, y }) => `${x},${y}`).join(' '),
 					);
-					this.$codeOutlineHighlight.style.display = "";
+					this.$codeOutlineHighlight.style.display = '';
 				}
-			} else if (
-				this.$codeOutlineHighlight &&
-				!this._codeOutlineHighlightRemovalTimeout
-			) {
+			} else if (this.$codeOutlineHighlight && !this._codeOutlineHighlightRemovalTimeout) {
 				// hide after timeout to make it flash less when on some frames the QR code is detected and on some not
 				this._codeOutlineHighlightRemovalTimeout = setTimeout(
-					() => (this.$codeOutlineHighlight!.style.display = "none"),
+					// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
+					// biome-ignore lint/suspicious/noReturnAssign: baseline: pre-existing debt. should be fixed
+					() => (this.$codeOutlineHighlight!.style.display = 'none'),
 					100,
 				);
 			}
@@ -1167,6 +1127,7 @@ class QrScanner {
 	private _onDecodeError(error: Error | string): void {
 		// default error handler; can be overwritten in the constructor
 		if (error === QrScanner.NO_QR_CODE_FOUND) return;
+		// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
 		console.log(error);
 	}
 
@@ -1174,11 +1135,12 @@ class QrScanner {
 		stream: MediaStream;
 		facingMode: QrScanner.FacingMode;
 	}> {
-		if (!navigator.mediaDevices) throw new Error("Camera not found.");
+		if (!navigator.mediaDevices) throw new Error('Camera not found.');
 
+		// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 		const preferenceType = /^(environment|user)$/.test(this._preferredCamera)
-			? "facingMode"
-			: "deviceId";
+			? 'facingMode'
+			: 'deviceId';
 		const constraintsWithoutCamera: Array<MediaTrackConstraints> = [
 			{
 				width: { min: 1024 },
@@ -1194,11 +1156,9 @@ class QrScanner {
 			}),
 		);
 
-		for (const constraints of [
-			...constraintsWithCamera,
-			...constraintsWithoutCamera,
-		]) {
+		for (const constraints of [...constraintsWithCamera, ...constraintsWithoutCamera]) {
 			try {
+				// biome-ignore lint/performance/noAwaitInLoops: baseline: pre-existing debt. should be fixed
 				const stream = await navigator.mediaDevices.getUserMedia({
 					video: constraints,
 					audio: false,
@@ -1210,16 +1170,18 @@ class QrScanner {
 					this._getFacingMode(stream) ||
 					(constraints.facingMode
 						? (this._preferredCamera as QrScanner.FacingMode) // a facing mode we were able to fulfill
-						: this._preferredCamera === "environment"
-							? "user" // switch as _preferredCamera was environment but we are not able to fulfill it
-							: "environment"); // switch from unfulfilled user facingMode or default to environment
+						: this._preferredCamera === 'environment'
+							? 'user' // switch as _preferredCamera was environment but we are not able to fulfill it
+							: 'environment'); // switch from unfulfilled user facingMode or default to environment
 				return { stream, facingMode };
+				// biome-ignore lint/complexity/noUselessCatchBinding: baseline: pre-existing debt. should be fixed
+				// biome-ignore lint/correctness/noUnusedVariables: baseline: pre-existing debt. should be fixed
 			} catch (e) {
 				// Camera constraint not satisfiable, try next
 			}
 		}
 
-		throw new Error("Camera not found.");
+		throw new Error('Camera not found.');
 	}
 
 	private async _restartVideoStream(): Promise<void> {
@@ -1240,23 +1202,25 @@ class QrScanner {
 
 	private _setVideoMirror(facingMode: QrScanner.FacingMode): void {
 		// in user facing mode mirror the video to make it easier for the user to position the QR code
-		const scaleFactor = facingMode === "user" ? -1 : 1;
-		this.$video.style.transform = "scaleX(" + scaleFactor + ")";
+		const scaleFactor = facingMode === 'user' ? -1 : 1;
+		// biome-ignore lint/style/useTemplate: baseline: pre-existing debt. should be fixed
+		this.$video.style.transform = 'scaleX(' + scaleFactor + ')';
 	}
 
-	private _getFacingMode(
-		videoStream: MediaStream,
-	): QrScanner.FacingMode | null {
+	private _getFacingMode(videoStream: MediaStream): QrScanner.FacingMode | null {
 		const videoTrack = videoStream.getVideoTracks()[0];
 		if (!videoTrack) return null; // unknown
 		// inspired by https://github.com/JodusNodus/react-qr-reader/blob/master/src/getDeviceId.js#L13
+		// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
 		return /rear|back|environment/i.test(videoTrack.label)
-			? "environment"
-			: /front|user|face/i.test(videoTrack.label)
-				? "user"
+			? 'environment'
+			: // biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
+				/front|user|face/i.test(videoTrack.label)
+				? 'user'
 				: null; // unknown
 	}
 
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
 	private static _drawToCanvas(
 		image:
 			| HTMLImageElement
@@ -1269,27 +1233,29 @@ class QrScanner {
 		canvas?: HTMLCanvasElement | null,
 		disallowCanvasResizing = false,
 	): [HTMLCanvasElement, CanvasRenderingContext2D] {
-		canvas = canvas || document.createElement("canvas");
+		canvas = canvas || document.createElement('canvas');
+		// biome-ignore lint/complexity/useOptionalChain: baseline: pre-existing debt. should be fixed
 		const scanRegionX = scanRegion && scanRegion.x ? scanRegion.x : 0;
+		// biome-ignore lint/complexity/useOptionalChain: baseline: pre-existing debt. should be fixed
 		const scanRegionY = scanRegion && scanRegion.y ? scanRegion.y : 0;
 		const scanRegionWidth =
+			// biome-ignore lint/complexity/useOptionalChain: baseline: pre-existing debt. should be fixed
 			scanRegion && scanRegion.width
 				? scanRegion.width
 				: (image as HTMLVideoElement).videoWidth || (image.width as number);
 		const scanRegionHeight =
+			// biome-ignore lint/complexity/useOptionalChain: baseline: pre-existing debt. should be fixed
 			scanRegion && scanRegion.height
 				? scanRegion.height
 				: (image as HTMLVideoElement).videoHeight || (image.height as number);
 
 		if (!disallowCanvasResizing) {
 			const canvasWidth =
-				scanRegion && scanRegion.downScaledWidth
-					? scanRegion.downScaledWidth
-					: scanRegionWidth;
+				// biome-ignore lint/complexity/useOptionalChain: baseline: pre-existing debt. should be fixed
+				scanRegion && scanRegion.downScaledWidth ? scanRegion.downScaledWidth : scanRegionWidth;
 			const canvasHeight =
-				scanRegion && scanRegion.downScaledHeight
-					? scanRegion.downScaledHeight
-					: scanRegionHeight;
+				// biome-ignore lint/complexity/useOptionalChain: baseline: pre-existing debt. should be fixed
+				scanRegion && scanRegion.downScaledHeight ? scanRegion.downScaledHeight : scanRegionHeight;
 			// Setting the canvas width or height clears the canvas, even if the values didn't change, therefore only
 			// set them if they actually changed.
 			if (canvas.width !== canvasWidth) {
@@ -1300,7 +1266,8 @@ class QrScanner {
 			}
 		}
 
-		const context = canvas.getContext("2d", { alpha: false })!;
+		// biome-ignore lint/style/noNonNullAssertion: baseline: pre-existing debt. should be fixed
+		const context = canvas.getContext('2d', { alpha: false })!;
 		context.imageSmoothingEnabled = false; // gives less blurry images
 		context.drawImage(
 			image,
@@ -1327,7 +1294,7 @@ class QrScanner {
 			| File
 			| Blob
 			| URL
-			| String,
+			| string,
 	): Promise<
 		| HTMLImageElement
 		| HTMLVideoElement
@@ -1343,22 +1310,18 @@ class QrScanner {
 			imageOrFileOrBlobOrUrl instanceof HTMLVideoElement ||
 			imageOrFileOrBlobOrUrl instanceof HTMLCanvasElement ||
 			imageOrFileOrBlobOrUrl instanceof SVGImageElement ||
-			("OffscreenCanvas" in window &&
-				imageOrFileOrBlobOrUrl instanceof OffscreenCanvas) ||
-			("ImageBitmap" in window && imageOrFileOrBlobOrUrl instanceof ImageBitmap)
+			('OffscreenCanvas' in window && imageOrFileOrBlobOrUrl instanceof OffscreenCanvas) ||
+			('ImageBitmap' in window && imageOrFileOrBlobOrUrl instanceof ImageBitmap)
 		) {
 			return imageOrFileOrBlobOrUrl;
 		} else if (
 			imageOrFileOrBlobOrUrl instanceof File ||
 			imageOrFileOrBlobOrUrl instanceof Blob ||
 			imageOrFileOrBlobOrUrl instanceof URL ||
-			typeof imageOrFileOrBlobOrUrl === "string"
+			typeof imageOrFileOrBlobOrUrl === 'string'
 		) {
 			const image = new Image();
-			if (
-				imageOrFileOrBlobOrUrl instanceof File ||
-				imageOrFileOrBlobOrUrl instanceof Blob
-			) {
+			if (imageOrFileOrBlobOrUrl instanceof File || imageOrFileOrBlobOrUrl instanceof Blob) {
 				image.src = URL.createObjectURL(imageOrFileOrBlobOrUrl);
 			} else {
 				image.src = imageOrFileOrBlobOrUrl.toString();
@@ -1367,15 +1330,12 @@ class QrScanner {
 				await QrScanner._awaitImageLoad(image);
 				return image;
 			} finally {
-				if (
-					imageOrFileOrBlobOrUrl instanceof File ||
-					imageOrFileOrBlobOrUrl instanceof Blob
-				) {
+				if (imageOrFileOrBlobOrUrl instanceof File || imageOrFileOrBlobOrUrl instanceof Blob) {
 					URL.revokeObjectURL(image.src);
 				}
 			}
 		} else {
-			throw new Error("Unsupported image type.");
+			throw new Error('Unsupported image type.');
 		}
 	}
 
@@ -1383,40 +1343,34 @@ class QrScanner {
 		if (image.complete && image.naturalWidth !== 0) return; // already loaded
 		await new Promise<void>((resolve, reject) => {
 			const listener = (event: ErrorEvent | Event) => {
-				image.removeEventListener("load", listener);
-				image.removeEventListener("error", listener);
+				image.removeEventListener('load', listener);
+				image.removeEventListener('error', listener);
 				if (event instanceof ErrorEvent) {
-					reject("Image load error");
+					reject('Image load error');
 				} else {
 					resolve();
 				}
 			};
-			image.addEventListener("load", listener);
-			image.addEventListener("error", listener);
+			image.addEventListener('load', listener);
+			image.addEventListener('error', listener);
 		});
 	}
 
 	private static async _postWorkerMessage(
-		qrEngineOrQrEnginePromise:
-			| Worker
-			| BarcodeDetector
-			| Promise<Worker | BarcodeDetector>,
+		qrEngineOrQrEnginePromise: Worker | BarcodeDetector | Promise<Worker | BarcodeDetector>,
 		type: string,
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 		data?: any,
 		transfer?: Transferable[],
 	): Promise<number> {
-		return QrScanner._postWorkerMessageSync(
-			await qrEngineOrQrEnginePromise,
-			type,
-			data,
-			transfer,
-		);
+		return QrScanner._postWorkerMessageSync(await qrEngineOrQrEnginePromise, type, data, transfer);
 	}
 
 	// sync version of _postWorkerMessage without performance overhead of async functions
 	private static _postWorkerMessageSync(
 		qrEngine: Worker | BarcodeDetector,
 		type: string,
+		// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 		data?: any,
 		transfer?: Transferable[],
 	): number {
@@ -1444,7 +1398,7 @@ declare namespace QrScanner {
 		downScaledHeight?: number;
 	}
 
-	export type FacingMode = "environment" | "user";
+	export type FacingMode = 'environment' | 'user';
 	export type DeviceId = string;
 
 	export interface Camera {
@@ -1452,7 +1406,7 @@ declare namespace QrScanner {
 		label: string;
 	}
 
-	export type InversionMode = "original" | "invert" | "both";
+	export type InversionMode = 'original' | 'invert' | 'both';
 
 	export interface Point {
 		x: number;

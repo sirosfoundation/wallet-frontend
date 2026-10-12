@@ -1,5 +1,5 @@
-import { CredentialParsingError } from "./error";
-import { CredentialParser, ParsingEngineI } from "./interfaces";
+import { CredentialParsingError } from './error';
+import type { CredentialParser, ParsingEngineI } from './interfaces';
 
 export function ParsingEngine(): ParsingEngineI {
 	const parsers: CredentialParser[] = [];
@@ -17,6 +17,7 @@ export function ParsingEngine(): ParsingEngineI {
 
 			for (const parser of parsers) {
 				try {
+					// biome-ignore lint/performance/noAwaitInLoops: baseline: pre-existing debt. should be fixed
 					const result = await parser.parse({ rawCredential, credentialIssuer });
 
 					// Parser not supported this format, try next parser
@@ -26,18 +27,18 @@ export function ParsingEngine(): ParsingEngineI {
 
 					// Otherwise return immediately
 					return result;
-
 				} catch {
 					thrown = true;
-					continue;
 				}
 			}
 
 			// No parser handled it
 			return {
 				success: false,
-				error: thrown ? CredentialParsingError.UnknownError : CredentialParsingError.UnsupportedFormat,
+				error: thrown
+					? CredentialParsingError.UnknownError
+					: CredentialParsingError.UnsupportedFormat,
 			};
-		}
+		},
 	};
 }

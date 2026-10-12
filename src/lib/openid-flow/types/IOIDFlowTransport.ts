@@ -10,9 +10,9 @@
  * - Direct: Browser makes direct CORS requests (future, when ecosystem ready)
  */
 
-import type { OIDFlowRequest, OIDFlowResponse, OIDFlowProgressEvent } from './OIDFlowTypes';
 import type { OID4VCIFlowParams, OID4VCIFlowResult } from './OID4VCITypes';
 import type { OID4VPFlowParams, OID4VPFlowResult } from './OID4VPTypes';
+import type { OIDFlowProgressEvent, OIDFlowRequest, OIDFlowResponse } from './OIDFlowTypes';
 
 /**
  * Transport interface for credential flows
@@ -98,6 +98,7 @@ export interface IOIDFlowTransport {
  * Null transport implementation for when no transport is available
  */
 export class NullOIDFlowTransport implements IOIDFlowTransport {
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	async connect(): Promise<void> {
 		throw new Error('No transport configured');
 	}
@@ -110,23 +111,28 @@ export class NullOIDFlowTransport implements IOIDFlowTransport {
 		return false;
 	}
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	async startOID4VCIFlow(): Promise<OID4VCIFlowResult> {
 		throw new Error('No transport configured');
 	}
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	async startOID4VPFlow(): Promise<OID4VPFlowResult> {
 		throw new Error('No transport configured');
 	}
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	async request<T>(): Promise<OIDFlowResponse<T>> {
 		throw new Error('No transport configured');
 	}
 
 	onProgress(): () => void {
+		// biome-ignore lint/suspicious/noEmptyBlockStatements: baseline: pre-existing debt. should be fixed
 		return () => {};
 	}
 
 	onError(): () => void {
+		// biome-ignore lint/suspicious/noEmptyBlockStatements: baseline: pre-existing debt. should be fixed
 		return () => {};
 	}
 }

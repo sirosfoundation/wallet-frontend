@@ -1,16 +1,17 @@
-import { assert, describe, it } from "vitest";
-import { normalizePath } from "./normalizePath";
+import { assert, describe, it } from 'vitest';
+import { normalizePath } from './normalizePath';
 
-describe("normalizePath", () => {
+describe('normalizePath', () => {
 	it.each([
-		{ path: "$.a.b.c", expected: ["a", "b", "c"] },
-		{ path: "a.b.c", expected: ["a.b.c"] },
-	])("normalizePath($path) -> $expected", ({ path, expected }) => {
+		{ path: '$.a.b.c', expected: ['a', 'b', 'c'] },
+		{ path: 'a.b.c', expected: ['a.b.c'] },
+		// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
+	])('normalizePath($path) -> $expected', ({ path, expected }) => {
 		assert.deepEqual(normalizePath(path), expected);
 	});
 
-	it("returns the same array reference when given an array (no copy)", () => {
-		const arr = ["a", "b"];
+	it('returns the same array reference when given an array (no copy)', () => {
+		const arr = ['a', 'b'];
 		assert.equal(normalizePath(arr), arr);
 	});
 });

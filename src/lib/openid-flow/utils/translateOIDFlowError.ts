@@ -17,7 +17,7 @@ export function translateOIDFlowError(
 	const fallbackTitle = t(`openIdCallback.${fallback}.title`);
 	const fallbackDescription = t(`openIdCallback.${fallback}.description`);
 
-	if (!(err instanceof OIDFlowError) || !err.code) {
+	if (!(err instanceof OIDFlowError && err.code)) {
 		return { title: fallbackTitle, description: fallbackDescription };
 	}
 

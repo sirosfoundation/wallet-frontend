@@ -1,17 +1,15 @@
-import { describe, it, expect, vi } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
-import React from 'react';
-import {
-	TxCodeInputProvider,
-	useTxCodeInput,
-	useTxCodeInputSafe,
-} from './TxCodeInputContext';
+import { act, renderHook } from '@testing-library/react';
+import type React from 'react';
+import { describe, expect, it, vi } from 'vitest';
+import { TxCodeInputProvider, useTxCodeInput, useTxCodeInputSafe } from './TxCodeInputContext';
 
 describe('TxCodeInputContext', () => {
+	// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 	describe('useTxCodeInput', () => {
 		it('should throw when used outside provider', () => {
 			expect(() => {
 				renderHook(() => useTxCodeInput());
+				// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 			}).toThrow('useTxCodeInput must be used within TxCodeInputProvider');
 		});
 
@@ -29,6 +27,7 @@ describe('TxCodeInputContext', () => {
 		});
 	});
 
+	// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 	describe('useTxCodeInputSafe', () => {
 		it('should return null when used outside provider', () => {
 			const { result } = renderHook(() => useTxCodeInputSafe());
@@ -47,6 +46,7 @@ describe('TxCodeInputContext', () => {
 		});
 	});
 
+	// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 	describe('TxCodeInputProvider', () => {
 		const wrapper = ({ children }: { children: React.ReactNode }) => (
 			<TxCodeInputProvider>{children}</TxCodeInputProvider>
@@ -60,6 +60,7 @@ describe('TxCodeInputContext', () => {
 		});
 
 		describe('requestTxCode', () => {
+			// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 			it('should open popup with provided config', async () => {
 				const { result } = renderHook(() => useTxCodeInput(), { wrapper });
 

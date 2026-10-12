@@ -1,37 +1,44 @@
-import { cborEncode, getCborEncodeDecodeOptions, setCborEncodeDecodeOptions } from "@auth0/mdl/lib/cbor";
-import { DataItem } from "@auth0/mdl";
+import { DataItem } from '@auth0/mdl';
+import {
+	cborEncode,
+	getCborEncodeDecodeOptions,
+	setCborEncodeDecodeOptions,
+} from '@auth0/mdl/lib/cbor';
 import { logger } from '@/logger';
 
-export async function createSessionKey(rawPublic: ArrayBuffer, ephemeralKey: CryptoKeyPair) : Promise<CryptoKey> {
+export async function createSessionKey(
+	rawPublic: ArrayBuffer,
+	ephemeralKey: CryptoKeyPair,
+): Promise<CryptoKey> {
 	const importedVerifierPublicKey = await crypto.subtle.importKey(
-		"raw",
+		'raw',
 		rawPublic,
 		{
-			name: "ECDH",
-			namedCurve: "P-256",
+			name: 'ECDH',
+			namedCurve: 'P-256',
 		},
 		true,
-		[]
+		[],
 	);
 
 	const sessionKey = await crypto.subtle.deriveKey(
 		{
-			name: "ECDH",
-			public: importedVerifierPublicKey
+			name: 'ECDH',
+			public: importedVerifierPublicKey,
 		},
 		ephemeralKey.privateKey,
 		{
-			name: "AES-GCM",
+			name: 'AES-GCM',
 			length: 256,
 		},
 		false,
-		["encrypt", "decrypt"]
+		['encrypt', 'decrypt'],
 	);
 
 	return sessionKey;
 }
 
-export async function encryptMessage(sessionKey, plaintext, iv=null) {
+export async function encryptMessage(sessionKey, plaintext, iv = null) {
 	// const enc = new TextEncoder();
 	if (!iv) {
 		iv = crypto.getRandomValues(new Uint8Array(12));
@@ -42,19 +49,19 @@ export async function encryptMessage(sessionKey, plaintext, iv=null) {
 
 	const ciphertext = await crypto.subtle.encrypt(
 		{
-			name: "AES-GCM",
-			iv: iv
+			name: 'AES-GCM',
+			iv: iv,
 		},
 		sessionKey,
 		// enc.encode(plaintext)
 		// plaintext
-		new TextEncoder().encode(plaintext).buffer
+		new TextEncoder().encode(plaintext).buffer,
 	);
 
 	return { iv, ciphertext };
 }
 
-export async function encryptUint8Array(sessionKey, arr, iv=null) {
+export async function encryptUint8Array(sessionKey, arr, iv = null) {
 	// const enc = new TextEncoder();
 	if (!iv) {
 		iv = crypto.getRandomValues(new Uint8Array(12));
@@ -65,13 +72,13 @@ export async function encryptUint8Array(sessionKey, arr, iv=null) {
 
 	const ciphertext = await crypto.subtle.encrypt(
 		{
-			name: "AES-GCM",
-			iv: iv
+			name: 'AES-GCM',
+			iv: iv,
 		},
 		sessionKey,
 		// enc.encode(plaintext)
 		// plaintext
-		arr
+		arr,
 	);
 
 	return { iv, ciphertext };
@@ -82,11 +89,11 @@ export async function decryptMessage(sessionKey, iv, ciphertext, uint8 = false) 
 
 	const plaintext = await crypto.subtle.decrypt(
 		{
-			name: "AES-GCM",
-			iv: iv
+			name: 'AES-GCM',
+			iv: iv,
 		},
 		sessionKey,
-		ciphertext
+		ciphertext,
 	);
 	if (uint8) {
 		return new Uint8Array(plaintext);
@@ -99,34 +106,40 @@ export function hexToUint8Array(hexString) {
 	return Uint8Array.from(hexString.match(/.{1,2}/g).map((byte) => parseInt(byte, 16)));
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 export function uint8ArrayToBase64Url(array: any) {
 	// Convert the Uint8Array to a binary string
 	let binaryString = '';
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+	// biome-ignore lint/complexity/noForEach: baseline: pre-existing debt. should be fixed
 	array.forEach((byte: any) => {
 		binaryString += String.fromCharCode(byte);
 	});
 
 	// Convert the binary string to a Base64 string
-	let base64String = btoa(binaryString);
+	const base64String = btoa(binaryString);
 
 	// Convert the Base64 string to Base64URL format
-	let base64UrlString = base64String
+	const base64UrlString = base64String
 		.replace(/\+/g, '-') // Replace + with -
 		.replace(/\//g, '_') // Replace / with _
-		.replace(/=+$/, ''); // Remove trailing '='
+		// biome-ignore lint/performance/useTopLevelRegex: baseline: pre-existing debt. should be fixed
+		.replace(/[=]+$/, ''); // Remove trailing '='
 
 	return base64UrlString;
 }
 
 export function uint8ArraytoHexString(byteArray: Uint8Array): string {
-	return Array.from(byteArray, (byte: number) =>
-		('0' + (byte & 0xFF).toString(16)).slice(-2)
-	).join('');
+	// biome-ignore lint/style/useTemplate: baseline: pre-existing debt. should be fixed
+	// biome-ignore lint/suspicious/noBitwiseOperators: baseline: pre-existing debt. should be fixed
+	return Array.from(byteArray, (byte: number) => ('0' + (byte & 0xff).toString(16)).slice(-2)).join(
+		'',
+	);
 }
 
-export async function deriveSKReader(sessionTranscriptBytes) {
-
-}
+// biome-ignore lint/suspicious/noEmptyBlockStatements: baseline: pre-existing debt. should be fixed
+// biome-ignore lint/correctness/noUnusedFunctionParameters: baseline: pre-existing debt. should be fixed
+export async function deriveSKReader(sessionTranscriptBytes) {}
 
 /*
 		Source: https://github.com/mdn/dom-examples/blob/main/web-crypto/derive-key/hkdf.js
@@ -136,32 +149,26 @@ export async function deriveSKReader(sessionTranscriptBytes) {
 */
 export async function deriveSharedSecret(privateKey, publicKey) {
 	const secret = await crypto.subtle.deriveBits(
-		{ name: "ECDH", public: publicKey },
+		{ name: 'ECDH', public: publicKey },
 		privateKey,
-		256
+		256,
 	);
 
-	return crypto.subtle.importKey(
-		"raw",
-		secret,
-		{ name: "HKDF" },
-		false,
-		["deriveKey"]
-	);
+	return crypto.subtle.importKey('raw', secret, { name: 'HKDF' }, false, ['deriveKey']);
 }
 
 export async function getKey(keyMaterial, salt, info) {
 	return await crypto.subtle.deriveKey(
 		{
-			name: "HKDF",
+			name: 'HKDF',
 			salt: salt,
 			info: new TextEncoder().encode(info).buffer,
-			hash: "SHA-256",
+			hash: 'SHA-256',
 		},
 		keyMaterial,
-		{ name: "AES-GCM", length: 256 },
+		{ name: 'AES-GCM', length: 256 },
 		true,
-		["encrypt", "decrypt"]
+		['encrypt', 'decrypt'],
 	);
 }
 
@@ -169,27 +176,39 @@ export function getSessionTranscriptBytes(deviceEngagementBytes, eReaderKeyBytes
 	const options = getCborEncodeDecodeOptions();
 	options.variableMapSize = true;
 	setCborEncodeDecodeOptions(options);
-	return cborEncode(DataItem.fromData([
-		deviceEngagementBytes, // DeviceEngagementBytes
-		eReaderKeyBytes, // EReaderKeyBytes
-		null,
-	]));
+	return cborEncode(
+		DataItem.fromData([
+			deviceEngagementBytes, // DeviceEngagementBytes
+			eReaderKeyBytes, // EReaderKeyBytes
+			null,
+		]),
+	);
 }
 
 export function getDeviceEngagement(uuid: string, publicKeyJWK: JsonWebKey) {
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 	const bleOptions = new Map<number, any>([
 		[0, false],
 		[1, true],
 		[11, uuidToUint8Array(uuid)],
 	]);
 
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 	const themap = new Map<number, any>();
-	themap.set(0, "1.0");
-	//@ts-ignore
-	themap.set(1, [1, DataItem.fromData(new Map([[1, 2], [-1, 1],
+	themap.set(0, '1.0');
+	//@ts-expect-error
+	themap.set(1, [
+		1,
+		DataItem.fromData(
+			new Map([
+				[1, 2],
+				[-1, 1],
 
-	[-2, base64urlToUint8Array(publicKeyJWK.x)],
-	[-3, base64urlToUint8Array(publicKeyJWK.y)]]))])
+				[-2, base64urlToUint8Array(publicKeyJWK.x)],
+				[-3, base64urlToUint8Array(publicKeyJWK.y)],
+			]),
+		),
+	]);
 	themap.set(2, [[2, 1, bleOptions]]);
 
 	return themap;
@@ -212,7 +231,7 @@ export function uuidToUint8Array(uuid) {
 
 export function base64urlToUint8Array(base64url: string): Uint8Array {
 	const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/'); // Base64url to Base64
-	const binaryString = atob(base64);  // Decode base64 to binary string
+	const binaryString = atob(base64); // Decode base64 to binary string
 	const byteArray = new Uint8Array(binaryString.length); // Create a Uint8Array of the same length
 
 	// Populate the Uint8Array with byte values

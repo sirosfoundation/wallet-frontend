@@ -1,13 +1,18 @@
-import path from 'node:path';
 import { writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { MetadataImage } from '../branding';
-import { EnvConfigMap } from '../config';
-import { TagsMap } from '../utils/resources';
+import type { EnvConfigMap } from '../config';
+import type { TagsMap } from '../utils/resources';
 
 /**
  * Generates a metadata image based on the provided configuration and writes it to the specified destination directory.
  */
-export default async function metadataImage(destDir: string, config: EnvConfigMap, tagsToInject?: TagsMap, brandingHash?: string) {
+export default async function metadataImage(
+	destDir: string,
+	config: EnvConfigMap,
+	tagsToInject?: TagsMap,
+	brandingHash?: string,
+) {
 	const fileName = 'image.png';
 
 	const generationConfig = {
@@ -29,13 +34,13 @@ export default async function metadataImage(destDir: string, config: EnvConfigMa
 		props: {
 			property: 'og:image',
 			content: `${config.STATIC_PUBLIC_URL}/image.png?v=${brandingHash}`,
-		}
+		},
 	});
 	tagsToInject?.set('twitter-image', {
 		tag: 'meta',
 		props: {
 			name: 'twitter:image',
 			content: `${config.STATIC_PUBLIC_URL}/image.png?v=${brandingHash}`,
-		}
+		},
 	});
 }

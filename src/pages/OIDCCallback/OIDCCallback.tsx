@@ -6,29 +6,33 @@
  * then redirects back to the login page.
  */
 
+import { AlertCircle, CheckCircle, LoaderCircle } from 'lucide-react';
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { useTenant } from '../../context/TenantContext';
-import { handleOIDCCallback, buildOIDCConfig } from '../../lib/oidc';
-import LoginLayout from '../../components/Auth/AuthLayout';
-import { LoaderCircle, CheckCircle, AlertCircle } from 'lucide-react';
-import Button from '../../components/Buttons/Button';
+import { useNavigate } from 'react-router';
 import { useStatusContext } from '@/hooks/useStatusContext';
+import LoginLayout from '../../components/Auth/AuthLayout';
+import Button from '../../components/Buttons/Button';
+import { useTenant } from '../../context/TenantContext';
+import { buildOIDCConfig, handleOIDCCallback } from '../../lib/oidc';
 
 type CallbackState =
 	| { status: 'processing' }
 	| { status: 'success'; returnPath: string }
 	| { status: 'error'; message: string };
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 export default function OIDCCallback() {
 	const { blockUpdates } = useStatusContext();
 	const { t } = useTranslation();
 	const navigate = useNavigate();
-	const { buildPath, getRegistrationOIDCProvider, getLoginOIDCProvider, isLoadingConfig } = useTenant();
+	const { buildPath, getRegistrationOIDCProvider, getLoginOIDCProvider, isLoadingConfig } =
+		useTenant();
 
 	const [state, setState] = useState<CallbackState>({ status: 'processing' });
 
+	// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 	useEffect(() => {
 		// Wait for tenant config to load
 		if (isLoadingConfig) {
@@ -37,6 +41,7 @@ export default function OIDCCallback() {
 
 		const release = blockUpdates('oidc-callback');
 
+		// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baseline: pre-existing debt. should be fixed
 		const processCallback = async () => {
 			try {
 				// Determine the redirect URI (same as what was used to start the flow)
@@ -59,9 +64,8 @@ export default function OIDCCallback() {
 				}
 
 				// Get the appropriate provider config
-				const providerConfig = purpose === 'registration'
-					? getRegistrationOIDCProvider()
-					: getLoginOIDCProvider();
+				const providerConfig =
+					purpose === 'registration' ? getRegistrationOIDCProvider() : getLoginOIDCProvider();
 
 				if (!providerConfig) {
 					throw new Error('OIDC provider not configured');
@@ -79,8 +83,8 @@ export default function OIDCCallback() {
 					const targetPath = result.returnPath || buildPath('/login');
 					navigate(targetPath, { replace: true });
 				}, 1500);
-
 			} catch (error) {
+				// biome-ignore lint/suspicious/noConsole: baseline: pre-existing debt. should be fixed
 				console.error('OIDC callback error:', error);
 				setState({
 					status: 'error',
@@ -96,7 +100,15 @@ export default function OIDCCallback() {
 		return () => {
 			release();
 		};
-	}, [isLoadingConfig, getRegistrationOIDCProvider, getLoginOIDCProvider, buildPath, navigate, t, blockUpdates]);
+	}, [
+		isLoadingConfig,
+		getRegistrationOIDCProvider,
+		getLoginOIDCProvider,
+		buildPath,
+		navigate,
+		t,
+		blockUpdates,
+	]);
 
 	const handleRetry = () => {
 		// Go back to login page to start over
@@ -108,7 +120,10 @@ export default function OIDCCallback() {
 			<div className="relative p-8 sm:px-12 space-y-4 md:space-y-6 lg:space-y-8 bg-white rounded-lg dark:bg-dm-gray-900 border border-lm-gray-400 dark:border-dm-gray-600">
 				{state.status === 'processing' && (
 					<div className="flex flex-col items-center gap-4 py-8">
-						<LoaderCircle className="rounded-full text-brand-base dark:text-white animate-spin" size={48} />
+						<LoaderCircle
+							className="rounded-full text-brand-base dark:text-white animate-spin"
+							size={48}
+						/>
 						<p className="text-lm-gray-700 dark:text-dm-gray-300">
 							{t('oidcGate.callbackProcessing')}
 						</p>
@@ -133,11 +148,7 @@ export default function OIDCCallback() {
 						<p className="text-sm text-lm-gray-600 dark:text-dm-gray-400 text-center">
 							{state.message}
 						</p>
-						<Button
-							id="oidc-callback-retry"
-							onClick={handleRetry}
-							variant="primary"
-						>
+						<Button id="oidc-callback-retry" onClick={handleRetry} variant="primary">
 							{t('common.tryAgain')}
 						</Button>
 					</div>

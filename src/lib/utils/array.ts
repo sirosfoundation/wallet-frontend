@@ -32,21 +32,20 @@ export function splitWhen<T>(arr: T[], predicate: (element: T) => boolean): [T[]
 	Filter `arr` for duplicates as determined by `f`, keeping the first element
 	of each duplicate class.
 	*/
-export function deduplicateBy<T, U extends (string | number | boolean | bigint | symbol)>(
+export function deduplicateBy<T, U extends string | number | boolean | bigint | symbol>(
 	arr: T[],
 	f: (element: T) => U,
 ): T[] {
 	return [
-		...arr.reduce(
-			(map, e: T) => {
+		...arr
+			.reduce((map, e: T) => {
 				const key = f(e);
 				if (!map.has(key)) {
 					map.set(key, e);
 				}
 				return map;
-			},
-			new Map<U, T>(),
-		).values(),
+			}, new Map<U, T>())
+			.values(),
 	];
 }
 
@@ -54,18 +53,17 @@ export function deduplicateBy<T, U extends (string | number | boolean | bigint |
 	Filter `arr` for duplicates as determined by `f`, keeping the last element of
 	each duplicate class.
 	*/
-export function deduplicateFromRightBy<T, U extends (string | number | boolean | bigint | symbol)>(
+export function deduplicateFromRightBy<T, U extends string | number | boolean | bigint | symbol>(
 	arr: T[],
 	f: (element: T) => U,
 ): T[] {
 	return [
-		...arr.reduce(
-			(map, e: T) => {
+		...arr
+			.reduce((map, e: T) => {
 				map.set(f(e), e);
 				return map;
-			},
-			new Map<U, T>(),
-		).values(),
+			}, new Map<U, T>())
+			.values(),
 	];
 }
 
@@ -105,14 +103,17 @@ export function compareBy<T, U>(f: (v: T) => U): (a: T, b: T) => number {
 
 	If the maximum is not unique, return the first maximum.
 	 */
-export function maxByKey<T, U extends string | number | boolean | bigint>(arr: T[], byKey: (v: T) => U): T | undefined {
+export function maxByKey<T, U extends string | number | boolean | bigint>(
+	arr: T[],
+	byKey: (v: T) => U,
+): T | undefined {
 	if (arr.length === 0) {
 		return undefined;
 	} else {
 		return arr.slice(1).reduce<[T, U]>(
 			([max, maxKey], next) => {
 				const nextKey = byKey(next);
-				return (nextKey > maxKey) ? [next, nextKey] : [max, maxKey];
+				return nextKey > maxKey ? [next, nextKey] : [max, maxKey];
 			},
 			[arr[0], byKey(arr[0])],
 		)[0];

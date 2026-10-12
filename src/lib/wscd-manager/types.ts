@@ -1,14 +1,9 @@
-import {
-	WscdPlugin,
-	WscdManagerHosts,
-	WscdHostStrength,
-	WscdContainer,
-} from './resources';
-import {
+import type { JWK } from 'jose';
+import type {
 	SessionTranscriptDcApiOptions,
-	SessionTranscriptOptions
+	SessionTranscriptOptions,
 } from '../verifiable-credentials';
-import { JWK } from 'jose';
+import type { WscdContainer, WscdHostStrength, WscdManagerHosts, WscdPlugin } from './resources';
 
 /**
  * The WSCD Manager Client is the public interface of the WSCD, and contains
@@ -109,11 +104,15 @@ export interface IWscdSignOperations {
 	/**
 	 * Generate a device response for mDoc for the DC API.
 	 */
-	generateDeviceResponseForDCAPI(request: GenerateDeviceResponseForDCAPIRequest): Promise<Uint8Array>;
+	generateDeviceResponseForDCAPI(
+		request: GenerateDeviceResponseForDCAPIRequest,
+	): Promise<Uint8Array>;
 	/**
 	 * Generate a device response for mDoc with proximity-based authentication.
 	 */
-	generateDeviceResponseWithProximity(request: GenerateDeviceResponseWithProximityRequest): Promise<Uint8Array>;
+	generateDeviceResponseWithProximity(
+		request: GenerateDeviceResponseWithProximityRequest,
+	): Promise<Uint8Array>;
 }
 
 /**
@@ -141,8 +140,7 @@ export interface IWscdGenerateOperations {
  */
 export interface IWscdOperations extends IWscdSignOperations, IWscdGenerateOperations {}
 
-export type OperationReturnType<T extends keyof IWscdOperations> =
-	ReturnType<IWscdOperations[T]>;
+export type OperationReturnType<T extends keyof IWscdOperations> = ReturnType<IWscdOperations[T]>;
 
 /**
  * The requirements an operation imposes on a host. A host is eligible only if
@@ -192,35 +190,35 @@ export type WscdKeyMetadata = {
  * Request parameters for signing a SD-JWT presentation.
  */
 export type SignSdJwtPresentationRequest = {
-	nonce: string,
-	audience: string,
-	verifiableCredential: string,
+	nonce: string;
+	audience: string;
+	verifiableCredential: string;
 	transactionDataResponseParams?: {
-		transaction_data_hashes: string[],
-		transaction_data_hashes_alg: string[]
-	}
+		transaction_data_hashes: string[];
+		transaction_data_hashes_alg: string[];
+	};
 };
 
 /**
  * Request parameters for signing a VCDM2 presentation.
  */
 export type SignVcdm2PresentationRequest = {
-	nonce: string,
-	audience: string,
-	verifiableCredentials: unknown[],
+	nonce: string;
+	audience: string;
+	verifiableCredentials: unknown[];
 	transactionDataResponseParams?: {
-		transaction_data_hashes: string[],
-		transaction_data_hashes_alg: string[]
-	}
+		transaction_data_hashes: string[];
+		transaction_data_hashes_alg: string[];
+	};
 };
 
 /**
  * Request parameters for generating a device response from a mDoc.
  */
 export type GenerateDeviceResponseRequest = {
-	credential: string,
-	disclosedClaims: string[],
-	sessionTranscript: SessionTranscriptOptions,
+	credential: string;
+	disclosedClaims: string[];
+	sessionTranscript: SessionTranscriptOptions;
 };
 
 /**
@@ -228,9 +226,9 @@ export type GenerateDeviceResponseRequest = {
  * for the DC API.
  */
 export type GenerateDeviceResponseForDCAPIRequest = {
-	credential: string,
-	disclosedClaims: string[],
-	sessionTranscript: SessionTranscriptDcApiOptions,
+	credential: string;
+	disclosedClaims: string[];
+	sessionTranscript: SessionTranscriptDcApiOptions;
 };
 
 /**
@@ -238,9 +236,9 @@ export type GenerateDeviceResponseForDCAPIRequest = {
  * with proximity.
  */
 export type GenerateDeviceResponseWithProximityRequest = {
-	credential: string,
-	disclosedClaims: string[],
-	sessionTranscriptBytes: Uint8Array,
+	credential: string;
+	disclosedClaims: string[];
+	sessionTranscriptBytes: Uint8Array;
 };
 
 /**
@@ -267,28 +265,28 @@ export type WorkerMessage = {
 	id?: number;
 } & (
 	| {
-		action: 'ping',
-	}
+			action: 'ping';
+	  }
 	| {
-		action: 'import_container',
-		container: Uint8Array,
-	}
+			action: 'import_container';
+			container: Uint8Array;
+	  }
 	| {
-		action: 'export_container',
-	}
+			action: 'export_container';
+	  }
 	| {
-		action: 'sign_request',
-		kid: string,
-		data: Uint8Array,
-	}
+			action: 'sign_request';
+			kid: string;
+			data: Uint8Array;
+	  }
 	| {
-		action: 'generate_key',
-	}
+			action: 'generate_key';
+	  }
 	| {
-		action: 'export_public_key',
-		kid: string,
-	}
-)
+			action: 'export_public_key';
+			kid: string;
+	  }
+);
 
 /**
  * Responses from the WSCD worker, corresponding to {@link WorkerMessage}
@@ -298,34 +296,36 @@ export type WorkerResponse = {
 	error?: string;
 } & (
 	| {
-		action: 'ping',
-		result: true;
-	}
+			action: 'ping';
+			result: true;
+	  }
 	| {
-		action: 'import_container';
-		result: boolean;
-	}
+			action: 'import_container';
+			result: boolean;
+	  }
 	| {
-		action: 'export_container';
-		result: Uint8Array;
-	}
+			action: 'export_container';
+			result: Uint8Array;
+	  }
 	| {
-		action: 'sign_request';
-		result: Uint8Array;
-	}
+			action: 'sign_request';
+			result: Uint8Array;
+	  }
 	| {
-		action: 'generate_key';
-		result: string;
-	}
+			action: 'generate_key';
+			result: string;
+	  }
 	| {
-		action: 'export_public_key';
-		result: JWK;
-	}
-)
+			action: 'export_public_key';
+			result: JWK;
+	  }
+);
 
 /**
  * Helper to map {@link WorkerMessage} actions to their corresponding
  * {@link WorkerResponse} results.
  */
-export type WorkerResult<A extends WorkerMessage['action']> =
-	Extract<WorkerResponse, { action: A }>['result'];
+export type WorkerResult<A extends WorkerMessage['action']> = Extract<
+	WorkerResponse,
+	{ action: A }
+>['result'];

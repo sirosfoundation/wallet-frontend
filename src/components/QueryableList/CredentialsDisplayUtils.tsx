@@ -1,18 +1,23 @@
-import React from 'react';
+import type React from 'react';
 import EntityListItem from './EntityListItem';
 
 export function buildCredentialConfiguration(
 	key: string,
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 	config: any,
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 	metadata: any,
-	filterItemByLang: (items: any[], langKey: string) => any
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
+	filterItemByLang: (items: any[], langKey: string) => any,
 ): {
 	identifierField: string;
 	credentialConfigurationDisplayName: string;
 	displayNode: (searchQuery: string) => React.ReactNode;
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 	credentialDisplay: any;
 	credentialConfigurationId: string;
 	credentialIssuerIdentifier: string;
+	// biome-ignore lint/suspicious/noExplicitAny: baseline: pre-existing debt. should be fixed
 	credentialConfiguration: any;
 } {
 	const display = filterItemByLang(config?.credential_metadata?.display, 'locale');
@@ -24,9 +29,7 @@ export function buildCredentialConfiguration(
 
 	const issuerDisplayLang = filterItemByLang(metadata.display, 'locale');
 	const issuerDisplay = {
-		name:
-			issuerDisplayLang?.name ??
-			new URL(metadata.credential_issuer).host,
+		name: issuerDisplayLang?.name ?? new URL(metadata.credential_issuer).host,
 		logo: issuerDisplayLang?.logo ?? null,
 		background_color: issuerDisplayLang?.background_color,
 		text_color: issuerDisplayLang?.text_color,

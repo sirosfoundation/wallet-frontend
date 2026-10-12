@@ -1,4 +1,4 @@
-import { DCAPIEnvelope, DCAPIMode, DCAPIRequestProtocol, DCAPIResponse } from './resources';
+import type { DCAPIEnvelope, DCAPIMode, DCAPIRequestProtocol, DCAPIResponse } from './resources';
 
 export class DCAPIWalletCompanionMode implements DCAPIMode {
 	#verifiedOrigin?: string;
@@ -8,10 +8,12 @@ export class DCAPIWalletCompanionMode implements DCAPIMode {
 		return this.#verifiedOrigin;
 	}
 
+	// biome-ignore lint/correctness/noUnusedFunctionParameters: baseline: pre-existing debt. should be fixed
 	async initialize(envelope: DCAPIEnvelope): Promise<void> {
 		// no-op for now
 	}
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	async originHandshake(envelope: DCAPIEnvelope, expectedOrigins?: string[]): Promise<string> {
 		return new Promise((resolve, reject) => {
 			const timeout = setTimeout(() => reject(new Error('Origin handshake timeout')), 5000);
@@ -21,7 +23,8 @@ export class DCAPIWalletCompanionMode implements DCAPIMode {
 					event.source !== window.opener ||
 					event.data?.type !== 'WC_ORIGIN_ACK' ||
 					!event.data?.requestId
-				) return;
+				)
+					return;
 
 				if (event.data.requestId !== envelope.requestId) {
 					return reject(new Error('Mismatched requestId in origin handshake response.'));
@@ -71,10 +74,12 @@ export class DCAPINativeMode implements DCAPIMode {
 		return this.#verifiedOrigin;
 	}
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	async initialize(envelope: DCAPIEnvelope): Promise<void> {
 		this.#ensureRequestProtocol(envelope.requestProtocol);
 	}
 
+	// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 	async originHandshake(envelope: DCAPIEnvelope, expectedOrigins?: string[]): Promise<string> {
 		if (!window.nativeWrapper) throw new Error('No native wrapper available');
 

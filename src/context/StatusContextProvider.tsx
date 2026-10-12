@@ -1,10 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
-import { BACKEND_URL } from '../config';
-import StatusContext, { Connectivity } from './StatusContext';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocalStorage } from '@/hooks/useStorage';
+import { BACKEND_URL } from '../config';
 import { getTenantFromUrlPath } from '../lib/tenant';
 import { logger } from '../logger';
+import StatusContext, { type Connectivity } from './StatusContext';
 
 // Function to calculate speed based on RTT (lower RTT means higher speed)
 function calculateNetworkSpeed(rtt: number): number {
@@ -17,6 +17,7 @@ function calculateNetworkSpeed(rtt: number): number {
 
 async function checkInternetConnection(): Promise<{ isConnected: boolean; speed: number }> {
 	try {
+		// biome-ignore lint/complexity/useDateNow: baseline: pre-existing debt. should be fixed
 		const startTime = new Date().getTime();
 		const tenantId = getTenantFromUrlPath() || 'default';
 		await axios.get(`${BACKEND_URL}/status`, {
@@ -26,11 +27,14 @@ async function checkInternetConnection(): Promise<{ isConnected: boolean; speed:
 				'X-Tenant-ID': tenantId,
 			},
 		});
+		// biome-ignore lint/complexity/useDateNow: baseline: pre-existing debt. should be fixed
 		const endTime = new Date().getTime();
 		const rtt = endTime - startTime; // Calculate RTT
 
 		const speed = calculateNetworkSpeed(rtt);
 		return { isConnected: true, speed };
+		// biome-ignore lint/complexity/noUselessCatchBinding: baseline: pre-existing debt. should be fixed
+		// biome-ignore lint/correctness/noUnusedVariables: baseline: pre-existing debt. should be fixed
 	} catch (error) {
 		return { isConnected: false, speed: 0 };
 	}
@@ -40,6 +44,7 @@ function getNavigatorOnlineStatus(): boolean {
 	return navigator.onLine;
 }
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 export const StatusContextProvider = ({ children }: React.PropsWithChildren) => {
 	const [isOnline, setIsOnline] = useState<boolean | null>(null);
 	const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -49,9 +54,9 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 		speed: null,
 	});
 	const [pwaInstallable, setPwaInstallable] = useState(null);
-	const [hidePwaPrompt, setHidePwaPrompt] = useLocalStorage<boolean>("hidePwaPrompt", false);
+	const [hidePwaPrompt, setHidePwaPrompt] = useLocalStorage<boolean>('hidePwaPrompt', false);
 
-	const updateBlockers = useRef<Map<string, { label: string; since: number; }>>(new Map());
+	const updateBlockers = useRef<Map<string, { label: string; since: number }>>(new Map());
 	const [isSafeToUpdate, setIsSafeToUpdate] = useState(true);
 	const [isStaleVersion, setIsStaleVersion] = useState(false);
 	const [isSwWaiting, setIsSwWaiting] = useState(false);
@@ -70,11 +75,10 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 			released = true;
 			updateBlockers.current.delete(key);
 			setIsSafeToUpdate(updateBlockers.current.size === 0);
-		}
-	}, [])
+		};
+	}, []);
 
 	const updateOnlineStatus = async (forceCheck = true) => {
-
 		const navigatorOnline = getNavigatorOnlineStatus();
 		const now = Date.now();
 
@@ -110,8 +114,9 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 			}
 			return internetConnection.isConnected;
 		});
-	}
+	};
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: baseline: pre-existing debt. should be fixed
 	useEffect(() => {
 		// Add event listeners for online/offline status
 		window.addEventListener('online', () => updateOnlineStatus());
@@ -129,9 +134,11 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 	}, [isOnline]);
 
 	// Polling logic when offline
+	// biome-ignore lint/correctness/useExhaustiveDependencies: baseline: pre-existing debt. should be fixed
 	useEffect(() => {
 		let pollingInterval: NodeJS.Timeout | null = null;
 		const startPolling = () => {
+			// biome-ignore lint/suspicious/useAwait: baseline: pre-existing debt. should be fixed
 			pollingInterval = setInterval(async () => {
 				updateOnlineStatus();
 			}, 7000); // Poll every 7 seconds
@@ -151,6 +158,7 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 	}, [isOnline]);
 
 	// Polling logic when online
+	// biome-ignore lint/correctness/useExhaustiveDependencies: baseline: pre-existing debt. should be fixed
 	useEffect(() => {
 		let pollingInterval: NodeJS.Timeout | null = null;
 
@@ -208,12 +216,12 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 			setPwaInstallable(null);
 		};
 
-		window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-		window.addEventListener("appinstalled", handleAppInstalled);
+		window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+		window.addEventListener('appinstalled', handleAppInstalled);
 
 		return () => {
-			window.removeEventListener("appinstalled", handleAppInstalled);
-			window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+			window.removeEventListener('appinstalled', handleAppInstalled);
+			window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 		};
 	}, []);
 
@@ -240,6 +248,7 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 	useEffect(() => {
 		if (!navigator.serviceWorker) return;
 
+		// biome-ignore lint/complexity/noVoid: baseline: pre-existing debt. should be fixed
 		void (async () => {
 			const reg = await navigator.serviceWorker.getRegistration();
 			if (!reg) return;
@@ -256,7 +265,8 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 	}, []);
 
 	useEffect(() => {
-		if (!isSwWaiting || !isSafeToUpdate || !navigator.serviceWorker) return;
+		if (!(isSwWaiting && isSafeToUpdate && navigator.serviceWorker)) return;
+		// biome-ignore lint/complexity/noVoid: baseline: pre-existing debt. should be fixed
 		void (async () => {
 			const reg = await navigator.serviceWorker.getRegistration();
 			reg?.waiting?.postMessage({ type: 'SKIP_WAITING' });
@@ -265,7 +275,7 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 
 	useEffect(() => {
 		const handler = (event: MessageEvent) => {
-			if (event.data?.type === "NEW_CONTENT_AVAILABLE") {
+			if (event.data?.type === 'NEW_CONTENT_AVAILABLE') {
 				if (document.hidden && isSafeToUpdate) {
 					window.location.reload();
 				} else {
@@ -275,20 +285,21 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 		};
 
 		if (navigator.serviceWorker) {
-			navigator.serviceWorker.addEventListener("message", handler);
+			navigator.serviceWorker.addEventListener('message', handler);
 		}
 
 		return () => {
 			if (navigator.serviceWorker) {
-				navigator.serviceWorker.removeEventListener("message", handler);
+				navigator.serviceWorker.removeEventListener('message', handler);
 			}
 		};
 	}, [isSafeToUpdate]);
 
 	const dismissPwaPrompt = () => {
 		setHidePwaPrompt(true);
-	}
+	};
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: baseline: pre-existing debt. should be fixed
 	useEffect(() => {
 		updateOnlineStatus();
 	}, []);
@@ -305,9 +316,5 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 		blockUpdates,
 	};
 
-	return (
-		<StatusContext.Provider value={value}>
-			{children}
-		</StatusContext.Provider>
-	);
+	return <StatusContext.Provider value={value}>{children}</StatusContext.Provider>;
 };

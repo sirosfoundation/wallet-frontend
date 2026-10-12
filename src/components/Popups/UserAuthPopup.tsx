@@ -1,12 +1,13 @@
-import React, { useContext, useState, useCallback, FC } from 'react';
-import { useTranslation, Trans } from 'react-i18next';
-import Button from '../Buttons/Button';
-import PopupLayout from './PopupLayout';
+import { UserLock } from 'lucide-react';
+// biome-ignore lint/correctness/noUnusedImports: baseline: pre-existing debt. should be fixed
+import React, { type FC, useCallback, useContext, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import SessionContext from '@/context/SessionContext';
 import { useTenant } from '@/context/TenantContext';
 import checkForUpdates from '@/offlineUpdateSW';
-import { UserLock } from 'lucide-react';
-import { CachedUser } from '@/services/LocalStorageKeystore';
+import type { CachedUser } from '@/services/LocalStorageKeystore';
+import Button from '../Buttons/Button';
+import PopupLayout from './PopupLayout';
 
 export type UserAuthPopupProps = {
 	user: CachedUser;
@@ -18,12 +19,13 @@ export type UserAuthPopupProps = {
 	onSuccess: () => void;
 };
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baseline: pre-existing debt. should be fixed
 export const UserAuthPopup: FC<UserAuthPopupProps> = ({
 	user,
 	message,
 	onLogout,
 	onDismiss,
-	onSuccess
+	onSuccess,
 }) => {
 	const { description } = message || {};
 	const { t } = useTranslation();
@@ -36,7 +38,13 @@ export const UserAuthPopup: FC<UserAuthPopupProps> = ({
 	const onLogin = useCallback(
 		async (cachedUser: CachedUser) => {
 			// Pass the tenantId from URL path to ensure proper tenant-scoped login
-			const result = await api.loginWebauthn(keystore, async () => false, [], cachedUser, effectiveTenantId);
+			const result = await api.loginWebauthn(
+				keystore,
+				async () => false,
+				[],
+				cachedUser,
+				effectiveTenantId,
+			);
 			if (result.ok) {
 				onSuccess();
 			} else {
@@ -52,6 +60,7 @@ export const UserAuthPopup: FC<UserAuthPopupProps> = ({
 						setError(t('loginSignup.passkeyInvalid'));
 						break;
 
+					// biome-ignore lint/security/noSecrets: baseline: pre-existing debt. should be fixed
 					case 'passkeyLoginFailedTryAgain':
 						setError(t('loginSignup.passkeyLoginFailedTryAgain'));
 						break;
@@ -83,31 +92,26 @@ export const UserAuthPopup: FC<UserAuthPopupProps> = ({
 					{t('loginState.title')} {user.displayName}
 				</p>
 				<p className=" mb-2 mt-2 dark:text-dm-gray-100">
-					<Trans
-						i18nKey={description}
-						components={{ strong: <strong /> }}
-					/>
+					<Trans i18nKey={description} components={{ strong: <strong /> }} />
 				</p>
 			</div>
 			<ul className=" p-2">
-				<div className='flex flex-col gap-4 justify-center mr-2'>
+				<div className="flex flex-col gap-4 justify-center mr-2">
 					<Button
 						id={`${isSubmitting ? 'submitting' : 'continue'}-login-state`}
 						onClick={() => onLoginCachedUser(user)}
 						variant="primary"
 						disabled={isSubmitting}
-						additionalClassName='w-full'
+						additionalClassName="w-full"
 					>
 						<UserLock className="inline text-xl mr-2" />
-						{isSubmitting
-							? t('loginSignup.submitting')
-							: t('loginSignup.loginWithPasskey')}
+						{isSubmitting ? t('loginSignup.submitting') : t('loginSignup.loginWithPasskey')}
 					</Button>
 					<Button
 						id="cancel-login-state"
 						onClick={onLogout}
 						disabled={isSubmitting}
-						additionalClassName='w-full'
+						additionalClassName="w-full"
 					>
 						{t('common.declineAndExit')}
 					</Button>
