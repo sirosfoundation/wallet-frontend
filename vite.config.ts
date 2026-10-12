@@ -60,12 +60,10 @@ export default defineConfig(async ({ mode, command }) => {
 		server: {
 			host: true,
 			port: 3000,
-			open: true,
 		},
 		preview: {
 			host: true,
 			port: 3000,
-			open: true,
 		},
 		build: {
 			manifest: true,
