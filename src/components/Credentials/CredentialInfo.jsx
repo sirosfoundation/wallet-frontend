@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import JsonViewer from '../JsonViewer/JsonViewer';
 import useScreenType from '../../hooks/useScreenType';
 import { Asterisk, Send } from 'lucide-react';
+import { ensureStringIsImageDataUri } from '@/lib/utils';
 
 const Legend = ({ showRequired, showRequested, t }) => {
 	if (!showRequired && !showRequested) return null;
@@ -133,7 +134,7 @@ const formatClaimValue = (value) => {
 			src={src}
 			alt=""
 			aria-hidden="true"
-			className="max-h-10 max-w-full rounded-sm border"
+			className="max-h-20 max-w-full rounded-sm border"
 		/>
 	);
 
@@ -149,11 +150,10 @@ const formatClaimValue = (value) => {
 
 	// String handling
 	if (typeof value === 'string') {
-		const lower = value.toLowerCase();
-
 		// Image data URI
-		if (lower.startsWith('data:image/')) {
-			return renderImg(value);
+		const imgDataUri = ensureStringIsImageDataUri(value);
+		if (imgDataUri) {
+			return renderImg(imgDataUri);
 		}
 		// Long string fallback
 		if (!value.includes(' ') && value.length > 30) {
