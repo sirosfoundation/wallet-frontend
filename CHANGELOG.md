@@ -1,5 +1,14 @@
 # wallet-frontend
 
+## 0.7.0-beta.2
+
+### Patch Changes
+
+- Render claim value as image if value is data uri by [@smncd](https://github.com/smncd) in [#372](https://github.com/sirosfoundation/wallet-frontend/pull/372)
+- Fix caching behaviour leaving users running old version of wallet, even when new ones are deployed by [@smncd](https://github.com/smncd) in [#351](https://github.com/sirosfoundation/wallet-frontend/pull/351)
+- made /login and /signup into separate components and created and AuthLayout that can be used by both pages by [@lov1saconde](https://github.com/lov1saconde) in [#367](https://github.com/sirosfoundation/wallet-frontend/pull/367)
+- Remove unused `verifyRequestUriAndCerts()` function by [@smncd](https://github.com/smncd) in [#364](https://github.com/sirosfoundation/wallet-frontend/pull/364)
+
 ## 0.7.0-beta.1
 
 ### Patch Changes
