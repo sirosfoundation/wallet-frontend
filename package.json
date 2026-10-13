@@ -93,8 +93,8 @@
     "vitest": "^4.1.11"
   },
   "scripts": {
-    "start": "vite --no-open",
-    "start-docker": "npx vite --no-open",
+    "start": "vite",
+    "start-docker": "npx vite",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx --max-warnings=0",
