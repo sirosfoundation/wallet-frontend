@@ -27,7 +27,7 @@ export const NativeWrapperProvider = ({
 
 	useEffect(() => {
 		(async () => {
-			if (!window.nativeWrapper) return;
+			if (!window.nativeWrapper || !vcEntityList) return;
 
 			const registryEntries =
 				await prepareCredentialsForNativeWrapper(vcEntityList);

@@ -39,6 +39,7 @@ export type CredentialsContextValue = {
 	latestCredentials: Set<number>;
 	fetchVcData: (credentialId?: number) => Promise<ExtendedVcEntity[] | null>;
 	getData: (shouldPoll?: boolean) => Promise<void>;
+	removeCredential: (batchId: number) => void;
 	currentSlide: number;
 	setCurrentSlide: (slide: number) => void;
 	parseCredential: (credential: WalletStateCredential) => Promise<ParsedCredential | null>;
@@ -51,6 +52,7 @@ const defaultContextValue: CredentialsContextValue = {
 	latestCredentials: new Set<number>(),
 	fetchVcData: async () => [],
 	getData: async () => { },
+	removeCredential: () => { },
 	currentSlide: 1,
 	setCurrentSlide: () => { },
 	parseCredential: async () => null,

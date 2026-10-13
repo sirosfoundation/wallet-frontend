@@ -191,7 +191,12 @@ const formatClaimValue = (value) => {
 	return formatDate(value, 'date');
 };
 
-const CredentialInfo = ({ parsedCredential, mainClassName = "text-sm lg:text-base w-full", fallbackClaims, requested }) => {
+const CredentialInfo = ({
+	parsedCredential,
+	mainClassName = "text-sm lg:text-base w-full",
+	fallbackClaims = null,
+	requested = null,
+}) => {
 	const { t, i18n } = useTranslation();
 	const screenType = useScreenType();
 	const { language, options: { fallbackLng } } = i18n;
