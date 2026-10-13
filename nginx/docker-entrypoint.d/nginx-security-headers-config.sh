@@ -51,6 +51,10 @@ if [ -n "${OIDC_GATE_OP_URL}" ]; then
 	CONNECT_SRC="${CONNECT_SRC} ${OIDC_GATE_OP_URL}"
 fi
 
+if [ -n "${FACETEC_API_URL}" ]; then
+	CONNECT_SRC="${CONNECT_SRC} ${FACETEC_API_URL}"
+fi
+
 if [ "${NGINX_CSP_ENFORCE_RESOURCE_HTTPS}" = "true" ]; then
 	RESOURCE_SCHEME_SRC="https:"
 else
