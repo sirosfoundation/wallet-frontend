@@ -106,7 +106,7 @@ Our Web Wallet provides a range of features tailored to enhance the credential m
   - `WALLET_COMPANION_INTEGRATION`: Enable integration with the [Wallet Companion browser extension](https://github.com/sirosfoundation/wallet-companion). Defaults to false if left blank or invalid.
   - `PRESERVE_PRESENTATION_HISTORY`: If enabled, deleting credentials from the wallet will not remove them from the presentation history. Defaults to false if left blank or invalid.
   - `SCAN_PHYSICAL_ID_ENABLED`: Show the "Scan Physical ID" entry point (native wrapper apps only) on the Add Credentials page. Defaults to true; set to `false` for tenants that don't want this feature offered.
-	- `FACETEC_API_URL`: URL of the facetec-api that the native wrapper apps should use for the Scan Physical ID flow. Passed to the app via `startScanPhysicalId`, and added to the CSP connect-src. Defaults to the app's built-in URL if unset. 
+	- `FACETEC_API_URL`: URL of the facetec-api that the native wrapper apps should use for the Scan Physical ID flow. Passed to the app via `startScanPhysicalId`, and added to the CSP connect-src. Defaults to the app's built-in URL if unset.
 
   **Well-known file generation:**
   - `WELLKNOWN_APPLE_APPIDS`: Used to generate the `.well-known/apple-app-site-association` file, used for IOS wrappers. This should be in the format `"<APP_ID>,<APP_ID>,<APP_ID>,..."` Can be left blank.

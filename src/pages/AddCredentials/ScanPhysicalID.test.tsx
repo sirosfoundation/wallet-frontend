@@ -131,7 +131,7 @@ describe('ScanPhysicalID', () => {
 
 	it('calls startScanPhysicalId with undefined when FACETEC_API_URL is not configured', () => {
 		mockConfig.FACETEC_API_URL = undefined;
-    const startScanPhysicalId = vi.fn();
+		const startScanPhysicalId = vi.fn();
 		// @ts-expect-error - test-only global
 		window.nativeWrapper = { startScanPhysicalId };
 		render(<ScanPhysicalID />);
@@ -142,7 +142,7 @@ describe('ScanPhysicalID', () => {
 		const [startButton] = screen.getAllByRole('button', { name: 'Start Scan' });
 		fireEvent.click(startButton);
 		expect(startScanPhysicalId).toHaveBeenCalledWith(undefined);
-  });
+	});
 
 	it('treats a non-function nativeWrapper.startScanPhysicalId as unavailable', () => {
 		// @ts-expect-error - test-only global, deliberately wrong shape
