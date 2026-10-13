@@ -8,7 +8,7 @@ import CredentialsContext from '@/context/CredentialsContext';
 import { CredentialVerificationError } from "wallet-common";
 
 const useFetchPresentations = (keystore, batchId = null, transactionId = null) => {
-	const [history, setHistory] = useState({});
+	const [history, setHistory] = useState([]);
 	const { parseCredential, credentialEngine } = useContext(CredentialsContext);
 
 	useEffect(() => {

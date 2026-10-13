@@ -9,7 +9,6 @@ import { logger } from '../logger';
 import { BACKEND_URL } from '@/config';
 import { getTenantFromUrlPath } from '@/lib/tenant';
 import { useHttpClient } from '@/hooks/useHttpClient';
-import Spinner from '@/components/Shared/Spinner';
 
 type WalletStateCredential = CurrentSchema.WalletStateCredential;
 
@@ -221,8 +220,32 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 		getData();
 	}, [getData, getCalculatedWalletState, credentialEngine, isLoggedIn]);
 
+	const value = useMemo(() => ({
+		vcEntityList,
+		latestCredentials,
+		fetchVcData,
+		getData,
+		currentSlide,
+		setCurrentSlide,
+		parseCredential,
+		credentialEngine,
+		pendingTransactions,
+		removeCredential,
+	}), [
+		vcEntityList,
+		latestCredentials,
+		fetchVcData,
+		getData,
+		currentSlide,
+		setCurrentSlide,
+		parseCredential,
+		credentialEngine,
+		pendingTransactions,
+		removeCredential
+	]);
+
 	return (
-		<CredentialsContext.Provider value={{ vcEntityList, latestCredentials, fetchVcData, getData, currentSlide, setCurrentSlide, parseCredential, credentialEngine, pendingTransactions, removeCredential }}>
+		<CredentialsContext.Provider value={value}>
 			{children}
 		</CredentialsContext.Provider>
 	);

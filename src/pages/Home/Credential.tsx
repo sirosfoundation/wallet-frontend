@@ -81,7 +81,7 @@ const Credential = () => {
 		}
 		const u = keystore
 			.getCachedUsers()
-			.filter((user) => user.userHandleB64u === userHandle)[0];
+			.find((user) => user.userHandleB64u === userHandle);
 		if (u) {
 			setCachedUser(u);
 		}
@@ -98,13 +98,13 @@ const Credential = () => {
 			return;
 		}
 		const [, newPrivateData, keystoreCommit] =
-			await keystore.deleteCredentialsByBatchId(parseInt(batchId));
+			await keystore.deleteCredentialsByBatchId(Number.parseInt(batchId, 10));
 		await api.updatePrivateData(newPrivateData);
 		await keystoreCommit();
 
-		removeCredential(parseInt(batchId, 10));
+		removeCredential(Number.parseInt(batchId, 10));
 		setShowDeletePopup(false);
-		navigate(`${buildPath()}${window.location.search}`, { replace: true });
+		void navigate(`${buildPath()}${window.location.search}`, { replace: true });
 	};
 
 	const generateQR = async () => {
@@ -299,11 +299,10 @@ const Credential = () => {
 									vcEntity={vcEntity}
 									vcEntityInstances={vcEntity.instances}
 									key={vcEntity.batchId}
-									parsedCredential={vcEntity.parsedCredential}
 									className="w-full object-cover rounded-xl"
 								/>
 								<div
-									className={`flex flex-wrap justify-center flex flex-row justify-center items-center mb-2 pb-[20px] ${screenType === 'desktop' && 'overflow-y-auto items-center custom-scrollbar max-h-[20vh]'} ${screenType === 'tablet' && 'px-24'}`}
+									className={`flex flex-wrap flex-row justify-center items-center mb-2 pb-[20px] ${screenType === 'desktop' && 'overflow-y-auto items-center custom-scrollbar max-h-[20vh]'} ${screenType === 'tablet' && 'px-24'}`}
 								>
 									{vcEntity && (
 										<CredentialInfo

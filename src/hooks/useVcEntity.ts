@@ -13,7 +13,7 @@ export const useVcEntity = (
 		try {
 			if (vcEntityList) {
 				const vcEntity = vcEntityList.find(
-					(vcEntity) => vcEntity.batchId === parseInt(batchId, 10)
+					(vcEntity) => vcEntity.batchId === Number.parseInt(batchId, 10)
 				);
 				if (!vcEntity) {
 					throw new Error("Credential not found");
@@ -21,7 +21,7 @@ export const useVcEntity = (
 
 				setVcEntity(vcEntity);
 			} else {
-				const fetchedList = await fetchVcData(parseInt(batchId, 10));
+				const fetchedList = await fetchVcData(Number.parseInt(batchId, 10));
 				// null here means the credential engine/wallet state isn't ready
 				// yet (still loading), not that the credential is missing - keep
 				// vcEntity as null so callers don't redirect as "not found".
@@ -41,7 +41,7 @@ export const useVcEntity = (
 	}, [fetchVcData, vcEntityList, batchId]);
 
 	useEffect(() => {
-		fetchAndSetVcEntity();
+		void fetchAndSetVcEntity();
 	}, [fetchAndSetVcEntity]);
 
 	return vcEntity;
