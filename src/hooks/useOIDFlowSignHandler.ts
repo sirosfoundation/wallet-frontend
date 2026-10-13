@@ -162,6 +162,8 @@ export function useOIDFlowSignHandler() {
 				throw new Error(`Missing credentialQueryId for credential: ${c.credentialId}`);
 			}
 
+			const startTime = performance.now();
+
 			const vpToken = await createVpToken(
 				wscd,
 				{
@@ -177,6 +179,7 @@ export function useOIDFlowSignHandler() {
 					dcqlQuery: verifierQuery,
 				}
 			);
+			console.log(`Time taken: ${(performance.now() - startTime).toFixed(2)} ms`);
 
 			vpTokenMap[c.credentialQueryId] = [vpToken];
 		}
@@ -489,16 +492,11 @@ async function createVpTokenFromMdoc(
 	if (!disclosedClaims?.length) {
 		throw new Error('disclosedClaims required for mdoc presentation');
 	}
-	console.log("here check!")
-	console.log(dcqlQuery)
 	if (JSON.stringify(dcqlQuery ?? {}).includes('mso_mdoc_zk')) {
-		console.log("inside check")
 		return createZkVpTokenFromMdoc(credentialRaw, dcqlQuery as ZkDcqlQuery, {
 			nonce, audience, responseUri, origin, verifierJwkThumbprint,
-		}, /* sign: the WSCD's (kid, toBeSigned) signer */);
+		}, (kid, toBeSigned) => wscd.signWithKey(kid, toBeSigned));
 	}
-	console.log("after check!")
-
 	let deviceResponseMDoc: Uint8Array;
 	if (responseUri) {
 		deviceResponseMDoc = await wscd.generateDeviceResponse({

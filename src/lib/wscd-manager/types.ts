@@ -24,6 +24,7 @@ export interface IWscdManagerClient extends IWscdOperations {
 	 * resources and performing necessary cleanup.
 	 */
 	dispose(): Promise<void>;
+	signWithKey(kid: string, data: Uint8Array): Promise<Uint8Array>;
 }
 
 /**

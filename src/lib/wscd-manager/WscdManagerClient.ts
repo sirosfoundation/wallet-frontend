@@ -123,6 +123,10 @@ export class WscdManagerClient implements IWscdManagerClient {
 		);
 	}
 
+	public async signWithKey(kid: string, data: Uint8Array): Promise<Uint8Array> {
+   		return this.#dispatchSignRequest(kid, data);
+   	}
+
 	public async generateDeviceResponseForDCAPI({
 		credential,
 		disclosedClaims,
