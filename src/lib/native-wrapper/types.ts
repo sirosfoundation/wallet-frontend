@@ -54,6 +54,6 @@ export interface NativeWrapper {
 	updateAllCredentials(credentials: string, callbackUrl?: string): void;
 	sendDcApiResponse(response: string, error?: string): void;
 	isKeystoreOpen(): Promise<boolean>;
-	startScanPhysicalId?(): void;
+	startScanPhysicalId?(facetecApiUrl?: string): void;
 	callWscd(method: keyof WscdManagerJs, ...args: unknown[]): Promise<unknown>;
 }

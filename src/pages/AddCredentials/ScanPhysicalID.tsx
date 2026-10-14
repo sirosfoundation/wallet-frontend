@@ -6,7 +6,7 @@ import { ArrowLeft, ScanFace, ScanSearch, Nfc, IdCard, Sun, Signal, ShieldCheck,
 import { H1 } from '@/components/Shared/Heading';
 import Button from '@/components/Buttons/Button';
 import { useTenant } from '@/context/TenantContext';
-import { SCAN_PHYSICAL_ID_ENABLED } from '@/config';
+import { SCAN_PHYSICAL_ID_ENABLED, FACETEC_API_URL } from '@/config';
 
 const StepIcon = ({ Icon }: { Icon: LucideIcon }) => (
 	<div className="flex items-center justify-center h-10 w-10 rounded-lg bg-brand-lighter/20 dark:bg-brand-darker/40 text-primary shrink-0">
@@ -184,7 +184,7 @@ const StartScanButton = ({ t, disabled }: { t: TFunction, disabled: boolean }) =
 		additionalClassName="w-full"
 		size="lg"
 		disabled={disabled}
-		onClick={() => window.nativeWrapper?.startScanPhysicalId()}
+		onClick={() => window.nativeWrapper?.startScanPhysicalId(FACETEC_API_URL)}
 	>
 		{t('pageScanPhysicalId.startScan')}
 	</Button>
