@@ -13,12 +13,14 @@
 import { ExtendedVcEntity } from '@/context/CredentialsContext';
 import { DcqlQuery, DcqlCredential, DcqlQueryResult } from 'dcql';
 import { logger } from '@/logger';
-import { isVcdm2Credential, toTypeArray } from 'wallet-common';
+import { isVcdm2Credential, toTypeArray, VerifiableCredentialFormat } from 'wallet-common';
+import { CircuitZkCredentialCriteria } from '@sirosfoundation/circuit-zk';
 import {
 	decodeStoredMdoc,
 	mdocNameSpacesToClaims,
 	resolveMdocIssuerSigned,
 } from '@/lib/verifiable-credentials';
+import { getCredentialType } from '@/lib/utils/getCredentialType';
 
 const MSO_MDOC_ZK = 'mso_mdoc_zk';
 const PSEUDONYM_CLAIM = 'pairwise_pseudonym';
@@ -251,8 +253,38 @@ function extractClaimPaths(
 	}
 }
 
+/**
+ * Match circuit ZK credentials against the given criteria.
+ */
+function matchCircuitZkCredentials(
+	criteria: CircuitZkCredentialCriteria[],
+	vcEntityList: ExtendedVcEntity[],
+): Map<string, ExtendedVcEntity[]> {
+	const result = new Map<string, ExtendedVcEntity[]>();
+
+	for (const c of criteria) {
+		const wantedTypes = c.doctype ? [c.doctype] : (c.vct ?? []);
+
+		const candidates = vcEntityList.filter((vc) => {
+			const parsed = vc.parsedCredential;
+			if (!parsed) return false;
+			if (!wantedTypes.includes(getCredentialType(parsed))) return false;
+
+			// v1: requiredAttributes empty: type is enough.
+			const attributes = parsed.signedClaims ?? {};
+			return c.requiredAttributes.every((attr) => attr in attributes);
+		});
+
+		result.set(c.credentialQueryId, candidates);
+	}
+
+	return result;
+}
+
+
 const CredentialMatchingService = {
 	matchCredentials,
+	matchCircuitZkCredentials,
 };
 
 export default CredentialMatchingService;

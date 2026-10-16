@@ -42,6 +42,9 @@ importers:
       '@sirosfoundation/browser-log':
         specifier: 1.0.0
         version: 1.0.0
+      '@sirosfoundation/circuit-zk':
+        specifier: workspace:*
+        version: link:packages/circuit-zk
       '@sirosfoundation/http-client':
         specifier: workspace:*
         version: link:packages/http-client
@@ -268,6 +271,28 @@ importers:
       vitest:
         specifier: ^4.1.11
         version: 4.1.11(@types/node@20.19.43)(@vitest/coverage-v8@4.1.11)(happy-dom@20.14.5)(jsdom@28.1.0(@noble/hashes@1.8.0)(supports-color@8.1.1))(vite@6.4.3(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.39.0)(yaml@2.9.1))
+
+  packages/circuit-zk:
+    dependencies:
+      '@sirosfoundation/browser-log':
+        specifier: 1.0.0
+        version: 1.0.0
+      '@sirosfoundation/http-client':
+        specifier: workspace:*
+        version: link:../http-client
+      axios:
+        specifier: ^1.20.0
+        version: 1.20.0(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^5.0.2
+        version: 5.0.2(@types/node@20.19.43)(@vitest/coverage-v8@4.1.11(vitest@4.1.11))(happy-dom@20.14.5)(jsdom@28.1.0(@noble/hashes@1.8.0)(supports-color@8.1.1))(vite@6.4.3(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.39.0)(yaml@2.9.1))
 
   packages/http-client:
     dependencies:
@@ -1105,6 +1130,7 @@ packages:
   '@cef-ebsi/key-did-resolver@1.1.0':
     resolution: {integrity: sha512-fx8otCet0vRM/PnndGHHhuWBy5EpX142RsfKT3DTH8/a3Yjkdo8S+C9bGHbDdc6PowPyp4FgF/6XVQUH45iu1A==}
     engines: {node: '>=16.10.0'}
+    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
 
   '@changesets/apply-release-plan@8.1.1':
     resolution: {integrity: sha512-nk2Hbq3M9NeHMdaIRBDvawKrQJzXB9sGyBUE5yWnIKtvdcNCPj75zBekJYr0gTT2ecJH3eFeTrc8eisPImcv0Q==}
