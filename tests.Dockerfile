@@ -4,6 +4,8 @@ RUN apt-get update -y && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /home/node/app
 
+ENV CI=true
+
 RUN corepack enable
 
 # Install dependencies first so rebuild of these layers is only needed when dependencies change
