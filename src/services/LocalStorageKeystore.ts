@@ -307,6 +307,31 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		throw new Error("Key store is closed.", { cause: 'keystore_closed' });
 	}, [isKeystoreOpen]);
 
+		// Root for the nym_auth private seed: a copy of the main key's raw bytes. The caller must zero it.
+	// Only the 16-byte HKDF output ever leaves the page; this value never goes to native.
+	const getPrivateSeedRoot2 = useCallback(async (): Promise<Uint8Array> => {
+		const opened = isKeystoreOpen();
+		if (!opened) {
+			throw new Error("Key store is closed.", { cause: 'keystore_closed' });
+		}
+		const [, mk] = opened;
+		const view = ArrayBuffer.isView(mk)
+			? new Uint8Array(mk.buffer, mk.byteOffset, mk.byteLength)
+			: new Uint8Array(mk as ArrayBuffer);
+		return view.slice(); // a copy, so zeroing it does not touch the stored key
+	}, [isKeystoreOpen]);
+	const getPrivateSeedRoot = useCallback((): Uint8Array => {
+		// TEST ONLY: persistent root so the fake credential's psc stays valid across sessions.
+		const KEY = 'nymTestSeedRoot';
+		let hex = localStorage.getItem(KEY);
+		if (!hex) {
+			const b = crypto.getRandomValues(new Uint8Array(32));
+			hex = Array.from(b, x => x.toString(16).padStart(2, '0')).join('');
+			localStorage.setItem(KEY, hex);
+		}
+		return Uint8Array.from(hex.match(/../g)!.map(h => parseInt(h, 16)));
+	}, []);
+
 	useOnUserInactivity(close, config.INACTIVE_LOGOUT_MILLIS);
 
 	useEffect(
@@ -1028,6 +1053,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		updateCachedUserDisplayName,
 		updateCachedUserTenant,
 		getUserHandleB64u,
+		getPrivateSeedRoot,
 		signJwtPresentation,
 		generateOpenid4vciProofs,
 		generateKeypairs,

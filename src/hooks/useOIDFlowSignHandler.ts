@@ -17,6 +17,7 @@ import { IWscdManagerClient } from '@/lib/wscd-manager';
 import { ZeroKnowledgeRequest, createZkProofService } from '@/lib/zero-knowledge/NativeBridgeZkDeviceResponse';
 import type { ZkDcqlQuery } from '@/lib/zero-knowledge/types';
 
+import { createCircuitZkVpToken, findCircuitZkQuery } from '@/lib/zero-knowledge/circuitZkPresentation';
 import { calculateJwkThumbprint } from 'jose';
 import { cborEncode } from '@auth0/mdl/lib/cbor';
 import { IssuerSigned } from '@owf/mdoc';
@@ -77,6 +78,8 @@ export type OIDFlowSignOptions = {
 	count?: number;
 	origin?: string;
 	responseUri?: string;
+	/** The verifier's client_id (e.g. `x509_san_dns:rp.example.com`); `audience` is used when absent. */
+	clientId?: string;
 	credentialsToInclude?: Array<{
 		credentialId: string;
 		credentialQueryId?: string;
@@ -140,7 +143,7 @@ export function useOIDFlowSignHandler() {
 	const wscd = useWscdManagerClient();
 
 	const signPresentation = useCallback(async (options: OIDFlowSignOptions): Promise<OIDFlowSignResponse> => {
-		const { audience, nonce, credentialsToInclude, responseUri, origin, verifierJwkThumbprint, dcqlQuery } = options;
+		const { audience, nonce, credentialsToInclude, responseUri, origin, verifierJwkThumbprint, dcqlQuery, clientId } = options;
 		const verifierQuery = restoreZkFormat(dcqlQuery ?? pendingDcqlQuery);
 		if (!wscd) {
 			throw new Error('WscdManagerClient is not initialized');
@@ -160,6 +163,29 @@ export function useOIDFlowSignHandler() {
 
 			if (!c.credentialQueryId) {
 				throw new Error(`Missing credentialQueryId for credential: ${c.credentialId}`);
+			}
+
+			// circuit_zk: proven by the native prover through the circuit-zk package, not signed here.
+			if (findCircuitZkQuery(verifierQuery, c.credentialQueryId)) {
+				if (!keystore) throw new Error('Keystore not available');
+				const zkToken = await createCircuitZkVpToken({
+					dcqlQuery: verifierQuery,
+					credentialQueryId: c.credentialQueryId,
+					credentialRaw: c.credentialRaw,
+					nonce,
+					clientId: clientId ?? audience,
+					origin,
+					responseUri,
+					getRootKey: () => keystore.getPrivateSeedRoot(),
+					signDevice: async (raw, data) => {
+						const signature = await wscd.signWithKey(await deviceKeyKid(raw), data);
+						if (signature.length !== 64) throw new Error(`device signature must be raw 64-byte r||s, got ${signature.length} bytes`);
+						return signature;
+					},
+					onProgress: (step) => window.dispatchEvent(new CustomEvent('zkp:step', { detail: { step } })),
+				});
+				vpTokenMap[c.credentialQueryId] = [zkToken];
+				continue;
 			}
 
 			const startTime = performance.now();
@@ -189,7 +215,7 @@ export function useOIDFlowSignHandler() {
 		return {
 			vpToken: JSON.stringify(vpTokenMap)
 		};
-	}, [wscd]);
+	}, [wscd, keystore]);
 
 	const generateProof = useCallback(async (options: OIDFlowSignOptions): Promise<OIDFlowSignResponse> => {
 		const { audience, nonce, proofTypesSupported, issuer, count = 1 } = options;

@@ -11,7 +11,14 @@ import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useOIDFlowTransportSafe } from '@/context/OIDFlowTransportContext';
 import SessionContext from '@/context/SessionContext';
 import CredentialsContext, { ExtendedVcEntity } from '@/context/CredentialsContext';
-import { matchCredentials } from '@/lib/services/CredentialMatchingService';
+import CredentialMatchingService, {
+	matchCredentials,
+	extractAvailableClaims,
+	type CredentialMatch,
+	type CredentialsMatchedResult,
+} from '@/lib/services/CredentialMatchingService';
+import { getCircuitZkCriteria, splitCircuitZkQuery } from '@/lib/zero-knowledge/circuitZkPresentation';
+import { getCredentialType } from '@/lib/utils/getCredentialType';
 import type {
 	OID4VPFlowResult,
 	OID4VPSelectedCredential,
@@ -246,7 +253,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 			if (preMatchedCredentials) {
 				conformantCredentialsMap = new Map(preMatchedCredentials);
 			} else if (dcqlQuery) {
-				const { matches, no_match_reason, code } = matchCredentials(credentials, dcqlQuery);
+				const { matches, no_match_reason, code } = await matchWalletCredentials(credentials, dcqlQuery);
 
 				if (matches.length === 0) {
 					throw new OIDFlowError({ code: code ?? 'NO_MATCHING_CREDENTIALS', message: no_match_reason || 'No matching credentials' });
@@ -284,8 +291,12 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 					walletCredentialRef: String(instance.credentialId),
 					credentialRaw: instance.data,
 					holderKeyKid: instance.kid,
+					// circuit_zk queries have an object in `claims` (the functions), not a path list.
 					disclosedClaims: dcqlQuery
-						? dcqlQuery.credentials.find(c => c.id === descriptorId)?.claims?.map(c => c.path?.join('.')) ?? []
+						? (() => {
+							const claims = dcqlQuery.credentials.find(c => c.id === descriptorId)?.claims;
+							return Array.isArray(claims) ? claims.map(c => c.path?.join('.')) : [];
+						})()
 						: preMatchedCredentials?.get(descriptorId)?.requestedFields?.map(f => f.path?.join('.')) ?? [],
 				});
 			}
@@ -433,7 +444,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 			const credentials = (await waitForCredentials())
 				.filter(vc => selectedCredentialIDs.length === 0 || selectedCredentialIDs.includes(String(vc.batchId)));
 
-			const { matches, no_match_reason, code } = matchCredentials(credentials, request.dcqlQuery);
+			const { matches, no_match_reason, code } = await matchWalletCredentials(credentials, request.dcqlQuery);
 
 			if (matches.length === 0) {
 				throw new OIDFlowError({
@@ -494,6 +505,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				audience,
 				nonce: session.request.nonce,
 				origin: session.verifiedOrigin,
+				clientId: session.request.clientId ?? undefined,
 				verifierJwkThumbprint: await session.verifierJwkThumbprint(),
 				dcqlQuery: session.request.dcqlQuery,
 				credentialsToInclude: selectedCredentials.map(c => ({
@@ -545,6 +557,83 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 export default useOID4VPFlow;
 
 /**
+ * Matches stored credentials against a request. `circuit_zk` queries cannot go through the dcql library, so
+ * they are matched with the circuit-zk package's criteria; every other query still uses `matchCredentials`.
+ */
+async function matchWalletCredentials(
+	credentials: ExtendedVcEntity[],
+	dcqlQuery: DcqlQuery.Input,
+	clientMetadata?: Record<string, unknown>,
+): Promise<CredentialsMatchedResult> {
+	const { zkQueries, otherQuery } = splitCircuitZkQuery(dcqlQuery);
+	if (zkQueries.length === 0) return matchCredentials(credentials, dcqlQuery);
+
+	const matches: CredentialMatch[] = [];
+	if (otherQuery) {
+		const r = matchCredentials(credentials, otherQuery);
+		if (r.matches.length === 0) return r;
+		matches.push(...r.matches);
+	}
+
+	const criteria = await getCircuitZkCriteria(zkQueries, clientMetadata);
+	const byQuery = CredentialMatchingService.matchCircuitZkCredentials(criteria, credentials);
+	for (const q of zkQueries) {
+		let found = byQuery.get(q.id) ?? [];
+		if (found.length === 0) {
+			// The package matcher looks for the attributes at the top level of the parsed claims. An mdoc's claims
+			// are usually grouped by namespace, so look one level down as well.
+			const c = criteria.find((x) => x.credentialQueryId === q.id);
+			const wanted = c ? (c.doctype ? [c.doctype] : (c.vct ?? [])) : [];
+			found = c
+				? credentials.filter((vc) => {
+						const parsed = vc.parsedCredential;
+						if (!parsed || !wanted.includes(getCredentialType(parsed))) return false;
+						const claims = (parsed.signedClaims ?? {}) as Record<string, unknown>;
+						return c.requiredAttributes.every(
+							(attr) =>
+								attr in claims ||
+								Object.values(claims).some((v) => v && typeof v === 'object' && attr in (v as object)),
+						);
+					})
+				: [];
+		}
+		if (found.length === 0) {
+			// Say what was compared, so a mismatch is visible without a debugger.
+			const held = credentials.map((vc) => {
+				const claims = (vc.parsedCredential?.signedClaims ?? {}) as Record<string, unknown>;
+				let type = '?';
+				try {
+					type = vc.parsedCredential ? getCredentialType(vc.parsedCredential) : 'unparsed';
+				} catch {
+					/* keep '?' */
+				}
+				return `${type} [${Object.keys(claims).join(',')}]`;
+			});
+			return {
+				matches: [],
+				code: 'NO_MATCHING_CREDENTIALS',
+				no_match_reason:
+					`No credential matches '${q.id}'. Wanted: ${JSON.stringify(criteria.find((x) => x.credentialQueryId === q.id))}. ` +
+					`Held: ${held.join(' | ')}`,
+			};
+		}
+		const seen = new Set<string>();
+		for (const vc of found) {
+			const id = String(vc.batchId ?? vc.credentialId);
+			if (seen.has(id)) continue; // one entry per batch, like the other formats
+			seen.add(id);
+			matches.push({
+				input_descriptor_id: q.id,
+				credential_id: id,
+				format: vc.format || 'mso_mdoc',
+				available_claims: extractAvailableClaims(vc),
+			});
+		}
+	}
+	return { matches };
+}
+
+/**
  * Build conformant credentials map from DCQL matches
  */
 function buildConformantCredentialsMap(
@@ -561,7 +650,7 @@ function buildConformantCredentialsMap(
 			const credDef = dcqlQuery.credentials.find(c => c.id === match.input_descriptor_id);
 			result.set(match.input_descriptor_id, {
 				credentials: [],
-				requestedFields: (credDef?.claims ?? []).map(c => ({
+				requestedFields: (Array.isArray(credDef?.claims) ? credDef.claims : []).map(c => ({
 					name: c.path?.[c.path.length - 1],
 					path: c.path,
 				})),
@@ -585,7 +674,10 @@ async function recordPresentationHistory(
 	const transactionId = crypto.getRandomValues(new Uint32Array(1))[0];
 	const presentations = await Promise.all(selectedCredentials.map(async (cred) => ({
 		transactionId,
-		data: await applySelectiveDisclosure(cred.credentialRaw, cred.disclosedClaims ?? []),
+		// A circuit_zk presentation discloses no claims; keep the raw credential so history still records it.
+		data: cred.disclosedClaims?.length
+			? await applySelectiveDisclosure(cred.credentialRaw, cred.disclosedClaims)
+			: cred.credentialRaw,
 		usedCredentialIds: [Number.parseInt(cred.walletCredentialRef)],
 		audience,
 	})));
