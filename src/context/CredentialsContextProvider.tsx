@@ -162,15 +162,16 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 					}
 					const result = await credentialVerifyingEngine.verify({ rawCredential: credential.data, opts: {} });
 
+					const instances: Instance[] = instancesMap[credential.batchId];
+
 					// Attach the instances array from the map and add parsedCredential
 					return {
 						...credential,
-						instances: instancesMap[credential.batchId],
+						instances,
 						parsedCredential,
 						isExpired: result.success === false && result.error === CredentialVerificationError.ExpiredCredential,
-						sigCount: instancesMap[credential.batchId].reduce((acc: number, curr: Instance) =>
-							acc + curr.sigCount
-							, 0),
+						isBatchExhausted: instances.length > 1 && instances.every((i) => i.sigCount > 0),
+						sigCount: instances.reduce((acc, curr) => acc + curr.sigCount, 0),
 					};
 				})
 		);
