@@ -1,5 +1,17 @@
 # wallet-frontend
 
+## 0.7.0-beta.3
+
+### Minor Changes
+
+- fixed the scroll after deleting a credential. by [@lov1saconde](https://github.com/lov1saconde) in [#375](https://github.com/sirosfoundation/wallet-frontend/pull/375)
+- configuration option for the facetec-api URL by [@lov1saconde](https://github.com/lov1saconde) in [#380](https://github.com/sirosfoundation/wallet-frontend/pull/380)
+
+### Patch Changes
+
+- Fix slow `/v1/resolve` API calls blocking the wallet UI from rendering by [@smncd](https://github.com/smncd) in [#376](https://github.com/sirosfoundation/wallet-frontend/pull/376)
+- Set tailwind source by [@smncd](https://github.com/smncd) in [#377](https://github.com/sirosfoundation/wallet-frontend/pull/377)
+
 ## 0.7.0-beta.2
 
 ### Patch Changes
