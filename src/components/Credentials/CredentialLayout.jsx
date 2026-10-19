@@ -71,7 +71,7 @@ const CredentialLayout = ({ children, title = null, displayCredentialInfo = null
 	// Bound to the surrounding values rather than declared as a component for
 	// the same reason as the layouts below: a component declared here would be
 	// a new type on every render and remount the credential image each time.
-	const credentialImageButton = ({ showRibbon, fixedRatioImage: fixedRatio = false }) => (
+	const credentialImageButton = ({ showRibbon, showOverlay, fixedRatioImage: fixedRatio = false }) => (
 		<button
 			id="show-full-screen-credential"
 			className="relative rounded-xl xm:rounded-lg w-full overflow-hidden transition-shadow shadow-md hover:shadow-lg cursor-pointer"
@@ -84,6 +84,7 @@ const CredentialLayout = ({ children, title = null, displayCredentialInfo = null
 				parsedCredential={vcEntity?.parsedCredential}
 				className="w-full object-cover"
 				showRibbon={showRibbon}
+				showOverlay={showOverlay}
 				fixedRatio={fixedRatio}
 			/>
 		</button>
@@ -99,7 +100,7 @@ const CredentialLayout = ({ children, title = null, displayCredentialInfo = null
 		<div className="w-full flex flex-col lg:flex-row gap-4">
 			{/* LEFT COLUMN (always full width, shrinks on lg) */}
 			<div className="w-full lg:w-1/2 flex flex-col gap-4">
-				{credentialImageButton({ showRibbon: true, fixedRatioImage: false })}
+				{credentialImageButton({ showRibbon: true, showOverlay: false, fixedRatioImage: false })}
 				{zeroSigCount !== null && sigTotal && (
 					<UsageStats zeroSigCount={zeroSigCount} sigTotal={sigTotal} screenType={screenType} t={t} />
 
@@ -124,7 +125,7 @@ const CredentialLayout = ({ children, title = null, displayCredentialInfo = null
 		<div className="w-full flex flex-col">
 			<div className={`flex flex-row items-center gap-5 mt-2 mb-4 px-2`}>
 				<div className='flex flex-col gap-4 w-4/5 xm:w-4/12'>
-					{credentialImageButton({ showRibbon: false, fixedRatioImage })}
+					{credentialImageButton({ showRibbon: false, showOverlay: false, fixedRatioImage })}
 					{screenType !== 'mobile' && zeroSigCount !== null && sigTotal && (
 						<UsageStats zeroSigCount={zeroSigCount} sigTotal={sigTotal} screenType={screenType} t={t} />
 
@@ -191,7 +192,7 @@ const CredentialLayout = ({ children, title = null, displayCredentialInfo = null
 					isOpen={showFullscreenImgPopup}
 					onClose={() => setShowFullscreenImgPopup(false)}
 					content={
-						<CredentialImage vcEntity={vcEntity} className={"max-w-full max-h-full rounded-xl"} showRibbon={false} fixedRatio={false} />
+						<CredentialImage vcEntity={vcEntity} className={"max-w-full max-h-full rounded-xl"} showRibbon={false} showOverlay={false} fixedRatio={false} />
 					}
 				/>
 			)}
