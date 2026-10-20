@@ -1,0 +1,31 @@
+name: Release
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [release/sirosid]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    if: github.event.pull_request.merged && startsWith(github.head_ref, 'release/v')
+    uses: ./.github/workflows/release-check.yml
+
+  publish:
+    needs: check
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+    steps:
+      # Dispatch (not a tag push) because events from GITHUB_TOKEN don't trigger other workflows.
+      - name: Start image build and SBOM for the release tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: v${{ needs.check.outputs.version }}
+        run: |
+          gh workflow run docker-build-publish.yml --ref "$TAG" -f git_ref="$TAG"
+          gh workflow run sbom.yml --ref "$TAG"
+          echo "Started image build and SBOM for $TAG." >> "$GITHUB_STEP_SUMMARY"

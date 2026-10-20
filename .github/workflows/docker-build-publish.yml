@@ -5,9 +5,6 @@ on:
     branches:
       - release/sirosid
       - release/sirosid/**
-    tags:
-      - 'v*.*.**'
-      - 'v*.*.**-sirosid.*'
   pull_request:
     branches:
       - release/sirosid
@@ -28,6 +25,7 @@ env:
 
 jobs:
   "build-and-push-image":
+    if: github.event_name != 'pull_request' || !startsWith(github.head_ref, 'release/v')
     runs-on: "ubuntu-24.04"
     permissions:
       contents: "read"
