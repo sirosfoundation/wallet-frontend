@@ -19,7 +19,7 @@ import CredentialImage from './CredentialImage';
 import FullscreenPopup from '../Popups/FullscreenImg';
 import PageDescription from '../Shared/PageDescription';
 import { ArrowLeft, ArrowRight, GalleryHorizontalEnd, TriangleAlert } from 'lucide-react';
-import { CredentialReissuance } from './CredentialReissuance';
+import { CredentialStatusDetails } from './CredentialStatusDetails';
 
 const UsageStats = ({ zeroSigCount, sigTotal, screenType, t }) => {
 	if (zeroSigCount === null || sigTotal === null) return null;
@@ -106,9 +106,9 @@ const CredentialLayout = ({ children, title = null, displayCredentialInfo = null
 					<UsageStats zeroSigCount={zeroSigCount} sigTotal={sigTotal} screenType={screenType} t={t} />
 				)}
 
-				{/* {(vcEntity?.isExpired || vcEntity?.isBatchExhausted) && (
-					<CredentialReissuance vcEntity={vcEntity} />
-				)} */}
+				{(vcEntity?.isExpired || vcEntity?.isBatchExhausted) && (
+					<CredentialStatusDetails vcEntity={vcEntity} />
+				)}
 
 				{/* Show displayCredentialInfo inline when stacked */}
 				<div className="block lg:hidden">

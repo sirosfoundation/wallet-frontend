@@ -1,10 +1,10 @@
 import { FC, useEffect, useState } from 'react'
+import { CredentialImageStatusOverlay } from './CredentialImageStatusOverlay';
 import ExpiredRibbon from './ExpiredRibbon';
 import UsagesRibbon from "./UsagesRibbon";
 import { logger } from '@/logger';
 import DefaultCred from "../../assets/images/cred.png";
 import { CredentialCardSkeleton } from '../Skeletons';
-import { CircleXIcon } from 'lucide-react';
 
 export type CredentialImageProps = {
 	vcEntity: any;
@@ -83,23 +83,8 @@ const CredentialImage: FC<CredentialImageProps> = ({
 						{vcEntity.isBatchExhausted !== true && showRibbon &&
 							<UsagesRibbon vcEntityInstances={vcEntityInstances} borderColor={borderColor} />
 						}
-						{vcEntity.isBatchExhausted && showOverlay && (
-							<div
-								className="
-									absolute top-0 left-0 w-full h-full p-4
-									flex items-center justify-center flex-col gap-2
-									bg-black/25 backdrop-blur-xs rounded-lg
-									text-sm font-bold
-								"
-							>
-								<p className="py-1 px-4 flex justify-center items-center rounded-full bg-lm-red-light text-lm-red border-2 border-lm-red">
-									<CircleXIcon size={18} className="inline-block mr-1" />
-									Drained
-								</p>
-								<p className="text-white max-w-75">
-									This credential needs to be renewed before it can be used again
-								</p>
-							</div>
+						{(vcEntity.isBatchExhausted || vcEntity.isExpired) && showOverlay && (
+							<CredentialImageStatusOverlay status={vcEntity.isExpired ? 'expired' : 'batchExhausted'} />
 						)}
 					</div>
 				</>
