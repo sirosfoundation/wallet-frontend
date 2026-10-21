@@ -22,6 +22,8 @@ import { ConformantCredentials, PresentCredentialsFlow, usePresentCredentialsFlo
 import { DcqlQuery } from 'dcql';
 import { OID4VPVerifierInfo } from '@/lib/openid-flow/types/OID4VPTypes';
 import { useStatusContext } from '@/hooks/useStatusContext';
+import { useZkp } from '@/hooks/useZkp';
+import { isPureZkpReqDcqlQuery, isZkpReqDcqlQuery, ZkpReq, zkpReqFormatsOf, zkpReqQueriesOf } from '@sirosfoundation/zkp-req';
 
 type OpenIDFlowCallbackProps = {
 	callbackUrl: OIDFlowCallbackURL;
@@ -306,6 +308,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	const { displayError } = useErrorDialog();
 	const { t } = useTranslation();
 	const { showTransactionDataConsentPopup } = useContext(OpenID4VPContext);
+	const { presenterClient } = useZkp();
 	const navigateHome = useNavigateHome();
 	const flowIsActive = useRef(false);
 	const {
@@ -382,6 +385,38 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		onCredentialSelection: handleOID4VPCredentialSelection,
 	});
 
+	/**
+	 * Undefined when the request is not `zkp_req`.
+	 * `request` describes the Request Object; absent on redirects, where only the backend has it.
+	 *
+	 * @todo Replace with a strategy picker that returns the flow's `IPresentationStrategy`.
+	 */
+	const createZkpReq = (
+		dcqlQuery: unknown,
+		request?: { signed: boolean; responseMode: string; clientMetadata?: unknown },
+	): ZkpReq | undefined => {
+		if (!isZkpReqDcqlQuery(dcqlQuery)) return undefined;
+		if (!isPureZkpReqDcqlQuery(dcqlQuery)) {
+			throw new OIDFlowError({ code: 'ZKP_REQ_MIXED_QUERY', message: 'zkp_req cannot be combined with other formats' });
+		}
+		// nym_auth rulebook: signed Request Objects only, and an encrypted response.
+		if (request && !request.signed) {
+			throw new OIDFlowError({ code: 'ZKP_REQ_UNSIGNED_REQUEST', message: 'zkp_req requires a signed request' });
+		}
+		if (request && !['dc_api.jwt', 'direct_post.jwt'].includes(request.responseMode)) {
+			throw new OIDFlowError({ code: 'ZKP_REQ_UNENCRYPTED_RESPONSE', message: 'zkp_req requires an encrypted response mode' });
+		}
+		if (!presenterClient) {
+			throw new OIDFlowError({ code: 'ZKP_REQ_UNAVAILABLE', message: 'No zero-knowledge presenter available' });
+		}
+
+		return new ZkpReq({
+			queries: zkpReqQueriesOf(dcqlQuery),
+			formats: zkpReqFormatsOf(request?.clientMetadata),
+			presenter: presenterClient,
+		});
+	};
+
 	const processAuthorizationRequest = async (url: URL) => {
 		const result = await handleAuthorizationRequest(url);
 
@@ -402,10 +437,18 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			if (!consented) return;
 		}
 
+		/**
+		 * @todo Create and pass the flow's `IPresentationStrategy` instead.
+		 * @todo Pass the Request Object's signedness, response mode and
+		 * 			 `client_metadata` once the backend
+		 *       relays them (go-wallet-backend #471).
+		 */
+		const zkpReq = createZkpReq(result.dcqlQuery);
+
 		const credSelectResult = await handleCredentialSelection(
 			result.verifierInfo,
 			result.dcqlQuery,
-			result.conformantCredentials,
+			{ zkpReq },
 		);
 
 		if (!credSelectResult?.success) {
@@ -417,8 +460,10 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 
 		displaySendingScreen();
 
+		// @todo Pass the flow's `IPresentationStrategy` instead of `zkpReq`.
 		const sendResult = await sendAuthorizationResponse(
 			credSelectResult.selectedCredentials,
+			zkpReq,
 		);
 		logger.debug('Authorization response sent:', sendResult);
 
@@ -449,7 +494,6 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 
 			const result = await handleDCAPIRequest(
 				session.request,
-				session.selectedCredentialIDs,
 				session.verifiedOrigin,
 			);
 
@@ -457,10 +501,19 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				throw new OIDFlowError(result.error);
 			}
 
+			/**
+			 * @todo Create and pass the flow's `IPresentationStrategy` instead.
+			 */
+			const zkpReq = createZkpReq(result.dcqlQuery, {
+				signed: session.request.isSigned,
+				responseMode: session.request.responseMode,
+				clientMetadata: session.request.clientMetadata,
+			});
+
 			const credSelectResult = await handleCredentialSelection(
 				result.verifierInfo,
 				result.dcqlQuery,
-				result.conformantCredentials,
+				{ selectedCredentialIDs: session.selectedCredentialIDs, zkpReq },
 			);
 
 			if (!credSelectResult?.success) {
@@ -473,9 +526,11 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 
 			displaySendingScreen();
 
+			// @todo Pass the flow's `IPresentationStrategy` instead of `zkpReq`.
 			const sendResult = await sendDCAPIResponse(
 				session,
-				credSelectResult.selectedCredentials
+				credSelectResult.selectedCredentials,
+				zkpReq,
 			);
 			logger.debug('DC API response sent:', sendResult);
 

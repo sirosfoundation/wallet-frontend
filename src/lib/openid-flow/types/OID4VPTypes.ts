@@ -5,6 +5,7 @@
 import type { DcqlQuery } from 'dcql';
 import type { TrustEvaluation } from './TrustTypes';
 import { TrustStatus } from 'wallet-common';
+import type { SignRequestHandler } from '../transports/OIDFlowWebSocketTransport';
 
 // Note: These types are defined locally to avoid coupling to wallet-common exports
 // which may vary between versions. The transport layer handles conversion.
@@ -23,6 +24,13 @@ export interface OID4VPFlowParams {
 
 	/** Selected credentials for presentation */
 	selectedCredentials?: OID4VPSelectedCredential[];
+
+	/**
+	 * Answers this flow's `sign_presentation` instead of the registered sign handlers.
+	 *
+	 * @todo Replace with an `IPresentationStrategy` whose `present(context)` the transport calls.
+	 */
+	signPresentation?: SignRequestHandler;
 }
 
 /**

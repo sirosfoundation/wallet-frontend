@@ -11,14 +11,7 @@ import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useOIDFlowTransportSafe } from '@/context/OIDFlowTransportContext';
 import SessionContext from '@/context/SessionContext';
 import CredentialsContext, { ExtendedVcEntity } from '@/context/CredentialsContext';
-import CredentialMatchingService, {
-	matchCredentials,
-	extractAvailableClaims,
-	type CredentialMatch,
-	type CredentialsMatchedResult,
-} from '@/lib/services/CredentialMatchingService';
-import { getCircuitZkCriteria, splitCircuitZkQuery } from '@/lib/zero-knowledge/circuitZkPresentation';
-import { getCredentialType } from '@/lib/utils/getCredentialType';
+import { matchCredentials } from '@/lib/services/CredentialMatchingService';
 import type {
 	OID4VPFlowResult,
 	OID4VPSelectedCredential,
@@ -27,15 +20,17 @@ import type {
 import type { OIDFlowActiveTransportType, OIDFlowProgressEvent } from '@/lib/openid-flow/types/OIDFlowTypes';
 import { DcqlQuery } from 'dcql';
 import { getLeastUsedCredentialInstance } from '@/lib/services/CredentialBatchHelper';
-import { applySelectiveDisclosure } from '@/lib/verifiable-credentials';
+import { applySelectiveDisclosure, buildOid4vpDcApiSessionTranscript, buildOid4vpSessionTranscript } from '@/lib/verifiable-credentials';
 import { OIDFlowError } from '@/lib/openid-flow/errors';
-import { useOIDFlowSignHandler, setPendingDcqlQuery } from './useOIDFlowSignHandler';
+import { useOIDFlowSignHandler } from './useOIDFlowSignHandler';
 import { DCAPIRequest, DCAPISession } from '@/lib/openid-flow/platforms/dc-api';
+import type { SignRequestHandler } from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
 import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
 import { BackendApi } from '@/api';
 import { parseClientIdScheme, KeyMaterial } from 'wallet-common';
 import { logger } from '@/logger';
 import { ConformantCredentials } from '@/components/flows/PresentCredentialsFlow';
+import { encodeZkpReqVpToken, zkpReqQueriesOf, type IZkpReq, type PresentationSession } from '@sirosfoundation/zkp-req';
 
 export interface UseOID4VPFlowOptions {
 	/**
@@ -56,6 +51,19 @@ export interface UseOID4VPFlowOptions {
 	) => Promise<Map<string, number>>;
 }
 
+export interface OID4VPCredentialSelectionOptions {
+	/**
+	 * Pre-selected by the native picker (DC API); empty means all.
+	 */
+	selectedCredentialIDs?: string[];
+	/**
+	 * Set by the caller when the request is `zkp_req`.
+	 *
+	 * @todo Take the flow's `IPresentationStrategy` instead.
+	 */
+	zkpReq?: IZkpReq;
+}
+
 export interface UseOID4VPFlowReturn {
 	/**
 	 * Start an OID4VP flow with an authorization request URI
@@ -69,13 +77,16 @@ export interface UseOID4VPFlowReturn {
 	handleCredentialSelection: (
 		verifierInfo: OID4VPVerifierInfo,
 		dcqlQuery?: DcqlQuery.Input,
-		preMatchedCredentials?: Map<string, { credentials: number[]; requestedFields: Array<{ name?: string; path?: string[] }> }>
+		selectionOptions?: OID4VPCredentialSelectionOptions,
 	) => Promise<OID4VPFlowResult>;
 	/**
 	 * Send authorization response with selected credentials
+	 *
+	 * @todo Take the flow's `IPresentationStrategy` instead of `zkpReq`.
 	 */
 	sendAuthorizationResponse: (
-		selectedCredentials: OID4VPSelectedCredential[]
+		selectedCredentials: OID4VPSelectedCredential[],
+		zkpReq?: IZkpReq,
 	) => Promise<OID4VPFlowResult>;
 	/**
 	 * Current transport type being used
@@ -98,13 +109,18 @@ export interface UseOID4VPFlowReturn {
 	 */
 	handleDCAPIRequest: (
 		request: DCAPIRequest,
-		selectedCredentialIDs: string[],
 		verifiedOrigin: string,
 	) => Promise<OID4VPFlowResult>;
 	/**
 	 * Send DC API response - sign, record history, send via session
+	 *
+	 * @todo Take the flow's `IPresentationStrategy` instead of `zkpReq`.
 	 */
-	sendDCAPIResponse: (session: DCAPISession, credentials: OID4VPSelectedCredential[]) => Promise<OID4VPFlowResult>;
+	sendDCAPIResponse: (
+		session: DCAPISession,
+		credentials: OID4VPSelectedCredential[],
+		zkpReq?: IZkpReq,
+	) => Promise<OID4VPFlowResult>;
 }
 
 /**
@@ -169,7 +185,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 	): Promise<OID4VPFlowResult> => {
 		setIsLoading(true);
 		setError(null);
-		setPendingDcqlQuery(undefined);
+
 		try {
 			// WebSocket transport: delegate to backend
 			if (transportType === 'websocket' && transport) {
@@ -233,36 +249,88 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 	const handleCredentialSelection = useCallback(async (
 		verifierInfo: OID4VPVerifierInfo,
 		dcqlQuery?: DcqlQuery.Input,
-		preMatchedCredentials?: Map<string, { credentials: number[]; requestedFields: Array<{ name?: string; path?: string[] }> }>
+		{ selectedCredentialIDs = [], zkpReq }: OID4VPCredentialSelectionOptions = {},
 	): Promise<OID4VPFlowResult> => {
 		setIsLoading(true);
 		setError(null);
-		setPendingDcqlQuery(dcqlQuery);
+
 		try {
 			if (!options.onCredentialSelection) throw new OIDFlowError({
 				code: 'NO_CREDENTIAL_SELECTION_POPUP',
 				message: 'No credential selection popup configured'
 			});
 
-			const credentials = await waitForCredentials();
+			// Pre-selected by the native picker (DC API); empty means all.
+			const credentials = (await waitForCredentials())
+				.filter(vc => selectedCredentialIDs.length === 0 || selectedCredentialIDs.includes(String(vc.batchId)));
 
-			// TODO: Remove preMatchedCredentials once http_proxy flow fully migrated to use
-			// matchCredentials in the hook instead of backend matching in wallet-common
-			let conformantCredentialsMap: ConformantCredentials = new Map();
-
-			if (preMatchedCredentials) {
-				conformantCredentialsMap = new Map(preMatchedCredentials);
-			} else if (dcqlQuery) {
-				const { matches, no_match_reason, code } = await matchWalletCredentials(credentials, dcqlQuery);
-
-				if (matches.length === 0) {
-					throw new OIDFlowError({ code: code ?? 'NO_MATCHING_CREDENTIALS', message: no_match_reason || 'No matching credentials' });
+			/**
+			 * @todo Call the strategy's first step instead of branching on `zkpReq` here.
+			 */
+			if (zkpReq) {
+				const match = await zkpReq.match();
+				if (match.kind === 'failed') {
+					throw new OIDFlowError({ code: 'ZKP_REQ_NO_MATCH', message: `zkp_req cannot be presented (${match.code})` });
 				}
 
-				conformantCredentialsMap = new Map(buildConformantCredentialsMap(matches, dcqlQuery));
-			} else {
-				throw new OIDFlowError({ code: 'NO_DCQL_QUERY_OR_PREMATCHED_CREDENTIALS', message: 'No dcqlQuery or preMatchedCredentials provided' });
+				const queries = zkpReqQueriesOf(dcqlQuery);
+
+				/**
+				 * @todo Fake fields from the `_req` items; replace with real display metadata.
+				 */
+				const conformant: ConformantCredentials = new Map(
+					[...match.candidates].map(([queryId, candidate]) => [
+						queryId,
+						{
+							credentials: credentials
+								.filter((vc) => String(vc.credentialId) === candidate.credential_id)
+								.map((vc) => vc.batchId),
+							requestedFields: (queries.find((q) => q.id === queryId)?._req ?? []).map(
+								({ fn_id, return: handle }) => ({ name: handle ?? fn_id, path: [fn_id] }),
+							),
+						},
+					]),
+				);
+
+				// The selection is not read yet: each query presents its first candidate.
+				await options.onCredentialSelection(
+					verifierInfo,
+					dcqlQuery,
+					conformant,
+				);
+
+				const selected: OID4VPSelectedCredential[] = [];
+				for (const [queryId, candidate] of match.candidates) {
+					const instance = credentials.find((vc) => String(vc.credentialId) === candidate.credential_id);
+					if (!instance) continue;
+
+					selected.push({
+						batchId: instance.batchId,
+						credentialQueryId: queryId,
+						walletCredentialRef: candidate.credential_id,
+						credentialRaw: instance.data,
+						holderKeyKid: instance.kid,
+						disclosedClaims: [],
+					});
+				}
+
+				return {
+					success: true,
+					selectedCredentials: selected,
+				};
 			}
+
+			if (!dcqlQuery) {
+				throw new OIDFlowError({ code: 'NO_DCQL_QUERY_OR_PREMATCHED_CREDENTIALS', message: 'No dcqlQuery provided' });
+			}
+
+			const { matches, no_match_reason, code } = matchCredentials(credentials, dcqlQuery);
+
+			if (matches.length === 0) {
+				throw new OIDFlowError({ code: code ?? 'NO_MATCHING_CREDENTIALS', message: no_match_reason || 'No matching credentials' });
+			}
+
+			const conformantCredentialsMap: ConformantCredentials = new Map(buildConformantCredentialsMap(matches, dcqlQuery));
 
 			if (conformantCredentialsMap.size === 0) {
 				throw new OIDFlowError({ code: 'INSUFFICIENT_CREDENTIALS', message: 'No credentials available for selection' });
@@ -291,13 +359,10 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 					walletCredentialRef: String(instance.credentialId),
 					credentialRaw: instance.data,
 					holderKeyKid: instance.kid,
-					// circuit_zk queries have an object in `claims` (the functions), not a path list.
-					disclosedClaims: dcqlQuery
-						? (() => {
-							const claims = dcqlQuery.credentials.find(c => c.id === descriptorId)?.claims;
-							return Array.isArray(claims) ? claims.map(c => c.path?.join('.')) : [];
-						})()
-						: preMatchedCredentials?.get(descriptorId)?.requestedFields?.map(f => f.path?.join('.')) ?? [],
+					disclosedClaims: (() => {
+						const claims = dcqlQuery.credentials.find(c => c.id === descriptorId)?.claims;
+						return Array.isArray(claims) ? claims.map(c => c.path?.join('.')) : [];
+					})(),
 				});
 			}
 
@@ -346,7 +411,8 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 	 * Send authorization response with selected credentials
 	 */
 	const sendAuthorizationResponse = useCallback(async (
-		selectedCredentials: OID4VPSelectedCredential[]
+		selectedCredentials: OID4VPSelectedCredential[],
+		zkpReq?: IZkpReq,
 	): Promise<OID4VPFlowResult> => {
 		setIsLoading(true);
 		setError(null);
@@ -358,9 +424,27 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 					? transport.onProgress(onProgress)
 					: () => {};
 
+				/**
+				 * @todo Pass the flow's `IPresentationStrategy` instead; the transport calls its `present` step.
+				 */
+				const signPresentation: SignRequestHandler | undefined = zkpReq && (async ({ params }) => {
+					if (!params.nonce) {
+						throw new Error('Missing nonce for zkp_req presentation');
+					}
+					return {
+						vpToken: encodeZkpReqVpToken(await zkpReq.prove(await presentationSessionOf({
+							nonce: params.nonce,
+							clientId: params.audience,
+							responseUri: params.responseUri,
+							jwkThumbprint: params.verifierJwkThumbprint,
+						}))),
+					};
+				});
+
 				try {
 					const result = await transport.startOID4VPFlow({
 						selectedCredentials,
+						signPresentation,
 					});
 
 					// Record presentation history for sigCount tracking
@@ -411,7 +495,6 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 	 */
 	const handleDCAPIRequest = useCallback(async (
 		request: DCAPIRequest,
-		selectedCredentialIDs: string[],
 		verifiedOrigin: string
 	): Promise<OID4VPFlowResult> => {
 		setIsLoading(true);
@@ -439,29 +522,8 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				});
 			}
 
-			// We should filter the credentials based on the selectedCredentialIDs
-			// if provided otherwise use all available credentials.
-			const credentials = (await waitForCredentials())
-				.filter(vc => selectedCredentialIDs.length === 0 || selectedCredentialIDs.includes(String(vc.batchId)));
-
-			const { matches, no_match_reason, code } = await matchWalletCredentials(credentials, request.dcqlQuery);
-
-			if (matches.length === 0) {
-				throw new OIDFlowError({
-					code: code ?? 'NO_MATCHING_CREDENTIALS',
-					message: no_match_reason || 'No matching credentials',
-				});
-			}
-
-			// Build conformant credentials map
-			const conformantCredentials = buildConformantCredentialsMap(
-				matches,
-				request.dcqlQuery
-			);
-
 			return {
 				success: true,
-				conformantCredentials,
 				dcqlQuery: request.dcqlQuery,
 				verifierInfo: {
 					name: trustResult?.name ?? verifiedOrigin,
@@ -485,14 +547,15 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		} finally {
 			setIsLoading(false);
 		}
-	}, [waitForCredentials, onError, transportContext?.trustEvaluators]);
+	}, [onError, transportContext?.trustEvaluators]);
 
 	/**
 	 * Send DC API response - sign, record history, send via session
 	 */
 	const sendDCAPIResponse = useCallback(async (
 		session: DCAPISession,
-		selectedCredentials: OID4VPSelectedCredential[]
+		selectedCredentials: OID4VPSelectedCredential[],
+		zkpReq?: IZkpReq,
 	): Promise<OID4VPFlowResult> => {
 		setIsLoading(true);
 		setError(null);
@@ -500,31 +563,40 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		try {
 			// DC API audience format per OpenID4VP spec
 			const audience = `origin:${session.verifiedOrigin}`;
+			const verifierJwkThumbprint = await session.verifierJwkThumbprint();
 
-			const signResponse = await signPresentation({
-				audience,
-				nonce: session.request.nonce,
-				origin: session.verifiedOrigin,
-				clientId: session.request.clientId ?? undefined,
-				verifierJwkThumbprint: await session.verifierJwkThumbprint(),
-				dcqlQuery: session.request.dcqlQuery,
-				credentialsToInclude: selectedCredentials.map(c => ({
-					credentialId: c.walletCredentialRef,
-					credentialQueryId: c.credentialQueryId,
-					disclosedClaims: c.disclosedClaims,
-					credentialRaw: c.credentialRaw,
-				})),
-			});
+			/**
+			 * @todo Call the strategy's `present` step for both branches.
+			 */
+			const vpToken = zkpReq
+				? encodeZkpReqVpToken(await zkpReq.prove(await presentationSessionOf({
+					nonce: session.request.nonce,
+					clientId: session.request.clientId,
+					origin: session.verifiedOrigin,
+					jwkThumbprint: verifierJwkThumbprint,
+				})))
+				: (await signPresentation({
+					audience,
+					nonce: session.request.nonce,
+					origin: session.verifiedOrigin,
+					verifierJwkThumbprint: verifierJwkThumbprint ?? undefined,
+					credentialsToInclude: selectedCredentials.map(c => ({
+						credentialId: c.walletCredentialRef,
+						credentialQueryId: c.credentialQueryId,
+						disclosedClaims: c.disclosedClaims,
+						credentialRaw: c.credentialRaw,
+					})),
+				})).vpToken;
 
 			if (keystore) {
 				await recordPresentationHistory(keystore, api, selectedCredentials, audience);
 			}
 
-			if (!signResponse.vpToken) {
+			if (!vpToken) {
 				throw new OIDFlowError({ code: 'SIGNING_FAILED', message: 'Failed to generate VP token' });
 			}
 
-			await session.sendResponse(JSON.parse(signResponse.vpToken));
+			await session.sendResponse(JSON.parse(vpToken));
 			return { success: true };
 		} catch (err) {
 			const error = err instanceof OIDFlowError
@@ -557,80 +629,29 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 export default useOID4VPFlow;
 
 /**
- * Matches stored credentials against a request. `circuit_zk` queries cannot go through the dcql library, so
- * they are matched with the circuit-zk package's criteria; every other query still uses `matchCredentials`.
+ * The Handover follows the channel: redirects have a `responseUri`, the DC API an `origin`.
+ *
+ * @todo Move into the `zkp_req` presentation strategy.
  */
-async function matchWalletCredentials(
-	credentials: ExtendedVcEntity[],
-	dcqlQuery: DcqlQuery.Input,
-	clientMetadata?: Record<string, unknown>,
-): Promise<CredentialsMatchedResult> {
-	const { zkQueries, otherQuery } = splitCircuitZkQuery(dcqlQuery);
-	if (zkQueries.length === 0) return matchCredentials(credentials, dcqlQuery);
+async function presentationSessionOf(p: {
+	nonce: string;
+	clientId?: string;
+	origin?: string;
+	responseUri?: string;
+	jwkThumbprint?: string | null;
+}): Promise<PresentationSession> {
+	const transcript = p.responseUri
+		? await buildOid4vpSessionTranscript({ clientId: p.clientId!, responseUri: p.responseUri, nonce: p.nonce, jwkThumbprint: p.jwkThumbprint ?? null })
+		: await buildOid4vpDcApiSessionTranscript({ origin: p.origin!, nonce: p.nonce, jwkThumbprint: p.jwkThumbprint ?? null });
 
-	const matches: CredentialMatch[] = [];
-	if (otherQuery) {
-		const r = matchCredentials(credentials, otherQuery);
-		if (r.matches.length === 0) return r;
-		matches.push(...r.matches);
-	}
-
-	const criteria = await getCircuitZkCriteria(zkQueries, clientMetadata);
-	const byQuery = CredentialMatchingService.matchCircuitZkCredentials(criteria, credentials);
-	for (const q of zkQueries) {
-		let found = byQuery.get(q.id) ?? [];
-		if (found.length === 0) {
-			// The package matcher looks for the attributes at the top level of the parsed claims. An mdoc's claims
-			// are usually grouped by namespace, so look one level down as well.
-			const c = criteria.find((x) => x.credentialQueryId === q.id);
-			const wanted = c ? (c.doctype ? [c.doctype] : (c.vct ?? [])) : [];
-			found = c
-				? credentials.filter((vc) => {
-						const parsed = vc.parsedCredential;
-						if (!parsed || !wanted.includes(getCredentialType(parsed))) return false;
-						const claims = (parsed.signedClaims ?? {}) as Record<string, unknown>;
-						return c.requiredAttributes.every(
-							(attr) =>
-								attr in claims ||
-								Object.values(claims).some((v) => v && typeof v === 'object' && attr in (v as object)),
-						);
-					})
-				: [];
-		}
-		if (found.length === 0) {
-			// Say what was compared, so a mismatch is visible without a debugger.
-			const held = credentials.map((vc) => {
-				const claims = (vc.parsedCredential?.signedClaims ?? {}) as Record<string, unknown>;
-				let type = '?';
-				try {
-					type = vc.parsedCredential ? getCredentialType(vc.parsedCredential) : 'unparsed';
-				} catch {
-					/* keep '?' */
-				}
-				return `${type} [${Object.keys(claims).join(',')}]`;
-			});
-			return {
-				matches: [],
-				code: 'NO_MATCHING_CREDENTIALS',
-				no_match_reason:
-					`No credential matches '${q.id}'. Wanted: ${JSON.stringify(criteria.find((x) => x.credentialQueryId === q.id))}. ` +
-					`Held: ${held.join(' | ')}`,
-			};
-		}
-		const seen = new Set<string>();
-		for (const vc of found) {
-			const id = String(vc.batchId ?? vc.credentialId);
-			if (seen.has(id)) continue; // one entry per batch, like the other formats
-			seen.add(id);
-			matches.push({
-				input_descriptor_id: q.id,
-				credential_id: id,
-				format: vc.format || 'mso_mdoc',
-				available_claims: extractAvailableClaims(vc),
-			});
-		}
-	}
-	return { matches };
+	return {
+		handover: transcript.handover.encode(),
+		nonce: p.nonce,
+		/**
+		 * @todo Use the form the trust framework fixes (`semantic_id:` or `x509_san_dns:`).
+		 */
+		verifier_id: p.clientId ?? p.origin!,
+	};
 }
 
 /**

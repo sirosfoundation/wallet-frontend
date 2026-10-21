@@ -1,5 +1,6 @@
 import { DcqlQuery } from 'dcql';
 import { z } from 'zod';
+import { isPureZkpReqDcqlQuery } from '@sirosfoundation/zkp-req';
 
 export interface DCAPIMode {
 	readonly verifiedOrigin: string;
@@ -35,6 +36,8 @@ export const ClientMetadataSchema = z.object({
 export const dcqlQuerySchema = z.custom<DcqlQuery.Input>(
 	(val) => {
 		if (!val || typeof val !== 'object') return false;
+		// The dcql library only knows the standard formats.
+		if (isPureZkpReqDcqlQuery(val)) return true;
 		try {
 			DcqlQuery.parse(val);
 			return true;

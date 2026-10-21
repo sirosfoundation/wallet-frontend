@@ -164,6 +164,12 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	private signHandlers = new Set<SignRequestHandler>();
 	private matchHandlers = new Set<MatchRequestHandler>();
 	private vpCredentialCache = new Map<string, string>();
+	/**
+	 * Set only while a consent call that brought its own signer is pending.
+	 *
+	 * @todo Hold the flow's `IPresentationStrategy` instead, and call its `present` step.
+	 */
+	private flowSigner: SignRequestHandler | null = null;
 
 	private reconnectAttempts = 0;
 	private maxReconnectAttempts = 5;
@@ -181,8 +187,8 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		this.authToken = authToken;
 		this.tenantId = tenantId;
 		this.trustEvaluators = trustEvaluators ?? {
-			evaluateIssuerTrust: async () => ({ trusted: false }),
-			evaluateVerifierTrust: async () => ({ trusted: false }),
+			evaluateIssuerTrust: async () => ({ trusted: false, status: TrustStatusEnum.UNKNOWN }),
+			evaluateVerifierTrust: async () => ({ trusted: false, status: TrustStatusEnum.UNKNOWN }),
 		};
 	}
 
@@ -504,18 +510,26 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				this.vpCredentialCache.set(c.walletCredentialRef, c.credentialRaw);
 			}
 
-			const response = await this.send({
-				type: 'flow_action',
-				action: 'consent',
-				payload: {
-					selected_credentials: params.selectedCredentials.map(c => ({
-						credential_id: c.walletCredentialRef,
-						credential_query_id: c.credentialQueryId,
-						disclosed_claims: c.disclosedClaims ?? [],
-					})),
-				},
-			});
-			return this.mapOID4VPResponse(response);
+			/**
+			 * @todo Keep the flow's `IPresentationStrategy` for the call instead of a signer.
+			 */
+			this.flowSigner = params.signPresentation ?? null;
+			try {
+				const response = await this.send({
+					type: 'flow_action',
+					action: 'consent',
+					payload: {
+						selected_credentials: params.selectedCredentials.map(c => ({
+							credential_id: c.walletCredentialRef,
+							credential_query_id: c.credentialQueryId,
+							disclosed_claims: c.disclosedClaims ?? [],
+						})),
+					},
+				});
+				return this.mapOID4VPResponse(response);
+			} finally {
+				this.flowSigner = null;
+			}
 		}
 
 		throw new Error('Invalid OID4VP flow params: no valid entry point or continuation');
@@ -871,6 +885,21 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				})),
 			},
 		};
+
+		// The global handlers would sign the credential itself, which a zkp_req flow must not do.
+		/**
+		 * @todo Call the flow's `IPresentationStrategy.present` here instead.
+		 */
+		if (this.flowSigner && request.action === 'sign_presentation') {
+			try {
+				this.sendSignResponse(request.flowId, request.messageId, await this.flowSigner(request));
+			} catch (err) {
+				const message = err instanceof Error ? err.message : String(err);
+				logger.warn('Flow signer failed:', message);
+				this.sendSignResponse(request.flowId, request.messageId, {}, message);
+			}
+			return;
+		}
 
 		if (this.signHandlers.size === 0) {
 			logger.error('No sign handlers registered, cannot respond to sign request');

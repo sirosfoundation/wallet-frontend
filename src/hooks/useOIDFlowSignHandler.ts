@@ -13,51 +13,6 @@ import { useHttpClient } from './useHttpClient';
 import { useWscdManagerClient } from './useWscdManagerClient';
 import { IWscdManagerClient } from '@/lib/wscd-manager';
 
-
-import { ZeroKnowledgeRequest, createZkProofService } from '@/lib/zero-knowledge/NativeBridgeZkDeviceResponse';
-import type { ZkDcqlQuery } from '@/lib/zero-knowledge/types';
-
-import { createCircuitZkVpToken, findCircuitZkQuery } from '@/lib/zero-knowledge/circuitZkPresentation';
-import { calculateJwkThumbprint } from 'jose';
-import { cborEncode } from '@auth0/mdl/lib/cbor';
-import { IssuerSigned } from '@owf/mdoc';
-import type { ZkSessionTranscriptInput } from '@/lib/zero-knowledge/types';
-import {
-	buildOid4vpDcApiSessionTranscript,
-	buildOid4vpSessionTranscript,
-	decodeStoredMdoc,
-	extractIssuerSignedB64,
-	resolveMdocIssuerSigned,
-} from '@/lib/verifiable-credentials';
-
-let pendingDcqlQuery: unknown = undefined;
-
-export function setPendingDcqlQuery(query: unknown) {
-	pendingDcqlQuery = query;
-}
-
-function restoreZkFormat(query: any) {
-	if (!Array.isArray(query?.credentials)) return query;
-	return {
-		...query,
-		credentials: query.credentials.map((c: any) => {
-			const systems = c?.meta?.zk_system_type;
-			if (!Array.isArray(systems) || systems.length === 0) return c;
-			let claims = Array.isArray(c.claims) ? c.claims : [];
-			const fixedSystems = systems.map((s: any) => {
-				if (s?.system !== 'longfellow-libzk-v1') return s;
-				const n = Number(s.num_attributes ?? claims.length);
-				const hasPseudonym = claims.some((cl: any) => cl?.path?.[cl.path.length - 1] === 'pairwise_pseudonym');
-				if (!hasPseudonym && n === claims.length + 1) {
-					claims = [...claims, { path: [claims[0]?.path?.[0] ?? 'org.iso.18013.5.1', 'pairwise_pseudonym'] }];
-				}
-				return { ...s, num_attributes: n };
-			});
-			return { ...c, format: 'mso_mdoc_zk', claims, meta: { ...c.meta, zk_system_type: fixedSystems } };
-		}),
-	};
-}
-
 interface ProofTypeConfig {
 	key_attestations_required?: Record<string, unknown> | null;
 	proof_signing_alg_values_supported: string[];
@@ -78,8 +33,6 @@ export type OIDFlowSignOptions = {
 	count?: number;
 	origin?: string;
 	responseUri?: string;
-	/** The verifier's client_id (e.g. `x509_san_dns:rp.example.com`); `audience` is used when absent. */
-	clientId?: string;
 	credentialsToInclude?: Array<{
 		credentialId: string;
 		credentialQueryId?: string;
@@ -87,7 +40,6 @@ export type OIDFlowSignOptions = {
 		credentialRaw?: string;
 	}>;
 	verifierJwkThumbprint?: string;
-	dcqlQuery?: unknown;
 	htm?: string;
 	htu?: string;
 	dpopNonce?: string;
@@ -143,8 +95,7 @@ export function useOIDFlowSignHandler() {
 	const wscd = useWscdManagerClient();
 
 	const signPresentation = useCallback(async (options: OIDFlowSignOptions): Promise<OIDFlowSignResponse> => {
-		const { audience, nonce, credentialsToInclude, responseUri, origin, verifierJwkThumbprint, dcqlQuery, clientId } = options;
-		const verifierQuery = restoreZkFormat(dcqlQuery ?? pendingDcqlQuery);
+		const { audience, nonce, credentialsToInclude, responseUri, origin, verifierJwkThumbprint } = options;
 		if (!wscd) {
 			throw new Error('WscdManagerClient is not initialized');
 		}
@@ -165,31 +116,6 @@ export function useOIDFlowSignHandler() {
 				throw new Error(`Missing credentialQueryId for credential: ${c.credentialId}`);
 			}
 
-			// circuit_zk: proven by the native prover through the circuit-zk package, not signed here.
-			if (findCircuitZkQuery(verifierQuery, c.credentialQueryId)) {
-				if (!keystore) throw new Error('Keystore not available');
-				const zkToken = await createCircuitZkVpToken({
-					dcqlQuery: verifierQuery,
-					credentialQueryId: c.credentialQueryId,
-					credentialRaw: c.credentialRaw,
-					nonce,
-					clientId: clientId ?? audience,
-					origin,
-					responseUri,
-					getRootKey: () => keystore.getPrivateSeedRoot(),
-					signDevice: async (raw, data) => {
-						const signature = await wscd.signWithKey(await deviceKeyKid(raw), data);
-						if (signature.length !== 64) throw new Error(`device signature must be raw 64-byte r||s, got ${signature.length} bytes`);
-						return signature;
-					},
-					onProgress: (step) => window.dispatchEvent(new CustomEvent('zkp:step', { detail: { step } })),
-				});
-				vpTokenMap[c.credentialQueryId] = [zkToken];
-				continue;
-			}
-
-			const startTime = performance.now();
-
 			const vpToken = await createVpToken(
 				wscd,
 				{
@@ -202,10 +128,8 @@ export function useOIDFlowSignHandler() {
 					responseUri,
 					origin,
 					verifierJwkThumbprint,
-					dcqlQuery: verifierQuery,
 				}
 			);
-			console.log(`Time taken: ${(performance.now() - startTime).toFixed(2)} ms`);
 
 			vpTokenMap[c.credentialQueryId] = [vpToken];
 		}
@@ -215,7 +139,7 @@ export function useOIDFlowSignHandler() {
 		return {
 			vpToken: JSON.stringify(vpTokenMap)
 		};
-	}, [wscd, keystore]);
+	}, [wscd]);
 
 	const generateProof = useCallback(async (options: OIDFlowSignOptions): Promise<OIDFlowSignResponse> => {
 		const { audience, nonce, proofTypesSupported, issuer, count = 1 } = options;
@@ -228,8 +152,10 @@ export function useOIDFlowSignHandler() {
 		if (!proofTypesSupported) {
 			throw new Error('Missing proofTypesSupported for proof generation');
 		}
+		logger.debug(`[WS Sign Handler] Received supported proof types: ${JSON.stringify(proofTypesSupported)}`);
 
 		// Select proof type
+		logger.debug(`[WS Sign Handler] Selecting proof type from precedence: ${OPENID4VCI_PROOF_TYPE_PRECEDENCE}`);
 		const proofType = OPENID4VCI_PROOF_TYPE_PRECEDENCE
 			.split(',')
 			.find(type => proofTypesSupported[type]) as 'jwt' | 'attestation' | undefined;
@@ -369,12 +295,10 @@ async function createVpToken(
 		responseUri?: string;
 		origin?: string;
 		verifierJwkThumbprint?: string;
-		dcqlQuery?: unknown;
 	}
 ) {
 	const { credentialRaw, disclosedClaims } = credentialData;
-	const { nonce, audience, responseUri, origin, verifierJwkThumbprint, dcqlQuery } = params;
-
+	const { nonce, audience, responseUri, origin, verifierJwkThumbprint } = params;
 
 	switch (detectCredentialFormat(credentialRaw)) {
 			case VerifiableCredentialFormat.DC_SDJWT:
@@ -404,7 +328,6 @@ async function createVpToken(
 						responseUri,
 						origin,
 						verifierJwkThumbprint,
-						dcqlQuery,
 					}
 				);
 			// `vc+sd-jwt` is VC-JOSE-COSE's media type for a VCDM 2.0 credential
@@ -501,11 +424,10 @@ async function createVpTokenFromMdoc(
 		responseUri?: string;
 		origin?: string;
 		verifierJwkThumbprint?: string;
-		dcqlQuery?: unknown;
 	}
 ): Promise<string> {
 	const { credentialRaw, disclosedClaims } = credentialData;
-	const { nonce, audience, responseUri, origin, verifierJwkThumbprint, dcqlQuery } = params;
+	const { nonce, audience, responseUri, origin, verifierJwkThumbprint } = params;
 
 	if (!responseUri && !origin) {
 		throw new Error('Missing responseUri or origin for mdoc presentation');
@@ -518,11 +440,7 @@ async function createVpTokenFromMdoc(
 	if (!disclosedClaims?.length) {
 		throw new Error('disclosedClaims required for mdoc presentation');
 	}
-	if (JSON.stringify(dcqlQuery ?? {}).includes('mso_mdoc_zk')) {
-		return createZkVpTokenFromMdoc(credentialRaw, dcqlQuery as ZkDcqlQuery, {
-			nonce, audience, responseUri, origin, verifierJwkThumbprint,
-		}, (kid, toBeSigned) => wscd.signWithKey(kid, toBeSigned));
-	}
+
 	let deviceResponseMDoc: Uint8Array;
 	if (responseUri) {
 		deviceResponseMDoc = await wscd.generateDeviceResponse({
@@ -551,69 +469,4 @@ async function createVpTokenFromMdoc(
 	}
 
 	return base64url.encode(new Uint8Array(deviceResponseMDoc instanceof Uint8Array ? deviceResponseMDoc : deviceResponseMDoc.encode()));
-}
-
-
-type DeviceKeySigner = (kid: string, toBeSigned: Uint8Array) => Promise<Uint8Array>;
-
-async function createZkVpTokenFromMdoc(
-	credentialRaw: string,
-	dcqlQuery: ZkDcqlQuery,
-	params: {
-		nonce: string;
-		audience: string;
-		responseUri?: string;
-		origin?: string;
-		verifierJwkThumbprint?: string;
-	},
-	sign?: DeviceKeySigner,
-): Promise<string> {
-	const { nonce, audience, responseUri, origin, verifierJwkThumbprint } = params;
-
-	const sessionTranscript = responseUri
-		? await buildOid4vpSessionTranscript({ clientId: audience, responseUri, nonce, jwkThumbprint: verifierJwkThumbprint ?? null })
-		: await buildOid4vpDcApiSessionTranscript({ origin: origin!, nonce, jwkThumbprint: verifierJwkThumbprint ?? null });
-
-	const request = new ZeroKnowledgeRequest(
-		dcqlQuery,
-		{ kind: 'raw', sessionTranscript: base64url.encode(sessionTranscript.encode()) } as unknown as ZkSessionTranscriptInput,
-		responseUri ? audience : origin!,
-	);
-
-	const kid = await deviceKeyKid(credentialRaw);
-	const signer = sign
-		? async (data: Uint8Array) => {
-			const signature = await sign(kid, data);
-			if (signature.length !== 64) throw new Error(`device signature must be raw 64-byte r||s, got ${signature.length} bytes`);
-			return signature;
-		}
-		: undefined;
-
-	const emit = (type: string, detail: unknown) => window.dispatchEvent(new CustomEvent(type, { detail }));
-
-	const result = await createZkProofService().generateProof(
-		{ rawMdocB64u: storedMdocEnvelopeB64u(credentialRaw) },
-		request,
-		{ signer, onProgress: (step) => emit('zkp:step', { step }) },
-	);
-	emit('zkp:complete', { system: result.system, queryId: result.queryId, disclosedClaims: result.disclosedClaims, size: result.deviceResponse.byteLength });
-
-	return base64url.encode(result.deviceResponse);
-}
-
-function storedMdocEnvelopeB64u(credentialRaw: string): string {
-	const decoded = decodeStoredMdoc(credentialRaw);
-	if (Array.isArray(decoded.get('documents'))) return credentialRaw;
-
-	const { docType } = resolveMdocIssuerSigned(decoded);
-	return base64url.encode(cborEncode(new Map<string, unknown>([
-		['version', '1.0'],
-		['documents', [new Map<string, unknown>([['docType', docType], ['issuerSigned', decoded]])]],
-		['status', 0],
-	])));
-}
-
-async function deviceKeyKid(credentialRaw: string): Promise<string> {
-	const issuerSigned = IssuerSigned.fromEncodedForOid4Vci(extractIssuerSignedB64(credentialRaw));
-	return calculateJwkThumbprint(issuerSigned.issuerAuth.mobileSecurityObject.deviceKeyInfo.deviceKey.jwk, 'sha256');
 }

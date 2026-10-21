@@ -1,27 +1,9 @@
-import {
-	ZkpReqHostPriority,
-	ZkpReqRegistryHosts,
-	ZkpReqProverHostPriority,
-	ZkpReqProverHosts,
-	SerializedReqFunction,
-} from './resources';
-
-// ============================================================
-// Shared
-// ============================================================
+// ============================================
+// Request (after parsing by wallet)
+// ============================================
 
 /**
- * A type representing an approved system ID (a circuit or a scheme).
- */
-export type SystemId = string;
-
-/**
- * A type representing a proof system.
- */
-export type ProofSystem = string;
-
-/**
- * Represents a JSON value.
+ * Generic JSON value.
  */
 export type JsonValue =
 	| string
@@ -31,263 +13,304 @@ export type JsonValue =
 	| JsonValue[]
 	| { [key: string]: JsonValue };
 
-// ============================================================
-// Request
-// ============================================================
+/**
+ * No `return`: an assertion only.
+ *
+ * @dcql_path `credentials.[]._req.[]`
+ */
+export type ReqItem = {
+	fn_id: string;
+	return?: string;
+	params?: Record<string, JsonValue>;
+};
 
 /**
- * Represents a request for a nym_auth presentation according to it's rulebook.
- * Currently based on 0.4.
- *
- * @todo We will need further request data for the proof generation:
- * 			 - client_id
- * 			 - nonce
- * 			 - origin
- *       Investigate this as needed.
- *
- * @throws {ZkpReqError} If the request is invalid according to the rulebook.
+ * @dcql_path `credentials.[].trusted_authorities`
  */
-export interface IZkpReqRequest {
+export type TrustedAuthority = {
+	type: 'aki' | 'etsi_tl' | 'openid_federation' | (string & {});
+	values: string[];
+};
+
+export type MdocMeta = { doctype_value: string };
+export type SdJwtMeta = { vct_values: string[] };
+export type W3cMeta = { type_values: string[][] };
+
+/**
+ * @dcql_path `credentials.[].meta`
+ */
+export type ZkpMeta =
+	| ({ source_format: 'mso_mdoc' } & MdocMeta)
+	| ({ source_format: 'dc+sd-jwt' } & SdJwtMeta)
+	| ({ source_format: 'jwt_vc_json' | 'ldp_vc' } & W3cMeta)
+	| ({ source_format: string } & Record<string, unknown>);
+
+/**
+ * @dcql_path `credentials.[]`
+ */
+export type ZkpQuery = {
+	meta: ZkpMeta;
+	_req: ReqItem[];
+	trusted_authorities?: TrustedAuthority[];
 	/**
-	 * The verifier's supported presentation format, from
-	 * `client_metadata.vp_formats_supported.zkp_req`.
-	 *
-	 * Optional: over the DC API the Verifier SHOULD list accepted systems but
-	 * is not required to. When absent, the wallet selects any approved system
-	 * supporting every `_req` item.
+	 * Absent means true. Each system decides whether it accepts false.
 	 */
-	readonly supportedFormat?: IZkpReqVpFormat;
+	require_cryptographic_holder_binding?: boolean;
+};
+
+/**
+ * @dcql_path `client_metadata.vp_formats_supported.zkp_req`.
+ */
+export type ZkpFormats = {
+	proof_system_values?: string[];
+	system_id_values?: string[];
+};
+
+export type PresentationSession = {
 	/**
-	 * The list of credential queries included in this request.
+	 * CBOR Handover of the channel the request arrived on (OpenID4VP 1.0 B.2.6).
 	 */
-	readonly credentials: IZkpReqCredentialQuery[];
+	handover: Uint8Array;
+	nonce: string;
 	/**
-	 * Resolve a system for every credential, honouring `supportedFormat` and
-	 * the registry. Populates each credential's `systemId()`/`proofSystem()`.
+	 * In the form the trust framework fixes.
 	 */
-	resolveRequestSystems(): Promise<void>;
+	verifier_id: string;
+};
+
+/**
+ * One `zkp_req` query.
+ */
+export type ZkpRequest = {
+	query: ZkpQuery;
+	formats: ZkpFormats;
+};
+
+// ============================================
+// What the wallet provides
+// ============================================
+
+/**
+ * One entry per credential: any one instance of a batch.
+ */
+export type StoredCredential = {
+	id: string;
+	format: string;
 	/**
-	 * Returns the criteria for each credential in the request,
-	 * which can be used to evaluate whether the credentials meet
-	 * the request's requirements.
+	 * As issued; the presenter decodes it.
 	 */
-	credentialCriteria(): ZkpReqCredentialCriteria[];
+	data: string;
+	kid: string;
+};
+
+/**
+ * Everything the presenter learns from outside: it is sandboxed and pure.
+ */
+export interface WalletContext {
+	/**
+	 * May return a superset of the matches, never omits one. Called with `meta` less `source_format`.
+	 */
+	credentials(format: string, meta: Record<string, JsonValue>): Promise<StoredCredential[]>;
+	/**
+	 * Uninterpreted metadata stored at issuance. Prove only.
+	 */
+	metadata(credential_id: string): Promise<object>;
+	/**
+	 * DER certificates of the anchors these authorities designate.
+	 */
+	anchors(authorities: TrustedAuthority[]): Promise<Uint8Array[]>;
+	/**
+	 * Device key; `alg` is a JOSE name. Rejects "cancelled" | "unavailable".
+	 */
+	sign(kid: string, alg: string, data: Uint8Array): Promise<Uint8Array>;
+	/**
+	 * Secure randomness, fresh on every call.
+	 */
+	random(length: number): Uint8Array;
+	/**
+	 * Current time according to the wallet's clock.
+	 */
+	now(): Date;
+}
+
+// ============================================
+// Results
+// ============================================
+
+
+/**
+ * `inputs`: parameters the user supplies, by `_req` index and parameter name.
+ */
+export type Candidate = {
+	credential_id: string;
+	system_id: string;
+	proof_system: string;
+	inputs?: { index: number; name: string }[];
+};
+
+/**
+ * The user's values: `[_req index][parameter name]`.
+ */
+export type Inputs = Record<number, Record<string, unknown>>;
+
+/**
+ * For display only, never sent.
+ */
+export type ItemError = {
+	kind: 'item';
+	index: number;
+	param?: string;
+	/**
+	 * The system's own code.
+	 */
+	code: string;
+};
+
+/**
+ * The credential's mandatory check failed: validity, issuer signature, trust chain or device-key binding.
+ */
+export type CredentialError = {
+	kind: 'credential';
+	code: string;
+};
+
+export type ZkpError = ItemError | CredentialError;
+
+/**
+ * A rejected one may have no system.
+ */
+export type Judged = Partial<Candidate> & { credential_id: string };
+
+export type Match =
+	| { candidates: [Candidate, ...Candidate[]] }
+	| { rejected: { candidate: Judged; errors: [ZkpError, ...ZkpError[]] }[] }
+	| { refused: 'unsupported' | 'invalid'; errors: ItemError[] };
+
+export type ProveError = {
+	reason: 'failed' | 'cancelled' | 'unavailable';
+	candidate: Candidate;
+	errors?: [ZkpError, ...ZkpError[]];
+};
+
+/**
+ * `proof` is opaque; the verifier's library reads the results out of it.
+ *
+ * @todo Check `issuer_key_set`, `proof_time` and `results` against the draft;
+ * 			 the nym_auth rulebook encodes them in the presentation.
+ */
+export type ZkpPresentation = {
+	system_id: string;
+	proof_system: string;
+	proof: Uint8Array;
+	issuer_key_set?: [Uint8Array, ...Uint8Array[]];
+	proof_time?: Date;
+	/**
+	 * Keys are the `return` handles in `_req`.
+	 */
+	results?: Record<string, Uint8Array | true>;
+};
+
+// ============================================
+// exports
+// ============================================
+
+/**
+ * The opaque presenter. Stateless: `prove` gets everything it needs again, nothing is kept from `match`.
+ */
+export interface ZkpPresenter {
+	match(req: ZkpRequest): Promise<Match>;
+	/**
+	 * `inputs`: one value per entry of `c.inputs`. Rejects with a {@link ProveError}.
+	 */
+	prove(
+		c: Candidate,
+		req: ZkpRequest,
+		session: PresentationSession,
+		inputs?: Inputs,
+		signal?: AbortSignal,
+	): Promise<ZkpPresentation>;
 }
 
 /**
- * The `vp_formats_supported` entry for the `zkp_req` presentation format.
- * This is what the verifier supports; the wallet must evaluate if it can
- * meet the requirements specified by the verifier.
- * If no approved system matches, the request is unsatisfiable.
- *
- * Validation should happened before or during instantiation.
- * @throws {ZkpReqError} If the VP format is invalid according to the rulebook.
+ * Once per wallet; the implementation brings its systems.
  */
-export interface IZkpReqVpFormat {
+export declare function create_zkp_presenter(wallet: WalletContext): ZkpPresenter;
+
+// ============================================
+// Wallet integration
+// ============================================
+
+/**
+ * The OpenID4VP error the wallet sends when the request cannot be presented.
+ */
+export type ZkpReqFailureCode =
+	| 'invalid_request'
+	| 'vp_formats_not_supported'
+	| 'access_denied';
+
+/**
+ * `ready`: show the one consent screen. `failed`: show the errors, then send `code`.
+ */
+export type ZkpReqMatchResult =
+	| { kind: 'ready'; candidates: Map<string, Candidate> }
+	| { kind: 'failed'; code: ZkpReqFailureCode; matches: Map<string, Match> };
+
+/**
+ * Presents the `zkp_req` queries of one OpenID4VP request:
+ * `match`, then the wallet's one consent screen, then `prove`.
+ */
+export interface IZkpReq {
+	match(): Promise<ZkpReqMatchResult>;
 	/**
-	 * Supported proof system values. OPTIONAL; non-empty when present.
+	 * Proves the candidates kept by the last `ready` match.
 	 */
-	readonly proofSystemValues?: string[];
-	/**
-	 * Supported system ID values. OPTIONAL; non-empty when present.
-	 */
-	readonly systemIdValues?: string[];
+	prove(
+		session: PresentationSession,
+		inputs?: Map<string, Inputs>,
+		signal?: AbortSignal,
+	): Promise<Map<string, ZkpPresentation>>;
 }
 
 /**
- * A representation of a `zkp_req` credential entry in the DCQL query.
+ * What {@link IZkpReq} talks to. Hands each call to an available {@link IZkpPresenterHost}.
  */
-export interface IZkpReqCredentialQuery {
+export interface IZkpPresenterClient {
+	match(request: ZkpRequest): Promise<Match>;
 	/**
-	 * The credential query id; keys this credential's entry in the vp_token.
+	 * Rejects with a `ZkpProveError`.
 	 */
+	prove(
+		candidate: Candidate,
+		request: ZkpRequest,
+		session: PresentationSession,
+		inputs?: Inputs,
+		signal?: AbortSignal,
+	): Promise<ZkpPresentation>;
+	dispose(): Promise<void>;
+}
+
+/**
+ * Runs a {@link ZkpPresenter} in one environment, e.g. the page or the native wrapper.
+ */
+export interface IZkpPresenterHost {
 	readonly id: string;
 	/**
-	 * The format of the credential query. It MUST be `'zkp_req'`.
+	 * Higher wins when several hosts are available.
 	 */
-	readonly format: 'zkp_req';
-	/**
-	 * Metadata associated with the credential query.
-	 */
-	readonly meta: IZkpReqCredentialQueryMeta;
-	/**
-	 * Holder binding. MUST be absent or `true`; `false` is unsatisfiable.
-	 */
-	readonly requireCryptographicHolderBinding?: true;
-	/**
-	 * The requested items for this credential query. MUST be non-empty.
-	 */
-	readonly functions: IZkpReqReqFunction[];
-	/**
-	 * Set the resolved system ID and proof system for this credential query.
-	 * This is called after determining the appropriate system.
-	 */
-	setResolved(selection: ZkpReqSelection): void;
-	/**
-	 * The resolved system; available only after resolveRequestSystems().
-	 */
-	selection(): ZkpReqSelection;
-}
-
-/**
- * `meta` MUST contain `source_format` and exactly one of `doctype_value`,
- * `schema_id_value` or `vct_values`.
- */
-export interface IZkpReqCredentialQueryMeta {
-	/**
-	 * The format of the attestation the proof is made over, e.g. `mso_mdoc` or `bbs_cd`.
-	 */
-	readonly sourceFormat: string;
-	/**
-	 * ISO/IEC 18013-5 docType of the underlying attestation (`mso_mdoc`).
-	 */
-	readonly docTypeValue?: string;
-	/**
-	 * bbs-cd-plugins schema identifier (`bbs_cd`).
-	 */
-	readonly schemaIdValue?: string;
-	/**
-	 * Reserved for a future SD-JWT VC binding; unused for now.
-	 */
-	readonly vctValues?: string[];
-}
-
-/**
- * A requested function to be run as part of proof generation.
- * All requested functions must be satisfied for the request to be
- * considered actionable.
- */
-export interface IZkpReqReqFunction {
-	/**
-	 * The function type identifier, e.g. `pseudonym` or `age_check`.
-	 */
-	readonly fnId: string;
-	/**
-	 * The output handle; keys this function's result in the response.
-	 */
-	readonly return: string;
-	/**
-	 * Parameters for this function; keys and values are defined by the
-	 * registered function definition.
-	 */
-	readonly params?: Record<string, JsonValue>;
-	/**
-	 * Serializes this requested function into
-	 * plain object suitable for transmission or storage.
-	 */
-	serialize(): SerializedReqFunction;
-}
-
-/**
- * Criteria for selecting a `zkp_req` credential
- * based on the DCQL query and required attributes.
- */
-export type ZkpReqCredentialCriteria = {
-	/**
-	 * which DCQL credential query this is for
-	 */
-	readonly credentialQueryId: string;
-	/**
-	 * match stored mdoc docType
-	 */
-	readonly doctype?: string;
-	/**
-	 * match stored bbs_cd schema identifier
-	 */
-	readonly schemaId?: string;
-	/**
-	 * match stored vct values
-	 */
-	readonly vct?: string[];
-	/**
-	 * source credential format from meta
-	 */
-	readonly sourceFormat: string;
-	/**
-	 * source attributes the functions consume
-	 */
-	readonly requiredAttributes: string[];
-};
-
-// ============================================================
-// Registry
-// ============================================================
-
-export type CircuitArtifactRef = {
-	readonly url: string;
-	readonly hash: string;
-	readonly compression: 'zstd' | 'none';
-}
-
-export type ZkpReqSelection = {
-	readonly systemId: SystemId;
-	readonly proofSystem: string;
-	readonly proofSystemVersion: string;
-	/** Circuits only; a scheme (e.g. BBS) has no artifact. */
-	readonly artifact?: CircuitArtifactRef;
-};
-
-export type ZkpReqSelectionCriteria = {
-	readonly sourceFormat: string;
-	/** The doctype (`mso_mdoc`) or schema identifier (`bbs_cd`). */
-	readonly typeValue: string;
-	readonly req: SerializedReqFunction[];
-	readonly acceptedSystemIds?: string[];
-	readonly acceptedSystems?: string[];
-};
-
-export interface IZkpReqRegistry {
-	selectSystem(
-		criteria: ZkpReqSelectionCriteria,
-	): Promise<ZkpReqSelection | null>;
-	dispose(): Promise<void>;
-}
-
-export interface IZkpReqRegistryHost {
-	readonly id: ZkpReqRegistryHosts;
-	readonly priority: ZkpReqHostPriority;
-	initialize(): Promise<void>;
+	readonly priority: number;
+	initialize(wallet: WalletContext): Promise<void>;
 	isAvailable(): Promise<boolean>;
-	selectSystem(
-		criteria: ZkpReqSelectionCriteria,
-	): Promise<ZkpReqSelection | null>;
+	match(request: ZkpRequest): Promise<Match>;
+	/**
+	 * Rejects with a `ZkpProveError`, wrapping the presenter's {@link ProveError}.
+	 */
+	prove(
+		candidate: Candidate,
+		request: ZkpRequest,
+		session: PresentationSession,
+		inputs?: Inputs,
+		signal?: AbortSignal,
+	): Promise<ZkpPresentation>;
 	dispose?(): Promise<void>;
 }
 
-// ============================================================
-// Prover
-// ============================================================
-
-export interface IZkpReqProverHost {
-	readonly id: ZkpReqProverHosts;
-	readonly priority: ZkpReqProverHostPriority;
-	readonly supportedProofSystems: ReadonlySet<ProofSystem>;
-	initialize(): Promise<void>;
-	isAvailable(): Promise<boolean>;
-	/**
-	 * @todo Define proof generation input/output.
-	 */
-	prove(request: unknown): Promise<unknown>;
-	dispose?(): Promise<void>;
-}
-
-export interface IZkpReqProver {
-	/** All proof systems any available host can run (union across hosts). */
-	supportedProofSystems(): Promise<ReadonlySet<ProofSystem>>;
-	supports(proofSystem: ProofSystem): Promise<boolean>; // = (await supportedProofSystems()).has(ps)
-	/**
-	 * @todo Define proof generation input/output.
-	 */
-	prove(request: unknown): Promise<unknown>;
-	dispose(): Promise<void>;
-}
-
-// ============================================================
-// Presentation
-// ============================================================
-
-/**
- * Takes the {@link IZkpReqRequest} and provides a interface
- * for the proof generation layer.
- */
-export interface IZkpReqPresentation {}
