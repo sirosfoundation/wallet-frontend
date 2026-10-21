@@ -1,8 +1,8 @@
 /**
- * Checks if a given DCQL query contains any credentials with the 'circuit_zk'
- * format. If so, we treat it as a circuit_zk request.
+ * Checks if a given DCQL query contains any credentials with the 'zkp_req'
+ * format. If so, we treat it as a zkp_req request.
  */
-export function isCircuitZkDcqlQuery(query: unknown): boolean {
+export function isZkpReqDcqlQuery(query: unknown): boolean {
 	if (
 		!query ||
 		typeof query !== 'object' ||
@@ -11,15 +11,15 @@ export function isCircuitZkDcqlQuery(query: unknown): boolean {
 	) return false;
 
 	return query.credentials.filter((cred) => {
-		return cred.format === 'circuit_zk';
+		return cred.format === 'zkp_req';
 	}).length > 0;
 }
 
 /**
- * We don't want to accept requests that mix circuit_zk credentials
+ * We don't want to accept requests that mix zkp_req credentials
  * with other types of credentials.
  */
-export function isPureCircuitZkDcqlQuery(query: unknown): boolean {
+export function isPureZkpReqDcqlQuery(query: unknown): boolean {
 	if (
 		!query ||
 		typeof query !== 'object' ||
@@ -28,6 +28,6 @@ export function isPureCircuitZkDcqlQuery(query: unknown): boolean {
 	) return false;
 
 	return query.credentials.filter((cred) => {
-		return cred.format === 'circuit_zk';
+		return cred.format === 'zkp_req';
 	}).length === query.credentials.length;
 }

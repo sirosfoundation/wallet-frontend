@@ -4,11 +4,13 @@
  * enum/type. Cross-parameter and range rules, e.g. nym_auth's `age_check`
  * requiring `le >= ge` and a span of at least 365 days are neither expressible
  * there nor enforced by the circuits, so the wallet owns them.
+ *
+ * @todo We should consider if this level of specificity belongs here.
  */
 
 import type {
-	ICircuitZkCredentialQuery,
-	ICircuitZkReqFunction,
+	IZkpReqCredentialQuery,
+	IZkpReqReqFunction,
 	JsonValue,
 } from './types';
 
@@ -23,8 +25,8 @@ export class AttestationPolicyViolation extends Error {
  * The rulebook policies for one attestation type.
  */
 interface IAttestationPolicy {
-	assert(credential: ICircuitZkCredentialQuery): void;
-	sourceAttributes(credential: ICircuitZkCredentialQuery): string[];
+	assert(credential: IZkpReqCredentialQuery): void;
+	sourceAttributes(credential: IZkpReqCredentialQuery): string[];
 }
 
 // ============================================================
@@ -33,15 +35,94 @@ interface IAttestationPolicy {
 
 class NymAuthPolicy implements IAttestationPolicy {
 	readonly #MIN_AGE_RANGE_DAYS = 365;
+	readonly #MAX_VERIFIER_CONTEXT_BYTES = 64;
+	readonly #SINGLE_ITEM_FUNCTIONS = ['pseudonym', 'age_check'];
+	readonly #PSEUDONYM_CONFIGS = [
+		'known-offender-matching-ssc',
+		'known-offender-matching-psc',
+		'account-recovery-ssc',
+		'user-managed-pseudonym-xsite-ssc',
+	];
 
-	assert(credential: ICircuitZkCredentialQuery): void {
+	assert(credential: IZkpReqCredentialQuery): void {
+		this.#assertSingleItems(credential);
+		this.#assertPseudonymParams(credential);
 		this.#assertAgeCheckBounds(credential);
+	}
+
+	/** A `_req` holds at most one item of each of these functions. */
+	#assertSingleItems(credential: IZkpReqCredentialQuery): void {
+		for (const fnId of this.#SINGLE_ITEM_FUNCTIONS) {
+			const count = credential.functions.filter((f) => f.fnId === fnId).length;
+			if (count > 1) {
+				throw new AttestationPolicyViolation(
+					`_req must not contain more than one \`${fnId}\` item`,
+				);
+			}
+		}
+	}
+
+	#assertPseudonymParams(credential: IZkpReqCredentialQuery): void {
+		for (const fn of credential.functions) {
+			if (fn.fnId !== 'pseudonym') continue;
+
+			const { config, ver, prf, verifier_context } = this.#paramsOf(fn);
+
+			if (typeof config !== 'string' || !this.#PSEUDONYM_CONFIGS.includes(config)) {
+				throw new AttestationPolicyViolation(
+					`pseudonym \`config\` must be one of ${this.#PSEUDONYM_CONFIGS.join(', ')}`,
+				);
+			}
+
+			if (ver !== 1) {
+				throw new AttestationPolicyViolation('pseudonym `ver` must be 1');
+			}
+
+			if (!this.#isPrfAllowed(credential.meta.sourceFormat, config, prf)) {
+				throw new AttestationPolicyViolation(
+					`pseudonym \`prf\` is not defined for source_format '${credential.meta.sourceFormat}' and config '${config}'`,
+				);
+			}
+
+			if (config !== 'account-recovery-ssc') {
+				if (verifier_context !== undefined) {
+					throw new AttestationPolicyViolation(
+						`pseudonym \`verifier_context\` must not be present for config '${config}'`,
+					);
+				}
+				continue;
+			}
+
+			if (typeof verifier_context !== 'string') {
+				throw new AttestationPolicyViolation(
+					'pseudonym `verifier_context` is required for config account-recovery-ssc',
+				);
+			}
+
+			const bytes = new TextEncoder().encode(verifier_context).length;
+			if (bytes < 1 || bytes > this.#MAX_VERIFIER_CONTEXT_BYTES) {
+				throw new AttestationPolicyViolation(
+					`pseudonym \`verifier_context\` must be 1-${this.#MAX_VERIFIER_CONTEXT_BYTES} bytes of UTF-8`,
+				);
+			}
+		}
+	}
+
+	#isPrfAllowed(sourceFormat: string, config: string, prf: JsonValue): boolean {
+		switch (sourceFormat) {
+			case 'mso_mdoc':
+				return prf === 'sha-256';
+			case 'bbs_cd':
+				return prf === 'hashdh-bls12381g1' && config === 'known-offender-matching-ssc';
+			default:
+				return false;
+		}
 	}
 
 	/**
 	 * age_check needs >=1 of ge/le; if both, le >= ge and span >= 365 days.
 	 */
-	#assertAgeCheckBounds(credential: ICircuitZkCredentialQuery): void {
+	#assertAgeCheckBounds(credential: IZkpReqCredentialQuery): void {
 		for (const fn of credential.functions) {
 			if (fn.fnId !== 'age_check') continue;
 
@@ -96,18 +177,14 @@ class NymAuthPolicy implements IAttestationPolicy {
 		return Math.floor(ms / 86_400_000);
 	}
 
-	#paramsOf(fn: ICircuitZkReqFunction): Record<string, JsonValue> {
-		const p = fn.params;
-
-		return p && typeof p === 'object' && !Array.isArray(p)
-			? (p as Record<string, JsonValue>)
-			: {};
+	#paramsOf(fn: IZkpReqReqFunction): Record<string, JsonValue> {
+		return fn.params ?? {};
 	}
 
 	/**
 	 * The attestation attributes the requested functions read (rulebook source bindings).
 	 */
-	sourceAttributes(credential: ICircuitZkCredentialQuery): string[] {
+	sourceAttributes(credential: IZkpReqCredentialQuery): string[] {
 		const attrs = new Set<string>();
 
 		for (const fn of credential.functions) {
@@ -115,7 +192,7 @@ class NymAuthPolicy implements IAttestationPolicy {
 				case 'age_check':
 					attrs.add('birth_date');
 					break;
-				case 'pseudonym-v1-sha256': {
+				case 'pseudonym': {
 					const config = this.#paramsOf(fn).config;
 					attrs.add(config === 'known-offender-matching-psc' ? 'psc' : 'ssc');
 					break;
@@ -142,7 +219,7 @@ const policiesByVct: Record<string, IAttestationPolicy> = {};
  * its policy, if one is registered. No registered policy means nothing to assert.
  */
 export function assertAttestationPolicies(
-	credential: ICircuitZkCredentialQuery,
+	credential: IZkpReqCredentialQuery,
 ): void {
 	const { docTypeValue, vctValues } = credential.meta;
 
@@ -158,7 +235,7 @@ export function assertAttestationPolicies(
 
 /** Source attributes the request's functions read, for the credential's attestation type. */
 export function attestationSourceAttributes(
-	credential: ICircuitZkCredentialQuery,
+	credential: IZkpReqCredentialQuery,
 ): string[] {
 	const { docTypeValue, vctValues } = credential.meta;
 

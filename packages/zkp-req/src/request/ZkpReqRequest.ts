@@ -3,30 +3,30 @@ import {
 	AttestationPolicyViolation,
 	attestationSourceAttributes,
 } from '../attestation-policies';
-import { CircuitZkError, dcqlQuerySchema } from '../resources';
+import { ZkpReqError, dcqlQuerySchema } from '../resources';
 import type {
-	CircuitZkCredentialCriteria,
-	CircuitZkSelectionCriteria,
-	ICircuitZkCredentialQuery,
-	ICircuitZkProver,
-	ICircuitZkRegistry,
-	ICircuitZkRequest,
-	ICircuitZkVpFormat,
+	ZkpReqCredentialCriteria,
+	ZkpReqSelectionCriteria,
+	IZkpReqCredentialQuery,
+	IZkpReqProver,
+	IZkpReqRegistry,
+	IZkpReqRequest,
+	IZkpReqVpFormat,
 } from '../types';
-import { CircuitZkCredentialQuery } from './CircuitZkCredentialQuery';
+import { ZkpReqCredentialQuery } from './ZkpReqCredentialQuery';
 
-export class CircuitZkRequest implements ICircuitZkRequest {
-	readonly supportedFormat?: ICircuitZkVpFormat;
-	readonly credentials: ICircuitZkCredentialQuery[];
+export class ZkpReqRequest implements IZkpReqRequest {
+	readonly supportedFormat?: IZkpReqVpFormat;
+	readonly credentials: IZkpReqCredentialQuery[];
 
-	#registry: ICircuitZkRegistry;
-	#prover: ICircuitZkProver;
+	#registry: IZkpReqRegistry;
+	#prover: IZkpReqProver;
 
 	constructor(options: {
 		dcqlQuery: unknown;
-		vpFormat: ICircuitZkVpFormat;
-		registry: ICircuitZkRegistry;
-		prover: ICircuitZkProver;
+		vpFormat: IZkpReqVpFormat;
+		registry: IZkpReqRegistry;
+		prover: IZkpReqProver;
 	}) {
 		this.supportedFormat = options.vpFormat;
 		this.#registry = options.registry;
@@ -37,21 +37,21 @@ export class CircuitZkRequest implements ICircuitZkRequest {
 		);
 
 		if (!success) {
-			throw new CircuitZkError(
+			throw new ZkpReqError(
 				'invalid_request',
 				`Invalid DCQL query: ${error.message}`,
 			);
 		}
 
 		this.credentials = data.credentials.map((c) => {
-			const cred = new CircuitZkCredentialQuery(c);
+			const cred = new ZkpReqCredentialQuery(c);
 
 			try {
 				assertAttestationPolicies(cred);
 			} catch (err) {
 				if (!(err instanceof AttestationPolicyViolation)) throw err;
 
-				throw new CircuitZkError(
+				throw new ZkpReqError(
 					'invalid_request',
 					`Attestation policy violation for credential '${cred.id}': ${err instanceof Error ? err.message : String(err)}`,
 				);
@@ -61,39 +61,40 @@ export class CircuitZkRequest implements ICircuitZkRequest {
 		});
 	}
 
-	async resolveRequestCircuits(): Promise<void> {
+	async resolveRequestSystems(): Promise<void> {
 		const supportedProofSystems = await this.#prover.supportedProofSystems();
 
 		await Promise.all(
 			this.credentials.map(async (cred) => {
-				const doctype = cred.meta.docTypeValue;
-				if (!doctype) {
-					throw new CircuitZkError(
+				const typeValue = cred.meta.docTypeValue ?? cred.meta.schemaIdValue;
+				if (!typeValue) {
+					throw new ZkpReqError(
 						'invalid_request',
-						'vct-based circuit_zk not supported',
+						'vct-based zkp_req not supported',
 					);
 				}
 
 				// verifier-accepted ∩ wallet-runnable; if the verifier didn't list any,
 				// fall back to all wallet-runnable
-				const acceptedSystems = this.supportedFormat?.circuitProofSystemValues
-					? this.supportedFormat.circuitProofSystemValues.filter((s) =>
+				const acceptedSystems = this.supportedFormat?.proofSystemValues
+					? this.supportedFormat.proofSystemValues.filter((s) =>
 							supportedProofSystems.has(s),
 						)
 					: [...supportedProofSystems];
 
-				const criteria: CircuitZkSelectionCriteria = {
-					doctype,
+				const criteria: ZkpReqSelectionCriteria = {
+					sourceFormat: cred.meta.sourceFormat,
+					typeValue,
 					req: cred.functions.map((f) => f.serialize()),
-					acceptedCircuitIds: this.supportedFormat?.circuitIdValues,
+					acceptedSystemIds: this.supportedFormat?.systemIdValues,
 					acceptedSystems,
 				};
 
-				const selection = await this.#registry.selectCircuit(criteria);
+				const selection = await this.#registry.selectSystem(criteria);
 				if (!selection) {
-					throw new CircuitZkError(
+					throw new ZkpReqError(
 						'invalid_request',
-						`No approved circuit for credential '${cred.id}'`,
+						`No approved system for credential '${cred.id}'`,
 					);
 				}
 
@@ -102,10 +103,11 @@ export class CircuitZkRequest implements ICircuitZkRequest {
 		);
 	}
 
-	credentialCriteria(): CircuitZkCredentialCriteria[] {
+	credentialCriteria(): ZkpReqCredentialCriteria[] {
 		return this.credentials.map((cred) => ({
 			credentialQueryId: cred.id,
 			doctype: cred.meta.docTypeValue,
+			schemaId: cred.meta.schemaIdValue,
 			vct: cred.meta.vctValues,
 			sourceFormat: cred.meta.sourceFormat,
 			requiredAttributes: attestationSourceAttributes(cred),

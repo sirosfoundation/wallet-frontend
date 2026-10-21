@@ -2,15 +2,16 @@
 //
 // Plugs into the app's CircuitZkProver as one prover host. Registry selection happens in
 // CircuitZkNativeWrapperRegistryHost; this host proves with the circuit that selection returned.
-import { CircuitZkProverHostPriority, CircuitZkProverHosts } from '@sirosfoundation/circuit-zk';
-import type { ICircuitZkProverHost, ProofSystem } from '@sirosfoundation/circuit-zk';
+import { ZkpReqProverHostPriority, ZkpReqProverHosts } from '@sirosfoundation/zkp-req';
+import type { IZkpReqProverHost, ProofSystem } from '@sirosfoundation/zkp-req';
 import { NymAuthZkProver, type ZkTranscript } from './nymAuthZk';
 
 /** One serialized function of the request, as `serialize()` returns it. */
 export interface SerializedCircuitZkFunction {
   fn_id?: string;
   function_id?: string;
-  /** The output id: the handle the result is returned under. `handle` wins when both are present. */
+  /** The output handle the result is returned under. Precedence: `handle`, `return`, `id`. */
+  return?: string;
   id?: string;
   handle?: string;
   params?: unknown;
@@ -18,7 +19,7 @@ export interface SerializedCircuitZkFunction {
 
 /** What the flow passes to prove(). */
 export interface NativeProveInput {
-  selection: { circuitId: string; proofSystem?: string; [k: string]: unknown };
+  selection: { systemId: string; proofSystem?: string; [k: string]: unknown };
   functions: SerializedCircuitZkFunction[];
   /** The wallet's credential entity for this query (ExtendedVcEntity). */
   credential: unknown;
@@ -56,9 +57,9 @@ export interface CircuitZkNativeWrapperProverHostOptions {
 const X509_SAN_DNS = 'x509_san_dns:';
 const BRIDGE_WAIT_MS = 3000;
 
-export class CircuitZkNativeWrapperProverHost implements ICircuitZkProverHost {
-  readonly id = CircuitZkProverHosts.NATIVE_WRAPPER;
-  readonly priority = CircuitZkProverHostPriority.NATIVE_WRAPPER;
+export class CircuitZkNativeWrapperProverHost implements IZkpReqProverHost {
+  readonly id = ZkpReqProverHosts.NATIVE_WRAPPER;
+  readonly priority = ZkpReqProverHostPriority.NATIVE_WRAPPER;
 
   readonly #native = new NymAuthZkProver();
   #systems: ReadonlySet<ProofSystem> = new Set();
@@ -95,7 +96,7 @@ export class CircuitZkNativeWrapperProverHost implements ICircuitZkProverHost {
         functions: i.functions.map(toPlanFunction),
         meta: { doctype_value: docType },
       },
-      circuitId: i.selection.circuitId,
+      circuitId: i.selection.systemId,
       verifierId: verifierIdOf(i.clientId),
       transcript: transcriptOf(i),
       signer: this.options.getSigner(i.credential),
@@ -114,7 +115,7 @@ export class CircuitZkNativeWrapperProverHost implements ICircuitZkProverHost {
 
 function toPlanFunction(f: SerializedCircuitZkFunction) {
   const id = f.fn_id ?? f.function_id;
-  const handle = f.handle ?? f.id;
+  const handle = f.handle ?? f.return ?? f.id;
   if (!id) throw new Error('circuit_zk: a function has no fn_id/function_id');
   if (!handle) throw new Error(`circuit_zk: function ${id} has no handle`);
   const params = f.params ?? {};

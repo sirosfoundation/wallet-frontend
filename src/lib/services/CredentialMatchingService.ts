@@ -14,7 +14,7 @@ import { ExtendedVcEntity } from '@/context/CredentialsContext';
 import { DcqlQuery, DcqlCredential, DcqlQueryResult } from 'dcql';
 import { logger } from '@/logger';
 import { isVcdm2Credential, toTypeArray, VerifiableCredentialFormat } from 'wallet-common';
-import { CircuitZkCredentialCriteria } from '@sirosfoundation/circuit-zk';
+import { ZkpReqCredentialCriteria } from '@sirosfoundation/zkp-req';
 import {
 	decodeStoredMdoc,
 	mdocNameSpacesToClaims,
@@ -257,7 +257,7 @@ function extractClaimPaths(
  * Match circuit ZK credentials against the given criteria.
  */
 function matchCircuitZkCredentials(
-	criteria: CircuitZkCredentialCriteria[],
+	criteria: ZkpReqCredentialCriteria[],
 	vcEntityList: ExtendedVcEntity[],
 ): Map<string, ExtendedVcEntity[]> {
 	const result = new Map<string, ExtendedVcEntity[]>();

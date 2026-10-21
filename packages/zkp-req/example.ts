@@ -1,15 +1,15 @@
-import { CircuitZkRegistry } from './src/registry/CircuitZkRegistry';
-import { CircuitZkRequest } from './src/request/CircuitZkRequest';
-import { CircuitZkVpFormat } from './src/request/CircuitZkVpFormat';
-import { CircuitZkError } from './src/resources';
+import { ZkpReqRegistry } from './src/registry/ZkpReqRegistry';
+import { ZkpReqRequest } from './src/request/ZkpReqRequest';
+import { ZkpReqVpFormat } from './src/request/ZkpReqVpFormat';
+import { ZkpReqError } from './src/resources';
 import {
-	ICircuitZkProver,
+	IZkpReqProver,
 	ProofSystem,
-	CircuitZkCredentialCriteria,
+	ZkpReqCredentialCriteria,
 } from './src/types';
 import {
-	isCircuitZkDcqlQuery as dcqlHasCircuitZkCredentials,
-	isPureCircuitZkDcqlQuery,
+	isZkpReqDcqlQuery as dcqlHasZkpReqCredentials,
+	isPureZkpReqDcqlQuery,
 } from './src/utils';
 
 class OIDFlowError extends Error {
@@ -21,7 +21,7 @@ class OIDFlowError extends Error {
 	}
 }
 
-class CircuitZkProver implements ICircuitZkProver {
+class ZkpReqProver implements IZkpReqProver {
 	async supportedProofSystems(): Promise<ReadonlySet<ProofSystem>> {
 		return new Set(['longfellow-libzk-v1']);
 	}
@@ -31,7 +31,7 @@ class CircuitZkProver implements ICircuitZkProver {
 	async prove(input: unknown): Promise<unknown> {
 		// Parked: real proof generation. Placeholder keeps the flow shape visible.
 		return {
-			circuit_id: (input as any)?.selection?.circuitId,
+			system_id: (input as any)?.selection?.systemId,
 			proof: '<proof-bytes>',
 		};
 	}
@@ -60,8 +60,8 @@ const walletCredentials: MockVcEntity[] = [
 ];
 
 // In the app this is CredentialMatchingService.matchCircuitZkCredentials.
-function matchCircuitZkCredentials(
-	criteria: CircuitZkCredentialCriteria[],
+function matchZkpReqCredentials(
+	criteria: ZkpReqCredentialCriteria[],
 	creds: MockVcEntity[],
 ): Map<string, MockVcEntity[]> {
 	const result = new Map<string, MockVcEntity[]>();
@@ -83,15 +83,15 @@ function matchCircuitZkCredentials(
 // -- mock signed request (DC API, unencrypted) ----------------------------------
 const signedRequest = {
 	response_type: 'vp_token',
-	response_mode: 'dc_api',
+	response_mode: 'dc_api.jwt',
 	nonce: 'n-0S6_WzA2Mj',
 	client_id: 'x509_san_dns:rp.example.com',
 	expected_origins: ['https://rp.example.com'],
 	client_metadata: {
 		vp_formats_supported: {
-			circuit_zk: {
-				circuit_proof_system_values: ['longfellow-libzk-v1'],
-				circuit_id_values: ['urn:circuits:longfellow:nym_auth:v1'],
+			zkp_req: {
+				proof_system_values: ['longfellow-libzk-v1'],
+				system_id_values: ['urn:circuits:longfellow:nym_auth:v1'],
 			},
 		},
 	},
@@ -99,78 +99,75 @@ const signedRequest = {
 		credentials: [
 			{
 				id: 'nym_attestation',
-				format: 'circuit_zk',
+				format: 'zkp_req',
 				meta: {
-					source_format: 'mdoc_mso',
+					source_format: 'mso_mdoc',
 					doctype_value: 'eu.europa.ec.eudi.nym_auth.1',
 				},
 				require_cryptographic_holder_binding: true,
-				claims: {
-					_req: [
-						{
-							fn_id: 'pseudonym-v1-sha256',
-							id: 'nym-123',
-							params: {
-								config: 'known-offender-matching-ssc',
-								verifier_id_type: 'x509_san_dns',
-								source: { path: ['ssc'] },
-							},
+				_req: [
+					{
+						fn_id: 'pseudonym',
+						return: 'nym',
+						params: {
+							config: 'known-offender-matching-ssc',
+							ver: 1,
+							prf: 'sha-256',
 						},
-						{
-							fn_id: 'age_check',
-							id: 'age-range-123',
-							params: {
-								ge: '2008-10-10',
-								le: '2013-10-09',
-								source: { path: ['birth_date'] },
-							},
+					},
+					{
+						fn_id: 'age_check',
+						return: 'age-range-123',
+						params: {
+							ge: '2008-10-10',
+							le: '2013-10-09',
 						},
-					],
-				},
+					},
+				],
 			},
 		],
 	},
 } as const;
 
-const prover = new CircuitZkProver();
+const prover = new ZkpReqProver();
 
 // mirrors useOID4VPFlow().handleAuthorizationRequest, parse the request and
 // surface what the flow needs (verifier, resolved request, matched credentials).
 async function handleAuthorizationRequest(request: typeof signedRequest) {
 	const dcqlQuery = request.dcql_query;
 
-	if (!dcqlHasCircuitZkCredentials(dcqlQuery)) {
+	if (!dcqlHasZkpReqCredentials(dcqlQuery)) {
 		// standard dcql path would run here; not mocked
-		throw new OIDFlowError('invalid_request', 'not a circuit_zk request');
+		throw new OIDFlowError('invalid_request', 'not a zkp_req request');
 	}
-	if (!isPureCircuitZkDcqlQuery(dcqlQuery)) {
+	if (!isPureZkpReqDcqlQuery(dcqlQuery)) {
 		throw new OIDFlowError(
 			'invalid_request',
-			'mixing circuit_zk with other credentials is unsupported',
+			'mixing zkp_req with other credentials is unsupported',
 		);
 	}
 
-	const vpFormat = CircuitZkVpFormat.fromClientMetadata(
+	const vpFormat = ZkpReqVpFormat.fromClientMetadata(
 		request.client_metadata,
 	);
-	const registry = new CircuitZkRegistry();
-	const circuitZkRequest = new CircuitZkRequest({
+	const registry = new ZkpReqRegistry();
+	const zkpReqRequest = new ZkpReqRequest({
 		dcqlQuery,
 		vpFormat,
 		registry,
 		prover,
 	});
 
-	await circuitZkRequest.resolveRequestCircuits();
+	await zkpReqRequest.resolveRequestSystems();
 
-	const conformantCredentials = matchCircuitZkCredentials(
-		circuitZkRequest.credentialCriteria(),
+	const conformantCredentials = matchZkpReqCredentials(
+		zkpReqRequest.credentialCriteria(),
 		walletCredentials,
 	);
 
 	return {
 		verifierInfo: { name: request.client_id },
-		circuitZkRequest,
+		zkpReqRequest,
 		conformantCredentials,
 	};
 }
@@ -193,7 +190,7 @@ async function handleCredentialSelection(
 
 // mirrors sendAuthorizationResponse, prove each query, assemble + post vp_token.
 async function sendAuthorizationResponse(
-	request: CircuitZkRequest,
+	request: ZkpReqRequest,
 	selected: Map<string, MockVcEntity>,
 	sessionBinding: { nonce: string; clientId: string; origin: string },
 ) {
@@ -214,14 +211,14 @@ async function sendAuthorizationResponse(
 // mirrors OpenID4VPFlow.processAuthorizationRequest
 async function processAuthorizationRequest(request: typeof signedRequest) {
 	try {
-		const { verifierInfo, circuitZkRequest, conformantCredentials } =
+		const { verifierInfo, zkpReqRequest, conformantCredentials } =
 			await handleAuthorizationRequest(request);
 
 		const selected = await handleCredentialSelection(conformantCredentials);
 
 		// displaySendingScreen()
 		const sendResult = await sendAuthorizationResponse(
-			circuitZkRequest,
+			zkpReqRequest,
 			selected,
 			{
 				nonce: request.nonce,
@@ -237,8 +234,8 @@ async function processAuthorizationRequest(request: typeof signedRequest) {
 		});
 		return sendResult;
 	} catch (err) {
-		if (err instanceof CircuitZkError) {
-			throw new OIDFlowError(err.code, `circuit_zk: ${err.message}`);
+		if (err instanceof ZkpReqError) {
+			throw new OIDFlowError(err.code, `zkp_req: ${err.message}`);
 		}
 		throw err;
 	}

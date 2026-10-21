@@ -1,12 +1,12 @@
 import {
-	CircuitZkError,
-	CircuitZkHostPriority,
-	CircuitZkRegistryHosts,
+	ZkpReqError,
+	ZkpReqHostPriority,
+	ZkpReqRegistryHosts,
 } from '../../resources';
 import type {
-	CircuitZkSelection,
-	CircuitZkSelectionCriteria,
-	ICircuitZkRegistryHost,
+	ZkpReqSelection,
+	ZkpReqSelectionCriteria,
+	IZkpReqRegistryHost,
 } from '../../types';
 
 /** What this host needs from `window.nativeWrapper`. Cast locally so other bridge declarations don't clash. */
@@ -25,12 +25,12 @@ function bridge(): NativeZkRegistryBridge | null {
 }
 
 /**
- * Delegates circuit selection to the wrapper app siros-sdk-kotlin, which owns the catalogue and matching.
+ * Delegates system selection to the wrapper app siros-sdk-kotlin, which owns the catalogue and matching.
  * This mirrors the behavior of the WSCD Manager Native Wrapper Host..
  */
-export class CircuitZkNativeWrapperRegistryHost implements ICircuitZkRegistryHost {
-	readonly id = CircuitZkRegistryHosts.NATIVE_WRAPPER;
-	readonly priority = CircuitZkHostPriority.NATIVE_WRAPPER;
+export class ZkpReqNativeWrapperRegistryHost implements IZkpReqRegistryHost {
+	readonly id = ZkpReqRegistryHosts.NATIVE_WRAPPER;
+	readonly priority = ZkpReqHostPriority.NATIVE_WRAPPER;
 
 	async initialize(): Promise<void> {
 		// The wrapper injects its bridge after the page starts.
@@ -45,7 +45,7 @@ export class CircuitZkNativeWrapperRegistryHost implements ICircuitZkRegistryHos
 		if (!b) {
 			const nw = (globalThis as { nativeWrapper?: Record<string, unknown> }).nativeWrapper;
 			console.warn(
-				'[circuit-zk] native bridge incomplete: need zkpCapabilities and zkpSelectCircuit, have',
+				'[zkp-req] native bridge incomplete: need zkpCapabilities and zkpSelectCircuit, have',
 				nw ? { zkpCapabilities: typeof nw.zkpCapabilities, zkpSelectCircuit: typeof nw.zkpSelectCircuit } : 'no nativeWrapper',
 			);
 			return false;
@@ -53,31 +53,40 @@ export class CircuitZkNativeWrapperRegistryHost implements ICircuitZkRegistryHos
 		try {
 			const caps = await b.zkpCapabilities({});
 			const ok = Array.isArray(caps?.zkSystems) && caps.zkSystems.length > 0;
-			if (!ok) console.warn('[circuit-zk] native wrapper reports no ZK systems:', caps);
+			if (!ok) console.warn('[zkp-req] native wrapper reports no ZK systems:', caps);
 			return ok;
 		} catch (e) {
-			console.warn('[circuit-zk] zkpCapabilities failed:', e);
+			console.warn('[zkp-req] zkpCapabilities failed:', e);
 			return false;
 		}
 	}
 
-	async selectCircuit(criteria: CircuitZkSelectionCriteria): Promise<CircuitZkSelection | null> {
+	async selectSystem(criteria: ZkpReqSelectionCriteria): Promise<ZkpReqSelection | null> {
 		const b = bridge();
 		if (!b) {
-			throw new CircuitZkError('access_denied', 'Native wrapper bridge is not available');
+			throw new ZkpReqError('access_denied', 'Native wrapper bridge is not available');
 		}
 
-		const result = await b.zkpSelectCircuit(criteria);
+		// The native bridge keeps its own field names.
+		const result = await b.zkpSelectCircuit({
+			doctype: criteria.typeValue,
+			req: criteria.req,
+			acceptedCircuitIds: criteria.acceptedSystemIds,
+			acceptedSystems: criteria.acceptedSystems,
+		});
 		if (result === null) return null;
-		if (!this.#isSelection(result)) {
-			throw new CircuitZkError('access_denied', 'Invalid circuit selection returned from native wrapper');
+		if (!this.#isNativeSelection(result)) {
+			throw new ZkpReqError('access_denied', 'Invalid system selection returned from native wrapper');
 		}
-		return result;
+		const { circuitId, ...rest } = result;
+		return { ...rest, systemId: circuitId };
 	}
 
-	#isSelection(value: unknown): value is CircuitZkSelection {
+	#isNativeSelection(
+		value: unknown,
+	): value is Omit<ZkpReqSelection, 'systemId'> & { circuitId: string } {
 		if (typeof value !== 'object' || value === null) return false;
-		const s = value as Partial<CircuitZkSelection>;
+		const s = value as Record<string, unknown>;
 		return (
 			typeof s.circuitId === 'string' &&
 			typeof s.proofSystem === 'string' &&

@@ -3,13 +3,13 @@
 // prove (native prover host) -> vp_token. It mirrors the PR's example flow, with the native hosts.
 //
 import {
-  CircuitZkNativeWrapperRegistryHost,
-  CircuitZkRegistry,
-  CircuitZkRequest,
-  CircuitZkVpFormat,
-  type ICircuitZkProver,
+  ZkpReqNativeWrapperRegistryHost,
+  ZkpReqRegistry,
+  ZkpReqRequest,
+  ZkpReqVpFormat,
+  type IZkpReqProver,
   type ProofSystem,
-} from '@sirosfoundation/circuit-zk';
+} from '@sirosfoundation/zkp-req';
 import { CircuitZkNativeWrapperProverHost } from './CircuitZkNativeWrapperProverHost';
 
 import { derivePrivateSeed, NYM_AUTH_DOC_TYPE } from './nymAuthZk';
@@ -113,9 +113,9 @@ function requestFor(variant: NymAuthTestVariant) {
       variant === 'ssc'
         ? {
             vp_formats_supported: {
-              circuit_zk: {
-                circuit_proof_system_values: ['longfellow-nymauth'],
-                circuit_id_values: ['nymauth-longfellow-mdoc-v1'],
+              zkp_req: {
+                proof_system_values: ['longfellow-nymauth'],
+                system_id_values: ['nymauth-longfellow-mdoc-v1'],
               },
             },
           }
@@ -124,23 +124,21 @@ function requestFor(variant: NymAuthTestVariant) {
       credentials: [
         {
           id: 'nym_attestation',
-          format: 'circuit_zk',
-          meta: { source_format: 'mdoc_mso', doctype_value: NYM_AUTH_DOC_TYPE },
+          format: 'zkp_req',
+          meta: { source_format: 'mso_mdoc', doctype_value: NYM_AUTH_DOC_TYPE },
           require_cryptographic_holder_binding: true,
-          claims: {
-            _req: [
-              {
-                fn_id: 'pseudonym-v1-sha256',
-                id: 'nym-123',
-                params: { config, verifier_id_type: 'x509_san_dns', source: { path: ['ssc'] } },
-              },
-              {
-                fn_id: 'age_check',
-                id: 'age-range-123',
-                params: { ge: '2008-10-10', le: '2013-10-09', source: { path: ['birth_date'] } },
-              },
-            ],
-          },
+          _req: [
+            {
+              fn_id: 'pseudonym',
+              return: 'nym',
+              params: { config, ver: 1, prf: 'sha-256' },
+            },
+            {
+              fn_id: 'age_check',
+              return: 'age-range-123',
+              params: { ge: '2008-10-10', le: '2013-10-09' },
+            },
+          ],
         },
       ],
     },
@@ -172,13 +170,13 @@ export async function runNymAuthTestFlow(opts: NymAuthTestOptions): Promise<NymA
     onProgress: opts.onProgress,
   });
   await proverHost.initialize();
-  const prover: ICircuitZkProver = {
+  const prover: IZkpReqProver = {
     supportedProofSystems: async () => proverHost.supportedProofSystems,
     supports: async (ps: ProofSystem) => proverHost.supportedProofSystems.has(ps),
     prove: (input) => proverHost.prove(input),
     dispose: () => proverHost.dispose?.() ?? Promise.resolve(),
   };
-  const registryHost = new CircuitZkNativeWrapperRegistryHost();
+  const registryHost = new ZkpReqNativeWrapperRegistryHost();
   await registryHost.initialize();
   if (!(await registryHost.isAvailable())) {
     // Say why, instead of the registry's generic "No circuit registry host available".
@@ -196,18 +194,18 @@ export async function runNymAuthTestFlow(opts: NymAuthTestOptions): Promise<NymA
         `capabilities: ${caps}`,
     );
   }
-  const registry = new CircuitZkRegistry([registryHost]);
+  const registry = new ZkpReqRegistry([registryHost]);
 
   try {
-    // 2. Parse the request and resolve the circuit through the native registry.
+    // 2. Parse the request and resolve the system through the native registry.
     opts.onProgress?.('resolving_circuit');
-    const circuitZkRequest = new CircuitZkRequest({
+    const circuitZkRequest = new ZkpReqRequest({
       dcqlQuery: request.dcql_query,
-      vpFormat: CircuitZkVpFormat.fromClientMetadata(request.client_metadata),
+      vpFormat: ZkpReqVpFormat.fromClientMetadata(request.client_metadata),
       registry,
       prover,
     });
-    await circuitZkRequest.resolveRequestCircuits();
+    await circuitZkRequest.resolveRequestSystems();
 
     // 3. Match the credential (the app's CredentialMatchingService does this for real entities).
     const [criteria] = circuitZkRequest.credentialCriteria();
@@ -229,7 +227,7 @@ export async function runNymAuthTestFlow(opts: NymAuthTestOptions): Promise<NymA
     for (const cred of circuitZkRequest.credentials) {
       const selection = cred.selection();
       chosen = {
-        circuitId: selection.circuitId,
+        circuitId: selection.systemId,
         proofSystem: selection.proofSystem,
         proofSystemVersion: selection.proofSystemVersion,
       };

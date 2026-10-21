@@ -2,14 +2,14 @@
 // registry classes with the native hosts. Called from useOIDFlowSignHandler for queries whose format is
 // `circuit_zk`; everything else still goes through the existing mdoc / sd-jwt code.
 import {
-  CircuitZkNativeWrapperRegistryHost,
-  CircuitZkRegistry,
-  CircuitZkRequest,
-  CircuitZkVpFormat,
-  type CircuitZkCredentialCriteria,
-  type ICircuitZkProver,
+  ZkpReqNativeWrapperRegistryHost,
+  ZkpReqRegistry,
+  ZkpReqRequest,
+  ZkpReqVpFormat,
+  type ZkpReqCredentialCriteria,
+  type IZkpReqProver,
   type ProofSystem,
-} from '@sirosfoundation/circuit-zk';
+} from '@sirosfoundation/zkp-req';
 import { CircuitZkNativeWrapperProverHost } from './CircuitZkNativeWrapperProverHost';
 
 /**
@@ -24,7 +24,7 @@ type DcqlCredential = { id?: string; format?: string; meta?: { doctype_value?: s
 /** The `circuit_zk` entry of a DCQL query with this id, if there is one. */
 export function findCircuitZkQuery(dcqlQuery: unknown, credentialQueryId: string): DcqlCredential | undefined {
   const creds = (dcqlQuery as { credentials?: DcqlCredential[] } | undefined)?.credentials;
-  return Array.isArray(creds) ? creds.find((c) => c?.id === credentialQueryId && c?.format === 'circuit_zk') : undefined;
+  return Array.isArray(creds) ? creds.find((c) => c?.id === credentialQueryId && c?.format === 'zkp_req') : undefined;
 }
 
 export interface CircuitZkPresentationInput {
@@ -58,9 +58,9 @@ export type CircuitZkDcqlCredential = DcqlCredential;
  */
 export function splitCircuitZkQuery(dcqlQuery: any): { zkQueries: any[]; otherQuery?: any } {
   const all: any[] = Array.isArray(dcqlQuery?.credentials) ? dcqlQuery.credentials : [];
-  const zkQueries = all.filter((c) => c?.format === 'circuit_zk');
+  const zkQueries = all.filter((c) => c?.format === 'zkp_req');
   if (zkQueries.length === 0) return { zkQueries, otherQuery: dcqlQuery };
-  const others = all.filter((c) => c?.format !== 'circuit_zk');
+  const others = all.filter((c) => c?.format !== 'zkp_req');
   if (others.length === 0) return { zkQueries };
   const { credential_sets: _dropped, ...rest } = dcqlQuery;
   return { zkQueries, otherQuery: { ...rest, credentials: others } };
@@ -75,33 +75,33 @@ interface NativeRequestInput {
 /** Sets up the native hosts, resolves the circuits for these queries, runs `fn`, and tears everything down. */
 async function withNativeRequest<T>(
   i: NativeRequestInput,
-  fn: (ctx: { request: CircuitZkRequest; prover: ICircuitZkProver }) => Promise<T>,
+  fn: (ctx: { request: ZkpReqRequest; prover: IZkpReqProver }) => Promise<T>,
 ): Promise<T> {
   const proverHost = new CircuitZkNativeWrapperProverHost(i.proverOptions);
   await proverHost.initialize();
-  const prover: ICircuitZkProver = {
+  const prover: IZkpReqProver = {
     supportedProofSystems: async () => proverHost.supportedProofSystems,
     supports: async (ps: ProofSystem) => proverHost.supportedProofSystems.has(ps),
     prove: (input) => proverHost.prove(input),
     dispose: () => proverHost.dispose?.() ?? Promise.resolve(),
   };
 
-  const registryHost = new CircuitZkNativeWrapperRegistryHost();
+  const registryHost = new ZkpReqNativeWrapperRegistryHost();
   await registryHost.initialize();
   if (!(await registryHost.isAvailable())) {
     await prover.dispose();
     throw new Error('circuit_zk: this build has no zero-knowledge prover (native circuit registry unavailable)');
   }
-  const registry = new CircuitZkRegistry([registryHost]);
+  const registry = new ZkpReqRegistry([registryHost]);
 
   try {
-    const request = new CircuitZkRequest({
+    const request = new ZkpReqRequest({
       dcqlQuery: { credentials: i.zkQueries } as never,
-      vpFormat: CircuitZkVpFormat.fromClientMetadata((i.clientMetadata ?? {}) as never),
+      vpFormat: ZkpReqVpFormat.fromClientMetadata((i.clientMetadata ?? {}) as never),
       registry,
       prover,
     });
-    await request.resolveRequestCircuits();
+    await request.resolveRequestSystems();
     return await fn({ request, prover });
   } finally {
     await registry.dispose();
@@ -117,7 +117,7 @@ const NO_STORED_CREDENTIAL = () => {
 export async function getCircuitZkCriteria(
   zkQueries: unknown[],
   clientMetadata?: Record<string, unknown>,
-): Promise<CircuitZkCredentialCriteria[]> {
+): Promise<ZkpReqCredentialCriteria[]> {
   return withNativeRequest(
     {
       zkQueries,
