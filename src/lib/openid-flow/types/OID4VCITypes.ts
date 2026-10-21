@@ -143,7 +143,16 @@ export interface OID4VCIFlowResult {
 		format?: string;
 		credential: string;
 		vct?: string;
+		/** The issuer's `notification_id` for this response, from the response this wallet decrypted. */
+		notification_id?: string;
 	}>;
+
+	/**
+	 * The response-level `credential_metadata` of the issuer's Credential Response,
+	 * as the wallet decrypted it (the engine never sees it). Not display metadata:
+	 * it may carry a delivered secret, so it is never logged.
+	 */
+	credentialMetadata?: Record<string, unknown>;
 
 	// ===== Deferred issuance =====
 
