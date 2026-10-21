@@ -47,11 +47,20 @@ export interface DecryptedCredentialResponse {
 	notificationId?: string;
 }
 
-/** The only fields of a decrypted response the engine is told about. */
-export interface DecryptControlFields {
-	transactionId?: string;
-	interval?: number;
-}
+/**
+ * The only thing the engine is told about a decrypted response: EXACTLY ONE of
+ * how many credentials were issued, or the deferred transaction to poll. (An
+ * error is the third shape, carried by the sign response's `error`.)
+ */
+export type DecryptControlFields =
+	| { credentialCount: number }
+	| { transactionId: string; interval?: number };
+
+/** Credentials per response the engine accepts as a count (go-wallet-backend contract F.5). */
+const MAX_CREDENTIAL_COUNT = 256;
+
+/** The JWE size ceiling the engine enforces on a presentation response. */
+const MAX_JWE_BYTES = 4 * 1024 * 1024;
 
 export class ClientHeldEncryptionError extends Error {
 	constructor(message: string) {
@@ -81,7 +90,9 @@ function credentialToString(cred: unknown): string {
 
 interface FlowKey {
 	privateKey: KeyLike | Uint8Array;
+	/** The negotiated pair: the issuer's JWE must use exactly this. */
 	alg: string;
+	enc: string;
 	/** The latest decrypted response of this flow (a deferred answer replaces an empty first one). */
 	response?: DecryptedCredentialResponse;
 }
@@ -121,7 +132,7 @@ export class ClientHeldEncryptionKeys {
 				extractable: false,
 			});
 			const jwk = await exportJWK(publicKey);
-			this.keys.set(flowId, { privateKey, alg: request.alg });
+			this.keys.set(flowId, { privateKey, alg: request.alg, enc: request.enc });
 			return { kty: jwk.kty, crv: jwk.crv, x: jwk.x, y: jwk.y, use: 'enc', alg: request.alg };
 		} catch {
 			if (required) {
@@ -147,8 +158,9 @@ export class ClientHeldEncryptionKeys {
 		let plaintext: Uint8Array;
 		try {
 			({ plaintext } = await compactDecrypt(jwe, entry.privateKey, {
-				keyManagementAlgorithms: [...RESPONSE_KEY_ALGS],
-				contentEncryptionAlgorithms: [...RESPONSE_ENCS],
+				// Exactly the negotiated pair, nothing else the issuer might pick.
+				keyManagementAlgorithms: [entry.alg],
+				contentEncryptionAlgorithms: [entry.enc],
 			}));
 		} catch {
 			throw new ClientHeldEncryptionError('Could not decrypt the credential response');
@@ -175,6 +187,17 @@ export class ClientHeldEncryptionKeys {
 			}
 		}
 
+		const transactionId =
+			typeof body.transaction_id === 'string' && body.transaction_id !== '' ? body.transaction_id : undefined;
+
+		// Exactly one shape: credentials issued, or a deferred transaction to poll.
+		if (transactionId !== undefined && credentials.length > 0) {
+			throw new ClientHeldEncryptionError('The decrypted response carries both credentials and a transaction_id');
+		}
+		if (transactionId === undefined && (credentials.length < 1 || credentials.length > MAX_CREDENTIAL_COUNT)) {
+			throw new ClientHeldEncryptionError('The decrypted response carries no usable number of credentials');
+		}
+
 		const previous = entry.response;
 		const metadata = body.credential_metadata;
 		entry.response = {
@@ -189,14 +212,12 @@ export class ClientHeldEncryptionKeys {
 					: previous?.notificationId,
 		};
 
-		const control: DecryptControlFields = {};
-		if (typeof body.transaction_id === 'string' && body.transaction_id !== '') {
-			control.transactionId = body.transaction_id;
+		if (transactionId !== undefined) {
+			return typeof body.interval === 'number' && Number.isFinite(body.interval)
+				? { transactionId, interval: body.interval }
+				: { transactionId };
 		}
-		if (typeof body.interval === 'number' && Number.isFinite(body.interval)) {
-			control.interval = body.interval;
-		}
-		return control;
+		return { credentialCount: credentials.length };
 	}
 
 	/** What the flow's decrypted responses carried, or `undefined` before any decrypt. */
@@ -232,6 +253,10 @@ export async function buildJarmResponse(params: {
 	}
 	if (!audience) {
 		throw new ClientHeldEncryptionError('The verified request has no client_id to use as audience');
+	}
+	if ('d' in encryption.jwk) {
+		// A private JWK is never a recipient; the engine refuses it too.
+		throw new ClientHeldEncryptionError('The verifier response encryption key must be a public key');
 	}
 
 	let vpTokenValue: unknown = vpToken;
@@ -269,11 +294,61 @@ export async function buildJarmResponse(params: {
 		header.kid = encryption.jwk.kid;
 	}
 
+	let jwe: string;
 	try {
-		return await new CompactEncrypt(new TextEncoder().encode(JSON.stringify(claims)))
+		jwe = await new CompactEncrypt(new TextEncoder().encode(JSON.stringify(claims)))
 			.setProtectedHeader(header)
 			.encrypt(key);
 	} catch {
 		throw new ClientHeldEncryptionError('Could not encrypt the presentation response');
+	}
+	assertEngineAcceptableJwe(jwe, { alg: encryption.alg, enc: encryption.enc, kid: header.kid });
+	return jwe;
+}
+
+function decodeSegment(segment: string): string | undefined {
+	try {
+		return atob(segment.replace(/-/g, '+').replace(/_/g, '/'));
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * The checks the engine applies to a `response_jwe` before it posts it
+ * (go-wallet-backend contract G), run here so a response it would refuse is
+ * never sent: at most 4 MiB; five base64url segments, none empty (the
+ * encrypted-key segment may be empty only for direct ECDH-ES); the protected
+ * header's `alg`/`enc` equal the request's, and its `kid` equals the JWK's
+ * when the JWK has one.
+ */
+export function assertEngineAcceptableJwe(
+	jwe: string,
+	expected: { alg: string; enc: string; kid?: string },
+): void {
+	if (jwe.length === 0 || jwe.length > MAX_JWE_BYTES) {
+		throw new ClientHeldEncryptionError('The presentation response is empty or too large');
+	}
+	const segments = jwe.split('.');
+	if (segments.length !== 5 || !segments.every((seg) => /^[A-Za-z0-9_-]*$/.test(seg))) {
+		throw new ClientHeldEncryptionError('The presentation response is not a compact JWE');
+	}
+	segments.forEach((seg, i) => {
+		const mayBeEmpty = i === 1 && expected.alg === 'ECDH-ES';
+		if (seg === '' && !mayBeEmpty) {
+			throw new ClientHeldEncryptionError('The presentation response has an empty JWE segment');
+		}
+	});
+	let header: { alg?: unknown; enc?: unknown; kid?: unknown };
+	try {
+		header = JSON.parse(decodeSegment(segments[0]) ?? '');
+	} catch {
+		throw new ClientHeldEncryptionError('The presentation response has an unreadable JWE header');
+	}
+	if (header.alg !== expected.alg || header.enc !== expected.enc) {
+		throw new ClientHeldEncryptionError('The presentation response header does not match the requested algorithms');
+	}
+	if (expected.kid !== undefined && header.kid !== expected.kid) {
+		throw new ClientHeldEncryptionError('The presentation response header kid does not match the verifier key');
 	}
 }

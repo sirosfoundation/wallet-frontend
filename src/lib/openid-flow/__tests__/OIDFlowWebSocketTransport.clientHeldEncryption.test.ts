@@ -91,6 +91,7 @@ async function generateProof(
 	flowId: string,
 	messageId: string,
 	encryption: Record<string, unknown> | null = { alg: 'ECDH-ES+A256KW', enc: 'A128GCM' },
+	proofTypes: Record<string, unknown> | null = { jwt: { proof_signing_alg_values_supported: ['ES256'] } },
 ) {
 	ws.simulateMessage({
 		type: 'sign_request',
@@ -101,6 +102,7 @@ async function generateProof(
 			audience: 'https://issuer.example.com',
 			nonce: 'n',
 			proof_type: 'jwt',
+			...(proofTypes ? { proof_types_supported: proofTypes } : {}),
 			...(encryption ? { credential_response_encryption: encryption } : {}),
 		},
 	});
@@ -123,6 +125,9 @@ describe('generate_proof with credential_response_encryption', () => {
 			alg: 'ECDH-ES+A256KW',
 		});
 		expect(response.credential_response_encryption_jwk).not.toHaveProperty('d');
+		expect(Object.keys(response.credential_response_encryption_jwk as object).sort()).toEqual(
+			['alg', 'crv', 'kty', 'use', 'x', 'y'],
+		);
 	});
 
 	it('sends no JWK when the engine asked for none', async () => {
@@ -132,6 +137,21 @@ describe('generate_proof with credential_response_encryption', () => {
 		const response = await generateProof(ws, signResponses, 'f1', 'm1', null);
 
 		expect(response).not.toHaveProperty('credential_response_encryption_jwk');
+	});
+
+	it('is key-only without proof types: the JWK, no proofs, and no sign handler involved', async () => {
+		const { transport, ws, signResponses } = await setup();
+		const handler = vi.fn().mockResolvedValue({ proofs: [{ proof_type: 'jwt', jwt: 'proof.jwt' }] });
+		transport.onSignRequest(handler);
+
+		for (const proofTypes of [null, {}]) {
+			const response = await generateProof(ws, signResponses, 'f1', `m-${proofTypes === null ? 'none' : 'empty'}`, undefined, proofTypes);
+
+			expect(response.credential_response_encryption_jwk).toMatchObject({ kty: 'EC', use: 'enc' });
+			expect(response).not.toHaveProperty('proofs');
+			expect(response).not.toHaveProperty('error');
+		}
+		expect(handler).not.toHaveBeenCalled();
 	});
 
 	it('answers an error, with no proofs, when encryption is required and not possible', async () => {
@@ -202,25 +222,73 @@ describe('decrypt_credential_response', () => {
 		return signResponses().find((r) => r.message_id === messageId)!;
 	}
 
-	it('answers only transaction_id and interval, never the credential or the seed', async () => {
+	it('answers only credential_count, never the credential, the notification_id or the seed', async () => {
 		const { ws, signResponses, jwk } = await issuance();
 		const jwe = await issuerEncrypt(jwk, 'ECDH-ES+A256KW', 'A128GCM', {
-			transaction_id: 'tx-1',
-			interval: 5,
-			credentials: [ISSUED],
+			credentials: [ISSUED, 'second'],
 			notification_id: 'n-1',
 			credential_metadata: { 'org.siros.secret_seed': { ns: SEED } },
 		});
 
 		const response = await decrypt(ws, signResponses, 'm2', jwe);
 
-		expect(response.transaction_id).toBe('tx-1');
-		expect(response.interval).toBe(5);
+		expect(response.credential_count).toBe(2);
+		expect(response).not.toHaveProperty('transaction_id');
+		expect(response).not.toHaveProperty('interval');
+		expect(response).not.toHaveProperty('error');
 		const wire = JSON.stringify(response);
 		expect(wire).not.toContain(ISSUED);
 		expect(wire).not.toContain(SEED);
 		expect(wire).not.toContain('n-1');
-		expect(response).not.toHaveProperty('error');
+	});
+
+	it('answers only transaction_id and interval for a deferred answer, and again on every poll', async () => {
+		const { ws, signResponses, jwk } = await issuance();
+		const pending = (interval: number) => issuerEncrypt(jwk, 'ECDH-ES+A256KW', 'A128GCM', { transaction_id: 'tx-1', interval });
+
+		const first = await decrypt(ws, signResponses, 'm2', await pending(5));
+		const second = await decrypt(ws, signResponses, 'm3', await pending(10), true);
+		const done = await decrypt(
+			ws, signResponses, 'm4',
+			await issuerEncrypt(jwk, 'ECDH-ES+A256KW', 'A128GCM', { credentials: [ISSUED] }),
+			true,
+		);
+
+		expect([first.transaction_id, first.interval]).toEqual(['tx-1', 5]);
+		expect([second.transaction_id, second.interval]).toEqual(['tx-1', 10]);
+		expect(first).not.toHaveProperty('credential_count');
+		expect(done.credential_count).toBe(1);
+		expect(done).not.toHaveProperty('transaction_id');
+	});
+
+	it('answers an error for a response that is both, or neither', async () => {
+		const { ws, signResponses, jwk } = await issuance();
+
+		const both = await decrypt(
+			ws, signResponses, 'm2',
+			await issuerEncrypt(jwk, 'ECDH-ES+A256KW', 'A128GCM', { transaction_id: 'tx-1', credentials: [ISSUED] }),
+		);
+		const neither = await decrypt(
+			ws, signResponses, 'm3', await issuerEncrypt(jwk, 'ECDH-ES+A256KW', 'A128GCM', {}),
+		);
+
+		for (const r of [both, neither]) {
+			expect(r.error).toBeTruthy();
+			expect(r).not.toHaveProperty('credential_count');
+			expect(r).not.toHaveProperty('transaction_id');
+		}
+	});
+
+	it('answers an error when the issuer used another alg/enc than the one negotiated', async () => {
+		const { ws, signResponses, jwk } = await issuance();
+
+		const response = await decrypt(
+			ws, signResponses, 'm2',
+			await issuerEncrypt({ ...jwk, alg: 'ECDH-ES' }, 'ECDH-ES', 'A128GCM', { credentials: [ISSUED] }),
+		);
+
+		expect(response.error).toBeTruthy();
+		expect(response).not.toHaveProperty('credential_count');
 	});
 
 	it('answers an error that carries no contents when decryption fails', async () => {
@@ -524,6 +592,42 @@ describe('sign_presentation with response_encryption (direct_post.jwt)', () => {
 
 		expect(signResponses()[0].error).toBe('user declined');
 		expect(signResponses()[0]).not.toHaveProperty('response_jwe');
+	});
+
+	it('sets the protected header to exactly the requested alg/enc and the JWK kid', async () => {
+		const { publicKey, privateKey } = await generateKeyPair('ECDH-ES', { crv: 'P-256', extractable: true });
+		const jwk = { ...(await exportJWK(publicKey)), kid: 'wrapped-1', alg: 'ECDH-ES+A256KW' };
+
+		const response = await present(
+			{
+				response_encryption: { jwk, alg: 'ECDH-ES+A256KW', enc: 'A256GCM' },
+				verified_request: { client_id: 'verified-client' },
+			},
+			{ vpToken: '{}' },
+		);
+
+		const jwe = response.response_jwe as string;
+		expect(jwe.split('.')).toHaveLength(5);
+		expect(jwe.split('.').every((seg) => seg.length > 0)).toBe(true);
+		const { protectedHeader } = await compactDecrypt(jwe, privateKey);
+		expect(protectedHeader).toMatchObject({ alg: 'ECDH-ES+A256KW', enc: 'A256GCM', kid: 'wrapped-1', cty: 'JWT' });
+	});
+
+	it('refuses a private verifier JWK: an error and no response_jwe', async () => {
+		const { privateKey } = await generateKeyPair('ECDH-ES', { crv: 'P-256', extractable: true });
+		const jwk = { ...(await exportJWK(privateKey)), kid: 'v-1' };
+
+		const response = await present(
+			{
+				response_encryption: { jwk, alg: 'ECDH-ES', enc: 'A128GCM' },
+				verified_request: { client_id: 'verified-client' },
+			},
+			{ vpToken: '{}' },
+		);
+
+		expect(response.error).toBeTruthy();
+		expect(response).not.toHaveProperty('response_jwe');
+		expect(response).not.toHaveProperty('vp_token');
 	});
 
 	it('leaves other response modes alone: vp_token is returned as before', async () => {

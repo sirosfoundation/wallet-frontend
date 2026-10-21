@@ -141,6 +141,8 @@ export interface SignResponse {
 	/** decrypt_credential_response: the only fields of the decrypted response the engine is told about. */
 	transactionId?: string;
 	interval?: number;
+	/** decrypt_credential_response: how many credentials the decrypted response issued. */
+	credentialCount?: number;
 	/** sign_presentation (direct_post.jwt): the compact JWE the engine posts as `response`. */
 	responseJwe?: string;
 }
@@ -974,12 +976,6 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			return;
 		}
 
-		if (this.signHandlers.size === 0) {
-			logger.error('No sign handlers registered, cannot respond to sign request');
-			this.sendSignResponse(request.flowId, request.messageId, {}, 'No sign handler available');
-			return;
-		}
-
 		// A fresh response-encryption key per generate_proof request: a c_nonce
 		// retry sends another request and so gets another key.
 		let responseKeyJwk: JWK | undefined;
@@ -990,6 +986,28 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				this.sendSignResponse(request.flowId, request.messageId, {}, err instanceof Error ? err.message : 'Response encryption failed');
 				return;
 			}
+		}
+
+		// With no proof types the request is key-only: the issuer wants response
+		// encryption but this configuration needs no proofs, so answer the key and
+		// nothing else (no sign handler is involved).
+		if (
+			request.action === 'generate_proof' &&
+			request.params.credentialResponseEncryption &&
+			!hasProofTypes(request.params.proofTypesSupported)
+		) {
+			this.sendSignResponse(
+				request.flowId,
+				request.messageId,
+				responseKeyJwk ? { credentialResponseEncryptionJwk: responseKeyJwk } : {},
+			);
+			return;
+		}
+
+		if (this.signHandlers.size === 0) {
+			logger.error('No sign handlers registered, cannot respond to sign request');
+			this.sendSignResponse(request.flowId, request.messageId, {}, 'No sign handler available');
+			return;
 		}
 
 		// Call all handlers until one succeeds
@@ -1117,6 +1135,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			if (response.dpopKeyId) msg.dpop_key_id = response.dpopKeyId;
 			if (response.dpopProof) msg.dpop_proof = response.dpopProof;
 			if (response.credentialResponseEncryptionJwk) msg.credential_response_encryption_jwk = response.credentialResponseEncryptionJwk;
+			if (response.credentialCount !== undefined) msg.credential_count = response.credentialCount;
 			if (response.transactionId) msg.transaction_id = response.transactionId;
 			if (response.interval !== undefined) msg.interval = response.interval;
 			if (response.responseJwe) msg.response_jwe = response.responseJwe;
@@ -1437,6 +1456,11 @@ function withDisplayMetadataOnly(message: ServerMessage): ServerMessage {
 		}
 	}
 	return Object.keys(kept).length > 0 ? { ...rest, credential_metadata: kept } : (rest as ServerMessage);
+}
+
+/** Whether a generate_proof request names any proof type the wallet should produce. */
+function hasProofTypes(proofTypesSupported: unknown): boolean {
+	return !!proofTypesSupported && typeof proofTypesSupported === 'object' && Object.keys(proofTypesSupported).length > 0;
 }
 
 function mapVerifiedRequest(raw: unknown): SignRequest['params']['verifiedRequest'] {

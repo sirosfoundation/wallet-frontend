@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { CompactEncrypt, compactDecrypt, exportJWK, generateKeyPair, importJWK } from 'jose';
 import type { JWK } from 'jose';
 import {
+	assertEngineAcceptableJwe,
 	ClientHeldEncryptionError,
 	ClientHeldEncryptionKeys,
 	RESPONSE_ENCS,
@@ -46,7 +47,7 @@ describe('ClientHeldEncryptionKeys.generate', () => {
 		const stale = await issuerEncrypt(first!, 'ECDH-ES', 'A256GCM', { credentials: [ISSUED] });
 		await expect(keys.decrypt('flow-1', stale)).rejects.toBeInstanceOf(ClientHeldEncryptionError);
 		const current = await issuerEncrypt(second!, 'ECDH-ES', 'A256GCM', { credentials: [ISSUED] });
-		await expect(keys.decrypt('flow-1', current)).resolves.toEqual({});
+		await expect(keys.decrypt('flow-1', current)).resolves.toEqual({ credentialCount: 1 });
 	});
 
 	it('declines an unsupported request that is not required, and stores no key', async () => {
@@ -78,22 +79,76 @@ describe('ClientHeldEncryptionKeys.decrypt', () => {
 		expect(keys.response('flow-1')?.credentials).toEqual([ISSUED]);
 	});
 
-	it('hands the engine only transaction_id and interval, never the credentials', async () => {
+	it('tells the engine only how many credentials were issued, never their contents', async () => {
 		const keys = new ClientHeldEncryptionKeys();
 		const jwk = await keys.generate('flow-1', { alg: 'ECDH-ES', enc: 'A256GCM' });
 		const jwe = await issuerEncrypt(jwk!, 'ECDH-ES', 'A256GCM', {
-			transaction_id: 'tx-1',
-			interval: 5,
-			credentials: [ISSUED],
+			credentials: [ISSUED, 'second'],
 			notification_id: 'n-1',
 			credential_metadata: { 'org.siros.secret_seed': { ns: 'ab'.repeat(16) } },
 		});
 
 		const control = await keys.decrypt('flow-1', jwe);
 
-		expect(control).toEqual({ transactionId: 'tx-1', interval: 5 });
+		expect(control).toEqual({ credentialCount: 2 });
 		expect(JSON.stringify(control)).not.toContain(ISSUED);
 		expect(JSON.stringify(control)).not.toContain('ab'.repeat(16));
+		expect(JSON.stringify(control)).not.toContain('n-1');
+	});
+
+	it('tells the engine only the transaction to poll for a deferred answer', async () => {
+		const keys = new ClientHeldEncryptionKeys();
+		const jwk = await keys.generate('flow-1', { alg: 'ECDH-ES', enc: 'A256GCM' });
+
+		const control = await keys.decrypt(
+			'flow-1',
+			await issuerEncrypt(jwk!, 'ECDH-ES', 'A256GCM', { transaction_id: 'tx-1', interval: 5 }),
+		);
+
+		expect(control).toEqual({ transactionId: 'tx-1', interval: 5 });
+	});
+
+	it('refuses an answer that is both credentials and a transaction, or neither', async () => {
+		const keys = new ClientHeldEncryptionKeys();
+		const jwk = await keys.generate('flow-1', { alg: 'ECDH-ES', enc: 'A256GCM' });
+
+		for (const body of [{ transaction_id: 'tx-1', credentials: [ISSUED] }, {}, { credentials: [] }]) {
+			await expect(
+				keys.decrypt('flow-1', await issuerEncrypt(jwk!, 'ECDH-ES', 'A256GCM', body)),
+			).rejects.toBeInstanceOf(ClientHeldEncryptionError);
+		}
+	});
+
+	it('accepts 256 credentials and refuses 257', async () => {
+		const keys = new ClientHeldEncryptionKeys();
+		const jwk = await keys.generate('flow-1', { alg: 'ECDH-ES', enc: 'A256GCM' });
+		const many = (n: number) => Array.from({ length: n }, (_, i) => `c${i}`);
+
+		await expect(
+			keys.decrypt('flow-1', await issuerEncrypt(jwk!, 'ECDH-ES', 'A256GCM', { credentials: many(256) })),
+		).resolves.toEqual({ credentialCount: 256 });
+		await expect(
+			keys.decrypt('flow-1', await issuerEncrypt(jwk!, 'ECDH-ES', 'A256GCM', { credentials: many(257) })),
+		).rejects.toBeInstanceOf(ClientHeldEncryptionError);
+	});
+
+	it('requires the issuer JWE to use exactly the negotiated alg and enc', async () => {
+		const keys = new ClientHeldEncryptionKeys();
+		const jwk = await keys.generate('flow-1', { alg: 'ECDH-ES+A256KW', enc: 'A256GCM' });
+
+		// A pair the wallet supports in general, but not the one it negotiated.
+		for (const [alg, enc] of [
+			['ECDH-ES', 'A256GCM'],
+			['ECDH-ES+A128KW', 'A256GCM'],
+			['ECDH-ES+A256KW', 'A128GCM'],
+		] as const) {
+			await expect(
+				keys.decrypt('flow-1', await issuerEncrypt({ ...jwk!, alg }, alg, enc, { credentials: [ISSUED] })),
+			).rejects.toBeInstanceOf(ClientHeldEncryptionError);
+		}
+		await expect(
+			keys.decrypt('flow-1', await issuerEncrypt(jwk!, 'ECDH-ES+A256KW', 'A256GCM', { credentials: [ISSUED] })),
+		).resolves.toEqual({ credentialCount: 1 });
 	});
 
 	it('keeps credentials, response-level metadata and notification_id locally', async () => {
@@ -127,11 +182,17 @@ describe('ClientHeldEncryptionKeys.decrypt', () => {
 		expect(pending).toEqual({ transactionId: 'tx-1', interval: 2 });
 		expect(keys.response('flow-1')?.credentials).toEqual([]);
 
+		const again = await keys.decrypt(
+			'flow-1',
+			await issuerEncrypt(jwk!, 'ECDH-ES', 'A256GCM', { transaction_id: 'tx-1', interval: 5 }),
+		);
+		expect(again).toEqual({ transactionId: 'tx-1', interval: 5 });
+
 		const done = await keys.decrypt(
 			'flow-1',
 			await issuerEncrypt(jwk!, 'ECDH-ES', 'A256GCM', { credentials: [ISSUED], notification_id: 'n-2' }),
 		);
-		expect(done).toEqual({});
+		expect(done).toEqual({ credentialCount: 1 });
 		expect(keys.response('flow-1')).toMatchObject({ credentials: [ISSUED], notificationId: 'n-2' });
 	});
 
@@ -257,5 +318,93 @@ describe('buildJarmResponse', () => {
 		await expect(
 			buildJarmResponse({ ...ok, encryption: { jwk, alg: 'ECDH-ES', enc: 'A192GCM' } }),
 		).rejects.toBeInstanceOf(ClientHeldEncryptionError);
+	});
+});
+
+describe('buildJarmResponse: what the engine will accept', () => {
+	async function verifier(alg: string) {
+		const { publicKey, privateKey } = await generateKeyPair('ECDH-ES', { crv: 'P-256', extractable: true });
+		return { jwk: { ...(await exportJWK(publicKey)), kid: 'v-1', alg }, privateKey };
+	}
+
+	it('refuses a private verifier key', async () => {
+		const { publicKey, privateKey } = await generateKeyPair('ECDH-ES', { crv: 'P-256', extractable: true });
+		const jwk = { ...(await exportJWK(privateKey)), kid: 'v-1' };
+		void publicKey;
+
+		await expect(
+			buildJarmResponse({ vpToken: '{}', audience: 'v', encryption: { jwk, alg: 'ECDH-ES', enc: 'A128GCM' } }),
+		).rejects.toBeInstanceOf(ClientHeldEncryptionError);
+	});
+
+	it('has an empty encrypted-key segment only for direct ECDH-ES', async () => {
+		const direct = await verifier('ECDH-ES');
+		const wrapped = await verifier('ECDH-ES+A256KW');
+
+		const a = await buildJarmResponse({
+			vpToken: '{}', audience: 'v', encryption: { jwk: direct.jwk, alg: 'ECDH-ES', enc: 'A128GCM' },
+		});
+		const b = await buildJarmResponse({
+			vpToken: '{}', audience: 'v', encryption: { jwk: wrapped.jwk, alg: 'ECDH-ES+A256KW', enc: 'A128GCM' },
+		});
+
+		expect(a.split('.')[1]).toBe('');
+		expect(b.split('.')[1]).not.toBe('');
+		expect(b.split('.').every((seg) => seg.length > 0)).toBe(true);
+	});
+
+	it('refuses a response above 4 MiB', async () => {
+		const { jwk } = await verifier('ECDH-ES');
+
+		await expect(
+			buildJarmResponse({
+				vpToken: 'x'.repeat(4 * 1024 * 1024),
+				audience: 'v',
+				encryption: { jwk, alg: 'ECDH-ES', enc: 'A128GCM' },
+			}),
+		).rejects.toBeInstanceOf(ClientHeldEncryptionError);
+	});
+});
+
+describe('assertEngineAcceptableJwe', () => {
+	const b64 = (o: unknown) => btoa(JSON.stringify(o)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+	const jwe = (header: unknown, segments = ['ek', 'iv', 'ct', 'tag']) => [b64(header), ...segments].join('.');
+	const expected = { alg: 'ECDH-ES+A256KW', enc: 'A128GCM', kid: 'k1' };
+	const header = { alg: 'ECDH-ES+A256KW', enc: 'A128GCM', kid: 'k1' };
+
+	it('accepts a well-formed response', () => {
+		expect(() => assertEngineAcceptableJwe(jwe(header), expected)).not.toThrow();
+	});
+
+	it.each([
+		['alg differs', { ...header, alg: 'ECDH-ES' }],
+		['enc differs', { ...header, enc: 'A256GCM' }],
+		['kid differs', { ...header, kid: 'other' }],
+		['kid missing though the key has one', { alg: header.alg, enc: header.enc }],
+	])('refuses a header whose %s', (_label, h) => {
+		expect(() => assertEngineAcceptableJwe(jwe(h), expected)).toThrow(ClientHeldEncryptionError);
+	});
+
+	it('does not require a kid when the key has none', () => {
+		expect(() =>
+			assertEngineAcceptableJwe(jwe({ alg: 'ECDH-ES+A256KW', enc: 'A128GCM' }), { alg: 'ECDH-ES+A256KW', enc: 'A128GCM' }),
+		).not.toThrow();
+	});
+
+	it('refuses the wrong number of segments, an empty segment, and non-base64url text', () => {
+		expect(() => assertEngineAcceptableJwe(jwe(header, ['ek', 'iv', 'ct']), expected)).toThrow(ClientHeldEncryptionError);
+		expect(() => assertEngineAcceptableJwe(jwe(header, ['ek', '', 'ct', 'tag']), expected)).toThrow(ClientHeldEncryptionError);
+		expect(() => assertEngineAcceptableJwe(jwe(header, ['ek', 'iv', 'ct', 'ta g']), expected)).toThrow(ClientHeldEncryptionError);
+		expect(() => assertEngineAcceptableJwe('', expected)).toThrow(ClientHeldEncryptionError);
+	});
+
+	it('allows an empty encrypted key only for direct ECDH-ES', () => {
+		const direct = { alg: 'ECDH-ES', enc: 'A128GCM', kid: 'k1' };
+		expect(() =>
+			assertEngineAcceptableJwe(jwe(direct, ['', 'iv', 'ct', 'tag']), { alg: 'ECDH-ES', enc: 'A128GCM', kid: 'k1' }),
+		).not.toThrow();
+		expect(() => assertEngineAcceptableJwe(jwe(header, ['', 'iv', 'ct', 'tag']), expected)).toThrow(
+			ClientHeldEncryptionError,
+		);
 	});
 });
