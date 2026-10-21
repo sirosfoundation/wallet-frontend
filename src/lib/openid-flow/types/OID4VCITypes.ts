@@ -148,9 +148,10 @@ export interface OID4VCIFlowResult {
 	}>;
 
 	/**
-	 * The response-level `credential_metadata` of the issuer's Credential Response,
-	 * as the wallet decrypted it (the engine never sees it). Not display metadata:
-	 * it may carry a delivered secret, so it is never logged.
+	 * The response-level `credential_metadata` of the issuer's Credential Response.
+	 * For an encrypted response it is the object this wallet decrypted (the engine
+	 * never sees it) and may carry a delivered secret, so it is never logged. For a
+	 * plain response it is limited to the display-only `display` and `claims`.
 	 */
 	credentialMetadata?: Record<string, unknown>;
 

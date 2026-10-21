@@ -533,3 +533,121 @@ describe('sign_presentation with response_encryption (direct_post.jwt)', () => {
 		expect(response).not.toHaveProperty('response_jwe');
 	});
 });
+
+describe('response-level credential_metadata in flow_complete', () => {
+	async function complete(frame: Record<string, unknown>) {
+		const { transport, ws } = await setup();
+		const flowPromise = transport.startOID4VCIFlow({ credentialOfferUri: 'openid-credential-offer://?x' });
+		await vi.waitFor(() => expect(ws.sentMessages.length).toBeGreaterThan(1));
+		const flowId = JSON.parse(ws.sentMessages[1]).flow_id as string;
+		ws.simulateMessage({ type: 'flow_complete', flow_id: flowId, ...frame });
+		return flowPromise;
+	}
+
+	const plainCredentials = [{ format: 'dc+sd-jwt', credential: 'plain.credential' }];
+
+	it('accepts only display and claims from a plain frame, and drops every extension member', async () => {
+		const result = await complete({
+			credentials: plainCredentials,
+			credential_metadata: {
+				display: [{ name: 'PID' }],
+				claims: [{ path: ['a'] }],
+				'org.siros.secret_seed': { ns: SEED },
+				DISPLAY: [{ name: 'wrong case' }],
+				other: 1,
+			},
+		});
+
+		expect(result.success).toBe(true);
+		expect(result.credentialMetadata).toEqual({ display: [{ name: 'PID' }], claims: [{ path: ['a'] }] });
+		expect(JSON.stringify(result)).not.toContain(SEED);
+	});
+
+	it('gives a plain frame with only extension members no metadata at all', async () => {
+		const result = await complete({
+			credentials: plainCredentials,
+			credential_metadata: { 'org.siros.secret_seed': { ns: SEED } },
+		});
+
+		expect(result.credentialMetadata).toBeUndefined();
+		expect(JSON.stringify(result)).not.toContain(SEED);
+	});
+
+	it.each([['a string', 'display'], ['an array', ['display']], ['a number', 7], ['null', null]])(
+		'ignores a credential_metadata that is %s',
+		async (_label, bad) => {
+			const result = await complete({ credentials: plainCredentials, credential_metadata: bad });
+
+			expect(result.success).toBe(true);
+			expect(result.credentialMetadata).toBeUndefined();
+		},
+	);
+
+	it('uses only the locally decrypted object for an encrypted response, ignoring the frame', async () => {
+		const { transport, ws, signResponses } = await setup();
+		transport.onSignRequest(async () => ({ proofs: [{ proof_type: 'jwt', jwt: 'proof.jwt' }] }));
+		const flowPromise = transport.startOID4VCIFlow({ credentialOfferUri: 'openid-credential-offer://?x' });
+		await vi.waitFor(() => expect(ws.sentMessages.length).toBeGreaterThan(1));
+		const flowId = JSON.parse(ws.sentMessages[1]).flow_id as string;
+		const proof = await generateProof(ws, signResponses, flowId, 'm1');
+		const jwe = await issuerEncrypt(proof.credential_response_encryption_jwk as JWK, 'ECDH-ES+A256KW', 'A128GCM', {
+			credentials: [ISSUED],
+			credential_metadata: { 'org.siros.secret_seed': { ns: SEED }, display: [{ name: 'decrypted' }] },
+		});
+		ws.simulateMessage({
+			type: 'sign_request',
+			flow_id: flowId,
+			message_id: 'm2',
+			action: 'decrypt_credential_response',
+			params: { jwe },
+		});
+		await vi.waitFor(() => expect(signResponses().some((r) => r.message_id === 'm2')).toBe(true));
+
+		ws.simulateMessage({
+			type: 'flow_complete',
+			flow_id: flowId,
+			credentials: [{ format: 'dc+sd-jwt' }],
+			credential_response_encrypted: true,
+			credential_metadata: { display: [{ name: 'frame' }], 'org.siros.secret_seed': { ns: 'ef'.repeat(16) } },
+		});
+
+		const result = await flowPromise;
+		expect(result.credentialMetadata).toEqual({
+			'org.siros.secret_seed': { ns: SEED },
+			display: [{ name: 'decrypted' }],
+		});
+		expect(JSON.stringify(result)).not.toContain('ef'.repeat(16));
+	});
+
+	it('uses no metadata for an encrypted response whose decrypted body had none, ignoring the frame', async () => {
+		const { transport, ws, signResponses } = await setup();
+		transport.onSignRequest(async () => ({ proofs: [{ proof_type: 'jwt', jwt: 'proof.jwt' }] }));
+		const flowPromise = transport.startOID4VCIFlow({ credentialOfferUri: 'openid-credential-offer://?x' });
+		await vi.waitFor(() => expect(ws.sentMessages.length).toBeGreaterThan(1));
+		const flowId = JSON.parse(ws.sentMessages[1]).flow_id as string;
+		const proof = await generateProof(ws, signResponses, flowId, 'm1');
+		const jwe = await issuerEncrypt(proof.credential_response_encryption_jwk as JWK, 'ECDH-ES+A256KW', 'A128GCM', {
+			credentials: [ISSUED],
+		});
+		ws.simulateMessage({
+			type: 'sign_request',
+			flow_id: flowId,
+			message_id: 'm2',
+			action: 'decrypt_credential_response',
+			params: { jwe },
+		});
+		await vi.waitFor(() => expect(signResponses().some((r) => r.message_id === 'm2')).toBe(true));
+
+		ws.simulateMessage({
+			type: 'flow_complete',
+			flow_id: flowId,
+			credentials: [{ format: 'dc+sd-jwt' }],
+			credential_response_encrypted: true,
+			credential_metadata: { display: [{ name: 'frame' }] },
+		});
+
+		const result = await flowPromise;
+		expect(result.success).toBe(true);
+		expect(result.credentialMetadata).toBeUndefined();
+	});
+});

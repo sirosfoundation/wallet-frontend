@@ -764,9 +764,14 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 		// An issuance the engine relayed as ciphertext: put the credentials this
 		// wallet decrypted back into the completion, then drop the flow's key.
+		// A plain response's frame may carry only display-only metadata: extension
+		// members (a delivered secret) reach the wallet through its own decryption
+		// and never through flow_complete.
 		let resolved = message;
-		if (type === 'flow_complete' && message.credential_response_encrypted === true) {
-			resolved = this.completeEncryptedIssuance(message, flowId);
+		if (type === 'flow_complete') {
+			resolved = message.credential_response_encrypted === true
+				? this.completeEncryptedIssuance(message, flowId)
+				: withDisplayMetadataOnly(message);
 		}
 		if (type === 'flow_complete' || type === 'flow_error' || type === 'error') {
 			this.responseKeys.drop(flowId);
@@ -816,8 +821,11 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			credential: decrypted.credentials[i],
 			...(decrypted.notificationId ? { notification_id: decrypted.notificationId } : {}),
 		}));
+		// The frame's own credential_metadata is ignored for an encrypted response:
+		// only the object this wallet decrypted is used.
+		const { credential_metadata: _frameMetadata, ...rest } = message;
 		return {
-			...message,
+			...rest,
 			credentials,
 			...(decrypted.credentialMetadata ? { credential_metadata: decrypted.credentialMetadata } : {}),
 		};
@@ -1405,6 +1413,32 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
  * Parse a logo value from the backend.
  * Handles both string URLs and object formats with a `uri` field.
  */
+/** The members of a plain response's `credential_metadata` the engine may relay. */
+const PLAIN_RESPONSE_METADATA_MEMBERS = ['display', 'claims'] as const;
+
+/**
+ * Keep only `display` and `claims` of a `flow_complete`'s response-level
+ * `credential_metadata` (exact member names). Anything else, notably an
+ * extension such as `org.siros.secret_seed`, is dropped without being read,
+ * stored, merged or logged.
+ */
+function withDisplayMetadataOnly(message: ServerMessage): ServerMessage {
+	if (!('credential_metadata' in message)) {
+		return message;
+	}
+	const { credential_metadata: raw, ...rest } = message;
+	if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+		return rest as ServerMessage;
+	}
+	const kept: Record<string, unknown> = {};
+	for (const member of PLAIN_RESPONSE_METADATA_MEMBERS) {
+		if (Object.prototype.hasOwnProperty.call(raw, member)) {
+			kept[member] = (raw as Record<string, unknown>)[member];
+		}
+	}
+	return Object.keys(kept).length > 0 ? { ...rest, credential_metadata: kept } : (rest as ServerMessage);
+}
+
 function mapVerifiedRequest(raw: unknown): SignRequest['params']['verifiedRequest'] {
 	if (!raw || typeof raw !== 'object') {
 		return undefined;
