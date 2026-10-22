@@ -47,18 +47,6 @@ export type CredentialsContextValue = {
 	pendingTransactions: Record<string, any>;
 };
 
-const defaultContextValue: CredentialsContextValue = {
-	vcEntityList: [],
-	latestCredentials: new Set<number>(),
-	fetchVcData: async () => [],
-	getData: async () => { },
-	removeCredential: () => { },
-	currentSlide: 1,
-	setCurrentSlide: () => { },
-	parseCredential: async () => null,
-	credentialEngine: null,
-	pendingTransactions: null,
-};
-const CredentialsContext = createContext<CredentialsContextValue>(defaultContextValue);
+const CredentialsContext = createContext<CredentialsContextValue | null>(null);
 
 export default CredentialsContext;
