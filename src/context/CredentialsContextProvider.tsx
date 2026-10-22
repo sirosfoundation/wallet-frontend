@@ -101,7 +101,6 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 				credentialConfigurationId,
 			} = vcEntity;
 
-
 			const result = await engine.credentialParsingEngine.parse({
 				rawCredential: data,
 				credentialIssuer: {
