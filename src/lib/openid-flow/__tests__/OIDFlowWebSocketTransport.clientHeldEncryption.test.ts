@@ -1143,7 +1143,7 @@ describe('a flow the wallet released locally stays released', () => {
 		const { transport, ws, signResponses, flowId, flowPromise } = await startedFlow();
 		transport.releaseFlow();
 		ws.simulateMessage({ type: 'flow_error', flow_id: flowId, error: { code: 'X', message: 'ended' } });
-		await flowPromise;
+		await flowPromise.catch(() => undefined);
 
 		const again = await generateProof(ws, signResponses, flowId, 'm-again');
 
@@ -1177,6 +1177,90 @@ describe('a flow the wallet released locally stays released', () => {
 
 		expect(oldest).not.toHaveProperty('error');
 		expect(newest.error).toBe(RELEASED);
+	});
+});
+
+describe('a flow started after a release is a new flow', () => {
+	async function startFlow(ctx: Awaited<ReturnType<typeof setup>>, offer: string) {
+		const before = ctx.ws.sentMessages.length;
+		const promise = ctx.transport.startOID4VCIFlow({ credentialOfferUri: offer });
+		promise.catch(() => undefined);
+		await vi.waitFor(() => expect(ctx.ws.sentMessages.length).toBeGreaterThan(before));
+		return { promise, flowId: JSON.parse(ctx.ws.sentMessages[before]).flow_id as string };
+	}
+
+	it('gets a fresh flow id and signs normally, while the released flow stays refused', async () => {
+		const ctx = await setup();
+		const handler = vi.fn().mockResolvedValue({ proofs: [{ proof_type: 'jwt', jwt: 'proof.jwt' }] });
+		ctx.transport.onSignRequest(handler);
+		const first = await startFlow(ctx, 'openid-credential-offer://?first');
+
+		ctx.transport.releaseFlow();
+		const second = await startFlow(ctx, 'openid-credential-offer://?second');
+
+		expect(second.flowId).not.toBe(first.flowId);
+		const signed = await generateProof(ctx.ws, ctx.signResponses, second.flowId, 'm-second');
+		expect(signed).not.toHaveProperty('error');
+		expect(signed.proofs).toEqual([{ proof_type: 'jwt', jwt: 'proof.jwt' }]);
+		const late = await generateProof(ctx.ws, ctx.signResponses, first.flowId, 'm-first-late');
+		expect(late.error).toBe('The flow was released locally');
+	});
+
+	it('settles the released flow’s pending request with an error', async () => {
+		const ctx = await setup();
+		const first = await startFlow(ctx, 'openid-credential-offer://?first');
+
+		ctx.transport.releaseFlow();
+
+		await expect(first.promise).rejects.toThrow('The flow was released locally');
+	});
+
+	it('leaves the pending requests of every other flow alone', async () => {
+		const ctx = await setup();
+		const first = await startFlow(ctx, 'openid-credential-offer://?first');
+		const unrelated = { resolve: vi.fn(), reject: vi.fn(), flowId: 'unrelated-flow', timeout: setTimeout(() => undefined, 60_000) };
+		const internals = ctx.transport as unknown as { pending: Map<string, typeof unrelated> };
+		internals.pending.set('unrelated-flow', unrelated);
+
+		ctx.transport.releaseFlow();
+
+		await expect(first.promise).rejects.toThrow('The flow was released locally');
+		expect(unrelated.reject).not.toHaveBeenCalled();
+		expect(internals.pending.has('unrelated-flow')).toBe(true);
+		clearTimeout(unrelated.timeout);
+	});
+
+	it('is not touched by a late terminal frame of the released flow', async () => {
+		const ctx = await setup();
+		ctx.transport.onSignRequest(async () => ({ proofs: [{ proof_type: 'jwt', jwt: 'proof.jwt' }] }));
+		const first = await startFlow(ctx, 'openid-credential-offer://?first');
+		ctx.transport.releaseFlow();
+		const second = await startFlow(ctx, 'openid-credential-offer://?second');
+		const proof = await generateProof(ctx.ws, ctx.signResponses, second.flowId, 'm-second');
+
+		ctx.ws.simulateMessage({ type: 'flow_error', flow_id: first.flowId, error: { code: 'X', message: 'late' } });
+
+		ctx.ws.simulateMessage({
+			type: 'sign_request',
+			flow_id: second.flowId,
+			message_id: 'm-decrypt',
+			action: 'decrypt_credential_response',
+			params: {
+				jwe: await issuerEncrypt(
+					proof.credential_response_encryption_jwk as JWK,
+					'ECDH-ES+A256KW',
+					'A128GCM',
+					{ credentials: [{ credential: ISSUED }] },
+				),
+				deferred: false,
+			},
+		});
+		await vi.waitFor(() => expect(ctx.signResponses().some((r) => r.message_id === 'm-decrypt')).toBe(true));
+		expect(ctx.signResponses().find((r) => r.message_id === 'm-decrypt')!.credential_count).toBe(1);
+		// And the second flow is still the active one: a further release reaches it.
+		ctx.transport.releaseFlow();
+		const afterRelease = await generateProof(ctx.ws, ctx.signResponses, second.flowId, 'm-after');
+		expect(afterRelease.error).toBe('The flow was released locally');
 	});
 });
 

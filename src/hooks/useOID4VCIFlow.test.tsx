@@ -25,6 +25,28 @@ describe('useOID4VCIFlow: aborting a flow reaches the transport', () => {
 		expect(transport.releaseFlow).toHaveBeenCalledTimes(1);
 	});
 
+	it('does not release a second time when the aborted flow’s request then fails (it could hit a newer flow)', async () => {
+		transport.releaseFlow.mockClear();
+		let failStart!: (reason: Error) => void;
+		transport.startOID4VCIFlow.mockImplementation(
+			() =>
+				new Promise((_resolve, reject) => {
+					failStart = reject;
+				}),
+		);
+		const { result, unmount } = renderHook(() => useOID4VCIFlow());
+		const outcome = result.current.handleCredentialOffer(new URL('openid-credential-offer://?credential_offer_uri=https%3A%2F%2Fissuer.example.com%2Foffer'));
+		await vi.waitFor(() => expect(failStart).toBeTypeOf('function'));
+
+		unmount();
+		expect(transport.releaseFlow).toHaveBeenCalledTimes(1);
+		failStart(new Error('The flow was released locally'));
+		const settled = await outcome;
+
+		expect(settled.error?.code).toBe('ABORTED');
+		expect(transport.releaseFlow).toHaveBeenCalledTimes(1);
+	});
+
 	it('releases it when starting the flow fails locally', async () => {
 		transport.releaseFlow.mockClear();
 		transport.startOID4VCIFlow.mockRejectedValue(new Error('boom'));

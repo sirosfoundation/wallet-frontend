@@ -230,8 +230,11 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 
 			throw new Error('No transport available for credential issuance');
 		} catch (err) {
-			// The flow failed or was aborted locally: nothing it held may outlive it.
-			transport?.releaseFlow?.();
+			// The flow failed locally: nothing it held may outlive it. (An abort was already released on
+			// unmount; releasing again here could hit a flow started since.)
+			if (!abortRef.current.signal.aborted) {
+				transport?.releaseFlow?.();
+			}
 			if (abortRef.current.signal.aborted) {
 				return { success: false, error: { code: 'ABORTED', message: 'Flow cancelled' } };
 			}
@@ -311,8 +314,11 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			throw new Error('No transport available');
 
 		} catch (err) {
-			// The flow failed or was aborted locally: nothing it held may outlive it.
-			transport?.releaseFlow?.();
+			// The flow failed locally: nothing it held may outlive it. (An abort was already released on
+			// unmount; releasing again here could hit a flow started since.)
+			if (!abortRef.current.signal.aborted) {
+				transport?.releaseFlow?.();
+			}
 			if (abortRef.current.signal.aborted) {
 				return { success: false, error: { code: 'ABORTED', message: 'Flow cancelled' } };
 			}
@@ -378,8 +384,11 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			throw new Error('No transport available');
 
 		} catch (err) {
-			// The flow failed or was aborted locally: nothing it held may outlive it.
-			transport?.releaseFlow?.();
+			// The flow failed locally: nothing it held may outlive it. (An abort was already released on
+			// unmount; releasing again here could hit a flow started since.)
+			if (!abortRef.current.signal.aborted) {
+				transport?.releaseFlow?.();
+			}
 			if (abortRef.current.signal.aborted) {
 				return { success: false, error: { code: 'ABORTED', message: 'Flow cancelled' } };
 			}

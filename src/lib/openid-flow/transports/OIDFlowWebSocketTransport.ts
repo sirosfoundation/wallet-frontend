@@ -361,7 +361,17 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		if (!flowId) {
 			return;
 		}
+		// Detach the released flow from the active context, so a flow started next gets a fresh
+		// id instead of inheriting this one, and settle its pending request. Only this flow's
+		// own entries are touched: nothing a newer flow holds is cleared.
+		this.currentFlowId = null;
 		this.responseKeys.drop(flowId);
+		const pending = this.pending.get(flowId);
+		if (pending) {
+			clearTimeout(pending.timeout);
+			this.pending.delete(flowId);
+			pending.reject(new Error(RELEASED_FLOW_ERROR));
+		}
 		if (this.releasedFlows.size >= MAX_RELEASED_FLOWS) {
 			const oldest = this.releasedFlows.values().next().value;
 			if (oldest !== undefined) {
