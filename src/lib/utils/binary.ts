@@ -17,7 +17,7 @@ export function toBase64(binary: BufferSource): string {
 	return btoa(result);
 }
 
-export function toBase64Url(binary: BufferSource): string {
+export function toBase64Url(binary: BufferSource|Uint8Array): string {
 	return toBase64(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
 }
 
