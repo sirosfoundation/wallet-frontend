@@ -630,6 +630,59 @@ describe('sign_presentation with response_encryption (direct_post.jwt)', () => {
 		expect(response).not.toHaveProperty('vp_token');
 	});
 
+	it('refuses a direct_post.jwt request without encryption parameters: an error, never a plaintext vp_token', async () => {
+		const handler = vi.fn().mockResolvedValue({ vpToken: '{"pid":["secret.presentation"]}' });
+		const { transport, ws, signResponses } = await setup();
+		transport.onSignRequest(handler);
+
+		ws.simulateMessage({
+			type: 'sign_request',
+			flow_id: 'f1',
+			message_id: 'm1',
+			action: 'sign_presentation',
+			params: {
+				audience: 'verifier',
+				nonce: 'n',
+				verified_request: { client_id: 'verified-client', response_mode: 'direct_post.jwt' },
+			},
+		});
+		await vi.waitFor(() => expect(signResponses().length).toBe(1));
+
+		const response = signResponses()[0];
+		expect(response.error).toBeTruthy();
+		expect(response).not.toHaveProperty('vp_token');
+		expect(response).not.toHaveProperty('response_jwe');
+		expect(JSON.stringify(response)).not.toContain('secret.presentation');
+		expect(handler).not.toHaveBeenCalled();
+	});
+
+	it('still returns the vp_token in clear for a plain direct_post request', async () => {
+		const response = await present(
+			{ verified_request: { client_id: 'verified-client', response_mode: 'direct_post' } },
+			{ vpToken: '{"pid":["t"]}' },
+		);
+
+		expect(response.vp_token).toBe('{"pid":["t"]}');
+		expect(response).not.toHaveProperty('error');
+	});
+
+	it('encrypts to a verifier key whose kid is non-ASCII', async () => {
+		const { publicKey, privateKey } = await generateKeyPair('ECDH-ES', { crv: 'P-256', extractable: true });
+		const jwk = { ...(await exportJWK(publicKey)), kid: 'clé-1', alg: 'ECDH-ES' };
+
+		const response = await present(
+			{
+				response_encryption: { jwk, alg: 'ECDH-ES', enc: 'A128GCM' },
+				verified_request: { client_id: 'verified-client', response_mode: 'direct_post.jwt' },
+			},
+			{ vpToken: '{}' },
+		);
+
+		expect(response).not.toHaveProperty('error');
+		const { protectedHeader } = await compactDecrypt(response.response_jwe as string, privateKey);
+		expect(protectedHeader.kid).toBe('clé-1');
+	});
+
 	it('leaves other response modes alone: vp_token is returned as before', async () => {
 		const response = await present({ audience: 'verifier' }, { vpToken: '{"pid":["t"]}' });
 

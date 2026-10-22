@@ -988,6 +988,19 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			}
 		}
 
+		// Refuse before anything is signed: a known direct_post.jwt request with no
+		// encryption parameters has no safe answer (a vp_token would reach the
+		// engine in clear).
+		if (isDirectPostJwtWithoutEncryption(request)) {
+			this.sendSignResponse(
+				request.flowId,
+				request.messageId,
+				{},
+				'The direct_post.jwt request carries no response encryption parameters',
+			);
+			return;
+		}
+
 		// With no proof types the request is key-only: the issuer wants response
 		// encryption but this configuration needs no proofs, so answer the key and
 		// nothing else (no sign handler is involved).
@@ -1456,6 +1469,15 @@ function withDisplayMetadataOnly(message: ServerMessage): ServerMessage {
 		}
 	}
 	return Object.keys(kept).length > 0 ? { ...rest, credential_metadata: kept } : (rest as ServerMessage);
+}
+
+/** A presentation whose verified response mode is direct_post.jwt but that carries no response_encryption. */
+function isDirectPostJwtWithoutEncryption(request: SignRequest): boolean {
+	return (
+		request.action === 'sign_presentation' &&
+		request.params.verifiedRequest?.responseMode === 'direct_post.jwt' &&
+		!request.params.responseEncryption
+	);
 }
 
 /** Whether a generate_proof request names any proof type the wallet should produce. */

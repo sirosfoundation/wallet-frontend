@@ -231,6 +231,65 @@ describe('ClientHeldEncryptionKeys.decrypt', () => {
 		await expect(keys.decrypt('flow-1', jwe)).rejects.toBeInstanceOf(ClientHeldEncryptionError);
 	});
 
+	it('drops the previous key and decrypted response when a replacement request cannot be served', async () => {
+		const keys = new ClientHeldEncryptionKeys();
+		const first = await keys.generate('flow-1', { alg: 'ECDH-ES', enc: 'A256GCM' });
+		const jwe = await issuerEncrypt(first!, 'ECDH-ES', 'A256GCM', { credentials: [ISSUED] });
+		await keys.decrypt('flow-1', jwe);
+		expect(keys.response('flow-1')?.credentials).toEqual([ISSUED]);
+
+		// Not required: declined, but the old key must be gone all the same.
+		await expect(keys.generate('flow-1', { alg: 'RSA-OAEP', enc: 'A256GCM' })).resolves.toBeUndefined();
+
+		expect(keys.has('flow-1')).toBe(false);
+		expect(keys.response('flow-1')).toBeUndefined();
+		await expect(keys.decrypt('flow-1', jwe)).rejects.toBeInstanceOf(ClientHeldEncryptionError);
+	});
+
+	it('also drops the previous key when a required replacement fails', async () => {
+		const keys = new ClientHeldEncryptionKeys();
+		const first = await keys.generate('flow-1', { alg: 'ECDH-ES', enc: 'A256GCM' });
+		const jwe = await issuerEncrypt(first!, 'ECDH-ES', 'A256GCM', { credentials: [ISSUED] });
+
+		await expect(
+			keys.generate('flow-1', { alg: 'RSA-OAEP', enc: 'A256GCM', required: true }),
+		).rejects.toBeInstanceOf(ClientHeldEncryptionError);
+
+		expect(keys.has('flow-1')).toBe(false);
+		await expect(keys.decrypt('flow-1', jwe)).rejects.toBeInstanceOf(ClientHeldEncryptionError);
+	});
+
+	it.each([
+		['drop()', (keys: ClientHeldEncryptionKeys) => keys.drop('flow-1')],
+		['clear()', (keys: ClientHeldEncryptionKeys) => keys.clear()],
+	])('stores and returns no key when the flow ends through %s while it is being generated', async (_name, end) => {
+		const keys = new ClientHeldEncryptionKeys();
+
+		const pending = keys.generate('flow-1', { alg: 'ECDH-ES', enc: 'A256GCM' });
+		end(keys);
+
+		await expect(pending).rejects.toBeInstanceOf(ClientHeldEncryptionError);
+		expect(keys.has('flow-1')).toBe(false);
+	});
+
+	it('lets only the newest of two overlapping requests for a flow store its key', async () => {
+		const keys = new ClientHeldEncryptionKeys();
+
+		const older = keys.generate('flow-1', { alg: 'ECDH-ES', enc: 'A256GCM' });
+		const newer = keys.generate('flow-1', { alg: 'ECDH-ES', enc: 'A256GCM' });
+		const [olderResult, newerResult] = await Promise.allSettled([older, newer]);
+
+		expect(olderResult.status).toBe('rejected');
+		expect(newerResult.status).toBe('fulfilled');
+		const jwe = await issuerEncrypt(
+			(newerResult as PromiseFulfilledResult<JWK>).value,
+			'ECDH-ES',
+			'A256GCM',
+			{ credentials: [ISSUED] },
+		);
+		await expect(keys.decrypt('flow-1', jwe)).resolves.toEqual({ credentialCount: 1 });
+	});
+
 	it('has no key after drop() or clear()', async () => {
 		const keys = new ClientHeldEncryptionKeys();
 		const jwk = await keys.generate('flow-1', { alg: 'ECDH-ES', enc: 'A256GCM' });
@@ -327,6 +386,20 @@ describe('buildJarmResponse: what the engine will accept', () => {
 		return { jwk: { ...(await exportJWK(publicKey)), kid: 'v-1', alg }, privateKey };
 	}
 
+	it('accepts a non-ASCII kid: the header is read as UTF-8, not as a binary string', async () => {
+		const { publicKey, privateKey } = await generateKeyPair('ECDH-ES', { crv: 'P-256', extractable: true });
+		const jwk = { ...(await exportJWK(publicKey)), kid: 'clé-1 ✓', alg: 'ECDH-ES' };
+
+		const jwe = await buildJarmResponse({
+			vpToken: '{}',
+			audience: 'v',
+			encryption: { jwk, alg: 'ECDH-ES', enc: 'A128GCM' },
+		});
+
+		const { protectedHeader } = await compactDecrypt(jwe, privateKey);
+		expect(protectedHeader.kid).toBe('clé-1 ✓');
+	});
+
 	it('refuses a private verifier key', async () => {
 		const { publicKey, privateKey } = await generateKeyPair('ECDH-ES', { crv: 'P-256', extractable: true });
 		const jwk = { ...(await exportJWK(privateKey)), kid: 'v-1' };
@@ -367,7 +440,11 @@ describe('buildJarmResponse: what the engine will accept', () => {
 });
 
 describe('assertEngineAcceptableJwe', () => {
-	const b64 = (o: unknown) => btoa(JSON.stringify(o)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+	const b64 = (o: unknown) =>
+		btoa(String.fromCharCode(...new TextEncoder().encode(JSON.stringify(o))))
+			.replace(/\+/g, '-')
+			.replace(/\//g, '_')
+			.replace(/=+$/, '');
 	const jwe = (header: unknown, segments = ['ek', 'iv', 'ct', 'tag']) => [b64(header), ...segments].join('.');
 	const expected = { alg: 'ECDH-ES+A256KW', enc: 'A128GCM', kid: 'k1' };
 	const header = { alg: 'ECDH-ES+A256KW', enc: 'A128GCM', kid: 'k1' };
@@ -383,6 +460,16 @@ describe('assertEngineAcceptableJwe', () => {
 		['kid missing though the key has one', { alg: header.alg, enc: header.enc }],
 	])('refuses a header whose %s', (_label, h) => {
 		expect(() => assertEngineAcceptableJwe(jwe(h), expected)).toThrow(ClientHeldEncryptionError);
+	});
+
+	it('compares a UTF-8 kid as text', () => {
+		const kid = 'clé-1';
+		expect(() =>
+			assertEngineAcceptableJwe(jwe({ ...header, kid }), { ...expected, kid }),
+		).not.toThrow();
+		expect(() =>
+			assertEngineAcceptableJwe(jwe({ ...header, kid: 'clÃ©-1' }), { ...expected, kid }),
+		).toThrow(ClientHeldEncryptionError);
 	});
 
 	it('does not require a kid when the key has none', () => {

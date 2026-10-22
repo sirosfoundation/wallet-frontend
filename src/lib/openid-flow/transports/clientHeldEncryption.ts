@@ -107,6 +107,13 @@ interface FlowKey {
  */
 export class ClientHeldEncryptionKeys {
 	private readonly keys = new Map<string, FlowKey>();
+	/**
+	 * The generation a flow's key is being made for. drop()/clear() and a newer
+	 * generate() invalidate it, so a key whose generation was still pending when
+	 * the flow ended (or was superseded) is never stored or returned.
+	 */
+	private readonly generations = new Map<string, number>();
+	private generationCounter = 0;
 
 	/**
 	 * Generate the key for a flow and return its public JWK, or `undefined` when
@@ -118,6 +125,13 @@ export class ClientHeldEncryptionKeys {
 		request: CredentialResponseEncryptionRequest,
 	): Promise<JWK | undefined> {
 		const required = request.required === true;
+		// A new request replaces the flow's key and anything decrypted with the old
+		// one, whether or not this request can be served: a failed replacement must
+		// not leave the previous key able to decrypt.
+		this.keys.delete(flowId);
+		const generation = ++this.generationCounter;
+		this.generations.set(flowId, generation);
+
 		if (!isSupportedAlg(request.alg) || !isSupportedEnc(request.enc)) {
 			if (required) {
 				throw new ClientHeldEncryptionError(
@@ -132,9 +146,16 @@ export class ClientHeldEncryptionKeys {
 				extractable: false,
 			});
 			const jwk = await exportJWK(publicKey);
+			if (this.generations.get(flowId) !== generation) {
+				// The flow ended, or another request took over, while the key was made.
+				throw new ClientHeldEncryptionError('The flow ended while the response encryption key was being generated');
+			}
 			this.keys.set(flowId, { privateKey, alg: request.alg, enc: request.enc });
 			return { kty: jwk.kty, crv: jwk.crv, x: jwk.x, y: jwk.y, use: 'enc', alg: request.alg };
-		} catch {
+		} catch (err) {
+			if (err instanceof ClientHeldEncryptionError) {
+				throw err;
+			}
 			if (required) {
 				throw new ClientHeldEncryptionError('Could not generate the credential response encryption key');
 			}
@@ -227,10 +248,12 @@ export class ClientHeldEncryptionKeys {
 
 	drop(flowId: string): void {
 		this.keys.delete(flowId);
+		this.generations.delete(flowId);
 	}
 
 	clear(): void {
 		this.keys.clear();
+		this.generations.clear();
 	}
 }
 
@@ -306,9 +329,11 @@ export async function buildJarmResponse(params: {
 	return jwe;
 }
 
+/** A base64url segment as UTF-8 text (atob alone yields a binary string, which garbles non-ASCII such as a `kid`). */
 function decodeSegment(segment: string): string | undefined {
 	try {
-		return atob(segment.replace(/-/g, '+').replace(/_/g, '/'));
+		const binary = atob(segment.replace(/-/g, '+').replace(/_/g, '/'));
+		return new TextDecoder('utf-8', { fatal: true }).decode(Uint8Array.from(binary, (c) => c.charCodeAt(0)));
 	} catch {
 		return undefined;
 	}
