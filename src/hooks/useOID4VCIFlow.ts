@@ -99,13 +99,19 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 	const transportType = transportContext?.transportType ?? 'none';
 	const transport = transportContext?.transport;
 
+	// The latest transport, for the unmount cleanup below (which runs once).
+	const transportRef = useRef(transport);
+	transportRef.current = transport;
+
 	/**
-	 * Cleanup on unmount.
+	 * Cleanup on unmount: abort the flow, and tell the transport so it drops what it holds for it
+	 * (a response-encryption key and what it decrypted).
 	 */
 	useEffect(() => {
 		const controller = abortRef.current;
 		return () => {
 			controller.abort();
+			transportRef.current?.releaseFlow?.();
 		}
 	}, []);
 
@@ -224,6 +230,8 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 
 			throw new Error('No transport available for credential issuance');
 		} catch (err) {
+			// The flow failed or was aborted locally: nothing it held may outlive it.
+			transport?.releaseFlow?.();
 			if (abortRef.current.signal.aborted) {
 				return { success: false, error: { code: 'ABORTED', message: 'Flow cancelled' } };
 			}
@@ -303,6 +311,8 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			throw new Error('No transport available');
 
 		} catch (err) {
+			// The flow failed or was aborted locally: nothing it held may outlive it.
+			transport?.releaseFlow?.();
 			if (abortRef.current.signal.aborted) {
 				return { success: false, error: { code: 'ABORTED', message: 'Flow cancelled' } };
 			}
@@ -368,6 +378,8 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			throw new Error('No transport available');
 
 		} catch (err) {
+			// The flow failed or was aborted locally: nothing it held may outlive it.
+			transport?.releaseFlow?.();
 			if (abortRef.current.signal.aborted) {
 				return { success: false, error: { code: 'ABORTED', message: 'Flow cancelled' } };
 			}
