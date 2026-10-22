@@ -1006,7 +1006,7 @@ describe('releaseFlow (the wallet aborted or cancelled the flow locally)', () =>
 		});
 		await vi.waitFor(() => expect(signResponses().some((r) => r.message_id === 'm2')).toBe(true));
 		const answer = signResponses().find((r) => r.message_id === 'm2')!;
-		expect(answer.error).toBe('No response encryption key for this flow');
+		expect(answer.error).toBe('The flow was released locally');
 		expect(answer).not.toHaveProperty('credential_count');
 	});
 
@@ -1028,6 +1028,175 @@ describe('releaseFlow (the wallet aborted or cancelled the flow locally)', () =>
 		const inner = {} as unknown as IOIDFlowTransport;
 
 		expect(() => new OIDFlowTransportWithRetry(inner).releaseFlow()).not.toThrow();
+	});
+});
+
+describe('a flow the wallet released locally stays released', () => {
+	const RELEASED = 'The flow was released locally';
+
+	async function startedFlow(
+		handler = vi.fn().mockResolvedValue({ proofs: [{ proof_type: 'jwt', jwt: 'proof.jwt' }] }),
+	) {
+		const ctx = await setup();
+		ctx.transport.onSignRequest(handler);
+		const flowPromise = ctx.transport.startOID4VCIFlow({ credentialOfferUri: 'openid-credential-offer://?x' });
+		flowPromise.catch(() => undefined);
+		await vi.waitFor(() => expect(ctx.ws.sentMessages.length).toBeGreaterThan(1));
+		const flowId = JSON.parse(ctx.ws.sentMessages[1]).flow_id as string;
+		return { ...ctx, handler, flowId, flowPromise };
+	}
+
+	it('refuses a generate_proof that arrives after the release: no key, no handler, no proofs', async () => {
+		const { transport, ws, signResponses, handler, flowId } = await startedFlow();
+
+		transport.releaseFlow();
+		const response = await generateProof(ws, signResponses, flowId, 'm-late');
+
+		expect(response.error).toBe(RELEASED);
+		expect(response).not.toHaveProperty('credential_response_encryption_jwk');
+		expect(response).not.toHaveProperty('proofs');
+		expect(handler).not.toHaveBeenCalled();
+	});
+
+	it('refuses a sign_presentation and a sign_client_auth for it too, without invoking a handler', async () => {
+		const { transport, ws, signResponses, handler, flowId } = await startedFlow();
+		transport.releaseFlow();
+
+		for (const [id, action] of [['m1', 'sign_presentation'], ['m2', 'sign_client_auth']]) {
+			ws.simulateMessage({ type: 'sign_request', flow_id: flowId, message_id: id, action, params: { audience: 'a', nonce: 'n' } });
+			await vi.waitFor(() => expect(signResponses().some((r) => r.message_id === id)).toBe(true));
+			expect(signResponses().find((r) => r.message_id === id)!.error).toBe(RELEASED);
+		}
+		expect(handler).not.toHaveBeenCalled();
+	});
+
+	it('answers an error, not success, for an operation still pending when the flow is released', async () => {
+		let finish!: (value: { proofs: Array<{ proof_type: 'jwt'; jwt: string }> }) => void;
+		const { transport, ws, signResponses, flowId } = await startedFlow(
+			vi.fn(
+				() =>
+					new Promise((resolve) => {
+						finish = resolve;
+					}),
+			),
+		);
+		ws.simulateMessage({
+			type: 'sign_request',
+			flow_id: flowId,
+			message_id: 'm-pending',
+			action: 'generate_proof',
+			params: {
+				audience: 'https://issuer.example.com',
+				proof_types_supported: { jwt: { proof_signing_alg_values_supported: ['ES256'] } },
+				credential_response_encryption: { alg: 'ECDH-ES+A256KW', enc: 'A128GCM' },
+			},
+		});
+		await vi.waitFor(() => expect(finish).toBeTypeOf('function'));
+
+		transport.releaseFlow();
+		finish({ proofs: [{ proof_type: 'jwt', jwt: 'late.proof' }] });
+
+		await vi.waitFor(() => expect(signResponses().some((r) => r.message_id === 'm-pending')).toBe(true));
+		const answer = signResponses().find((r) => r.message_id === 'm-pending')!;
+		expect(answer.error).toBe(RELEASED);
+		expect(answer).not.toHaveProperty('proofs');
+		expect(answer).not.toHaveProperty('credential_response_encryption_jwk');
+		expect(JSON.stringify(answer)).not.toContain('late.proof');
+	});
+
+	it('answers an error for a decryption still pending when the flow is released', async () => {
+		const { transport, ws, signResponses, flowId } = await startedFlow();
+		const proof = await generateProof(ws, signResponses, flowId, 'm1');
+		const jwe = await issuerEncrypt(
+			proof.credential_response_encryption_jwk as JWK,
+			'ECDH-ES+A256KW',
+			'A128GCM',
+			{ credentials: [{ credential: ISSUED }] },
+		);
+
+		ws.simulateMessage({
+			type: 'sign_request',
+			flow_id: flowId,
+			message_id: 'm-decrypt',
+			action: 'decrypt_credential_response',
+			params: { jwe, deferred: false },
+		});
+		transport.releaseFlow();
+
+		await vi.waitFor(() => expect(signResponses().some((r) => r.message_id === 'm-decrypt')).toBe(true));
+		const answer = signResponses().find((r) => r.message_id === 'm-decrypt')!;
+		expect(answer.error).toBe(RELEASED);
+		expect(answer).not.toHaveProperty('credential_count');
+	});
+
+	it('leaves every other flow alone', async () => {
+		const { transport, ws, signResponses, flowId } = await startedFlow();
+		transport.releaseFlow();
+
+		const other = await generateProof(ws, signResponses, `${flowId}-other`, 'm-other');
+
+		expect(other).not.toHaveProperty('error');
+		expect(other.credential_response_encryption_jwk).toMatchObject({ kty: 'EC', use: 'enc' });
+	});
+
+	it('forgets the release once the engine has ended the flow', async () => {
+		const { transport, ws, signResponses, flowId, flowPromise } = await startedFlow();
+		transport.releaseFlow();
+		ws.simulateMessage({ type: 'flow_error', flow_id: flowId, error: { code: 'X', message: 'ended' } });
+		await flowPromise;
+
+		const again = await generateProof(ws, signResponses, flowId, 'm-again');
+
+		expect(again).not.toHaveProperty('error');
+	});
+
+	it('forgets the release when the socket closes', async () => {
+		const { transport, flowId } = await startedFlow();
+		transport.releaseFlow();
+
+		await transport.disconnect();
+		await transport.connect();
+		const ws2 = sockets[1];
+		const responses2 = () => ws2.sentMessages.map((m) => JSON.parse(m)).filter((m) => m.type === 'sign_response');
+		const again = await generateProof(ws2, responses2, flowId, 'm-again');
+
+		expect(again).not.toHaveProperty('error');
+	});
+
+	it('remembers at most 64 released flows, the oldest forgotten first', async () => {
+		const { transport, ws, signResponses } = await setup();
+		transport.onSignRequest(async () => ({ proofs: [{ proof_type: 'jwt', jwt: 'proof.jwt' }] }));
+		const internals = transport as unknown as { currentFlowId: string | null };
+		for (let i = 0; i < 65; i++) {
+			internals.currentFlowId = `flow-${i}`;
+			transport.releaseFlow();
+		}
+
+		const oldest = await generateProof(ws, signResponses, 'flow-0', 'm-oldest');
+		const newest = await generateProof(ws, signResponses, 'flow-64', 'm-newest');
+
+		expect(oldest).not.toHaveProperty('error');
+		expect(newest.error).toBe(RELEASED);
+	});
+});
+
+describe('a refused request does not keep the key it generated', () => {
+	it('drops the key when no sign handler is registered', async () => {
+		const { ws, signResponses } = await setup();
+
+		const refused = await generateProof(ws, signResponses, 'f1', 'm1');
+		expect(refused.error).toBe('No sign handler available');
+		expect(refused).not.toHaveProperty('credential_response_encryption_jwk');
+
+		ws.simulateMessage({
+			type: 'sign_request',
+			flow_id: 'f1',
+			message_id: 'm2',
+			action: 'decrypt_credential_response',
+			params: { jwe: 'a.b.c.d.e', deferred: false },
+		});
+		await vi.waitFor(() => expect(signResponses().some((r) => r.message_id === 'm2')).toBe(true));
+		expect(signResponses().find((r) => r.message_id === 'm2')!.error).toBe('No response encryption key for this flow');
 	});
 });
 

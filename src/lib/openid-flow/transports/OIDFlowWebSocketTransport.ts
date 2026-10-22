@@ -74,6 +74,11 @@ interface ProofTypesSupported {
 /**
  * Sign request from server
  */
+/** At most this many locally released flows are remembered. */
+const MAX_RELEASED_FLOWS = 64;
+
+const RELEASED_FLOW_ERROR = 'The flow was released locally';
+
 /** The sign actions a registered sign handler serves (decrypt_credential_response is the transport's own). */
 export type SignHandlerAction = 'generate_proof' | 'sign_presentation' | 'sign_client_auth';
 
@@ -211,6 +216,13 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	 * a WeakMap, so no member of an engine frame can ever impersonate it.
 	 */
 	private decryptedIssuance = new WeakMap<ServerMessage, DecryptedCredentialResponse>();
+	/**
+	 * Flows the wallet released locally (aborted or cancelled). Later sign and decrypt requests for
+	 * them are refused, and a request still pending at the release answers an error, so a local
+	 * cancellation cannot be undone by the engine carrying on. Bounded; forgotten when the engine
+	 * ends the flow or the socket closes.
+	 */
+	private releasedFlows = new Set<string>();
 
 	private reconnectAttempts = 0;
 	private maxReconnectAttempts = 5;
@@ -336,6 +348,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		this.connectionPromise = null;
 		this.vpCredentialCache.clear();
 		this.responseKeys.clear();
+		this.releasedFlows.clear();
 	}
 
 	/**
@@ -344,9 +357,18 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	 * the socket closes.
 	 */
 	releaseFlow(): void {
-		if (this.currentFlowId) {
-			this.responseKeys.drop(this.currentFlowId);
+		const flowId = this.currentFlowId;
+		if (!flowId) {
+			return;
 		}
+		this.responseKeys.drop(flowId);
+		if (this.releasedFlows.size >= MAX_RELEASED_FLOWS) {
+			const oldest = this.releasedFlows.values().next().value;
+			if (oldest !== undefined) {
+				this.releasedFlows.delete(oldest);
+			}
+		}
+		this.releasedFlows.add(flowId);
 	}
 
 	/**
@@ -813,6 +835,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		}
 		if (type === 'flow_complete' || type === 'flow_error' || type === 'error') {
 			this.responseKeys.drop(flowId);
+			this.releasedFlows.delete(flowId);
 		}
 
 		// All other message types resolve a pending request
@@ -1000,6 +1023,12 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			},
 		};
 
+		// A flow the wallet released locally gets no key, no signature and no decryption.
+		if (this.releasedFlows.has(request.flowId)) {
+			this.sendSignResponse(request.flowId, request.messageId, {}, RELEASED_FLOW_ERROR);
+			return;
+		}
+
 		// The issuer's response is decrypted here, with the key this wallet
 		// generated for the flow; no sign handler ever sees it.
 		if (request.action === 'decrypt_credential_response') {
@@ -1067,6 +1096,10 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 		if (this.signHandlers.size === 0) {
 			logger.error('No sign handlers registered, cannot respond to sign request');
+			if (responseKey) {
+				// The refused request must not keep the key it generated.
+				this.responseKeys.dropGeneration(request.flowId, responseKey.generation);
+			}
 			this.sendSignResponse(request.flowId, request.messageId, {}, 'No sign handler available');
 			return;
 		}
@@ -1179,6 +1212,12 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		if (!this.isConnected()) {
 			logger.error('Cannot send sign response: WebSocket not connected');
 			return;
+		}
+
+		// An operation still pending when the flow was released never answers success.
+		if (!error && this.releasedFlows.has(flowId)) {
+			response = {};
+			error = RELEASED_FLOW_ERROR;
 		}
 
 		const msg: Record<string, unknown> = {
@@ -1324,6 +1363,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		this.currentFlowId = null;
 		this.vpCredentialCache.clear();
 		this.responseKeys.clear();
+		this.releasedFlows.clear();
 
 		// Don't reconnect if it was a clean close
 		if (event.code === 1000) {
