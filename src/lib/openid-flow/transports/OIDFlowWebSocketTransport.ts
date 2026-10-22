@@ -13,9 +13,10 @@
  */
 
 import { TrustStatus as TrustStatusEnum } from 'wallet-common';
-import { ClientHeldEncryptionKeys, buildJarmResponse } from '../encryption';
+import { ClientHeldEncryptionKeys, buildJarmResponse, verifierJwkThumbprint } from '../encryption';
 import type {
 	CredentialResponseEncryptionRequest,
+	DecryptedCredentialResponse,
 	GeneratedResponseKey,
 	VerifierResponseEncryption,
 } from '../encryption';
@@ -27,7 +28,12 @@ import type {
 	OIDFlowProgressEvent
 } from '../types/OIDFlowTypes';
 import type { OID4VCIFlowParams, OID4VCIFlowResult } from '../types/OID4VCITypes';
-import type { OID4VPFlowParams, OID4VPFlowResult, OID4VPVerifierInfo } from '../types/OID4VPTypes';
+import type {
+	OID4VPFlowParams,
+	OID4VPFlowResult,
+	OID4VPVerifiedRequest,
+	OID4VPVerifierInfo,
+} from '../types/OID4VPTypes';
 import type { CredentialsMatchedResult } from '@/lib/services/CredentialMatchingService';
 import { logger } from '@/logger';
 import { TrustEvaluators, TrustStatus } from '../types';
@@ -68,10 +74,13 @@ interface ProofTypesSupported {
 /**
  * Sign request from server
  */
+/** The sign actions a registered sign handler serves (decrypt_credential_response is the transport's own). */
+export type SignHandlerAction = 'generate_proof' | 'sign_presentation' | 'sign_client_auth';
+
 export interface SignRequest {
 	flowId: string;
 	messageId: string;
-	action: 'generate_proof' | 'sign_presentation' | 'sign_client_auth' | 'decrypt_credential_response';
+	action: SignHandlerAction | 'decrypt_credential_response';
 	params: {
 		audience?: string;
 		nonce?: string;
@@ -104,11 +113,7 @@ export interface SignRequest {
 		/** sign_presentation: the verifier request's `state`, when it had one. */
 		state?: string;
 		/** sign_presentation: what the engine validated about the verifier's request. */
-		verifiedRequest?: {
-			clientId?: string;
-			responseUri?: string;
-			responseMode?: string;
-		};
+		verifiedRequest?: OID4VPVerifiedRequest;
 	};
 }
 
@@ -147,7 +152,10 @@ export interface SignResponse {
 /**
  * Sign request handler callback type
  */
-export type SignRequestHandler = (request: SignRequest) => Promise<SignResponse>;
+/** A sign request as a registered handler sees it: never the transport-only decrypt action. */
+export type SignHandlerRequest = SignRequest & { action: SignHandlerAction };
+
+export type SignRequestHandler = (request: SignHandlerRequest) => Promise<SignResponse>;
 
 /**
  * Credential match request from server
@@ -198,6 +206,11 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	private vpCredentialCache = new Map<string, string>();
 	/** Client-held OID4VCI response-encryption keys and what they decrypted, per flow. */
 	private responseKeys = new ClientHeldEncryptionKeys();
+	/**
+	 * What this wallet decrypted for a completed issuance, keyed by the completion message itself:
+	 * a WeakMap, so no member of an engine frame can ever impersonate it.
+	 */
+	private decryptedIssuance = new WeakMap<ServerMessage, DecryptedCredentialResponse>();
 
 	private reconnectAttempts = 0;
 	private maxReconnectAttempts = 5;
@@ -323,6 +336,17 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		this.connectionPromise = null;
 		this.vpCredentialCache.clear();
 		this.responseKeys.clear();
+	}
+
+	/**
+	 * The wallet aborted or cancelled the flow in progress locally: drop its response-encryption
+	 * key and decrypted response now, instead of leaving them until the engine ends the flow or
+	 * the socket closes.
+	 */
+	releaseFlow(): void {
+		if (this.currentFlowId) {
+			this.responseKeys.drop(this.currentFlowId);
+		}
 	}
 
 	/**
@@ -509,9 +533,13 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		if (response?.credentials && Array.isArray(response.credentials)) {
 				result.credentials = (response.credentials as Array<{format: string; credential: string; vct?: string; notification_id?: string}>);
 		}
-		// Response-level credential_metadata, decrypted by this wallet (never relayed by the engine)
-		if (response?.credential_metadata && typeof response.credential_metadata === 'object') {
-			result.credentialMetadata = response.credential_metadata as Record<string, unknown>;
+		// Response-level credential_metadata. For an encrypted response it is the object this
+		// wallet decrypted. From any message that resolves the flow, a frame's own value is
+		// limited to display and claims, so an extension (a seed) never arrives that way.
+		const decrypted = this.decryptedIssuance.get(response);
+		const credentialMetadata = decrypted ? decrypted.credentialMetadata : displayMetadataOnly(response.credential_metadata);
+		if (credentialMetadata) {
+			result.credentialMetadata = credentialMetadata;
 		}
 
 		// Deferred
@@ -583,6 +611,9 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		}
 		if (payload?.verifier) {
 			result.verifierInfo = mapVerifierInfo(payload.verifier as Record<string, unknown>);
+		}
+		if (payload?.verified_request) {
+			result.verifiedRequest = mapVerifiedRequest(payload.verified_request);
 		}
 
 		// Extract purpose from DCQL credential_sets
@@ -763,14 +794,22 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 		// An issuance the engine relayed as ciphertext: put the credentials this
 		// wallet decrypted back into the completion, then drop the flow's key.
-		// A plain response's frame may carry only display-only metadata: extension
-		// members (a delivered secret) reach the wallet through its own decryption
-		// and never through flow_complete.
 		let resolved = message;
 		if (type === 'flow_complete') {
-			resolved = message.credential_response_encrypted === true
-				? this.completeEncryptedIssuance(message, flowId)
-				: withDisplayMetadataOnly(message);
+			if (message.credential_response_encrypted === true) {
+				// An issuance the engine relayed as ciphertext: put the credentials this wallet
+				// decrypted back into the completion.
+				resolved = this.completeEncryptedIssuance(message, flowId);
+			} else if (this.responseKeys.has(flowId)) {
+				// A response-encryption key was offered for this flow, so a plain completion is
+				// an error, never silently accepted plaintext.
+				logger.warn('Issuance completed in plaintext although response encryption was offered');
+				resolved = flowErrorMessage(
+					flowId,
+					'CREDENTIAL_RESPONSE_NOT_ENCRYPTED',
+					'The credential response was not encrypted although encryption was offered',
+				);
+			}
 		}
 		if (type === 'flow_complete' || type === 'flow_error' || type === 'error') {
 			this.responseKeys.drop(flowId);
@@ -806,28 +845,23 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		const entries = message.credentials;
 		if (!decrypted || !Array.isArray(entries) || entries.length !== decrypted.credentials.length) {
 			logger.warn('Encrypted issuance completed without matching decrypted credentials');
-			return {
-				type: 'flow_error',
-				flow_id: flowId,
-				error: {
-					code: 'CREDENTIAL_DECRYPTION_FAILED',
-					message: 'The issued credentials could not be matched to the decrypted response',
-				},
-			} as ServerMessage;
+			return flowErrorMessage(
+				flowId,
+				'CREDENTIAL_DECRYPTION_FAILED',
+				'The issued credentials could not be matched to the decrypted response',
+			);
 		}
 		const credentials = (entries as Array<Record<string, unknown>>).map((entry, i) => ({
 			...entry,
 			credential: decrypted.credentials[i],
 			...(decrypted.notificationId ? { notification_id: decrypted.notificationId } : {}),
 		}));
-		// The frame's own credential_metadata is ignored for an encrypted response:
-		// only the object this wallet decrypted is used.
+		// The frame's own credential_metadata is dropped for an encrypted response; the
+		// decrypted object travels on a side channel the frame cannot reach.
 		const { credential_metadata: _frameMetadata, ...rest } = message;
-		return {
-			...rest,
-			credentials,
-			...(decrypted.credentialMetadata ? { credential_metadata: decrypted.credentialMetadata } : {}),
-		};
+		const completed: ServerMessage = { ...rest, credentials };
+		this.decryptedIssuance.set(completed, decrypted);
+		return completed;
 	}
 
 	/**
@@ -985,6 +1019,23 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			}
 		}
 
+		// The mdoc session transcript binds to the verifier's encryption key, so for
+		// direct_post.jwt its thumbprint comes from the very key the response is
+		// encrypted to (response_encryption.jwk), never from the engine's own value.
+		if (request.action === 'sign_presentation' && request.params.responseEncryption?.jwk) {
+			try {
+				request.params.verifierJwkThumbprint = await verifierJwkThumbprint(request.params.responseEncryption.jwk);
+			} catch {
+				this.sendSignResponse(
+					request.flowId,
+					request.messageId,
+					{},
+					'The verifier response encryption key is unusable',
+				);
+				return;
+			}
+		}
+
 		// Refuse before anything is signed: a known direct_post.jwt request with no
 		// encryption parameters has no safe answer (a vp_token would reach the
 		// engine in clear).
@@ -1025,7 +1076,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		let handled: SignResponse | undefined;
 		for (const handler of this.signHandlers) {
 			try {
-				handled = await handler(request);
+				handled = await handler(request as SignHandlerRequest);
 				break;
 			} catch (err) {
 				lastError = err instanceof Error ? err : new Error(String(err));
@@ -1445,22 +1496,17 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
  * Parse a logo value from the backend.
  * Handles both string URLs and object formats with a `uri` field.
  */
-/** The members of a plain response's `credential_metadata` the engine may relay. */
+/** The members of a plain response's `credential_metadata` the wallet accepts from the engine. */
 const PLAIN_RESPONSE_METADATA_MEMBERS = ['display', 'claims'] as const;
 
 /**
- * Keep only `display` and `claims` of a `flow_complete`'s response-level
- * `credential_metadata` (exact member names). Anything else, notably an
- * extension such as `org.siros.secret_seed`, is dropped without being read,
- * stored, merged or logged.
+ * Keep only `display` and `claims` of a plain response's `credential_metadata` (exact member
+ * names). Anything else, notably an extension such as `org.siros.secret_seed`, is dropped
+ * without being read, stored, merged or logged; a value that is not an object is ignored.
  */
-function withDisplayMetadataOnly(message: ServerMessage): ServerMessage {
-	if (!('credential_metadata' in message)) {
-		return message;
-	}
-	const { credential_metadata: raw, ...rest } = message;
+function displayMetadataOnly(raw: unknown): Record<string, unknown> | undefined {
 	if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-		return rest as ServerMessage;
+		return undefined;
 	}
 	const kept: Record<string, unknown> = {};
 	for (const member of PLAIN_RESPONSE_METADATA_MEMBERS) {
@@ -1468,7 +1514,12 @@ function withDisplayMetadataOnly(message: ServerMessage): ServerMessage {
 			kept[member] = (raw as Record<string, unknown>)[member];
 		}
 	}
-	return Object.keys(kept).length > 0 ? { ...rest, credential_metadata: kept } : (rest as ServerMessage);
+	return Object.keys(kept).length > 0 ? kept : undefined;
+}
+
+/** A synthetic `flow_error` frame, for a completion the wallet itself refuses. */
+function flowErrorMessage(flowId: string, code: string, message: string): ServerMessage {
+	return { type: 'flow_error', flow_id: flowId, error: { code, message } };
 }
 
 /** A presentation whose verified response mode is direct_post.jwt but that carries no response_encryption. */
@@ -1485,15 +1536,27 @@ function hasProofTypes(proofTypesSupported: unknown): boolean {
 	return !!proofTypesSupported && typeof proofTypesSupported === 'object' && Object.keys(proofTypesSupported).length > 0;
 }
 
-function mapVerifiedRequest(raw: unknown): SignRequest['params']['verifiedRequest'] {
-	if (!raw || typeof raw !== 'object') {
+const SIGNATURE_VERIFICATIONS = ['verified', 'deferred', 'none'] as const;
+
+/** The whole `verified_request` object; members the wallet does not understand are ignored. */
+function mapVerifiedRequest(raw: unknown): OID4VPVerifiedRequest | undefined {
+	if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
 		return undefined;
 	}
 	const v = raw as Record<string, unknown>;
+	const signatureVerification = SIGNATURE_VERIFICATIONS.find((value) => value === v.signature_verification);
 	return {
 		clientId: typeof v.client_id === 'string' ? v.client_id : undefined,
-		responseUri: typeof v.response_uri === 'string' ? v.response_uri : undefined,
+		clientIdScheme: typeof v.client_id_scheme === 'string' ? v.client_id_scheme : undefined,
 		responseMode: typeof v.response_mode === 'string' ? v.response_mode : undefined,
+		responseUri: typeof v.response_uri === 'string' ? v.response_uri : undefined,
+		// A client that does not know the field reads it as not signed.
+		signed: v.signed === true,
+		signatureVerification,
+		clientMetadata:
+			v.client_metadata && typeof v.client_metadata === 'object' && !Array.isArray(v.client_metadata)
+				? (v.client_metadata as Record<string, unknown>)
+				: undefined,
 	};
 }
 

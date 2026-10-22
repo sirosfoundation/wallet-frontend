@@ -10,6 +10,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { CompactEncrypt, compactDecrypt, exportJWK, generateKeyPair, importJWK } from 'jose';
 import type { JWK } from 'jose';
 import { OIDFlowWebSocketTransport } from '../transports/OIDFlowWebSocketTransport';
+import type { SignHandlerRequest, SignRequestHandler } from '../transports/OIDFlowWebSocketTransport';
+import type { OIDFlowSignRequest, OIDFlowSignResponse } from '@/hooks/useOIDFlowSignHandler';
+import { OIDFlowTransportWithRetry } from '../decorators/OIDFlowTransportWithRetry';
+import { verifierJwkThumbprint } from '../encryption';
+import type { IOIDFlowTransport } from '../types/IOIDFlowTransport';
 
 class MockWebSocket {
 	static CONNECTING = 0;
@@ -881,3 +886,304 @@ describe('response-level credential_metadata in flow_complete', () => {
 		expect(result.credentialMetadata).toBeUndefined();
 	});
 });
+
+describe('credential_metadata from every message that resolves an issuance flow', () => {
+	it('filters a progress message too: a seed in an authorization_required frame never reaches the result', async () => {
+		const { transport, ws } = await setup();
+		const flowPromise = transport.startOID4VCIFlow({ credentialOfferUri: 'openid-credential-offer://?x' });
+		await vi.waitFor(() => expect(ws.sentMessages.length).toBeGreaterThan(1));
+		const flowId = JSON.parse(ws.sentMessages[1]).flow_id as string;
+
+		ws.simulateMessage({
+			type: 'progress',
+			flow_id: flowId,
+			step: 'authorization_required',
+			payload: { authorization_url: 'https://issuer.example.com/authorize' },
+			credential_metadata: {
+				display: [{ name: 'PID' }],
+				'org.siros.secret_seed': { ns: SEED },
+			},
+		});
+
+		const result = await flowPromise;
+		expect(result.authorizationUrl).toBe('https://issuer.example.com/authorize');
+		expect(result.credentialMetadata).toEqual({ display: [{ name: 'PID' }] });
+		expect(JSON.stringify(result)).not.toContain(SEED);
+	});
+
+	it('does not let a frame member impersonate the decrypted side channel', async () => {
+		const { transport, ws } = await setup();
+		const flowPromise = transport.startOID4VCIFlow({ credentialOfferUri: 'openid-credential-offer://?x' });
+		await vi.waitFor(() => expect(ws.sentMessages.length).toBeGreaterThan(1));
+		const flowId = JSON.parse(ws.sentMessages[1]).flow_id as string;
+
+		ws.simulateMessage({
+			type: 'flow_complete',
+			flow_id: flowId,
+			credentials: [{ format: 'dc+sd-jwt', credential: 'plain.credential' }],
+			credentialMetadata: { 'org.siros.secret_seed': { ns: SEED } },
+			decrypted: { credentialMetadata: { 'org.siros.secret_seed': { ns: SEED } } },
+		});
+
+		const result = await flowPromise;
+		expect(result.credentialMetadata).toBeUndefined();
+		expect(JSON.stringify(result)).not.toContain(SEED);
+	});
+});
+
+describe('a plain flow_complete after response encryption was offered', () => {
+	it('is an error, not silently accepted plaintext', async () => {
+		const { transport, ws, signResponses } = await setup();
+		transport.onSignRequest(async () => ({ proofs: [{ proof_type: 'jwt', jwt: 'proof.jwt' }] }));
+		const flowPromise = transport.startOID4VCIFlow({ credentialOfferUri: 'openid-credential-offer://?x' });
+		await vi.waitFor(() => expect(ws.sentMessages.length).toBeGreaterThan(1));
+		const flowId = JSON.parse(ws.sentMessages[1]).flow_id as string;
+		await generateProof(ws, signResponses, flowId, 'm1');
+
+		ws.simulateMessage({
+			type: 'flow_complete',
+			flow_id: flowId,
+			credentials: [{ format: 'dc+sd-jwt', credential: 'plain.credential' }],
+			credential_metadata: { 'org.siros.secret_seed': { ns: SEED } },
+		});
+
+		const result = await flowPromise;
+		expect(result.success).toBe(false);
+		expect(result.error?.code).toBe('CREDENTIAL_RESPONSE_NOT_ENCRYPTED');
+		expect(result.credentials).toBeUndefined();
+		expect(JSON.stringify(result)).not.toContain('plain.credential');
+		expect(JSON.stringify(result)).not.toContain(SEED);
+	});
+
+	it('drops the offered key even though the completion was refused', async () => {
+		const { transport, ws, signResponses } = await setup();
+		transport.onSignRequest(async () => ({ proofs: [{ proof_type: 'jwt', jwt: 'proof.jwt' }] }));
+		const flowPromise = transport.startOID4VCIFlow({ credentialOfferUri: 'openid-credential-offer://?x' });
+		await vi.waitFor(() => expect(ws.sentMessages.length).toBeGreaterThan(1));
+		const flowId = JSON.parse(ws.sentMessages[1]).flow_id as string;
+		await generateProof(ws, signResponses, flowId, 'm1');
+		ws.simulateMessage({ type: 'flow_complete', flow_id: flowId, credentials: [{ format: 'dc+sd-jwt', credential: 'c' }] });
+		await flowPromise;
+
+		ws.simulateMessage({
+			type: 'sign_request',
+			flow_id: flowId,
+			message_id: 'm2',
+			action: 'decrypt_credential_response',
+			params: { jwe: 'a.b.c.d.e' },
+		});
+		await vi.waitFor(() => expect(signResponses().some((r) => r.message_id === 'm2')).toBe(true));
+		expect(signResponses().find((r) => r.message_id === 'm2')!.error).toBe('No response encryption key for this flow');
+	});
+});
+
+describe('releaseFlow (the wallet aborted or cancelled the flow locally)', () => {
+	async function flowWithKey() {
+		const { transport, ws, signResponses } = await setup();
+		transport.onSignRequest(async () => ({ proofs: [{ proof_type: 'jwt', jwt: 'proof.jwt' }] }));
+		const flowPromise = transport.startOID4VCIFlow({ credentialOfferUri: 'openid-credential-offer://?x' });
+		flowPromise.catch(() => undefined);
+		await vi.waitFor(() => expect(ws.sentMessages.length).toBeGreaterThan(1));
+		const flowId = JSON.parse(ws.sentMessages[1]).flow_id as string;
+		const proof = await generateProof(ws, signResponses, flowId, 'm1');
+		return { transport, ws, signResponses, flowId, jwk: proof.credential_response_encryption_jwk as JWK };
+	}
+
+	it('drops the key and decrypted response of the flow in progress', async () => {
+		const { transport, ws, signResponses, flowId, jwk } = await flowWithKey();
+
+		transport.releaseFlow();
+
+		ws.simulateMessage({
+			type: 'sign_request',
+			flow_id: flowId,
+			message_id: 'm2',
+			action: 'decrypt_credential_response',
+			params: {
+				jwe: await issuerEncrypt(jwk, 'ECDH-ES+A256KW', 'A128GCM', { credentials: [{ credential: ISSUED }] }),
+				deferred: false,
+			},
+		});
+		await vi.waitFor(() => expect(signResponses().some((r) => r.message_id === 'm2')).toBe(true));
+		const answer = signResponses().find((r) => r.message_id === 'm2')!;
+		expect(answer.error).toBe('No response encryption key for this flow');
+		expect(answer).not.toHaveProperty('credential_count');
+	});
+
+	it('does nothing when no flow is in progress', async () => {
+		const { transport } = await setup();
+
+		expect(() => transport.releaseFlow()).not.toThrow();
+	});
+
+	it('is forwarded by the retry decorator to the transport it wraps', () => {
+		const inner = { releaseFlow: vi.fn() } as unknown as IOIDFlowTransport;
+
+		new OIDFlowTransportWithRetry(inner).releaseFlow();
+
+		expect(inner.releaseFlow).toHaveBeenCalledTimes(1);
+	});
+
+	it('is a no-op through the decorator when the wrapped transport keeps nothing per flow', () => {
+		const inner = {} as unknown as IOIDFlowTransport;
+
+		expect(() => new OIDFlowTransportWithRetry(inner).releaseFlow()).not.toThrow();
+	});
+});
+
+describe('verified_request on a sign_presentation request', () => {
+	async function presentWith(params: Record<string, unknown>) {
+		const { transport, ws, signResponses } = await setup();
+		const handler = vi.fn().mockResolvedValue({ vpToken: '{"pid":["t"]}' });
+		transport.onSignRequest(handler);
+		ws.simulateMessage({
+			type: 'sign_request',
+			flow_id: 'f1',
+			message_id: 'm1',
+			action: 'sign_presentation',
+			params: { audience: 'verifier', nonce: 'n', ...params },
+		});
+		await vi.waitFor(() => expect(signResponses().length).toBe(1));
+		return { handler, response: signResponses()[0] };
+	}
+
+	it('maps the whole verified_request object', async () => {
+		const clientMetadata = { vp_formats_supported: { 'dc+sd-jwt': {} }, jwks: { keys: [] } };
+
+		const { handler } = await presentWith({
+			verified_request: {
+				client_id: 'x509_san_dns:verifier.example.com',
+				client_id_scheme: 'x509_san_dns',
+				response_mode: 'direct_post',
+				response_uri: 'https://verifier.example.com/post',
+				signed: true,
+				signature_verification: 'verified',
+				client_metadata: clientMetadata,
+				unknown_member: 'ignored',
+			},
+		});
+
+		expect(handler.mock.calls[0][0].params.verifiedRequest).toEqual({
+			clientId: 'x509_san_dns:verifier.example.com',
+			clientIdScheme: 'x509_san_dns',
+			responseMode: 'direct_post',
+			responseUri: 'https://verifier.example.com/post',
+			signed: true,
+			signatureVerification: 'verified',
+			clientMetadata,
+		});
+	});
+
+	it('reads a request without the optional members as not signed, with no verification verdict', async () => {
+		const { handler } = await presentWith({
+			verified_request: { client_id: 'c', signed: 'yes', signature_verification: 'maybe', client_metadata: ['x'] },
+		});
+
+		expect(handler.mock.calls[0][0].params.verifiedRequest).toEqual({
+			clientId: 'c',
+			clientIdScheme: undefined,
+			responseMode: undefined,
+			responseUri: undefined,
+			signed: false,
+			signatureVerification: undefined,
+			clientMetadata: undefined,
+		});
+	});
+
+	it('carries the validated request on the OID4VP result of the credential selection too', async () => {
+		const { transport, ws } = await setup();
+		const flowPromise = transport.startOID4VPFlow({ requestUriRef: 'https://v.example/r', clientId: 'c' });
+		await vi.waitFor(() => expect(ws.sentMessages.length).toBeGreaterThan(1));
+		const flowId = JSON.parse(ws.sentMessages[1]).flow_id as string;
+
+		ws.simulateMessage({
+			type: 'progress',
+			flow_id: flowId,
+			step: 'credential_selection',
+			payload: {
+				dcql_query: { credentials: [] },
+				verified_request: {
+					client_id: 'c',
+					client_id_scheme: 'redirect_uri',
+					signature_verification: 'none',
+					client_metadata: { vp_formats_supported: {} },
+				},
+			},
+		});
+
+		const result = await flowPromise;
+		expect(result.verifiedRequest).toMatchObject({
+			clientId: 'c',
+			clientIdScheme: 'redirect_uri',
+			signed: false,
+			signatureVerification: 'none',
+			clientMetadata: { vp_formats_supported: {} },
+		});
+	});
+});
+
+describe('the mdoc verifier JWK thumbprint for direct_post.jwt', () => {
+	async function verifierKey() {
+		const { publicKey } = await generateKeyPair('ECDH-ES', { crv: 'P-256', extractable: true });
+		return { ...(await exportJWK(publicKey)), kid: 'v-1', use: 'enc', alg: 'ECDH-ES' };
+	}
+
+	async function present(params: Record<string, unknown>) {
+		const { transport, ws, signResponses } = await setup();
+		const handler = vi.fn().mockResolvedValue({ vpToken: '{}' });
+		transport.onSignRequest(handler);
+		ws.simulateMessage({
+			type: 'sign_request',
+			flow_id: 'f1',
+			message_id: 'm1',
+			action: 'sign_presentation',
+			params: { audience: 'verifier', nonce: 'n', ...params },
+		});
+		await vi.waitFor(() => expect(signResponses().length).toBe(1));
+		return { handler, response: signResponses()[0] };
+	}
+
+	it('is computed from response_encryption.jwk, not taken from the engine', async () => {
+		const jwk = await verifierKey();
+
+		const { handler, response } = await present({
+			verifier_jwk_thumbprint: 'engine-supplied-thumbprint',
+			response_encryption: { jwk, alg: 'ECDH-ES', enc: 'A128GCM' },
+			verified_request: { client_id: 'verified-client', response_mode: 'direct_post.jwt' },
+		});
+
+		expect(response).not.toHaveProperty('error');
+		const seen = handler.mock.calls[0][0].params.verifierJwkThumbprint;
+		expect(seen).toBe(await verifierJwkThumbprint(jwk));
+		expect(seen).not.toBe('engine-supplied-thumbprint');
+	});
+
+	it('answers an error when the response_encryption key cannot be thumbprinted', async () => {
+		const { handler, response } = await present({
+			response_encryption: { jwk: { kty: 'EC' }, alg: 'ECDH-ES', enc: 'A128GCM' },
+			verified_request: { client_id: 'verified-client', response_mode: 'direct_post.jwt' },
+		});
+
+		expect(response.error).toBeTruthy();
+		expect(response).not.toHaveProperty('response_jwe');
+		expect(handler).not.toHaveBeenCalled();
+	});
+
+	it('leaves the engine value alone when the request is not direct_post.jwt', async () => {
+		const { handler } = await present({
+			verifier_jwk_thumbprint: 'engine-supplied-thumbprint',
+			verified_request: { client_id: 'c', response_mode: 'direct_post' },
+		});
+
+		expect(handler.mock.calls[0][0].params.verifierJwkThumbprint).toBe('engine-supplied-thumbprint');
+	});
+});
+
+// Compile-time checks (`tsc --noEmit`): the sign-handler hook's callback can be registered with
+// the transport, and a registered handler is never handed the transport-only decrypt action.
+const hookHandlerIsRegistrable: SignRequestHandler = (_request: OIDFlowSignRequest): Promise<OIDFlowSignResponse> =>
+	Promise.resolve({});
+const handlerActionExcludesDecrypt: SignHandlerRequest['action'] = 'sign_presentation';
+// @ts-expect-error the decrypt action is the transport's own and never reaches a sign handler
+const decryptIsNotAHandlerAction: SignHandlerRequest['action'] = 'decrypt_credential_response';
+void [hookHandlerIsRegistrable, handlerActionExcludesDecrypt, decryptIsNotAHandlerAction];
