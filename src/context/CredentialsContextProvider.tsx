@@ -57,19 +57,23 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 	const initializeEngine = useCallback(async (useCache: boolean) => {
 		const trustedCertificates: string[] = [];
 
-		const engine = await initializeCredentialEngine(
-			httpClient,
-			helper,
-			() => getExternalEntity("/issuer/all", undefined, useCache).then(res => res.data),
-			trustedCertificates,
-			useCache,
-			(issuerIdentifier: string) => {
-				logger.debug(`[CredentialsContext] Issuer metadata resolved for: ${issuerIdentifier}`);
-			},
-			authzenClient,
-		);
+		try {
+			const engine = await initializeCredentialEngine(
+				httpClient,
+				helper,
+				() => getExternalEntity("/issuer/all", undefined, useCache).then(res => res.data),
+				trustedCertificates,
+				useCache,
+				(issuerIdentifier: string) => {
+					logger.debug(`[CredentialsContext] Issuer metadata resolved for: ${issuerIdentifier}`);
+				},
+				authzenClient,
+			);
 
-		engineDeferred.resolve(engine);
+			engineDeferred.resolve(engine);
+		} catch (err) {
+			engineDeferred.reject(err);
+		}
 	}, [httpClient, helper, getExternalEntity, authzenClient, engineDeferred]);
 
 	const credentialEngine = useMemo(() => {
