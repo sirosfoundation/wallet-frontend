@@ -13,15 +13,12 @@
  */
 
 import { TrustStatus as TrustStatusEnum } from 'wallet-common';
-import {
-	ClientHeldEncryptionError,
-	ClientHeldEncryptionKeys,
-	buildJarmResponse,
-} from './clientHeldEncryption';
+import { ClientHeldEncryptionKeys, buildJarmResponse } from '../encryption';
 import type {
 	CredentialResponseEncryptionRequest,
+	GeneratedResponseKey,
 	VerifierResponseEncryption,
-} from './clientHeldEncryption';
+} from '../encryption';
 import type { JWK } from 'jose';
 import type { IOIDFlowTransport } from '../types/IOIDFlowTransport';
 import type {
@@ -35,7 +32,7 @@ import type { CredentialsMatchedResult } from '@/lib/services/CredentialMatching
 import { logger } from '@/logger';
 import { TrustEvaluators, TrustStatus } from '../types';
 import { DcqlQuery } from 'dcql';
-import { OIDFlowError } from '../errors';
+import { ClientHeldEncryptionError, OIDFlowError } from '../errors';
 
 /**
  * Pending request waiting for a response
@@ -978,10 +975,10 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 		// A fresh response-encryption key per generate_proof request: a c_nonce
 		// retry sends another request and so gets another key.
-		let responseKeyJwk: JWK | undefined;
+		let responseKey: GeneratedResponseKey | undefined;
 		if (request.action === 'generate_proof' && request.params.credentialResponseEncryption) {
 			try {
-				responseKeyJwk = await this.responseKeys.generate(request.flowId, request.params.credentialResponseEncryption);
+				responseKey = await this.responseKeys.generate(request.flowId, request.params.credentialResponseEncryption);
 			} catch (err) {
 				this.sendSignResponse(request.flowId, request.messageId, {}, err instanceof Error ? err.message : 'Response encryption failed');
 				return;
@@ -1012,7 +1009,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			this.sendSignResponse(
 				request.flowId,
 				request.messageId,
-				responseKeyJwk ? { credentialResponseEncryptionJwk: responseKeyJwk } : {},
+				responseKey ? { credentialResponseEncryptionJwk: responseKey.jwk } : {},
 			);
 			return;
 		}
@@ -1037,8 +1034,9 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		}
 
 		if (!handled) {
-			if (responseKeyJwk) {
-				this.responseKeys.drop(request.flowId);
+			if (responseKey) {
+				// Only this request's own key: a newer request may have replaced it meanwhile.
+				this.responseKeys.dropGeneration(request.flowId, responseKey.generation);
 			}
 			// All handlers failed
 			this.sendSignResponse(
@@ -1051,11 +1049,11 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		}
 
 		try {
-			const response = await this.finalizeSignResponse(request, handled, responseKeyJwk);
+			const response = await this.finalizeSignResponse(request, handled, responseKey?.jwk);
 			this.sendSignResponse(request.flowId, request.messageId, response);
 		} catch (err) {
-			if (responseKeyJwk) {
-				this.responseKeys.drop(request.flowId);
+			if (responseKey) {
+				this.responseKeys.dropGeneration(request.flowId, responseKey.generation);
 			}
 			const reason = err instanceof ClientHeldEncryptionError ? err.message : 'Response encryption failed';
 			logger.warn('Client-held encryption failed:', reason);
@@ -1107,7 +1105,9 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			return;
 		}
 		try {
-			const control = await this.responseKeys.decrypt(request.flowId, jwe);
+			const control = await this.responseKeys.decrypt(request.flowId, jwe, {
+				deferred: request.params.deferred === true,
+			});
 			this.sendSignResponse(request.flowId, request.messageId, control);
 		} catch (err) {
 			const reason = err instanceof ClientHeldEncryptionError ? err.message : 'Could not decrypt the credential response';

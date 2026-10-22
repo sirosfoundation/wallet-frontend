@@ -21,3 +21,14 @@ export class OIDFlowError extends Error {
 		this.name = 'OIDFlowError';
 	}
 }
+
+/**
+ * Failure of the wallet's own response encryption (client-held key, decryption, or building a
+ * `direct_post.jwt` response). The message never carries keys, JWE text, credentials or seeds.
+ */
+export class ClientHeldEncryptionError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'ClientHeldEncryptionError';
+	}
+}
