@@ -35,6 +35,11 @@ vi.mock('@/lib/services/OpenID4VCIHelper', () => ({
 	useOpenID4VCIHelper: () => ({ getCredentialIssuerMetadata: vi.fn() }),
 }));
 
+vi.mock('@/context/CredentialsContext', async () => {
+	const { createContext } = await vi.importActual('react');
+	return { default: createContext({ vcEntityList: [], getData: vi.fn() }) };
+});
+
 beforeEach(() => {
 	i18n.changeLanguage('en');
 	mockNavigate.mockClear();
