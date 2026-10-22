@@ -228,7 +228,7 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 	}, []);
 
 	useEffect(() => {
-		if (!getCalculatedWalletState || !credentialEngine || !isLoggedIn) {
+		if (!getCalculatedWalletState || !isLoggedIn) {
 			return;
 		}
 		logger.debug("Triggerring getData()")
