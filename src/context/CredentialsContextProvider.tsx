@@ -26,6 +26,12 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 	const [engineDeferred] = useState(() =>
 		createDeferred<Awaited<ReturnType<typeof initializeCredentialEngine>>>()
 	);
+	// engineDeferred lets early consumers await the first initialization.
+	// credentialEngine exposes that promise, then the latest successfully
+	// initialized engine.
+	const [credentialEngine, setCredentialEngine] = useState(
+		() => engineDeferred.promise
+	);
 	// const engineRef = useRef<any>(null);
 	const prevIsLoggedIn = useRef<boolean>(null);
 
@@ -71,14 +77,11 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 			);
 
 			engineDeferred.resolve(engine);
+			setCredentialEngine(Promise.resolve(engine));
 		} catch (err) {
 			engineDeferred.reject(err);
 		}
 	}, [httpClient, helper, getExternalEntity, authzenClient, engineDeferred]);
-
-	const credentialEngine = useMemo(() => {
-		return engineDeferred.promise;
-	}, [engineDeferred]);
 
 	useEffect(() => {
 		if (httpClient && helper) {
