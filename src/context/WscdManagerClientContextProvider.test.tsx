@@ -48,8 +48,12 @@ beforeEach(() => {
 
 	session = {
 		api: {
-			updatePrivateData: vi.fn(async () => {
+			// Mirrors the real contract: edit -> save -> commit, under the private-data lock.
+			applyPrivateDataEdit: vi.fn(async (edit: () => Promise<[unknown, unknown, () => Promise<void>]>) => {
+				const [result, , doCommit] = await edit();
 				order.push('update');
+				await doCommit();
+				return result;
 			}),
 		},
 		keystore: {
@@ -100,7 +104,7 @@ describe('WscdManagerClientContextProvider', () => {
 		expect(session.keystore.exportToWscdContainer).toHaveBeenCalledTimes(1);
 	});
 
-	it('runs the exporter as import -> updatePrivateData -> commit, in order', async () => {
+	it('runs the exporter as import -> save -> commit through applyPrivateDataEdit', async () => {
 		renderProvider();
 
 		await act(async () => {
@@ -108,7 +112,8 @@ describe('WscdManagerClientContextProvider', () => {
 		});
 
 		expect(order).toEqual(['import', 'update', 'commit']);
-		expect(session.api.updatePrivateData).toHaveBeenCalledWith({ private: 'data' });
+		expect(session.api.applyPrivateDataEdit).toHaveBeenCalledWith(expect.any(Function), session.keystore);
+		expect(session.keystore.importFromWscdContainer).toHaveBeenCalledWith({ container: true });
 		expect(commit).toHaveBeenCalledTimes(1);
 	});
 

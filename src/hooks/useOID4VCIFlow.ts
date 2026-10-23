@@ -463,11 +463,11 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			}
 
 			assertNotAborted();
-			const [, privateData, commit] = await keystore.addCredentials(credentialsToStore);
-
-			assertNotAborted();
-			await api.updatePrivateData(privateData);
-			await commit();
+			await api.applyPrivateDataEdit(async () => {
+				const edit = await keystore.addCredentials(credentialsToStore);
+				assertNotAborted();
+				return edit;
+			}, keystore);
 
 			notify('newCredential');
 

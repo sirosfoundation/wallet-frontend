@@ -675,13 +675,28 @@ async function getPrfOutput(
 	}
 }
 
-async function createPrfKey(
+/**
+ * A PRF key whose WebAuthn part (PRF evaluation, key derivation) is done but
+ * which is not yet bound to a main key. Produced by `preparePrfKey()` and bound
+ * with `putPreparedPrfKey()`.
+ *
+ * This lets callers do the interactive part outside the private-data lock and
+ * bind the key to the *current* main key inside it.
+ */
+export type PreparedPrfKey = {
+	credentialId: Uint8Array,
+	transports: AuthenticatorTransport[],
+	prfSalt: Uint8Array,
+	deriveKeyParams: Required<WebauthnPrfEncryptionKeyDeriveKeyParams>,
+	prfKeypair: EncapsulationKeypairInfo,
+	prfPrivateKey: CryptoKey,
+};
+
+export async function preparePrfKey(
 	credential: PublicKeyCredential,
 	prfSalt: Uint8Array,
-	mainKeyInfo: EphemeralEncapsulationInfo,
-	mainKey: CryptoKey,
 	promptForPrfRetry: () => Promise<boolean | AbortSignal>,
-): Promise<WebauthnPrfEncryptionKeyInfoV2> {
+): Promise<PreparedPrfKey> {
 	const [prfOutput,] = await getPrfOutput(
 		credential,
 		makeRegistrationPrfExtensionInputs(credential, prfSalt),
@@ -693,14 +708,60 @@ async function createPrfKey(
 	const deriveKeyParams = { hkdfSalt, hkdfInfo, algorithm };
 	const prfKey = await derivePrfKey(prfOutput, deriveKeyParams);
 	const [prfKeypair, prfPrivateKey] = await generateWrappedEncapsulationKeypair(prfKey);
-	const keyInfo: WebauthnPrfEncryptionKeyInfoV2 = {
+	return {
 		credentialId: new Uint8Array(credential.rawId),
 		transports: (credential.response as AuthenticatorAttestationResponse).getTransports() as AuthenticatorTransport[],
 		prfSalt,
-		...deriveKeyParams,
-		...await encapsulateKey(prfPrivateKey, mainKeyInfo.publicKey, prfKeypair, mainKey),
+		deriveKeyParams,
+		prfKeypair,
+		prfPrivateKey,
 	};
-	return keyInfo;
+}
+
+async function bindPrfKey(
+	prepared: PreparedPrfKey,
+	mainKeyInfo: EphemeralEncapsulationInfo,
+	mainKey: CryptoKey,
+): Promise<WebauthnPrfEncryptionKeyInfoV2> {
+	return {
+		credentialId: prepared.credentialId,
+		transports: prepared.transports,
+		prfSalt: prepared.prfSalt,
+		...prepared.deriveKeyParams,
+		...await encapsulateKey(prepared.prfPrivateKey, mainKeyInfo.publicKey, prepared.prfKeypair, mainKey),
+	};
+}
+
+/**
+ * Bind `prepared` to `mainKey` (the key that decrypts `privateData.jwe`) and
+ * put it into `privateData`, replacing any PRF key with the same credential ID.
+ */
+export async function putPreparedPrfKey(
+	privateData: EncryptedContainer,
+	prepared: PreparedPrfKey,
+	mainKey: CryptoKey,
+): Promise<EncryptedContainer> {
+	const mainKeyInfo = privateData.mainKey || (await createAsymmetricMainKey(mainKey)).keyInfo;
+	const keyInfo = await bindPrfKey(prepared, mainKeyInfo, mainKey);
+	const credentialIdB64u = toBase64Url(prepared.credentialId);
+	const exists = privateData.prfKeys.some((k) => toBase64Url(k.credentialId) === credentialIdB64u);
+	return {
+		...privateData,
+		mainKey: mainKeyInfo,
+		prfKeys: exists
+			? privateData.prfKeys.map((k) => toBase64Url(k.credentialId) === credentialIdB64u ? keyInfo : k)
+			: [...privateData.prfKeys, keyInfo],
+	};
+}
+
+async function createPrfKey(
+	credential: PublicKeyCredential,
+	prfSalt: Uint8Array,
+	mainKeyInfo: EphemeralEncapsulationInfo,
+	mainKey: CryptoKey,
+	promptForPrfRetry: () => Promise<boolean | AbortSignal>,
+): Promise<WebauthnPrfEncryptionKeyInfoV2> {
+	return bindPrfKey(await preparePrfKey(credential, prfSalt, promptForPrfRetry), mainKeyInfo, mainKey);
 }
 
 export async function getPrfKey(
@@ -761,6 +822,29 @@ export async function upgradePrfKey(
 
 	return newPrivateData;
 };
+
+/**
+ * Interactive part of upgrading a V1 PRF key: authenticate with that passkey
+ * and derive the new V2 key material. Bind the result to the current main key
+ * with `putPreparedPrfKey()`.
+ */
+export async function prepareUpgradePrfKey(
+	privateData: EncryptedContainer,
+	prfKeyInfo: WebauthnPrfEncryptionKeyInfoV1,
+	promptForPrfRetry: () => Promise<boolean | AbortSignal>,
+): Promise<PreparedPrfKey> {
+	const [, , prfCredential] = await getPrfKey(
+		{
+			...privateData,
+			prfKeys: privateData.prfKeys.filter((keyInfo) => (
+				toBase64Url(keyInfo.credentialId) === toBase64Url(prfKeyInfo.credentialId)
+			)),
+		},
+		null,
+		promptForPrfRetry,
+	);
+	return await preparePrfKey(prfCredential, prfKeyInfo.prfSalt, async () => false);
+}
 
 export async function addPrf(
 	privateData: EncryptedContainer,

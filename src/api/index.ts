@@ -17,6 +17,7 @@ import { getTenantFromUrlPath, setStoredTenant, clearStoredTenant } from '../lib
 import { clearOIDCState } from '../lib/oidc';
 import { AuthTokens } from '@/lib/auth';
 import { useAuthServerClient } from '@/hooks/useAuthServerClient';
+import { PrivateDataEdit, PrivateDataTransport, isPrivateDataConflict, privateDataCoordinator } from './privateDataSync';
 
 const walletBackendUrl = config.BACKEND_URL;
 
@@ -92,7 +93,25 @@ export interface BackendApi {
 		inviteCode?: string,
 		oidcIdToken?: string,
 	): Promise<Result<void, SignupWebauthnError>>,
-	updatePrivateData(newPrivateData: EncryptedContainer): Promise<void>,
+	/**
+	 * Run a keystore edit, upload the result and commit it locally, all under
+	 * the private-data lock. This is the only way to write private data.
+	 *
+	 * On a version conflict the remote copy is merged (when `keystore` is given)
+	 * and `edit` is re-run on the merged state, so `edit` must read keystore
+	 * state when called. Do interactive steps (WebAuthn prompts) before calling
+	 * this. `edit` must not call other private-data API methods (the lock is not
+	 * re-entrant). Rejects with `cause: 'x-private-data-etag'` on an unresolved
+	 * conflict; local state is only committed when the upload succeeded.
+	 *
+	 * @param options.upload send the container through another endpoint (e.g.
+	 * passkey register/delete) instead of `POST /user/session/private-data`.
+	 */
+	applyPrivateDataEdit<T>(
+		edit: PrivateDataEdit<T>,
+		keystore?: LocalStorageKeystore,
+		options?: { upload?: (newPrivateData: EncryptedContainer) => Promise<AxiosResponse> },
+	): Promise<T>,
 	updatePrivateDataEtag(resp: AxiosResponse): AxiosResponse,
 
 	updateShowWelcome(showWelcome: boolean): void,
@@ -257,6 +276,81 @@ export function useApi({
 		return authedRequest.del(path, options?.headers ?? {});
 	}, [authedRequest]);
 
+	/**
+	 * Low-level private-data I/O. All access goes through
+	 * `privateDataCoordinator`, which serializes it with a per-tab lock.
+	 */
+	/** Store `newPrivateData` on the IndexedDB 'users' record (offline copy). */
+	const writeUserPrivateDataOnIndexedDB = useCallback(async (newPrivateData: EncryptedContainer): Promise<void> => {
+		if (!userHandle) {
+			return;
+		}
+		const userId = UserId.fromUserHandle(fromBase64Url(userHandle));
+		const userObject = await getItem("users", userId.id);
+		if (!userObject) {
+			throw new Error(`Could not find user with userHandle ${userHandle} on indexedDB 'users' table`);
+		}
+		userObject.privateData = serializePrivateData(newPrivateData);
+		await addItem("users", userId.id, userObject);
+	}, [userHandle]);
+
+	/**
+	 * Refresh the offline copy after the server accepted a write. Failures are
+	 * logged, not thrown: the server and the local etag are already on the new
+	 * version, so rejecting here would skip the local commit and leave the tab
+	 * behind the server (the next sync would get a 304 and never repair it).
+	 * The next accepted write rewrites the cache.
+	 */
+	const cacheAcceptedPrivateData = useCallback(async (newPrivateData: EncryptedContainer): Promise<void> => {
+		try {
+			await writeUserPrivateDataOnIndexedDB(newPrivateData);
+		} catch (e) {
+			logger.error("Failed to cache accepted private data in IndexedDB", e);
+		}
+	}, [writeUserPrivateDataOnIndexedDB]);
+
+	const privateDataTransport = useMemo((): PrivateDataTransport => ({
+		isOnline,
+
+		fetchRemote: () => get('/user/session/private-data', { headers: { 'If-None-Match': getPrivateDataEtag() } }),
+
+		save: async (newPrivateData: EncryptedContainer, ifMatch?: string): Promise<void> => {
+			if (!isOnline) {
+				// IndexedDB is the only copy written while offline, so a failure here
+				// must reject (nothing was accepted anywhere).
+				await writeUserPrivateDataOnIndexedDB(newPrivateData);
+				logger.debug("Cannot write to remote keystore while offline");
+				return;
+			}
+			const updateResp = updatePrivateDataEtag(
+				await post(
+					'/user/session/private-data',
+					serializePrivateData(newPrivateData),
+					ifMatch ? { headers: { 'X-Private-Data-If-Match': ifMatch } } : undefined,
+				),
+			);
+			if (updateResp.status !== 204) {
+				logger.error("Failed to update private data", updateResp.status, updateResp);
+				throw updateResp;
+			}
+			await cacheAcceptedPrivateData(newPrivateData);
+		},
+
+		onSyncFail: (cachedUser: CachedUser | undefined) => {
+			// Navigate to sync-fail state for re-authentication
+			const queryParams = new URLSearchParams(window.location.search);
+			queryParams.delete('user');
+			queryParams.delete('sync');
+
+			if (cachedUser && cachedUser.userHandleB64u) {
+				queryParams.append('user', cachedUser.userHandleB64u);
+			}
+			queryParams.append('sync', 'fail');
+
+			navigate(`${window.location.pathname}?${queryParams.toString()}`, { replace: true });
+		},
+	}), [isOnline, get, getPrivateDataEtag, post, updatePrivateDataEtag, writeUserPrivateDataOnIndexedDB, cacheAcceptedPrivateData, navigate]);
+
 	const syncPrivateData = useCallback(async (
 		cachedUser: CachedUser | undefined,
 		keystore?: LocalStorageKeystore,
@@ -268,64 +362,8 @@ export function useApi({
 		| 'passkeyLoginFailedServerError'
 		| 'x-private-data-etag'
 	>> => {
-
-		try {
-			if (!isOnline) {
-				return Ok.EMPTY;
-			}
-			const getPrivateDataResponse = await get('/user/session/private-data', { headers: { 'If-None-Match': getPrivateDataEtag() } });
-			if (getPrivateDataResponse.status === 304) {
-				return Ok.EMPTY; // already synced
-			}
-
-			// Try to merge without re-authentication if keystore is available
-			if (keystore) {
-				try {
-					const remotePrivateData = getPrivateDataResponse.data.privateData;
-					const mergeResult = await keystore.syncWithRemoteData(remotePrivateData);
-					if (mergeResult.ok) {
-						const newEtag =
-							getPrivateDataResponse.headers?.['x-private-data-etag'] ??
-							getPrivateDataResponse.headers?.['etag'];
-						const updateResp = updatePrivateDataEtag(
-							await post('/user/session/private-data', serializePrivateData(mergeResult.val), {
-								headers: newEtag ? { 'X-Private-Data-If-Match': newEtag } : {},
-							}),
-						);
-						if (updateResp.status === 204) {
-							console.debug('syncPrivateData: merged remote and local data successfully');
-							return Ok.EMPTY;
-						}
-					}
-				} catch (mergeErr) {
-					console.debug('syncPrivateData: silent merge threw, falling back to re-auth', mergeErr);
-				}
-				console.debug('syncPrivateData: merge failed, falling back to re-authentication flow');
-			}
-
-			// Fallback: navigate to sync-fail state for re-authentication
-			const queryParams = new URLSearchParams(window.location.search);
-			queryParams.delete('user');
-			queryParams.delete('sync');
-
-			if (cachedUser && cachedUser.userHandleB64u) {
-				queryParams.append('user', cachedUser.userHandleB64u);
-			}
-			queryParams.append('sync', 'fail');
-
-			navigate(`${window.location.pathname}?${queryParams.toString()}`, { replace: true });
-			return Err('syncFailed');
-		}
-		catch (err) {
-			if (typeof err === 'object' && err !== null && 'cause' in err && err.cause === 'x-private-data-etag') {
-				logger.debug('syncPrivateData: private data etag conflict', err);
-				return Err('x-private-data-etag');
-			}
-			logger.error('syncPrivateData failed', err);
-			return Err('syncFailed');
-		}
-
-	}, [getPrivateDataEtag, get, navigate, isOnline, post, updatePrivateDataEtag]);
+		return privateDataCoordinator.sync(privateDataTransport, cachedUser, keystore);
+	}, [privateDataTransport]);
 
 	const updateShowWelcome = useCallback((showWelcome: boolean): void => {
 		if (sessionState) {
@@ -364,49 +402,24 @@ export function useApi({
 		}
 	}, [setSessionState, fetchInitialData, isOnline]);
 
-	const updatePrivateData = useCallback(async (
-		newPrivateData: EncryptedContainer,
-	): Promise<void> => {
+	const applyPrivateDataEdit = useCallback(async <T,>(
+		edit: PrivateDataEdit<T>,
+		keystore?: LocalStorageKeystore,
+		options: { upload?: (newPrivateData: EncryptedContainer) => Promise<AxiosResponse> } = {},
+	): Promise<T> => {
+		const cachedUser = (cachedUsers ?? []).find((u) => u.userHandleB64u === userHandle);
+		const { upload } = options;
+		const save = upload && (async (newPrivateData: EncryptedContainer): Promise<void> => {
+			updatePrivateDataEtag(await upload(newPrivateData));
+			await cacheAcceptedPrivateData(newPrivateData);
+		});
 		try {
-			async function writeOnIndexedDB() {
-				if (!userHandle) {
-					return;
-				}
-				const userId = UserId.fromUserHandle(fromBase64Url(userHandle));
-				const userObject = await getItem("users", userId.id);
-				if (!userObject) {
-					throw new Error(`Could not find user with userHandle ${userHandle} on indexedDB 'users' table`);
-				}
-				userObject.privateData = serializePrivateData(newPrivateData);
-				await addItem("users", userId.id, userObject);
-			}
-
-			if (!isOnline) {
-				await writeOnIndexedDB();
-				logger.debug("Cannot write to remote keystore while offline");
-				return;
-			}
-			const updateResp = updatePrivateDataEtag(
-				await post('/user/session/private-data', serializePrivateData(newPrivateData)),
-			);
-			if (updateResp.status === 204) {
-				await writeOnIndexedDB();
-				return;
-			} else {
-				logger.error("Failed to update private data", updateResp.status, updateResp);
-				return Promise.reject(updateResp);
-			}
+			return await privateDataCoordinator.edit(privateDataTransport, edit, { keystore, cachedUser, save });
 		} catch (e) {
-			logger.error("Failed to update private data", e, e?.response?.status);
-			if ((e?.response?.status === 412 && (e?.headers ?? {})['x-private-data-etag']) || (e.cause === 'x-private-data-etag')) {
-				logger.error("Private data version conflict", { cause: 'x-private-data-etag' });
-				const cachedUser = cachedUsers.filter((u) => u.userHandleB64u === userHandle)[0];
-				await syncPrivateData(cachedUser);
-				return;
-			}
+			logger.error("Failed to apply private data edit", e, e?.response?.status);
 			throw e;
 		}
-	}, [post, updatePrivateDataEtag, cachedUsers, userHandle, syncPrivateData, isOnline]);
+	}, [privateDataTransport, cachedUsers, userHandle, updatePrivateDataEtag, cacheAcceptedPrivateData]);
 
 	const getAllVerifiers = useCallback(async (): Promise<Verifier[]> => {
 		try {
@@ -543,13 +556,18 @@ export function useApi({
 				},
 			);
 			if (privateDataUpdate) {
+				// Login-time PRF upgrade/merge: the keystore was just (re)opened with
+				// this container, so upload and commit it under the lock to keep it
+				// ordered with any sync or edit.
 				const [newPrivateData, keystoreCommit] = privateDataUpdate;
 				try {
-					await updatePrivateData(newPrivateData);
-					await keystoreCommit();
+					await privateDataCoordinator.exclusive(async () => {
+						await privateDataTransport.save(newPrivateData);
+						await keystoreCommit();
+					});
 				} catch (e) {
-					logger.error("Failed to upgrade PRF key", e, e.status);
-					if (e?.cause === 'x-private-data-etag') {
+					logger.error("Failed to upgrade PRF key", e, e?.status);
+					if (isPrivateDataConflict(e)) {
 						return Err('x-private-data-etag');
 					}
 					return Err('loginKeystoreFailed');
@@ -591,7 +609,7 @@ export function useApi({
 			}
 			return Err('passkeyLoginFailedServerError');
 		}
-	}, [authServer, authedRequest, updatePrivateDataEtag, updatePrivateData, setSession, isOnline]);
+	}, [authServer, authedRequest, updatePrivateDataEtag, privateDataTransport, setSession, isOnline]);
 
 	const signupWebauthn = useCallback(async (
 		name: string,
@@ -773,7 +791,7 @@ export function useApi({
 
 		loginWebauthn,
 		signupWebauthn,
-		updatePrivateData,
+		applyPrivateDataEdit,
 		updatePrivateDataEtag,
 
 		addEventListener,
@@ -799,7 +817,7 @@ export function useApi({
 
 		loginWebauthn,
 		signupWebauthn,
-		updatePrivateData,
+		applyPrivateDataEdit,
 		updatePrivateDataEtag,
 
 		addEventListener,

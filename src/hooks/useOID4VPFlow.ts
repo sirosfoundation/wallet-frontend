@@ -588,7 +588,5 @@ async function recordPresentationHistory(
 		usedCredentialIds: [Number.parseInt(cred.walletCredentialRef)],
 		audience,
 	})));
-	const [, newPrivateData, keystoreCommit] = await keystore.addPresentations(presentations);
-	await api.updatePrivateData(newPrivateData);
-	await keystoreCommit();
+	await api.applyPrivateDataEdit(() => keystore.addPresentations(presentations), keystore);
 }
