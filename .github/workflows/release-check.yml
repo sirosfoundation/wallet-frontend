@@ -1,0 +1,159 @@
+name: Release check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+    branches: [release/sirosid]
+  workflow_call:
+    outputs:
+      version:
+        description: "Released version (without leading v)"
+        value: ${{ jobs.check.outputs.version }}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Release check
+    if: startsWith(github.head_ref, 'release/v')
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      # On merge, check the real merge commit; on PRs, GitHub's test merge.
+      - name: Checkout merge commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.action == 'closed' && github.event.pull_request.merge_commit_sha || github.ref }}
+          fetch-depth: 0
+
+      - name: Check release
+        id: check
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+
+          # HEAD is the merge commit: first parent is release/sirosid, second is the release branch.
+          BASE="HEAD^1"
+          RELEASE="HEAD^2"
+
+          # Set by read_version
+          VERSION=""
+          TAG=""
+
+          ERRORS=0
+
+          main() {
+            check_merge_commit
+            read_version
+
+            check_branch_name
+            check_version_bumped
+            check_changelog
+            check_changesets_used
+            check_tag
+
+            if (( ERRORS > 0 )); then
+              exit 1
+            fi
+
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "Release $TAG is ready." >> "$GITHUB_STEP_SUMMARY"
+          }
+
+          # Squash and rebase merges have no second parent.
+          check_merge_commit() {
+            if ! git rev-parse --quiet --verify "$RELEASE" >/dev/null; then
+              fail_now "Release PRs must be merged with a merge commit."
+            fi
+          }
+
+          read_version() {
+            VERSION=$(version_at "$RELEASE")
+            TAG="v$VERSION"
+
+            if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+              fail_now "'$VERSION' in package.json is not a valid version."
+            fi
+          }
+
+          check_branch_name() {
+            if [[ "$HEAD_REF" != "release/$TAG" ]]; then
+              fail "Branch is '$HEAD_REF', but package.json says $VERSION. Expected 'release/$TAG'."
+            fi
+          }
+
+          check_version_bumped() {
+            local base_version
+            base_version=$(version_at "$BASE")
+
+            if [[ "$VERSION" == "$base_version" ]]; then
+              fail "Version was not bumped. release/sirosid is already at $base_version."
+            fi
+          }
+
+          check_changelog() {
+            local changelog
+            changelog=$(git show "$RELEASE:CHANGELOG.md")
+
+            if ! contains_line "## $VERSION" "$changelog"; then
+              fail "CHANGELOG.md has no '## $VERSION' section."
+            fi
+          }
+
+          check_changesets_used() {
+            local used file
+            used=$(used_changesets)
+
+            for file in $(changeset_files); do
+              if ! contains_line "$(basename "$file" .md)" "$used"; then
+                fail "Changeset $file was not used. Run 'pnpm run version'."
+              fi
+            done
+          }
+
+          check_tag() {
+            local release_commit tag_commit
+            release_commit=$(git rev-parse "$RELEASE")
+            tag_commit=$(git rev-parse --quiet --verify "refs/tags/$TAG^{commit}" || true)
+
+            if [[ -z "$tag_commit" ]]; then
+              fail "Tag $TAG does not exist. Run 'pnpm run tag' and push it, then re-run this check."
+            elif [[ "$tag_commit" != "$release_commit" ]]; then
+              fail "Tag $TAG points at $tag_commit, but the release branch ends at $release_commit."
+            fi
+          }
+
+          version_at() {
+            git show "$1:package.json" | jq -r .version
+          }
+
+          changeset_files() {
+            git ls-tree --name-only "$RELEASE" .changeset/ | grep '\.md$' | grep -v 'README.md' || true
+          }
+
+          # In pre mode (beta, rc, ...) used changesets stay on disk and are listed in pre.json.
+          used_changesets() {
+            if git cat-file -e "$RELEASE:.changeset/pre.json" 2>/dev/null; then
+              git show "$RELEASE:.changeset/pre.json" | jq -r 'select(.mode == "pre") | .changesets[]'
+            fi
+          }
+
+          contains_line() {
+            grep --quiet --line-regexp --fixed-strings "$1" <<<"$2"
+          }
+
+          # Records the error and keeps going, so all problems are reported at once.
+          fail() {
+            echo "::error::$*"
+            ERRORS=$((ERRORS + 1))
+          }
+
+          fail_now() {
+            echo "::error::$*"
+            exit 1
+          }
+
+          main

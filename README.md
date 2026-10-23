@@ -198,18 +198,17 @@ A new markdown file is created under `.changeset/` and commited in a new commit 
 
   This file is git-ignored and only used locally.
 
-2. **Consume the changesets.** This deletes the pending changeset files, bumps the version in `package.json`, and updates `CHANGELOG.md`:
+2. **Prepare the release:**
 
   ```bash
-  pnpm run version
+  pnpm release
   ```
 
-3. **Tag** the release once merged (or pushed):
+  This updates `release/sirosid` from `origin`, creates a `release/vX.Y.Z` branch, consumes the changesets (bumps the version in `package.json`, updates `CHANGELOG.md` and commits), and tags the commit. After you confirm, it pushes the branch with its tags and opens a PR into `release/sirosid` (using [`gh`](https://cli.github.com/) if installed; otherwise open the PR yourself). Set `REMOTE` to use a remote other than `origin`.
 
-  ```bash
-  pnpm run tag
-  git push --follow-tags
-  ```
+3. **Wait for the *Release check*** on the PR. It verifies the branch name, version bump, changelog entry, consumed changesets and that the tag points at the branch head.
+
+4. **Merge with a merge commit** (not squash or rebase), so the tagged commit ends up in `release/sirosid`. On merge, the *Release* workflow runs the release check again and then starts the container image build and SBOM for the tag.
 
 Tags follow the `v${version}` format.
 

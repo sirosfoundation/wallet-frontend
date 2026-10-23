@@ -111,7 +111,8 @@
     "version": "dotenv -e .changeset/.env -- changeset version",
     "tag": "pnpm tag:public && pnpm tag:main",
     "tag:public": "changeset git-tag",
-    "tag:main": "VER=\"v$(node -p \"require('./package.json').version\")\"; git tag \"$VER\" -m \"$VER\""
+    "tag:main": "VER=\"v$(node -p \"require('./package.json').version\")\"; git tag \"$VER\" -m \"$VER\"",
+    "release": "bash utils/release.sh"
   },
   "repository": "https://github.com/wwwallet/wallet-frontend",
   "license": "BSD-2-Clause",
