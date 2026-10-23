@@ -156,7 +156,7 @@ export class AuthTokens {
 		const existing = this.#tokens.get(name);
 		if (existing && !existing.isExpired()) return existing;
 
-		const token = await this.#requestAccessToken(AuthTokens.MANIFEST[name]);
+		const token = await this.#requestAccessToken(name, AuthTokens.MANIFEST[name]);
 		this.#tokens.set(name, token);
 		this.#tokenStorage.store(name, token);
 		return token;
@@ -238,17 +238,30 @@ export class AuthTokens {
 	 * It does not notify listeners of token rejections.
 	 */
 	async clear(): Promise<void> {
-		for (const name of this.#tokens.keys()) {
+		for (const name of Object.keys(AuthTokens.MANIFEST)) {
 			this.#tokenStorage.clear(name);
 		}
 		this.#tokenRejectionTimes.clear();
 	}
 
-	async #requestAccessToken(options: {
+	async #requestAccessToken(name: keyof typeof AuthTokens.MANIFEST, options: {
 		audience: string;
 		tac?: string;
 		anonymous?: boolean;
 	}): Promise<AccessTokenInterface> {
+		const isRecoverableSessionError = (error: unknown): error is {
+			response: { status: number; data?: { error?: string } };
+		} => {
+			const sessionError = error as {
+				response?: { status?: number; data?: { error?: string } };
+			} | null;
+			return sessionError?.response?.status === 401 &&
+				(
+					sessionError.response.data?.error === 'invalid or expired session' ||
+					sessionError.response.data?.error === 'authentication required'
+				);
+		};
+
 		const task = async () => {
 			const data = await this.#authServerClient.requestAccessToken(
 				options.audience,
@@ -262,15 +275,22 @@ export class AuthTokens {
 		try {
 			return await task();
 		} catch (error) {
-			if (
-				error?.response?.status === 401 &&
-				(
-					error?.response?.data?.error === 'invalid or expired session' ||
-					error?.response?.data?.error === 'authentication required'
-				)
-			) {
-				await this.#recoverSession();
-				return await task();
+			if (isRecoverableSessionError(error)) {
+				await this.clear();
+				try {
+					await this.#recoverSession();
+				} catch (recoveryError) {
+					this.registerTokenRejection(name);
+					throw recoveryError;
+				}
+				try {
+					return await task();
+				} catch (retryError) {
+					if (isRecoverableSessionError(retryError)) {
+						this.registerTokenRejection(name);
+					}
+					throw retryError;
+				}
 			}
 
 			throw error;
