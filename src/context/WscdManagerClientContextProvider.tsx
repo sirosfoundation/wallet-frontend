@@ -30,10 +30,10 @@ export const WscdManagerClientContextProvider: FC<PropsWithChildren> = ({
 		if (!client) return;
 		client.setContainerImporter(() => keystore.exportToWscdContainer());
 		client.setContainerExporter(async (container) => {
-			const [, newPrivateData, commit] =
-				await keystore.importFromWscdContainer(container);
-			await api.updatePrivateData(newPrivateData);
-			await commit();
+			await api.applyPrivateDataEdit(
+				() => keystore.importFromWscdContainer(container),
+				keystore,
+			);
 		});
 	}, [client, keystore, api]);
 

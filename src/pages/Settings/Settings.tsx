@@ -813,12 +813,10 @@ const Settings = () => {
 			if (isNaN(parseInt(newMaxAge))) {
 				throw new Error("Update token max age: newMaxAge is not a number");
 			}
-			const [, newPrivateData, keystoreCommit] = await keystore.alterSettings({
+			await api.applyPrivateDataEdit(() => keystore.alterSettings({
 				...getCalculatedWalletState().settings,
 				openidRefreshTokenMaxAgeInSeconds: newMaxAge,
-			});
-			await api.updatePrivateData(newPrivateData);
-			await keystoreCommit();
+			}), keystore);
 
 			logger.debug('Settings updated successfully');
 			setSuccessMessage(t('pageSettings.rememberIssuer.successMessage'));
@@ -836,12 +834,10 @@ const Settings = () => {
 			if (!['true', 'false'].includes(useOblivious)) {
 				throw new Error("Update useOblivious: invalid value");
 			}
-			const [, newPrivateData, keystoreCommit] = await keystore.alterSettings({
+			await api.applyPrivateDataEdit(() => keystore.alterSettings({
 				...getCalculatedWalletState().settings,
 				useOblivious: useOblivious.toString(),
-			});
-			await api.updatePrivateData(newPrivateData);
-			await keystoreCommit();
+			}), keystore);
 
 			logger.debug('Settings updated successfully');
 			setObliviousSettingsMessage(t('pageSettings.oblivious.successMessage'));

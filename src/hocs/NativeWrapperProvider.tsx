@@ -1,6 +1,5 @@
 import React, { useContext, useEffect } from 'react';
-import { useLocalStorageKeystore } from '../services/LocalStorageKeystore';
-import keystoreEvents from '../services/keystoreEvents';
+import SessionContext from '@/context/SessionContext';
 import CredentialsContext from '@/context/CredentialsContext';
 import { prepareCredentialsForNativeWrapper } from '@/lib/native-wrapper';
 import { logger } from '@/logger';
@@ -16,7 +15,11 @@ declare global {
 export const NativeWrapperProvider = ({
 	children,
 }: React.PropsWithChildren) => {
-	const keystore = useLocalStorageKeystore(keystoreEvents);
+	// Use the shared keystore. A second `useLocalStorageKeystore()` instance
+	// keeps its own `privateData` (read from IndexedDB only when the user handle
+	// changes) while `mainKey` follows sessionStorage, so its init effect can
+	// decrypt stale data with a newer key and navigate to `?sync=fail`.
+	const { keystore } = useContext(SessionContext);
 	const { vcEntityList } = useContext(CredentialsContext);
 
 	useEffect(() => {

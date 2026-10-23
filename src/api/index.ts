@@ -17,6 +17,7 @@ import { getTenantFromUrlPath, setStoredTenant, clearStoredTenant } from '../lib
 import { clearOIDCState } from '../lib/oidc';
 import { AuthTokens } from '@/lib/auth';
 import { useAuthServerClient } from '@/hooks/useAuthServerClient';
+import { PrivateDataEdit, PrivateDataTransport, privateDataCoordinator } from './privateDataSync';
 
 const walletBackendUrl = config.BACKEND_URL;
 
@@ -92,7 +93,20 @@ export interface BackendApi {
 		inviteCode?: string,
 		oidcIdToken?: string,
 	): Promise<Result<void, SignupWebauthnError>>,
+	/**
+	 * Upload an already-computed container. Serialized with syncs and other
+	 * writes. Rejects on failure (including version conflicts with
+	 * `cause: 'x-private-data-etag'`) — only commit local state on success.
+	 * Prefer `applyPrivateDataEdit`, which can recover from conflicts.
+	 */
 	updatePrivateData(newPrivateData: EncryptedContainer): Promise<void>,
+	/**
+	 * Run a keystore edit, upload the result and commit it locally, all under
+	 * the private-data lock. On a version conflict the remote copy is merged
+	 * (when `keystore` is given) and `edit` is re-run on the merged state.
+	 * `edit` must not call other private-data API methods (the lock is not re-entrant).
+	 */
+	applyPrivateDataEdit<T>(edit: PrivateDataEdit<T>, keystore?: LocalStorageKeystore): Promise<T>,
 	updatePrivateDataEtag(resp: AxiosResponse): AxiosResponse,
 
 	updateShowWelcome(showWelcome: boolean): void,
@@ -257,6 +271,63 @@ export function useApi({
 		return authedRequest.del(path, options?.headers ?? {});
 	}, [authedRequest]);
 
+	/**
+	 * Low-level private-data I/O. All access goes through
+	 * `privateDataCoordinator`, which serializes it with a per-tab lock.
+	 */
+	const privateDataTransport = useMemo((): PrivateDataTransport => ({
+		isOnline,
+
+		fetchRemote: () => get('/user/session/private-data', { headers: { 'If-None-Match': getPrivateDataEtag() } }),
+
+		save: async (newPrivateData: EncryptedContainer, ifMatch?: string): Promise<void> => {
+			const writeOnIndexedDB = async () => {
+				if (!userHandle) {
+					return;
+				}
+				const userId = UserId.fromUserHandle(fromBase64Url(userHandle));
+				const userObject = await getItem("users", userId.id);
+				if (!userObject) {
+					throw new Error(`Could not find user with userHandle ${userHandle} on indexedDB 'users' table`);
+				}
+				userObject.privateData = serializePrivateData(newPrivateData);
+				await addItem("users", userId.id, userObject);
+			};
+
+			if (!isOnline) {
+				await writeOnIndexedDB();
+				logger.debug("Cannot write to remote keystore while offline");
+				return;
+			}
+			const updateResp = updatePrivateDataEtag(
+				await post(
+					'/user/session/private-data',
+					serializePrivateData(newPrivateData),
+					ifMatch ? { headers: { 'X-Private-Data-If-Match': ifMatch } } : undefined,
+				),
+			);
+			if (updateResp.status !== 204) {
+				logger.error("Failed to update private data", updateResp.status, updateResp);
+				throw updateResp;
+			}
+			await writeOnIndexedDB();
+		},
+
+		onSyncFail: (cachedUser: CachedUser | undefined) => {
+			// Navigate to sync-fail state for re-authentication
+			const queryParams = new URLSearchParams(window.location.search);
+			queryParams.delete('user');
+			queryParams.delete('sync');
+
+			if (cachedUser && cachedUser.userHandleB64u) {
+				queryParams.append('user', cachedUser.userHandleB64u);
+			}
+			queryParams.append('sync', 'fail');
+
+			navigate(`${window.location.pathname}?${queryParams.toString()}`, { replace: true });
+		},
+	}), [isOnline, get, getPrivateDataEtag, post, updatePrivateDataEtag, userHandle, navigate]);
+
 	const syncPrivateData = useCallback(async (
 		cachedUser: CachedUser | undefined,
 		keystore?: LocalStorageKeystore,
@@ -268,64 +339,8 @@ export function useApi({
 		| 'passkeyLoginFailedServerError'
 		| 'x-private-data-etag'
 	>> => {
-
-		try {
-			if (!isOnline) {
-				return Ok.EMPTY;
-			}
-			const getPrivateDataResponse = await get('/user/session/private-data', { headers: { 'If-None-Match': getPrivateDataEtag() } });
-			if (getPrivateDataResponse.status === 304) {
-				return Ok.EMPTY; // already synced
-			}
-
-			// Try to merge without re-authentication if keystore is available
-			if (keystore) {
-				try {
-					const remotePrivateData = getPrivateDataResponse.data.privateData;
-					const mergeResult = await keystore.syncWithRemoteData(remotePrivateData);
-					if (mergeResult.ok) {
-						const newEtag =
-							getPrivateDataResponse.headers?.['x-private-data-etag'] ??
-							getPrivateDataResponse.headers?.['etag'];
-						const updateResp = updatePrivateDataEtag(
-							await post('/user/session/private-data', serializePrivateData(mergeResult.val), {
-								headers: newEtag ? { 'X-Private-Data-If-Match': newEtag } : {},
-							}),
-						);
-						if (updateResp.status === 204) {
-							console.debug('syncPrivateData: merged remote and local data successfully');
-							return Ok.EMPTY;
-						}
-					}
-				} catch (mergeErr) {
-					console.debug('syncPrivateData: silent merge threw, falling back to re-auth', mergeErr);
-				}
-				console.debug('syncPrivateData: merge failed, falling back to re-authentication flow');
-			}
-
-			// Fallback: navigate to sync-fail state for re-authentication
-			const queryParams = new URLSearchParams(window.location.search);
-			queryParams.delete('user');
-			queryParams.delete('sync');
-
-			if (cachedUser && cachedUser.userHandleB64u) {
-				queryParams.append('user', cachedUser.userHandleB64u);
-			}
-			queryParams.append('sync', 'fail');
-
-			navigate(`${window.location.pathname}?${queryParams.toString()}`, { replace: true });
-			return Err('syncFailed');
-		}
-		catch (err) {
-			if (typeof err === 'object' && err !== null && 'cause' in err && err.cause === 'x-private-data-etag') {
-				logger.debug('syncPrivateData: private data etag conflict', err);
-				return Err('x-private-data-etag');
-			}
-			logger.error('syncPrivateData failed', err);
-			return Err('syncFailed');
-		}
-
-	}, [getPrivateDataEtag, get, navigate, isOnline, post, updatePrivateDataEtag]);
+		return privateDataCoordinator.sync(privateDataTransport, cachedUser, keystore);
+	}, [privateDataTransport]);
 
 	const updateShowWelcome = useCallback((showWelcome: boolean): void => {
 		if (sessionState) {
@@ -368,45 +383,27 @@ export function useApi({
 		newPrivateData: EncryptedContainer,
 	): Promise<void> => {
 		try {
-			async function writeOnIndexedDB() {
-				if (!userHandle) {
-					return;
-				}
-				const userId = UserId.fromUserHandle(fromBase64Url(userHandle));
-				const userObject = await getItem("users", userId.id);
-				if (!userObject) {
-					throw new Error(`Could not find user with userHandle ${userHandle} on indexedDB 'users' table`);
-				}
-				userObject.privateData = serializePrivateData(newPrivateData);
-				await addItem("users", userId.id, userObject);
-			}
-
-			if (!isOnline) {
-				await writeOnIndexedDB();
-				logger.debug("Cannot write to remote keystore while offline");
-				return;
-			}
-			const updateResp = updatePrivateDataEtag(
-				await post('/user/session/private-data', serializePrivateData(newPrivateData)),
-			);
-			if (updateResp.status === 204) {
-				await writeOnIndexedDB();
-				return;
-			} else {
-				logger.error("Failed to update private data", updateResp.status, updateResp);
-				return Promise.reject(updateResp);
-			}
+			await privateDataCoordinator.write(privateDataTransport, newPrivateData);
 		} catch (e) {
+			// Rejecting (instead of the previous sync-and-return) ensures the
+			// caller does not commit local state the server never received.
 			logger.error("Failed to update private data", e, e?.response?.status);
-			if ((e?.response?.status === 412 && (e?.headers ?? {})['x-private-data-etag']) || (e.cause === 'x-private-data-etag')) {
-				logger.error("Private data version conflict", { cause: 'x-private-data-etag' });
-				const cachedUser = cachedUsers.filter((u) => u.userHandleB64u === userHandle)[0];
-				await syncPrivateData(cachedUser);
-				return;
-			}
 			throw e;
 		}
-	}, [post, updatePrivateDataEtag, cachedUsers, userHandle, syncPrivateData, isOnline]);
+	}, [privateDataTransport]);
+
+	const applyPrivateDataEdit = useCallback(async <T,>(
+		edit: PrivateDataEdit<T>,
+		keystore?: LocalStorageKeystore,
+	): Promise<T> => {
+		const cachedUser = (cachedUsers ?? []).find((u) => u.userHandleB64u === userHandle);
+		try {
+			return await privateDataCoordinator.edit(privateDataTransport, edit, { keystore, cachedUser });
+		} catch (e) {
+			logger.error("Failed to apply private data edit", e, e?.response?.status);
+			throw e;
+		}
+	}, [privateDataTransport, cachedUsers, userHandle]);
 
 	const getAllVerifiers = useCallback(async (): Promise<Verifier[]> => {
 		try {
@@ -774,6 +771,7 @@ export function useApi({
 		loginWebauthn,
 		signupWebauthn,
 		updatePrivateData,
+		applyPrivateDataEdit,
 		updatePrivateDataEtag,
 
 		addEventListener,
@@ -800,6 +798,7 @@ export function useApi({
 		loginWebauthn,
 		signupWebauthn,
 		updatePrivateData,
+		applyPrivateDataEdit,
 		updatePrivateDataEtag,
 
 		addEventListener,

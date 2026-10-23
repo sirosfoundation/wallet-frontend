@@ -164,9 +164,11 @@ export interface LocalStorageKeystore {
 	/**
 	 * Sync with remote private data without requiring re-authentication.
 	 * Uses the existing mainKey to decrypt remote data and merges it with local data.
+	 * Local state is NOT changed until the returned commit callback is invoked,
+	 * which must only happen after the merged container was accepted by the server.
 	 * @param remotePrivateDataRaw - Raw private data bytes from the server
 	 */
-	syncWithRemoteData(remotePrivateDataRaw: Uint8Array): Promise<Result<AsymmetricEncryptedContainer, 'keystoreNotOpen' | 'mergeFailed'>>,
+	syncWithRemoteData(remotePrivateDataRaw: Uint8Array): Promise<Result<[AsymmetricEncryptedContainer, CommitCallback], 'keystoreNotOpen' | 'mergeFailed'>>,
 	/**
 	 * Softkey only: raw private keys leave the keystore because there is no secure element yet.
 	 * Isolated plugins (fido2/r2ps/native) must never export `d`.
@@ -215,7 +217,24 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 	const setMainKey = useCallback((newMainKey: BufferSource | null) => {
 		mainKeyRef.current = newMainKey;
 		setMainKeyStorage(newMainKey);
-}, [setMainKeyStorage]);
+	}, [setMainKeyStorage]);
+
+	/**
+	 * Replace the private data and its main key together.
+	 *
+	 * The key is exported before anything is updated, so there is never an
+	 * `await` between the two ref updates. Otherwise `assertKeystoreOpen()` could
+	 * observe the new container with the old key, fail to decrypt it and
+	 * navigate to `?sync=fail`.
+	 */
+	const setOpenedPrivateData = useCallback(async (
+		newPrivateData: EncryptedContainer,
+		newMainKey: CryptoKey,
+	): Promise<void> => {
+		const exportedMainKey = await keystore.exportMainKey(newMainKey);
+		setMainKey(exportedMainKey);
+		setPrivateData(newPrivateData);
+	}, [setMainKey, setPrivateData]);
 
 	const idb = useIndexedDb("wallet-frontend", 3, useCallback((db, prevVersion, newVersion) => {
 		if (prevVersion < 1) {
@@ -403,12 +422,11 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 			newPrivateData,
 			async () => {
 				await writePrivateDataOnIdb(newPrivateData, userHandleB64u);
+				await setOpenedPrivateData(newPrivateData, newMainKey);
 				setCalculatedWalletState(newCalculatedWalletState);
-				setPrivateData(newPrivateData);
-				setMainKey(await keystore.exportMainKey(newMainKey));
 			},
 		];
-	}, [setPrivateData, setMainKey, assertKeystoreOpen, userHandleB64u, writePrivateDataOnIdb]);
+	}, [setOpenedPrivateData, assertKeystoreOpen, userHandleB64u, writePrivateDataOnIdb]);
 
 	const finishUnlock = useCallback(async (
 		unlockSuccess: UnlockSuccess,
@@ -434,9 +452,8 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 				], mergedContainer as CurrentSchema.WalletStateContainer);
 				const [newPrivateDataEncryptedContainer, newMainKey] = newContainer;
 				await writePrivateDataOnIdb(newPrivateDataEncryptedContainer, userHandleB64u);
-				setPrivateData(newPrivateDataEncryptedContainer);
+				await setOpenedPrivateData(newPrivateDataEncryptedContainer, newMainKey);
 				newEncryptedContainer = newPrivateDataEncryptedContainer;
-				setMainKey(await keystore.exportMainKey(newMainKey));
 				const foldedState = foldState(mergedContainer as CurrentSchema.WalletStateContainer);
 				setCalculatedWalletState(foldedState);
 			}
@@ -471,8 +488,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 				const [encryptedContainer, newMainKey, decryptedWalletState] = await mergeWithLocalEncryptedPrivateData([privateData, mainKey, unlockedContainer]);
 				const foldedState = foldState(decryptedWalletState as CurrentSchema.WalletStateContainer);
 				newEncryptedContainer = encryptedContainer;
-				setPrivateData(encryptedContainer);
-				setMainKey(await keystore.exportMainKey(newMainKey));
+				await setOpenedPrivateData(encryptedContainer, newMainKey);
 				await writePrivateDataOnIdb(encryptedContainer, userHandleB64u);
 				// after private data update, the calculated wallet state must be re-computed
 				setCalculatedWalletState(foldedState);
@@ -510,8 +526,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		setUserHandleB64u,
 		setGlobalUserHandleB64u,
 		setCachedUsers,
-		setMainKey,
-		setPrivateData,
+		setOpenedPrivateData,
 		setCalculatedWalletState,
 		setTabId,
 		setGlobalTabId,
@@ -931,8 +946,8 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		});
 	}, [editPrivateData, openPrivateData]);
 
-	const syncWithRemoteData = useCallback(async (remotePrivateDataRaw: Uint8Array): Promise<Result<keystore.AsymmetricEncryptedContainer, 'keystoreNotOpen' | 'mergeFailed'>> => {
-		if (!privateData || !mainKey) {
+	const syncWithRemoteData = useCallback(async (remotePrivateDataRaw: Uint8Array): Promise<Result<[keystore.AsymmetricEncryptedContainer, CommitCallback], 'keystoreNotOpen' | 'mergeFailed'>> => {
+		if (!isKeystoreOpen()) {
 			return Err('keystoreNotOpen');
 		}
 
@@ -948,20 +963,21 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 				remoteMainKey,
 			], mergedContainer as CurrentSchema.WalletStateContainer);
 			const [newPrivateDataEncryptedContainer, newMainKey] = newContainer;
-
-			await writePrivateDataOnIdb(newPrivateDataEncryptedContainer, userHandleB64u);
-			setPrivateData(newPrivateDataEncryptedContainer);
-			setMainKey(await keystore.exportMainKey(newMainKey));
-
 			const foldedState = foldState(mergedContainer as CurrentSchema.WalletStateContainer);
-			setCalculatedWalletState(foldedState);
 
-			return Ok(newPrivateDataEncryptedContainer);
+			return Ok([
+				newPrivateDataEncryptedContainer,
+				async () => {
+					await writePrivateDataOnIdb(newPrivateDataEncryptedContainer, userHandleB64u);
+					await setOpenedPrivateData(newPrivateDataEncryptedContainer, newMainKey);
+					setCalculatedWalletState(foldedState);
+				},
+			]);
 		} catch (error) {
-			console.error("Failed to sync with remote data", error);
+			logger.error("Failed to sync with remote data", error);
 			return Err('mergeFailed');
 		}
-	}, [privateData, mainKey, assertKeystoreOpen, writePrivateDataOnIdb, userHandleB64u, setPrivateData, setMainKey, setCalculatedWalletState]);
+	}, [isKeystoreOpen, assertKeystoreOpen, writePrivateDataOnIdb, userHandleB64u, setOpenedPrivateData, setCalculatedWalletState]);
 
 	const exportToWscdContainer = useCallback(async (): Promise<WscdContainer> => {
 		const keypairs = calculatedWalletState?.keypairs ?? [];
