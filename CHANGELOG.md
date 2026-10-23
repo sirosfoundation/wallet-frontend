@@ -1,5 +1,12 @@
 # wallet-frontend
 
+## 0.7.0-beta.4
+
+### Patch Changes
+
+- fixing the problem of the issuer list disappearing after a page timeout by [@lov1saconde](https://github.com/lov1saconde) in [#383](https://github.com/sirosfoundation/wallet-frontend/pull/383)
+- Fix crash during issuing (auth code flow) due to the credential engine not being initialised by [@smncd](https://github.com/smncd) in [#396](https://github.com/sirosfoundation/wallet-frontend/pull/396)
+
 ## 0.7.0-beta.3
 
 ### Minor Changes
