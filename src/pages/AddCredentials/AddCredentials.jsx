@@ -18,7 +18,7 @@ import { useOpenID4VCIHelper } from '@/lib/services/OpenID4VCIHelper';
 
 const AddCredentials = () => {
 	const { isOnline } = useContext(StatusContext);
-	const { api } = useContext(SessionContext);
+	const { api, isLoggedIn } = useContext(SessionContext);
 	const [issuers, setIssuers] = useState([]);
 	const [recent, setRecent] = useState([]);
 	const [credentialConfigurations, setCredentialConfigurations] = useState([]);
@@ -138,11 +138,11 @@ const AddCredentials = () => {
 			}
 		};
 
-		if (filterItemByLang) {
+		if (filterItemByLang && isLoggedIn) {
 			logger.debug("Fetching issuers...")
 			fetchIssuers();
 		}
-	}, [api, isOnline, filterItemByLang, getCredentialIssuerMetadata]);
+	}, [api, isOnline, filterItemByLang, getCredentialIssuerMetadata, isLoggedIn]);
 
 	const handleCredentialConfigurationClick = async (credentialConfigurationIdWithCredentialIssuerIdentifier) => {
 		const [credentialConfigurationId, credentialIssuerIdentifier] = JSON.parse(credentialConfigurationIdWithCredentialIssuerIdentifier);
