@@ -6,6 +6,7 @@ import * as util from '@cef-ebsi/key-did-resolver/dist/util.js';
 import * as keystore from "./keystore.js";
 import { byteArrayEquals, fromBase64, jsonParseTaggedBinary, toBase64, toBase64Url } from '@/lib/utils';
 import { DidKeyVersion } from "../config.js";
+import { UnsupportedSchemaVersionError } from "./WalletStateSchemaCommon";
 
 
 async function asyncAssertThrows(fn: () => Promise<any>, message: string): Promise<unknown> {
@@ -366,3 +367,132 @@ describe("The keystore", () => {
 		});
 	});
 });
+
+describe("The keystore with schema version 4 data", () => {
+	describe("refuses data it does not support, before anything else touches it", () => {
+		it.each([5, 0, -1, 4.5, "4"])("refuses state version %s", async (schemaVersion) => {
+			await expect(roundTrip(walletContainer({ schemaVersion }))).rejects.toBeInstanceOf(UnsupportedSchemaVersionError);
+		});
+
+		it.each([5, 0, -1, 3.5, "4", null])("refuses event version %s", async (schemaVersion) => {
+			const settings = { openidRefreshTokenMaxAgeInSeconds: "5" };
+			const events = [walletEvent("alter_settings", { settings, schemaVersion })];
+			await expect(roundTrip(walletContainer({}, events))).rejects.toBeInstanceOf(UnsupportedSchemaVersionError);
+		});
+
+		it("refuses an event without a version", async () => {
+			const { schemaVersion: _schemaVersion, ...unversioned } = walletEvent("alter_settings", {
+				settings: { openidRefreshTokenMaxAgeInSeconds: "5" },
+			});
+			await expect(roundTrip(walletContainer({}, [unversioned]))).rejects.toBeInstanceOf(UnsupportedSchemaVersionError);
+		});
+
+		it("refuses an unknown event type", async () => {
+			await expect(roundTrip(walletContainer({}, [walletEvent("something_new")]))).rejects.toBeInstanceOf(UnsupportedSchemaVersionError);
+		});
+
+		it.each([1, 2])("refuses set_extension stamped %s", async (schemaVersion) => {
+			const events = [walletEvent("set_extension", { namespace: "ns", key: "k", value: "v", schemaVersion })];
+			await expect(roundTrip(walletContainer({}, events))).rejects.toBeInstanceOf(UnsupportedSchemaVersionError);
+		});
+	});
+
+	describe("version 3 data", () => {
+		it("stamps the state as 4 and leaves existing events alone", async () => {
+			const settings = { openidRefreshTokenMaxAgeInSeconds: "3600" };
+			const opened = await roundTrip(walletContainer({ schemaVersion: 3 }, [walletEvent("alter_settings", { settings, schemaVersion: 3 })]));
+			expect(opened.S.schemaVersion).toBe(4);
+			expect(opened.events[0].schemaVersion).toBe(3);
+		});
+
+		it("keeps metadata, extensions and unknown members written under version 3", async () => {
+			const S = {
+				schemaVersion: 3,
+				credentials: [{ ...v4Credential, metadata: [{ type: "org.siros.secret_seed", value: { ns: "00" } }] }],
+				extensions: { "org.siros.wscd": { "kid-a1b2": "<opaque>" } },
+				"x-unknown": { a: [1, null] },
+			};
+			const opened = await roundTrip(walletContainer(S));
+			expect(opened.S).toEqual({ ...walletContainer(S).S, schemaVersion: 4 });
+		});
+	});
+
+	describe("keeps what it does not understand", () => {
+		it("keeps keypair entries it cannot parse", async () => {
+			const keypairs = [
+				{
+					kid: "kp-a",
+					keypair: { kid: "kp-a", did: "did:example:a", alg: "ES256", publicKey: {}, privateKey: {} },
+					"x-unknown": 1,
+				},
+				{ id: "kp-legacy", did: "did:example:legacy" },
+				"not-an-object",
+				7,
+				null,
+			];
+			const opened = await roundTrip(walletContainer({ keypairs }));
+			expect(opened.S.keypairs).toEqual(keypairs);
+		});
+
+		it("keeps unknown members of the container", async () => {
+			const opened = await roundTrip({ ...walletContainer(), "x-unknown": [{ a: 1 }] });
+			expect(opened).toHaveProperty("x-unknown", [{ a: 1 }]);
+		});
+	});
+
+	describe("empty metadata", () => {
+		it.each([[[]], [null]])("drops metadata %j from the state on write", async (metadata) => {
+			const opened = await roundTrip(walletContainer({ credentials: [{ ...v4Credential, metadata }] }));
+			expect(opened.S.credentials[0]).not.toHaveProperty("metadata");
+		});
+	});
+});
+
+const v4Credential = {
+	credentialId: 1,
+	format: "dc+sd-jwt",
+	data: "<credential>",
+	kid: "kid-1",
+	instanceId: 0,
+	batchId: 1,
+	credentialIssuerIdentifier: "https://issuer.example.com",
+	credentialConfigurationId: "config-1",
+};
+
+function walletContainer(S: object = {}, events: object[] = []) {
+	return {
+		lastEventHash: "",
+		events,
+		S: {
+			schemaVersion: 4,
+			credentials: [],
+			keypairs: [],
+			presentations: [],
+			credentialIssuanceSessions: [],
+			settings: { openidRefreshTokenMaxAgeInSeconds: "0" },
+			...S,
+		},
+	};
+}
+
+let nextEventId = 1;
+function walletEvent(type: string, fields: object = {}) {
+	const eventId = nextEventId++;
+	return { type, schemaVersion: 4, eventId, parentHash: "", timestampSeconds: 100 + eventId, ...fields };
+}
+
+async function openedKeystore(): Promise<keystore.OpenedContainer> {
+	const bytes = fromBase64("kgUVc/5jaq9GQbheeqvzX73xue7rAEtJh+UpW9VOVZ0=");
+	const credential = mockPrfCredential({ id: bytes, prfOutput: bytes });
+	const { mainKey, keyInfo } = await keystore.initPrf(credential, bytes, async () => false);
+	const { privateData } = await keystore.init(mainKey, keyInfo);
+	return [keystore.assertAsymmetricEncryptedContainer(privateData), mainKey];
+}
+
+// Writes `state` as another client would, then rewrites it the way this wallet does.
+async function roundTrip(state: unknown): Promise<keystore.PrivateData> {
+	const written = await keystore.updatePrivateData(await openedKeystore(), async () => state as keystore.PrivateData);
+	const [rewritten, mainKey] = await keystore.updatePrivateData(written, async (privateData) => privateData);
+	const [opened] = await keystore.openPrivateData(mainKey, rewritten);
+	return opened;
+}

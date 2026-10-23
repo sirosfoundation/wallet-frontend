@@ -283,6 +283,9 @@ export function useApi({
 				try {
 					const remotePrivateData = getPrivateDataResponse.data.privateData;
 					const mergeResult = await keystore.syncWithRemoteData(remotePrivateData);
+					if (!mergeResult.ok && mergeResult.val === 'unsupportedVersion') {
+						return Err('syncFailed');
+					}
 					if (mergeResult.ok) {
 						const newEtag =
 							getPrivateDataResponse.headers?.['x-private-data-etag'] ??

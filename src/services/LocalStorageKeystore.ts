@@ -16,7 +16,7 @@ import { WalletStateUtils } from "./WalletStateUtils";
 import { addAlterSettingsEvent, addDeleteCredentialEvent, addDeleteCredentialIssuanceSessionEvent, addDeleteKeypairEvent, addDeletePresentationEvent, addNewCredentialEvent, addNewKeypairEvent, addNewPresentationEvent, addSaveCredentialIssuanceSessionEvent, CurrentSchema, foldOldEventsIntoBaseState, foldState, mergeEventHistories } from "./WalletStateSchema";
 import { UserId } from "@/api/types";
 import { getItem } from "@/indexedDB";
-import { WalletStateContainerGeneric } from "./WalletStateSchemaCommon";
+import { UnsupportedSchemaVersionError, WalletStateContainerGeneric } from "./WalletStateSchemaCommon";
 import { ExportedWscdContainer, WscdContainer } from "@/lib/wscd-manager";
 
 type WalletState = CurrentSchema.WalletState;
@@ -166,7 +166,7 @@ export interface LocalStorageKeystore {
 	 * Uses the existing mainKey to decrypt remote data and merges it with local data.
 	 * @param remotePrivateDataRaw - Raw private data bytes from the server
 	 */
-	syncWithRemoteData(remotePrivateDataRaw: Uint8Array): Promise<Result<AsymmetricEncryptedContainer, 'keystoreNotOpen' | 'mergeFailed'>>,
+	syncWithRemoteData(remotePrivateDataRaw: Uint8Array): Promise<Result<AsymmetricEncryptedContainer, 'keystoreNotOpen' | 'mergeFailed' | 'unsupportedVersion'>>,
 	/**
 	 * Softkey only: raw private keys leave the keystore because there is no secure element yet.
 	 * Isolated plugins (fido2/r2ps/native) must never export `d`.
@@ -373,6 +373,10 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 			return await keystore.openPrivateData(mainKey, privateData);
 		}
 		catch (err) {
+			if (err instanceof UnsupportedSchemaVersionError) {
+				throw err;
+			}
+
 			logger.error(err);
 			logger.debug("Navigating to login-state to handle JWE decryption failure");
 			const queryParams = new URLSearchParams(window.location.search);
@@ -931,7 +935,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		});
 	}, [editPrivateData, openPrivateData]);
 
-	const syncWithRemoteData = useCallback(async (remotePrivateDataRaw: Uint8Array): Promise<Result<keystore.AsymmetricEncryptedContainer, 'keystoreNotOpen' | 'mergeFailed'>> => {
+	const syncWithRemoteData = useCallback(async (remotePrivateDataRaw: Uint8Array): Promise<Result<keystore.AsymmetricEncryptedContainer, 'keystoreNotOpen' | 'mergeFailed' | 'unsupportedVersion'> > => {
 		if (!privateData || !mainKey) {
 			return Err('keystoreNotOpen');
 		}
@@ -958,6 +962,10 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 
 			return Ok(newPrivateDataEncryptedContainer);
 		} catch (error) {
+			if (error instanceof UnsupportedSchemaVersionError) {
+				console.error("Remote data has a schema version this wallet does not support", error);
+				return Err('unsupportedVersion');
+			}
 			console.error("Failed to sync with remote data", error);
 			return Err('mergeFailed');
 		}
@@ -967,7 +975,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		const keypairs = calculatedWalletState?.keypairs ?? [];
 
 		const keys = keypairs
-			.filter(({ keypair }) => keypair.privateKey?.d)
+			.filter((k) => k?.keypair?.privateKey?.d)
 			.map(({ kid, keypair }) => ({
 				kid,
 				algorithm: keypair.alg,

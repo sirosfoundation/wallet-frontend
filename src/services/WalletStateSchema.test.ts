@@ -1,6 +1,6 @@
-import { assert, describe, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import { CredentialKeyPair } from "./keystore";
-import { addAlterSettingsEvent, addDeleteCredentialEvent, addDeletePresentationEvent, addNewCredentialEvent, addNewKeypairEvent, addNewPresentationEvent, addSaveCredentialIssuanceSessionEvent, CurrentSchema, findMergeBase, foldNextEvent, foldOldEventsIntoBaseState, mergeEventHistories, SchemaV1 } from "./WalletStateSchema";
+import { addAlterSettingsEvent, addDeleteCredentialEvent, addDeletePresentationEvent, addNewCredentialEvent, addNewKeypairEvent, addNewPresentationEvent, addSaveCredentialIssuanceSessionEvent, CurrentSchema, findMergeBase, foldNextEvent, foldOldEventsIntoBaseState, foldState, mergeEventHistories, SchemaV1 } from "./WalletStateSchema";
 import { jsonParseTaggedBinary, last } from '@/lib/utils';
 
 
@@ -657,3 +657,41 @@ describe("The current WalletStateSchema version", () => {
 		});
 	});
 });
+
+describe("Merging set_extension events across schema versions", () => {
+	it("merges set_extension stamped 3 written on two devices", async () => {
+		const merged = await mergeEventHistories(
+			await branch([setExtension({ key: "a", value: "1" }, 3)]),
+			await branch([setExtension({ key: "b", value: "2" }, 3)]),
+		);
+		const S = foldState(merged as CurrentSchema.WalletStateContainer);
+		expect(S.extensions["ns"]).toEqual({ a: "1", b: "2" });
+	});
+
+	it("lets a newer set_extension stamped 3 win over an older one stamped 4", async () => {
+		const merged = await mergeEventHistories(
+			await branch([setExtension({ key: "k", value: "new", timestampSeconds: 300 }, 3)]),
+			await branch([setExtension({ key: "k", value: "old", timestampSeconds: 200 }, 4)]),
+		);
+		const S = foldState(merged as CurrentSchema.WalletStateContainer);
+		expect(S.extensions["ns"]["k"]).toBe("new");
+	});
+});
+
+let nextSetExtensionEventId = 1;
+function setExtension(fields: object, schemaVersion: number) {
+	const eventId = nextSetExtensionEventId++;
+	return { type: "set_extension", schemaVersion, eventId, parentHash: "", timestampSeconds: 100 + eventId, namespace: "ns", ...fields };
+}
+
+// A container that branches off the empty initial container, with a valid event chain.
+async function branch(events: object[]): Promise<CurrentSchema.WalletStateContainer> {
+	const container = CurrentSchema.WalletStateOperations.initialWalletStateContainer();
+	let parentHash = container.lastEventHash;
+	for (const e of events) {
+		const linked = { ...e, parentHash } as CurrentSchema.WalletSessionEvent;
+		container.events.push(linked);
+		parentHash = await CurrentSchema.WalletStateOperations.calculateEventHash(linked);
+	}
+	return container;
+}
