@@ -99,6 +99,24 @@
 		"messageOffline": "You are currently <strong>offline. Some features may not be available.</strong>",
 		"messageResetPermission": "Something <strong>not working properly with the notifications</strong>, please <reloadButton>reload this page</reloadButton>."
 	},
+	"getReady": {
+		"title": "Get ready!",
+		"back": "Back to sign up",
+		"steps": {
+			"getKey": { "title": "Get your security key", "text": "You will need it to create and log in to your account." },
+			"pin": { "title": "Make sure it has a PIN", "text": "If your security key doesn't have a PIN you will be asked to create one." },
+			"secondKey": { "title": "Grab a second security key (recommended)", "text": "You will be asked if you want to configure a second security key. This ensures you can access your wallet if you misplace your first key." }
+		},
+		"whyYubiKey": "Why Choose a YubiKey?",
+		"benefits": {
+			"phishingProof": {"label": "Phishing-Proof:", "text": "It verifies the website's domain and refuses to authenticate on fake sites."},
+			"hardwareSecured": {"label": "Hardware-Secured:", "text": "Cryptographic keys are locked inside a tamper-resistant chip and cannot be stolen remotely."},
+			"physicalProof": {"label": "Physical Proof:", "text": "Requires a deliberate touch or NFC tap to grant access."},
+			"maintenanceFree": {"label": "Maintenance-Free:", "text": "Powered by your device (USB/NFC) with no batteries or software required."},
+			"private": {"label": "Completely Private:", "text": "Stores no personal data and has no cloud tracking."},
+			"compatible": {"label": "Widely Compatible:", "text": "Works instantly with major services like Google, Microsoft, and top password managers."}
+		}
+	},
 	"loginSignup": {
 		"acceptPolicies": "I accept the <policyLinks/>.",
 		"alreadyHaveAccountQuestion": "Already have a wallet account? ",

@@ -22,6 +22,7 @@ import Button from '@/components/Buttons/Button';
 import TenantSelector from '@/components/TenantSelector/TenantSelector';
 import PolicyLinks from '@/components/Shared/PolicyLinks';
 import PasskeyInfoPopup from '@/components/Popups/PasskeyInfoPopup';
+import GetReadyInfo from '@/components/GetReadyInfo/GetReadyInfo';
 
 const FormInputRow = ({
 	IconComponent,
@@ -88,6 +89,8 @@ const Signup = () => {
 	const gate = useOIDCGate({ purpose: 'registration', redirectUri: window.location.origin + buildPath('/oidc/cb') });
 	const prf = usePrfRetry();
 	const [inProgress, setInProgress] = useState(false);
+	const [step, setStep] = useState<'form' | 'getReady'>('form');
+	const [pendingHint, setPendingHint] = useState<string | undefined>();
 	const [error, setError] = useState<React.ReactNode>('');
 	const [retrySignupFrom, setRetrySignupFrom] = useState<SignupRetryParams | null>(null);
 
@@ -166,14 +169,19 @@ const Signup = () => {
 	}
 };
 
-	const onSubmit = async (event: React.SyntheticEvent<HTMLFormElement, SubmitEvent>) => {
+	const onSubmit = (event: React.SyntheticEvent<HTMLFormElement, SubmitEvent>) => {
 		event.preventDefault();
-		const hint = (event.nativeEvent?.submitter as HTMLButtonElement)?.value;
+		setPendingHint((event.nativeEvent?.submitter as HTMLButtonElement)?.value);
+		setStep('getReady');
+	};
+
+	const onContinue = async () => {
+		setStep('form');
 		const release = blockUpdates('signup-submit');
 		setError('');
 		setInProgress(true);
 		try {
-			await onSignup([hint]);
+			await onSignup([pendingHint]);
 		} finally {
 			setInProgress(false);
 			try {
@@ -205,6 +213,16 @@ const Signup = () => {
 	const nameByteLength = calculateByteSize(name);
 	const nameByteLimitReached = nameByteLength >= NAME_BYTE_LIMIT;
 	const nameByteLimitApproaching = nameByteLength >= NAME_BYTE_LIMIT / 2;
+
+	if (step === 'getReady') {
+		return (
+			<GetReadyInfo
+				onBack={() => setStep('form')}
+				onCancel={() => setStep('form')}
+				onContinue={onContinue}
+			/>
+		);
+	}
 
 	return (
 		<AuthLayout
