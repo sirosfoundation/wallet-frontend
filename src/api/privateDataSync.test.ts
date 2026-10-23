@@ -290,11 +290,74 @@ describe('PrivateDataCoordinator serialization', () => {
 		expect(order).toEqual(['sync:get', 'sync:commit', 'edit:run', 'edit:commit']);
 	});
 
-	it('write() is serialized and rejects with a conflict on 412', async () => {
-		transport.save.mockImplementationOnce(conflict);
+	it('edit() with a custom save uses it instead of transport.save, and retries it after a merge', async () => {
+		const customSave = vi.fn<(c: EncryptedContainer) => Promise<void>>()
+			.mockImplementationOnce(conflict)
+			.mockImplementationOnce(async () => { });
+		const commit = vi.fn(async () => { });
+		let n = 0;
+		const edit = vi.fn(async () => [{}, container(`edited-${n++}`), commit] as [object, EncryptedContainer, () => Promise<void>]);
 
-		await expect(coordinator.write(transport, container('x'))).rejects.toMatchObject({ cause: 'x-private-data-etag' });
-		await expect(coordinator.write(transport, container('y'))).resolves.toBeUndefined();
+		await coordinator.edit(transport, edit, { keystore: merger, cachedUser, save: customSave });
+
+		expect(customSave).toHaveBeenNthCalledWith(1, container('edited-0'));
+		expect(customSave).toHaveBeenNthCalledWith(2, container('edited-1'));
+		// only the merge POST goes through transport.save
+		expect(transport.save).toHaveBeenCalledTimes(1);
+		expect(transport.save).toHaveBeenCalledWith(container('merged'), '"remote"');
+		expect(commit).toHaveBeenCalledTimes(1);
+	});
+
+	it('an edit queued behind another edit reads state only after the first one committed', async () => {
+		// Models a legacy writer (e.g. PRF upgrade) racing a regular edit: the
+		// second edit must build its container from the state the first committed.
+		let state = 'v0';
+		const saveGate = deferred<void>();
+		transport.save
+			.mockImplementationOnce(async () => { await saveGate.promise; })
+			.mockImplementationOnce(async () => { });
+
+		const first = coordinator.edit(transport, async () => {
+			const next = `${state}+a`;
+			return [{}, container(next), async () => { state = next; }];
+		});
+		await vi.waitFor(() => expect(transport.save).toHaveBeenCalledTimes(1));
+
+		const secondEdit = vi.fn(async () => {
+			const next = `${state}+b`;
+			return [{}, container(next), async () => { state = next; }] as [object, EncryptedContainer, () => Promise<void>];
+		});
+		const second = coordinator.edit(transport, secondEdit);
+		await Promise.resolve();
+		expect(secondEdit).not.toHaveBeenCalled();
+
+		saveGate.resolve();
+		await Promise.all([first, second]);
+
+		expect(transport.save).toHaveBeenNthCalledWith(2, container('v0+a+b'));
+		expect(state).toBe('v0+a+b');
+	});
+
+	it('exclusive() is serialized with edits and syncs', async () => {
+		const order: string[] = [];
+		const gate = deferred<void>();
+
+		const ex = coordinator.exclusive(async () => {
+			order.push('exclusive:start');
+			await gate.promise;
+			order.push('exclusive:end');
+		});
+		transport.fetchRemote.mockImplementation(async () => {
+			order.push('sync:get');
+			return notModified();
+		});
+		const sync = coordinator.sync(transport, cachedUser, merger);
+		await Promise.resolve();
+		expect(transport.fetchRemote).not.toHaveBeenCalled();
+
+		gate.resolve();
+		await Promise.all([ex, sync]);
+		expect(order).toEqual(['exclusive:start', 'exclusive:end', 'sync:get']);
 	});
 
 	it('the lock is released after a failing operation', async () => {

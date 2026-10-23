@@ -159,7 +159,8 @@ const WebauthnRegistation = ({
 
 		if (beginData && pendingCredential) {
 			try {
-				const [newPrivateData, keystoreCommit] = await keystore.addPrf(
+				// Interactive PRF evaluation happens outside the private-data lock...
+				const preparedPrfKey = await keystore.preparePrfKey(
 					pendingCredential,
 					async () => {
 						setNeedPrfRetry(true);
@@ -174,26 +175,33 @@ const WebauthnRegistation = ({
 				);
 
 				setIsSubmitting(true);
-				api.updatePrivateDataEtag(await api.post('/user/session/webauthn/register-finish', {
-					challengeId: beginData.challengeId,
-					nickname,
-					credential: {
-						type: pendingCredential.type,
-						id: pendingCredential.id,
-						rawId: pendingCredential.rawId,
-						response: {
-							attestationObject: pendingCredential.response.attestationObject,
-							clientDataJSON: pendingCredential.response.clientDataJSON,
-							transports: pendingCredential.response.getTransports(),
-						},
-						authenticatorAttachment: pendingCredential.authenticatorAttachment,
-						clientExtensionResults: pendingCredential.getClientExtensionResults(),
+				// ...binding it to the current main key, uploading and committing
+				// happen under the lock.
+				await api.applyPrivateDataEdit(
+					() => keystore.putPrfKey(preparedPrfKey),
+					keystore,
+					{
+						upload: (newPrivateData) => api.post('/user/session/webauthn/register-finish', {
+							challengeId: beginData.challengeId,
+							nickname,
+							credential: {
+								type: pendingCredential.type,
+								id: pendingCredential.id,
+								rawId: pendingCredential.rawId,
+								response: {
+									attestationObject: pendingCredential.response.attestationObject,
+									clientDataJSON: pendingCredential.response.clientDataJSON,
+									transports: pendingCredential.response.getTransports(),
+								},
+								authenticatorAttachment: pendingCredential.authenticatorAttachment,
+								clientExtensionResults: pendingCredential.getClientExtensionResults(),
+							},
+							privateData: serializePrivateData(newPrivateData),
+						}),
 					},
-					privateData: serializePrivateData(newPrivateData),
-				}));
+				);
 				onSuccess();
 				setNickname("");
-				await keystoreCommit();
 
 			} catch (e) {
 				logger.error("Failed to finish registration", e);
@@ -666,8 +674,6 @@ const Settings = () => {
 	const [successMessage, setSuccessMessage] = useState('');
 	const [obliviousSettingsMessage, setObliviousSettingsMessage] = useState('');
 
-	const { getCalculatedWalletState } = keystore;
-
 	const deleteAccount = async () => {
 		try {
 			await api.del('/user/session');
@@ -727,16 +733,22 @@ const Settings = () => {
 	);
 
 	const deleteWebauthnCredential = async (credential: WebauthnCredential) => {
-		const [newPrivateData, keystoreCommit] = keystore.deletePrf(credential.credentialId);
 		try {
-			const deleteResp = api.updatePrivateDataEtag(await api.post(`/user/session/webauthn/credential/${credential.id}/delete`, {
-				privateData: serializePrivateData(newPrivateData),
-			}));
-			if (deleteResp.status === 204) {
-				await keystoreCommit();
-			} else {
-				logger.error("Failed to delete WebAuthn credential", deleteResp.status, deleteResp);
-			}
+			await api.applyPrivateDataEdit(
+				() => keystore.deletePrf(credential.credentialId),
+				keystore,
+				{
+					upload: async (newPrivateData) => {
+						const deleteResp = await api.post(`/user/session/webauthn/credential/${credential.id}/delete`, {
+							privateData: serializePrivateData(newPrivateData),
+						});
+						if (deleteResp.status !== 204) {
+							throw new Error(`Unexpected status ${deleteResp.status} deleting WebAuthn credential`, { cause: deleteResp });
+						}
+						return deleteResp;
+					},
+				},
+			);
 			await refreshData();
 
 		} catch (e) {
@@ -764,7 +776,8 @@ const Settings = () => {
 
 	const onUpgradePrfKey = async (prfKeyInfo: WebauthnPrfEncryptionKeyInfo) => {
 		try {
-			const [newPrivateData, keystoreCommit] = await keystore.upgradePrfKey(
+			// Authenticate outside the private-data lock...
+			const preparedPrfKey = await keystore.prepareUpgradePrfKey(
 				prfKeyInfo,
 				async () => {
 					const abortController = new AbortController();
@@ -780,11 +793,11 @@ const Settings = () => {
 				},
 			);
 			setUpgradePrfState(null);
+			// ...then rebuild from the current keystore state, upload and commit under it.
 			try {
-				await api.updatePrivateData(newPrivateData);
-				await keystoreCommit();
+				await api.applyPrivateDataEdit(() => keystore.putPrfKey(preparedPrfKey), keystore);
 			} catch (e) {
-				logger.error("Failed to upgrade PRF key", e, e.status);
+				logger.error("Failed to upgrade PRF key", e, e?.status);
 			}
 		} catch (e) {
 			logger.error("Failed to upgrade PRF key", e);
@@ -813,8 +826,8 @@ const Settings = () => {
 			if (isNaN(parseInt(newMaxAge))) {
 				throw new Error("Update token max age: newMaxAge is not a number");
 			}
+			// Field-only patch: merged into the current settings inside the locked edit.
 			await api.applyPrivateDataEdit(() => keystore.alterSettings({
-				...getCalculatedWalletState().settings,
 				openidRefreshTokenMaxAgeInSeconds: newMaxAge,
 			}), keystore);
 
@@ -834,8 +847,8 @@ const Settings = () => {
 			if (!['true', 'false'].includes(useOblivious)) {
 				throw new Error("Update useOblivious: invalid value");
 			}
+			// Field-only patch: merged into the current settings inside the locked edit.
 			await api.applyPrivateDataEdit(() => keystore.alterSettings({
-				...getCalculatedWalletState().settings,
 				useOblivious: useOblivious.toString(),
 			}), keystore);
 

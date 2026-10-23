@@ -13,9 +13,23 @@ export const MAX_PRIVATE_DATA_ATTEMPTS = 3;
 
 export type PrivateDataSyncResult = Result<void, 'syncFailed' | typeof PRIVATE_DATA_CONFLICT>;
 
+/** Computes a new container from the keystore state at call time. */
 export type PrivateDataEdit<T> = () => Promise<[T, EncryptedContainer, CommitCallback]>;
 
 export type PrivateDataMerger = Pick<LocalStorageKeystore, 'syncWithRemoteData'>;
+
+export type PrivateDataEditOptions = {
+	/** When given, a version conflict merges the remote copy and re-runs the edit. */
+	keystore?: PrivateDataMerger,
+	cachedUser?: CachedUser,
+	/**
+	 * Upload the edited container through another endpoint (e.g. passkey
+	 * register/delete, which carry the private data in their body). Defaults to
+	 * `transport.save`. Must update the local etag on success and reject on a
+	 * version conflict.
+	 */
+	save?: (container: EncryptedContainer) => Promise<void>,
+};
 
 /**
  * I/O primitives used by the coordinator. Implemented by `useApi`.
@@ -50,8 +64,11 @@ function conflictError(): Error {
  * holding server data encrypted with a key the tab does not have yet. Running
  * syncs, writes and their local commits under one lock removes that race.
  *
- * The lock is not re-entrant: never call `sync`/`edit`/`write` from inside an
- * `edit` callback or a commit callback.
+ * Every writer must go through `edit()`, so that reading the current keystore
+ * state, uploading and committing happen under the lock as one step.
+ *
+ * The lock is not re-entrant: never call `sync`/`edit` from inside an `edit`
+ * callback, a `save` callback or a commit callback.
  */
 export class PrivateDataCoordinator {
 	#lock = new Mutex();
@@ -87,17 +104,22 @@ export class PrivateDataCoordinator {
 	 * operations. On a version conflict the remote copy is merged (when a
 	 * keystore is given) and `edit` is re-run against the merged state.
 	 * Local state is only committed after the server accepted the write.
+	 *
+	 * `edit` runs under the lock and must read the keystore state it modifies
+	 * when it is called (not from a closure), so a retry sees the merged state.
+	 * Interactive steps (WebAuthn prompts) should run before calling `edit()`.
 	 */
 	edit<T>(
 		transport: PrivateDataTransport,
 		edit: PrivateDataEdit<T>,
-		options: { keystore?: PrivateDataMerger, cachedUser?: CachedUser } = {},
+		options: PrivateDataEditOptions = {},
 	): Promise<T> {
+		const save = options.save ?? ((container: EncryptedContainer) => transport.save(container));
 		return this.#lock.runExclusive(async () => {
 			for (let attempt = 1; ; attempt++) {
 				const [result, container, commit] = await edit();
 				try {
-					await transport.save(container);
+					await save(container);
 				} catch (e) {
 					if (!isPrivateDataConflict(e)) {
 						throw e;
@@ -118,21 +140,12 @@ export class PrivateDataCoordinator {
 	}
 
 	/**
-	 * Save an already-computed container under the lock. The caller must only
-	 * commit local state when this resolves. A conflict rejects with
-	 * `cause: 'x-private-data-etag'`; prefer `edit()` which can recover.
+	 * Run `fn` under the private-data lock. For flows that read, rewrite and
+	 * upload private data in ways that do not fit `edit()` (e.g. login, where the
+	 * keystore is not open yet). Prefer `edit()` for everything else.
 	 */
-	write(transport: PrivateDataTransport, container: EncryptedContainer): Promise<void> {
-		return this.#lock.runExclusive(async () => {
-			try {
-				await transport.save(container);
-			} catch (e) {
-				if (isPrivateDataConflict(e)) {
-					throw conflictError();
-				}
-				throw e;
-			}
-		});
+	exclusive<T>(fn: () => Promise<T>): Promise<T> {
+		return this.#lock.runExclusive(fn);
 	}
 
 	async #syncUnlocked(
