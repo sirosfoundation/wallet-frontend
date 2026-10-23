@@ -99,6 +99,24 @@
 		"messageOffline": "Olet tällä hetkellä <strong>offline. Jotkin toiminnot eivät ehkä ole käytettävissä.</strong>",
 		"messageResetPermission": "Jokin <strong>ei toimi oikein ilmoitusten kanssa</strong>, <reloadButton>lataa tämä sivu uudelleen</reloadButton>."
 	},
+	"getReady": {
+		"title": "Valmistaudu!",
+		"back": "Takaisin rekisteröitymiseen",
+		"steps": {
+			"getKey": { "title": "Hanki turva-avaimesi", "text": "Tarvitset sitä luodaksesi ja kirjautuaksesi tilillesi." },
+			"pin": { "title": "Varmista, että siinä on PIN-koodi", "text": "Jos turva-avaimessasi ei ole PIN-koodia, sinua pyydetään luomaan sellainen." },
+			"secondKey": { "title": "Hanki toinen turva-avain (suositeltavaa)", "text": "Sinulta kysytään, haluatko määrittää toisen turva-avaimen. Tämä varmistaa, että pääset lompakkoosi, jos kadotat ensimmäisen avaimen." }
+		},
+		"whyYubiKey": "Miksi valita YubiKey?",
+		"benefits": {
+			"phishingProof": {"label": "Phishing-suojattu:", "text": "Se tarkistaa verkkosivuston verkkotunnuksen ja kieltäytyy todentamasta väärennetyillä sivustoilla."},
+			"hardwareSecured": {"label": "Laitetasolla suojattu:", "text": "Kryptografiset avaimet ovat lukittuina väärentämistä kestävään siruun, eikä niitä voi varastaa etänä."},
+			"physicalProof": {"label": "Fyysinen todiste:", "text": "Vaatii tahallisen kosketuksen tai NFC-napautuksen myöntääkseen pääsyn."},
+			"maintenanceFree": {"label": "Huoltovapaa:", "text": "Toimii laitteesi virralla (USB/NFC) - ei vaadi paristoja eikä ohjelmistoja."},
+			"private": {"label": "Täysin yksityinen:", "text": "Ei tallenna henkilökohtaisia tietoja eikä seuraa pilvessä."},
+			"compatible": {"label": "Laajasti yhteensopiva:", "text": "Toimii välittömästi suurten palveluiden, kuten Googlen, Microsoftin ja huippuluokan salasanojen hallitsijoiden kanssa."}
+		}
+	},
 	"loginSignup": {
 		"acceptPolicies": "Hyväksyn <policyLinks/>.",
 		"alreadyHaveAccountQuestion": "Onko sinulla jo lompakkotili? ",
