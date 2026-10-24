@@ -39,6 +39,7 @@ import { logger } from '@/logger';
 import { TrustEvaluators, TrustStatus } from '../types';
 import { DcqlQuery } from 'dcql';
 import { ClientHeldEncryptionError, OIDFlowError } from '../errors';
+import { ZKP_REQ_REFUSED, requestsZkpReq, zkpReqRefusal } from '../utils/zkpReqPolicy';
 
 /**
  * Pending request waiting for a response
@@ -223,6 +224,8 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	 * ends the flow or the socket closes.
 	 */
 	private releasedFlows = new Set<string>();
+	/** Flows whose DCQL asks for a zkp_req presentation: their sign request is held to the same policy. */
+	private zkpReqFlows = new Set<string>();
 
 	private reconnectAttempts = 0;
 	private maxReconnectAttempts = 5;
@@ -349,6 +352,30 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		this.vpCredentialCache.clear();
 		this.responseKeys.clear();
 		this.releasedFlows.clear();
+		this.zkpReqFlows.clear();
+	}
+
+	/**
+	 * The wallet's zkp_req policy for one consumption point: remembers the flow as a zkp_req flow
+	 * when its DCQL asks for one, and returns the reason to refuse it, or null.
+	 */
+	private zkpReqRefusalOf(flowId: string, dcqlQuery: unknown, verifiedRequest: unknown): string | null {
+		if (!requestsZkpReq(dcqlQuery)) {
+			return null;
+		}
+		this.zkpReqFlows.add(flowId);
+		return zkpReqRefusal(mapVerifiedRequest(verifiedRequest), 'not-yet-known');
+	}
+
+	/** Tell the engine the wallet declines the request (it answers the verifier access_denied). */
+	private declineFlow(flowId: string, reason: string): void {
+		this.ws?.send(JSON.stringify({
+			type: 'flow_action',
+			flow_id: flowId,
+			action: 'decline',
+			timestamp: new Date().toISOString(),
+			payload: { reason },
+		}));
 	}
 
 	/**
@@ -365,6 +392,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		// id instead of inheriting this one, and settle its pending request. Only this flow's
 		// own entries are touched: nothing a newer flow holds is cleared.
 		this.currentFlowId = null;
+		this.zkpReqFlows.delete(flowId);
 		this.responseKeys.drop(flowId);
 		const pending = this.pending.get(flowId);
 		if (pending) {
@@ -648,6 +676,15 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			result.verifiedRequest = mapVerifiedRequest(payload.verified_request);
 		}
 
+		// Fail-safe: whatever message resolved the flow, a zkp_req request that does not meet the
+		// wallet's policy never comes back as a usable result.
+		if (requestsZkpReq(payload?.dcql_query)) {
+			const refusal = zkpReqRefusal(result.verifiedRequest, 'not-yet-known');
+			if (refusal) {
+				return { success: false, error: { code: ZKP_REQ_REFUSED, message: refusal } };
+			}
+		}
+
 		// Extract purpose from DCQL credential_sets
 		const credentialSets = (payload?.dcql_query as any)?.credential_sets;
 		if (credentialSets?.[0]?.purpose && result.verifierInfo) {
@@ -784,6 +821,13 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			}
 
 			if (stage === 'credential_selection') {
+				// A zkp_req request that does not meet the wallet's policy is refused before any selection
+				// UI: the engine is told to decline (it answers the verifier access_denied), and the result
+				// the caller gets is the refusal (mapOID4VPResponse applies the same policy).
+				if (this.zkpReqRefusalOf(flowId, payload?.dcql_query, payload?.verified_request)) {
+					this.declineFlow(flowId, 'zkp_req_policy');
+				}
+
 				// Resolve pending request to trigger credential selection UI
 				const pending = this.pending.get(flowId);
 				if (pending) {
@@ -846,6 +890,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		if (type === 'flow_complete' || type === 'flow_error' || type === 'error') {
 			this.responseKeys.drop(flowId);
 			this.releasedFlows.delete(flowId);
+			this.zkpReqFlows.delete(flowId);
 		}
 
 		// All other message types resolve a pending request
@@ -1039,6 +1084,17 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			return;
 		}
 
+		// A zkp_req presentation is refused unless the request is signed and the response is encrypted;
+		// the refusal path (SIGN_REFUSED) ends the sign request at once instead of leaving it to time out.
+		if (request.action === 'sign_presentation' && this.zkpReqFlows.has(request.flowId)) {
+			const refusal = zkpReqRefusal(request.params.verifiedRequest, request.params.responseEncryption ? 'present' : 'absent');
+			if (refusal) {
+				logger.warn('Refusing a zkp_req sign request that does not meet the wallet policy');
+				this.sendSignResponse(request.flowId, request.messageId, {}, refusal, 'SIGN_REFUSED');
+				return;
+			}
+		}
+
 		// The issuer's response is decrypted here, with the key this wallet
 		// generated for the flow; no sign handler ever sees it.
 		if (request.action === 'decrypt_credential_response') {
@@ -1217,7 +1273,8 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		flowId: string,
 		messageId: string,
 		response: SignResponse,
-		error?: string
+		error?: string,
+		errorCode?: string,
 	): void {
 		if (!this.isConnected()) {
 			logger.error('Cannot send sign response: WebSocket not connected');
@@ -1239,6 +1296,9 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 		if (error) {
 			msg.error = error;
+			// A refusal (SIGN_REFUSED) ends the engine's sign request at once; without the code the
+			// engine still fails the flow on `error`.
+			if (errorCode) msg.error_code = errorCode;
 		} else {
 			if (response.proofJwt) msg.proof_jwt = response.proofJwt;
 			if (response.proofs) msg.proofs = response.proofs;
@@ -1275,6 +1335,14 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		if (!dcqlQuery || typeof dcqlQuery !== 'object') {
 			logger.error('Malformed match request: missing required dcql_query');
 			this.sendMatchResponse(flowId, messageId, { matches: [] }, 'Missing required dcql_query');
+			return;
+		}
+
+		// The wallet's zkp_req policy applies before anything is matched.
+		const refusal = this.zkpReqRefusalOf(flowId, dcqlQuery, message.verified_request);
+		if (refusal) {
+			logger.warn('Refusing a zkp_req match request that does not meet the wallet policy');
+			this.sendMatchResponse(flowId, messageId, { matches: [] }, refusal);
 			return;
 		}
 
@@ -1374,6 +1442,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		this.vpCredentialCache.clear();
 		this.responseKeys.clear();
 		this.releasedFlows.clear();
+		this.zkpReqFlows.clear();
 
 		// Don't reconnect if it was a clean close
 		if (event.code === 1000) {

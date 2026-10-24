@@ -1440,3 +1440,268 @@ const handlerActionExcludesDecrypt: SignHandlerRequest['action'] = 'sign_present
 // @ts-expect-error the decrypt action is the transport's own and never reaches a sign handler
 const decryptIsNotAHandlerAction: SignHandlerRequest['action'] = 'decrypt_credential_response';
 void [hookHandlerIsRegistrable, handlerActionExcludesDecrypt, decryptIsNotAHandlerAction];
+
+describe('the wallet policy for a zkp_req presentation', () => {
+	const zkpQuery = { credentials: [{ id: 'zkp', format: 'zkp_req' }] };
+	const sdJwtQuery = { credentials: [{ id: 'pid', format: 'dc+sd-jwt' }] };
+	const signedJwt = {
+		client_id: 'x509_san_dns:verifier.example.com',
+		client_id_scheme: 'x509_san_dns',
+		response_mode: 'direct_post.jwt',
+		response_uri: 'https://verifier.example.com/post',
+		signed: true,
+		signature_verification: 'verified',
+	};
+	const unsigned = { ...signedJwt, client_id_scheme: 'redirect_uri', signed: false, signature_verification: 'none' };
+	const signedPlain = { ...signedJwt, response_mode: 'direct_post' };
+
+	async function verifierKey() {
+		const { publicKey } = await generateKeyPair('ECDH-ES', { crv: 'P-256', extractable: true });
+		return { ...(await exportJWK(publicKey)), kid: 'v-1', use: 'enc', alg: 'ECDH-ES' };
+	}
+
+	/** Start an OID4VP flow and deliver its credential_selection progress message. */
+	async function selection(dcql: unknown, verifiedRequest: unknown) {
+		const ctx = await setup();
+		const flowPromise = ctx.transport.startOID4VPFlow({ requestUriRef: 'https://v.example/r', clientId: 'c' });
+		await vi.waitFor(() => expect(ctx.ws.sentMessages.length).toBeGreaterThan(1));
+		const flowId = JSON.parse(ctx.ws.sentMessages[1]).flow_id as string;
+		ctx.ws.simulateMessage({
+			type: 'progress',
+			flow_id: flowId,
+			step: 'credential_selection',
+			payload: { dcql_query: dcql, verified_request: verifiedRequest },
+		});
+		const result = await flowPromise;
+		const sent = () => ctx.ws.sentMessages.map((m) => JSON.parse(m));
+		return { ...ctx, flowId, result, sent, declines: () => sent().filter((m) => m.type === 'flow_action' && m.action === 'decline') };
+	}
+
+	describe('at the credential selection', () => {
+		it('refuses an unsigned zkp_req request and tells the engine to decline', async () => {
+			const { result, declines, flowId } = await selection(zkpQuery, unsigned);
+
+			expect(result.success).toBe(false);
+			expect(result.error?.code).toBe('ZKP_REQ_REFUSED');
+			expect(result.error?.message).toMatch(/signed request object/);
+			expect(result.dcqlQuery).toBeUndefined();
+			expect(declines()).toEqual([expect.objectContaining({ flow_id: flowId, action: 'decline' })]);
+		});
+
+		it('refuses a signed zkp_req request over a response that is not encrypted', async () => {
+			const { result, declines } = await selection(zkpQuery, signedPlain);
+
+			expect(result.success).toBe(false);
+			expect(result.error?.code).toBe('ZKP_REQ_REFUSED');
+			expect(result.error?.message).toMatch(/encrypted/);
+			expect(declines()).toHaveLength(1);
+		});
+
+		it('refuses a zkp_req request with no verified_request at all (fails closed)', async () => {
+			const { result, declines } = await selection(zkpQuery, undefined);
+
+			expect(result.error?.code).toBe('ZKP_REQ_REFUSED');
+			expect(declines()).toHaveLength(1);
+		});
+
+		it('accepts a signed zkp_req request with an encrypted response mode', async () => {
+			const { result, declines } = await selection(zkpQuery, signedJwt);
+
+			expect(result.success).toBe(true);
+			expect(result.dcqlQuery).toEqual(zkpQuery);
+			expect(result.verifiedRequest).toMatchObject({ signed: true, responseMode: 'direct_post.jwt' });
+			expect(declines()).toHaveLength(0);
+		});
+
+		it.each([
+			['unsigned, plain direct_post', { ...unsigned, response_mode: 'direct_post' }],
+			['no verified_request', undefined],
+		])('leaves a non-zkp request alone (%s)', async (_label, verifiedRequest) => {
+			const { result, declines } = await selection(sdJwtQuery, verifiedRequest);
+
+			expect(result.success).toBe(true);
+			expect(result.dcqlQuery).toEqual(sdJwtQuery);
+			expect(declines()).toHaveLength(0);
+		});
+
+		it('is not triggered by a verifier that only advertises zkp_req support', async () => {
+			const { result, declines } = await selection(sdJwtQuery, {
+				...unsigned,
+				client_metadata: { vp_formats_supported: { zkp_req: { proof_system_values: ['vega'] } } },
+			});
+
+			expect(result.success).toBe(true);
+			expect(declines()).toHaveLength(0);
+		});
+
+		it('also refuses when the request reaches the result through another message (fail-safe in the mapper)', async () => {
+			const { transport, ws } = await setup();
+			const flowPromise = transport.startOID4VPFlow({ requestUriRef: 'https://v.example/r', clientId: 'c' });
+			await vi.waitFor(() => expect(ws.sentMessages.length).toBeGreaterThan(1));
+			const flowId = JSON.parse(ws.sentMessages[1]).flow_id as string;
+
+			ws.simulateMessage({ type: 'flow_complete', flow_id: flowId, payload: { dcql_query: zkpQuery, verified_request: unsigned } });
+
+			const result = await flowPromise;
+			expect(result.success).toBe(false);
+			expect(result.error?.code).toBe('ZKP_REQ_REFUSED');
+			expect(result.dcqlQuery).toBeUndefined();
+		});
+	});
+
+	describe('at a match request', () => {
+		async function match(dcql: unknown, verifiedRequest: unknown) {
+			const ctx = await setup();
+			const handler = vi.fn().mockResolvedValue({ matches: [] });
+			ctx.transport.onMatchRequest(handler);
+			ctx.ws.simulateMessage({
+				type: 'match_request',
+				flow_id: 'f1',
+				message_id: 'mm1',
+				dcql_query: dcql,
+				verified_request: verifiedRequest,
+			});
+			await vi.waitFor(() => expect(ctx.ws.sentMessages.some((m) => JSON.parse(m).type === 'match_response')).toBe(true));
+			const response = ctx.ws.sentMessages.map((m) => JSON.parse(m)).find((m) => m.type === 'match_response');
+			return { ...ctx, handler, response };
+		}
+
+		it('answers an error, without matching anything, for an unsigned zkp_req request', async () => {
+			const { handler, response } = await match(zkpQuery, unsigned);
+
+			expect(response.error).toMatch(/signed request object/);
+			expect(response).not.toHaveProperty('matches');
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it('answers an error for a signed zkp_req request over a response that is not encrypted', async () => {
+			const { handler, response } = await match(zkpQuery, signedPlain);
+
+			expect(response.error).toMatch(/encrypted/);
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it('matches a signed zkp_req request with an encrypted response mode', async () => {
+			const { handler, response } = await match(zkpQuery, signedJwt);
+
+			expect(response).not.toHaveProperty('error');
+			expect(handler).toHaveBeenCalledTimes(1);
+		});
+
+		it('matches a non-zkp request however it is delivered', async () => {
+			const { handler, response } = await match(sdJwtQuery, unsigned);
+
+			expect(response).not.toHaveProperty('error');
+			expect(handler).toHaveBeenCalledTimes(1);
+		});
+	});
+
+	describe('at the sign request of a zkp_req flow', () => {
+		async function signAfter(dcql: unknown, selectionRequest: unknown, signParams: Record<string, unknown>) {
+			const ctx = await setup();
+			const handler = vi.fn().mockResolvedValue({ vpToken: '{"zkp":["proof"]}' });
+			ctx.transport.onSignRequest(handler);
+			ctx.transport.onMatchRequest(vi.fn().mockResolvedValue({ matches: [] }));
+			ctx.ws.simulateMessage({
+				type: 'match_request',
+				flow_id: 'f1',
+				message_id: 'mm1',
+				dcql_query: dcql,
+				verified_request: selectionRequest,
+			});
+			await vi.waitFor(() => expect(ctx.ws.sentMessages.some((m) => JSON.parse(m).type === 'match_response')).toBe(true));
+			ctx.ws.simulateMessage({
+				type: 'sign_request',
+				flow_id: 'f1',
+				message_id: 'ms1',
+				action: 'sign_presentation',
+				params: { audience: 'verifier', nonce: 'n', ...signParams },
+			});
+			await vi.waitFor(() => expect(ctx.signResponses().length).toBe(1));
+			return { ...ctx, handler, response: ctx.signResponses()[0] };
+		}
+
+		it('refuses with SIGN_REFUSED, signing nothing, when the sign request carries no response_encryption', async () => {
+			const { handler, response } = await signAfter(zkpQuery, signedJwt, { verified_request: signedJwt });
+
+			expect(response.error_code).toBe('SIGN_REFUSED');
+			expect(response.error).toMatch(/encrypted/);
+			expect(response).not.toHaveProperty('vp_token');
+			expect(response).not.toHaveProperty('response_jwe');
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it('refuses with SIGN_REFUSED when the sign request itself shows an unsigned request', async () => {
+			const jwk = await verifierKey();
+
+			const { handler, response } = await signAfter(zkpQuery, signedJwt, {
+				verified_request: unsigned,
+				response_encryption: { jwk, alg: 'ECDH-ES', enc: 'A128GCM' },
+			});
+
+			expect(response.error_code).toBe('SIGN_REFUSED');
+			expect(response.error).toMatch(/signed request object/);
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it('signs a signed zkp_req request with an encrypted response', async () => {
+			const jwk = await verifierKey();
+
+			const { handler, response } = await signAfter(zkpQuery, signedJwt, {
+				verified_request: signedJwt,
+				response_encryption: { jwk, alg: 'ECDH-ES', enc: 'A128GCM' },
+			});
+
+			expect(response).not.toHaveProperty('error');
+			expect(response).not.toHaveProperty('error_code');
+			expect(response.response_jwe).toEqual(expect.any(String));
+			expect(handler).toHaveBeenCalledTimes(1);
+		});
+
+		it('leaves the sign request of a non-zkp flow alone, even when it looks unsigned and plain', async () => {
+			const { handler, response } = await signAfter(sdJwtQuery, unsigned, { verified_request: { ...unsigned, response_mode: 'direct_post' } });
+
+			expect(response).not.toHaveProperty('error');
+			expect(response.vp_token).toBe('{"zkp":["proof"]}');
+			expect(handler).toHaveBeenCalledTimes(1);
+		});
+
+		it('leaves a sign request for a flow the wallet never saw a zkp_req query for alone', async () => {
+			const { transport, ws, signResponses } = await setup();
+			const handler = vi.fn().mockResolvedValue({ vpToken: '{}' });
+			transport.onSignRequest(handler);
+
+			ws.simulateMessage({
+				type: 'sign_request',
+				flow_id: 'untracked',
+				message_id: 'ms1',
+				action: 'sign_presentation',
+				params: { audience: 'v', nonce: 'n', verified_request: { ...unsigned, response_mode: 'direct_post' } },
+			});
+			await vi.waitFor(() => expect(signResponses().length).toBe(1));
+
+			expect(signResponses()[0]).not.toHaveProperty('error');
+			expect(handler).toHaveBeenCalledTimes(1);
+		});
+
+		it('forgets the zkp_req flow when the engine ends it', async () => {
+			const ctx = await setup();
+			ctx.transport.onSignRequest(vi.fn().mockResolvedValue({ vpToken: '{}' }));
+			ctx.transport.onMatchRequest(vi.fn().mockResolvedValue({ matches: [] }));
+			ctx.ws.simulateMessage({ type: 'match_request', flow_id: 'f1', message_id: 'mm1', dcql_query: zkpQuery, verified_request: signedJwt });
+			await vi.waitFor(() => expect(ctx.ws.sentMessages.some((m) => JSON.parse(m).type === 'match_response')).toBe(true));
+			ctx.ws.simulateMessage({ type: 'flow_error', flow_id: 'f1', error: { code: 'X', message: 'ended' } });
+
+			ctx.ws.simulateMessage({
+				type: 'sign_request',
+				flow_id: 'f1',
+				message_id: 'ms-after',
+				action: 'sign_presentation',
+				params: { audience: 'v', nonce: 'n', verified_request: { ...unsigned, response_mode: 'direct_post' } },
+			});
+			await vi.waitFor(() => expect(ctx.signResponses().length).toBe(1));
+
+			expect(ctx.signResponses()[0]).not.toHaveProperty('error');
+		});
+	});
+});
