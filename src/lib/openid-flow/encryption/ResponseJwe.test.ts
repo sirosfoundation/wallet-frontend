@@ -148,3 +148,59 @@ describe('verifierJwkThumbprint', () => {
 		await expect(verifierJwkThumbprint(jwk)).resolves.toBe(await verifierJwkThumbprint(bare));
 	});
 });
+
+describe('buildJarmResponse: every verifier key and algorithm the engine accepts (go-wallet-backend #471)', () => {
+	async function decryptable(alg: string, options: { crv?: string; modulusLength?: number }, enc: string) {
+		const { publicKey, privateKey } = await generateKeyPair(alg, { extractable: true, ...options });
+		const jwk = { ...(await exportJWK(publicKey)), kid: `${alg}-key`, alg };
+		const jwe = await buildJarmResponse({
+			vpToken: '{"pid":["t"]}',
+			audience: 'verifier',
+			encryption: { jwk, alg, enc },
+		});
+		return { jwe, privateKey };
+	}
+
+	it.each([
+		['ECDH-ES', { crv: 'P-256' }],
+		['ECDH-ES', { crv: 'P-384' }],
+		['ECDH-ES', { crv: 'P-521' }],
+		['ECDH-ES+A128KW', { crv: 'P-384' }],
+		['ECDH-ES+A256KW', { crv: 'P-521' }],
+	])('encrypts for %s on %o', async (alg, options) => {
+		const { jwe, privateKey } = await decryptable(alg, options, 'A128GCM');
+
+		const { plaintext, protectedHeader } = await compactDecrypt(jwe, privateKey);
+		expect(protectedHeader).toMatchObject({ alg, enc: 'A128GCM', kid: `${alg}-key` });
+		expect(JSON.parse(new TextDecoder().decode(plaintext)).vp_token).toEqual({ pid: ['t'] });
+	});
+
+	it.each(['RSA-OAEP', 'RSA-OAEP-256'])('encrypts for an RSA key with %s', async (alg) => {
+		const { jwe, privateKey } = await decryptable(alg, { modulusLength: 2048 }, 'A256GCM');
+
+		const { protectedHeader } = await compactDecrypt(jwe, privateKey);
+		expect(protectedHeader).toMatchObject({ alg, enc: 'A256GCM', kid: `${alg}-key` });
+		expect(jwe.split('.')[1]).not.toBe('');
+	});
+
+	it.each(['A128GCM', 'A256GCM', 'A128CBC-HS256', 'A256CBC-HS512'])('encrypts with %s', async (enc) => {
+		const { jwe, privateKey } = await decryptable('ECDH-ES', { crv: 'P-256' }, enc);
+
+		const { protectedHeader } = await compactDecrypt(jwe, privateKey);
+		expect(protectedHeader.enc).toBe(enc);
+	});
+
+	it.each([
+		['EC P-384', () => generateKeyPair('ECDH-ES', { crv: 'P-384', extractable: true })],
+		['RSA', () => generateKeyPair('RSA-OAEP-256', { modulusLength: 2048, extractable: true })],
+	])('computes the thumbprint of an %s verifier key from its required members only', async (_name, make) => {
+		const { publicKey } = await make();
+		const jwk = await exportJWK(publicKey);
+
+		const bare = await verifierJwkThumbprint(jwk);
+		const decorated = await verifierJwkThumbprint({ ...jwk, kid: 'k', use: 'enc', alg: 'RSA-OAEP-256' });
+
+		expect(decorated).toBe(bare);
+		expect(bare).toMatch(/^[A-Za-z0-9_-]{43}$/);
+	});
+});
