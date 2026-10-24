@@ -1,6 +1,6 @@
 {
   "name": "wallet-frontend",
-  "version": "0.7.0-beta.3",
+  "version": "0.7.0-beta.4",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.22.0",
@@ -23,7 +23,7 @@
     "cose-kit": "^1.7.1",
     "dcql": "^3.0.1",
     "did-resolver": "^4.1.0",
-    "dompurify": "^3.4.16",
+    "dompurify": "^3.4.17",
     "i18next": "^26.4.2",
     "jose": "^4.15.9",
     "jsonpointer": "^5.0.1",
@@ -86,7 +86,7 @@
     "happy-dom": "^20.14.5",
     "jsdom": "^28.1.0",
     "reflect-metadata": "^0.2.2",
-    "vite": "^6.4.3",
+    "vite": "^6.4.4",
     "vite-plugin-checker": "^0.11.0",
     "vite-plugin-svgr": "^4.5.0",
     "vitest": "^4.1.11"

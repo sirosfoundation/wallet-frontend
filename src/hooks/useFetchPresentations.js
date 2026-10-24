@@ -65,7 +65,8 @@ const useFetchPresentations = (keystore, batchId = null, transactionId = null) =
 							credentialIssuerIdentifier: firstVC?.credentialIssuerIdentifier ?? null,
 						});
 
-						const result = await credentialEngine.credentialVerifyingEngine.verify({ rawCredential: presentation.data, opts: {} });
+						const { credentialVerifyingEngine } = await credentialEngine;
+						const result = await credentialVerifyingEngine.verify({ rawCredential: presentation.data, opts: {} });
 
 						return {
 							presentation,

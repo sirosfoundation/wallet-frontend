@@ -463,7 +463,8 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 
 			// We assume that all credentials in the batch are the same,
 			// so parsing one is sufficient for validation and metadata extraction.
-			const parseResult = await credentialEngine.credentialParsingEngine.parse({
+			const { credentialParsingEngine } = await credentialEngine;
+			const parseResult = await credentialParsingEngine.parse({
 				rawCredential: credentialsToStore[0].data,
 				credentialIssuer: {
 					credentialIssuerIdentifier: credentialsToStore[0].credentialIssuerIdentifier,
