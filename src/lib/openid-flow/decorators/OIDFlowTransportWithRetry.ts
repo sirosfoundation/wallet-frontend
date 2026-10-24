@@ -104,6 +104,10 @@ export class OIDFlowTransportWithRetry implements IOIDFlowTransport {
 		return this.transport.isConnected();
 	}
 
+	releaseFlow(): void {
+		this.transport.releaseFlow?.();
+	}
+
 	// ===== OID4VCI Flow with Retry =====
 
 	async startOID4VCIFlow(params: OID4VCIFlowParams): Promise<OID4VCIFlowResult> {
