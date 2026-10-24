@@ -15,59 +15,16 @@ import type { OIDFlowSignRequest, OIDFlowSignResponse } from '@/hooks/useOIDFlow
 import { OIDFlowTransportWithRetry } from '../decorators/OIDFlowTransportWithRetry';
 import { verifierJwkThumbprint } from '../encryption';
 import type { IOIDFlowTransport } from '../types/IOIDFlowTransport';
+import { MockWebSocket, installMockWebSocket, sockets } from './helpers/mockWebSocket';
 
-class MockWebSocket {
-	static CONNECTING = 0;
-	static OPEN = 1;
-	static CLOSING = 2;
-	static CLOSED = 3;
-
-	readyState: number = MockWebSocket.CONNECTING;
-	url: string;
-	onopen: ((event: Event) => void) | null = null;
-	onclose: ((event: CloseEvent) => void) | null = null;
-	onmessage: ((event: MessageEvent) => void) | null = null;
-	onerror: ((event: Event) => void) | null = null;
-	sentMessages: string[] = [];
-
-	constructor(url: string | URL) {
-		this.url = typeof url === 'string' ? url : url.toString();
-		setTimeout(() => {
-			this.readyState = MockWebSocket.OPEN;
-			this.onopen?.(new Event('open'));
-		}, 0);
-	}
-
-	send(data: string): void {
-		this.sentMessages.push(data);
-	}
-
-	close(code?: number, reason?: string): void {
-		this.readyState = MockWebSocket.CLOSED;
-		this.onclose?.({ code: code ?? 1000, reason: reason ?? '' } as CloseEvent);
-	}
-
-	simulateMessage(data: unknown): void {
-		this.onmessage?.({ data: JSON.stringify(data) } as MessageEvent);
-	}
-}
-
-let sockets: MockWebSocket[] = [];
-const originalWebSocket = globalThis.WebSocket;
+let restoreWebSocket: () => void;
 
 beforeEach(() => {
-	sockets = [];
-	// @ts-expect-error - mocking WebSocket
-	globalThis.WebSocket = class extends MockWebSocket {
-		constructor(url: string | URL) {
-			super(url);
-			sockets.push(this);
-		}
-	};
+	restoreWebSocket = installMockWebSocket();
 });
 
 afterEach(() => {
-	globalThis.WebSocket = originalWebSocket;
+	restoreWebSocket();
 	vi.restoreAllMocks();
 });
 
@@ -87,6 +44,49 @@ async function setup() {
 	const signResponses = () =>
 		ws.sentMessages.map((m) => JSON.parse(m)).filter((m) => m.type === 'sign_response');
 	return { transport, ws, signResponses };
+}
+
+/** Start an issuance flow on a connected transport; resolves once the flow_start went out. */
+async function startIssuance(ws: MockWebSocket, transport: OIDFlowWebSocketTransport) {
+	const flowPromise = transport.startOID4VCIFlow({ credentialOfferUri: 'openid-credential-offer://?x' });
+	await vi.waitFor(() => expect(ws.sentMessages.length).toBeGreaterThan(1));
+	return { flowPromise, flowId: JSON.parse(ws.sentMessages[1]).flow_id as string };
+}
+
+/** Ask the wallet to decrypt a credential response for a flow and return the answer it sent. */
+async function requestDecryption(
+	ws: MockWebSocket,
+	signResponses: () => Array<Record<string, unknown>>,
+	flowId: string,
+	messageId: string,
+	jwk: JWK,
+	body: unknown = { credentials: [{ credential: ISSUED }] },
+) {
+	ws.simulateMessage({
+		type: 'sign_request',
+		flow_id: flowId,
+		message_id: messageId,
+		action: 'decrypt_credential_response',
+		params: { jwe: await issuerEncrypt(jwk, 'ECDH-ES+A256KW', 'A128GCM', body), deferred: false },
+	});
+	await vi.waitFor(() => expect(signResponses().some((r) => r.message_id === messageId)).toBe(true));
+	return signResponses().find((r) => r.message_id === messageId)!;
+}
+
+/** Deliver a sign_presentation request to a transport whose sign handler returns `vpToken`. */
+async function presentSigned(params: Record<string, unknown>, vpToken = '{}') {
+	const { transport, ws, signResponses } = await setup();
+	const handler = vi.fn().mockResolvedValue({ vpToken });
+	transport.onSignRequest(handler);
+	ws.simulateMessage({
+		type: 'sign_request',
+		flow_id: 'f1',
+		message_id: 'm1',
+		action: 'sign_presentation',
+		params: { audience: 'verifier', nonce: 'n', ...params },
+	});
+	await vi.waitFor(() => expect(signResponses()).toHaveLength(1));
+	return { handler, response: signResponses()[0] };
 }
 
 /** Send generate_proof with response encryption and return the wallet's public JWK. */
@@ -210,23 +210,8 @@ describe('generate_proof with credential_response_encryption', () => {
 		await vi.waitFor(() => expect(signResponses().some((r) => r.message_id === 'm-older')).toBe(true));
 		expect(signResponses().find((r) => r.message_id === 'm-older')!.error).toBe('no wscd');
 
-		ws.simulateMessage({
-			type: 'sign_request',
-			flow_id: 'f1',
-			message_id: 'm-decrypt',
-			action: 'decrypt_credential_response',
-			params: {
-				jwe: await issuerEncrypt(
-					newer.credential_response_encryption_jwk as JWK,
-					'ECDH-ES+A256KW',
-					'A128GCM',
-					{ credentials: [{ credential: ISSUED }] },
-				),
-				deferred: false,
-			},
-		});
-		await vi.waitFor(() => expect(signResponses().some((r) => r.message_id === 'm-decrypt')).toBe(true));
-		expect(signResponses().find((r) => r.message_id === 'm-decrypt')!.credential_count).toBe(1);
+		const decrypted = await requestDecryption(ws, signResponses, 'f1', 'm-decrypt', newer.credential_response_encryption_jwk as JWK);
+		expect(decrypted.credential_count).toBe(1);
 	});
 
 	it('does not advertise a superseded key when an older request’s handler succeeds after a newer request replaced it', async () => {
@@ -268,23 +253,8 @@ describe('generate_proof with credential_response_encryption', () => {
 		expect(JSON.stringify(older)).not.toContain('older.proof');
 
 		// The newer request's key is untouched and still decrypts.
-		ws.simulateMessage({
-			type: 'sign_request',
-			flow_id: 'f1',
-			message_id: 'm-decrypt',
-			action: 'decrypt_credential_response',
-			params: {
-				jwe: await issuerEncrypt(
-					newer.credential_response_encryption_jwk as JWK,
-					'ECDH-ES+A256KW',
-					'A128GCM',
-					{ credentials: [{ credential: ISSUED }] },
-				),
-				deferred: false,
-			},
-		});
-		await vi.waitFor(() => expect(signResponses().some((r) => r.message_id === 'm-decrypt')).toBe(true));
-		expect(signResponses().find((r) => r.message_id === 'm-decrypt')!.credential_count).toBe(1);
+		const decrypted = await requestDecryption(ws, signResponses, 'f1', 'm-decrypt', newer.credential_response_encryption_jwk as JWK);
+		expect(decrypted.credential_count).toBe(1);
 	});
 
 	it('drops the new key when the sign handlers fail', async () => {
@@ -483,9 +453,7 @@ describe('flow_complete of an encrypted issuance', () => {
 		const { transport, ws, signResponses } = await setup();
 		transport.onSignRequest(async () => ({ proofs: [{ proof_type: 'jwt', jwt: 'proof.jwt' }] }));
 
-		const flowPromise = transport.startOID4VCIFlow({ credentialOfferUri: 'openid-credential-offer://?x' });
-		await vi.waitFor(() => expect(ws.sentMessages.length).toBeGreaterThan(1));
-		const flowId = JSON.parse(ws.sentMessages[1]).flow_id as string;
+		const { flowPromise, flowId } = await startIssuance(ws, transport);
 
 		const proof = await generateProof(ws, signResponses, flowId, 'm1');
 		const jwe = await issuerEncrypt(
@@ -550,9 +518,7 @@ describe('flow_complete of an encrypted issuance', () => {
 
 	it('is an error when nothing was decrypted for the flow', async () => {
 		const { transport, ws } = await setup();
-		const flowPromise = transport.startOID4VCIFlow({ credentialOfferUri: 'openid-credential-offer://?x' });
-		await vi.waitFor(() => expect(ws.sentMessages.length).toBeGreaterThan(1));
-		const flowId = JSON.parse(ws.sentMessages[1]).flow_id as string;
+		const { flowPromise, flowId } = await startIssuance(ws, transport);
 
 		ws.simulateMessage({
 			type: 'flow_complete',
@@ -568,9 +534,7 @@ describe('flow_complete of an encrypted issuance', () => {
 
 	it('leaves a plain completion untouched', async () => {
 		const { transport, ws } = await setup();
-		const flowPromise = transport.startOID4VCIFlow({ credentialOfferUri: 'openid-credential-offer://?x' });
-		await vi.waitFor(() => expect(ws.sentMessages.length).toBeGreaterThan(1));
-		const flowId = JSON.parse(ws.sentMessages[1]).flow_id as string;
+		const { flowPromise, flowId } = await startIssuance(ws, transport);
 
 		ws.simulateMessage({
 			type: 'flow_complete',
@@ -619,7 +583,7 @@ describe('flow_complete of an encrypted issuance', () => {
 			action: 'decrypt_credential_response',
 			params: { jwe: 'a.b.c.d.e' },
 		});
-		await vi.waitFor(() => expect(responses2().length).toBe(1));
+		await vi.waitFor(() => expect(responses2()).toHaveLength(1));
 		expect(responses2()[0].error).toBe('No response encryption key for this flow');
 	});
 });
@@ -640,7 +604,7 @@ describe('sign_presentation with response_encryption (direct_post.jwt)', () => {
 			action: 'sign_presentation',
 			params: { audience: 'legacy-audience', nonce: 'n', ...extraParams },
 		});
-		await vi.waitFor(() => expect(signResponses().length).toBe(1));
+		await vi.waitFor(() => expect(signResponses()).toHaveLength(1));
 		return signResponses()[0];
 	}
 
@@ -723,7 +687,7 @@ describe('sign_presentation with response_encryption (direct_post.jwt)', () => {
 				verified_request: { client_id: 'verified-client' },
 			},
 		});
-		await vi.waitFor(() => expect(signResponses().length).toBe(1));
+		await vi.waitFor(() => expect(signResponses()).toHaveLength(1));
 
 		expect(signResponses()[0].error).toBe('user declined');
 		expect(signResponses()[0]).not.toHaveProperty('response_jwe');
@@ -782,7 +746,7 @@ describe('sign_presentation with response_encryption (direct_post.jwt)', () => {
 				verified_request: { client_id: 'verified-client', response_mode: 'direct_post.jwt' },
 			},
 		});
-		await vi.waitFor(() => expect(signResponses().length).toBe(1));
+		await vi.waitFor(() => expect(signResponses()).toHaveLength(1));
 
 		const response = signResponses()[0];
 		expect(response.error).toBeTruthy();
@@ -830,9 +794,7 @@ describe('sign_presentation with response_encryption (direct_post.jwt)', () => {
 describe('response-level credential_metadata in flow_complete', () => {
 	async function complete(frame: Record<string, unknown>) {
 		const { transport, ws } = await setup();
-		const flowPromise = transport.startOID4VCIFlow({ credentialOfferUri: 'openid-credential-offer://?x' });
-		await vi.waitFor(() => expect(ws.sentMessages.length).toBeGreaterThan(1));
-		const flowId = JSON.parse(ws.sentMessages[1]).flow_id as string;
+		const { flowPromise, flowId } = await startIssuance(ws, transport);
 		ws.simulateMessage({ type: 'flow_complete', flow_id: flowId, ...frame });
 		return flowPromise;
 	}
@@ -879,9 +841,7 @@ describe('response-level credential_metadata in flow_complete', () => {
 	it('uses only the locally decrypted object for an encrypted response, ignoring the frame', async () => {
 		const { transport, ws, signResponses } = await setup();
 		transport.onSignRequest(async () => ({ proofs: [{ proof_type: 'jwt', jwt: 'proof.jwt' }] }));
-		const flowPromise = transport.startOID4VCIFlow({ credentialOfferUri: 'openid-credential-offer://?x' });
-		await vi.waitFor(() => expect(ws.sentMessages.length).toBeGreaterThan(1));
-		const flowId = JSON.parse(ws.sentMessages[1]).flow_id as string;
+		const { flowPromise, flowId } = await startIssuance(ws, transport);
 		const proof = await generateProof(ws, signResponses, flowId, 'm1');
 		const jwe = await issuerEncrypt(proof.credential_response_encryption_jwk as JWK, 'ECDH-ES+A256KW', 'A128GCM', {
 			credentials: [{ credential: ISSUED }],
@@ -915,9 +875,7 @@ describe('response-level credential_metadata in flow_complete', () => {
 	it('uses no metadata for an encrypted response whose decrypted body had none, ignoring the frame', async () => {
 		const { transport, ws, signResponses } = await setup();
 		transport.onSignRequest(async () => ({ proofs: [{ proof_type: 'jwt', jwt: 'proof.jwt' }] }));
-		const flowPromise = transport.startOID4VCIFlow({ credentialOfferUri: 'openid-credential-offer://?x' });
-		await vi.waitFor(() => expect(ws.sentMessages.length).toBeGreaterThan(1));
-		const flowId = JSON.parse(ws.sentMessages[1]).flow_id as string;
+		const { flowPromise, flowId } = await startIssuance(ws, transport);
 		const proof = await generateProof(ws, signResponses, flowId, 'm1');
 		const jwe = await issuerEncrypt(proof.credential_response_encryption_jwk as JWK, 'ECDH-ES+A256KW', 'A128GCM', {
 			credentials: [{ credential: ISSUED }],
@@ -948,9 +906,7 @@ describe('response-level credential_metadata in flow_complete', () => {
 describe('credential_metadata from every message that resolves an issuance flow', () => {
 	it('filters a progress message too: a seed in an authorization_required frame never reaches the result', async () => {
 		const { transport, ws } = await setup();
-		const flowPromise = transport.startOID4VCIFlow({ credentialOfferUri: 'openid-credential-offer://?x' });
-		await vi.waitFor(() => expect(ws.sentMessages.length).toBeGreaterThan(1));
-		const flowId = JSON.parse(ws.sentMessages[1]).flow_id as string;
+		const { flowPromise, flowId } = await startIssuance(ws, transport);
 
 		ws.simulateMessage({
 			type: 'progress',
@@ -971,9 +927,7 @@ describe('credential_metadata from every message that resolves an issuance flow'
 
 	it('does not let a frame member impersonate the decrypted side channel', async () => {
 		const { transport, ws } = await setup();
-		const flowPromise = transport.startOID4VCIFlow({ credentialOfferUri: 'openid-credential-offer://?x' });
-		await vi.waitFor(() => expect(ws.sentMessages.length).toBeGreaterThan(1));
-		const flowId = JSON.parse(ws.sentMessages[1]).flow_id as string;
+		const { flowPromise, flowId } = await startIssuance(ws, transport);
 
 		ws.simulateMessage({
 			type: 'flow_complete',
@@ -993,9 +947,7 @@ describe('a plain flow_complete after response encryption was offered', () => {
 	it('is an error, not silently accepted plaintext', async () => {
 		const { transport, ws, signResponses } = await setup();
 		transport.onSignRequest(async () => ({ proofs: [{ proof_type: 'jwt', jwt: 'proof.jwt' }] }));
-		const flowPromise = transport.startOID4VCIFlow({ credentialOfferUri: 'openid-credential-offer://?x' });
-		await vi.waitFor(() => expect(ws.sentMessages.length).toBeGreaterThan(1));
-		const flowId = JSON.parse(ws.sentMessages[1]).flow_id as string;
+		const { flowPromise, flowId } = await startIssuance(ws, transport);
 		await generateProof(ws, signResponses, flowId, 'm1');
 
 		ws.simulateMessage({
@@ -1016,9 +968,7 @@ describe('a plain flow_complete after response encryption was offered', () => {
 	it('drops the offered key even though the completion was refused', async () => {
 		const { transport, ws, signResponses } = await setup();
 		transport.onSignRequest(async () => ({ proofs: [{ proof_type: 'jwt', jwt: 'proof.jwt' }] }));
-		const flowPromise = transport.startOID4VCIFlow({ credentialOfferUri: 'openid-credential-offer://?x' });
-		await vi.waitFor(() => expect(ws.sentMessages.length).toBeGreaterThan(1));
-		const flowId = JSON.parse(ws.sentMessages[1]).flow_id as string;
+		const { flowPromise, flowId } = await startIssuance(ws, transport);
 		await generateProof(ws, signResponses, flowId, 'm1');
 		ws.simulateMessage({ type: 'flow_complete', flow_id: flowId, credentials: [{ format: 'dc+sd-jwt', credential: 'c' }] });
 		await flowPromise;
@@ -1343,20 +1293,7 @@ describe('a refused request does not keep the key it generated', () => {
 });
 
 describe('verified_request on a sign_presentation request', () => {
-	async function presentWith(params: Record<string, unknown>) {
-		const { transport, ws, signResponses } = await setup();
-		const handler = vi.fn().mockResolvedValue({ vpToken: '{"pid":["t"]}' });
-		transport.onSignRequest(handler);
-		ws.simulateMessage({
-			type: 'sign_request',
-			flow_id: 'f1',
-			message_id: 'm1',
-			action: 'sign_presentation',
-			params: { audience: 'verifier', nonce: 'n', ...params },
-		});
-		await vi.waitFor(() => expect(signResponses().length).toBe(1));
-		return { handler, response: signResponses()[0] };
-	}
+	const presentWith = (params: Record<string, unknown>) => presentSigned(params, '{"pid":["t"]}');
 
 	it('maps the whole verified_request object', async () => {
 		const clientMetadata = { vp_formats_supported: { 'dc+sd-jwt': {} }, jwks: { keys: [] } };
@@ -1439,20 +1376,7 @@ describe('the mdoc verifier JWK thumbprint for direct_post.jwt', () => {
 		return { ...(await exportJWK(publicKey)), kid: 'v-1', use: 'enc', alg: 'ECDH-ES' };
 	}
 
-	async function present(params: Record<string, unknown>) {
-		const { transport, ws, signResponses } = await setup();
-		const handler = vi.fn().mockResolvedValue({ vpToken: '{}' });
-		transport.onSignRequest(handler);
-		ws.simulateMessage({
-			type: 'sign_request',
-			flow_id: 'f1',
-			message_id: 'm1',
-			action: 'sign_presentation',
-			params: { audience: 'verifier', nonce: 'n', ...params },
-		});
-		await vi.waitFor(() => expect(signResponses().length).toBe(1));
-		return { handler, response: signResponses()[0] };
-	}
+	const present = (params: Record<string, unknown>) => presentSigned(params);
 
 	it('is computed from response_encryption.jwk, not taken from the engine', async () => {
 		const jwk = await verifierKey();
@@ -1675,7 +1599,7 @@ describe('the wallet policy for a zkp_req presentation', () => {
 				action: 'sign_presentation',
 				params: { audience: 'verifier', nonce: 'n', ...signParams },
 			});
-			await vi.waitFor(() => expect(ctx.signResponses().length).toBe(1));
+			await vi.waitFor(() => expect(ctx.signResponses()).toHaveLength(1));
 			return { ...ctx, handler, response: ctx.signResponses()[0] };
 		}
 
@@ -1736,7 +1660,7 @@ describe('the wallet policy for a zkp_req presentation', () => {
 				action: 'sign_presentation',
 				params: { audience: 'v', nonce: 'n', verified_request: { ...unsigned, response_mode: 'direct_post' } },
 			});
-			await vi.waitFor(() => expect(signResponses().length).toBe(1));
+			await vi.waitFor(() => expect(signResponses()).toHaveLength(1));
 
 			expect(signResponses()[0]).not.toHaveProperty('error');
 			expect(handler).toHaveBeenCalledTimes(1);
@@ -1757,7 +1681,7 @@ describe('the wallet policy for a zkp_req presentation', () => {
 				action: 'sign_presentation',
 				params: { audience: 'v', nonce: 'n', verified_request: { ...unsigned, response_mode: 'direct_post' } },
 			});
-			await vi.waitFor(() => expect(ctx.signResponses().length).toBe(1));
+			await vi.waitFor(() => expect(ctx.signResponses()).toHaveLength(1));
 
 			expect(ctx.signResponses()[0]).not.toHaveProperty('error');
 		});

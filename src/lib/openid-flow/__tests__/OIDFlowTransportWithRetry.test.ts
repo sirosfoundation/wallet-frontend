@@ -7,6 +7,8 @@ import { OIDFlowTransportWithRetry } from '../decorators/OIDFlowTransportWithRet
 import { OIDFlowWebSocketTransport } from '../transports/OIDFlowWebSocketTransport';
 import { OIDFlowStateStore } from '../OIDFlowStateStore';
 import type { IOIDFlowTransport } from '../types/IOIDFlowTransport';
+import type { MockWebSocket } from './helpers/mockWebSocket';
+import { installMockWebSocket, sockets } from './helpers/mockWebSocket';
 
 const RETRY = { maxRetries: 3, initialDelayMs: 1000, maxDelayMs: 10_000, backoffMultiplier: 2 };
 const RECOVERABLE = new Error('network connection lost');
@@ -174,36 +176,13 @@ describe('OIDFlowTransportWithRetry.releaseFlow', () => {
 });
 
 describe('a released flow never starts a new flow id (real WebSocket transport underneath)', () => {
-	class MockWebSocket {
-		static OPEN = 1;
-		readyState = 0;
-		onopen: ((event: Event) => void) | null = null;
-		onclose: ((event: CloseEvent) => void) | null = null;
-		onmessage: ((event: MessageEvent) => void) | null = null;
-		onerror: ((event: Event) => void) | null = null;
-		sentMessages: string[] = [];
-		constructor() {
-			setTimeout(() => {
-				this.readyState = MockWebSocket.OPEN;
-				this.onopen?.(new Event('open'));
-			}, 0);
-		}
-		send(data: string) { this.sentMessages.push(data); }
-		close() { this.readyState = 3; this.onclose?.({ code: 1000, reason: '' } as CloseEvent); }
-		simulateMessage(data: unknown) { this.onmessage?.({ data: JSON.stringify(data) } as MessageEvent); }
-	}
-	const sockets: MockWebSocket[] = [];
-	const original = globalThis.WebSocket;
+	let restoreWebSocket: () => void;
 
 	beforeEach(() => {
-		sockets.length = 0;
-		// @ts-expect-error - mocking WebSocket
-		globalThis.WebSocket = class extends MockWebSocket {
-			constructor() { super(); sockets.push(this); }
-		};
+		restoreWebSocket = installMockWebSocket();
 	});
 	afterEach(() => {
-		globalThis.WebSocket = original;
+		restoreWebSocket();
 	});
 
 	const flowStarts = (ws: MockWebSocket) =>
