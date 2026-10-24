@@ -1,5 +1,7 @@
+import type { ReactNode } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
+import CredentialsContext, { type CredentialsContextValue } from '@/context/CredentialsContext';
 import useOID4VCIFlow from './useOID4VCIFlow';
 
 const { transport } = vi.hoisted(() => ({
@@ -14,10 +16,16 @@ vi.mock('@/context/OIDFlowTransportContext', () => ({
 	useOIDFlowTransportSafe: () => ({ transport, transportType: 'websocket' }),
 }));
 
+// The credentials context has no default value: the hook needs a provider (only the engine is read here).
+const credentials = { credentialEngine: new Promise(() => undefined) } as unknown as CredentialsContextValue;
+const wrapper = ({ children }: { children: ReactNode }) => (
+	<CredentialsContext.Provider value={credentials}>{children}</CredentialsContext.Provider>
+);
+
 describe('useOID4VCIFlow: aborting a flow reaches the transport', () => {
 	it('releases what the transport holds for the flow when the hook unmounts', () => {
 		transport.releaseFlow.mockClear();
-		const { unmount } = renderHook(() => useOID4VCIFlow());
+		const { unmount } = renderHook(() => useOID4VCIFlow(), { wrapper });
 		expect(transport.releaseFlow).not.toHaveBeenCalled();
 
 		unmount();
@@ -34,7 +42,7 @@ describe('useOID4VCIFlow: aborting a flow reaches the transport', () => {
 					failStart = reject;
 				}),
 		);
-		const { result, unmount } = renderHook(() => useOID4VCIFlow());
+		const { result, unmount } = renderHook(() => useOID4VCIFlow(), { wrapper });
 		const outcome = result.current.handleCredentialOffer(new URL('openid-credential-offer://?credential_offer_uri=https%3A%2F%2Fissuer.example.com%2Foffer'));
 		await vi.waitFor(() => expect(failStart).toBeTypeOf('function'));
 
@@ -50,7 +58,7 @@ describe('useOID4VCIFlow: aborting a flow reaches the transport', () => {
 	it('releases it when starting the flow fails locally', async () => {
 		transport.releaseFlow.mockClear();
 		transport.startOID4VCIFlow.mockRejectedValue(new Error('boom'));
-		const { result } = renderHook(() => useOID4VCIFlow());
+		const { result } = renderHook(() => useOID4VCIFlow(), { wrapper });
 
 		const outcome = await result.current.handleCredentialOffer(new URL('openid-credential-offer://?credential_offer_uri=https%3A%2F%2Fissuer.example.com%2Foffer'));
 
