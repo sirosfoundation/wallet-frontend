@@ -229,6 +229,64 @@ describe('generate_proof with credential_response_encryption', () => {
 		expect(signResponses().find((r) => r.message_id === 'm-decrypt')!.credential_count).toBe(1);
 	});
 
+	it('does not advertise a superseded key when an older request’s handler succeeds after a newer request replaced it', async () => {
+		const { transport, ws, signResponses } = await setup();
+		let succeedOlder!: (value: { proofs: Array<{ proof_type: 'jwt'; jwt: string }> }) => void;
+		transport.onSignRequest((request) =>
+			request.messageId === 'm-older'
+				? new Promise((resolve) => {
+						succeedOlder = resolve;
+					})
+				: Promise.resolve({ proofs: [{ proof_type: 'jwt', jwt: 'newer.proof' }] }),
+		);
+		const send = (messageId: string) =>
+			ws.simulateMessage({
+				type: 'sign_request',
+				flow_id: 'f1',
+				message_id: messageId,
+				action: 'generate_proof',
+				params: {
+					audience: 'https://issuer.example.com',
+					proof_types_supported: { jwt: { proof_signing_alg_values_supported: ['ES256'] } },
+					credential_response_encryption: { alg: 'ECDH-ES+A256KW', enc: 'A128GCM' },
+				},
+			});
+
+		send('m-older');
+		await vi.waitFor(() => expect(succeedOlder).toBeTypeOf('function'));
+		send('m-newer');
+		await vi.waitFor(() => expect(signResponses().some((r) => r.message_id === 'm-newer')).toBe(true));
+		const newer = signResponses().find((r) => r.message_id === 'm-newer')!;
+
+		succeedOlder({ proofs: [{ proof_type: 'jwt', jwt: 'older.proof' }] });
+		await vi.waitFor(() => expect(signResponses().some((r) => r.message_id === 'm-older')).toBe(true));
+		const older = signResponses().find((r) => r.message_id === 'm-older')!;
+
+		expect(older.error).toBe('The response encryption key was superseded by a newer request');
+		expect(older).not.toHaveProperty('credential_response_encryption_jwk');
+		expect(older).not.toHaveProperty('proofs');
+		expect(JSON.stringify(older)).not.toContain('older.proof');
+
+		// The newer request's key is untouched and still decrypts.
+		ws.simulateMessage({
+			type: 'sign_request',
+			flow_id: 'f1',
+			message_id: 'm-decrypt',
+			action: 'decrypt_credential_response',
+			params: {
+				jwe: await issuerEncrypt(
+					newer.credential_response_encryption_jwk as JWK,
+					'ECDH-ES+A256KW',
+					'A128GCM',
+					{ credentials: [{ credential: ISSUED }] },
+				),
+				deferred: false,
+			},
+		});
+		await vi.waitFor(() => expect(signResponses().some((r) => r.message_id === 'm-decrypt')).toBe(true));
+		expect(signResponses().find((r) => r.message_id === 'm-decrypt')!.credential_count).toBe(1);
+	});
+
 	it('drops the new key when the sign handlers fail', async () => {
 		const { transport, ws, signResponses } = await setup();
 		transport.onSignRequest(async () => {

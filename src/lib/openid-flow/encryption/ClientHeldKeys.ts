@@ -159,6 +159,14 @@ export class ClientHeldEncryptionKeys {
 	}
 
 	/**
+	 * Whether `generation` still owns the flow's key: false once a newer request replaced it, the
+	 * flow was dropped, or the key was never stored. A key must not be advertised unless it is owned.
+	 */
+	owns(flowId: string, generation: number): boolean {
+		return this.generations.get(flowId) === generation && this.keys.has(flowId);
+	}
+
+	/**
 	 * Decrypt one Credential Response JWE for a flow, remember what it carried (that response
 	 * only) and return just what the engine needs. `deferred` says whether this answers a
 	 * Deferred Credential request; a pending or deferred response must not deliver a seed.

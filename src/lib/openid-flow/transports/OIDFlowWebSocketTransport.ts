@@ -80,6 +80,8 @@ const MAX_RELEASED_FLOWS = 64;
 
 const RELEASED_FLOW_ERROR = 'The flow was released locally';
 
+const SUPERSEDED_KEY_ERROR = 'The response encryption key was superseded by a newer request';
+
 /** The sign actions a registered sign handler serves (decrypt_credential_response is the transport's own). */
 export type SignHandlerAction = 'generate_proof' | 'sign_presentation' | 'sign_client_auth';
 
@@ -1200,6 +1202,19 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 		try {
 			const response = await this.finalizeSignResponse(request, handled, responseKey?.jwk);
+			if (responseKey && !this.responseKeys.owns(request.flowId, responseKey.generation)) {
+				// A newer request replaced this one's key (or the flow ended) while the handler ran: its
+				// private key is gone, so advertising the public half would invite a response nobody can
+				// decrypt. Nothing is dropped here: the key now held belongs to the newer request.
+				logger.warn('Refusing to advertise a response-encryption key that was superseded');
+				this.sendSignResponse(
+					request.flowId,
+					request.messageId,
+					{},
+					this.releasedFlows.has(request.flowId) ? RELEASED_FLOW_ERROR : SUPERSEDED_KEY_ERROR,
+				);
+				return;
+			}
 			this.sendSignResponse(request.flowId, request.messageId, response);
 		} catch (err) {
 			if (responseKey) {

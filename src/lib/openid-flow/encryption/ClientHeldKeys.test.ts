@@ -122,6 +122,46 @@ describe('ClientHeldEncryptionKeys.generate', () => {
 	});
 });
 
+describe('ClientHeldEncryptionKeys.owns', () => {
+	it('is true for the generation that holds the flow’s key', async () => {
+		const keys = new ClientHeldEncryptionKeys();
+		const { generation } = await keyFor(keys);
+
+		expect(keys.owns('flow-1', generation)).toBe(true);
+	});
+
+	it('is false for an older generation once a newer request replaced the key', async () => {
+		const keys = new ClientHeldEncryptionKeys();
+		const older = await keyFor(keys);
+		const newer = await keyFor(keys);
+
+		expect(keys.owns('flow-1', older.generation)).toBe(false);
+		expect(keys.owns('flow-1', newer.generation)).toBe(true);
+	});
+
+	it.each([
+		['dropped', (keys: ClientHeldEncryptionKeys) => keys.drop('flow-1')],
+		['cleared', (keys: ClientHeldEncryptionKeys) => keys.clear()],
+	])('is false once the flow was %s', async (_name, end) => {
+		const keys = new ClientHeldEncryptionKeys();
+		const { generation } = await keyFor(keys);
+
+		end(keys);
+
+		expect(keys.owns('flow-1', generation)).toBe(false);
+	});
+
+	it('is false for a generation whose key was never stored, and for another flow', async () => {
+		const keys = new ClientHeldEncryptionKeys();
+		await keys.generate('flow-1', { alg: 'RSA-OAEP', enc: 'A256GCM' });
+		const { generation } = await keyFor(keys, 'flow-2');
+
+		expect(keys.has('flow-1')).toBe(false);
+		expect(keys.owns('flow-1', generation)).toBe(false);
+		expect(keys.owns('flow-1', generation + 1)).toBe(false);
+	});
+});
+
 describe('ClientHeldEncryptionKeys.dropGeneration', () => {
 	it('drops the key its generation owns', async () => {
 		const keys = new ClientHeldEncryptionKeys();
