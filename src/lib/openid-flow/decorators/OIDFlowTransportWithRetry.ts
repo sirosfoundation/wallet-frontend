@@ -281,6 +281,10 @@ export class OIDFlowTransportWithRetry implements IOIDFlowTransport {
 				try {
 					await this.transport.connect();
 				} catch (connectError) {
+					// A reconnect that fails after the release is a cancellation, not a recoverable error:
+					// no recovery state is kept and onRecoverable never fires for the cancelled flow.
+					if (released()) cancelReleased();
+
 					const errorMessage = connectError instanceof Error ? connectError.message : 'Reconnection failed';
 					const recoverableError = this.classifyError(undefined, errorMessage);
 					state = this.stateManager.recordError(flowId, recoverableError) ?? state;

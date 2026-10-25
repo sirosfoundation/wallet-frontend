@@ -39,6 +39,8 @@ function wrap(inner: IOIDFlowTransport) {
 
 beforeEach(() => {
 	vi.useFakeTimers();
+	// Stores share their persisted state: start every test with none.
+	new OIDFlowStateStore().clearAll();
 });
 
 afterEach(() => {
@@ -88,24 +90,60 @@ describe('OIDFlowTransportWithRetry.releaseFlow', () => {
 		expect(inner.startOID4VPFlow).toHaveBeenCalledTimes(1);
 	});
 
-	it('does not start the operation after a release while it was reconnecting', async () => {
-		let finishConnect!: () => void;
+	/** An operation whose first attempt failed and whose reconnect is now pending. */
+	async function atPendingReconnect() {
+		const connection = {} as { succeed: () => void; fail: (error: Error) => void };
 		const inner = innerTransport({
 			isConnected: vi.fn().mockReturnValue(false),
-			connect: vi.fn().mockImplementation(() => new Promise<void>((resolve) => { finishConnect = resolve; })),
+			connect: vi.fn().mockImplementation(
+				() => new Promise<void>((resolve, reject) => { connection.succeed = resolve; connection.fail = reject; }),
+			),
 		});
 		inner.startOID4VCIFlow.mockRejectedValue(RECOVERABLE);
-		const retrying = wrap(inner);
+		const store = new OIDFlowStateStore();
+		const onRecoverable = vi.fn();
+		const retrying = new OIDFlowTransportWithRetry(inner, { retryConfig: RETRY, stateManager: store, onRecoverable });
+		let outcome: unknown = 'pending';
+		retrying.startOID4VCIFlow(offer).then(() => { outcome = 'resolved'; }, (error) => { outcome = error; });
 
-		const settled = retrying.startOID4VCIFlow(offer).then(() => 'resolved', (error) => error);
 		await vi.advanceTimersByTimeAsync(RETRY.initialDelayMs * 2); // backoff over, now reconnecting
 		expect(inner.connect).toHaveBeenCalledTimes(1);
+		return { inner, retrying, store, onRecoverable, connection, outcome: () => outcome };
+	}
+
+	it('does not start the operation after a release while it was reconnecting', async () => {
+		const { inner, retrying, connection, outcome } = await atPendingReconnect();
+
 		retrying.releaseFlow();
-		finishConnect();
+		connection.succeed();
 		await vi.advanceTimersByTimeAsync(RETRY.maxDelayMs * 4);
 
-		expect(await settled).toMatchObject({ code: 'FLOW_RELEASED' });
+		expect(outcome()).toMatchObject({ code: 'FLOW_RELEASED' });
 		expect(inner.startOID4VCIFlow).toHaveBeenCalledTimes(1);
+	});
+
+	it('reports FLOW_RELEASED, keeps no recovery state and fires no onRecoverable when the reconnect fails after the release', async () => {
+		const { retrying, store, onRecoverable, connection, outcome } = await atPendingReconnect();
+
+		retrying.releaseFlow();
+		connection.fail(new Error('network connection lost'));
+		await vi.advanceTimersByTimeAsync(10);
+
+		expect(outcome()).toMatchObject({ code: 'FLOW_RELEASED', message: 'The flow was released locally' });
+		expect(onRecoverable).not.toHaveBeenCalled();
+		expect(store.getActiveFlows()).toHaveLength(0);
+	});
+
+	it('still reports the connection error, with recovery state and onRecoverable, when the reconnect fails and nothing was released (control)', async () => {
+		const { store, onRecoverable, connection, outcome } = await atPendingReconnect();
+
+		connection.fail(new Error('network connection lost'));
+		await vi.advanceTimersByTimeAsync(10);
+
+		expect(outcome()).toMatchObject({ message: 'network connection lost' });
+		expect(outcome()).not.toMatchObject({ code: 'FLOW_RELEASED' });
+		expect(onRecoverable).toHaveBeenCalledTimes(1);
+		expect(store.getActiveFlows()).toHaveLength(1);
 	});
 
 	it('does not report success for an operation that finished after the release', async () => {
