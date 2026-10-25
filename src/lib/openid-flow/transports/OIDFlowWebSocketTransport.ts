@@ -390,18 +390,28 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		if (!flowId) {
 			return;
 		}
-		// Detach the released flow from the active context, so a flow started next gets a fresh
-		// id instead of inheriting this one, and settle its pending request. Only this flow's
-		// own entries are touched: nothing a newer flow holds is cleared.
-		this.currentFlowId = null;
-		this.zkpReqFlows.delete(flowId);
-		this.responseKeys.drop(flowId);
+		this.forgetFlow(flowId);
+		// Settle that flow's own pending request; nothing a newer flow holds is touched.
 		const pending = this.pending.get(flowId);
 		if (pending) {
 			clearTimeout(pending.timeout);
 			this.pending.delete(flowId);
 			pending.reject(new Error(RELEASED_FLOW_ERROR));
 		}
+	}
+
+	/**
+	 * Detach a flow the wallet is done with (released locally, or refused by policy) from the active
+	 * context: a flow started next gets a fresh id instead of inheriting this one, its key and policy
+	 * marker are dropped, and it is remembered (bounded) so that late sign, decrypt and match requests
+	 * for it are refused. Only this flow's own entries are touched.
+	 */
+	private forgetFlow(flowId: string): void {
+		if (this.currentFlowId === flowId) {
+			this.currentFlowId = null;
+		}
+		this.zkpReqFlows.delete(flowId);
+		this.responseKeys.drop(flowId);
 		if (this.releasedFlows.size >= MAX_RELEASED_FLOWS) {
 			const oldest = this.releasedFlows.values().next().value;
 			if (oldest !== undefined) {
@@ -828,6 +838,9 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				// the caller gets is the refusal (mapOID4VPResponse applies the same policy).
 				if (this.zkpReqRefusalOf(flowId, payload?.dcql_query, payload?.verified_request)) {
 					this.declineFlow(flowId, 'zkp_req_policy');
+					// The refused flow leaves the active context: the engine's answer to the decline must
+					// not meet a flow started in the meantime.
+					this.forgetFlow(flowId);
 				}
 
 				// Resolve pending request to trigger credential selection UI
@@ -893,6 +906,11 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			this.responseKeys.drop(flowId);
 			this.releasedFlows.delete(flowId);
 			this.zkpReqFlows.delete(flowId);
+			if (this.currentFlowId === flowId) {
+				// The flow the wallet considers active is over, whether or not a request is waiting on it.
+				this.currentFlowId = null;
+				this.vpCredentialCache.clear();
+			}
 		}
 
 		// All other message types resolve a pending request
@@ -1350,6 +1368,12 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		if (!dcqlQuery || typeof dcqlQuery !== 'object') {
 			logger.error('Malformed match request: missing required dcql_query');
 			this.sendMatchResponse(flowId, messageId, { matches: [] }, 'Missing required dcql_query');
+			return;
+		}
+
+		// A flow the wallet released or refused gets no matching.
+		if (this.releasedFlows.has(flowId)) {
+			this.sendMatchResponse(flowId, messageId, { matches: [] }, RELEASED_FLOW_ERROR);
 			return;
 		}
 

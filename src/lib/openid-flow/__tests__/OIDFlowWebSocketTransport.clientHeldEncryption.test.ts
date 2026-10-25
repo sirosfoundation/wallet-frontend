@@ -1531,6 +1531,84 @@ describe('the wallet policy for a zkp_req presentation', () => {
 		});
 	});
 
+	describe('a refused selection leaves the active context', () => {
+		const cacheOf = (transport: unknown) => (transport as { vpCredentialCache: Map<string, string> }).vpCredentialCache;
+		const flowStarts = (sent: () => Array<Record<string, unknown>>) => sent().filter((m) => m.type === 'flow_start');
+
+		/** Start the next presentation flow on the same transport; resolves once its flow_start went out. */
+		async function startNext(ctx: Awaited<ReturnType<typeof selection>>) {
+			const promise = ctx.transport.startOID4VPFlow({ requestUriRef: 'https://v.example/next', clientId: 'c' });
+			let outcome: unknown = 'pending';
+			promise.then((value) => { outcome = value; }, (error) => { outcome = error; });
+			await vi.waitFor(() => expect(flowStarts(ctx.sent)).toHaveLength(2));
+			return { promise, outcome: () => outcome, flowId: flowStarts(ctx.sent)[1].flow_id as string };
+		}
+
+		it('gives the next flow a NEW id, and the late decline response for the old id neither resolves it nor clears its cache', async () => {
+			const ctx = await selection(zkpQuery, unsigned);
+			const next = await startNext(ctx);
+			expect(next.flowId).not.toBe(ctx.flowId);
+			cacheOf(ctx.transport).set('cred-1', 'raw.credential');
+
+			// The engine's answer to the decline arrives only now.
+			ctx.ws.simulateMessage({ type: 'flow_error', flow_id: ctx.flowId, error: { code: 'PRESENTATION_ERROR', message: 'User declined the request' } });
+
+			expect(next.outcome()).toBe('pending');
+			expect(cacheOf(ctx.transport).get('cred-1')).toBe('raw.credential');
+			ctx.ws.simulateMessage({ type: 'progress', flow_id: next.flowId, step: 'credential_selection', payload: { dcql_query: sdJwtQuery } });
+			await expect(next.promise).resolves.toMatchObject({ success: true, dcqlQuery: sdJwtQuery });
+		});
+
+		it('refuses a late sign request for the refused flow, and a late match request', async () => {
+			const ctx = await selection(zkpQuery, unsigned);
+			const handler = vi.fn().mockResolvedValue({ vpToken: '{}' });
+			ctx.transport.onSignRequest(handler);
+			const matcher = vi.fn().mockResolvedValue({ matches: [] });
+			ctx.transport.onMatchRequest(matcher);
+
+			ctx.ws.simulateMessage({ type: 'sign_request', flow_id: ctx.flowId, message_id: 'ms-late', action: 'sign_presentation', params: { audience: 'v', nonce: 'n' } });
+			ctx.ws.simulateMessage({ type: 'match_request', flow_id: ctx.flowId, message_id: 'mm-late', dcql_query: sdJwtQuery });
+			await vi.waitFor(() => expect(ctx.signResponses()).toHaveLength(1));
+			await vi.waitFor(() => expect(ctx.sent().some((m) => m.type === 'match_response' && m.message_id === 'mm-late')).toBe(true));
+
+			expect(ctx.signResponses()[0].error).toBe('The flow was released locally');
+			expect(ctx.sent().find((m) => m.type === 'match_response' && m.message_id === 'mm-late')?.error).toBe('The flow was released locally');
+			expect(handler).not.toHaveBeenCalled();
+			expect(matcher).not.toHaveBeenCalled();
+		});
+
+		it('forgets the refused flow when the engine ends it, so nothing stays remembered', async () => {
+			const ctx = await selection(zkpQuery, unsigned);
+			ctx.ws.simulateMessage({ type: 'flow_error', flow_id: ctx.flowId, error: { code: 'PRESENTATION_ERROR', message: 'User declined the request' } });
+			ctx.transport.onSignRequest(vi.fn().mockResolvedValue({ vpToken: '{}' }));
+
+			ctx.ws.simulateMessage({ type: 'sign_request', flow_id: ctx.flowId, message_id: 'ms-after', action: 'sign_presentation', params: { audience: 'v', nonce: 'n' } });
+			await vi.waitFor(() => expect(ctx.signResponses()).toHaveLength(1));
+
+			expect(ctx.signResponses()[0]).not.toHaveProperty('error');
+		});
+
+		it('clears the active flow when its terminal frame arrives with no request waiting (match and sign refusals end this way)', async () => {
+			const ctx = await selection(sdJwtQuery, undefined); // accepted: the pending request is resolved, the flow stays active
+			cacheOf(ctx.transport).set('cred-1', 'raw.credential');
+
+			ctx.ws.simulateMessage({ type: 'flow_error', flow_id: ctx.flowId, error: { code: 'SIGN_ERROR', message: 'refused' } });
+			const next = await startNext(ctx);
+
+			expect(next.flowId).not.toBe(ctx.flowId);
+			expect(cacheOf(ctx.transport).size).toBe(0);
+		});
+
+		it('leaves a flow that is not the active one alone when a terminal frame for another flow arrives', async () => {
+			const ctx = await selection(sdJwtQuery, undefined);
+			cacheOf(ctx.transport).set('cred-1', 'raw.credential');
+
+			ctx.ws.simulateMessage({ type: 'flow_error', flow_id: 'some-other-flow', error: { code: 'X', message: 'other' } });
+
+			expect(cacheOf(ctx.transport).get('cred-1')).toBe('raw.credential');
+		});
+	});
+
 	describe('at a match request', () => {
 		async function match(dcql: unknown, verifiedRequest: unknown) {
 			const ctx = await setup();
