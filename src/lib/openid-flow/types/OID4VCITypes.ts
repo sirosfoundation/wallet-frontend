@@ -162,6 +162,9 @@ export interface OID4VCIFlowResult {
 		code: string;
 		message: string;
 	};
+
+	/** The credential response's credential_metadata (OID4VCI 1.1), e.g. a delivered secret seed. */
+	credentialMetadata?: Record<string, unknown>;
 }
 
 /**

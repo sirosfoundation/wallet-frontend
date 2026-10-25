@@ -45,11 +45,6 @@ export interface CircuitZkNativeWrapperProverHostOptions {
   getRootKey: (credentialId: number) => Promise<Uint8Array>;
   /** Raw 64-byte r||s ES256 signature with the credential's device key. */
   getSigner: (credential: unknown) => (data: Uint8Array) => Promise<Uint8Array>;
-  /**
-   * The debug wrapper's prover is fake and its token is not a valid proof. By default prove() refuses to
-   * return such a token, so it cannot reach a verifier by accident. Only set this in dev builds.
-   */
-  allowFakeProver?: boolean;
   onProgress?: (step: string) => void;
 }
 
@@ -102,10 +97,6 @@ export class CircuitZkNativeWrapperProverHost implements ICircuitZkProverHost {
       getRootKey: this.options.getRootKey,
       onProgress: this.options.onProgress,
     });
-
-    if (result.fakeProver && !this.options.allowFakeProver) {
-      throw new Error('circuit_zk: the native prover is a test prover; refusing to produce a presentation');
-    }
     return result.token;
   }
 

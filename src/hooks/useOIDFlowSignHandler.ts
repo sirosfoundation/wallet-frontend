@@ -29,7 +29,7 @@ import {
 	extractIssuerSignedB64,
 	resolveMdocIssuerSigned,
 } from '@/lib/verifiable-credentials';
-
+import { storedSeedOf } from '@/lib/zero-knowledge/nymAuthSeedStore';
 let pendingDcqlQuery: unknown = undefined;
 
 export function setPendingDcqlQuery(query: unknown) {
@@ -165,9 +165,13 @@ export function useOIDFlowSignHandler() {
 				throw new Error(`Missing credentialQueryId for credential: ${c.credentialId}`);
 			}
 
-			// circuit_zk: proven by the native prover through the circuit-zk package, not signed here.
+			// circuit_zk / zkp_req: proven by the native prover, not signed here.
 			if (findCircuitZkQuery(verifierQuery, c.credentialQueryId)) {
 				if (!keystore) throw new Error('Keystore not available');
+				const secretSeed = await storedSeedOf(
+					keystore.getCalculatedWalletState()?.settings as Record<string, unknown> | undefined,
+					c.credentialRaw,
+				);
 				const zkToken = await createCircuitZkVpToken({
 					dcqlQuery: verifierQuery,
 					credentialQueryId: c.credentialQueryId,
@@ -176,6 +180,7 @@ export function useOIDFlowSignHandler() {
 					clientId: clientId ?? audience,
 					origin,
 					responseUri,
+					verifierJwkThumbprint,
 					getRootKey: () => keystore.getPrivateSeedRoot(),
 					signDevice: async (raw, data) => {
 						const signature = await wscd.signWithKey(await deviceKeyKid(raw), data);
@@ -183,6 +188,7 @@ export function useOIDFlowSignHandler() {
 						return signature;
 					},
 					onProgress: (step) => window.dispatchEvent(new CustomEvent('zkp:step', { detail: { step } })),
+					secretSeed,
 				});
 				vpTokenMap[c.credentialQueryId] = [zkToken];
 				continue;

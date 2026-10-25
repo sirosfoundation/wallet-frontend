@@ -1,13 +1,15 @@
-// nymAuthZk.ts -- page side of nym_auth `circuit_zk` presentations through the native bridge.
+// nymAuthZk.ts -- page side of nym_auth `circuit_zk` / `zkp_req` presentations through the native bridge.
 //
 // Native owns the circuit, the prover and the presenter. The page owns the credential, the device
-// key (zkp.sign) and the root key (zkp.seed). The root key never leaves the page: native receives only
-// the 16-byte private seed for one docType, per proof, and wipes it afterwards.
+// key (zkp.sign), the root key (zkp.seed) and, for `-ssc` configs, the issuer-delivered secret seed.
+// The root key never leaves the page: native receives only the 16-byte private seed for one docType,
+// per proof, and wipes it afterwards. The secret seed is sent with the request and wiped the same way.
 
 export const NYM_AUTH_DOC_TYPE = 'eu.europa.ec.eudi.nym_auth.1';
 
 const PRIVATE_SEED_LABEL = 'org.siros.private_seed/v1';
 const PRIVATE_SEED_BYTES = 16;
+const SECRET_SEED_BYTES = 16;
 const DEFAULT_TIMEOUT_MS = 5 * 60_000;
 
 export type ZkTranscript =
@@ -40,6 +42,17 @@ export interface NymAuthProofInput {
   userValue?: string;
   /** The circuit the registry selected; native proves with this one. */
   circuitId?: string;
+  /**
+   * The request's offer (rulebook v0.4 `zkp_req`): its `system_id_values` and `proof_system_values`. The SDK answers
+   * only with a system the request offered, so without these a `zkp_req` proof is refused.
+   */
+  systemIdValues?: string[];
+  proofSystemValues?: string[];
+  /**
+   * The credential's issuer-delivered 16-byte secret seed (its ssc = SHA-256(seed)), for `-ssc` configs.
+   * Not zeroed here; the caller owns the array.
+   */
+  secretSeed?: Uint8Array;
   /** Raw 64-byte r||s ES256 signature with the credential's device key. */
   signer: (data: Uint8Array) => Promise<Uint8Array>;
   /** Unlocked keystore root; throw if locked or declined. Reaches native as `seed_failed`. */
@@ -51,12 +64,10 @@ export interface NymAuthProofInput {
 export interface NymAuthProof {
   /** Base64url token from native; goes into the vp_token. */
   token: string;
-  /** True when the native prover is the SDK's fake one: the token is not a valid proof. */
-  fakeProver: boolean;
 }
 
 interface NativeBridge {
-  zkpCapabilities(p: unknown): Promise<{ zkSystems: string[]; busy: boolean; fakeProver: boolean }>;
+  zkpCapabilities(p: unknown): Promise<{ zkSystems: string[]; busy: boolean }>;
   zkpGenerate(p: unknown): Promise<{ proofId: string }>;
   zkpCancel(p: unknown): Promise<unknown>;
   onRequest(name: string, handler: (payload: any) => unknown): () => void;
@@ -127,6 +138,9 @@ export class NymAuthZkProver {
     if (input.signal?.aborted) throw input.signal.reason ?? new Error('Aborted');
     const docType = input.plan.meta.doctype_value;
     if (!docType) throw new Error('plan.meta.doctype_value is required');
+    if (input.secretSeed && input.secretSeed.length !== SECRET_SEED_BYTES) {
+      throw new Error(`secretSeed must be ${SECRET_SEED_BYTES} bytes, got ${input.secretSeed.length}`);
+    }
 
     const caps = await bridge.zkpCapabilities({});
     if (!caps?.zkSystems?.length) throw new Error('This build has no zero-knowledge prover configured');
@@ -174,6 +188,9 @@ export class NymAuthZkProver {
         verifierId: input.verifierId,
         userValue: input.userValue,
         circuitId: input.circuitId,
+        systemIdValues: input.systemIdValues,
+        proofSystemValues: input.proofSystemValues,
+        secretSeed: input.secretSeed ? toB64(input.secretSeed) : undefined,
         transcript: input.transcript,
       }));
       input.onProgress?.('started');
@@ -192,7 +209,7 @@ export class NymAuthZkProver {
       if (!result.success || !result.token) {
         throw new Error(`native ZK proof failed (${result.error?.code ?? 'unknown'}): ${result.error?.message ?? 'no message'}`);
       }
-      return { token: result.token, fakeProver: !!caps.fakeProver };
+      return { token: result.token };
     } finally {
       clearTimeout(timer);
       input.signal?.removeEventListener('abort', onAbort);

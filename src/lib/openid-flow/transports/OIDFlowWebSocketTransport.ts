@@ -462,7 +462,6 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		if (payload?.tx_code) {
 			result.txCode = payload.tx_code as OID4VCIFlowResult['txCode'];
 		}
-
 		// Credential
 		if (response?.credential) {
 			result.credential = response.credential as string;
@@ -473,6 +472,11 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		// Handle credentials array from server
 		if (response?.credentials && Array.isArray(response.credentials)) {
 				result.credentials = (response.credentials as Array<{format: string; credential: string; vct?: string}>);
+		}
+		const credentialMetadata = (response?.credential_metadata ?? payload?.credential_metadata) as
+			Record<string, unknown> | undefined;
+		if (credentialMetadata && typeof credentialMetadata === 'object') {
+			result.credentialMetadata = credentialMetadata;
 		}
 
 		// Deferred

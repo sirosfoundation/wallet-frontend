@@ -11,6 +11,7 @@ import CredentialsContext from '@/context/CredentialsContext';
 import { logger } from '@/logger';
 import { OIDFlowError } from '@/lib/openid-flow/errors';
 import { SerializedClientAuthMaterial } from '@/lib/openid-flow/OIDFlowClientAuthMaterial';
+import { deliveredSeedOf, seedSettingsFor } from '@/lib/zero-knowledge/nymAuthSeedStore';
 
 export interface UseOID4VCIFlowOptions {
 	/**
@@ -50,6 +51,8 @@ export interface UseOID4VCIFlowReturn {
 		credentials: OID4VCIFlowResult['credentials'],
 		credentialIssuerIdentifier?: string,
 		credentialConfigurationId?: string,
+		/** The credential response's credential_metadata: a delivered nym_auth secret seed is stored from it. */
+		credentialMetadata?: OID4VCIFlowResult['credentialMetadata'],
 	) => Promise<OID4VCIFlowResult>;
 	/**
 	 * Current transport type being used
@@ -395,7 +398,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		credentials: OID4VCIFlowResult['credentials'],
 		credentialIssuerIdentifier?: OID4VCIFlowResult['credentialIssuerIdentifier'],
 		credentialConfigurationId?: OID4VCIFlowResult['selectedCredentialConfigurationId'],
-
+		credentialMetadata?: OID4VCIFlowResult['credentialMetadata'],
 	): Promise<OID4VCIFlowResult> => {
 		setIsLoading(true);
 		setError(null);
@@ -468,6 +471,23 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			await api.updatePrivateData(privateData);
 			await commit();
 
+			// A nym_auth credential's issuer-delivered secret seed: kept in the (encrypted, synced) wallet settings, one
+			// entry per stored instance, so presentation can find it from the credential.
+			const seed = deliveredSeedOf(credentialMetadata);
+			if (seed) {
+				try {
+					const current = (keystore.getCalculatedWalletState()?.settings ?? {}) as Record<string, string>;
+					const entries = await seedSettingsFor(credentialsToStore.map((c) => c.data), seed);
+					// alterSettings replaces the settings object, so the current settings are kept.
+					const [, seedPrivateData, seedCommit] = await keystore.alterSettings({ ...current, ...entries } as never);
+					await api.updatePrivateData(seedPrivateData);
+					await seedCommit();
+					logger.info(`[nym-seed] stored the delivered secret seed for ${credentialsToStore.length} credential(s)`);
+				} finally {
+					seed.fill(0);
+				}
+			}
+
 			notify('newCredential');
 
 			return { success: true };
@@ -489,7 +509,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		} finally {
 			setIsLoading(false);
 		}
-	}, [api, keystore,	credentialEngine, onError, onIssuanceWarnings, assertNotAborted]);
+	}, [api, keystore, credentialEngine, onError, onIssuanceWarnings, assertNotAborted]);
 
 	return {
 		handleCredentialOffer,
