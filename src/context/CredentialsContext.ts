@@ -39,24 +39,14 @@ export type CredentialsContextValue = {
 	latestCredentials: Set<number>;
 	fetchVcData: (credentialId?: number) => Promise<ExtendedVcEntity[] | null>;
 	getData: (shouldPoll?: boolean) => Promise<void>;
+	removeCredential: (batchId: number) => void;
 	currentSlide: number;
 	setCurrentSlide: (slide: number) => void;
 	parseCredential: (credential: WalletStateCredential) => Promise<ParsedCredential | null>;
-	credentialEngine: CredentialEngine | null;
+	credentialEngine: Promise<CredentialEngine>;
 	pendingTransactions: Record<string, any>;
 };
 
-const defaultContextValue: CredentialsContextValue = {
-	vcEntityList: [],
-	latestCredentials: new Set<number>(),
-	fetchVcData: async () => [],
-	getData: async () => { },
-	currentSlide: 1,
-	setCurrentSlide: () => { },
-	parseCredential: async () => null,
-	credentialEngine: null,
-	pendingTransactions: null,
-};
-const CredentialsContext = createContext<CredentialsContextValue>(defaultContextValue);
+const CredentialsContext = createContext<CredentialsContextValue | null>(null);
 
 export default CredentialsContext;

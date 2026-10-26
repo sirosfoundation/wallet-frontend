@@ -6,6 +6,8 @@ ENV CI=true
 
 WORKDIR /home/node/app
 
+ENV CI=true
+
 RUN corepack enable
 
 # Install dependencies first so rebuild of these layers is only needed when dependencies change

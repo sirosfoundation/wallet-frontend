@@ -1,6 +1,6 @@
 {
   "name": "wallet-frontend",
-  "version": "0.7.0-beta.0",
+  "version": "0.7.0-beta.4",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.22.0",
@@ -81,8 +81,7 @@
     "@types/reflect-metadata": "^0.1.0",
     "@vitejs/plugin-react": "^4.7.0",
     "@vitest/coverage-v8": "^4.1.11",
-    "concurrently": "^9.2.4",
-    "depcheck": "^1.4.7",
+    "concurrently": "^10.0.6",
     "dotenv-cli": "^11.0.0",
     "eslint": "^8.57.1",
     "eslint-config-react-app": "^7.0.1",
@@ -95,8 +94,8 @@
     "vitest": "^4.1.11"
   },
   "scripts": {
-    "start": "vite --no-open",
-    "start-docker": "npx vite --no-open",
+    "start": "vite",
+    "start-docker": "npx vite",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx --max-warnings=0",

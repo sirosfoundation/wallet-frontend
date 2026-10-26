@@ -11,6 +11,7 @@
 # Allowlist: these files and directories should be included
 !/.changeset/
 !/.github/
+!/.schemas/
 !/.tx/
 !/.vscode/
 !/branding/

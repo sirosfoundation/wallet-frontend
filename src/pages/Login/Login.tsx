@@ -1,154 +1,54 @@
-import React, { useContext, useEffect, useState, useCallback, ChangeEventHandler } from 'react';
-import { useNavigate, useLocation } from 'react-router';
-import { Trans, useTranslation } from 'react-i18next';
+import React, { useCallback, useContext, useEffect, useState } from 'react';
+import { Navigate, useLocation, useNavigate } from 'react-router';
+import { useTranslation } from 'react-i18next';
+import { X } from 'lucide-react';
 
-import type { CachedUser } from '../../services/LocalStorageKeystore';
-import { calculateByteSize, coerce } from '@/lib/utils';
-
+import type { CachedUser } from '@/services/LocalStorageKeystore';
 import StatusContext from '@/context/StatusContext';
 import SessionContext from '@/context/SessionContext';
-import { useTenant } from '../../context/TenantContext';
-import { buildTenantRoutePath, filterUsersByTenantID, matchesTenantFromUrl } from '../../lib/tenant';
-import { useOIDCGate } from '../../hooks/useOIDCGate';
+import { useTenant } from '@/context/TenantContext';
+import { filterUsersByTenantID } from '@/lib/tenant';
+import { useOIDCGate } from '@/hooks/useOIDCGate';
+import { usePrfRetry } from '@/hooks/usePrfRetry';
+import { useRedirectWhenLoggedIn } from '@/hooks/useRedirectWhenLoggedIn';
+import checkForUpdates from '@/offlineUpdateSW';
 
-import Button, { Variant } from '../../components/Buttons/Button';
-
-import LanguageSelector from '../../components/LanguageSelector/LanguageSelector';
-import TenantSelector from '../../components/TenantSelector/TenantSelector';
-import LoginLayout from '../../components/Auth/LoginLayout';
-import OIDCGateFlowStatus from '../../components/Auth/OIDCGateFlowStatus';
-import checkForUpdates from '../../offlineUpdateSW';
-
-import { Info, KeyRoundIcon, Wallet, X } from 'lucide-react';
-import { UsbStickDotIcon } from '@/components/Shared/CustomIcons';
-import PolicyLinks from '@/components/Shared/PolicyLinks';
+import AuthLayout from '@/components/Auth/AuthLayout';
+import OIDCGateBoundary from '@/components/Auth/OIDCGateBoundary';
+import PasskeyProgress from '@/components/Auth/PasskeyProgress';
+import PasskeyButtons from '@/components/Auth/PasskeyButtons';
+import Button from '@/components/Buttons/Button';
+import TenantSelector from '@/components/TenantSelector/TenantSelector';
 import PasskeyInfoPopup from '@/components/Popups/PasskeyInfoPopup';
-import { usePolicyLinks } from '@/hooks/usePolicyLinks';
-import { logger } from '@/logger';
-import { getReturnToUrl } from '@/lib/utils/returnToUrl';
 
-const FormInputRow = ({
-	IconComponent,
-	children,
-	label,
-	name,
-}) => (
-	<div className="mb-4 relative">
-		<label className="block text-lm-gray-800 dark:text-dm-gray-200 text-sm font-bold mb-2" htmlFor={name}>
-			<IconComponent size={20} className="absolute left-3 top-10 z-10 text-lm-gray-700 dark:text-dm-gray-300" />
-			{label}
-		</label>
-		{children}
-	</div>
-);
-
-const FormInputField = ({
-	ariaLabel,
-	disabled,
-	name,
-	onChange,
-	placeholder,
-	required,
-	value,
-}: {
-	ariaLabel?: string,
-	disabled?: boolean,
-	name: string,
-	onChange: ChangeEventHandler<HTMLInputElement>,
-	placeholder?: string,
-	required?: boolean,
-	value: string,
-}) => {
-	return (
-		<div className="relative">
-			<input
-				className="w-full pl-10 pr-3 py-2 bg-lm-gray-200 dark:bg-dm-gray-800 border border-lm-gray-400 dark:border-dm-gray-600 dark:text-white rounded-lg dark:inputDarkModeOverride"
-				type="text"
-				name={name}
-				placeholder={placeholder}
-				value={value}
-				onChange={onChange}
-				aria-label={ariaLabel}
-				required={required}
-				disabled={disabled}
-			/>
-		</div>
-	);
-};
-
-const WebauthnSignupLogin = ({
-	isLogin,
-	isSubmitting,
-	setIsSubmitting,
-	isLoginCache,
-	error,
-	setError,
-}: {
-	isLogin: boolean,
-	isSubmitting: boolean,
-	setIsSubmitting: (isSubmitting: boolean) => void,
-	isLoginCache: boolean,
-	error: React.ReactNode,
-	setError: (error: React.ReactNode) => void,
-}) => {
+const Login = () => {
 	const { isOnline, updateOnlineStatus, blockUpdates } = useContext(StatusContext);
 	const { api, keystore } = useContext(SessionContext);
-	const { urlTenantId, buildPath, tenantConfig } = useTenant();
+	const { urlTenantId, buildPath } = useTenant();
+	const navigate = useNavigate();
 	const location = useLocation();
-
-	// OIDC gate hooks - registration and login are independent
-	const redirectUri = window.location.origin + buildPath('/oidc/cb');
-	const registrationGate = useOIDCGate({ purpose: 'registration', redirectUri });
-	const loginGate = useOIDCGate({ purpose: 'login', redirectUri });
-
-	// Determine which gate applies based on current mode
-	const activeGate = isLogin ? loginGate : registrationGate;
-
-	const [inProgress, setInProgress] = useState(false);
-	const [name, setName] = useState("");
-	const [needPrfRetry, setNeedPrfRetry] = useState(false);
-	const [resolvePrfRetryPrompt, setResolvePrfRetryPrompt] = useState<(accept: boolean) => void>(null);
-	const [prfRetryAccepted, setPrfRetryAccepted] = useState(false);
-
-	const { hasPolicyLinks } = usePolicyLinks();
-
-	const inviteCode = new URLSearchParams(location.search).get('invite') || undefined;
-
 	const { t } = useTranslation();
-	const [retrySignupFrom, setRetrySignupFrom] = useState(null);
 
-	const cachedUsers = filterUsersByTenantID(urlTenantId, keystore.getCachedUsers());
+	const gate = useOIDCGate({ purpose: 'login', redirectUri: window.location.origin + buildPath('/oidc/cb') });
+	const prf = usePrfRetry();
+	const [inProgress, setInProgress] = useState(false);
+	const [error, setError] = useState<React.ReactNode>('');
 
-	useEffect(
-		() => {
-			setError("");
-		},
-		[isLogin, setError],
-	);
+	const { getCachedUsers } = keystore;
+	const cachedUsers = filterUsersByTenantID(urlTenantId, getCachedUsers());
+	const [isLoginCache, setIsLoginCache] = useState(cachedUsers.length > 0);
+	useEffect(() => {
+		setIsLoginCache(filterUsersByTenantID(urlTenantId, getCachedUsers()).length > 0);
+	}, [getCachedUsers, urlTenantId]);
 
-	const promptForPrfRetry = async (): Promise<boolean> => {
-		setNeedPrfRetry(true);
-		return new Promise((resolve: (accept: boolean) => void, _reject) => {
-			setResolvePrfRetryPrompt(() => resolve);
-		}).finally(() => {
-			setNeedPrfRetry(false);
-			setPrfRetryAccepted(true);
-			setResolvePrfRetryPrompt(null);
-		});
-	};
+	useRedirectWhenLoggedIn(true);
 
 	const onLogin = useCallback(
-		async (webauthnHints: string[], cachedUser?: CachedUser) => {
-			const result = await api.loginWebauthn(keystore, promptForPrfRetry, webauthnHints, cachedUser, urlTenantId, activeGate.idToken || undefined);
-			if (result.ok) {
-				// Success - no action needed, session will be set by API
-			} else {
-				const err = result.val;
-
-
-				// Using a switch here so the t() argument can be a literal, to ease searching
-				switch (err) {
-					case 'loginKeystoreFailed':
+		async (hints: string[], cachedUser?: CachedUser) => {
+			const result = await api.loginWebauthn(keystore, prf.promptForPrfRetry, hints, cachedUser, urlTenantId, gate.idToken || undefined);
+			if (result.ok) return;
+			switch (result.val) {
+				case 'loginKeystoreFailed':
 						setError(t('loginSignup.loginKeystoreFailed'));
 						break;
 
@@ -167,7 +67,7 @@ const WebauthnSignupLogin = ({
 					case 'oidcTokenExpired':
 						// OIDC gate token has expired — clear it and re-show the gate so the user
 						// can re-authenticate via the IdP before retrying the passkey login
-						activeGate.reset();
+						gate.reset();
 						setError(t('oidcGate.errorExpired'));
 						break;
 
@@ -177,335 +77,94 @@ const WebauthnSignupLogin = ({
 
 					default:
 						throw result;
-				}
 			}
 		},
-		// we only want to reset this callback if the gate's ID token changes, not on every gate state change
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-		[api, keystore, urlTenantId, activeGate.idToken, activeGate.reset, setError, t],
+		[api, keystore, urlTenantId, gate.idToken, gate.reset, prf.promptForPrfRetry, t],
 	);
 
-	const onSignup = async (name: string, webauthnHints: string[]) => {
-		// Pass tenantId to ensure the passkey's userHandle includes the tenant prefix
-		// This enables tenant-scoped authentication
-		const result = await api.signupWebauthn(
-			name,
-			keystore,
-			retrySignupFrom
-				? async () => true // "Try again" already means user agreed to continue
-				: promptForPrfRetry,
-			webauthnHints,
-			retrySignupFrom,
-			urlTenantId || 'default',
-			inviteCode,
-			activeGate.idToken || undefined,
-		);
-		if (result.ok) {
-
-		} else if (result.err) {
-			// Using a switch here so the t() argument can be a literal, to ease searching
-			switch (result.val) {
-				case 'passkeySignupFailedServerError':
-					setError(t('loginSignup.passkeySignupFailedServerError'));
-					break;
-
-				case 'passkeySignupFailedTryAgain':
-					setError(t('loginSignup.passkeySignupFailedTryAgain'));
-					break;
-
-				case 'passkeySignupFinishFailedServerError':
-					setError(t('loginSignup.passkeySignupFinishFailedServerError'));
-					break;
-
-				case 'passkeySignupKeystoreFailed':
-					setError(t('loginSignup.passkeySignupKeystoreFailed'));
-					break;
-
-				case 'inviteRequired':
-					setError(t('loginSignup.inviteRequired'));
-					break;
-
-				case 'inviteInvalid':
-					setError(t('loginSignup.inviteInvalid'));
-					break;
-
-				case 'oidcTokenExpired':
-					// OIDC gate token has expired — clear it and re-show the gate so the user
-					// can re-authenticate via the IdP before retrying the passkey registration
-					activeGate.reset();
-					setError(t('oidcGate.errorExpired'));
-					break;
-
-				case 'passkeySignupPrfNotSupported':
-					setError(
-						<Trans
-							i18nKey="loginSignup.passkeySignupPrfNotSupported"
-							components={{
-								docLink: <a
-									href="https://github.com/wwWallet/wallet-frontend#prf-compatibility" target='blank_'
-									className="font-medium text-lm-gray-900 hover:underline dark:text-dm-gray-100"
-									aria-label={t('loginSignup.passkeySignupPrfNotSupportedAriaLabel')}
-								/>
-							}}
-						/>
-					);
-					break;
-
-				default:
-					if (result.val?.errorId === 'prfRetryFailed') {
-						setRetrySignupFrom(result.val?.retryFrom);
-
-					} else {
-						setError(t('loginSignup.passkeySignupPrfRetryFailed'));
-						throw result;
-					}
-			}
+	const runLogin = async (tag: string, hints: string[], cachedUser?: CachedUser) => {
+		const release = blockUpdates(tag);
+		setError('');
+		setInProgress(true);
+		try {
+			await onLogin(hints, cachedUser);
+		} finally {
+			setInProgress(false);
+			checkForUpdates();
+			updateOnlineStatus();
+			release();
 		}
 	};
 
-	const onSubmit = async (event: React.SyntheticEvent<HTMLFormElement, SubmitEvent>) => {
+	const onSubmit = (event: React.SyntheticEvent<HTMLFormElement, SubmitEvent>) => {
 		event.preventDefault();
-		const webauthnHint = (event.nativeEvent?.submitter as HTMLButtonElement)?.value;
+		const hint = (event.nativeEvent?.submitter as HTMLButtonElement)?.value;
+		runLogin('login-submit', [hint]);
+	};
 
-		const release = blockUpdates('login-submit');
+	const onLoginCachedUser = (cachedUser: CachedUser) => runLogin('login-cached-user', [], cachedUser);
+	const onForgetCachedUser = (cachedUser: CachedUser) => keystore.forgetCachedUser(cachedUser);
+
+	const useOtherAccount = () => {
+		setIsLoginCache(false);
 		setError('');
-		setInProgress(true);
-		setIsSubmitting(true);
-
-		if (isLogin) {
-			await onLogin([webauthnHint]);
-
-		} else {
-			await onSignup(name, [webauthnHint]);
-		}
-
-		setInProgress(false);
-		setIsSubmitting(false);
 		checkForUpdates();
 		updateOnlineStatus();
-		release();
 	};
 
-	const onLoginCachedUser = async (cachedUser: CachedUser) => {
-		const release = blockUpdates('login-cached-user');
-		setError('');
-		setInProgress(true);
-		setIsSubmitting(true);
-		await onLogin([], cachedUser);
-		setInProgress(false);
-		setIsSubmitting(false);
+	const goToSignup = () => {
 		checkForUpdates();
 		updateOnlineStatus();
-		release();
+		navigate(buildPath('signup') + location.search);
 	};
 
-	const onForgetCachedUser = (cachedUser: CachedUser) => {
-		keystore.forgetCachedUser(cachedUser);
-	};
-
-	const onCancel = () => {
-		logger.debug("onCancel");
-		setInProgress(false);
-		setNeedPrfRetry(false);
-		setPrfRetryAccepted(false);
-		setResolvePrfRetryPrompt(null);
-		setIsSubmitting(false);
-		setRetrySignupFrom(null);
-	};
-
-	const nameByteLength = calculateByteSize(name);
-	const nameByteLimit = 64;
-	const nameByteLimitReached = nameByteLength > nameByteLimit;
-	const nameByteLimitApproaching = nameByteLength >= nameByteLimit / 2;
-
-	// Handle OIDC gate flow start
-	const handleStartGateFlow = useCallback(() => {
-		activeGate.startFlow({ username: name });
-	}, [activeGate, name]);
-
-	// While OIDC gate / tenant config is loading, block the rest of the flow
-	const isOIDCGateLoading = activeGate.state.status === 'loading';
-
-	// Check if we need to show the OIDC gate UI
-	const showOIDCGate = activeGate.requiresGate && !activeGate.isGateComplete && !isOIDCGateLoading;
-
-	// If OIDC gate is loading, show a simple loading indicator
-	// (providerConfig may be null while config loads, so don't render OIDCGateFlowStatus yet)
-	if (isOIDCGateLoading) {
-		return (
-			<div className='mb-4'>
-				<div className="text-center py-4">
-					<p className="dark:text-white">{t('common.loading')}</p>
-				</div>
-			</div>
-		);
-	}
-
-	// If OIDC gate is required but no provider is configured, show error
-	if (showOIDCGate && !activeGate.providerConfig) {
-		return (
-			<div className='mb-4'>
-				<div className="text-lm-red dark:text-dm-red pt-2">
-					{t('loginSignup.oidcGateError', 'OIDC gate configuration error. Please contact support.')}
-				</div>
-			</div>
-		);
-	}
-
-	// Single element for OIDC gate status, used both during gate flow and as verified badge
-	const oidcGateStatusElement = activeGate.providerConfig ? (
-		<OIDCGateFlowStatus
-			state={activeGate.state}
-			provider={activeGate.providerConfig}
-			purpose={isLogin ? 'login' : 'registration'}
-			tenantDisplayName={tenantConfig?.display_name || tenantConfig?.name}
-			onStart={handleStartGateFlow}
-			onRetry={activeGate.reset}
-		/>
-	) : null;
-
-	// If OIDC gate is required and not complete, show the gate UI
-	if (showOIDCGate && activeGate.providerConfig) {
-		return (
-			<div className='mb-4'>
-				{oidcGateStatusElement}
-				{error && <div className="text-lm-red dark:text-dm-red pt-2 mt-4">{error}</div>}
-			</div>
-		);
+	// Send old signup URLs (OIDC returns with ?mode=signup, invite links) to /signup
+	const params = new URLSearchParams(location.search);
+	if (params.get('mode') === 'signup' || params.has('invite')) {
+		params.delete('mode');
+		const qs = params.toString();
+		return <Navigate to={`${buildPath('signup')}${qs ? `?${qs}` : ''}`} replace />;
 	}
 
 	return (
-		<form className='mb-4' onSubmit={onSubmit}>
-			{/* Show verified badge if gate was completed */}
-			{activeGate.isGateComplete && activeGate.state.status === 'oidc-complete' && (
-				<div className="mb-4">
-					{oidcGateStatusElement}
-				</div>
-			)}
-			{inProgress || retrySignupFrom
-				? (
-					needPrfRetry
-						? (
-							<div className="text-center">
-								{
-									prfRetryAccepted
-										? (
-											<p className="dark:text-white pb-3">{t('registerPasskey.messageInteract')}</p>
-										)
-										: (
-											<>
-												<h3 className="text-2xl mt-4 mb-2 font-bold text-lm-gray-900 dark:text-white">{t('registerPasskey.messageDone')}</h3>
-												<p className="dark:text-white pb-3">
-													{isLogin
-														? t('loginSignup.authOnceMoreLogin')
-														: t('registerPasskey.authOnceMore')
-													}
-												</p>
-											</>
-										)
-								}
-								<div className='flex justify-center gap-4'>
-									<Button
-										id="cancel-prf-loginsignup"
-										onClick={() => resolvePrfRetryPrompt(false)}
-									>
-										{t('common.cancel')}
-									</Button>
-									<Button
-										id="continue-prf-loginsignup"
-										onClick={() => resolvePrfRetryPrompt(true)}
-										variant="primary"
-										disabled={prfRetryAccepted}
-									>
-										{t('common.continue')}
-									</Button>
-								</div>
-							</div>
-						)
-						: (
-							retrySignupFrom && !inProgress
+		<AuthLayout
+			headingKey="loginSignup.loginMessage"
+			title={isLoginCache ? t('loginSignup.loginCache') : t('loginSignup.loginTitle')}
+			belowCard={!isLoginCache && <PasskeyInfoPopup />}
+			footer={<>
+				{isLoginCache ? (
+					<p className="text-sm font-light text-lm-gray-900 dark:text-dm-gray-100 cursor-pointer">
+						<Button id="useOtherAccount-switch-loginsignup" variant="link" onClick={useOtherAccount}>
+							{t('loginSignup.useOtherAccount')}
+						</Button>
+					</p>
+				) : (
+					<p className="text-sm font-light text-lm-gray-900 dark:text-dm-gray-100">
+						{t('loginSignup.newHereQuestion')}
+						<Button id="signUp-switch-loginsignup" variant="link" onClick={goToSignup} disabled={!isOnline} title={!isOnline && t('common.offlineTitle')}>
+							{t('loginSignup.signUp')}
+						</Button>
+					</p>
+				)}
+				<TenantSelector currentTenantId={urlTenantId || 'default'} isAuthenticated={false} button={<Button variant="link" linkClassName="text-sm" />} />
+			</>}
+		>
+			<OIDCGateBoundary gate={gate} purpose="login" error={error}>
+				<form className="mb-4" onSubmit={onSubmit}>
+					{inProgress ? (
+						<PasskeyProgress
+							inProgress={inProgress}
+							needPrfRetry={prf.needPrfRetry}
+							prfRetryAccepted={prf.prfRetryAccepted}
+							onPrfAnswer={(accept) => prf.resolvePrfRetryPrompt?.(accept)}
+							onCancel={() => { prf.reset(); setInProgress(false); }}
+							authOnceMoreMessage={t('loginSignup.authOnceMoreLogin')}
+						/>
+					) : (
+						<>
+							{isLoginCache
 								? (
-									<div className="text-center">
-										<p className="dark:text-white pb-3">
-											<Trans
-												i18nKey="registerPasskey.messageErrorTryAgain"
-												components={{ br: <br /> }}
-											/>
-										</p>
-										<div className='flex justify-center gap-4'>
-
-											<Button
-												id="cancel-prf-loginsignup"
-												onClick={onCancel}
-											>
-												{t('common.cancel')}
-											</Button>
-											<Button
-												id="try-again-prf-loginsignup"
-												type="submit"
-												variant="secondary"
-											>
-												{t('common.tryAgain')}
-											</Button>
-										</div>
-									</div>
-								)
-								: (
-									<>
-										<p className="dark:text-white pb-3">{t('registerPasskey.messageInteract')}</p>
-										<Button
-											id="cancel-in-progress-prf-loginsignup"
-											onClick={onCancel}
-											additionalClassName='w-full'
-										>
-											{t('common.cancel')}
-										</Button>
-									</>
-								)
-						)
-				)
-				: (
-					<>
-						{!isLogin && (
-							<>
-								<FormInputRow label={t('loginSignup.choosePasskeyUsername')} name="name" IconComponent={Wallet}>
-									<FormInputField
-										ariaLabel="Passkey name"
-										name="name"
-										onChange={(event) => setName(event.target.value)}
-										placeholder={t('loginSignup.enterPasskeyName')}
-										value={name}
-										required
-									/>
-									<div className={`flex flex-row flex-nowrap text-lm-gray-500 text-sm italic ${nameByteLimitReached ? 'text-lm-red' : ''} ${nameByteLimitApproaching ? 'h-auto mt-1' : 'h-0 mt-0'} transition-all`}>
-										<div
-											className={`text-lm-red dark:text-dm-red grow ${nameByteLimitReached ? 'opacity-100' : 'opacity-0 select-none'} transition-opacity`}
-											aria-hidden={!nameByteLimitReached}
-										>
-											{t('loginSignup.reachedLengthLimit')}
-										</div>
-										<div
-											className={`text-right ${nameByteLimitApproaching ? 'opacity-100' : 'opacity-0 select-none'} transition-opacity`}
-											aria-hidden={!nameByteLimitApproaching}
-										>
-											{nameByteLength + `/64`}
-										</div>
-									</div>
-								</FormInputRow>
-								{hasPolicyLinks && (
-									<label className="mb-4 text-sm relative block pl-6">
-										<input className="absolute top-1 left-0 w-4 h-4 accent-primary cursor-pointer" type="checkbox" required />
-										<span>
-											<Trans
-												i18nKey="loginSignup.acceptPolicies"
-												components={{ policyLinks: <PolicyLinks /> }}
-											/>
-										</span>
-									</label>
-								)}
-							</>)}
-
-						{isLoginCache && (
 							<ul className="overflow-y-auto overflow-x-hidden max-h-32 px-2 custom-scrollbar flex flex-col gap-2">
 								{cachedUsers.filter(cachedUser => cachedUser?.prfKeys?.length > 0).map((cachedUser, index) => (
 									<li
@@ -518,13 +177,13 @@ const WebauthnSignupLogin = ({
 												onClick={() => onLoginCachedUser(cachedUser)}
 												size="xl"
 												variant="primary"
-												disabled={isSubmitting}
+												disabled={inProgress}
 												additionalClassName="w-full"
 												ariaLabel={t('loginSignup.loginAsUser', { name: cachedUser.displayName })}
 												title={t('loginSignup.loginAsUser', { name: cachedUser.displayName })}
 											>
 												<span className="truncate">
-													{isSubmitting
+													{inProgress
 														? t('loginSignup.submitting')
 														: cachedUser.displayName
 													}
@@ -537,7 +196,7 @@ const WebauthnSignupLogin = ({
 												onClick={() => onForgetCachedUser(cachedUser)}
 												square={true}
 												size="xl"
-												disabled={isSubmitting}
+												disabled={inProgress}
 												ariaLabel={t('loginSignup.forgetCachedUser', { name: cachedUser.displayName })}
 												title={t('loginSignup.forgetCachedUser', { name: cachedUser.displayName })}
 											>
@@ -547,173 +206,14 @@ const WebauthnSignupLogin = ({
 									</li>
 								))}
 							</ul>
-						)}
-
-						{!isLoginCache && (
-							[
-								{ btnLabel: isLogin ? t('loginSignup.loginWithPasskey') : t('loginSignup.signUpWithPasskey'), Icon: KeyRoundIcon, variant: coerce<Variant>("primary") },
-								{ btnLabel: isLogin ? t('loginSignup.loginWithSecurityKey') : t('loginSignup.signUpWithSecurityKey'), Icon: UsbStickDotIcon, variant: coerce<Variant>("outline"), hint: "security-key", },
-							].map(({ Icon, btnLabel, variant, hint }) => (
-								<div key={btnLabel} className='mt-2 relative w-full flex flex-col justify-center'>
-									<Button
-										id={`${isSubmitting ? 'submitting' : isLogin ? 'loginPasskey' : 'loginSignup.signUpPasskey'}-${hint}-submit-loginsignup`}
-										type="submit"
-										variant={variant}
-										size="lg"
-										textSize="md"
-										additionalClassName={`items-center justify-center relative passkey-button-${hint}`}
-										title={!isLogin && !isOnline && t("common.offlineTitle")}
-										value={hint}
-									>
-										<div className="flex flex-col">
-											<div className="flex flex-row items-center justify-center w-full">
-												<Icon size={20} className="inline text-xl mr-2 shrink-0" />
-
-												{isSubmitting
-													? t('loginSignup.submitting')
-													: btnLabel
-												}
-											</div>
-										</div>
-									</Button>
-								</div>
-							))
-						)}
-
-						{error && <div className="text-lm-red dark:text-dm-red pt-2">{error}</div>}
-					</>
-				)
-			}
-		</form>
-	);
-};
-
-const Auth = () => {
-	const { isOnline, updateOnlineStatus } = useContext(StatusContext);
-	const { isLoggedIn, keystore } = useContext(SessionContext);
-	const { urlTenantId, effectiveTenantId } = useTenant();
-	const { t } = useTranslation();
-	const location = useLocation();
-
-	const [webauthnError, setWebauthnError] = useState<React.ReactNode>('');
-	// Initialize isLogin from URL query parameter (mode=signup means registration)
-	// This allows OIDC callback to redirect back and preserve the registration state
-	const [isLogin, setIsLogin] = useState(() => {
-		const params = new URLSearchParams(location.search);
-		return params.get('mode') !== 'signup';
-	});
-	const [isSubmitting, setIsSubmitting] = useState(false);
-
-	const navigate = useNavigate();
-
-	const { getCachedUsers } = keystore;
-	const [isLoginCache, setIsLoginCache] = useState(
-		filterUsersByTenantID(urlTenantId, getCachedUsers()).length > 0
-	);
-
-	useEffect(() => {
-		setIsLoginCache(filterUsersByTenantID(urlTenantId, getCachedUsers()).length > 0);
-	}, [getCachedUsers, setIsLoginCache, urlTenantId]);
-
-	useEffect(() => {
-		if (!isLoggedIn) return;
-
-		// Always consume any stored target so it can't linger, but only honour it
-		// for a login.
-		const returnTo = getReturnToUrl();
-		const target = ((isLogin || isLoginCache) ? returnTo : null)
-			?? buildTenantRoutePath(effectiveTenantId, `/${location.search}`);
-
-		if (matchesTenantFromUrl(effectiveTenantId, urlTenantId)) {
-			navigate(target, { replace: true });
-		} else {
-			window.location.href = target;
-		}
-	}, [effectiveTenantId, isLoggedIn, navigate, location.search, urlTenantId, isLogin, isLoginCache]);
-
-	const toggleForm = () => {
-		if (isOnline || !isLogin) {
-			setIsLogin(!isLogin);
-			checkForUpdates();
-			updateOnlineStatus();
-		};
-	}
-
-	const useOtherAccount = () => {
-		setIsLoginCache(false);
-		setWebauthnError('');
-		checkForUpdates();
-		updateOnlineStatus();
-	}
-
-	return (
-		<LoginLayout heading={
-			<Trans
-				i18nKey={(isLoginCache || isLogin) ? 'loginSignup.loginMessage' : 'loginSignup.welcomeMessage'}
-				components={{
-					highlight: <span className="text-primary dark:text-brand-light" />
-				}}
-			/>
-		}>
-			<div className="relative p-8 sm:px-12 space-y-4 md:space-y-6 lg:space-y-8 bg-white rounded-lg dark:bg-dm-gray-900 border border-lm-gray-400 dark:border-dm-gray-600">
-				<h1 className="pt-4 text-xl font-bold leading-tight tracking-tight text-dm-gray-900 md:text-2xl text-center dark:text-white">
-					{isLoginCache ? t('loginSignup.loginCache') : isLogin ? t('loginSignup.loginTitle') : t('loginSignup.signUp')}
-				</h1>
-
-				<div className='absolute top-5 right-5'>
-					<LanguageSelector className='min-w-12 text-sm text-lm-gray-900 dark:text-white cursor-pointer bg-white dark:bg-dm-gray-900 appearance-none' />
-				</div>
-
-				{isOnline === false && (
-					<p className="text-sm font-light text-lm-gray-900 dark:text-dm-gray-100 italic mb-2">
-						<Info size={14} className="text-md inline-block mr-1" />
-						{t('loginSignup.messageOffline')}
-					</p>
-				)}
-
-				<WebauthnSignupLogin
-					isLogin={isLogin}
-					isSubmitting={isSubmitting}
-					setIsSubmitting={setIsSubmitting}
-					isLoginCache={isLoginCache}
-					error={webauthnError}
-					setError={setWebauthnError}
-				/>
-				<div className='space-y-2'>
-					{!isLoginCache ? (
-						<p className="text-sm font-light text-lm-gray-900 dark:text-dm-gray-100">
-							{isLogin ? t('loginSignup.newHereQuestion') : t('loginSignup.alreadyHaveAccountQuestion')}
-							<Button
-								id={`${isLogin ? 'signUp' : 'loginSignup.login'}-switch-loginsignup`}
-								variant="link"
-								onClick={toggleForm}
-								disabled={!isOnline}
-								title={!isOnline && t('common.offlineTitle')}
-							>
-								{isLogin ? t('loginSignup.signUp') : t('loginSignup.login')}
-							</Button>
-						</p>
-					) : (
-						<p className="text-sm font-light text-lm-gray-900 dark:text-dm-gray-100 cursor-pointer">
-							<Button
-								id="useOtherAccount-switch-loginsignup"
-								variant="link"
-								onClick={useOtherAccount}
-							>
-								{t('loginSignup.useOtherAccount')}
-							</Button>
-						</p>
+							) : <PasskeyButtons mode="login" isSubmitting={inProgress} />}
+							{error && <div className="text-lm-red dark:text-dm-red pt-2">{error}</div>}
+						</>
 					)}
-					<TenantSelector
-						currentTenantId={urlTenantId || 'default'}
-						isAuthenticated={false}
-						button={<Button variant="link" linkClassName='text-sm' />}
-					/>
-				</div>
-			</div>
-			{!isLoginCache && <PasskeyInfoPopup />}
-		</LoginLayout>
+				</form>
+			</OIDCGateBoundary>
+		</AuthLayout>
 	);
 };
 
-export default Auth;
+export default Login;

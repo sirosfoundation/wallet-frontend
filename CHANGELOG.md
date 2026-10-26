@@ -1,5 +1,43 @@
 # wallet-frontend
 
+## 0.7.0-beta.4
+
+### Patch Changes
+
+- fixing the problem of the issuer list disappearing after a page timeout by [@lov1saconde](https://github.com/lov1saconde) in [#383](https://github.com/sirosfoundation/wallet-frontend/pull/383)
+- Fix crash during issuing (auth code flow) due to the credential engine not being initialised by [@smncd](https://github.com/smncd) in [#396](https://github.com/sirosfoundation/wallet-frontend/pull/396)
+
+## 0.7.0-beta.3
+
+### Minor Changes
+
+- fixed the scroll after deleting a credential. by [@lov1saconde](https://github.com/lov1saconde) in [#375](https://github.com/sirosfoundation/wallet-frontend/pull/375)
+- configuration option for the facetec-api URL by [@lov1saconde](https://github.com/lov1saconde) in [#380](https://github.com/sirosfoundation/wallet-frontend/pull/380)
+
+### Patch Changes
+
+- Fix slow `/v1/resolve` API calls blocking the wallet UI from rendering by [@smncd](https://github.com/smncd) in [#376](https://github.com/sirosfoundation/wallet-frontend/pull/376)
+- Set tailwind source by [@smncd](https://github.com/smncd) in [#377](https://github.com/sirosfoundation/wallet-frontend/pull/377)
+
+## 0.7.0-beta.2
+
+### Patch Changes
+
+- Render claim value as image if value is data uri by [@smncd](https://github.com/smncd) in [#372](https://github.com/sirosfoundation/wallet-frontend/pull/372)
+- Fix caching behaviour leaving users running old version of wallet, even when new ones are deployed by [@smncd](https://github.com/smncd) in [#351](https://github.com/sirosfoundation/wallet-frontend/pull/351)
+- made /login and /signup into separate components and created and AuthLayout that can be used by both pages by [@lov1saconde](https://github.com/lov1saconde) in [#367](https://github.com/sirosfoundation/wallet-frontend/pull/367)
+- Remove unused `verifyRequestUriAndCerts()` function by [@smncd](https://github.com/smncd) in [#364](https://github.com/sirosfoundation/wallet-frontend/pull/364)
+
+## 0.7.0-beta.1
+
+### Patch Changes
+
+- Patch dependencies that called eval, since we don't allow that in our CSP by [@smncd](https://github.com/smncd) in [#348](https://github.com/sirosfoundation/wallet-frontend/pull/348)
+- Avoid writing to IndexedDB if no user handle is present by [@smncd](https://github.com/smncd) in [#333](https://github.com/sirosfoundation/wallet-frontend/pull/333)
+- Convert the CBOR decoded value into a plain JSON-compatible structure during mDoc parsing by [@smncd](https://github.com/smncd) in [#343](https://github.com/sirosfoundation/wallet-frontend/pull/343)
+- Updated dependencies [[`39b2bd2`](https://github.com/sirosfoundation/wallet-frontend/commit/39b2bd24b08702353c7149d812c613e0a8e0df65)]:
+  - wallet-common@0.1.0-beta.1
+
 ## 0.7.0-beta.0
 
 ### Minor Changes
