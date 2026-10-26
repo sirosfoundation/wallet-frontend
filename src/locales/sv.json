@@ -71,6 +71,12 @@
 	"expiredRibbon": {
 		"expired": "Utgånget"
 	},
+	"globalError": {
+		"contactSupport": "Eller kontakta oss på support@siros.org.",
+		"message": "Vänligen rapportera detta problem så att vi kan undersöka det.",
+		"reportIssueButton": "Rapportera Problem",
+		"title": "Ett oväntat fel inträffade"
+	},
 	"issuance": {
 		"credentialsHaveErrors": "Fel har hittats vid verifiering av intyget du försöker ta emot.",
 		"error": "Utfärdningsfel",
@@ -142,6 +148,7 @@
 		"signUpWithPasskey": "Skapa konto med en Passkey",
 		"signUpWithSecurityKey": "Använd en Säkerhetsnyckel",
 		"submitting": "Skickar...",
+		"unsupportedVersion": "Plånbokens data använder en version som denna app inte stöder. Uppdatera appen och försök igen.",
 		"useOtherAccount": "Använd annat konto",
 		"usernameExistsError": "Misslyckades att skapa användarkonto, användarnamnet finns redan",
 		"usernameLabel": "Användarnamn",
@@ -177,6 +184,10 @@
 		"success": {
 			"message": "Operationen slutfördes.",
 			"title": "Lyckades"
+		},
+		"unsupportedVersion": {
+			"message": "Din plånbok ändrades av en version av appen som denna inte stöder. Uppdatera appen.",
+			"title": "Kan inte synkronisera plånboken"
 		}
 	},
 	"oidcGate": {
@@ -758,11 +769,5 @@
 		"question": "Är du redo att utforska funktionerna i $t(common.walletName) genom en guidad tur?",
 		"startTourButton": "Starta guiden",
 		"title": "Välkommen till $t(common.walletName)!"
-	},
-	"globalError": {
-		"title": "Ett oväntat fel inträffade",
-		"reportIssueButton": "Rapportera Problem",
-		"message": "Vänligen rapportera detta problem så att vi kan undersöka det.",
-		"contactSupport": "Eller kontakta oss på support@siros.org."
 	}
 }

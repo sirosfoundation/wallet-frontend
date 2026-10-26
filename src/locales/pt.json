@@ -71,6 +71,12 @@
 	"expiredRibbon": {
 		"expired": "Expirada"
 	},
+	"globalError": {
+		"contactSupport": "Ou, entre em contato conosco pelo e-mail support@siros.org.",
+		"message": "Por favor, reporte este problema para que possamos investigá-lo.",
+		"reportIssueButton": "Relatar Problema",
+		"title": "Ocorreu um erro inesperado"
+	},
 	"issuance": {
 		"credentialsHaveErrors": "Foram encontrados erros ao verificar a credencial que está a tentar receber.",
 		"error": "Erro de Emissão",
@@ -142,6 +148,7 @@
 		"signUpWithPasskey": "Criar conta com uma chave de acesso",
 		"signUpWithSecurityKey": "Usar uma chave de segurança",
 		"submitting": "A submeter...",
+		"unsupportedVersion": "Os dados desta carteira usam uma versão que esta aplicação não suporta. Atualize a aplicação e tente novamente.",
 		"useOtherAccount": "Usar outra conta",
 		"usernameExistsError": "Não foi possível criar conta de utilizador. O nome de utilizador já existe.",
 		"usernameLabel": "Nome de utilizador",
@@ -177,6 +184,10 @@
 		"success": {
 			"message": "A operação foi concluída com sucesso.",
 			"title": "Sucesso"
+		},
+		"unsupportedVersion": {
+			"message": "A sua carteira foi alterada por uma versão da aplicação que esta não suporta. Atualize a aplicação.",
+			"title": "Não foi possível sincronizar a carteira"
 		}
 	},
 	"oidcGate": {
@@ -758,11 +769,5 @@
 		"question": "Está disponível para explorar as funcionalidades da $t(common.walletName) através de uma apresentação guiada?",
 		"startTourButton": "Começar",
 		"title": "Bem vindo(a) à $t(common.walletName)!"
-	},
-	"globalError": {
-		"title": "Ocorreu um erro inesperado",
-		"reportIssueButton": "Relatar Problema",
-		"message": "Por favor, reporte este problema para que possamos investigá-lo.",
-		"contactSupport": "Ou, entre em contato conosco pelo e-mail support@siros.org."
 	}
 }
