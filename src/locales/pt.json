@@ -73,7 +73,10 @@
 	},
 	"globalError": {
 		"contactSupport": "Ou, entre em contato conosco pelo e-mail support@siros.org.",
-		"message": "Por favor, reporte este problema para que possamos investigá-lo.",
+		"messages": {
+			"default": "Por favor, reporte este problema para que possamos investigá-lo.",
+			"unsupportedVersion": "A sua carteira foi guardada por uma versão mais recente da aplicação. Recarregue para atualizar e, se o problema persistir, reporte-o."
+		},
 		"reportIssueButton": "Relatar Problema",
 		"title": "Ocorreu um erro inesperado"
 	},

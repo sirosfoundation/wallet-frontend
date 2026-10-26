@@ -73,7 +73,10 @@
 	},
 	"globalError": {
 		"contactSupport": "Eller kontakta oss på support@siros.org.",
-		"message": "Vänligen rapportera detta problem så att vi kan undersöka det.",
+		"messages": {
+			"default": "Vänligen rapportera detta problem så att vi kan undersöka det.",
+			"unsupportedVersion": "Din plånbok sparades av en nyare version av appen. Ladda om för att uppdatera, och rapportera problemet om det kvarstår."
+		},
 		"reportIssueButton": "Rapportera Problem",
 		"title": "Ett oväntat fel inträffade"
 	},

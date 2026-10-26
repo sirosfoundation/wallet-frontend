@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import Button from '@/components/Buttons/Button';
 import { APP_VERSION, STATIC_NAME } from '@/config';
 import { AlertCircle, Send } from 'lucide-react';
+import { UnsupportedSchemaVersionError } from '@/services/WalletStateSchemaCommon';
 
 const REPORT_ISSUE_EMAIL = 'support@siros.org';
 
@@ -32,6 +33,13 @@ const GlobalErrorScreen = ({ error }: GlobalErrorScreenProps) => {
 		window.location.href = `mailto:${REPORT_ISSUE_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 	};
 
+	const type = (() => {
+		if (error instanceof UnsupportedSchemaVersionError) return 'unsupportedVersion';
+		return 'default';
+	})();
+
+	const message = t(`globalError.messages.${type}`);
+
 	return (
 		<section>
 			<div className="flex flex-col items-center px-6 py-8 mx-auto min-h-dvh">
@@ -51,7 +59,7 @@ const GlobalErrorScreen = ({ error }: GlobalErrorScreenProps) => {
 								{t('globalError.title')}
 							</h1>
 							<p className="text-center">
-								{t('globalError.message')}
+								{message}
 							</p>
 							<div className="pt-4">
 								<Button onClick={handleReportIssue} variant="outline" additionalClassName="w-full">

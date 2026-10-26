@@ -73,7 +73,10 @@
 	},
 	"globalError": {
 		"contactSupport": "Tai ota meihin yhteyttä osoitteessa support@siros.org.",
-		"message": "Ilmoita tästä ongelmasta, jotta voimme tutkia sitä.",
+		"messages": {
+			"default": "Ilmoita tästä ongelmasta, jotta voimme tutkia sitä.",
+			"unsupportedVersion": "Lompakkosi tallennettiin sovelluksen uudemmalla versiolla. Päivitä lataamalla sivu uudelleen, ja jos ongelma jatkuu, ilmoita siitä."
+		},
 		"reportIssueButton": "Ilmoita Ongelmasta",
 		"title": "Tapahtui odottamaton virhe"
 	},

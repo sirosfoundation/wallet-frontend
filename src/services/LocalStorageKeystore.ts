@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate } from 'react-router';
 import { Err, Ok, Result } from 'ts-results';
+import * as jose from 'jose';
 
 import * as config from "../config";
 import { useClearStorages, useLocalStorage, useSessionStorage } from "../hooks/useStorage";
@@ -18,6 +19,7 @@ import { UserId } from "@/api/types";
 import { getItem } from "@/indexedDB";
 import { UnsupportedSchemaVersionError, WalletStateContainerGeneric } from "./WalletStateSchemaCommon";
 import { ExportedWscdContainer, WscdContainer } from "@/lib/wscd-manager";
+import { useErrorBoundary } from "react-error-boundary";
 
 type WalletState = CurrentSchema.WalletState;
 type WalletStateCredential = CurrentSchema.WalletStateCredential;
@@ -181,6 +183,7 @@ export interface LocalStorageKeystore {
 
 /** A stateful wrapper around the keystore module, storing state in the browser's localStorage and sessionStorage. */
 export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageKeystore {
+	const { showBoundary } = useErrorBoundary();
 	const [cachedUsers, setCachedUsers,] = useLocalStorage<CachedUser[]>("cachedUsers", []);
 	const [privateData, setPrivateDataState] = useState<EncryptedContainer | null>(null);
 	const privateDataRef = useRef<EncryptedContainer | null>(null);
@@ -371,24 +374,22 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		const [privateData, mainKey] = await assertKeystoreOpen();
 		try {
 			return await keystore.openPrivateData(mainKey, privateData);
-		}
-		catch (err) {
-			if (err instanceof UnsupportedSchemaVersionError) {
-				throw err;
+		} catch (err) {
+			// Only a stale main key can be fixed by re-authenticating.
+			if (err instanceof jose.errors.JWEDecryptionFailed) {
+				logger.debug("Navigating to login-state to handle JWE decryption failure");
+				const queryParams = new URLSearchParams(window.location.search);
+				queryParams.delete('user');
+				queryParams.delete('sync');
+				queryParams.append('user', userHandleB64u);
+				queryParams.append('sync', 'fail');
+				navigate(`${window.location.pathname}?${queryParams.toString()}`, { replace: true });
+			} else {
+				showBoundary(err);
 			}
-
-			logger.error(err);
-			logger.debug("Navigating to login-state to handle JWE decryption failure");
-			const queryParams = new URLSearchParams(window.location.search);
-			queryParams.delete('user');
-			queryParams.delete('sync');
-
-			queryParams.append('user', userHandleB64u);
-			queryParams.append('sync', 'fail');
-			navigate(`${window.location.pathname}?${queryParams.toString()}`, { replace: true });
-			throw err instanceof Error ? err : new Error(String(err));
+			throw err;
 		}
-	}, [assertKeystoreOpen, navigate, userHandleB64u]);
+	}, [assertKeystoreOpen, navigate, userHandleB64u, showBoundary]);
 
 	const editPrivateData = useCallback(async <T>(
 		action: (container: OpenedContainer) => Promise<[T, OpenedContainer]>,
