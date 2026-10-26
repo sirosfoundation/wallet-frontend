@@ -63,7 +63,10 @@ const V1_TO_V3_EVENT_TYPES = new Set<string>(
 export function assertSupportedContainer(
 	container: WalletSchemaCommon.WalletStateContainerGeneric,
 ): void {
-	const stateVersion = container.S?.schemaVersion ?? 1;
+	const stateVersion = container.S && 'schemaVersion' in container.S
+		? container.S.schemaVersion
+		: 1;
+
 	if (
 		!Number.isInteger(stateVersion) ||
 		stateVersion < 1 ||

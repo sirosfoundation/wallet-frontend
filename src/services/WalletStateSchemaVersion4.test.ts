@@ -24,7 +24,7 @@ const credential = {
 
 describe('WalletStateSchemaVersion4', () => {
 	describe('refuses data it does not support', () => {
-		it.each([5, 0, -1, 4.5, '4'])('refuses state version %s', (schemaVersion) => {
+		it.each([5, 0, -1, 4.5, '4', null])('refuses state version %s', (schemaVersion) => {
 			expect(() => assertSupportedContainer(container({ schemaVersion }))).toThrow(
 				UnsupportedSchemaVersionError,
 			);
@@ -70,6 +70,11 @@ describe('WalletStateSchemaVersion4', () => {
 			expect(() =>
 				WalletStateOperations.migrateState(container({ schemaVersion: 5 }).S),
 			).toThrow(UnsupportedSchemaVersionError);
+		});
+
+		it('reads a state without schemaVersion as version 1', () => {
+			const { schemaVersion: _schemaVersion, ...S } = container().S;
+			expect(() => assertSupportedContainer({ ...container(), S } as WalletStateContainer)).not.toThrow();
 		});
 	});
 

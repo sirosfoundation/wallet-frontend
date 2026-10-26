@@ -222,7 +222,7 @@ describe("The keystore", () => {
 			async () => false,
 		);
 
-		const newCredentialId = fromBase64("iy755++V64pc9quxa20eVs2mwwwsJcbmlql0OKHMpA1w/hWAlMIPjosYmgJuh0Y+");
+		const newCredentialId = fromBase64("iy755++V64pc9quxa20eVs2mwwwsJcbmlqlql0OKHMpA1w/hWAlMIPjosYmgJuh0Y+");
 		const newPrivateData = await keystore.addPrf(
 			privateData,
 			mockPrfCredential({
@@ -370,7 +370,7 @@ describe("The keystore", () => {
 
 describe("The keystore with schema version 4 data", () => {
 	describe("refuses data it does not support, before anything else touches it", () => {
-		it.each([5, 0, -1, 4.5, "4"])("refuses state version %s", async (schemaVersion) => {
+		it.each([5, 0, -1, 4.5, "4", null])("refuses state version %s", async (schemaVersion) => {
 			await expect(roundTrip(walletContainer({ schemaVersion }))).rejects.toBeInstanceOf(UnsupportedSchemaVersionError);
 		});
 
