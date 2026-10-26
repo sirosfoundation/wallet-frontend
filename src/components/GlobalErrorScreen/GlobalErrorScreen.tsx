@@ -33,12 +33,11 @@ const GlobalErrorScreen = ({ error }: GlobalErrorScreenProps) => {
 		window.location.href = `mailto:${REPORT_ISSUE_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 	};
 
-	const type = (() => {
-		if (error instanceof UnsupportedSchemaVersionError) return 'unsupportedVersion';
-		return 'default';
+	const messageKey = (() => {
+		if (error instanceof UnsupportedSchemaVersionError) return 'globalError.messages.unsupportedVersion';
+		return 'globalError.messages.default';
 	})();
-
-	const message = t(`globalError.messages.${type}`);
+	const message = t(messageKey);
 
 	return (
 		<section>
