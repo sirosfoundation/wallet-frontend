@@ -10,7 +10,7 @@ import { useOnUserInactivity } from "../hooks/useOnUserInactivity";
 import { logger } from "../logger";
 
 import * as keystore from "./keystore";
-import type { AsymmetricEncryptedContainer, AsymmetricEncryptedContainerKeys, EncryptedContainer, OpenedContainer, PrivateData, UnlockSuccess, WebauthnPrfEncryptionKeyInfo, WebauthnPrfSaltInfo, WrappedKeyInfo } from "./keystore";
+import type { AsymmetricEncryptedContainer, AsymmetricEncryptedContainerKeys, EncryptedContainer, OpenedContainer, PreparedPrfKey, PrivateData, UnlockSuccess, WebauthnPrfEncryptionKeyInfo, WebauthnPrfSaltInfo, WrappedKeyInfo } from "./keystore";
 import { MDoc } from "@auth0/mdl";
 import { WalletStateUtils } from "./WalletStateUtils";
 import { addAlterSettingsEvent, addDeleteCredentialEvent, addDeleteCredentialIssuanceSessionEvent, addDeleteKeypairEvent, addDeletePresentationEvent, addNewCredentialEvent, addNewKeypairEvent, addNewPresentationEvent, addSaveCredentialIssuanceSessionEvent, CurrentSchema, foldOldEventsIntoBaseState, foldState, mergeEventHistories } from "./WalletStateSchema";
@@ -65,11 +65,32 @@ export interface LocalStorageKeystore {
 		promptForPrfRetry: () => Promise<boolean | AbortSignal>,
 		user: UserData,
 	): Promise<EncryptedContainer>,
-	addPrf(
+	/**
+	 * Interactive part of adding a passkey: evaluate PRF on the new credential.
+	 * Run this *outside* the private-data lock, then pass the result to
+	 * `putPrfKey()` inside `api.applyPrivateDataEdit()`.
+	 */
+	preparePrfKey(
 		credential: PublicKeyCredential,
 		promptForPrfRetry: () => Promise<boolean | AbortSignal>,
-	): Promise<[EncryptedContainer, CommitCallback]>,
-	deletePrf(credentialId: Uint8Array): [EncryptedContainer, CommitCallback],
+	): Promise<PreparedPrfKey>,
+	/**
+	 * Interactive part of upgrading a V1 PRF key to V2. Run this *outside* the
+	 * private-data lock, then pass the result to `putPrfKey()` inside
+	 * `api.applyPrivateDataEdit()`.
+	 */
+	prepareUpgradePrfKey(
+		prfKeyInfo: WebauthnPrfEncryptionKeyInfo,
+		promptForPrfRetry: () => Promise<boolean | AbortSignal>,
+	): Promise<PreparedPrfKey>,
+	/**
+	 * Bind a prepared PRF key to the current main key and add it to (or replace
+	 * it in) the current private data. Reads keystore state at call time, so it
+	 * is safe to re-run after a merge.
+	 */
+	putPrfKey(prepared: PreparedPrfKey): Promise<[{}, EncryptedContainer, CommitCallback]>,
+	/** Remove a PRF key from the current private data. Reads keystore state at call time. */
+	deletePrf(credentialId: Uint8Array): Promise<[{}, EncryptedContainer, CommitCallback]>,
 	unlockPrf(
 		privateData: EncryptedContainer,
 		credential: PublicKeyCredential,
@@ -80,7 +101,6 @@ export interface LocalStorageKeystore {
 	getPrfKeyFromSession(
 		promptForPrfRetry: () => Promise<boolean | AbortSignal>,
 	): Promise<[CryptoKey, WrappedKeyInfo]>,
-	upgradePrfKey(prfKeyInfo: WebauthnPrfEncryptionKeyInfo, promptForPrfRetry: () => Promise<boolean | AbortSignal>): Promise<[EncryptedContainer, CommitCallback]>,
 	getCachedUsers(): CachedUser[],
 	forgetCachedUser(user: CachedUser): void,
 	updateCachedUserDisplayName(userHandleB64u: string, displayName: string): void,
@@ -156,7 +176,12 @@ export interface LocalStorageKeystore {
 		CommitCallback,
 	]>,
 	getCredentialIssuanceSessionByState(state: string): Promise<WalletStateCredentialIssuanceSession | null>,
-	alterSettings(settings: WalletStateSettings): Promise<[
+	/**
+	 * Merge `patch` into the settings read from the current decrypted private
+	 * data (not from a rendered snapshot), so concurrent or retried edits of
+	 * different fields do not overwrite each other.
+	 */
+	alterSettings(patch: Partial<WalletStateSettings>): Promise<[
 		{},
 		AsymmetricEncryptedContainer,
 		CommitCallback,
@@ -164,9 +189,11 @@ export interface LocalStorageKeystore {
 	/**
 	 * Sync with remote private data without requiring re-authentication.
 	 * Uses the existing mainKey to decrypt remote data and merges it with local data.
+	 * Local state is NOT changed until the returned commit callback is invoked,
+	 * which must only happen after the merged container was accepted by the server.
 	 * @param remotePrivateDataRaw - Raw private data bytes from the server
 	 */
-	syncWithRemoteData(remotePrivateDataRaw: Uint8Array): Promise<Result<AsymmetricEncryptedContainer, 'keystoreNotOpen' | 'mergeFailed'>>,
+	syncWithRemoteData(remotePrivateDataRaw: Uint8Array): Promise<Result<[AsymmetricEncryptedContainer, CommitCallback], 'keystoreNotOpen' | 'mergeFailed'>>,
 	/**
 	 * Softkey only: raw private keys leave the keystore because there is no secure element yet.
 	 * Isolated plugins (fido2/r2ps/native) must never export `d`.
@@ -215,7 +242,24 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 	const setMainKey = useCallback((newMainKey: BufferSource | null) => {
 		mainKeyRef.current = newMainKey;
 		setMainKeyStorage(newMainKey);
-}, [setMainKeyStorage]);
+	}, [setMainKeyStorage]);
+
+	/**
+	 * Replace the private data and its main key together.
+	 *
+	 * The key is exported before anything is updated, so there is never an
+	 * `await` between the two ref updates. Otherwise `assertKeystoreOpen()` could
+	 * observe the new container with the old key, fail to decrypt it and
+	 * navigate to `?sync=fail`.
+	 */
+	const setOpenedPrivateData = useCallback(async (
+		newPrivateData: EncryptedContainer,
+		newMainKey: CryptoKey,
+	): Promise<void> => {
+		const exportedMainKey = await keystore.exportMainKey(newMainKey);
+		setMainKey(exportedMainKey);
+		setPrivateData(newPrivateData);
+	}, [setMainKey, setPrivateData]);
 
 	const idb = useIndexedDb("wallet-frontend", 3, useCallback((db, prevVersion, newVersion) => {
 		if (prevVersion < 1) {
@@ -262,6 +306,27 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 			return store.put({ userHandle: userHandleB64u, content: privateData });
 		})
 	}, [idb]);
+
+	/**
+	 * Cache an already server-accepted container in IndexedDB.
+	 *
+	 * Callers must install the container in memory *before* calling this, so a
+	 * cache failure cannot leave the tab on an older version than the server
+	 * (the next sync would then get a 304 for the new etag and never repair it).
+	 * A failure is logged and retried once; the next commit rewrites the cache.
+	 * If the tab reloads before that, the stale cached copy fails to decrypt and
+	 * the user re-authenticates, which reloads the authoritative server copy.
+	 */
+	const persistPrivateDataCache = useCallback(async (container: EncryptedContainer): Promise<void> => {
+		for (let attempt = 1; attempt <= 2; attempt++) {
+			try {
+				await writePrivateDataOnIdb(container, userHandleB64u);
+				return;
+			} catch (e) {
+				logger.error(`Failed to cache private data in IndexedDB (attempt ${attempt})`, e);
+			}
+		}
+	}, [writePrivateDataOnIdb, userHandleB64u]);
 
 	const clearPrivateData = useCallback(async (userHandleB64u: string) => {
 		setPrivateData(null);
@@ -402,13 +467,12 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 			result,
 			newPrivateData,
 			async () => {
-				await writePrivateDataOnIdb(newPrivateData, userHandleB64u);
+				await setOpenedPrivateData(newPrivateData, newMainKey);
 				setCalculatedWalletState(newCalculatedWalletState);
-				setPrivateData(newPrivateData);
-				setMainKey(await keystore.exportMainKey(newMainKey));
+				await persistPrivateDataCache(newPrivateData);
 			},
 		];
-	}, [setPrivateData, setMainKey, assertKeystoreOpen, userHandleB64u, writePrivateDataOnIdb]);
+	}, [setOpenedPrivateData, assertKeystoreOpen, persistPrivateDataCache]);
 
 	const finishUnlock = useCallback(async (
 		unlockSuccess: UnlockSuccess,
@@ -434,9 +498,8 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 				], mergedContainer as CurrentSchema.WalletStateContainer);
 				const [newPrivateDataEncryptedContainer, newMainKey] = newContainer;
 				await writePrivateDataOnIdb(newPrivateDataEncryptedContainer, userHandleB64u);
-				setPrivateData(newPrivateDataEncryptedContainer);
+				await setOpenedPrivateData(newPrivateDataEncryptedContainer, newMainKey);
 				newEncryptedContainer = newPrivateDataEncryptedContainer;
-				setMainKey(await keystore.exportMainKey(newMainKey));
 				const foldedState = foldState(mergedContainer as CurrentSchema.WalletStateContainer);
 				setCalculatedWalletState(foldedState);
 			}
@@ -471,8 +534,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 				const [encryptedContainer, newMainKey, decryptedWalletState] = await mergeWithLocalEncryptedPrivateData([privateData, mainKey, unlockedContainer]);
 				const foldedState = foldState(decryptedWalletState as CurrentSchema.WalletStateContainer);
 				newEncryptedContainer = encryptedContainer;
-				setPrivateData(encryptedContainer);
-				setMainKey(await keystore.exportMainKey(newMainKey));
+				await setOpenedPrivateData(encryptedContainer, newMainKey);
 				await writePrivateDataOnIdb(encryptedContainer, userHandleB64u);
 				// after private data update, the calculated wallet state must be re-computed
 				setCalculatedWalletState(foldedState);
@@ -510,8 +572,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		setUserHandleB64u,
 		setGlobalUserHandleB64u,
 		setCachedUsers,
-		setMainKey,
-		setPrivateData,
+		setOpenedPrivateData,
 		setCalculatedWalletState,
 		setTabId,
 		setGlobalTabId,
@@ -599,36 +660,46 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 	}, [userHandleB64u]);
 
 
-	const addPrf = useCallback(
+	const preparePrfKey = useCallback(
 		async (
 			credential: PublicKeyCredential,
 			promptForPrfRetry: () => Promise<boolean | AbortSignal>,
-		): Promise<[EncryptedContainer, CommitCallback]> => {
-			const [privateData, mainKey] = await assertKeystoreOpen();
-			const newPrivateData = await keystore.addPrf(privateData, credential, mainKey, promptForPrfRetry);
-			return [
-				newPrivateData,
-				async () => {
-					await writePrivateDataOnIdb(newPrivateData, userHandleB64u);
-					setPrivateData(newPrivateData);
-				},
-			];
+		): Promise<PreparedPrfKey> => {
+			await assertKeystoreOpen();
+			const prfSalt = crypto.getRandomValues(new Uint8Array(32));
+			return await keystore.preparePrfKey(credential, prfSalt, promptForPrfRetry);
 		},
-		[setPrivateData, writePrivateDataOnIdb, userHandleB64u, assertKeystoreOpen]
+		[assertKeystoreOpen]
+	);
+
+	/**
+	 * Commit for edits that change only the container keys (PRF keys), not the
+	 * JWE or the main key.
+	 */
+	const makeKeysOnlyCommit = useCallback(
+		(newPrivateData: EncryptedContainer): CommitCallback => async () => {
+			setPrivateData(newPrivateData);
+			await persistPrivateDataCache(newPrivateData);
+		},
+		[setPrivateData, persistPrivateDataCache]
+	);
+
+	const putPrfKey = useCallback(
+		async (prepared: PreparedPrfKey): Promise<[{}, EncryptedContainer, CommitCallback]> => {
+			const [privateData, mainKey] = await assertKeystoreOpen();
+			const newPrivateData = await keystore.putPreparedPrfKey(privateData, prepared, mainKey);
+			return [{}, newPrivateData, makeKeysOnlyCommit(newPrivateData)];
+		},
+		[assertKeystoreOpen, makeKeysOnlyCommit]
 	);
 
 	const deletePrf = useCallback(
-		(credentialId: Uint8Array): [EncryptedContainer, CommitCallback] => {
+		async (credentialId: Uint8Array): Promise<[{}, EncryptedContainer, CommitCallback]> => {
+			const [privateData] = await assertKeystoreOpen();
 			const newPrivateData = keystore.deletePrf(privateData, credentialId);
-			return [
-				newPrivateData,
-				async () => {
-					await writePrivateDataOnIdb(newPrivateData, userHandleB64u);
-					setPrivateData(newPrivateData);
-				},
-			];
+			return [{}, newPrivateData, makeKeysOnlyCommit(newPrivateData)];
 		},
-		[privateData, setPrivateData, writePrivateDataOnIdb, userHandleB64u]
+		[assertKeystoreOpen, makeKeysOnlyCommit]
 	);
 
 	const unlockPrf = useCallback(
@@ -669,29 +740,18 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		[privateData]
 	);
 
-	const upgradePrfKey = useCallback(
+	const prepareUpgradePrfKey = useCallback(
 		async (
 			prfKeyInfo: WebauthnPrfEncryptionKeyInfo,
 			promptForPrfRetry: () => Promise<boolean | AbortSignal>,
-		): Promise<[EncryptedContainer, CommitCallback]> => {
+		): Promise<PreparedPrfKey> => {
 			if (keystore.isPrfKeyV2(prfKeyInfo)) {
 				throw new Error("Key is already upgraded");
-
-			} else if (privateData) {
-				const newPrivateData = await keystore.upgradePrfKey(privateData, null, prfKeyInfo, promptForPrfRetry);
-				return [
-					newPrivateData,
-					async () => {
-						await writePrivateDataOnIdb(newPrivateData, userHandleB64u);
-						setPrivateData(newPrivateData);
-					},
-				];
-
-			} else {
-				throw new Error("Session not initialized");
 			}
+			const [privateData] = await assertKeystoreOpen();
+			return await keystore.prepareUpgradePrfKey(privateData, prfKeyInfo, promptForPrfRetry);
 		},
-		[privateData, setPrivateData, writePrivateDataOnIdb, userHandleB64u]
+		[assertKeystoreOpen]
 	);
 
 	/**
@@ -916,14 +976,17 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		return calculatedWalletState ? calculatedWalletState.credentialIssuanceSessions.filter((s: WalletStateCredentialIssuanceSession) => s.state === state)[0] : null;
 	}, [calculatedWalletState]);
 
-	const alterSettings = useCallback(async (settings: WalletStateSettings): Promise<[
+	const alterSettings = useCallback(async (patch: Partial<WalletStateSettings>): Promise<[
 		{},
 		AsymmetricEncryptedContainer,
 		CommitCallback,
 	]> => {
 		let [walletStateContainer, ,] = await openPrivateData();
 		walletStateContainer = await foldOldEventsIntoBaseState(walletStateContainer);
-		walletStateContainer = await addAlterSettingsEvent(walletStateContainer, settings);
+		// Read the current settings from the container being edited, not from a
+		// rendered snapshot: `settingsReducer` replaces the whole object.
+		const currentSettings = foldState(walletStateContainer as CurrentSchema.WalletStateContainer).settings;
+		walletStateContainer = await addAlterSettingsEvent(walletStateContainer, { ...currentSettings, ...patch });
 
 		return editPrivateData(async (originalContainer) => {
 			const { newContainer } = await keystore.updateWalletState(originalContainer, walletStateContainer);
@@ -931,8 +994,8 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		});
 	}, [editPrivateData, openPrivateData]);
 
-	const syncWithRemoteData = useCallback(async (remotePrivateDataRaw: Uint8Array): Promise<Result<keystore.AsymmetricEncryptedContainer, 'keystoreNotOpen' | 'mergeFailed'>> => {
-		if (!privateData || !mainKey) {
+	const syncWithRemoteData = useCallback(async (remotePrivateDataRaw: Uint8Array): Promise<Result<[keystore.AsymmetricEncryptedContainer, CommitCallback], 'keystoreNotOpen' | 'mergeFailed'>> => {
+		if (!isKeystoreOpen()) {
 			return Err('keystoreNotOpen');
 		}
 
@@ -948,20 +1011,22 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 				remoteMainKey,
 			], mergedContainer as CurrentSchema.WalletStateContainer);
 			const [newPrivateDataEncryptedContainer, newMainKey] = newContainer;
-
-			await writePrivateDataOnIdb(newPrivateDataEncryptedContainer, userHandleB64u);
-			setPrivateData(newPrivateDataEncryptedContainer);
-			setMainKey(await keystore.exportMainKey(newMainKey));
-
 			const foldedState = foldState(mergedContainer as CurrentSchema.WalletStateContainer);
-			setCalculatedWalletState(foldedState);
 
-			return Ok(newPrivateDataEncryptedContainer);
+			return Ok([
+				newPrivateDataEncryptedContainer,
+				async () => {
+					// Install in memory first: the server already accepted this version.
+					await setOpenedPrivateData(newPrivateDataEncryptedContainer, newMainKey);
+					setCalculatedWalletState(foldedState);
+					await persistPrivateDataCache(newPrivateDataEncryptedContainer);
+				},
+			]);
 		} catch (error) {
-			console.error("Failed to sync with remote data", error);
+			logger.error("Failed to sync with remote data", error);
 			return Err('mergeFailed');
 		}
-	}, [privateData, mainKey, assertKeystoreOpen, writePrivateDataOnIdb, userHandleB64u, setPrivateData, setMainKey, setCalculatedWalletState]);
+	}, [isKeystoreOpen, assertKeystoreOpen, persistPrivateDataCache, setOpenedPrivateData, setCalculatedWalletState]);
 
 	const exportToWscdContainer = useCallback(async (): Promise<WscdContainer> => {
 		const keypairs = calculatedWalletState?.keypairs ?? [];
@@ -1017,12 +1082,13 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		isOpen,
 		close,
 		initPrf,
-		addPrf,
+		preparePrfKey,
+		prepareUpgradePrfKey,
+		putPrfKey,
 		deletePrf,
 		unlockPrf,
 		getPrfKeyInfo,
 		getPrfKeyFromSession,
-		upgradePrfKey,
 		getCachedUsers,
 		forgetCachedUser,
 		updateCachedUserDisplayName,
@@ -1050,12 +1116,13 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		isOpen,
 		close,
 		initPrf,
-		addPrf,
+		preparePrfKey,
+		prepareUpgradePrfKey,
+		putPrfKey,
 		deletePrf,
 		unlockPrf,
 		getPrfKeyInfo,
 		getPrfKeyFromSession,
-		upgradePrfKey,
 		getCachedUsers,
 		forgetCachedUser,
 		updateCachedUserDisplayName,

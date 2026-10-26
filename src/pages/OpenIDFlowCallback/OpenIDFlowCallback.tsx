@@ -22,6 +22,35 @@ import { ConformantCredentials, PresentCredentialsFlow, usePresentCredentialsFlo
 import { DcqlQuery } from 'dcql';
 import { OID4VPVerifierInfo } from '@/lib/openid-flow/types/OID4VPTypes';
 import { useStatusContext } from '@/hooks/useStatusContext';
+import { usePrivateDataSync } from '@/context/PrivateDataSyncContext';
+
+/**
+ * Upper bound on how long a flow waits for the initial private-data sync.
+ * Private-data writes are serialized with syncs and merge on conflict, so
+ * proceeding after the timeout is safe; the gate only avoids needless conflicts.
+ */
+const SYNC_GATE_TIMEOUT_MS = 15_000;
+
+/**
+ * Returns true once the private-data sync for the current URL has settled
+ * (or the timeout elapsed). Returns false while the user must re-authenticate.
+ */
+function usePrivateDataSyncGate(timeoutMs: number = SYNC_GATE_TIMEOUT_MS): boolean {
+	const { status } = usePrivateDataSync();
+	const [timedOut, setTimedOut] = useState(false);
+
+	useEffect(() => {
+		if (status !== 'pending') return;
+		const timer = setTimeout(() => {
+			logger.warn(`Private data sync did not settle within ${timeoutMs}ms; starting flow anyway`);
+			setTimedOut(true);
+		}, timeoutMs);
+		return () => clearTimeout(timer);
+	}, [status, timeoutMs]);
+
+	if (status === 'reauthRequired') return false;
+	return status !== 'pending' || timedOut;
+}
 
 type OpenIDFlowCallbackProps = {
 	callbackUrl: OIDFlowCallbackURL;
@@ -41,13 +70,15 @@ type OpenIDFlowCallbackHandler = React.FC<OpenIDFlowCallbackProps>;
  * Auth & sync:
  * - Authentication is enforced by PrivateRoute (see App.jsx) — unauthenticated users
  *   are redirected to login before this component mounts.
- * - Session sync is handled by UriHandlerProvider (see AppProvider.tsx), which wraps
- *   this component. The sync completes before transportReady settles in practice,
- *   but there is no explicit sync gate here. If sync timing becomes an issue,
- *   extract synced state from UriHandlerProvider into a shared context.
+ * - Session sync is handled by UriHandlerProvider (see HocProvider.tsx), which wraps
+ *   this component and exposes its status via PrivateDataSyncContext. The flow does
+ *   not start until that sync has settled, so the flow's private-data writes never
+ *   race the sync (which would otherwise rotate the main key underneath it and end
+ *   in a spurious `?sync=fail`).
  */
 const OpenIDFlowCallback: React.FC = () => {
 	const { transportReady } = useOIDFlowTransport();
+	const syncSettled = usePrivateDataSyncGate();
 	/**
 	 * Parse the callback URL on initial load to determine the flow type and relevant parameters.
 	 */
@@ -57,7 +88,7 @@ const OpenIDFlowCallback: React.FC = () => {
 		return parseOIDFlowCallbackUrl(url);
 	}, []);
 
-	if (!transportReady) return <Spinner />;
+	if (!transportReady || !syncSettled) return <Spinner />;
 
 	return <OpenIDFlowRouter callbackUrl={callbackUrl} />;
 };

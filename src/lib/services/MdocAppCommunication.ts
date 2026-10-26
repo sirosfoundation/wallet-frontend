@@ -24,14 +24,14 @@ export function useMdocAppCommunication(): IMdocAppCommunication {
 	const assumedChunkSize = 512;
 
 	const { keystore, api } = useContext(SessionContext);
-	const { updatePrivateData } = api;
+	const { applyPrivateDataEdit } = api;
 	const { addPresentations, generateDeviceResponseWithProximity } = keystore;
 
 	const storeVerifiablePresentation = useCallback(
 		async (presentation: string, _presentationSubmission: any, usedCredentialId: number, audience: string) => {
 			try {
 				const transactionId = WalletStateUtils.getRandomUint32();
-				const [, newPrivateData, keystoreCommit] = await addPresentations([presentation].map((vpData, _index) => {
+				const presentations = [presentation].map((vpData, _index) => {
 					logger.debug("Presentation: ")
 
 					return {
@@ -40,16 +40,15 @@ export function useMdocAppCommunication(): IMdocAppCommunication {
 						usedCredentialIds: [usedCredentialId],
 						audience: audience,
 					}
-				}));
-				await updatePrivateData(newPrivateData);
-				await keystoreCommit();
+				});
+				await applyPrivateDataEdit(() => addPresentations(presentations), keystore);
 				logger.debug("Presentations added")
 
 			} catch (e) {
 				logger.debug("Failed to reach server: Presentation history not stored");
 			}
 		},
-		[updatePrivateData, addPresentations]
+		[applyPrivateDataEdit, addPresentations, keystore]
 	);
 
 

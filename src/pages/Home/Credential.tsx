@@ -97,10 +97,10 @@ const Credential = () => {
 			setLoading(false);
 			return;
 		}
-		const [, newPrivateData, keystoreCommit] =
-			await keystore.deleteCredentialsByBatchId(Number.parseInt(batchId, 10));
-		await api.updatePrivateData(newPrivateData);
-		await keystoreCommit();
+		await api.applyPrivateDataEdit(
+			() => keystore.deleteCredentialsByBatchId(Number.parseInt(batchId, 10)),
+			keystore,
+		);
 
 		removeCredential(Number.parseInt(batchId, 10));
 		setShowDeletePopup(false);
