@@ -22,7 +22,7 @@ import Button from '@/components/Buttons/Button';
 import TenantSelector from '@/components/TenantSelector/TenantSelector';
 import PolicyLinks from '@/components/Shared/PolicyLinks';
 import PasskeyInfoPopup from '@/components/Popups/PasskeyInfoPopup';
-import GetReadyInfo from '@/components/GetReadyInfo/GetReadyInfo';
+import GetReadyInfo from '@/components/Auth/GetReadyInfo';
 
 const FormInputRow = ({
 	IconComponent,
@@ -170,18 +170,23 @@ const Signup = () => {
 };
 
 	const onSubmit = (event: React.SyntheticEvent<HTMLFormElement, SubmitEvent>) => {
+		const hint = (event.nativeEvent?.submitter as HTMLButtonElement)?.value;
 		event.preventDefault();
-		setPendingHint((event.nativeEvent?.submitter as HTMLButtonElement)?.value);
-		setStep('getReady');
+		if (hint === 'security-key') {
+			setPendingHint(hint);
+			setStep('getReady');
+		} else {
+			void onContinue();
+		}
 	};
 
-	const onContinue = async () => {
+	const onContinue = async (pendingHint?: string) => {
 		setStep('form');
 		const release = blockUpdates('signup-submit');
 		setError('');
 		setInProgress(true);
 		try {
-			await onSignup([pendingHint]);
+			await onSignup(pendingHint ? [pendingHint] : []);
 		} finally {
 			setInProgress(false);
 			try {
@@ -219,7 +224,7 @@ const Signup = () => {
 			<GetReadyInfo
 				onBack={() => setStep('form')}
 				onCancel={() => setStep('form')}
-				onContinue={onContinue}
+				onContinue={() => onContinue(pendingHint)}
 			/>
 		);
 	}
