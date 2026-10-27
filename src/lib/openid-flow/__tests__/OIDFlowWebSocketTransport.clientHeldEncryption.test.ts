@@ -13,7 +13,7 @@ import { OIDFlowWebSocketTransport } from '../transports/OIDFlowWebSocketTranspo
 import type { SignHandlerRequest, SignRequestHandler } from '../transports/OIDFlowWebSocketTransport';
 import type { OIDFlowSignRequest, OIDFlowSignResponse } from '@/hooks/useOIDFlowSignHandler';
 import { OIDFlowTransportWithRetry } from '../decorators/OIDFlowTransportWithRetry';
-import { verifierJwkThumbprint } from '../encryption';
+import { LEGACY_SECRET_MEMBERS, verifierJwkThumbprint } from '../encryption';
 import type { IOIDFlowTransport } from '../types/IOIDFlowTransport';
 import { MockWebSocket, installMockWebSocket, sockets } from './helpers/mockWebSocket';
 
@@ -29,7 +29,7 @@ afterEach(() => {
 });
 
 const ISSUED = 'eyJhbGciOiJFUzI1NiJ9.issued.credential~disclosure~';
-const SEED = 'cd'.repeat(16);
+const SECRET = 'cd'.repeat(16);
 
 async function issuerEncrypt(jwk: JWK, alg: string, enc: string, body: unknown): Promise<string> {
 	return new CompactEncrypt(new TextEncoder().encode(JSON.stringify(body)))
@@ -309,12 +309,12 @@ describe('decrypt_credential_response', () => {
 		return signResponses().find((r) => r.message_id === messageId)!;
 	}
 
-	it('answers only credential_count, never the credential, the notification_id or the seed', async () => {
+	it('answers only credential_count, never the credential, the notification_id or a metadata value', async () => {
 		const { ws, signResponses, jwk } = await issuance();
 		const jwe = await issuerEncrypt(jwk, 'ECDH-ES+A256KW', 'A128GCM', {
 			credentials: [{ credential: ISSUED }, { credential: 'second' }],
 			notification_id: 'n-1',
-			credential_metadata: { 'org.siros.secret_seed': { ns: SEED } },
+			credential_metadata: { 'org.example.extension': { ns: SECRET } },
 		});
 
 		const response = await decrypt(ws, signResponses, 'm2', jwe);
@@ -325,7 +325,7 @@ describe('decrypt_credential_response', () => {
 		expect(response).not.toHaveProperty('error');
 		const wire = JSON.stringify(response);
 		expect(wire).not.toContain(ISSUED);
-		expect(wire).not.toContain(SEED);
+		expect(wire).not.toContain(SECRET);
 		expect(wire).not.toContain('n-1');
 	});
 
@@ -346,23 +346,6 @@ describe('decrypt_credential_response', () => {
 		expect(first).not.toHaveProperty('credential_count');
 		expect(done.credential_count).toBe(1);
 		expect(done).not.toHaveProperty('transaction_id');
-	});
-
-	it('reads the deferred flag: a seed is refused on a deferred answer and accepted on the immediate one', async () => {
-		const { ws, signResponses, jwk } = await issuance();
-		const withSeed = () =>
-			issuerEncrypt(jwk, 'ECDH-ES+A256KW', 'A128GCM', {
-				credentials: [{ credential: ISSUED }],
-				credential_metadata: { 'org.siros.secret_seed': { ns: SEED } },
-			});
-
-		const deferredAnswer = await decrypt(ws, signResponses, 'm2', await withSeed(), true);
-		const immediateAnswer = await decrypt(ws, signResponses, 'm3', await withSeed(), false);
-
-		expect(deferredAnswer.error).toBeTruthy();
-		expect(deferredAnswer).not.toHaveProperty('credential_count');
-		expect(JSON.stringify(deferredAnswer)).not.toContain(SEED);
-		expect(immediateAnswer.credential_count).toBe(1);
 	});
 
 	it('answers an error for a response that is both, or neither', async () => {
@@ -489,7 +472,7 @@ describe('flow_complete of an encrypted issuance', () => {
 			{
 				credentials: [{ credential: 'first' }, { credential: 'second' }],
 				notification_id: 'n-1',
-				credential_metadata: { 'org.siros.secret_seed': { ns: SEED } },
+				credential_metadata: { 'org.example.extension': { ns: SECRET } },
 			},
 		);
 
@@ -500,7 +483,7 @@ describe('flow_complete of an encrypted issuance', () => {
 			{ format: 'dc+sd-jwt', vct: 'urn:a', credential: 'first', notification_id: 'n-1' },
 			{ format: 'dc+sd-jwt', vct: 'urn:b', credential: 'second', notification_id: 'n-1' },
 		]);
-		expect(result.credentialMetadata).toEqual({ 'org.siros.secret_seed': { ns: SEED } });
+		expect(result.credentialMetadata).toEqual({ 'org.example.extension': { ns: SECRET } });
 	});
 
 	it('is an error when the entry count does not match the decrypted credentials', async () => {
@@ -807,7 +790,7 @@ describe('response-level credential_metadata in flow_complete', () => {
 			credential_metadata: {
 				display: [{ name: 'PID' }],
 				claims: [{ path: ['a'] }],
-				'org.siros.secret_seed': { ns: SEED },
+				'org.example.extension': { ns: SECRET },
 				DISPLAY: [{ name: 'wrong case' }],
 				other: 1,
 			},
@@ -815,17 +798,17 @@ describe('response-level credential_metadata in flow_complete', () => {
 
 		expect(result.success).toBe(true);
 		expect(result.credentialMetadata).toEqual({ display: [{ name: 'PID' }], claims: [{ path: ['a'] }] });
-		expect(JSON.stringify(result)).not.toContain(SEED);
+		expect(JSON.stringify(result)).not.toContain(SECRET);
 	});
 
 	it('gives a plain frame with only extension members no metadata at all', async () => {
 		const result = await complete({
 			credentials: plainCredentials,
-			credential_metadata: { 'org.siros.secret_seed': { ns: SEED } },
+			credential_metadata: { 'org.example.extension': { ns: SECRET } },
 		});
 
 		expect(result.credentialMetadata).toBeUndefined();
-		expect(JSON.stringify(result)).not.toContain(SEED);
+		expect(JSON.stringify(result)).not.toContain(SECRET);
 	});
 
 	it.each([['a string', 'display'], ['an array', ['display']], ['a number', 7], ['null', null]])(
@@ -845,7 +828,7 @@ describe('response-level credential_metadata in flow_complete', () => {
 		const proof = await generateProof(ws, signResponses, flowId, 'm1');
 		const jwe = await issuerEncrypt(proof.credential_response_encryption_jwk as JWK, 'ECDH-ES+A256KW', 'A128GCM', {
 			credentials: [{ credential: ISSUED }],
-			credential_metadata: { 'org.siros.secret_seed': { ns: SEED }, display: [{ name: 'decrypted' }] },
+			credential_metadata: { 'org.example.extension': { ns: SECRET }, display: [{ name: 'decrypted' }] },
 		});
 		ws.simulateMessage({
 			type: 'sign_request',
@@ -866,7 +849,7 @@ describe('response-level credential_metadata in flow_complete', () => {
 
 		const result = await flowPromise;
 		expect(result.credentialMetadata).toEqual({
-			'org.siros.secret_seed': { ns: SEED },
+			'org.example.extension': { ns: SECRET },
 			display: [{ name: 'decrypted' }],
 		});
 		expect(JSON.stringify(result)).not.toContain('ef'.repeat(16));
@@ -904,7 +887,7 @@ describe('response-level credential_metadata in flow_complete', () => {
 });
 
 describe('credential_metadata from every message that resolves an issuance flow', () => {
-	it('filters a progress message too: a seed in an authorization_required frame never reaches the result', async () => {
+	it('filters a progress message too: an extension in an authorization_required frame never reaches the result', async () => {
 		const { transport, ws } = await setup();
 		const { flowPromise, flowId } = await startIssuance(ws, transport);
 
@@ -915,14 +898,14 @@ describe('credential_metadata from every message that resolves an issuance flow'
 			payload: { authorization_url: 'https://issuer.example.com/authorize' },
 			credential_metadata: {
 				display: [{ name: 'PID' }],
-				'org.siros.secret_seed': { ns: SEED },
+				'org.example.extension': { ns: SECRET },
 			},
 		});
 
 		const result = await flowPromise;
 		expect(result.authorizationUrl).toBe('https://issuer.example.com/authorize');
 		expect(result.credentialMetadata).toEqual({ display: [{ name: 'PID' }] });
-		expect(JSON.stringify(result)).not.toContain(SEED);
+		expect(JSON.stringify(result)).not.toContain(SECRET);
 	});
 
 	it('does not let a frame member impersonate the decrypted side channel', async () => {
@@ -933,13 +916,127 @@ describe('credential_metadata from every message that resolves an issuance flow'
 			type: 'flow_complete',
 			flow_id: flowId,
 			credentials: [{ format: 'dc+sd-jwt', credential: 'plain.credential' }],
-			credentialMetadata: { 'org.siros.secret_seed': { ns: SEED } },
-			decrypted: { credentialMetadata: { 'org.siros.secret_seed': { ns: SEED } } },
+			credentialMetadata: { 'org.siros.secret_seed': { ns: SECRET } },
+			decrypted: { credentialMetadata: { 'org.siros.secret_seed': { ns: SECRET } } },
 		});
 
 		const result = await flowPromise;
 		expect(result.credentialMetadata).toBeUndefined();
-		expect(JSON.stringify(result)).not.toContain(SEED);
+		expect(JSON.stringify(result)).not.toContain(SECRET);
+	});
+});
+
+describe('superseded secret-bearing members are refused (LEGACY_SECRET_MEMBER)', () => {
+	describe('in a decrypted response', () => {
+		async function answerFor(body: unknown, deferred: boolean) {
+			const { transport, ws, signResponses } = await setup();
+			transport.onSignRequest(async () => ({ proofs: [{ proof_type: 'jwt', jwt: 'proof.jwt' }] }));
+			const proof = await generateProof(ws, signResponses, 'f1', 'm1');
+			ws.simulateMessage({
+				type: 'sign_request',
+				flow_id: 'f1',
+				message_id: 'm2',
+				action: 'decrypt_credential_response',
+				params: { jwe: await issuerEncrypt(proof.credential_response_encryption_jwk as JWK, 'ECDH-ES+A256KW', 'A128GCM', body), deferred },
+			});
+			await vi.waitFor(() => expect(signResponses().some((r) => r.message_id === 'm2')).toBe(true));
+			return signResponses().find((r) => r.message_id === 'm2')!;
+		}
+
+		const answers = [
+			['an immediate response', { credentials: [{ credential: ISSUED }] }, false],
+			['a pending response', { transaction_id: 'tx-1', interval: 2 }, false],
+			['a deferred response', { credentials: [{ credential: ISSUED }] }, true],
+		] as const;
+
+		it.each(answers.flatMap(([path, body, deferred]) => LEGACY_SECRET_MEMBERS.map((member) => [path, member, body, deferred] as const)))(
+			'answers an error for %s carrying %s, with nothing the engine may use',
+			async (_path, member, body, deferred) => {
+				const response = await answerFor({ ...body, credential_metadata: { [member]: { ns: SECRET } } }, deferred);
+
+				expect(response.error).toMatch(/^LEGACY_SECRET_MEMBER/);
+				expect(response).not.toHaveProperty('credential_count');
+				expect(response).not.toHaveProperty('transaction_id');
+				expect(JSON.stringify(response)).not.toContain(SECRET);
+				expect(JSON.stringify(response)).not.toContain(ISSUED);
+			},
+		);
+
+		it('still answers an ordinary response, so the refusal is the member and nothing else', async () => {
+			const response = await answerFor({ credentials: [{ credential: ISSUED }], credential_metadata: { display: [{ name: 'PID' }] } }, false);
+
+			expect(response.credential_count).toBe(1);
+			expect(response).not.toHaveProperty('error');
+		});
+	});
+
+	describe('in a plain frame', () => {
+		async function resolveWith(message: Record<string, unknown>) {
+			const { transport, ws } = await setup();
+			const { flowPromise, flowId } = await startIssuance(ws, transport);
+			ws.simulateMessage({ flow_id: flowId, ...message });
+			return flowPromise;
+		}
+
+		it.each(LEGACY_SECRET_MEMBERS)('refuses a flow_complete carrying %s, returning nothing of it', async (member) => {
+			const result = await resolveWith({
+				type: 'flow_complete',
+				credentials: [{ format: 'dc+sd-jwt', credential: 'plain.credential' }],
+				credential_metadata: { display: [{ name: 'PID' }], [member]: { ns: SECRET } },
+			});
+
+			expect(result.success).toBe(false);
+			expect(result.error?.code).toBe('LEGACY_SECRET_MEMBER');
+			expect(result.credentials).toBeUndefined();
+			expect(result.credentialMetadata).toBeUndefined();
+			expect(JSON.stringify(result)).not.toContain(SECRET);
+			expect(JSON.stringify(result)).not.toContain('plain.credential');
+		});
+
+		it.each(LEGACY_SECRET_MEMBERS)('refuses a progress message carrying %s that resolves the flow', async (member) => {
+			const result = await resolveWith({
+				type: 'progress',
+				step: 'authorization_required',
+				payload: { authorization_url: 'https://issuer.example.com/authorize' },
+				credential_metadata: { [member]: { ns: SECRET } },
+			});
+
+			expect(result.success).toBe(false);
+			expect(result.error?.code).toBe('LEGACY_SECRET_MEMBER');
+			expect(result.authorizationUrl).toBeUndefined();
+		});
+
+		it('accepts a plain frame whose metadata has no superseded member', async () => {
+			const result = await resolveWith({
+				type: 'flow_complete',
+				credentials: [{ format: 'dc+sd-jwt', credential: 'plain.credential' }],
+				credential_metadata: { display: [{ name: 'PID' }], 'org.example.extension': {} },
+			});
+
+			expect(result.success).toBe(true);
+			expect(result.credentialMetadata).toEqual({ display: [{ name: 'PID' }] });
+		});
+	});
+
+	it('ignores, rather than refuses, the metadata of an ENCRYPTED completion frame: only what the wallet decrypted counts', async () => {
+		const { transport, ws, signResponses } = await setup();
+		transport.onSignRequest(async () => ({ proofs: [{ proof_type: 'jwt', jwt: 'proof.jwt' }] }));
+		const { flowPromise, flowId } = await startIssuance(ws, transport);
+		const proof = await generateProof(ws, signResponses, flowId, 'm1');
+		await requestDecryption(ws, signResponses, flowId, 'm2', proof.credential_response_encryption_jwk as JWK);
+
+		ws.simulateMessage({
+			type: 'flow_complete',
+			flow_id: flowId,
+			credentials: [{ format: 'dc+sd-jwt' }],
+			credential_response_encrypted: true,
+			credential_metadata: { 'org.siros.secret_seed': { ns: SECRET } },
+		});
+
+		const result = await flowPromise;
+		expect(result.success).toBe(true);
+		expect(result.credentialMetadata).toBeUndefined();
+		expect(JSON.stringify(result)).not.toContain(SECRET);
 	});
 });
 
@@ -954,7 +1051,7 @@ describe('a plain flow_complete after response encryption was offered', () => {
 			type: 'flow_complete',
 			flow_id: flowId,
 			credentials: [{ format: 'dc+sd-jwt', credential: 'plain.credential' }],
-			credential_metadata: { 'org.siros.secret_seed': { ns: SEED } },
+			credential_metadata: { 'org.siros.secret_seed': { ns: SECRET } },
 		});
 
 		const result = await flowPromise;
@@ -962,7 +1059,7 @@ describe('a plain flow_complete after response encryption was offered', () => {
 		expect(result.error?.code).toBe('CREDENTIAL_RESPONSE_NOT_ENCRYPTED');
 		expect(result.credentials).toBeUndefined();
 		expect(JSON.stringify(result)).not.toContain('plain.credential');
-		expect(JSON.stringify(result)).not.toContain(SEED);
+		expect(JSON.stringify(result)).not.toContain(SECRET);
 	});
 
 	it('drops the offered key even though the completion was refused', async () => {

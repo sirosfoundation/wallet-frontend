@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { CompactEncrypt, exportJWK, generateKeyPair, importJWK } from 'jose';
 import type { JWK } from 'jose';
-import { ClientHeldEncryptionError } from '../errors';
+import { ClientHeldEncryptionError, LEGACY_SECRET_MEMBER } from '../errors';
+import { LEGACY_SECRET_MEMBERS } from './legacySecretMembers';
 import { RESPONSE_ENCS, RESPONSE_KEY_ALGS } from './algorithms';
 import { ClientHeldEncryptionKeys } from './ClientHeldKeys';
 
@@ -14,10 +15,9 @@ async function issuerEncrypt(jwk: JWK, alg: string, enc: string, body: unknown):
 }
 
 const ISSUED = 'eyJhbGciOiJFUzI1NiJ9.issued.credential~disclosure~';
-const SEED = 'ab'.repeat(16);
-const seedMetadata = { 'org.siros.secret_seed': { ns: SEED } };
-const immediate = { deferred: false };
-const deferred = { deferred: true };
+const SECRET = 'ab'.repeat(16);
+/** An extension member that is NOT a superseded shape: it passes through, and is still never sent to the engine. */
+const extensionMetadata = { 'org.example.extension': { value: SECRET } };
 
 /** Generate a key for a flow with the default pair and return it. */
 async function keyFor(keys: ClientHeldEncryptionKeys, flowId = 'flow-1', alg = 'ECDH-ES', enc = 'A256GCM') {
@@ -43,9 +43,9 @@ describe('ClientHeldEncryptionKeys.generate', () => {
 
 		expect(second.jwk.x).not.toEqual(first.jwk.x);
 		const stale = await issuerEncrypt(first.jwk, 'ECDH-ES', 'A256GCM', { credentials: [{ credential: ISSUED }] });
-		await expect(keys.decrypt('flow-1', stale, immediate)).rejects.toBeInstanceOf(ClientHeldEncryptionError);
+		await expect(keys.decrypt('flow-1', stale)).rejects.toBeInstanceOf(ClientHeldEncryptionError);
 		const current = await issuerEncrypt(second.jwk, 'ECDH-ES', 'A256GCM', { credentials: [{ credential: ISSUED }] });
-		await expect(keys.decrypt('flow-1', current, immediate)).resolves.toEqual({ credentialCount: 1 });
+		await expect(keys.decrypt('flow-1', current)).resolves.toEqual({ credentialCount: 1 });
 	});
 
 	it('declines an unsupported request that is not required, and stores no key', async () => {
@@ -67,14 +67,14 @@ describe('ClientHeldEncryptionKeys.generate', () => {
 		const keys = new ClientHeldEncryptionKeys();
 		const first = await keyFor(keys);
 		const jwe = await issuerEncrypt(first.jwk, 'ECDH-ES', 'A256GCM', { credentials: [{ credential: ISSUED }] });
-		await keys.decrypt('flow-1', jwe, immediate);
+		await keys.decrypt('flow-1', jwe);
 		expect(keys.response('flow-1')?.credentials).toEqual([ISSUED]);
 
 		await expect(keys.generate('flow-1', { alg: 'RSA-OAEP', enc: 'A256GCM' })).resolves.toBeUndefined();
 
 		expect(keys.has('flow-1')).toBe(false);
 		expect(keys.response('flow-1')).toBeUndefined();
-		await expect(keys.decrypt('flow-1', jwe, immediate)).rejects.toBeInstanceOf(ClientHeldEncryptionError);
+		await expect(keys.decrypt('flow-1', jwe)).rejects.toBeInstanceOf(ClientHeldEncryptionError);
 	});
 
 	it('also drops the previous key when a required replacement fails', async () => {
@@ -87,7 +87,7 @@ describe('ClientHeldEncryptionKeys.generate', () => {
 		).rejects.toBeInstanceOf(ClientHeldEncryptionError);
 
 		expect(keys.has('flow-1')).toBe(false);
-		await expect(keys.decrypt('flow-1', jwe, immediate)).rejects.toBeInstanceOf(ClientHeldEncryptionError);
+		await expect(keys.decrypt('flow-1', jwe)).rejects.toBeInstanceOf(ClientHeldEncryptionError);
 	});
 
 	it.each([
@@ -118,7 +118,7 @@ describe('ClientHeldEncryptionKeys.generate', () => {
 			'A256GCM',
 			{ credentials: [{ credential: ISSUED }] },
 		);
-		await expect(keys.decrypt('flow-1', jwe, immediate)).resolves.toEqual({ credentialCount: 1 });
+		await expect(keys.decrypt('flow-1', jwe)).resolves.toEqual({ credentialCount: 1 });
 	});
 });
 
@@ -181,7 +181,7 @@ describe('ClientHeldEncryptionKeys.dropGeneration', () => {
 
 		expect(keys.has('flow-1')).toBe(true);
 		const jwe = await issuerEncrypt(newer.jwk, 'ECDH-ES', 'A256GCM', { credentials: [{ credential: ISSUED }] });
-		await expect(keys.decrypt('flow-1', jwe, immediate)).resolves.toEqual({ credentialCount: 1 });
+		await expect(keys.decrypt('flow-1', jwe)).resolves.toEqual({ credentialCount: 1 });
 	});
 });
 
@@ -193,7 +193,7 @@ describe('ClientHeldEncryptionKeys.decrypt', () => {
 		const { jwk } = await keyFor(keys, 'flow-1', alg, enc);
 		const jwe = await issuerEncrypt(jwk, alg, enc, { credentials: [{ credential: ISSUED }] });
 
-		await keys.decrypt('flow-1', jwe, immediate);
+		await keys.decrypt('flow-1', jwe);
 
 		expect(keys.response('flow-1')?.credentials).toEqual([ISSUED]);
 	});
@@ -204,14 +204,14 @@ describe('ClientHeldEncryptionKeys.decrypt', () => {
 		const jwe = await issuerEncrypt(jwk, 'ECDH-ES', 'A256GCM', {
 			credentials: [{ credential: ISSUED }, { credential: 'second' }],
 			notification_id: 'n-1',
-			credential_metadata: seedMetadata,
+			credential_metadata: extensionMetadata,
 		});
 
-		const control = await keys.decrypt('flow-1', jwe, immediate);
+		const control = await keys.decrypt('flow-1', jwe);
 
 		expect(control).toEqual({ credentialCount: 2 });
 		expect(JSON.stringify(control)).not.toContain(ISSUED);
-		expect(JSON.stringify(control)).not.toContain(SEED);
+		expect(JSON.stringify(control)).not.toContain(SECRET);
 		expect(JSON.stringify(control)).not.toContain('n-1');
 	});
 
@@ -221,9 +221,7 @@ describe('ClientHeldEncryptionKeys.decrypt', () => {
 
 		const control = await keys.decrypt(
 			'flow-1',
-			await issuerEncrypt(jwk, 'ECDH-ES', 'A256GCM', { transaction_id: 'tx-1', interval: 5 }),
-			immediate,
-		);
+			await issuerEncrypt(jwk, 'ECDH-ES', 'A256GCM', { transaction_id: 'tx-1', interval: 5 }));
 
 		expect(control).toEqual({ transactionId: 'tx-1', interval: 5 });
 	});
@@ -234,7 +232,7 @@ describe('ClientHeldEncryptionKeys.decrypt', () => {
 
 		for (const body of [{ transaction_id: 'tx-1', credentials: [{ credential: ISSUED }] }, {}, { credentials: [] }]) {
 			await expect(
-				keys.decrypt('flow-1', await issuerEncrypt(jwk, 'ECDH-ES', 'A256GCM', body), immediate),
+				keys.decrypt('flow-1', await issuerEncrypt(jwk, 'ECDH-ES', 'A256GCM', body)),
 			).rejects.toBeInstanceOf(ClientHeldEncryptionError);
 		}
 	});
@@ -245,10 +243,10 @@ describe('ClientHeldEncryptionKeys.decrypt', () => {
 		const many = (n: number) => Array.from({ length: n }, (_, i) => ({ credential: `c${i}` }));
 
 		await expect(
-			keys.decrypt('flow-1', await issuerEncrypt(jwk, 'ECDH-ES', 'A256GCM', { credentials: many(256) }), immediate),
+			keys.decrypt('flow-1', await issuerEncrypt(jwk, 'ECDH-ES', 'A256GCM', { credentials: many(256) })),
 		).resolves.toEqual({ credentialCount: 256 });
 		await expect(
-			keys.decrypt('flow-1', await issuerEncrypt(jwk, 'ECDH-ES', 'A256GCM', { credentials: many(257) }), immediate),
+			keys.decrypt('flow-1', await issuerEncrypt(jwk, 'ECDH-ES', 'A256GCM', { credentials: many(257) })),
 		).rejects.toBeInstanceOf(ClientHeldEncryptionError);
 	});
 
@@ -263,11 +261,11 @@ describe('ClientHeldEncryptionKeys.decrypt', () => {
 			['ECDH-ES+A256KW', 'A128GCM'],
 		] as const) {
 			await expect(
-				keys.decrypt('flow-1', await issuerEncrypt({ ...jwk, alg }, alg, enc, body), immediate),
+				keys.decrypt('flow-1', await issuerEncrypt({ ...jwk, alg }, alg, enc, body)),
 			).rejects.toBeInstanceOf(ClientHeldEncryptionError);
 		}
 		await expect(
-			keys.decrypt('flow-1', await issuerEncrypt(jwk, 'ECDH-ES+A256KW', 'A256GCM', body), immediate),
+			keys.decrypt('flow-1', await issuerEncrypt(jwk, 'ECDH-ES+A256KW', 'A256GCM', body)),
 		).resolves.toEqual({ credentialCount: 1 });
 	});
 
@@ -283,7 +281,7 @@ describe('ClientHeldEncryptionKeys.decrypt', () => {
 		);
 
 		for (const jwe of [wrongKey, 'not.a.jwe', '']) {
-			const error = await keys.decrypt('flow-1', jwe, immediate).catch((e) => e);
+			const error = await keys.decrypt('flow-1', jwe).catch((e) => e);
 			expect(error).toBeInstanceOf(ClientHeldEncryptionError);
 			expect(error.message).not.toContain(ISSUED);
 			expect(error.message).not.toContain(jwe === '' ? 'never-matches' : jwe);
@@ -295,7 +293,7 @@ describe('ClientHeldEncryptionKeys.decrypt', () => {
 		const { jwk } = await keyFor(keys);
 
 		await expect(
-			keys.decrypt('flow-1', await issuerEncrypt(jwk, 'ECDH-ES', 'A256GCM', [ISSUED]), immediate),
+			keys.decrypt('flow-1', await issuerEncrypt(jwk, 'ECDH-ES', 'A256GCM', [ISSUED])),
 		).rejects.toBeInstanceOf(ClientHeldEncryptionError);
 	});
 
@@ -306,7 +304,7 @@ describe('ClientHeldEncryptionKeys.decrypt', () => {
 		const jwe = await issuerEncrypt(jwk, 'ECDH-ES', 'A256GCM', { credentials: [{ credential: ISSUED }] });
 
 		keys.drop('flow-1');
-		await expect(keys.decrypt('flow-1', jwe, immediate)).rejects.toBeInstanceOf(ClientHeldEncryptionError);
+		await expect(keys.decrypt('flow-1', jwe)).rejects.toBeInstanceOf(ClientHeldEncryptionError);
 		expect(keys.has('flow-2')).toBe(true);
 
 		keys.clear();
@@ -318,7 +316,7 @@ describe('credentials entries (OID4VCI 1.0 section 8.3)', () => {
 	async function decryptBody(body: unknown) {
 		const keys = new ClientHeldEncryptionKeys();
 		const { jwk } = await keyFor(keys);
-		const result = await keys.decrypt('flow-1', await issuerEncrypt(jwk, 'ECDH-ES', 'A256GCM', body), immediate);
+		const result = await keys.decrypt('flow-1', await issuerEncrypt(jwk, 'ECDH-ES', 'A256GCM', body));
 		return { keys, result };
 	}
 
@@ -355,60 +353,82 @@ describe('credentials entries (OID4VCI 1.0 section 8.3)', () => {
 	});
 });
 
-describe('secret seed and credential_metadata across responses (privatedata-spec 5A.2)', () => {
-	it('accepts a seed on the immediate response that issues the credentials', async () => {
+describe('superseded secret-bearing members are refused, on every response (LEGACY_SECRET_MEMBER)', () => {
+	const immediateResponse = { credentials: [{ credential: ISSUED }] };
+	const pendingResponse = { transaction_id: 'tx-1', interval: 2 };
+	const paths = [
+		['an immediate response that issues the credentials', immediateResponse],
+		['a pending response', pendingResponse],
+		['a deferred response that issues the credentials', immediateResponse],
+	] as const;
+	const cases = paths.flatMap(([path, body]) => LEGACY_SECRET_MEMBERS.map((member) => [path, member, body] as const));
+
+	it.each(cases)('refuses %s carrying %s, and keeps nothing', async (_path, member, body) => {
 		const keys = new ClientHeldEncryptionKeys();
 		const { jwk } = await keyFor(keys);
 
-		await keys.decrypt(
-			'flow-1',
-			await issuerEncrypt(jwk, 'ECDH-ES', 'A256GCM', {
-				credentials: [{ credential: ISSUED }],
-				credential_metadata: seedMetadata,
-			}),
-			immediate,
-		);
+		const error = await keys
+			.decrypt('flow-1', await issuerEncrypt(jwk, 'ECDH-ES', 'A256GCM', { ...body, notification_id: 'n-1', credential_metadata: { [member]: { ns: SECRET } } }))
+			.catch((e) => e);
 
-		expect(keys.response('flow-1')?.credentialMetadata).toEqual(seedMetadata);
+		expect(error).toBeInstanceOf(ClientHeldEncryptionError);
+		expect(error.code).toBe(LEGACY_SECRET_MEMBER);
+		expect(error.message).toMatch(/^LEGACY_SECRET_MEMBER/);
+		expect(error.message).not.toContain(SECRET);
+		expect(error.message).not.toContain(member);
+		expect(keys.response('flow-1')).toBeUndefined();
 	});
 
-	it('refuses a seed on a Deferred Credential Response', async () => {
+	it.each([null, {}, [], 'x', 7, true, { ns: SECRET }])('refuses the member whatever its value (%j)', async (value) => {
 		const keys = new ClientHeldEncryptionKeys();
 		const { jwk } = await keyFor(keys);
 
 		await expect(
-			keys.decrypt(
-				'flow-1',
-				await issuerEncrypt(jwk, 'ECDH-ES', 'A256GCM', {
-					credentials: [{ credential: ISSUED }],
-					credential_metadata: seedMetadata,
-				}),
-				deferred,
-			),
-		).rejects.toBeInstanceOf(ClientHeldEncryptionError);
-		expect(keys.response('flow-1')).toBeUndefined();
+			keys.decrypt('flow-1', await issuerEncrypt(jwk, 'ECDH-ES', 'A256GCM', { ...immediateResponse, credential_metadata: { 'org.siros.secret_seed': value } })),
+		).rejects.toMatchObject({ code: LEGACY_SECRET_MEMBER });
 	});
 
-	it('refuses a seed on a pending response, deferred or not', async () => {
-		for (const options of [immediate, deferred]) {
-			const keys = new ClientHeldEncryptionKeys();
-			const { jwk } = await keyFor(keys);
+	it('refuses before any other check: a malformed body that also carries one is a LEGACY_SECRET_MEMBER refusal', async () => {
+		const keys = new ClientHeldEncryptionKeys();
+		const { jwk } = await keyFor(keys);
 
+		for (const body of [
+			{ credentials: ['unwrapped'], credential_metadata: { secret_members: {} } },
+			{ transaction_id: 'tx-1', credentials: [{ credential: ISSUED }], credential_metadata: { 'org.siros.psc': 'x' } },
+			{ credential_metadata: { holder_commitments: [] } },
+		]) {
 			await expect(
-				keys.decrypt(
-					'flow-1',
-					await issuerEncrypt(jwk, 'ECDH-ES', 'A256GCM', {
-						transaction_id: 'tx-1',
-						interval: 2,
-						credential_metadata: seedMetadata,
-					}),
-					options,
-				),
-			).rejects.toBeInstanceOf(ClientHeldEncryptionError);
-			expect(keys.response('flow-1')).toBeUndefined();
+				keys.decrypt('flow-1', await issuerEncrypt(jwk, 'ECDH-ES', 'A256GCM', body)),
+			).rejects.toMatchObject({ code: LEGACY_SECRET_MEMBER });
 		}
 	});
 
+	it('refuses a later response of the flow that carries one, and keeps what the earlier response left', async () => {
+		const keys = new ClientHeldEncryptionKeys();
+		const { jwk } = await keyFor(keys);
+		await keys.decrypt('flow-1', await issuerEncrypt(jwk, 'ECDH-ES', 'A256GCM', pendingResponse));
+
+		await expect(
+			keys.decrypt('flow-1', await issuerEncrypt(jwk, 'ECDH-ES', 'A256GCM', { ...immediateResponse, credential_metadata: { 'org.siros.holder_commitments': {} } })),
+		).rejects.toMatchObject({ code: LEGACY_SECRET_MEMBER });
+
+		expect(keys.response('flow-1')?.credentials).toEqual([]);
+	});
+
+	it('accepts an extension that is not a superseded shape, and a legacy name that is only nested', async () => {
+		const keys = new ClientHeldEncryptionKeys();
+		const { jwk } = await keyFor(keys);
+		const metadata = { ...extensionMetadata, display: [{ name: 'PID', 'org.siros.secret_seed': 'nested only' }] };
+
+		await expect(
+			keys.decrypt('flow-1', await issuerEncrypt(jwk, 'ECDH-ES', 'A256GCM', { ...immediateResponse, credential_metadata: metadata })),
+		).resolves.toEqual({ credentialCount: 1 });
+
+		expect(keys.response('flow-1')?.credentialMetadata).toEqual(metadata);
+	});
+});
+
+describe('credential_metadata across responses', () => {
 	it('does not carry credential_metadata or notification_id from a pending response to the deferred one', async () => {
 		const keys = new ClientHeldEncryptionKeys();
 		const { jwk } = await keyFor(keys);
@@ -420,9 +440,7 @@ describe('secret seed and credential_metadata across responses (privatedata-spec
 				interval: 2,
 				notification_id: 'n-pending',
 				credential_metadata: { display: [{ name: 'pending' }] },
-			}),
-			immediate,
-		);
+			}));
 		expect(pending).toEqual({ transactionId: 'tx-1', interval: 2 });
 		expect(keys.response('flow-1')).toEqual({
 			credentials: [],
@@ -432,9 +450,7 @@ describe('secret seed and credential_metadata across responses (privatedata-spec
 
 		const done = await keys.decrypt(
 			'flow-1',
-			await issuerEncrypt(jwk, 'ECDH-ES', 'A256GCM', { credentials: [{ credential: ISSUED }] }),
-			deferred,
-		);
+			await issuerEncrypt(jwk, 'ECDH-ES', 'A256GCM', { credentials: [{ credential: ISSUED }] }));
 
 		expect(done).toEqual({ credentialCount: 1 });
 		expect(keys.response('flow-1')).toEqual({
@@ -450,17 +466,15 @@ describe('secret seed and credential_metadata across responses (privatedata-spec
 		const pending = (interval: number) =>
 			issuerEncrypt(jwk, 'ECDH-ES', 'A256GCM', { transaction_id: 'tx-1', interval });
 
-		expect(await keys.decrypt('flow-1', await pending(2), immediate)).toEqual({ transactionId: 'tx-1', interval: 2 });
-		expect(await keys.decrypt('flow-1', await pending(5), deferred)).toEqual({ transactionId: 'tx-1', interval: 5 });
+		expect(await keys.decrypt('flow-1', await pending(2))).toEqual({ transactionId: 'tx-1', interval: 2 });
+		expect(await keys.decrypt('flow-1', await pending(5))).toEqual({ transactionId: 'tx-1', interval: 5 });
 		const done = await keys.decrypt(
 			'flow-1',
 			await issuerEncrypt(jwk, 'ECDH-ES', 'A256GCM', {
 				credentials: [{ credential: ISSUED }],
 				notification_id: 'n-2',
 				credential_metadata: { display: [{ name: 'done' }] },
-			}),
-			deferred,
-		);
+			}));
 
 		expect(done).toEqual({ credentialCount: 1 });
 		expect(keys.response('flow-1')).toEqual({

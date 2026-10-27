@@ -11,11 +11,9 @@
 
 import { compactDecrypt, exportJWK, generateKeyPair } from 'jose';
 import type { JWK, KeyLike } from 'jose';
-import { ClientHeldEncryptionError } from '../errors';
+import { ClientHeldEncryptionError, LEGACY_SECRET_MEMBER } from '../errors';
 import { isSupportedAlg, isSupportedEnc } from './algorithms';
-
-/** The response-level `credential_metadata` member that delivers a secret seed (privatedata-spec 5A). */
-const SECRET_SEED_MEMBER = 'org.siros.secret_seed';
+import { carriesLegacySecretMember } from './legacySecretMembers';
 
 /** Credentials per response the engine accepts as a count (go-wallet-backend contract F.5). */
 const MAX_CREDENTIAL_COUNT = 256;
@@ -168,10 +166,11 @@ export class ClientHeldEncryptionKeys {
 
 	/**
 	 * Decrypt one Credential Response JWE for a flow, remember what it carried (that response
-	 * only) and return just what the engine needs. `deferred` says whether this answers a
-	 * Deferred Credential request; a pending or deferred response must not deliver a seed.
+	 * only) and return just what the engine needs. A response (immediate, pending or deferred)
+	 * whose `credential_metadata` carries a superseded secret-bearing member is refused with
+	 * LEGACY_SECRET_MEMBER before anything else is checked, and nothing is kept.
 	 */
-	async decrypt(flowId: string, jwe: string, options: { deferred: boolean }): Promise<DecryptControlFields> {
+	async decrypt(flowId: string, jwe: string): Promise<DecryptControlFields> {
 		const entry = this.keys.get(flowId);
 		if (!entry) {
 			throw new ClientHeldEncryptionError('No response encryption key for this flow');
@@ -198,6 +197,14 @@ export class ClientHeldEncryptionKeys {
 			throw new ClientHeldEncryptionError('The decrypted credential response is not a JSON object');
 		}
 
+		// Refused before any other check, on every response of a flow: never ignored, never stored.
+		if (carriesLegacySecretMember(body.credential_metadata)) {
+			throw new ClientHeldEncryptionError(
+				'LEGACY_SECRET_MEMBER: the credential response carries a superseded secret member',
+				LEGACY_SECRET_MEMBER,
+			);
+		}
+
 		const credentials = credentialsOf(body);
 		const transactionId =
 			typeof body.transaction_id === 'string' && body.transaction_id !== '' ? body.transaction_id : undefined;
@@ -214,15 +221,6 @@ export class ClientHeldEncryptionKeys {
 			body.credential_metadata && typeof body.credential_metadata === 'object' && !Array.isArray(body.credential_metadata)
 				? (body.credential_metadata as Record<string, unknown>)
 				: undefined;
-		// privatedata-spec 5A.2: a seed rides only on the immediate response that issues the credentials.
-		if (
-			metadata &&
-			Object.prototype.hasOwnProperty.call(metadata, SECRET_SEED_MEMBER) &&
-			(options.deferred || transactionId !== undefined)
-		) {
-			throw new ClientHeldEncryptionError('A pending or deferred credential response must not deliver a secret seed');
-		}
-
 		// This response only: nothing is carried over from an earlier one.
 		entry.response = {
 			credentials,

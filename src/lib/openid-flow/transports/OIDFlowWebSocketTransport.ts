@@ -13,7 +13,7 @@
  */
 
 import { TrustStatus as TrustStatusEnum } from 'wallet-common';
-import { ClientHeldEncryptionKeys, buildJarmResponse, verifierJwkThumbprint } from '../encryption';
+import { ClientHeldEncryptionKeys, buildJarmResponse, carriesLegacySecretMember, verifierJwkThumbprint } from '../encryption';
 import type {
 	CredentialResponseEncryptionRequest,
 	DecryptedCredentialResponse,
@@ -38,7 +38,7 @@ import type { CredentialsMatchedResult } from '@/lib/services/CredentialMatching
 import { logger } from '@/logger';
 import { TrustEvaluators, TrustStatus } from '../types';
 import { DcqlQuery } from 'dcql';
-import { ClientHeldEncryptionError, OIDFlowError } from '../errors';
+import { ClientHeldEncryptionError, LEGACY_SECRET_MEMBER, OIDFlowError } from '../errors';
 import { ZKP_REQ_REFUSED, requestsZkpReq, zkpReqRefusal } from '../utils/zkpReqPolicy';
 
 /**
@@ -533,6 +533,21 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			};
 		}
 
+		// A response whose own credential_metadata (a plain frame, whatever message carried it) has a
+		// superseded secret-bearing member is refused, never ignored: nothing of it is returned or kept.
+		// An encrypted completion has no frame metadata left (completeEncryptedIssuance strips it), and
+		// what this wallet decrypted was checked when it was decrypted.
+		if (carriesLegacySecretMember(response.credential_metadata)) {
+			logger.warn('Refusing a credential response that carries a superseded secret member');
+			return {
+				success: false,
+				error: {
+					code: LEGACY_SECRET_MEMBER,
+					message: 'The credential response carries a superseded secret member',
+				},
+			};
+		}
+
 		// Map server response to OID4VCIFlowResult
 		const result: OID4VCIFlowResult = {
 			success: true,
@@ -607,7 +622,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		}
 		// Response-level credential_metadata. For an encrypted response it is the object this
 		// wallet decrypted. From any message that resolves the flow, a frame's own value is
-		// limited to display and claims, so an extension (a seed) never arrives that way.
+		// limited to display and claims, so no other extension arrives that way.
 		const decrypted = this.decryptedIssuance.get(response);
 		const credentialMetadata = decrypted ? decrypted.credentialMetadata : displayMetadataOnly(response.credential_metadata);
 		if (credentialMetadata) {
@@ -1288,9 +1303,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			return;
 		}
 		try {
-			const control = await this.responseKeys.decrypt(request.flowId, jwe, {
-				deferred: request.params.deferred === true,
-			});
+			const control = await this.responseKeys.decrypt(request.flowId, jwe);
 			this.sendSignResponse(request.flowId, request.messageId, control);
 		} catch (err) {
 			const reason = err instanceof ClientHeldEncryptionError ? err.message : 'Could not decrypt the credential response';
