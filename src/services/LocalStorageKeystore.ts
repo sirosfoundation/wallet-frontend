@@ -20,6 +20,7 @@ import { getItem } from "@/indexedDB";
 import { UnsupportedSchemaVersionError, WalletStateContainerGeneric } from "./WalletStateSchemaCommon";
 import { ExportedWscdContainer, WscdContainer } from "@/lib/wscd-manager";
 import { useErrorBoundary } from "react-error-boundary";
+import { buildTenantRoutePath, getTenantFromUrlPath } from "@/lib/tenant";
 
 type WalletState = CurrentSchema.WalletState;
 type WalletStateCredential = CurrentSchema.WalletStateCredential;
@@ -532,14 +533,28 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		if (mainKey && privateData && calculatedWalletState === null) {
 			(async () => {
 				try {
-					const [, , newCalculatedWalletState] = await openPrivateData();
+					const [pd, mk] = await assertKeystoreOpen();
+					const [, , newCalculatedWalletState] = await keystore.openPrivateData(mk, pd);
 					setCalculatedWalletState(newCalculatedWalletState);
 				} catch (err) {
 					logger.error("Failed to initialize wallet state after unlock", err);
+					if (!(err instanceof jose.errors.JWEDecryptionFailed)) {
+						showBoundary(err);
+						return;
+					}
+
+					// Another tab re-keyed the stored data, so this tab's session key is stale.
+					const queryParams = new URLSearchParams(window.location.search);
+					queryParams.delete('user');
+					queryParams.delete('sync');
+					queryParams.append('user', userHandleB64u);
+					const loginStatePath = buildTenantRoutePath(getTenantFromUrlPath() ?? undefined, 'login-state');
+					closeSessionTabLocal();
+					navigate(`${loginStatePath}?${queryParams.toString()}`, { replace: true });
 				}
 			})();
 		}
-	}, [mainKey, privateData, calculatedWalletState, openPrivateData]);
+	}, [mainKey, privateData, calculatedWalletState, assertKeystoreOpen, showBoundary, userHandleB64u, closeSessionTabLocal, navigate]);
 
 	const init = useCallback(async (
 		mainKey: CryptoKey,
