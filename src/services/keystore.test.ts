@@ -6,6 +6,7 @@ import * as util from '@cef-ebsi/key-did-resolver/dist/util.js';
 import * as keystore from "./keystore.js";
 import { byteArrayEquals, fromBase64, jsonParseTaggedBinary, toBase64, toBase64Url } from '@/lib/utils';
 import { DidKeyVersion } from "../config.js";
+import { UnsupportedSchemaVersionError } from "./WalletStateSchemaCommon";
 
 
 async function asyncAssertThrows(fn: () => Promise<any>, message: string): Promise<unknown> {
@@ -104,6 +105,12 @@ describe("The keystore", () => {
 		);
 	});
 
+	it("fails with JWEDecryptionFailed when opened with another main key.", async () => {
+		const [privateData] = await openedKeystore();
+		const otherKey = await keystore.importMainKey(crypto.getRandomValues(new Uint8Array(32)));
+		await expect(keystore.openPrivateData(otherKey, privateData))
+			.rejects.toBeInstanceOf(jose.errors.JWEDecryptionFailed);
+	});
 
 	it("can decrypt a container encrypted with the exported main key.", async () => {
 		const privateData: keystore.AsymmetricEncryptedContainer = jsonParseTaggedBinary('{"mainKey":{"publicKey":{"importKey":{"format":"raw","keyData":{"$b64u":"BLOz9XVZgYGrlg0vLSIWqNGyR6d5H2Djy9BlIb6bBhUIvRUSw9MU_CFmEwtDP9nRGZhQTdn0_rBmhUSvczY5Xq0"},"algorithm":{"name":"ECDH","namedCurve":"P-256"}}},"unwrapKey":{"format":"raw","unwrapAlgo":"AES-KW","unwrappedKeyAlgo":{"name":"AES-GCM","length":256}}},"prfKeys":[{"credentialId":{"$b64u":"L36kS042hbgmDGkvMt_8abWT0n93IxW5HQB5YKfq0W0nPZQDehu07Qk9L0Aw5C76"},"prfSalt":{"$b64u":"_JMrkAUh64gigXqI--DWoUlgP3zqTCLS2uQASAhutxA"},"hkdfSalt":{"$b64u":"j_sssVxuQMTXzzUj5899uAxVVIEf87FFT6Vrn-ckPxw"},"hkdfInfo":{"$b64u":"ZURpcGxvbWFzIFBSRg"},"algorithm":{"name":"AES-GCM","length":256},"keypair":{"publicKey":{"importKey":{"format":"raw","keyData":{"$b64u":"BAnaAJXU1ja9ddHcWBVqDpLBQWY4wF3KB1Av92rqFdfWx6XWKSzNLsgKlrZnLJN7xo3pOwhJTXAXqxowPykzvx8"},"algorithm":{"name":"ECDH","namedCurve":"P-256"}}},"privateKey":{"unwrapKey":{"format":"jwk","wrappedKey":{"$b64u":"FWhWa7XO_Mqjpr0FhyR_HZcJmgcpoPIsOSdPllVNmsGnnALJ6rj1278lxTW-HEOAsdxUK2K7njciF2e7L4nsGu0ZJ4LqsXkD7a47YLJ75hg9nH1kesbPunyS7rGBsVtKI9WxiZYxDwhiIqIPYRDGJbUXJQG-zunxo1KERsu4me_rsBmOuwqfesDvMllrm1wTY-R0h7UhIpFa2wTCXmW7pRPx3Pbvw7GAhWBBd6hpvWsUsOtCGSN9ujw6IUi5itB8xAcMCB2KbRuCicJa0MCsnyOOtUnsG-YzJFr4W-0FNT8UGvM"},"unwrapAlgo":{"name":"AES-GCM","iv":{"$b64u":"MbbvhJZyE8YP710b"}},"unwrappedKeyAlgo":{"name":"ECDH","namedCurve":"P-256"}}}},"unwrapKey":{"wrappedKey":{"$b64u":"mX8ltiUrf9mcAVNvGsGRPNApPznShZuT6OVVwGOhlN9jCVwTdfnibQ"},"unwrappingKey":{"deriveKey":{"algorithm":{"name":"ECDH"},"derivedKeyAlgorithm":{"name":"AES-KW","length":256}}}}}],"jwe":"eyJhbGciOiJBMjU2R0NNS1ciLCJlbmMiOiJBMjU2R0NNIiwiaXYiOiJHaVBvaHA3N2ZjTGdjQUk2IiwidGFnIjoiandra0JsZ3poNU9hQTlVRHZ2WjZZUSJ9.Yq3lXLcWG3r8BM3cJrSRnVoeTe8ExoOfx4G4-mDE-AQ.LIW70vnZ-sLVxOJN.ZfSpTX7wmo-wRjjTBzYkHThcFY4d3upjg19y3AeBfIxmwuu9OJA60bAk-_-e_-OWkeb1ucOyJej_W5-xvEZwoh-30yHxeZEG6iGL1QS__6RZ56EX-rgaGAG65A_AjF-On_7_4IGNY5wuAnmb3HEYdiMFSx-IA1vqox-cNjra7HPLYfpMJq7HABTTO0nnQkgp_K3kNrFazLXbMU97dL39UoYk0L6fAN6DLJi0ngaTO6SYS6jMZ6dIS45Bny0OkqLC51rBpMsvXvlCnKg-skmTuzovWqNepKRiSKwlfwXpRSal5bNDDK4U8pQkDD2qs93Stk5ZJgOL0enP-Ydq8XQ_E3nz-bUdnmmrNme5yqpdxF8UF61zQrG4oMGh9bi_rtA1-xnAp4S3pA53mS0G_3Z1fLEsk7Bl1gOWvxAQBIUetc0NePIl8JMm-3ayZiewK20JUfwYFgLPKJx2cPIBWJRVRYHVIMCvIKDJzQU9jnDQrv7njA2d0t3r_kXlw2w56rpWUixZhR6jivTOOf5tPN3zpBCgyMWiki7GBYBPnFcoLUfTYMKUWxEfqL4owRIYA15MzmsM6XuTvCBar-9sa13n4B8gBEZ0KUWxopeyGh1lKkOgrQq1y742hGUkUZcptgkZWSSUTo2rIiBXbZsiNmjBUE7bfSw5Y3kUYrrSsAwJ1K-kao0dxi45yYw9-hUcyWk2nZiY3BJfmOKAXh7a8dyf13JQg7HCdsCL-B32hG63l6x4ePHjx-46vMS3I6EDvUkRo3YdtV7Ed6WExrCz6-TmKluAHDt1LuuWFZ6uPz-T4PVBw2LpUEL7ijull3RM0bblL1xWSrzU3hV5XjOm6UhVJQt36hfdCCt0MOr6_L2CJMsoGLqZKSMprfhqcm9KfgdfOWtpMPuaeg1uSuEjhE4MZ2sdogIetMboCG7pdzXsAwXtqDARkIoqYZDfuD5IPVO3fXED7G5-umg0UqgYGV1TwjoiPc9paHET8AZbvm5ZGe0bruipGZayZZVdjdXjq8zpJrMnMDQYMD9dZKmq8u4kvFBWA_1PZhvxHKKpom2ZiQILRTUMLFbwsIrfcomjtcnSPvmfl4cnlv0c4gXOF7SXRMRWDgmPfh-iwlVIFLOgVJZp0PjBeukYjUczf_VbP53a1YDhso9Hxr1TiqrDFIt3b0IDYrHsBPfH6UkYdp53pnbidh0fPSffNUxLqi9wqLi1VuN3QYx8nkktH-1T8WKWcXlXu6YyMvdu3u5CIMf3Iu9KS8IFQt0j0ciSa4U_c2zRfV_1QoX8fTeRUUY2G1f6jtSahlrQ1RF1mQ0i_dbNQV3n6WCB2WiFKrEE46MlrvsKYnyenba2Buh-NXKyEU4ZbC0x4hbcUyOkxKMMlQb5tAY5DnOvUW5Yz7RiWoaUSxexb6N3F39ZAgMnBoT6E8KfZt0AXkYVlVHb0olywp6l9VAXU_1doCHXMfX9M57OZHZ0tlwRDZPXWxXCp95GBddV5Ga2vLPbOu-D6jalWWeblZ7U8KOAVkrcySHv5Wr8FAVGinshGSDZQRnfSoe8d1Le-TSMc5xL4FSf7iJ4CbKWl5k5blYqEKC2bVK3kYBX3DofcRsXsjeuVPgxGoFuIfTbYEP7sFnbzSzTLkuXMj4SyGbWryvuTAvu_cbYKHm3XaWuX3piSQO26UB0NKWXVJtnCrqe1bscOxvS281cYceLoLatQroRwg.sxVqxz76jcSvdKUtHbxXwA"}');
@@ -221,7 +228,7 @@ describe("The keystore", () => {
 			async () => false,
 		);
 
-		const newCredentialId = fromBase64("iy755++V64pc9quxa20eVs2mwwwsJcbmlql0OKHMpA1w/hWAlMIPjosYmgJuh0Y+");
+		const newCredentialId = fromBase64("iy755++V64pc9quxa20eVs2mwwwsJcbmlqlql0OKHMpA1w/hWAlMIPjosYmgJuh0Y+");
 		const newPrivateData = await keystore.addPrf(
 			privateData,
 			mockPrfCredential({
@@ -366,3 +373,132 @@ describe("The keystore", () => {
 		});
 	});
 });
+
+describe("The keystore with schema version 4 data", () => {
+	describe("refuses data it does not support, before anything else touches it", () => {
+		it.each([5, 0, -1, 4.5, "4", null])("refuses state version %s", async (schemaVersion) => {
+			await expect(roundTrip(walletContainer({ schemaVersion }))).rejects.toBeInstanceOf(UnsupportedSchemaVersionError);
+		});
+
+		it.each([5, 0, -1, 3.5, "4", null])("refuses event version %s", async (schemaVersion) => {
+			const settings = { openidRefreshTokenMaxAgeInSeconds: "5" };
+			const events = [walletEvent("alter_settings", { settings, schemaVersion })];
+			await expect(roundTrip(walletContainer({}, events))).rejects.toBeInstanceOf(UnsupportedSchemaVersionError);
+		});
+
+		it("refuses an event without a version", async () => {
+			const { schemaVersion: _schemaVersion, ...unversioned } = walletEvent("alter_settings", {
+				settings: { openidRefreshTokenMaxAgeInSeconds: "5" },
+			});
+			await expect(roundTrip(walletContainer({}, [unversioned]))).rejects.toBeInstanceOf(UnsupportedSchemaVersionError);
+		});
+
+		it("refuses an unknown event type", async () => {
+			await expect(roundTrip(walletContainer({}, [walletEvent("something_new")]))).rejects.toBeInstanceOf(UnsupportedSchemaVersionError);
+		});
+
+		it.each([1, 2])("refuses set_extension stamped %s", async (schemaVersion) => {
+			const events = [walletEvent("set_extension", { namespace: "ns", key: "k", value: "v", schemaVersion })];
+			await expect(roundTrip(walletContainer({}, events))).rejects.toBeInstanceOf(UnsupportedSchemaVersionError);
+		});
+	});
+
+	describe("version 3 data", () => {
+		it("stamps the state as 4 and leaves existing events alone", async () => {
+			const settings = { openidRefreshTokenMaxAgeInSeconds: "3600" };
+			const opened = await roundTrip(walletContainer({ schemaVersion: 3 }, [walletEvent("alter_settings", { settings, schemaVersion: 3 })]));
+			expect(opened.S.schemaVersion).toBe(4);
+			expect(opened.events[0].schemaVersion).toBe(3);
+		});
+
+		it("keeps metadata, extensions and unknown members written under version 3", async () => {
+			const S = {
+				schemaVersion: 3,
+				credentials: [{ ...v4Credential, metadata: [{ type: "org.siros.secret_seed", value: { ns: "00" } }] }],
+				extensions: { "org.siros.wscd": { "kid-a1b2": "<opaque>" } },
+				"x-unknown": { a: [1, null] },
+			};
+			const opened = await roundTrip(walletContainer(S));
+			expect(opened.S).toEqual({ ...walletContainer(S).S, schemaVersion: 4 });
+		});
+	});
+
+	describe("keeps what it does not understand", () => {
+		it("keeps keypair entries it cannot parse", async () => {
+			const keypairs = [
+				{
+					kid: "kp-a",
+					keypair: { kid: "kp-a", did: "did:example:a", alg: "ES256", publicKey: {}, privateKey: {} },
+					"x-unknown": 1,
+				},
+				{ id: "kp-legacy", did: "did:example:legacy" },
+				"not-an-object",
+				7,
+				null,
+			];
+			const opened = await roundTrip(walletContainer({ keypairs }));
+			expect(opened.S.keypairs).toEqual(keypairs);
+		});
+
+		it("keeps unknown members of the container", async () => {
+			const opened = await roundTrip({ ...walletContainer(), "x-unknown": [{ a: 1 }] });
+			expect(opened).toHaveProperty("x-unknown", [{ a: 1 }]);
+		});
+	});
+
+	describe("empty metadata", () => {
+		it.each([[[]], [null]])("drops metadata %j from the state on write", async (metadata) => {
+			const opened = await roundTrip(walletContainer({ credentials: [{ ...v4Credential, metadata }] }));
+			expect(opened.S.credentials[0]).not.toHaveProperty("metadata");
+		});
+	});
+});
+
+const v4Credential = {
+	credentialId: 1,
+	format: "dc+sd-jwt",
+	data: "<credential>",
+	kid: "kid-1",
+	instanceId: 0,
+	batchId: 1,
+	credentialIssuerIdentifier: "https://issuer.example.com",
+	credentialConfigurationId: "config-1",
+};
+
+function walletContainer(S: object = {}, events: object[] = []) {
+	return {
+		lastEventHash: "",
+		events,
+		S: {
+			schemaVersion: 4,
+			credentials: [],
+			keypairs: [],
+			presentations: [],
+			credentialIssuanceSessions: [],
+			settings: { openidRefreshTokenMaxAgeInSeconds: "0" },
+			...S,
+		},
+	};
+}
+
+let nextEventId = 1;
+function walletEvent(type: string, fields: object = {}) {
+	const eventId = nextEventId++;
+	return { type, schemaVersion: 4, eventId, parentHash: "", timestampSeconds: 100 + eventId, ...fields };
+}
+
+async function openedKeystore(): Promise<keystore.OpenedContainer> {
+	const bytes = fromBase64("kgUVc/5jaq9GQbheeqvzX73xue7rAEtJh+UpW9VOVZ0=");
+	const credential = mockPrfCredential({ id: bytes, prfOutput: bytes });
+	const { mainKey, keyInfo } = await keystore.initPrf(credential, bytes, async () => false);
+	const { privateData } = await keystore.init(mainKey, keyInfo);
+	return [keystore.assertAsymmetricEncryptedContainer(privateData), mainKey];
+}
+
+// Writes `state` as another client would, then rewrites it the way this wallet does.
+async function roundTrip(state: unknown): Promise<keystore.PrivateData> {
+	const written = await keystore.updatePrivateData(await openedKeystore(), async () => state as keystore.PrivateData);
+	const [rewritten, mainKey] = await keystore.updatePrivateData(written, async (privateData) => privateData);
+	const [opened] = await keystore.openPrivateData(mainKey, rewritten);
+	return opened;
+}

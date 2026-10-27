@@ -4,7 +4,8 @@ import { compareBy, last, splitWhen } from '@/lib/utils';
 import * as SchemaV1 from "./WalletStateSchemaVersion1";
 import * as SchemaV2 from "./WalletStateSchemaVersion2";
 import * as SchemaV3 from "./WalletStateSchemaVersion3";
-import * as CurrentSchema from "./WalletStateSchemaVersion3";
+import * as SchemaV4 from "./WalletStateSchemaVersion4";
+import * as CurrentSchema from "./WalletStateSchemaVersion4";
 import { WalletSessionEvent, WalletState, WalletStateContainerGeneric, WalletStateOperations } from "./WalletStateSchemaCommon";
 import { WalletStateUtils } from "./WalletStateUtils";
 import { CredentialKeyPair } from "./keystore";
@@ -13,7 +14,8 @@ import { JWK } from "jose";
 export * as SchemaV1 from "./WalletStateSchemaVersion1";
 export * as SchemaV2 from "./WalletStateSchemaVersion2";
 export * as SchemaV3 from "./WalletStateSchemaVersion3";
-export * as CurrentSchema from "./WalletStateSchemaVersion3";
+export * as SchemaV4 from "./WalletStateSchemaVersion4";
+export * as CurrentSchema from "./WalletStateSchemaVersion4";
 
 
 const {
@@ -36,6 +38,8 @@ export function getSchema(schemaVersion: number): WalletStateOperations<WalletSt
 			return SchemaV2.WalletStateOperations;
 		case 3:
 			return SchemaV3.WalletStateOperations;
+		case 4:
+			return SchemaV4.WalletStateOperations;
 		default:
 			throw new Error(`Unknown schema version: ${schemaVersion}`);
 	}
@@ -343,13 +347,17 @@ async function mergeDivergentHistoriesWithStrategies(
 		// de-duplicate against events of earlier versions: for instance, a v2
 		// "delete_credential" event can be de-duplicated against a v1
 		// "delete_credential" event with the same `credentialId`.
+		//
+		// Versions 3 and 4 are merged together: they share strategies for the old
+		// event types, and version 3 may carry `set_extension`.
+		const mergeGroup = (schemaVersion: number) => schemaVersion >= 3 ? SCHEMA_VERSION : schemaVersion;
 
 		const firstSchemaVersion = Math.min(...[
 			historyA[0]?.schemaVersion,
 			historyB[0]?.schemaVersion,
-		].filter(v => v !== undefined));
-		const [startA, tailA] = splitWhen(historyA, e => e.schemaVersion !== firstSchemaVersion);
-		const [startB, tailB] = splitWhen(historyB, e => e.schemaVersion !== firstSchemaVersion);
+		].filter(v => v !== undefined).map(mergeGroup));
+		const [startA, tailA] = splitWhen(historyA, e => mergeGroup(e.schemaVersion) !== firstSchemaVersion);
+		const [startB, tailB] = splitWhen(historyB, e => mergeGroup(e.schemaVersion) !== firstSchemaVersion);
 
 		const firstPart = await CurrentSchema.WalletStateOperations.rebuildEventHistory(
 			await getSchema(firstSchemaVersion).mergeDivergentHistoriesWithStrategies(
