@@ -75,6 +75,10 @@ const Login = () => {
 						setError(t('loginSignup.privateDataConflict'));
 						break;
 
+					case 'unsupportedVersion':
+						setError(t('loginSignup.unsupportedVersion'));
+						break;
+
 					default:
 						throw result;
 			}

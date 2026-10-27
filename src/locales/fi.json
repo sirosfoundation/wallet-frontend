@@ -71,6 +71,15 @@
 	"expiredRibbon": {
 		"expired": "Vanhentunut"
 	},
+	"globalError": {
+		"contactSupport": "Tai ota meihin yhteyttä osoitteessa support@siros.org.",
+		"messages": {
+			"default": "Ilmoita tästä ongelmasta, jotta voimme tutkia sitä.",
+			"unsupportedVersion": "Lompakkosi tallennettiin sovelluksen uudemmalla versiolla. Päivitä lataamalla sivu uudelleen, ja jos ongelma jatkuu, ilmoita siitä."
+		},
+		"reportIssueButton": "Ilmoita Ongelmasta",
+		"title": "Tapahtui odottamaton virhe"
+	},
 	"issuance": {
 		"credentialsHaveErrors": "Vastaanotettavan todistuksen vahvistuksessa havaittiin virheitä.",
 		"error": "Myöntämisvirhe",
@@ -142,6 +151,7 @@
 		"signUpWithPasskey": "Luo tili Passkeyllä",
 		"signUpWithSecurityKey": "Käytä turva-avainta",
 		"submitting": "Lähetetään...",
+		"unsupportedVersion": "Tämän lompakon tiedot käyttävät versiota, jota tämä sovellus ei tue. Päivitä sovellus ja yritä uudelleen.",
 		"useOtherAccount": "Käytä toista tiliä",
 		"usernameExistsError": "Käyttäjätilin luominen epäonnistui, käyttäjänimi on jo olemassa",
 		"usernameLabel": "Käyttäjänimi",
@@ -177,6 +187,10 @@
 		"success": {
 			"message": "Toiminto suoritettiin onnistuneesti.",
 			"title": "Onnistui"
+		},
+		"unsupportedVersion": {
+			"message": "Lompakkoasi muutettiin sovelluksen versiolla, jota tämä versio ei tue. Päivitä sovellus.",
+			"title": "Lompakon synkronointi epäonnistui"
 		}
 	},
 	"oidcGate": {
@@ -758,11 +772,5 @@
 		"question": "Oletko valmis tutustumaan $t(common.walletName) -sovelluksen ominaisuuksiin opastetun kierroksen avulla?",
 		"startTourButton": "Aloita opas",
 		"title": "Tervetuloa $t(common.walletName) -sovellukseen!"
-	},
-	"globalError": {
-		"title": "Tapahtui odottamaton virhe",
-		"reportIssueButton": "Ilmoita Ongelmasta",
-		"message": "Ilmoita tästä ongelmasta, jotta voimme tutkia sitä.",
-		"contactSupport": "Tai ota meihin yhteyttä osoitteessa support@siros.org."
 	}
 }

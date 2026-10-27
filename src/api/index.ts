@@ -17,6 +17,8 @@ import { getTenantFromUrlPath, setStoredTenant, clearStoredTenant } from '../lib
 import { clearOIDCState } from '../lib/oidc';
 import { AuthTokens } from '@/lib/auth';
 import { useAuthServerClient } from '@/hooks/useAuthServerClient';
+import { UnsupportedSchemaVersionError } from '../services/WalletStateSchemaCommon';
+import { notify } from '../context/notifier';
 
 const walletBackendUrl = config.BACKEND_URL;
 
@@ -74,6 +76,7 @@ export interface BackendApi {
 		oidcIdToken?: string,
 	): Promise<
 		Result<void,
+			| 'unsupportedVersion'
 			| 'loginKeystoreFailed'
 			| 'passkeyInvalid'
 			| 'passkeyLoginFailedTryAgain'
@@ -106,6 +109,7 @@ export interface BackendApi {
 		cachedUser: CachedUser | undefined,
 		keystore?: LocalStorageKeystore,
 	): Promise<Result<void,
+		| 'unsupportedVersion'
 		| 'syncFailed'
 		| 'loginKeystoreFailed'
 		| 'passkeyInvalid'
@@ -261,6 +265,7 @@ export function useApi({
 		cachedUser: CachedUser | undefined,
 		keystore?: LocalStorageKeystore,
 	): Promise<Result<void,
+		| 'unsupportedVersion'
 		| 'syncFailed'
 		| 'loginKeystoreFailed'
 		| 'passkeyInvalid'
@@ -283,6 +288,10 @@ export function useApi({
 				try {
 					const remotePrivateData = getPrivateDataResponse.data.privateData;
 					const mergeResult = await keystore.syncWithRemoteData(remotePrivateData);
+					if (!mergeResult.ok && mergeResult.val === 'unsupportedVersion') {
+						notify('unsupportedVersion');
+						return Err('unsupportedVersion');
+					}
 					if (mergeResult.ok) {
 						const newEtag =
 							getPrivateDataResponse.headers?.['x-private-data-etag'] ??
@@ -455,6 +464,7 @@ export function useApi({
 		urlTenantId?: string,
 		oidcIdToken?: string
 	): Promise<Result<void,
+		| 'unsupportedVersion'
 		| 'loginKeystoreFailed'
 		| 'passkeyInvalid'
 		| 'passkeyLoginFailedTryAgain'
@@ -576,6 +586,9 @@ export function useApi({
 		} catch (e) {
 			logger.error("Login failed", e);
 
+			if (e instanceof UnsupportedSchemaVersionError) {
+				return Err('unsupportedVersion');
+			}
 
 			if (e?.response?.status === 401) {
 				// OIDC gate token expired or invalid - user must re-authenticate via IdP
