@@ -108,6 +108,24 @@
 		"messageOffline": "Neste momento está <strong>offline. Algumas funcionalidades podem não estar disponíveis.</strong>",
 		"messageResetPermission": "Algo <strong>não está a funcionar corretamente com as notificações.</strong> Por favor, <reloadButton>recarregue esta página</reloadButton>."
 	},
+	"getReady": {
+		"title": "Prepare-se!",
+		"back": "Voltar para o registo",
+		"steps": {
+			"getKey": { "title": "Obtenha a sua chave de segurança", "text": "Vai precisar dela para criar e iniciar sessão na sua conta." },
+			"pin": { "title": "Certifique-se de que tem um PIN", "text": "Se a sua chave de segurança não tiver um PIN, será solicitado que crie um." },
+			"secondKey": { "title": "Obtenha uma segunda chave de segurança (recomendado)", "text": "Será perguntado se deseja configurar uma segunda chave de segurança. Isto garante que pode aceder à sua carteira se perder a primeira chave." }
+		},
+		"whyYubiKey": "Por que escolher um YubiKey?",
+		"benefits": {
+			"phishingProof": {"label": "À prova de phishing:", "text": "Verifica o domínio do site e recusa autenticar em sites falsos."},
+			"hardwareSecured": {"label": "Protegido por hardware:", "text": "As chaves criptográficas estão bloqueadas dentro de um chip resistente a adulterações e não podem ser roubadas remotamente."},
+			"physicalProof": {"label": "Prova física:", "text": "Exige um toque deliberado ou um toque NFC para conceder acesso."},
+			"maintenanceFree": {"label": "Sem manutenção:", "text": "Alimentado pelo seu dispositivo (USB/NFC) sem necessidade de baterias ou software."},
+			"private": {"label": "Completamente privado:", "text": "Não armazena dados pessoais e não tem rastreamento na nuvem."},
+			"compatible": {"label": "Ampla compatibilidade:", "text": "Funciona instantaneamente com serviços principais como Google, Microsoft e os melhores gestores de senhas."}
+		}
+	},
 	"loginSignup": {
 		"acceptPolicies": "Aceito a <policyLinks/>.",
 		"alreadyHaveAccountQuestion": "Já tem uma conta de carteira? ",

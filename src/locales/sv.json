@@ -108,6 +108,24 @@
 		"messageOffline": "Du är för närvarande <strong>offline. Vissa funktioner kanske inte är tillgängliga.</strong>",
 		"messageResetPermission": "Något <strong>fungerar inte korrekt med aviseringarna</strong>, vänligen <reloadButton>ladda om den här sidan</reloadButton>."
 	},
+	"getReady": {
+		"title": "Gör dig redo!",
+		"back": "Tillbaka till registrering",
+		"steps": {
+			"getKey": { "title": "Hämta din säkerhetsnyckel", "text": "Du kommer att behöva den för att skapa och logga in på ditt konto." },
+			"pin": { "title": "Se till att den har en PIN-kod", "text": "Om din säkerhetsnyckel inte har en PIN-kod kommer du att bli ombedd att skapa en." },
+			"secondKey": { "title": "Hämta en andra säkerhetsnyckel (rekommenderas)", "text": "Du kommer att bli ombedd om du vill konfigurera en andra säkerhetsnyckel. Detta säkerställer att du kan komma åt din plånbok om du tappar bort din första nyckel." }
+		},
+		"whyYubiKey": "Varför välja en YubiKey?",
+		"benefits": {
+			"phishingProof": {"label": "Phishingskydd:", "text": "Den verifierar webbplatsens domän och vägrar autentisering på falska webbplatser."},
+			"hardwareSecured": {"label": "Hårdvarusäker:", "text": "Kryptografiska nycklar är låsta i ett manipuleringsresistent chip och kan inte stjälas på distans."},
+			"physicalProof": {"label": "Fysiskt bevis:", "text": "Kräver en avsiktlig beröring eller NFC-tryck för att ge åtkomst."},
+			"maintenanceFree": {"label": "Underhållsfri:", "text": "Drivs av din enhet (USB/NFC) utan batterier eller programvara."},
+			"private": {"label": "Helt privat:", "text": "Lagrar inga personuppgifter och har ingen molnspårning."},
+			"compatible": {"label": "Brett kompatibel:", "text": "Fungerar omedelbart med stora tjänster som Google, Microsoft och ledande lösenordshanterare."}
+		}
+	},
 	"loginSignup": {
 		"acceptPolicies": "Jag accepterar <policyLinks/>.",
 		"alreadyHaveAccountQuestion": "Har du redan ett plånbokskonto? ",
