@@ -249,6 +249,8 @@ export function migrateV4PrivateData(privateData: PrivateData): PrivateData {
 		S: {
 			...privateData.S,
 			schemaVersion:
+				// v1/v2 base states keep their version until folded,
+				// relabelling crashes on pending v1/v2 events.
 				privateData.S.schemaVersion === 3
 					? CurrentSchema.SCHEMA_VERSION
 					: privateData.S.schemaVersion,
