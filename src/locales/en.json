@@ -103,6 +103,15 @@
 	"language": {
 		"label": "Language"
 	},
+		"labelSecurityKeyPopup": {
+		"confirm": "Confirm",
+		"description": "Give each security key a label to make it easier to recognize it in the wallet settings.",
+		"error": "Could not label the security key. Try again.",
+		"inputAriaLabel": "Security key label",
+		"placeholder": "Enter label",
+		"skip": "Skip",
+		"title": "Label your security key"
+	},
 	"layout": {
 		"messageAllowPermission": "To receive real-time updates of <strong>Credentials, allow notifications permission and reload this page</strong>.",
 		"messageOffline": "You are currently <strong>offline. Some features may not be available.</strong>",

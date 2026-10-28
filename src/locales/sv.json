@@ -103,6 +103,15 @@
 	"language": {
 		"label": "Språk"
 	},
+	"labelSecurityKeyPopup": {
+		"confirm": "Bekräfta",
+		"description": "Ge varje säkerhetsnyckel en etikett för att göra det lättare att känna igen den i plånbokens inställningar.",
+		"error": "Kunde inte märka säkerhetsnyckeln. Försök igen.",
+		"inputAriaLabel": "Säkerhetsnyckelns etikett",
+		"placeholder": "Ange etikett",
+		"skip": "Hoppa över",
+		"title": "Märk din säkerhetsnyckel"
+	},
 	"layout": {
 		"messageAllowPermission": "För att ta emot realtidsuppdateringar av <strong>intyg, tillåt aviseringar och ladda om den här sidan</strong>.",
 		"messageOffline": "Du är för närvarande <strong>offline. Vissa funktioner kanske inte är tillgängliga.</strong>",
