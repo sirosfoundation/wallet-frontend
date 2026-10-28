@@ -94,6 +94,15 @@
 	"language": {
 		"label": "Idioma"
 	},
+	"labelSecurityKeyPopup": {
+		"confirm": "Confirmar",
+		"description": "Dê a cada chave de segurança um rótulo para facilitar o reconhecimento nas configurações da carteira.",
+		"error": "Não foi possível rotular a chave de segurança. Tente novamente.",
+		"inputAriaLabel": "Rótulo da chave de segurança",
+		"placeholder": "Introduza o rótulo",
+		"skip": "Ignorar",
+		"title": "Rotule a sua chave de segurança"
+	},
 	"layout": {
 		"messageAllowPermission": "Para receber atualizações em tempo real de <strong>Credenciais, ative a permissão de notificações e recarregue esta página</strong>.",
 		"messageOffline": "Neste momento está <strong>offline. Algumas funcionalidades podem não estar disponíveis.</strong>",

@@ -41,7 +41,7 @@ const Login = () => {
 		setIsLoginCache(filterUsersByTenantID(urlTenantId, getCachedUsers()).length > 0);
 	}, [getCachedUsers, urlTenantId]);
 
-	useRedirectWhenLoggedIn(true);
+	useRedirectWhenLoggedIn(true, false);
 
 	const onLogin = useCallback(
 		async (hints: string[], cachedUser?: CachedUser) => {
