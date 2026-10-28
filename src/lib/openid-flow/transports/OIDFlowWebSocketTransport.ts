@@ -19,7 +19,7 @@ import type {
 	OIDFlowResponse,
 	OIDFlowProgressEvent
 } from '../types/OIDFlowTypes';
-import type { OID4VCIFlowParams, OID4VCIFlowResult } from '../types/OID4VCITypes';
+import type { CredentialNotificationEvent, OID4VCIFlowParams, OID4VCIFlowResult } from '../types/OID4VCITypes';
 import type { OID4VPFlowParams, OID4VPFlowResult, OID4VPVerifierInfo } from '../types/OID4VPTypes';
 import type { CredentialsMatchedResult } from '@/lib/services/CredentialMatchingService';
 import { logger } from '@/logger';
@@ -391,6 +391,29 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		throw new Error('Invalid OID4VCI flow params: no valid entry point or continuation');
 	}
 
+	/**
+	 * Send an OID4VCI §11 credential lifecycle notification to the backend.
+	 * Fire-and-forget over the existing WebSocket connection. The backend
+	 * forwards it to the issuer's notification endpoint using the ephemeral
+	 * issuance credentials retained in memory for the given flow.
+	 */
+	sendCredentialNotification(flowId: string, notificationId: string, event: CredentialNotificationEvent): void {
+		if (!this.isConnected()) {
+			logger.debug('Dropping credential notification: transport not connected');
+			return;
+		}
+		try {
+			this.ws!.send(JSON.stringify({
+				type: 'credential_notification',
+				flow_id: flowId,
+				notification_id: notificationId,
+				event,
+			}));
+		} catch (e) {
+			logger.error('Failed to send credential notification:', e);
+		}
+	}
+
 	private mapOID4VCIResponse(response: ServerMessage): OID4VCIFlowResult {
 		if (response.type === 'error' || response.type === 'flow_error') {
 			return {
@@ -472,7 +495,13 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		}
 		// Handle credentials array from server
 		if (response?.credentials && Array.isArray(response.credentials)) {
-				result.credentials = (response.credentials as Array<{format: string; credential: string; vct?: string}>);
+			result.credentials = (response.credentials as Array<{format: string; credential: string; vct?: string; notification_id?: string}>);
+		}
+
+		// Flow ID (needed for credential notification)
+		const flowId = (response.flow_id as string) || (response.flowId as string);
+		if (flowId) {
+			result.flowId = flowId;
 		}
 
 		// Deferred
@@ -719,6 +748,12 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				code: message.code as string,
 				message: (message.message as string) ?? 'Authentication failed',
 			}));
+			return;
+		}
+
+		// Arrives after flow_complete, so there is no pending request to resolve.
+		if (type === 'notification_ack') {
+			logger.debug('Credential notification ack:', message.status, message.error);
 			return;
 		}
 

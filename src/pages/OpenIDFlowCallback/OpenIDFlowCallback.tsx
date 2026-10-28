@@ -163,6 +163,7 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				offer.credentials,
 				offer.credentialIssuerIdentifier,
 				offer.selectedCredentialConfigurationId,
+				offer.flowId,
 			);
 		}
 
@@ -198,6 +199,7 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				preAuthResult.credentials,
 				preAuthResult.credentialIssuerIdentifier,
 				preAuthResult.selectedCredentialConfigurationId,
+				preAuthResult.flowId,
 			);
 		}
 	};
@@ -215,6 +217,7 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				result.credentials,
 				result.credentialIssuerIdentifier,
 				result.selectedCredentialConfigurationId,
+				result.flowId,
 			);
 		}
 	};
