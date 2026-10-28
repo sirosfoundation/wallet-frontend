@@ -1418,10 +1418,14 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 		// Interim defence (consentGuard.ts): never disclose or sign what the
 		// user did not consent to. The presentation is built from the locally
-		// recorded consent; the engine's echoed list is only verified.
+		// recorded consent; the engine's echoed list is only verified. The
+		// snapshot is kept for the signer's re-check below: the consent may
+		// be revoked while the signer runs.
+		let consentSnapshot: ConsentedCredential[] | undefined;
 		if (request.action === 'sign_presentation') {
+			consentSnapshot = this.vpConsents.get(request.flowId);
 			const verification = verifySignRequestAgainstConsent(
-				this.vpConsents.get(request.flowId),
+				consentSnapshot,
 				rawParams.credentials_to_include,
 			);
 			if (verification.ok === false) {
@@ -1530,6 +1534,20 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		for (const handler of this.signHandlers) {
 			try {
 				handled = await handler(request as SignHandlerRequest);
+				// The consent may have been revoked (refusal of another
+				// request, flow end) while the signer ran: withhold the
+				// VP token instead of releasing it. A flow that died while
+				// the signer ran carries its own error (released/ended —
+				// the aborted signal's), not the consent refusal's.
+				if (consentSnapshot && this.vpConsents.get(request.flowId) !== consentSnapshot) {
+					if (signal.aborted) {
+						this.sendSignResponse(request.flowId, request.messageId, signal, {}, RELEASED_FLOW_ERROR);
+						return;
+					}
+					logger.error(`[WS Transport] Consent revoked while signing for flow ${request.flowId}; withholding VP token`);
+					this.sendSignResponse(request.flowId, request.messageId, signal, {}, 'Sign request does not match the user consent');
+					return;
+				}
 				break;
 			} catch (err) {
 				lastError = err instanceof Error ? err : new Error(String(err));
