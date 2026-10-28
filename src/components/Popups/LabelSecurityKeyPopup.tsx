@@ -48,7 +48,7 @@ const LabelSecurityKeyPopup = ({ isOpen, onClose, webauthnCredentialId }: Props)
 	};
 
 	return (
-		<PopupLayout 
+		<PopupLayout
 			isOpen={isOpen}
 			onClose={onClose}
 			padding="p-6"
@@ -68,31 +68,30 @@ const LabelSecurityKeyPopup = ({ isOpen, onClose, webauthnCredentialId }: Props)
 				</p>
 				<input className="w-full px-3 py-2 text-sm bg-lm-gray-100 dark:bg-dm-gray-800 border border-lm-gray-400 dark:border-dm-gray-600 dark:text-white rounded-lg dark:inputDarkModeOverride focus-visible:outline"
 					id="label-security-key-input"
-					type="text" 
-					autoFocus
-					value={nickname} 
-					maxLength={LABEL_MAX_LENGTH} 
-					placeholder={t('labelSecurityKeyPopup.placeholder')} 
-					aria-label={t('labelSecurityKeyPopup.inputAriaLabel')} 
-					onChange={(e) => setNickname(e.target.value)} 
+					type="text"
+					value={nickname}
+					maxLength={LABEL_MAX_LENGTH}
+					placeholder={t('labelSecurityKeyPopup.placeholder')}
+					aria-label={t('labelSecurityKeyPopup.inputAriaLabel')}
+					onChange={(e) => setNickname(e.target.value)}
 					disabled={submitting}
 				/>
 				{error && <p className="text-sm text-lm-red dark:text-dm-red mt-2">{error}</p>}
 				<div className="flex flex-col gap-3 mt-6">
-					<Button 
-						id="confirm-label-security-key" 
-						type="submit" 
-						variant="primary" 
-						additionalClassName="w-full" 
+					<Button
+						id="confirm-label-security-key"
+						type="submit"
+						variant="primary"
+						additionalClassName="w-full"
 						disabled={submitting || !trimmed}
 					>
 						{t('labelSecurityKeyPopup.confirm')}
 					</Button>
-					<Button 
-						id="skip-label-security-key" 
-						type="button" variant="outline" 
-						additionalClassName="w-full" 
-						onClick={onClose} 
+					<Button
+						id="skip-label-security-key"
+						type="button" variant="outline"
+						additionalClassName="w-full"
+						onClick={onClose}
 						disabled={submitting}
 					>
 						{t('labelSecurityKeyPopup.skip')}
@@ -100,7 +99,7 @@ const LabelSecurityKeyPopup = ({ isOpen, onClose, webauthnCredentialId }: Props)
 				</div>
 			</form>
 		</PopupLayout>
-		
+
 	);
 };
 

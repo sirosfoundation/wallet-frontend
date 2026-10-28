@@ -12,7 +12,7 @@ const LabelSecurityKeyPrompt = () => {
 	const { isOnline } = useContext(StatusContext);
 	const session = api.getSession();
 	const showLabelSecurityKey = session?.showLabelSecurityKey;
-	const loggedInCredentialId = session?.webauthnCredentialCredentialId; 
+	const loggedInCredentialId = session?.webauthnCredentialCredentialId;
 	const [webauthnCredentialId, setWebauthnCredentialId] = useState<string | null>(null);
 
 	useEffect(() => {
@@ -22,13 +22,13 @@ const LabelSecurityKeyPrompt = () => {
 			return;
 		}
 		let cancelled = false;
-		(async () => {
+		void (async () => {
 			try {
 				const response = await api.get('/user/session/account-info');
 				const userData = response.data as UserData;
 				const securityKey = userData.webauthnCredentials?.find(cred => toBase64Url(cred.credentialId) === loggedInCredentialId);
 				if (cancelled) return;
-				if (securityKey) 
+				if (securityKey)
 					{setWebauthnCredentialId(securityKey.id);
 				} else {
 					logger.error("Could not find the newly registered security key in account-info");
@@ -51,7 +51,7 @@ const LabelSecurityKeyPrompt = () => {
 	if (!showLabelSecurityKey || !webauthnCredentialId) return null;
 
 	return (
-		<LabelSecurityKeyPopup 
+		<LabelSecurityKeyPopup
 			isOpen={true}
 			webauthnCredentialId={webauthnCredentialId}
 			onClose={onClose}
