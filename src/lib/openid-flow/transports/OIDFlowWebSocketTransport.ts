@@ -19,7 +19,7 @@ import type {
 	OIDFlowResponse,
 	OIDFlowProgressEvent
 } from '../types/OIDFlowTypes';
-import type { OID4VCIFlowParams, OID4VCIFlowResult } from '../types/OID4VCITypes';
+import type { CredentialNotificationEvent, OID4VCIFlowParams, OID4VCIFlowResult } from '../types/OID4VCITypes';
 import type { OID4VPFlowParams, OID4VPFlowResult, OID4VPVerifierInfo } from '../types/OID4VPTypes';
 import type { CredentialsMatchedResult } from '@/lib/services/CredentialMatchingService';
 import { logger } from '@/logger';
@@ -392,13 +392,16 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	}
 
 	/**
-	 * Send an OID4VCI §10 credential lifecycle notification to the backend.
+	 * Send an OID4VCI §11 credential lifecycle notification to the backend.
 	 * Fire-and-forget over the existing WebSocket connection. The backend
 	 * forwards it to the issuer's notification endpoint using the ephemeral
 	 * issuance credentials retained in memory for the given flow.
 	 */
-	sendCredentialNotification(flowId: string, notificationId: string, event: string): void {
-		if (!this.isConnected()) return;
+	sendCredentialNotification(flowId: string, notificationId: string, event: CredentialNotificationEvent): void {
+		if (!this.isConnected()) {
+			logger.debug('Dropping credential notification: transport not connected');
+			return;
+		}
 		try {
 			this.ws!.send(JSON.stringify({
 				type: 'credential_notification',
@@ -745,6 +748,12 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				code: message.code as string,
 				message: (message.message as string) ?? 'Authentication failed',
 			}));
+			return;
+		}
+
+		// Arrives after flow_complete, so there is no pending request to resolve.
+		if (type === 'notification_ack') {
+			logger.debug('Credential notification ack:', message.status, message.error);
 			return;
 		}
 

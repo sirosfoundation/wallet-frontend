@@ -4,6 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { OIDFlowWebSocketTransport } from '../transports/OIDFlowWebSocketTransport';
+import { logger } from '@/logger';
 
 // Mock WebSocket implementation
 class MockWebSocket {
@@ -1195,10 +1196,31 @@ describe('OIDFlowWebSocketTransport', () => {
 				throw new Error('WebSocket send failed');
 			});
 
+			const errorSpy = vi.spyOn(logger, 'error');
+
 			// Should not propagate the error
 			expect(() => {
 				transport.sendCredentialNotification('flow-123', 'notif-abc', 'credential_accepted');
 			}).not.toThrow();
+			expect(errorSpy).toHaveBeenCalledWith('Failed to send credential notification:', expect.any(Error));
+			errorSpy.mockRestore();
+		});
+
+		it('should handle notification_ack without an unknown-flow warning', async () => {
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+
+			const warnSpy = vi.spyOn(logger, 'warn');
+
+			mockWebSocketInstances[0].simulateMessage({
+				type: 'notification_ack',
+				flow_id: 'flow-123',
+				notification_id: 'notif-abc',
+				status: 'forwarded',
+			});
+
+			expect(warnSpy).not.toHaveBeenCalled();
+			warnSpy.mockRestore();
 		});
 
 		it('should include notification_id in mapped credentials', async () => {

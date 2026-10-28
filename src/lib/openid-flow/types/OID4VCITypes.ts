@@ -85,6 +85,11 @@ export interface OID4VCIHolderBinding {
 }
 
 /**
+ * OID4VCI §11 notification events the backend will forward to the issuer.
+ */
+export type CredentialNotificationEvent = 'credential_accepted' | 'credential_failure';
+
+/**
  * Result of an OID4VCI flow operation
  */
 export interface OID4VCIFlowResult {
@@ -143,7 +148,7 @@ export interface OID4VCIFlowResult {
 		format?: string;
 		credential: string;
 		vct?: string;
-		/** OID4VCI §10 notification identifier for lifecycle events */
+		/** OID4VCI §11 notification identifier for lifecycle events */
 		notification_id?: string;
 	}>;
 

@@ -7,7 +7,7 @@
 
 import type { IOIDFlowTransport } from '../types/IOIDFlowTransport';
 import type { OIDFlowRequest, OIDFlowResponse, OIDFlowProgressEvent } from '../types/OIDFlowTypes';
-import type { OID4VCIFlowParams, OID4VCIFlowResult } from '../types/OID4VCITypes';
+import type { CredentialNotificationEvent, OID4VCIFlowParams, OID4VCIFlowResult } from '../types/OID4VCITypes';
 import type { OID4VPFlowParams, OID4VPFlowResult } from '../types/OID4VPTypes';
 import type { OIDFlowRecoverableError, OIDFlowRetryConfig } from '../types/OIDFlowRecovery';
 import { DEFAULT_OID_FLOW_RETRY_CONFIG } from '../types/OIDFlowRecovery';
@@ -174,9 +174,9 @@ export class OIDFlowTransportWithRetry implements IOIDFlowTransport {
 		}
 	}
 
-	// ===== OID4VCI §10 Notification (delegated) =====
+	// ===== OID4VCI §11 Notification (delegated) =====
 
-	sendCredentialNotification(flowId: string, notificationId: string, event: string): void {
+	sendCredentialNotification(flowId: string, notificationId: string, event: CredentialNotificationEvent): void {
 		this.transport.sendCredentialNotification(flowId, notificationId, event);
 	}
 

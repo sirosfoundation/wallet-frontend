@@ -1,5 +1,5 @@
 /**
- * OID4VCI §10 Credential Notification Utilities
+ * OID4VCI §11 Credential Notification Utilities
  *
  * Pure utility functions for dispatching credential lifecycle notifications.
  * Extracted from useOID4VCIFlow for testability.
@@ -21,9 +21,11 @@ export function dispatchCredentialNotifications(
 	flowId?: string,
 ): void {
 	if (!flowId || !transport) return;
-	for (const c of credentials ?? []) {
-		if (c.notification_id) {
-			transport.sendCredentialNotification(flowId, c.notification_id, 'credential_accepted');
-		}
+	// One notification_id per Credential Response (§8.3), repeated on every credential in the batch.
+	const notificationIds = new Set(
+		(credentials ?? []).map(c => c.notification_id).filter((id): id is string => !!id),
+	);
+	for (const notificationId of notificationIds) {
+		transport.sendCredentialNotification(flowId, notificationId, 'credential_accepted');
 	}
 }

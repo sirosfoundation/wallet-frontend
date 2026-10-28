@@ -92,7 +92,7 @@ export class OIDFlowDirectTransport implements IOIDFlowTransport {
 		);
 	}
 
-	// ===== OID4VCI §10 Notification =====
+	// ===== OID4VCI §11 Notification =====
 
 	sendCredentialNotification(): void {
 		// No-op: direct transport has no persistent connection for notifications
@@ -109,6 +109,8 @@ export class OIDFlowDirectTransport implements IOIDFlowTransport {
 		this.errorCallbacks.add(callback);
 		return () => this.errorCallbacks.delete(callback);
 	}
+
+	// ===== CORS Discovery Methods =====
 
 	/**
 	 * Check if a URL supports CORS from the current origin

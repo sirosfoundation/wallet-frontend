@@ -1,5 +1,5 @@
 /**
- * Tests for OID4VCI §10 credential notification across transports.
+ * Tests for OID4VCI §11 credential notification across transports.
  *
  * Covers:
  * - dispatchCredentialNotifications utility function
@@ -65,20 +65,19 @@ describe('dispatchCredentialNotifications', () => {
 		expect(transport.sendCredentialNotification).not.toHaveBeenCalled();
 	});
 
-	it('calls sendCredentialNotification for each credential with notification_id', () => {
+	it('sends a single notification for a batch sharing one notification_id', () => {
 		const transport = { sendCredentialNotification: vi.fn() } as any;
 		dispatchCredentialNotifications(
 			transport,
 			[
 				{ format: 'vc+sd-jwt', credential: 'eyJ1', notification_id: 'notif-1' },
-				{ format: 'vc+sd-jwt', credential: 'eyJ2' },
-				{ format: 'vc+sd-jwt', credential: 'eyJ3', notification_id: 'notif-3' },
+				{ format: 'vc+sd-jwt', credential: 'eyJ2', notification_id: 'notif-1' },
+				{ format: 'vc+sd-jwt', credential: 'eyJ3', notification_id: 'notif-1' },
 			],
 			'flow-42',
 		);
-		expect(transport.sendCredentialNotification).toHaveBeenCalledTimes(2);
+		expect(transport.sendCredentialNotification).toHaveBeenCalledTimes(1);
 		expect(transport.sendCredentialNotification).toHaveBeenCalledWith('flow-42', 'notif-1', 'credential_accepted');
-		expect(transport.sendCredentialNotification).toHaveBeenCalledWith('flow-42', 'notif-3', 'credential_accepted');
 	});
 });
 

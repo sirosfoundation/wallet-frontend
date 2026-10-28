@@ -390,11 +390,6 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		}
 	}, [transportType, transport, onProgress, onError, assertNotAborted]);
 
-	const sendCredentialNotifications = useCallback((
-		credentials: OID4VCIFlowResult['credentials'],
-		flowId?: string,
-	) => dispatchCredentialNotifications(transport, credentials, flowId), [transport]);
-
 	/**
 	 * Handle received credentials: validate, store in wallet, and notify.
 	 */
@@ -478,9 +473,8 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 
 			notify('newCredential');
 
-			// OID4VCI §10: once credentials are stored, send credential_accepted
-			// notification for each credential that has a notification_id.
-			sendCredentialNotifications(credentials, flowId);
+			// OID4VCI §11: once credentials are stored, send credential_accepted.
+			dispatchCredentialNotifications(transport, credentials, flowId);
 
 			return { success: true };
 		} catch (err) {
@@ -501,7 +495,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		} finally {
 			setIsLoading(false);
 		}
-	}, [api, keystore, credentialEngine, onError, onIssuanceWarnings, assertNotAborted, sendCredentialNotifications]);
+	}, [api, keystore, credentialEngine, onError, onIssuanceWarnings, assertNotAborted, transport]);
 
 	return {
 		handleCredentialOffer,
