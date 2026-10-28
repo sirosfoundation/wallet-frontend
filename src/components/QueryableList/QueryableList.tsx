@@ -15,6 +15,13 @@ type QueryableListProps<T> = {
 	onClick?: (identifier: string | number) => void;
 	identifierField?: keyof T;
 	extraSection?: React.ReactNode;
+	/**
+	 * Rendered as the first entry of the Recent grid. For something the page
+	 * offers that is not one of `list`'s items and so has no identifier to match
+	 * a `recent` entry against -- Scan Physical ID on Add Credentials
+	 * (wallet-frontend#307).
+	 */
+	recentExtra?: React.ReactNode;
 };
 
 const defaultRecent: any[] = [];
@@ -28,6 +35,7 @@ const QueryableList = <T extends object>({
 	onClick,
 	identifierField,
 	extraSection,
+	recentExtra,
 }: QueryableListProps<T>) => {
 	const { t } = useTranslation();
 	const [searchQuery, setSearchQuery] = useState<string>("");
@@ -69,18 +77,26 @@ const QueryableList = <T extends object>({
 		setRecentCredentialConfigurations(recentConfigs);
 	}, [recentList, filteredList, identifierField]);
 
+	// The "Recent"/"All" headings only earn their place when there is a Recent
+	// section to distinguish from the full list.
+	const hasRecentSection = !searchQuery && (
+		Boolean(recentExtra) || (recentCredentialConfigurations.length > 0 && recentList.length > 0)
+	);
+
 	return (
 		<>
+			{!searchQuery && extraSection}
 			<div className="my-4">
 				<SearchInput
 					placeholder={t(translationPrefix + ".searchPlaceholder")}
 					searchCallback={handleSearch}
 				/>
 				<div className="my-2">
-					{recentCredentialConfigurations.length > 0 && recentList.length > 0 && !searchQuery && <H3 heading={t("queryableList.recent")} />}
+					{hasRecentSection && <H3 heading={t("queryableList.recent")} />}
 					<div
 						className="mb-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2"
 					>
+						{!searchQuery && recentExtra}
 						{!searchQuery && recentCredentialConfigurations.map((el) => (
 							<Button
 								id={`querylist-recent-${sanitizeId(getElementPropValue(el, identifierField as string) as string)}`}
@@ -103,8 +119,7 @@ const QueryableList = <T extends object>({
 					</div>
 				</div>
 			</div>
-			{!searchQuery && extraSection}
-			{recentCredentialConfigurations.length > 0 && recentList.length > 0 && !searchQuery && <H3 heading={t("queryableList.all")} />}
+			{hasRecentSection && <H3 heading={t("queryableList.all")} />}
 			{filteredList.length === 0 ? (
 				<p className="text-lm-gray-800 dark:text-dm-gray-200 mt-4">
 					{t(translationPrefix + ".noFound")}
