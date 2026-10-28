@@ -517,18 +517,24 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				credentialRaw: c.credentialRaw,
 			})));
 
-			const response = await this.send({
-				type: 'flow_action',
-				flow_id: flowId,
-				action: 'consent',
-				payload: {
-					selected_credentials: params.selectedCredentials.map(c => ({
-						credential_id: c.walletCredentialRef,
-						credential_query_id: c.credentialQueryId,
-						disclosed_claims: c.disclosedClaims ?? [],
-					})),
-				},
-			});
+			let response: ServerMessage;
+			try {
+				response = await this.send({
+					type: 'flow_action',
+					flow_id: flowId,
+					action: 'consent',
+					payload: {
+						selected_credentials: params.selectedCredentials.map(c => ({
+							credential_id: c.walletCredentialRef,
+							credential_query_id: c.credentialQueryId,
+							disclosed_claims: c.disclosedClaims ?? [],
+						})),
+					},
+				});
+			} finally {
+				// Revoke the recorded consent on success and failure (incl. timeout).
+				this.vpConsents.delete(flowId);
+			}
 			return this.mapOID4VPResponse(response);
 		}
 

@@ -29,6 +29,15 @@ describe('verifySignRequestAgainstConsent', () => {
 		if (r.ok === true) expect(r.credentials[0].disclosedClaims).toEqual(['a']); else throw new Error('refused');
 	});
 
+	it('treats omitted disclosed_claims (engine omitempty) as no claims, not as all', () => {
+		const withEmpty: ConsentedCredential[] = [{ credentialId: 'c1', credentialQueryId: 'q1', disclosedClaims: [], credentialRaw: 'raw1' }];
+		const r = verifySignRequestAgainstConsent(withEmpty, [{ credential_id: 'c1', credential_query_id: 'q1' }]);
+		expect(r.ok).toBe(true);
+		const widened = verifySignRequestAgainstConsent(consent, [{ credential_id: 'c1', credential_query_id: 'q1' }, entry('c2', 'q2', ['x'])]);
+		if (widened.ok === true) expect(widened.credentials[0].disclosedClaims).toEqual([]);
+		else throw new Error('refused');
+	});
+
 	it('refuses an extra claim', () => {
 		expect(verifySignRequestAgainstConsent(consent, [entry('c1', 'q1', ['a', 'z']), entry('c2', 'q2', ['x'])]).ok).toBe(false);
 	});
@@ -57,7 +66,7 @@ describe('verifySignRequestAgainstConsent', () => {
 		['array entry', [[]]],
 		['missing credential_id', [{ credential_query_id: 'q1', disclosed_claims: [] }]],
 		['missing query id', [{ credential_id: 'c1', disclosed_claims: [] }]],
-		['missing disclosed_claims', [{ credential_id: 'c1', credential_query_id: 'q1' }]],
+		['null disclosed_claims', [{ credential_id: 'c1', credential_query_id: 'q1', disclosed_claims: null }]],
 		['non-string claim', [entry('c1', 'q1', ['a', 1])]],
 		['claims not an array', [entry('c1', 'q1', 'a')]],
 	])('refuses malformed: %s', (_name, requested) => {

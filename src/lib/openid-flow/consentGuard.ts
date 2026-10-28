@@ -78,7 +78,10 @@ export function verifySignRequestAgainstConsent(
 		if (typeof e.credential_query_id !== 'string' || e.credential_query_id === '') {
 			return fail('malformed credentials_to_include entry: credential_query_id');
 		}
-		if (!Array.isArray(e.disclosed_claims) || !e.disclosed_claims.every(x => typeof x === 'string')) {
+		// The engine omits an empty disclosed_claims (omitempty): absent means no
+		// claims, which is a subset and never widens. Anything else must be a string array.
+		const requestedClaims = e.disclosed_claims === undefined ? [] : e.disclosed_claims;
+		if (!Array.isArray(requestedClaims) || !requestedClaims.every(x => typeof x === 'string')) {
 			return fail('malformed credentials_to_include entry: disclosed_claims');
 		}
 
@@ -93,7 +96,7 @@ export function verifySignRequestAgainstConsent(
 		seen.add(key);
 
 		const allowed = new Set(consented.disclosedClaims);
-		const claims = Array.from(new Set(e.disclosed_claims as string[]));
+		const claims = Array.from(new Set(requestedClaims as string[]));
 		if (!claims.every(claim => allowed.has(claim))) {
 			return fail('sign request discloses claims that were not consented to');
 		}

@@ -759,6 +759,17 @@ describe('OIDFlowWebSocketTransport', () => {
 				await expectRefused(ctx, [{ credential_id: 'cred-1', credential_query_id: 'q1', disclosed_claims: 'given_name' }]);
 			});
 
+			it('revokes the consent when the consent request fails, so a late sign request is refused', async () => {
+				const ctx = await consentFlow();
+				ctx.mockWs.simulateMessage({ flow_id: ctx.flowId, type: 'flow_error', error: { code: 'X', message: 'boom' } });
+				await ctx.flowPromise;
+				ctx.mockWs.simulateMessage(signRequest(ctx.flowId, [
+					{ credential_id: 'cred-1', credential_query_id: 'q1', disclosed_claims: ['given_name'] },
+				]));
+				await vi.waitFor(() => expect(signResponses(ctx.mockWs).length).toBe(1));
+				expect(ctx.signHandler).not.toHaveBeenCalled();
+			});
+
 			it('refuses when no consent was recorded for the flow', async () => {
 				const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 				await transport.connect();
