@@ -882,12 +882,14 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			},
 		};
 
+		let consentSnapshot: ConsentedCredential[] | undefined;
 		if (request.action === 'sign_presentation') {
 			// Interim defence: never disclose/sign what the user did not consent to.
 			// The presentation is built from the locally stored consent; the engine's
 			// list is only verified (see consentGuard.ts).
+			consentSnapshot = this.vpConsents.get(flowId);
 			const verification = verifySignRequestAgainstConsent(
-				this.vpConsents.get(flowId),
+				consentSnapshot,
 				rawParams.credentials_to_include,
 			);
 			if (verification.ok === false) {
@@ -908,6 +910,13 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		for (const handler of this.signHandlers) {
 			try {
 				const response = await handler(request);
+				// The consent may have been revoked (refusal of another request,
+				// flow end) while the signer ran: do not release the VP token then.
+				if (consentSnapshot && this.vpConsents.get(flowId) !== consentSnapshot) {
+					logger.error(`[WS Transport] Consent revoked while signing for flow ${flowId}; withholding VP token`);
+					this.sendSignResponse(request.flowId, request.messageId, {}, 'Sign request does not match the user consent');
+					return;
+				}
 				this.sendSignResponse(request.flowId, request.messageId, response);
 				return;
 			} catch (err) {

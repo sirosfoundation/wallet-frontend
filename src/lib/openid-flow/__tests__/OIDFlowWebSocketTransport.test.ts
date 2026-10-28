@@ -770,6 +770,23 @@ describe('OIDFlowWebSocketTransport', () => {
 				expect(ctx.signHandler).not.toHaveBeenCalled();
 			});
 
+			it('withholds the VP token of an in-flight request when a later mismatching request revokes the consent', async () => {
+				const ctx = await consentFlow();
+				let release: (v: { vpToken: string }) => void = () => {};
+				ctx.signHandler.mockImplementationOnce(() => new Promise(r => { release = r; }));
+				ctx.mockWs.simulateMessage(signRequest(ctx.flowId, [
+					{ credential_id: 'cred-1', credential_query_id: 'q1', disclosed_claims: ['given_name'] },
+				]));
+				await vi.waitFor(() => expect(ctx.signHandler).toHaveBeenCalledTimes(1));
+				ctx.mockWs.simulateMessage({ ...signRequest(ctx.flowId, [
+					{ credential_id: 'cred-1', credential_query_id: 'q1', disclosed_claims: ['birth_date'] },
+				]), message_id: 'msg-2' });
+				await vi.waitFor(() => expect(signResponses(ctx.mockWs).length).toBe(1));
+				release({ vpToken: 'leaked' });
+				await vi.waitFor(() => expect(signResponses(ctx.mockWs).length).toBe(2));
+				expect(signResponses(ctx.mockWs).every(r => r.vp_token === undefined && r.error)).toBe(true);
+			});
+
 			it('refuses when no consent was recorded for the flow', async () => {
 				const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 				await transport.connect();
