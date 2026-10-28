@@ -652,52 +652,138 @@ describe('OIDFlowWebSocketTransport', () => {
 			expect(parsed.proof_jwt).toBe('eyJ...proof...');
 		});
 
-		it('should handle sign_request for sign_presentation action', async () => {
-			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
-			await transport.connect();
-			const mockWs = mockWebSocketInstances[0];
+		describe('sign_presentation consent verification', () => {
+			const consented = [
+				{
+					batchId: 1,
+					credentialQueryId: 'q1',
+					walletCredentialRef: 'cred-1',
+					credentialRaw: 'raw-cred-1',
+					holderKeyKid: 'kid-1',
+					disclosedClaims: ['given_name', 'family_name'],
+				},
+			];
 
-			// Register a sign handler
-			const signHandler = vi.fn().mockResolvedValue({
-				vpToken: 'eyJ...vp-token...'
-			});
-			transport.onSignRequest(signHandler);
+			/** Start the VP flow, record consent, and return helpers. */
+			async function consentFlow(selected = consented) {
+				const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+				await transport.connect();
+				const mockWs = mockWebSocketInstances[0];
+				const signHandler = vi.fn().mockResolvedValue({ vpToken: 'vp-token' });
+				transport.onSignRequest(signHandler);
 
-			// Simulate a sign_request from server
-			mockWs.simulateMessage({
-				flow_id: 'test-flow-id',
-				message_id: 'msg-456',
+				const flowPromise = transport.startOID4VPFlow({ selectedCredentials: selected });
+				await vi.waitFor(() => expect(mockWs.sentMessages.some(m => JSON.parse(m).action === 'consent')).toBe(true));
+				const consentMsg = mockWs.sentMessages.map(m => JSON.parse(m)).find(m => m.action === 'consent');
+				return { transport, mockWs, signHandler, flowPromise, flowId: consentMsg.flow_id as string };
+			}
+
+			const signRequest = (flowId: string, credentialsToInclude: unknown) => ({
+				flow_id: flowId,
+				message_id: 'msg-1',
 				type: 'sign_request',
 				action: 'sign_presentation',
 				params: {
 					audience: 'https://verifier.example.com',
-					nonce: 'nonce-789',
-					credentialsToInclude: [
-						{ credentialId: 'cred-1', disclosedClaims: ['given_name', 'family_name'] }
-					],
+					nonce: 'n',
+					credentials_to_include: credentialsToInclude,
 				},
 			});
 
-			// Wait for the handler to be called
-			await vi.waitFor(() => {
-				expect(signHandler).toHaveBeenCalled();
+			const signResponses = (mockWs: MockWebSocket) =>
+				mockWs.sentMessages.map(m => JSON.parse(m)).filter(m => m.type === 'sign_response');
+
+			async function expectRefused(
+				ctx: Awaited<ReturnType<typeof consentFlow>>,
+				credentialsToInclude: unknown,
+			) {
+				const logSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+				ctx.mockWs.simulateMessage(signRequest(ctx.flowId, credentialsToInclude));
+				await vi.waitFor(() => expect(signResponses(ctx.mockWs).length).toBe(1));
+				expect(ctx.signHandler).not.toHaveBeenCalled();
+				const resp = signResponses(ctx.mockWs)[0];
+				expect(resp.error).toBeTruthy();
+				expect(resp.vp_token).toBeUndefined();
+				// The flow ends locally with a user-visible refusal.
+				const result = await ctx.flowPromise;
+				expect(result.success).toBe(false);
+				expect(result.error?.code).toBe('CONSENT_MISMATCH');
+				expect(result.error?.message).toMatch(/Nothing was shared/);
+				logSpy.mockRestore();
+			}
+
+			it('signs when the request matches the consent, built from local consent', async () => {
+				const ctx = await consentFlow();
+				ctx.mockWs.simulateMessage(signRequest(ctx.flowId, [
+					{ credential_id: 'cred-1', credential_query_id: 'q1', disclosed_claims: ['family_name', 'given_name'] },
+				]));
+				await vi.waitFor(() => expect(ctx.signHandler).toHaveBeenCalled());
+				expect(ctx.signHandler.mock.calls[0][0].params.credentialsToInclude).toEqual([
+					{
+						credentialId: 'cred-1',
+						credentialQueryId: 'q1',
+						disclosedClaims: ['family_name', 'given_name'],
+						credentialRaw: 'raw-cred-1',
+					},
+				]);
+				await vi.waitFor(() => expect(signResponses(ctx.mockWs)[0]?.vp_token).toBe('vp-token'));
 			});
 
-			// Wait a bit for async processing to complete
-			await new Promise(resolve => setTimeout(resolve, 100));
-
-			// Wait for sign_response to be sent
-			await vi.waitFor(() => {
-				expect(mockWs.sentMessages.length).toBeGreaterThan(0);
+			it('refuses an extra claim', async () => {
+				const ctx = await consentFlow();
+				await expectRefused(ctx, [
+					{ credential_id: 'cred-1', credential_query_id: 'q1', disclosed_claims: ['given_name', 'birth_date'] },
+				]);
 			});
 
-			// Verify sign_response has vp_token
-			const signResponseMsg = mockWs.sentMessages.find(
-				m => JSON.parse(m).type === 'sign_response'
-			);
-			expect(signResponseMsg).toBeDefined();
-			const parsed = JSON.parse(signResponseMsg!);
-			expect(parsed.vp_token).toBe('eyJ...vp-token...');
+			it('refuses an extra credential', async () => {
+				const ctx = await consentFlow();
+				await expectRefused(ctx, [
+					{ credential_id: 'cred-1', credential_query_id: 'q1', disclosed_claims: ['given_name'] },
+					{ credential_id: 'cred-2', credential_query_id: 'q2', disclosed_claims: ['x'] },
+				]);
+			});
+
+			it('refuses a missing credential', async () => {
+				const ctx = await consentFlow([
+					...consented,
+					{ ...consented[0], credentialQueryId: 'q2', walletCredentialRef: 'cred-2' },
+				]);
+				await expectRefused(ctx, [
+					{ credential_id: 'cred-1', credential_query_id: 'q1', disclosed_claims: ['given_name'] },
+				]);
+			});
+
+			it('refuses malformed entries', async () => {
+				const ctx = await consentFlow();
+				await expectRefused(ctx, [{ credential_id: 'cred-1', credential_query_id: 'q1', disclosed_claims: 'given_name' }]);
+			});
+
+			it('refuses when no consent was recorded for the flow', async () => {
+				const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+				await transport.connect();
+				const mockWs = mockWebSocketInstances[0];
+				const signHandler = vi.fn().mockResolvedValue({ vpToken: 'vp-token' });
+				transport.onSignRequest(signHandler);
+				mockWs.simulateMessage(signRequest('flow-without-consent', [
+					{ credential_id: 'cred-1', credential_query_id: 'q1', disclosed_claims: ['given_name'] },
+				]));
+				await vi.waitFor(() => expect(signResponses(mockWs).length).toBe(1));
+				expect(signHandler).not.toHaveBeenCalled();
+				expect(signResponses(mockWs)[0].error).toBeTruthy();
+			});
+
+			it('does not log claim names or values on refusal', async () => {
+				const { logger } = await import('@/logger');
+				const errSpy = vi.spyOn(logger, 'error').mockImplementation(() => {});
+				const ctx = await consentFlow();
+				await expectRefused(ctx, [
+					{ credential_id: 'cred-1', credential_query_id: 'q1', disclosed_claims: ['given_name', 'secret_claim'] },
+				]);
+				expect(errSpy).toHaveBeenCalled();
+				expect(JSON.stringify(errSpy.mock.calls)).not.toContain('secret_claim');
+				errSpy.mockRestore();
+			});
 		});
 
 		it('parses sign_client_auth params and serializes dpop_key_id/dpop_proof', async () => {
