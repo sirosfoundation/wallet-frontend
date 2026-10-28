@@ -1,15 +1,17 @@
 import { useContext, useCallback } from 'react';
 import SessionContext from '@/context/SessionContext';
-import { useApi } from '@/api';
-import StatusContext from '@/context/StatusContext';
 import { logger } from '@/logger';
-import { OPENID4VCI_PROOF_TYPE_PRECEDENCE } from '@/config';
-import { applySelectiveDisclosure } from '@/lib/sd-jwt/sd-jwt';
+import { OPENID4VCI_PROOF_TYPE_PRECEDENCE, WIA_ENABLED, BACKEND_URL } from '@/config';
 import { base64url } from 'jose';
-import { buildMdocPresentationDefinition, parseIssuerSignedToMDoc } from '@/lib/mdoc/mdoc';
+import {
+	applySelectiveDisclosure,
+} from '@/lib/verifiable-credentials';
 import { detectCredentialFormat, VerifiableCredentialFormat } from 'wallet-common';
-import { MDoc } from '@auth0/mdl';
-import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
+import { attestFlowIfEnabled, buildClientAttestationPop } from '@/lib/services/WIA';
+import { buildDPoPProof } from '@/lib/utils/dpop';
+import { useHttpClient } from './useHttpClient';
+import { useWscdManagerClient } from './useWscdManagerClient';
+import { IWscdManagerClient } from '@/lib/wscd-manager';
 
 interface ProofTypeConfig {
 	key_attestations_required?: Record<string, unknown> | null;
@@ -38,22 +40,36 @@ export type OIDFlowSignOptions = {
 		credentialRaw?: string;
 	}>;
 	verifierJwkThumbprint?: string;
+	htm?: string;
+	htu?: string;
+	dpopNonce?: string;
+	ath?: string;
+	keyId?: string;
+	attestationChallenge?: string;
 }
 
 export interface OIDFlowSignRequest {
-	action: 'generate_proof' | 'sign_presentation';
+	flowId: string;
+	action: 'generate_proof' | 'sign_presentation' | 'sign_client_auth';
 	params: OIDFlowSignOptions;
 }
 
 /**
  * Individual proof object for OID4VCI
  */
-export interface ProofObject {
-	proof_type: 'jwt' | 'cwt' | 'attestation';
-	jwt?: string;
-	cwt?: string;
-	attestation?: string;
+interface ProofObjectJwt {
+	proof_type: 'jwt';
+	jwt: string;
 }
+interface ProofObjectCwt {
+	proof_type: 'cwt';
+	cwt: string;
+}
+interface ProofObjectAttestation {
+	proof_type: 'attestation';
+	attestation: string;
+}
+export type ProofObject = ProofObjectJwt | ProofObjectCwt | ProofObjectAttestation;
 
 /**
  * Sign response to send back to server
@@ -62,17 +78,27 @@ export interface OIDFlowSignResponse {
 	proofJwt?: string;       // single proof (legacy)
 	proofs?: ProofObject[];  // batch proofs
 	vpToken?: string;
+	clientAttestation?: string;
+	clientAttestationPoP?: string;
+	dpopKeyId?: string;
+	dpopProof?: string;
 }
 
 export function useOIDFlowSignHandler() {
-	const sessionContext = useContext(SessionContext);
-	const { isOnline } = useContext(StatusContext);
-	const api = useApi(isOnline);
-
-	const keystore = sessionContext?.keystore;
+	const {
+		api,
+		keystore,
+		authTokens,
+		oidFlowClientAuthMaterialManager,
+	} = useContext(SessionContext);
+	const httpClient = useHttpClient();
+	const wscd = useWscdManagerClient();
 
 	const signPresentation = useCallback(async (options: OIDFlowSignOptions): Promise<OIDFlowSignResponse> => {
 		const { audience, nonce, credentialsToInclude, responseUri, origin, verifierJwkThumbprint } = options;
+		if (!wscd) {
+			throw new Error('WscdManagerClient is not initialized');
+		}
 		if (!audience || !nonce) {
 			throw new Error('Missing audience or nonce for presentation signing');
 		}
@@ -91,7 +117,7 @@ export function useOIDFlowSignHandler() {
 			}
 
 			const vpToken = await createVpToken(
-				keystore,
+				wscd,
 				{
 					credentialRaw: c.credentialRaw,
 					disclosedClaims: c.disclosedClaims,
@@ -113,29 +139,29 @@ export function useOIDFlowSignHandler() {
 		return {
 			vpToken: JSON.stringify(vpTokenMap)
 		};
-	}, [keystore]);
+	}, [wscd]);
 
 	const generateProof = useCallback(async (options: OIDFlowSignOptions): Promise<OIDFlowSignResponse> => {
 		const { audience, nonce, proofTypesSupported, issuer, count = 1 } = options;
+		if (!wscd) {
+			throw new Error('WscdManagerClient is not initialized');
+		}
 		if (!audience) {
 			throw new Error('Missing audience for proof generation');
 		}
 		if (!proofTypesSupported) {
 			throw new Error('Missing proofTypesSupported for proof generation');
 		}
+		logger.debug(`[WS Sign Handler] Received supported proof types: ${JSON.stringify(proofTypesSupported)}`);
 
 		// Select proof type
+		logger.debug(`[WS Sign Handler] Selecting proof type from precedence: ${OPENID4VCI_PROOF_TYPE_PRECEDENCE}`);
 		const proofType = OPENID4VCI_PROOF_TYPE_PRECEDENCE
 			.split(',')
 			.find(type => proofTypesSupported[type]) as 'jwt' | 'attestation' | undefined;
 
 		if (proofType === 'attestation') {
-			const [{ keypairs }, newPrivateData, keystoreCommit] =
-				await keystore.generateKeypairs(count);
-
-			// Persist key changes
-			await api.updatePrivateData(newPrivateData);
-			await keystoreCommit();
+			const keypairs = await wscd.generateKeypairs(count);
 
 			const response = await api.post('/wallet-provider/key-attestation/generate', {
 				jwks: keypairs.map(kp => kp.publicKey),
@@ -161,12 +187,7 @@ export function useOIDFlowSignHandler() {
 				issuer,
 			}));
 
-			const [{ proof_jwts }, newPrivateData, keystoreCommit] =
-				await keystore.generateOpenid4vciProofs(requests);
-
-			// Persist key changes
-			await api.updatePrivateData(newPrivateData);
-			await keystoreCommit();
+			const proof_jwts = await wscd.generateOpenid4vciProofs(requests);
 
 			const proofs: ProofObject[] = proof_jwts.map(jwt => ({
 				proof_type: proofType,
@@ -178,16 +199,78 @@ export function useOIDFlowSignHandler() {
 		}
 
 		throw new Error(`Unsupported proof type requested: ${proofType}`);
-	}, [keystore, api]);
+	}, [wscd, api]);
 
-	const handleSignRequest = useCallback(async (request: OIDFlowSignRequest): Promise<OIDFlowSignResponse> => {
-		if (!keystore) {
-			throw new Error('Keystore not available');
+	const signClientAuth = useCallback(async (
+		options: OIDFlowSignOptions,
+		flowId: string,
+	): Promise<OIDFlowSignResponse> => {
+		const { audience, issuer, htm, htu, dpopNonce, ath, attestationChallenge } = options;
+
+		if (!wscd) {
+			throw new Error('WscdManagerClient is not initialized');
 		}
 
+		const authMaterial = await oidFlowClientAuthMaterialManager.getAuthMaterial(
+			flowId
+		);
+
+		const response: OIDFlowSignResponse = { dpopKeyId: authMaterial.dpopKeyId };
+
+		if (htm && htu) {
+			response.dpopProof = await buildDPoPProof(
+				authMaterial.keyPair,
+				{
+					htm,
+					htu,
+					ath,
+					nonce: dpopNonce
+				},
+			);
+		}
+
+		if (audience && issuer) {
+			try {
+				const wia = await attestFlowIfEnabled(
+					httpClient,
+					(await authTokens.ensureBackendToken()).raw,
+					WIA_ENABLED,
+					authMaterial.wia,
+					authMaterial.keyPair,
+					issuer,
+					BACKEND_URL,
+				);
+
+				if (wia) {
+					oidFlowClientAuthMaterialManager.attachWia(flowId, wia);
+					response.clientAttestation = wia;
+					response.clientAttestationPoP = await buildClientAttestationPop(
+						authMaterial.keyPair,
+						issuer,
+						audience,
+						attestationChallenge,
+					);
+				}
+			}
+			catch (err) {
+				logger.debug(
+					'[WS Sign Handler] WIA attach failed; proceeding DPoP-only',
+					err,
+				);
+			}
+		}
+
+		return response;
+	}, [oidFlowClientAuthMaterialManager, httpClient, authTokens, wscd]);
+
+	const handleSignRequest = useCallback(async (request: OIDFlowSignRequest): Promise<OIDFlowSignResponse> => {
 		logger.debug('[WS Sign Handler] Received sign request:', request.action);
 
+		if (!keystore) throw new Error('Keystore not available');
+
 		switch (request.action) {
+			case 'sign_client_auth':
+				return await signClientAuth(request.params, request.flowId);
 			case 'generate_proof':
 				return await generateProof(request.params);
 			case 'sign_presentation':
@@ -195,13 +278,13 @@ export function useOIDFlowSignHandler() {
 			default:
 				throw new Error(`Unknown sign action: ${request.action}`);
 		}
-	}, [keystore, generateProof, signPresentation]);
+	}, [keystore, generateProof, signPresentation, signClientAuth]);
 
 	return { handleSignRequest, signPresentation, generateProof };
 }
 
 async function createVpToken(
-	keystore: LocalStorageKeystore,
+	wscd: IWscdManagerClient,
 	credentialData: {
 		credentialRaw: string;
 		disclosedClaims?: string[];
@@ -222,7 +305,7 @@ async function createVpToken(
 			case VerifiableCredentialFormat.VC_SDJWT:
 			case VerifiableCredentialFormat.JWT_VC_JSON:
 				return await createVpTokenFromSdJwt(
-					keystore,
+					wscd,
 					{
 						credentialRaw,
 						disclosedClaims: disclosedClaims ?? [],
@@ -234,7 +317,7 @@ async function createVpToken(
 				);
 			case VerifiableCredentialFormat.MSO_MDOC:
 				return await createVpTokenFromMdoc(
-					keystore,
+					wscd,
 					{
 						credentialRaw,
 						disclosedClaims: disclosedClaims ?? [],
@@ -247,13 +330,29 @@ async function createVpToken(
 						verifierJwkThumbprint,
 					}
 				);
+			// `vc+sd-jwt` is VC-JOSE-COSE's media type for a VCDM 2.0 credential
+			// secured as an SD-JWT — not for an IETF SD-JWT VC, which is
+			// `dc+sd-jwt`. A verifier asking for `vc+sd-jwt` is therefore
+			// asking for a VCDM 2.0 credential and expects it inside a VCDM 2.0
+			// VerifiablePresentation, not a bare SD-JWT with a key-binding JWT.
+			// Nothing is lost by not using KB-JWT here: DIIP v5 discloses every
+			// claim, so there are no disclosures to withhold, and holder
+			// binding comes from the holder-signed presentation envelope.
+			case VerifiableCredentialFormat.VCDM2_SDJWT:
+			case VerifiableCredentialFormat.VCDM2_JOSE:
+			case VerifiableCredentialFormat.LDP_VC:
+				return await createVpTokenFromVcdm2(
+					wscd,
+					{ credentialRaw },
+					{ nonce, audience }
+				);
 			default:
 				throw new Error('Unsupported credential format for presentation signing');
 		}
 }
 
 async function createVpTokenFromSdJwt(
-	keystore: LocalStorageKeystore,
+	wscd: IWscdManagerClient,
 	credentialData: {
 		credentialRaw: string;
 		disclosedClaims: string[];
@@ -267,12 +366,54 @@ async function createVpTokenFromSdJwt(
 	const { nonce, audience } = params;
 
 	const credential = await applySelectiveDisclosure(credentialRaw, disclosedClaims);
-	const { vpjwt } = await keystore.signJwtPresentation(nonce, audience, [credential]);
+	const vpjwt = await wscd.signSdJwtPresentation({
+		audience,
+		nonce,
+		verifiableCredential: credential,
+	});
+	return vpjwt;
+}
+
+/**
+ * Present a W3C VCDM 2.0 credential.
+ *
+ * There is no selective disclosure here: neither an enveloped credential nor a
+ * plain Data Integrity proof supports it, so the whole credential is
+ * presented. (`ecdsa-sd-2023` is the format's selective-disclosure mechanism,
+ * and is not supported.) Any `disclosedClaims` the caller passes are therefore
+ * deliberately ignored rather than silently appearing to filter anything.
+ */
+async function createVpTokenFromVcdm2(
+	wscd: IWscdManagerClient,
+	credentialData: {
+		credentialRaw: string;
+	},
+	params: {
+		nonce: string;
+		audience: string;
+	}
+): Promise<string> {
+	const { credentialRaw } = credentialData;
+	const { nonce, audience } = params;
+
+	// A Data Integrity credential is stored as JSON text but must be
+	// presented as an object, so that it embeds in the presentation rather
+	// than being double-encoded as a string.
+	const credential = detectCredentialFormat(credentialRaw) === VerifiableCredentialFormat.LDP_VC
+		? JSON.parse(credentialRaw)
+		: credentialRaw;
+
+	const vpjwt = await wscd.signVcdm2Presentation({
+		nonce,
+		audience,
+		verifiableCredentials: [credential],
+	});
+
 	return vpjwt;
 }
 
 async function createVpTokenFromMdoc(
-	keystore: LocalStorageKeystore,
+	wscd: IWscdManagerClient,
 	credentialData: {
 		credentialRaw: string;
 		disclosedClaims: string[];
@@ -300,28 +441,32 @@ async function createVpTokenFromMdoc(
 		throw new Error('disclosedClaims required for mdoc presentation');
 	}
 
-	const mdoc = parseIssuerSignedToMDoc(credentialRaw);
-	const presentationDefinition = buildMdocPresentationDefinition(
-		mdoc.documents[0].docType,
-		disclosedClaims ?? [],
-	);
-
-	let deviceResponseMDoc: MDoc;
+	let deviceResponseMDoc: Uint8Array;
 	if (responseUri) {
-		const { deviceResponseMDoc: drm } = await keystore.generateDeviceResponse(
-			mdoc, presentationDefinition, nonce, audience, responseUri,
-			verifierJwkThumbprint ?? null,
-		);
-		deviceResponseMDoc = drm;
+		deviceResponseMDoc = await wscd.generateDeviceResponse({
+			credential: credentialRaw,
+			disclosedClaims,
+			sessionTranscript: {
+				clientId: audience,
+				responseUri,
+				nonce,
+				jwkThumbprint: verifierJwkThumbprint ?? undefined,
+			},
+		});
+
 	} else if (origin) {
-		const { deviceResponseMDoc: drm } = await keystore.generateDeviceResponseForDCAPI(
-			mdoc, presentationDefinition, nonce, origin,
-			verifierJwkThumbprint ?? null,
-		);
-		deviceResponseMDoc = drm;
+		deviceResponseMDoc = await wscd.generateDeviceResponseForDCAPI({
+			credential: credentialRaw,
+			disclosedClaims,
+			sessionTranscript: {
+				origin,
+				nonce,
+				jwkThumbprint: verifierJwkThumbprint ?? undefined,
+			},
+		});
 	} else {
 		throw new Error('Unexpected error: neither responseUri nor origin provided for mdoc presentation');
 	}
 
-	return base64url.encode(new Uint8Array(deviceResponseMDoc.encode()));
+	return base64url.encode(new Uint8Array(deviceResponseMDoc instanceof Uint8Array ? deviceResponseMDoc : deviceResponseMDoc.encode()));
 }

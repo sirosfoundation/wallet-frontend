@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState, useMemo, useRef } from "react";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { Err, Ok, Result } from 'ts-results';
+import * as jose from 'jose';
 
 import * as config from "../config";
 import { useClearStorages, useLocalStorage, useSessionStorage } from "../hooks/useStorage";
-import { fromBase64Url, jsonStringifyTaggedBinary, toBase64Url } from "../util";
+import { fromBase64Url, jsonStringifyTaggedBinary, toBase64Url } from '@/lib/utils';
 import { useIndexedDb } from "../hooks/useIndexedDb";
 import { useOnUserInactivity } from "../hooks/useOnUserInactivity";
 import { logger } from "../logger";
@@ -13,10 +14,12 @@ import * as keystore from "./keystore";
 import type { AsymmetricEncryptedContainer, AsymmetricEncryptedContainerKeys, EncryptedContainer, OpenedContainer, PrivateData, UnlockSuccess, WebauthnPrfEncryptionKeyInfo, WebauthnPrfSaltInfo, WrappedKeyInfo } from "./keystore";
 import { MDoc } from "@auth0/mdl";
 import { WalletStateUtils } from "./WalletStateUtils";
-import { addAlterSettingsEvent, addDeleteCredentialEvent, addDeleteCredentialIssuanceSessionEvent, addDeleteKeypairEvent, addDeletePresentationEvent, addNewCredentialEvent, addNewPresentationEvent, addSaveCredentialIssuanceSessionEvent, CurrentSchema, foldOldEventsIntoBaseState, foldState, mergeEventHistories } from "./WalletStateSchema";
+import { addAlterSettingsEvent, addDeleteCredentialEvent, addDeleteCredentialIssuanceSessionEvent, addDeleteKeypairEvent, addDeletePresentationEvent, addNewCredentialEvent, addNewKeypairEvent, addNewPresentationEvent, addSaveCredentialIssuanceSessionEvent, CurrentSchema, foldOldEventsIntoBaseState, foldState, mergeEventHistories } from "./WalletStateSchema";
 import { UserId } from "@/api/types";
 import { getItem } from "@/indexedDB";
-import { WalletStateContainerGeneric } from "./WalletStateSchemaCommon";
+import { UnsupportedSchemaVersionError, WalletStateContainerGeneric } from "./WalletStateSchemaCommon";
+import { ExportedWscdContainer, WscdContainer } from "@/lib/wscd-manager";
+import { useErrorBoundary } from "react-error-boundary";
 
 type WalletState = CurrentSchema.WalletState;
 type WalletStateCredential = CurrentSchema.WalletStateCredential;
@@ -58,7 +61,6 @@ export interface LocalStorageKeystore {
 	isOpen(): boolean,
 	close(): Promise<void>,
 
-	initPassword(password: string): Promise<[EncryptedContainer, (userHandleB64u: string) => void]>,
 	initPrf(
 		credential: PublicKeyCredential,
 		prfSalt: Uint8Array,
@@ -70,11 +72,6 @@ export interface LocalStorageKeystore {
 		promptForPrfRetry: () => Promise<boolean | AbortSignal>,
 	): Promise<[EncryptedContainer, CommitCallback]>,
 	deletePrf(credentialId: Uint8Array): [EncryptedContainer, CommitCallback],
-	unlockPassword(
-		privateData: EncryptedContainer,
-		password: string,
-		user: UserData,
-	): Promise<[EncryptedContainer, CommitCallback] | null>,
 	unlockPrf(
 		privateData: EncryptedContainer,
 		credential: PublicKeyCredential,
@@ -82,8 +79,7 @@ export interface LocalStorageKeystore {
 		user: CachedUser | UserData,
 	): Promise<[EncryptedContainer, CommitCallback] | null>,
 	getPrfKeyInfo(id: BufferSource): WebauthnPrfEncryptionKeyInfo,
-	getPasswordOrPrfKeyFromSession(
-		promptForPassword: () => Promise<string | null>,
+	getPrfKeyFromSession(
 		promptForPrfRetry: () => Promise<boolean | AbortSignal>,
 	): Promise<[CryptoKey, WrappedKeyInfo]>,
 	upgradePrfKey(prfKeyInfo: WebauthnPrfEncryptionKeyInfo, promptForPrfRetry: () => Promise<boolean | AbortSignal>): Promise<[EncryptedContainer, CommitCallback]>,
@@ -92,28 +88,50 @@ export interface LocalStorageKeystore {
 	updateCachedUserDisplayName(userHandleB64u: string, displayName: string): void,
 	updateCachedUserTenant(userHandleB64u: string, tenant: { id: string; displayName?: string }): void,
 	getUserHandleB64u(): string | null,
+	/**
+	 * @deprecated in favor of WscdManagerClient.signSdJwtPresentation().
+	 *             Will be removed in a future release.
+	 */
 	signJwtPresentation(nonce: string, audience: string, verifiableCredentials: any[], transactionDataResponseParams?: { transaction_data_hashes: string[], transaction_data_hashes_alg: string[] }): Promise<{ vpjwt: string }>,
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateOpenid4vciProofs().
+	 *             Will be removed in a future release.
+	 */
 	generateOpenid4vciProofs(requests: { nonce: string, audience: string, issuer: string }[]): Promise<[
 		{ proof_jwts: string[] },
 		AsymmetricEncryptedContainer,
 		CommitCallback,
 	]>,
-
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateKeypairs().
+	 *             Will be removed in a future release.
+	 */
 	generateKeypairs(n: number): Promise<[
 		{ keypairs: keystore.CredentialKeyPair[] },
 		AsymmetricEncryptedContainer,
 		CommitCallback,
 	]>,
-
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateDeviceResponse().
+	 *             Will be removed in a future release.
+	 */
 	generateDeviceResponse(
 		mdocCredential: MDoc, presentationDefinition: any,
 		nonce: string, clientId: string, responseUri: string,
 		verifierJwkThumbprint: string | null,
 	): Promise<{ deviceResponseMDoc: MDoc }>,
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateDeviceResponseForDCAPI().
+	 *             Will be removed in a future release.
+	 */
 	generateDeviceResponseForDCAPI(
 		mdocCredential: MDoc, presentationDefinition: any,
 		nonce: string, origin: string, jwkThumbprint: string | null
 	): Promise<{ deviceResponseMDoc: MDoc }>,
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateDeviceResponseWithProximity().
+	 *             Will be removed in a future release.
+	 */
 	generateDeviceResponseWithProximity(mdocCredential: MDoc, presentationDefinition: any, sessionTranscriptBytes: any): Promise<{ deviceResponseMDoc: MDoc }>,
 
 	getCalculatedWalletState(): WalletState | null,
@@ -150,11 +168,22 @@ export interface LocalStorageKeystore {
 	 * Uses the existing mainKey to decrypt remote data and merges it with local data.
 	 * @param remotePrivateDataRaw - Raw private data bytes from the server
 	 */
-	syncWithRemoteData(remotePrivateDataRaw: Uint8Array): Promise<Result<AsymmetricEncryptedContainer, 'keystoreNotOpen' | 'mergeFailed'>>,
+	syncWithRemoteData(remotePrivateDataRaw: Uint8Array): Promise<Result<AsymmetricEncryptedContainer, 'keystoreNotOpen' | 'mergeFailed' | 'unsupportedVersion'>>,
+	/**
+	 * Softkey only: raw private keys leave the keystore because there is no secure element yet.
+	 * Isolated plugins (fido2/r2ps/native) must never export `d`.
+	 */
+	exportToWscdContainer(): Promise<WscdContainer>,
+	importFromWscdContainer(container: ExportedWscdContainer): Promise<[
+		{},
+		AsymmetricEncryptedContainer,
+		CommitCallback,
+	]>
 }
 
 /** A stateful wrapper around the keystore module, storing state in the browser's localStorage and sessionStorage. */
 export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageKeystore {
+	const { showBoundary } = useErrorBoundary();
 	const [cachedUsers, setCachedUsers,] = useLocalStorage<CachedUser[]>("cachedUsers", []);
 	const [privateData, setPrivateDataState] = useState<EncryptedContainer | null>(null);
 	const privateDataRef = useRef<EncryptedContainer | null>(null);
@@ -228,6 +257,9 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 
 
 	const writePrivateDataOnIdb = useCallback(async (privateData: EncryptedContainer | null, userHandleB64u: string) => {
+		if (!userHandleB64u) {
+			return;
+		}
 		await idb.write(["privateData"], (tx) => {
 			const store = tx.objectStore("privateData");
 			return store.put({ userHandle: userHandleB64u, content: privateData });
@@ -342,20 +374,22 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		const [privateData, mainKey] = await assertKeystoreOpen();
 		try {
 			return await keystore.openPrivateData(mainKey, privateData);
+		} catch (err) {
+			// Only a stale main key can be fixed by re-authenticating.
+			if (err instanceof jose.errors.JWEDecryptionFailed) {
+				logger.debug("Navigating to login-state to handle JWE decryption failure");
+				const queryParams = new URLSearchParams(window.location.search);
+				queryParams.delete('user');
+				queryParams.delete('sync');
+				queryParams.append('user', userHandleB64u);
+				queryParams.append('sync', 'fail');
+				navigate(`${window.location.pathname}?${queryParams.toString()}`, { replace: true });
+			} else {
+				showBoundary(err);
+			}
+			throw err;
 		}
-		catch (err) {
-			logger.error(err);
-			logger.debug("Navigating to login-state to handle JWE decryption failure");
-			const queryParams = new URLSearchParams(window.location.search);
-			queryParams.delete('user');
-			queryParams.delete('sync');
-
-			queryParams.append('user', userHandleB64u);
-			queryParams.append('sync', 'fail');
-			navigate(`${window.location.pathname}?${queryParams.toString()}`, { replace: true });
-			return null;
-		}
-	}, [assertKeystoreOpen, navigate, userHandleB64u]);
+	}, [assertKeystoreOpen, navigate, userHandleB64u, showBoundary]);
 
 	const editPrivateData = useCallback(async <T>(
 		action: (container: OpenedContainer) => Promise<[T, OpenedContainer]>,
@@ -497,8 +531,12 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		// initialize calculated wallet state
 		if (mainKey && privateData && calculatedWalletState === null) {
 			(async () => {
-				const [, , newCalculatedWalletState] = await openPrivateData();
-				setCalculatedWalletState(newCalculatedWalletState);
+				try {
+					const [, , newCalculatedWalletState] = await openPrivateData();
+					setCalculatedWalletState(newCalculatedWalletState);
+				} catch (err) {
+					logger.error("Failed to initialize wallet state after unlock", err);
+				}
 			})();
 		}
 	}, [mainKey, privateData, calculatedWalletState, openPrivateData]);
@@ -515,29 +553,6 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		[finishUnlock]
 	);
 
-	const unlockPassword = useCallback(
-		async (
-			privateData: EncryptedContainer,
-			password: string,
-			user: UserData,
-		): Promise<[EncryptedContainer, CommitCallback] | null> => {
-			const [unlockResult, newPrivateData] = await keystore.unlockPassword(privateData, password);
-			await finishUnlock(unlockResult, user, null, async () => false);
-			return (
-				newPrivateData
-					?
-					[newPrivateData,
-						async () => {
-							await writePrivateDataOnIdb(newPrivateData, userHandleB64u);
-							setPrivateData(newPrivateData);
-						},
-					]
-					: null
-			);
-		},
-		[finishUnlock, setPrivateData, writePrivateDataOnIdb, userHandleB64u]
-	);
-
 	const initPrf = useCallback(
 		async (
 			credential: PublicKeyCredential,
@@ -550,14 +565,6 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 			return result;
 		},
 		[init]
-	);
-
-	const initPassword = useCallback(
-		async (password: string): Promise<[EncryptedContainer, (userHandleB64u: string) => void]> => {
-			const { mainKey, keyInfo } = await keystore.initPassword(password);
-			return [await init(mainKey, keyInfo, null), setUserHandleB64u];
-		},
-		[init, setUserHandleB64u]
 	);
 
 	const getPrfKeyInfo = useCallback(
@@ -652,27 +659,13 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		[finishUnlock]
 	);
 
-	const getPasswordOrPrfKeyFromSession = useCallback(
+	const getPrfKeyFromSession = useCallback(
 		async (
-			promptForPassword: () => Promise<string | null>,
 			promptForPrfRetry: () => Promise<boolean | AbortSignal>,
 		): Promise<[CryptoKey, WrappedKeyInfo]> => {
 			if (privateData && privateData?.prfKeys?.length > 0) {
 				const [prfKey, prfKeyInfo,] = await keystore.getPrfKey(privateData, null, promptForPrfRetry);
 				return [prfKey, keystore.isPrfKeyV2(prfKeyInfo) ? prfKeyInfo : prfKeyInfo.mainKey];
-
-			} else if (privateData && privateData?.passwordKey) {
-				const password = await promptForPassword();
-				if (password === null) {
-					throw new Error("Password prompt aborted");
-				} else {
-					try {
-						const [passwordKey, passwordKeyInfo] = await keystore.getPasswordKey(privateData, password);
-						return [passwordKey, keystore.isAsymmetricPasswordKeyInfo(passwordKeyInfo) ? passwordKeyInfo : passwordKeyInfo.mainKey];
-					} catch {
-						throw new Error("Failed to unlock key store", { cause: { errorId: "passwordUnlockFailed" } });
-					}
-				}
 
 			} else {
 				throw new Error("Session not initialized");
@@ -706,6 +699,10 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		[privateData, setPrivateData, writePrivateDataOnIdb, userHandleB64u]
 	);
 
+	/**
+	 * @deprecated in favor of WscdManagerClient.signJwtPresentation().
+	 *             Will be removed in a future release.
+	 */
 	const signJwtPresentation = useCallback(
 		async (nonce: string, audience: string, verifiableCredentials: any[], transactionDataResponseParams?: { transaction_data_hashes: string[], transaction_data_hashes_alg: string[] }): Promise<{ vpjwt: string }> => (
 			await keystore.signJwtPresentation(await openPrivateData(), nonce, audience, verifiableCredentials, transactionDataResponseParams)
@@ -713,6 +710,10 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		[openPrivateData]
 	);
 
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateDeviceResponse().
+	 *             Will be removed in a future release.
+	 */
 	const generateDeviceResponse = useCallback(
 		async (mdocCredential: MDoc, presentationDefinition: any, nonce: string, clientId: string, responseUri: string, verifierJwkThumbprint: string | null): Promise<{ deviceResponseMDoc: MDoc }> => (
 			await keystore.generateDeviceResponse(await openPrivateData(), mdocCredential, presentationDefinition, nonce, clientId, responseUri, verifierJwkThumbprint)
@@ -720,6 +721,10 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		[openPrivateData]
 	);
 
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateDeviceResponseForDCAPI().
+	 *             Will be removed in a future release.
+	 */
 	const generateDeviceResponseForDCAPI = useCallback(
 		async (mdocCredential: MDoc, presentationDefinition: any, nonce: string, origin: string, verifierJwkThumbprint: string | null): Promise<{ deviceResponseMDoc: MDoc }> => (
 			await keystore.generateDeviceResponseForDCAPI(await openPrivateData(), mdocCredential, presentationDefinition, nonce, origin, verifierJwkThumbprint)
@@ -727,6 +732,10 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		[openPrivateData]
 	);
 
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateDeviceResponseWithProximity().
+	 *             Will be removed in a future release.
+	 */
 	const generateDeviceResponseWithProximity = useCallback(
 		async (mdocCredential: MDoc, presentationDefinition: any, sessionTranscriptBytes: any): Promise<{ deviceResponseMDoc: MDoc }> => (
 			await keystore.generateDeviceResponseWithProximity(await openPrivateData(), mdocCredential, presentationDefinition, sessionTranscriptBytes)
@@ -738,6 +747,10 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		return privateData !== null && mainKey !== null;
 	}, [privateData, mainKey]);
 
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateOpenid4vciProofs().
+	 *             Will be removed in a future release.
+	 */
 	const generateOpenid4vciProofs = useCallback(async (requests: { nonce: string, audience: string, issuer: string }[]): Promise<[
 		{ proof_jwts: string[] },
 		AsymmetricEncryptedContainer,
@@ -756,6 +769,10 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		})
 	), [editPrivateData]);
 
+	/**
+	 * @deprecated in favor of WscdManagerClient.generateKeypairs().
+	 *             Will be removed in a future release.
+	 */
 	const generateKeypairs = useCallback(
 		async (n: number): Promise<[
 			{ keypairs: keystore.CredentialKeyPair[] },
@@ -919,7 +936,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		});
 	}, [editPrivateData, openPrivateData]);
 
-	const syncWithRemoteData = useCallback(async (remotePrivateDataRaw: Uint8Array): Promise<Result<keystore.AsymmetricEncryptedContainer, 'keystoreNotOpen' | 'mergeFailed'>> => {
+	const syncWithRemoteData = useCallback(async (remotePrivateDataRaw: Uint8Array): Promise<Result<keystore.AsymmetricEncryptedContainer, 'keystoreNotOpen' | 'mergeFailed' | 'unsupportedVersion'> > => {
 		if (!privateData || !mainKey) {
 			return Err('keystoreNotOpen');
 		}
@@ -946,22 +963,74 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 
 			return Ok(newPrivateDataEncryptedContainer);
 		} catch (error) {
+			if (error instanceof UnsupportedSchemaVersionError) {
+				console.error("Remote data has a schema version this wallet does not support", error);
+				return Err('unsupportedVersion');
+			}
 			console.error("Failed to sync with remote data", error);
 			return Err('mergeFailed');
 		}
 	}, [privateData, mainKey, assertKeystoreOpen, writePrivateDataOnIdb, userHandleB64u, setPrivateData, setMainKey, setCalculatedWalletState]);
 
+	const exportToWscdContainer = useCallback(async (): Promise<WscdContainer> => {
+		const keypairs = calculatedWalletState?.keypairs ?? [];
+
+		const keys = keypairs
+			.filter((k) => k?.keypair?.privateKey?.d)
+			.map(({ kid, keypair }) => ({
+				kid,
+				algorithm: keypair.alg,
+				d: keypair.privateKey.d,
+				created_at: 0, // keystore doesn't carry this info
+			}));
+
+		return {
+			keys,
+			lifecycle: {},
+		}
+	}, [calculatedWalletState]);
+
+	const importFromWscdContainer = useCallback(
+		async (container: ExportedWscdContainer) => {
+			let [walletStateContainer, ,] = await openPrivateData();
+			walletStateContainer = await foldOldEventsIntoBaseState(walletStateContainer);
+
+			const existing = new Set(foldState(walletStateContainer).keypairs.map((k) => k.kid));
+			const toAdd = container.keys.filter((k) => !existing.has(k.kid));
+			if (toAdd.length === 0) {
+				const [privateData] = await assertKeystoreOpen();
+				return [{}, keystore.assertAsymmetricEncryptedContainer(privateData), async () => {}];
+			}
+
+			for (const { kid, algorithm, d, publicKey } of toAdd) {
+				const keypair: keystore.CredentialKeyPair = {
+					kid,
+					did: await keystore.createDidFromJwk(publicKey, config.DID_KEY_VERSION),
+					alg: algorithm,
+					publicKey,
+					privateKey: { ...publicKey, d }, // full JWK, not d-only
+				};
+				walletStateContainer = await addNewKeypairEvent(walletStateContainer, kid, keypair);
+			}
+
+			return await editPrivateData(async (originalContainer) => {
+				const { newContainer } = await keystore.updateWalletState(originalContainer, walletStateContainer);
+				return [{}, newContainer];
+			});
+		},
+		[editPrivateData, openPrivateData, assertKeystoreOpen],
+	);
+
+
 	return useMemo(() => ({
 		isOpen,
 		close,
-		initPassword,
 		initPrf,
 		addPrf,
 		deletePrf,
-		unlockPassword,
 		unlockPrf,
 		getPrfKeyInfo,
-		getPasswordOrPrfKeyFromSession,
+		getPrfKeyFromSession,
 		upgradePrfKey,
 		getCachedUsers,
 		forgetCachedUser,
@@ -984,17 +1053,17 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		getCredentialIssuanceSessionByState,
 		alterSettings,
 		syncWithRemoteData,
+		exportToWscdContainer,
+		importFromWscdContainer,
 	}), [
 		isOpen,
 		close,
-		initPassword,
 		initPrf,
 		addPrf,
 		deletePrf,
-		unlockPassword,
 		unlockPrf,
 		getPrfKeyInfo,
-		getPasswordOrPrfKeyFromSession,
+		getPrfKeyFromSession,
 		upgradePrfKey,
 		getCachedUsers,
 		forgetCachedUser,
@@ -1017,5 +1086,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		getCredentialIssuanceSessionByState,
 		alterSettings,
 		syncWithRemoteData,
+		exportToWscdContainer,
+		importFromWscdContainer,
 	]);
 }

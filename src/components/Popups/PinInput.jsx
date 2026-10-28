@@ -1,12 +1,12 @@
 // PinInput.js
 import React, { useState, useRef, useEffect, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import Button from '../Buttons/Button';
 import SessionContext from '@/context/SessionContext';
 import { useTenant } from '@/context/TenantContext';
 import PopupLayout from './PopupLayout';
-import { last } from '@/util';
+import { last } from '@/lib/utils/array';
 import { Lock } from 'lucide-react';
 
 function PinInput({ isOpen, setIsOpen }) {

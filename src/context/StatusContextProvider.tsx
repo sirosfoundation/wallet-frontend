@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { BACKEND_URL } from '../config';
 import StatusContext, { Connectivity } from './StatusContext';
@@ -51,7 +51,27 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 	const [pwaInstallable, setPwaInstallable] = useState(null);
 	const [hidePwaPrompt, setHidePwaPrompt] = useLocalStorage<boolean>("hidePwaPrompt", false);
 
+	const updateBlockers = useRef<Map<string, { label: string; since: number; }>>(new Map());
+	const [isSafeToUpdate, setIsSafeToUpdate] = useState(true);
+	const [isStaleVersion, setIsStaleVersion] = useState(false);
+	const [isSwWaiting, setIsSwWaiting] = useState(false);
+
 	const lastUpdateCallTime = React.useRef<number>(0);
+
+	const blockUpdates = useCallback((label: string) => {
+		const key = crypto.randomUUID();
+		updateBlockers.current.set(key, { label, since: Date.now() });
+		setIsSafeToUpdate(false);
+
+		let released = false;
+
+		return () => {
+			if (released) return;
+			released = true;
+			updateBlockers.current.delete(key);
+			setIsSafeToUpdate(updateBlockers.current.size === 0);
+		}
+	}, [])
 
 	const updateOnlineStatus = async (forceCheck = true) => {
 
@@ -198,9 +218,55 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 	}, []);
 
 	useEffect(() => {
+		const buildId = import.meta.env.VITE_BUILD_ID;
+		if (!buildId) return;
+
+		const channel = new BroadcastChannel('sirosid:app-version');
+		channel.postMessage(buildId);
+
+		channel.addEventListener('message', (e) => {
+			if (e.data !== buildId) setIsStaleVersion(true);
+		});
+
+		return () => channel.close();
+	}, []);
+
+	useEffect(() => {
+		if (isStaleVersion && isSafeToUpdate) {
+			window.location.reload();
+		}
+	}, [isStaleVersion, isSafeToUpdate]);
+
+	useEffect(() => {
+		if (!navigator.serviceWorker) return;
+
+		void (async () => {
+			const reg = await navigator.serviceWorker.getRegistration();
+			if (!reg) return;
+
+			if (reg.waiting) setIsSwWaiting(true);
+
+			reg.addEventListener('updatefound', () => {
+				const worker = reg.installing;
+				worker?.addEventListener('statechange', () => {
+					if (worker.state === 'installed') setIsSwWaiting(true);
+				});
+			});
+		})();
+	}, []);
+
+	useEffect(() => {
+		if (!isSwWaiting || !isSafeToUpdate || !navigator.serviceWorker) return;
+		void (async () => {
+			const reg = await navigator.serviceWorker.getRegistration();
+			reg?.waiting?.postMessage({ type: 'SKIP_WAITING' });
+		})();
+	}, [isSwWaiting, isSafeToUpdate]);
+
+	useEffect(() => {
 		const handler = (event: MessageEvent) => {
 			if (event.data?.type === "NEW_CONTENT_AVAILABLE") {
-				if (document.hidden) {
+				if (document.hidden && isSafeToUpdate) {
 					window.location.reload();
 				} else {
 					setUpdateAvailable(true);
@@ -217,7 +283,7 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 				navigator.serviceWorker.removeEventListener("message", handler);
 			}
 		};
-	}, []);
+	}, [isSafeToUpdate]);
 
 	const dismissPwaPrompt = () => {
 		setHidePwaPrompt(true);
@@ -226,8 +292,21 @@ export const StatusContextProvider = ({ children }: React.PropsWithChildren) => 
 	useEffect(() => {
 		updateOnlineStatus();
 	}, []);
+
+	const value = {
+		isOnline,
+		updateAvailable,
+		connectivity,
+		updateOnlineStatus,
+		pwaInstallable,
+		dismissPwaPrompt,
+		hidePwaPrompt,
+		isSafeToUpdate,
+		blockUpdates,
+	};
+
 	return (
-		<StatusContext.Provider value={{ isOnline, updateAvailable, connectivity, updateOnlineStatus, pwaInstallable, dismissPwaPrompt, hidePwaPrompt }}>
+		<StatusContext.Provider value={value}>
 			{children}
 		</StatusContext.Provider>
 	);

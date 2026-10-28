@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { DCAPIWalletCompanionMode } from './modes';
+import type { DCAPIEnvelope } from './resources';
+
+function makeEnvelope(requestId = 'test-request-123'): DCAPIEnvelope {
+	return { requestId, selectedCredentialIDs: [] };
+}
 
 describe('DCAPIWalletCompanionMode', () => {
 	let mode: DCAPIWalletCompanionMode;
@@ -24,7 +29,7 @@ describe('DCAPIWalletCompanionMode', () => {
 
 	describe('originHandshake()', () => {
 		it('posts WC_ORIGIN_CHECK message to opener', async () => {
-			const handshakePromise = mode.originHandshake('test-request-123');
+			const handshakePromise = mode.originHandshake(makeEnvelope());
 
 			setTimeout(() => {
 				window.dispatchEvent(new MessageEvent('message', {
@@ -45,7 +50,7 @@ describe('DCAPIWalletCompanionMode', () => {
 		});
 
 		it('resolves with origin on valid WC_ORIGIN_ACK', async () => {
-			const handshakePromise = mode.originHandshake('test-request-123');
+			const handshakePromise = mode.originHandshake(makeEnvelope());
 
 			setTimeout(() => {
 				window.dispatchEvent(new MessageEvent('message', {
@@ -63,7 +68,7 @@ describe('DCAPIWalletCompanionMode', () => {
 		it('rejects on timeout (5s)', async () => {
 			vi.useFakeTimers();
 
-			const handshakePromise = mode.originHandshake('test-request-123');
+			const handshakePromise = mode.originHandshake(makeEnvelope());
 
 			vi.advanceTimersByTime(5000);
 
@@ -71,7 +76,7 @@ describe('DCAPIWalletCompanionMode', () => {
 		});
 
 		it('rejects when origin not in expected_origins', async () => {
-			const handshakePromise = mode.originHandshake('test-request-123', [
+			const handshakePromise = mode.originHandshake(makeEnvelope(), [
 				'https://trusted-verifier.example.com',
 			]);
 
@@ -89,7 +94,7 @@ describe('DCAPIWalletCompanionMode', () => {
 		});
 
 		it('accepts any origin when expected_origins is undefined', async () => {
-			const handshakePromise = mode.originHandshake('test-request-123');
+			const handshakePromise = mode.originHandshake(makeEnvelope());
 
 			setTimeout(() => {
 				window.dispatchEvent(new MessageEvent('message', {
@@ -105,7 +110,7 @@ describe('DCAPIWalletCompanionMode', () => {
 		});
 
 		it('rejects on mismatched requestId from opener', async () => {
-			const handshakePromise = mode.originHandshake('test-request-123');
+			const handshakePromise = mode.originHandshake(makeEnvelope());
 
 			setTimeout(() => {
 				window.dispatchEvent(new MessageEvent('message', {
@@ -123,7 +128,7 @@ describe('DCAPIWalletCompanionMode', () => {
 		it('ignores messages with wrong type', async () => {
 			vi.useFakeTimers();
 
-			const handshakePromise = mode.originHandshake('test-request-123');
+			const handshakePromise = mode.originHandshake(makeEnvelope());
 
 			// Send message with wrong type - should be ignored
 			window.dispatchEvent(new MessageEvent('message', {
@@ -148,7 +153,7 @@ describe('DCAPIWalletCompanionMode', () => {
 		it('ignores messages not from opener', async () => {
 			vi.useFakeTimers();
 
-			const handshakePromise = mode.originHandshake('test-request-123');
+			const handshakePromise = mode.originHandshake(makeEnvelope());
 
 			// Send message from different source (not opener) - should be ignored
 			window.dispatchEvent(new MessageEvent('message', {
@@ -173,7 +178,7 @@ describe('DCAPIWalletCompanionMode', () => {
 
 	describe('verifiedOrigin getter', () => {
 		it('returns origin after successful handshake', async () => {
-			const handshakePromise = mode.originHandshake('test-request-123');
+			const handshakePromise = mode.originHandshake(makeEnvelope());
 
 			setTimeout(() => {
 				window.dispatchEvent(new MessageEvent('message', {
@@ -196,7 +201,7 @@ describe('DCAPIWalletCompanionMode', () => {
 	describe('send()', () => {
 		beforeEach(async () => {
 			// Complete handshake first
-			const handshakePromise = mode.originHandshake('test-request-123');
+			const handshakePromise = mode.originHandshake(makeEnvelope());
 			setTimeout(() => {
 				window.dispatchEvent(new MessageEvent('message', {
 					data: { type: 'WC_ORIGIN_ACK', requestId: 'test-request-123' },
@@ -243,7 +248,7 @@ describe('DCAPIWalletCompanionMode', () => {
 			);
 		});
 
-		it('posts WC_WALLET_RESPONSE with encrypted response', () => {
+		it('posts WC_WALLET_RESPONSE with encrypted response wrapped in a response envelope', () => {
 			const encryptedResponse = 'eyJhbGciOiJFQ0RILUVT...encrypted...';
 
 			mode.send({
@@ -251,11 +256,16 @@ describe('DCAPIWalletCompanionMode', () => {
 				payload: { response: encryptedResponse },
 			});
 
+			// Must stay wrapped as { response: jwe } - a bare JWE string here
+			// (the old, buggy behavior) leaves the eventual DigitalCredential.data
+			// with no .response property for a verifier/consumer to find the
+			// JWE under, matching neither the native mobile SDKs nor the
+			// OpenID4VP DC API profile's dc_api.jwt shape.
 			expect(mockOpener.postMessage).toHaveBeenCalledWith(
 				{
 					type: 'WC_WALLET_RESPONSE',
 					requestId: 'test-request-123',
-					response: encryptedResponse,
+					response: { response: encryptedResponse },
 				},
 				'https://verifier.example.com'
 			);

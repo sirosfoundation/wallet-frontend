@@ -1,0 +1,13 @@
+diff --git a/decode.js b/decode.js
+index e165032d096486d1c761357bcf44aa4b286dd20a..e8e00c81c9527ee28e7fd82f5e88a1be9916e933 100644
+--- a/decode.js
++++ b/decode.js
+@@ -44,7 +44,7 @@ let inlineObjectReadThreshold = 2;
+ var BlockedFunction // we use search and replace to change the next call to BlockedFunction to avoid CSP issues for
+ // no-eval build
+ try {
+-	new Function('')
++	new BlockedFunction('')
+ } catch(error) {
+ 	// if eval variants are not supported, do not create inline object readers ever
+ 	inlineObjectReadThreshold = Infinity

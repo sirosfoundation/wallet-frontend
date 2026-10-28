@@ -5,18 +5,16 @@ import {
 	JWK,
 } from 'jose';
 import { DCAPIRequest } from './DCAPIRequest';
-import { DCAPIMode } from './resources';
-import { DCAPIWalletCompanionMode } from './modes';
+import { DCAPIEnvelope, DCAPIEnvelopeSchema, DCAPIMode } from './resources';
+import { DCAPINativeMode, DCAPIWalletCompanionMode } from './modes';
 
 export class DCAPISession {
 	readonly request: DCAPIRequest;
-	readonly requestId: string;
+	readonly envelope: DCAPIEnvelope;
 	readonly mode: DCAPIMode;
 
 	constructor(url: URL) {
-		this.requestId = url.searchParams.get('request_id');
-		if (!this.requestId) throw new Error('Missing request_id');
-
+		this.envelope = this.#parseDCAPIEnvelope(url);
 		this.mode = this.#detectMode();
 		this.request = new DCAPIRequest(url);
 	}
@@ -37,14 +35,23 @@ export class DCAPISession {
 			throw new Error('Signed request missing required expected_origins');
 		}
 
+		await this.mode.initialize(this.envelope);
 		await this.mode.originHandshake(
-			this.requestId,
+			this.envelope,
 			this.request.expectedOrigins,
 		);
 	}
 
 	get verifiedOrigin(): string {
 		return this.mode.verifiedOrigin;
+	}
+
+	get requestId(): string {
+		return this.envelope.requestId;
+	}
+
+	get selectedCredentialIDs(): string[] {
+		return this.envelope.selectedCredentialIDs;
 	}
 
 	public async verifierJwkThumbprint(): Promise<string | null> {
@@ -77,9 +84,22 @@ export class DCAPISession {
 		this.mode.close();
 	}
 
+	#parseDCAPIEnvelope(url: URL): DCAPIEnvelope {
+		return DCAPIEnvelopeSchema.parse({
+			requestId: url.searchParams.get('request_id'),
+			requestProtocol: url.searchParams.get('request_protocol') ?? undefined,
+			requestOrigin: url.searchParams.get('request_origin') ?? undefined,
+			selectedCredentialIDs: url.searchParams.getAll('selected_credential_id'),
+		});
+	}
+
 	#detectMode(): DCAPIMode {
 		if (window.opener) {
 			return new DCAPIWalletCompanionMode();
+		}
+
+		if (window.nativeWrapper) {
+			return new DCAPINativeMode();
 		}
 
 		throw new Error('Unable to detect DC API mode, no supported environment detected');

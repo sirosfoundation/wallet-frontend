@@ -1,6 +1,6 @@
 // components/History/HistoryList.jsx
 import React, { useState, useContext, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import useScreenType from '../../hooks/useScreenType';
 import { H3 } from '../Shared/Heading';
 import HistoryDetailPopup from '../Popups/HistoryDetailPopup';
@@ -9,12 +9,12 @@ import HistoryDetailPopup from '../Popups/HistoryDetailPopup';
 import SessionContext from '@/context/SessionContext';
 import { useTenant } from '@/context/TenantContext';
 import useFetchPresentations from '@/hooks/useFetchPresentations';
-import { reverse, compareBy } from '@/util';
+import { reverse, compareBy } from '@/lib/utils/array';
 
 import { formatDate } from 'wallet-common';
 
 // Utils
-import { prettyDomain } from '@/utils';
+import { prettyDomain } from '@/lib/utils';
 import Button from '../Buttons/Button';
 
 /** ------------------ Pure view (NO data fetching here) ------------------ */

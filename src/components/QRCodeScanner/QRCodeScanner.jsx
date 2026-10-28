@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Webcam from 'react-webcam';
 import { useTranslation } from 'react-i18next';
-import QrScanner from '../../utils/qr/qr-scanner';
+import QrScanner from '../../lib/services/qr-scanner';
 import { logger } from '@/logger';
 import PopupLayout from '../Popups/PopupLayout';
 import useScreenType from '../../hooks/useScreenType';

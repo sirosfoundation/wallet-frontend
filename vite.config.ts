@@ -8,15 +8,22 @@ import { VitePWA } from 'vite-plugin-pwa';
 import tailwindcss from '@tailwindcss/vite';
 import { InjectConfigPlugin } from './vite-plugins';
 
-export default defineConfig(async ({ mode }) => {
+export default defineConfig(async ({ mode, command }) => {
 	const env = loadEnv(mode, process.cwd(), '');
 
 	mkdirSync(resolve('public'), { recursive: true });
+
+	// each build gets a unique ID with UTC timestamp
+	const buildId = [
+		process.env.npm_package_version,
+		Date.now().toString(),
+	].join('--');
 
 	return {
 		base: './',
 		define: {
 			'import.meta.env.VITE_APP_VERSION': JSON.stringify(process.env.npm_package_version),
+			'import.meta.env.VITE_BUILD_ID': JSON.stringify(buildId)
 		},
 		plugins: [
 			InjectConfigPlugin(env),
@@ -36,10 +43,10 @@ export default defineConfig(async ({ mode }) => {
 				strategies: 'injectManifest', // Uses `src/service-worker.js` for caching
 				manifest: false, // Vite will use `public/manifest.json` automatically
 				injectManifest: {
-					maximumFileSizeToCacheInBytes: env.GENERATE_SOURCEMAP === 'true' ? 12 * 1024 * 1024 : 4 * 1024 * 1024,
+					globPatterns: ['**/*.{js,css,html,ico,jpg,jpeg,png,svg,webp,woff,woff2,wasm}'],
+					maximumFileSizeToCacheInBytes: env.GENERATE_SOURCEMAP === 'true' ? 16 * 1024 * 1024 : 8 * 1024 * 1024,
 					additionalManifestEntries: [
 						{ url: './manifest.json', revision: env.BRANDING_HASH },
-						{ url: './favicon.ico', revision: env.BRANDING_HASH },
 					],
 				},
 			}),
@@ -50,18 +57,13 @@ export default defineConfig(async ({ mode }) => {
 				'@': '/src',
 			},
 		},
-		optimizeDeps: {
-			include: ['wallet-common'],
-		},
 		server: {
 			host: true,
 			port: 3000,
-			open: true,
 		},
 		preview: {
 			host: true,
 			port: 3000,
-			open: true,
 		},
 		build: {
 			manifest: true,

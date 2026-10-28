@@ -10,9 +10,8 @@
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useOIDFlowTransportSafe } from '@/context/OIDFlowTransportContext';
 import SessionContext from '@/context/SessionContext';
-import OpenID4VPContext from '@/context/OpenID4VPContext';
 import CredentialsContext, { ExtendedVcEntity } from '@/context/CredentialsContext';
-import { matchCredentials } from '@/services/CredentialMatchingService';
+import { matchCredentials } from '@/lib/services/CredentialMatchingService';
 import type {
 	OID4VPFlowResult,
 	OID4VPSelectedCredential,
@@ -21,7 +20,7 @@ import type {
 import type { OIDFlowActiveTransportType, OIDFlowProgressEvent } from '@/lib/openid-flow/types/OIDFlowTypes';
 import { DcqlQuery } from 'dcql';
 import { getLeastUsedCredentialInstance } from '@/lib/services/CredentialBatchHelper';
-import { applySelectiveDisclosure } from '@/lib/sd-jwt/sd-jwt';
+import { applySelectiveDisclosure } from '@/lib/verifiable-credentials';
 import { OIDFlowError } from '@/lib/openid-flow/errors';
 import { useOIDFlowSignHandler } from './useOIDFlowSignHandler';
 import { DCAPIRequest, DCAPISession } from '@/lib/openid-flow/platforms/dc-api';
@@ -29,6 +28,7 @@ import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
 import { BackendApi } from '@/api';
 import { parseClientIdScheme, KeyMaterial } from 'wallet-common';
 import { logger } from '@/logger';
+import { ConformantCredentials } from '@/components/flows/PresentCredentialsFlow';
 
 export interface UseOID4VPFlowOptions {
 	/**
@@ -43,9 +43,9 @@ export interface UseOID4VPFlowOptions {
 	 * Callback to show credential selection UI
 	 */
 	onCredentialSelection?: (
-		conformantCredentialsMap: Record<string, { credentials: number[]; requestedFields: Array<{ name?: string; path?: (string | null)[] }> }>,
-		verifierDomainName: string,
-		verifierPurpose: string,
+		verifierInfo: OID4VPVerifierInfo,
+		dcqlQuery: DcqlQuery.Input,
+		conformantCredentialsMap: ConformantCredentials,
 	) => Promise<Map<string, number>>;
 }
 
@@ -89,7 +89,11 @@ export interface UseOID4VPFlowReturn {
 	/**
 	 * Handle DC API request - parse URL, match credentials, store session
 	 */
-	handleDCAPIRequest: (request: DCAPIRequest, verifiedOrigin: string) => Promise<OID4VPFlowResult>;
+	handleDCAPIRequest: (
+		request: DCAPIRequest,
+		selectedCredentialIDs: string[],
+		verifiedOrigin: string,
+	) => Promise<OID4VPFlowResult>;
 	/**
 	 * Send DC API response - sign, record history, send via session
 	 */
@@ -110,7 +114,6 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 	const transportContext = useOIDFlowTransportSafe();
 	const { keystore, api } = useContext(SessionContext);
 	const { vcEntityList } = useContext(CredentialsContext);
-	const { openID4VP } = useContext(OpenID4VPContext);
 	const { signPresentation } = useOIDFlowSignHandler();
 
 	const [isLoading, setIsLoading] = useState(false);
@@ -191,42 +194,11 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 			}
 
 			// HTTP proxy transport: use existing implementation
-			if (transportType === 'http_proxy' && openID4VP) {
-				try {
-					const credentials = await waitForCredentials();
-					const result = await openID4VP.handleAuthorizationRequest(
-						authorizationRequestUrl.toString(),
-						credentials,
-					);
-
-					verifierAudienceRef.current = authorizationRequestUrl.searchParams.get('client_id') ?? '';
-
-					// Check for error response
-					if ('error' in result) {
-						throw new OIDFlowError({ code: result.error, message: 'Authorization request failed' });
-					}
-
-					// Convert to OID4VPFlowResult format
-					// The conformantCredentialsMap is a Map<string, any>
-					const conformantCredentials = result.conformantCredentialsMap;
-
-					return {
-						success: true,
-						conformantCredentials,
-						verifierInfo: {
-							name: result.verifierDomainName,
-							purpose: result.verifierPurpose,
-							domain: result.verifierDomainName,
-						},
-						transactionData: result.parsedTransactionData?.map(td => ({
-							type: 'transaction',
-							description: ('description' in (td.parsed ?? {}) ? (td.parsed as any).description : null) || JSON.stringify(td.parsed || td).slice(0, 100),
-							data: td,
-						})),
-					};
-				} catch (err) {
-					throw err;
-				}
+			if (transportType === 'http_proxy') {
+				throw new OIDFlowError({
+					code: 'DISCONTINUED_HTTP_PROXY_FLOW',
+					message: 'HTTP proxy transport flow is discontinued. Please use WebSocket transport instead.',
+				});
 			}
 
 			// No transport available
@@ -246,7 +218,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		} finally {
 			setIsLoading(false);
 		}
-	}, [transportType, transport, openID4VP, onProgress, onError, waitForCredentials]);
+	}, [transportType, transport, onProgress, onError]);
 
 	/**
 	 * Handle credential selection by showing the configured UI and returning the user's selection
@@ -269,37 +241,31 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 
 			// TODO: Remove preMatchedCredentials once http_proxy flow fully migrated to use
 			// matchCredentials in the hook instead of backend matching in wallet-common
-			let conformantCredentialsMap: Record<string, {
-				credentials: number[];
-				requestedFields: Array<{
-					name?: string;
-					path?: string[];
-				}>;
-			}> = {};
+			let conformantCredentialsMap: ConformantCredentials = new Map();
 
 			if (preMatchedCredentials) {
-				conformantCredentialsMap = Object.fromEntries(preMatchedCredentials);
+				conformantCredentialsMap = new Map(preMatchedCredentials);
 			} else if (dcqlQuery) {
-				const { matches, no_match_reason } = matchCredentials(credentials, dcqlQuery);
+				const { matches, no_match_reason, code } = matchCredentials(credentials, dcqlQuery);
 
 				if (matches.length === 0) {
-					throw new OIDFlowError({ code: no_match_reason || 'NO_MATCHING_CREDENTIALS', message: 'No matching credentials' });
+					throw new OIDFlowError({ code: code ?? 'NO_MATCHING_CREDENTIALS', message: no_match_reason || 'No matching credentials' });
 				}
 
-				conformantCredentialsMap = Object.fromEntries(buildConformantCredentialsMap(matches, dcqlQuery));
+				conformantCredentialsMap = new Map(buildConformantCredentialsMap(matches, dcqlQuery));
 			} else {
 				throw new OIDFlowError({ code: 'NO_DCQL_QUERY_OR_PREMATCHED_CREDENTIALS', message: 'No dcqlQuery or preMatchedCredentials provided' });
 			}
 
-			if (Object.keys(conformantCredentialsMap).length === 0) {
+			if (conformantCredentialsMap.size === 0) {
 				throw new OIDFlowError({ code: 'INSUFFICIENT_CREDENTIALS', message: 'No credentials available for selection' });
 			}
 
 			// Show popup → user picks descriptorId → batchId
 			const selectionMap = await options.onCredentialSelection(
+				verifierInfo,
+				dcqlQuery,
 				conformantCredentialsMap,
-				verifierInfo?.name ?? '',
-				verifierInfo?.purpose ?? '',
 			);
 
 			// Convert to OID4VPSelectedCredential[]
@@ -329,17 +295,23 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				selectedCredentials: selected,
 			};
 		} catch (err) {
-			if (err === undefined || err === null) {
-				// User cancelled the popup
+			if (err instanceof OIDFlowError && err.code === 'USER_CANCELLED') {
 				return {
 					success: false,
 					error: {
 						code: 'USER_CANCELLED',
-						message: 'User cancelled'
-					}
+						message: 'User cancelled',
+					},
 				};
 			}
-			const error = err instanceof OIDFlowError ? err : new OIDFlowError({ code: 'SELECTION_ERROR', message: err instanceof Error ? err.message : String(err) });
+
+			const error = err instanceof OIDFlowError
+				? err
+				: new OIDFlowError({
+						code: 'SELECTION_ERROR',
+						message: err instanceof Error ? err.message : String(err),
+					});
+
 			setError(error);
 			onError?.(error);
 			return {
@@ -396,45 +368,11 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 			}
 
 			// HTTP proxy transport: use existing implementation
-			if (transportType === 'http_proxy' && openID4VP) {
-				// Convert OID4VPSelectedCredential[] to Map<string, number>
-				// The existing implementation uses descriptor ID -> credential index
-				const selectionMap = new Map<string, number>();
-
-				const currentVcEntityList = await waitForCredentials();
-
-				// Note: This assumes the credential indices match vcEntityList
-				// In practice, we'd need more sophisticated matching
-				selectedCredentials.forEach(cred => {
-					selectionMap.set(cred.credentialQueryId, cred.batchId);
+			if (transportType === 'http_proxy') {
+				throw new OIDFlowError({
+					code: 'DISCONTINUED_HTTP_PROXY_FLOW',
+					message: 'HTTP proxy transport flow is discontinued. Please use WebSocket transport instead.',
 				});
-
-				const result = await openID4VP.sendAuthorizationResponse(
-					selectionMap,
-					currentVcEntityList
-				);
-
-				// Check result type
-				if (result && 'url' in result && result.url) {
-					return {
-						success: true,
-						redirectUri: result.url,
-					};
-				}
-
-				if (result && 'presentation_during_issuance_session' in result) {
-					return {
-						success: true,
-						responseData: {
-							presentation_during_issuance_session:
-								result.presentation_during_issuance_session,
-						},
-					};
-				}
-
-				return {
-					success: true,
-				};
 			}
 
 			throw new OIDFlowError({ code: 'NO_TRANSPORT_AVAILABLE', message: 'No transport available' });
@@ -455,12 +393,16 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		} finally {
 			setIsLoading(false);
 		}
-	}, [transportType, transport, openID4VP, onProgress, onError, keystore, api, waitForCredentials]);
+	}, [transportType, transport, onProgress, onError, keystore, api]);
 
 	/**
 	 * Handle DC API request - parse URL, match credentials, store session
 	 */
-	const handleDCAPIRequest = useCallback(async (request: DCAPIRequest, verifiedOrigin: string): Promise<OID4VPFlowResult> => {
+	const handleDCAPIRequest = useCallback(async (
+		request: DCAPIRequest,
+		selectedCredentialIDs: string[],
+		verifiedOrigin: string
+	): Promise<OID4VPFlowResult> => {
 		setIsLoading(true);
 		try {
 			const clientIdForTrust = request.clientId ?? verifiedOrigin;
@@ -486,13 +428,17 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				});
 			}
 
-			const credentials = await waitForCredentials();
-			const { matches, no_match_reason } = matchCredentials(credentials, request.dcqlQuery);
+			// We should filter the credentials based on the selectedCredentialIDs
+			// if provided otherwise use all available credentials.
+			const credentials = (await waitForCredentials())
+				.filter(vc => selectedCredentialIDs.length === 0 || selectedCredentialIDs.includes(String(vc.batchId)));
+
+			const { matches, no_match_reason, code } = matchCredentials(credentials, request.dcqlQuery);
 
 			if (matches.length === 0) {
 				throw new OIDFlowError({
-					code: no_match_reason || 'NO_MATCHING_CREDENTIALS',
-					message: 'No matching credentials',
+					code: code ?? 'NO_MATCHING_CREDENTIALS',
+					message: no_match_reason || 'No matching credentials',
 				});
 			}
 

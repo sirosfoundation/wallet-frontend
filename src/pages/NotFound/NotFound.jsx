@@ -1,6 +1,6 @@
 import React from 'react';
 import Logo from '../../components/Logo/Logo';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import Button from '../../components/Buttons/Button';
 import { useTenant } from '@/context/TenantContext';

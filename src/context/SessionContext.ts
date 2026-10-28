@@ -2,13 +2,18 @@ import React, { createContext } from 'react';
 import { BackendApi } from '../api';
 import type { LocalStorageKeystore } from '../services/LocalStorageKeystore';
 import { HpkeConfig } from '@/lib/utils/ohttpHelpers';
+import { OIDFlowClientAuthStore } from '@/hooks/useOIDFlowClientAuthStore';
+import { AuthTokens } from '@/lib/auth';
 
 export type SessionContextValue = {
 	api: BackendApi,
 	isLoggedIn: boolean,
 	keystore: LocalStorageKeystore,
 	logout: () => Promise<void>,
-	obliviousKeyConfig: HpkeConfig
+	consumeSessionCleared: () => boolean,
+	obliviousKeyConfig: HpkeConfig,
+	oidFlowClientAuthMaterialManager: OIDFlowClientAuthStore,
+	authTokens: AuthTokens,
 };
 
 const SessionContext: React.Context<SessionContextValue> = createContext({
@@ -17,6 +22,9 @@ const SessionContext: React.Context<SessionContextValue> = createContext({
 	keystore: undefined,
 	obliviousKeyConfig: null,
 	logout: async () => { },
+	consumeSessionCleared: () => false,
+	oidFlowClientAuthMaterialManager: undefined,
+	authTokens: undefined,
 });
 
 export default SessionContext;

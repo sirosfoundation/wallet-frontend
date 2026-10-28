@@ -21,7 +21,7 @@ export default async function brandingManifest(destDir: string, config: EnvConfi
 
 	const manifest = await generateManifest({
 		hash: brandingHash,
-		name: config.STATIC_NAME || 'wwWallet',
+		name: config.STATIC_NAME || 'SIROS ID (dev)',
 		icons,
 	});
 
@@ -62,7 +62,7 @@ export type GenerateManifestOptions = {
 	 */
 	hash?: string;
 	/**
-	 * Name of the app to use in the manifest. Falls back to 'wwWallet' if not provided.
+	 * Name of the app to use in the manifest. Falls back to 'SIROS ID (dev)' if not provided.
 	 */
 	name?: string;
 	/**
@@ -78,8 +78,8 @@ async function generateManifest({ hash, name, icons }: GenerateManifestOptions):
 	const hashSuffix = hash ? `?v=${hash}` : '';
 
 	return {
-		'short_name': name || 'wwWallet',
-		'name': name || 'wwWallet',
+		'short_name': name || 'SIROS ID (dev)',
+		'name': name || 'SIROS ID (dev)',
 		'icons': icons,
 		'screenshots': [
 			{
@@ -114,7 +114,7 @@ async function generateManifest({ hash, name, icons }: GenerateManifestOptions):
 		'start_url': '/',
 		'display': 'standalone',
 		'theme_color': '#111827',
-		'description': `${name || 'wwWallet'} enables secure storage and management of verifiable credentials.`,
+		'description': `${name || 'SIROS ID (dev)'} enables secure storage and management of verifiable credentials.`,
 		'background_color': '#ffffff',
 		'scope': '/',
 		'dir': 'ltr',

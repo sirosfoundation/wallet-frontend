@@ -1,5 +1,5 @@
 import { assert, describe, it } from "vitest";
-import { jsonParseTaggedBinary, jsonStringifyTaggedBinary, last } from "@/util";
+import { jsonParseTaggedBinary, jsonStringifyTaggedBinary, last } from '@/lib/utils';
 import { findMergeBase, foldNextEvent, foldOldEventsIntoBaseState, mergeEventHistories } from "./WalletStateSchema";
 import { WalletStateContainer, WalletStateOperations } from "./WalletStateSchemaVersion1";
 

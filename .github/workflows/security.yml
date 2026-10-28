@@ -16,25 +16,26 @@ jobs:
     name: Dependency Audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - name: Enable Corepack
+        run: corepack enable
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
-      - name: Clean Yarn cache
-        run: yarn cache clean
+          cache: 'pnpm'
       - name: Install dependencies
-        run: yarn install --frozen-lockfile --cache-folder /tmp/yarn-cache
+        run: pnpm install --frozen-lockfile
       - name: Run audit
-        run: yarn audit --level high || true
+        run: pnpm audit --audit-level high || true
 
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Dependency Review
-        uses: actions/dependency-review-action@v4
+        uses: actions/dependency-review-action@v5
         with:
           fail-on-severity: high

@@ -30,7 +30,6 @@ export const APP_VERSION = import.meta.env.VITE_APP_VERSION;
 export const BASE_PATH = config.base_path || '/';
 export const BACKEND_URL = config.wallet_backend_url;
 export const DID_KEY_VERSION: DidKeyVersion = config.did_key_version as DidKeyVersion;
-export const DISPLAY_CONSOLE = config.display_console;
 export const LOG_LEVEL: LogLevel = (config.log_level as LogLevel) || 'info';
 
 /**
@@ -116,7 +115,7 @@ export const DELEGATE_TRUST_TO_BACKEND: boolean = (() => {
 export const OPENID4VCI_REDIRECT_URI = config.openid4vci_redirect_uri ?  config.openid4vci_redirect_uri : "http://localhost:3000/";
 export const CLOCK_TOLERANCE = config.clock_tolerance && !isNaN(parseInt(config.clock_tolerance)) ? parseInt(config.clock_tolerance) : 60;
 export const STATIC_PUBLIC_URL = config.static_public_url || 'https://demo.wwwallet.org';
-export const STATIC_NAME = config.static_name || 'wwWallet';
+export const STATIC_NAME = config.static_name || 'SIROS ID (dev)';
 
 /**
  * When true, deleting a credential does NOT remove associated presentation
@@ -125,6 +124,15 @@ export const STATIC_NAME = config.static_name || 'wwWallet';
  * to keeping history.
  */
 export const PRESERVE_PRESENTATION_HISTORY: boolean = config.preserve_presentation_history === 'true';
+
+/**
+ * Shows the "Scan Physical ID" entry point on the Add Credentials page
+ * (only ever reachable when the native wrapper bridge is present regardless).
+ * Defaults to true to match the feature's existing behavior; tenants that
+ * don't want it offered can opt out via SCAN_PHYSICAL_ID_ENABLED=false.
+ */
+export const SCAN_PHYSICAL_ID_ENABLED: boolean = config.scan_physical_id_enabled !== 'false';
+export const FACETEC_API_URL: string | undefined = config.facetec_api_url;
 export const OPENID4VCI_PROOF_TYPE_PRECEDENCE = config.openid4vci_proof_type_precedence || 'jwt';
 export const FOLD_EVENT_HISTORY_AFTER_SECONDS = config.fold_event_history_after_seconds && !isNaN(parseInt(config.fold_event_history_after_seconds)) ? parseInt(config.fold_event_history_after_seconds) : 2592000; // 30 days
 export const DISPLAY_ISSUANCE_WARNINGS: boolean = config.display_issuance_warnings ? JSON.parse(config.display_issuance_warnings) : false;
@@ -139,31 +147,47 @@ export const SHOW_PWA_INSTALL_PROMPT = config.show_pwa_install_prompt === 'true'
 export const WALLET_COMPANION_INTEGRATION = config.wallet_companion_integration === 'true';
 export const POWERED_BY = config.powered_by;
 
+/**
+ * When true, the wallet answers go-wallet-backend's `request_attestation`
+ * sign request during an OID4VCI flow with a Wallet Instance Attestation
+ * (WIA) + PoP, which the engine forwards to the credential issuer's
+ * authorization server as OAuth-Client-Attestation / -PoP headers on the
+ * PAR/token request. Defaults to false — opt-in until an issuer actually
+ * requires or benefits from it.
+ *
+ * Tier 3 (backend_attested, informative): best-effort, never blocks issuance.
+ * See docs/WALLET_ATTESTATION.md for the flow, and
+ * docs/WIA_SPEC_COMPLIANCE_PLAN.md for the known limitations (cnf ≠ DPoP key,
+ * one PoP reused across PAR + token) and the plan to close them.
+ */
+export const WIA_ENABLED: boolean = config.wia_enabled === 'true';
+
 // ===== Transport Configuration =====
 
 /**
  * Transport allow-list
  * Controls which transports are permitted
- * Default: http_proxy,websocket enabled for backwards compatibility
+ * Default: websocket enabled for backwards compatibility
  * 'direct' disabled by default (requires ecosystem CORS support)
  */
 export const ALLOWED_TRANSPORTS: OIDFlowTransportType[] =
-	(config.allowed_transports || 'http_proxy,websocket')
+	(config.allowed_transports || 'websocket')
 		.split(',')
 		.map((t: string) => t.trim())
-		.filter((t: string) => ['http_proxy', 'websocket', 'direct'].includes(t)) as OIDFlowTransportType[];
+		.filter((t: string) => ['websocket', 'direct'].includes(t)) as OIDFlowTransportType[];
 
 /**
  * Transport preference order (first available wins)
  * Default prefers WebSocket over HTTP proxy over Direct
  */
 export const TRANSPORT_PREFERENCE: OIDFlowTransportType[] =
-	(config.transport_preference || 'websocket,http_proxy,direct')
+	(config.transport_preference || 'websocket,direct')
 		.split(',')
 		.map((t: string) => t.trim())
-		.filter((t: string) => ['http_proxy', 'websocket', 'direct'].includes(t)) as OIDFlowTransportType[];
+		.filter((t: string) => ['websocket', 'direct'].includes(t)) as OIDFlowTransportType[];
 
 /** Derived convenience checks */
+
 export const HTTP_PROXY_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('http_proxy');
 export const WEBSOCKET_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('websocket');
 export const DIRECT_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('direct');

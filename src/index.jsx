@@ -1,8 +1,8 @@
 // Index.jsx
 import React from 'react';
 import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router';
 import App from './App';
-import ConsoleBehavior from './ConsoleBehavior';
 import { logger } from './logger';
 import { initializeDataSource } from './indexedDB';
 import Modal from 'react-modal';
@@ -10,13 +10,28 @@ import '@fontsource/inter/400.css';
 import '@fontsource/inter/500.css';
 import '@fontsource/inter/600.css';
 import './index.css';
-import { BrowserRouter } from "react-router-dom";
 import AppProvider from './AppProvider';
+import GlobalErrorBoundary from './hocs/GlobalErrorBoundary';
+
+// Handle preload errors
+// Could occur if the wallet tries to load any stale (old) modules
+window.addEventListener('vite:preloadError', (e) => {
+	if (!navigator.onLine) return;
+
+	const KEY = 'vitePreloadReloadedAt';
+	const last = Number(sessionStorage.getItem(KEY) || 0);
+
+	if (Date.now() - last < 10_000) return;
+
+	e.preventDefault();
+
+	sessionStorage.setItem(KEY, String(Date.now()));
+
+	window.location.reload();
+});
 
 // Set root element for react-modal
 Modal.setAppElement('#root');
-
-ConsoleBehavior();
 
 // Initialize IndexedDB BEFORE React renders
 (async () => {
@@ -31,14 +46,11 @@ ConsoleBehavior();
 // Create root and render app
 const root = createRoot(document.getElementById('root'));
 root.render(
-	<BrowserRouter
-		future={{
-			v7_startTransition: true,
-			v7_relativeSplatPath: true,
-		}}
-	>
-		<AppProvider>
-			<App />
-		</AppProvider>
+	<BrowserRouter>
+		<GlobalErrorBoundary>
+			<AppProvider>
+				<App />
+			</AppProvider>
+		</GlobalErrorBoundary>
 	</BrowserRouter>
 );

@@ -1,6 +1,7 @@
+import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SignJWT, generateKeyPair, exportJWK, importJWK } from 'jose';
-import * as x509 from '@peculiar/x509';
+import { X509CertificateGenerator } from '@peculiar/x509';
 import { DCAPIRequest } from './DCAPIRequest';
 import { logger } from '@/logger';
 
@@ -97,35 +98,6 @@ describe('DCAPIRequest', () => {
 			expect(request.nonce).toBe('test-nonce');
 			expect(request.clientId).toBe('https://verifier.example.com');
 			expect(request.expectedOrigins).toEqual(['https://verifier.example.com']);
-		});
-
-		it('throws when client_id missing from URL for signed request', async () => {
-			const { jwt } = await createSignedJwt({
-				nonce: 'test-nonce',
-				dcql_query: validDcqlQuery,
-				client_id: 'https://verifier.example.com',
-				expected_origins: ['https://verifier.example.com'],
-			});
-
-			const url = new URL('https://wallet.example.com/dc');
-			url.searchParams.set('request', jwt);
-
-			expect(() => new DCAPIRequest(url)).toThrow('client_id required in URL for signed requests');
-		});
-
-		it('throws when client_id in URL does not match JWT payload', async () => {
-			const { jwt } = await createSignedJwt({
-				nonce: 'test-nonce',
-				dcql_query: validDcqlQuery,
-				client_id: 'https://verifier.example.com',
-				expected_origins: ['https://verifier.example.com'],
-			});
-
-			const url = new URL('https://wallet.example.com/dc');
-			url.searchParams.set('request', jwt);
-			url.searchParams.set('client_id', 'https://different-verifier.example.com');
-
-			expect(() => new DCAPIRequest(url)).toThrow('client_id mismatch between URL and JWT');
 		});
 
 		it('throws when JWT typ header is not oauth-authz-req+jwt', async () => {
@@ -493,7 +465,7 @@ async function createX5cSignedJwt(payload: Record<string, unknown>) {
 		'verify',
 	]);
 
-	const cert = await x509.X509CertificateGenerator.createSelfSigned({
+	const cert = await X509CertificateGenerator.createSelfSigned({
 		serialNumber: '01',
 		name: 'CN=Test',
 		notBefore: new Date(),

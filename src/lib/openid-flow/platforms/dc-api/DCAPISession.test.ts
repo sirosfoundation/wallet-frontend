@@ -33,6 +33,7 @@ async function createSignedJwt(payload: Record<string, unknown>, options: { alg?
 
 function createMockMode() {
 	return {
+		initialize: vi.fn().mockResolvedValue(undefined),
 		originHandshake: vi.fn().mockResolvedValue('https://verifier.example.com'),
 		send: vi.fn(),
 		close: vi.fn(),
@@ -45,7 +46,9 @@ describe('DCAPISession', () => {
 
 	beforeEach(() => {
 		mockMode = createMockMode();
-		vi.mocked(DCAPIWalletCompanionMode).mockImplementation(() => mockMode as any);
+		vi.mocked(DCAPIWalletCompanionMode).mockImplementation(function () {
+			return mockMode as any;
+		});
 		vi.stubGlobal('opener', {}); // Just needs to be truthy for mode detection
 	});
 
@@ -96,7 +99,10 @@ describe('DCAPISession', () => {
 			const session = new DCAPISession(url);
 			await session.initialize();
 
-			expect(mockMode.originHandshake).toHaveBeenCalledWith('test-request-123', undefined);
+			expect(mockMode.originHandshake).toHaveBeenCalledWith(
+				expect.objectContaining({ requestId: 'test-request-123' }),
+				undefined,
+			);
 		});
 
 		it('calls originHandshake with expected_origins for signed request', async () => {
@@ -115,10 +121,10 @@ describe('DCAPISession', () => {
 			const session = new DCAPISession(url);
 			await session.initialize();
 
-			expect(mockMode.originHandshake).toHaveBeenCalledWith('test-request-123', [
-				'https://verifier.example.com',
-				'https://alt.example.com',
-			]);
+			expect(mockMode.originHandshake).toHaveBeenCalledWith(
+				expect.objectContaining({ requestId: 'test-request-123' }),
+				['https://verifier.example.com', 'https://alt.example.com'],
+			);
 		});
 
 		it('calls verifySignature for signed requests', async () => {

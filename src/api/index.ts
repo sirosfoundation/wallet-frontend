@@ -3,21 +3,22 @@ import { Err, Ok, Result } from 'ts-results';
 
 import * as config from '../config';
 import { logger } from '../logger';
-import { fromBase64Url, jsonParseTaggedBinary, jsonStringifyTaggedBinary, toBase64Url, transformTaggedResponse } from '../util';
+import { fromBase64Url, jsonParseTaggedBinary, jsonStringifyTaggedBinary, toBase64Url, transformTaggedResponse } from '@/lib/utils';
 import { EncryptedContainer, makeAssertionPrfExtensionInputs, parsePrivateData, serializePrivateData } from '../services/keystore';
 import { CachedUser, LocalStorageKeystore } from '../services/LocalStorageKeystore';
 import { UserId, Verifier } from './types';
 import { useEffect, useCallback, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { UseStorageHandle, useClearStorages, useLocalStorage, useSessionStorage } from '../hooks/useStorage';
 import { addItem, getItem, EXCLUDED_INDEXEDDB_PATHS } from '../indexedDB';
 import { loginWebAuthnBeginOffline } from './LocalAuthentication';
-import { withAuthenticatorAttachmentFromHints, withHintsFromAllowCredentials } from '@/util-webauthn';
+import { withAuthenticatorAttachmentFromHints, withHintsFromAllowCredentials } from '@/lib/utils/webauthn';
 import { getTenantFromUrlPath, setStoredTenant, clearStoredTenant } from '../lib/tenant';
 import { clearOIDCState } from '../lib/oidc';
 import { AuthTokens } from '@/lib/auth';
 import { useAuthServerClient } from '@/hooks/useAuthServerClient';
-import { useTenant } from '@/context/TenantContext';
+import { UnsupportedSchemaVersionError } from '../services/WalletStateSchemaCommon';
+import { notify } from '../context/notifier';
 
 const walletBackendUrl = config.BACKEND_URL;
 
@@ -75,6 +76,7 @@ export interface BackendApi {
 		oidcIdToken?: string,
 	): Promise<
 		Result<void,
+			| 'unsupportedVersion'
 			| 'loginKeystoreFailed'
 			| 'passkeyInvalid'
 			| 'passkeyLoginFailedTryAgain'
@@ -107,6 +109,7 @@ export interface BackendApi {
 		cachedUser: CachedUser | undefined,
 		keystore?: LocalStorageKeystore,
 	): Promise<Result<void,
+		| 'unsupportedVersion'
 		| 'syncFailed'
 		| 'loginKeystoreFailed'
 		| 'passkeyInvalid'
@@ -116,18 +119,21 @@ export interface BackendApi {
 	>>;
 }
 
-export function useApi(isOnlineProp: boolean = true): BackendApi {
+export type UseApiProps = {
+	isOnline: boolean;
+	authTokens: AuthTokens;
+}
+
+export function useApi({
+	isOnline: isOnlineProp = true,
+	authTokens,
+}: UseApiProps): BackendApi {
 	const isOnline = useMemo(() => isOnlineProp === null ? true : isOnlineProp, [isOnlineProp]);
 	const authServer = useAuthServerClient();
-	const { urlTenantId: tenantId } = useTenant();
+	const tenantId = getTenantFromUrlPath() ?? 'default';
 	const [userHandle,] = useSessionStorage<string | null>("userHandle", null);
 	const [cachedUsers] = useLocalStorage<CachedUser[] | null>("cachedUsers", null);
 	const [sessionState, setSessionState, clearSessionState] = useSessionStorage<SessionState | null>("sessionState", null);
-
-	const authTokens = useMemo(
-		() => AuthTokens.fromStorage({ authServerClient: authServer, tenantId, storage: window.sessionStorage }),
-		[authServer, tenantId]
-	);
 
 	/**
 	 * Synchronization tag for the encrypted private data. To prevent data loss,
@@ -154,7 +160,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 
 	// Define clearSession early so it can be used by token refresh config
 	const clearSession = useCallback((): void => {
-		authServer.logout().catch((e) => logger.error('Failed to clear server session', e));
+		authServer.logout(tenantId ?? 'default').catch((e) => logger.error('Failed to clear server session', e));
 		clearSessionStorage();
 		authTokens.clear();
 		removePrivateDataEtag();
@@ -162,7 +168,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		clearOIDCState('registration'); // Clear OIDC gate tokens on logout
 		clearOIDCState('login');
 		events.dispatchEvent(new CustomEvent<ClearSessionEvent>(CLEAR_SESSION_EVENT));
-	}, [authServer, authTokens, clearSessionStorage, removePrivateDataEtag]);
+	}, [authServer, authTokens, clearSessionStorage, removePrivateDataEtag, tenantId]);
 
 	// Stable ref for clearSession to avoid stale closures in token refresh
 	const clearSessionRef = useRef<() => void>(clearSession);
@@ -259,6 +265,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		cachedUser: CachedUser | undefined,
 		keystore?: LocalStorageKeystore,
 	): Promise<Result<void,
+		| 'unsupportedVersion'
 		| 'syncFailed'
 		| 'loginKeystoreFailed'
 		| 'passkeyInvalid'
@@ -281,6 +288,10 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 				try {
 					const remotePrivateData = getPrivateDataResponse.data.privateData;
 					const mergeResult = await keystore.syncWithRemoteData(remotePrivateData);
+					if (!mergeResult.ok && mergeResult.val === 'unsupportedVersion') {
+						notify('unsupportedVersion');
+						return Err('unsupportedVersion');
+					}
 					if (mergeResult.ok) {
 						const newEtag =
 							getPrivateDataResponse.headers?.['x-private-data-etag'] ??
@@ -453,6 +464,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		urlTenantId?: string,
 		oidcIdToken?: string
 	): Promise<Result<void,
+		| 'unsupportedVersion'
 		| 'loginKeystoreFailed'
 		| 'passkeyInvalid'
 		| 'passkeyLoginFailedTryAgain'
@@ -574,6 +586,9 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 		} catch (e) {
 			logger.error("Login failed", e);
 
+			if (e instanceof UnsupportedSchemaVersionError) {
+				return Err('unsupportedVersion');
+			}
 
 			if (e?.response?.status === 401) {
 				// OIDC gate token expired or invalid - user must re-authenticate via IdP
@@ -657,6 +672,18 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 							oidcIdToken,
 						);
 
+						// Seed the private-data etag after signup.
+						// We want to do this here to ensure the private-data etag is set
+						// immediately after signup, avoiding potential race conditions.
+						try {
+							updatePrivateDataEtag(
+								await authedRequest.get('/user/session/private-data')
+							);
+						} catch (e) {
+							logger.error('Failed to seed private-data etag after signup');
+							logger.debug('Error details:', e);
+						}
+
 						// Store the tenant from the response, falling back to 'default' if not provided
 						// This ensures we always have a valid tenant context
 						const tenantToStore = finishResult.tenantId ?? 'default';
@@ -713,7 +740,7 @@ export function useApi(isOnlineProp: boolean = true): BackendApi {
 			if (errorMsg === 'invite_invalid') return Err('inviteInvalid');
 			return Err('passkeySignupFinishFailedServerError');
 		}
-	}, [authServer, setSession]);
+	}, [authServer, authedRequest, setSession, updatePrivateDataEtag]);
 
 	const addEventListener = useCallback((type: ApiEventType, listener: EventListener, options?: boolean | AddEventListenerOptions): void => {
 		events.addEventListener(type, listener, options);

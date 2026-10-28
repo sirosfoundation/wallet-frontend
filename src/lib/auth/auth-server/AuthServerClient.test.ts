@@ -4,13 +4,11 @@ import { AuthServerClient } from './AuthServerClient';
 
 vi.mock('axios', () => ({
 	default: {
-		post: vi.fn(),
-		delete: vi.fn(),
+		request: vi.fn(),
 	},
 }));
 
-const post = vi.mocked(axios.post);
-const del = vi.mocked(axios.delete);
+const request = vi.mocked(axios.request);
 
 const BASE_URL = 'https://backend.example.com';
 
@@ -71,14 +69,13 @@ describe('AuthServerClient', () => {
 	let client: AuthServerClient;
 
 	beforeEach(() => {
-		post.mockReset();
-		del.mockReset();
+		request.mockReset();
 		client = new AuthServerClient({ baseUrl: BASE_URL });
 	});
 
 	describe('requestAccessToken', () => {
 		it('posts the token request with the expected body and header', async () => {
-			post.mockResolvedValue(okData(tokenData));
+			request.mockResolvedValue(okData(tokenData));
 
 			const res = await client.requestAccessToken(
 				'wallet-backend',
@@ -87,53 +84,57 @@ describe('AuthServerClient', () => {
 				true,
 			);
 
-			expect(post).toHaveBeenCalledTimes(1);
-			const [url, body, cfg] = post.mock.calls[0];
-			expect(url).toBe(`${BASE_URL}/auth/token`);
-			expect(body).toEqual({
+			expect(request).toHaveBeenCalledTimes(1);
+			const [cfg] = request.mock.calls[0];
+			expect(cfg?.method).toBe('POST');
+			expect(cfg?.url).toBe(`${BASE_URL}/auth/token`);
+			expect(cfg?.data).toEqual({
 				aud: 'wallet-backend',
 				tac: 'rl',
 				tenant_id: 'default',
 				anonymous: true,
 			});
-			expect(cfg?.headers).toMatchObject({ 'X-Token-Mode': 'session' });
+			expect(cfg?.headers).toMatchObject({
+				'X-Token-Mode': 'session',
+				'X-Tenant-ID': 'default',
+			});
 			expect(res).toEqual(tokenData);
 		});
 
 		it('dedupes concurrent identical requests', async () => {
-			post.mockResolvedValue(okData(tokenData));
+			request.mockResolvedValue(okData(tokenData));
 
 			const [a, b] = await Promise.all([
 				client.requestAccessToken('wallet-backend', 'default', 'rl', true),
 				client.requestAccessToken('wallet-backend', 'default', 'rl', true),
 			]);
 
-			expect(post).toHaveBeenCalledTimes(1);
+			expect(request).toHaveBeenCalledTimes(1);
 			expect(a).toEqual(b);
 		});
 
 		it('does not dedupe requests with different params', async () => {
-			post.mockResolvedValue(okData(tokenData));
+			request.mockResolvedValue(okData(tokenData));
 
 			await Promise.all([
 				client.requestAccessToken('wallet-backend', 'default', 'rl', true),
 				client.requestAccessToken('wallet-backend', 'default', 'rwlid'),
 			]);
 
-			expect(post).toHaveBeenCalledTimes(2);
+			expect(request).toHaveBeenCalledTimes(2);
 		});
 
 		it('issues a fresh request once the previous one settles', async () => {
-			post.mockResolvedValue(okData(tokenData));
+			request.mockResolvedValue(okData(tokenData));
 
 			await client.requestAccessToken('wallet-backend', 'default', 'rl', true);
 			await client.requestAccessToken('wallet-backend', 'default', 'rl', true);
 
-			expect(post).toHaveBeenCalledTimes(2);
+			expect(request).toHaveBeenCalledTimes(2);
 		});
 
 		it('throws on an invalid token response', async () => {
-			post.mockResolvedValue(okData({ nope: true }));
+			request.mockResolvedValue(okData({ nope: true }));
 
 			await expect(
 				client.requestAccessToken('wallet-backend', 'default'),
@@ -143,13 +144,13 @@ describe('AuthServerClient', () => {
 
 	describe('loginBegin', () => {
 		it('sends session mode + tenant headers and returns parsed data', async () => {
-			post.mockResolvedValue(okData(loginBeginData));
+			request.mockResolvedValue(okData(loginBeginData));
 
 			const res = await client.loginBegin('acme');
 
-			const [url, body, cfg] = post.mock.calls[0];
-			expect(url).toBe(`${BASE_URL}/auth/passkey/login/begin`);
-			expect(body).toEqual({});
+			const [cfg] = request.mock.calls[0];
+			expect(cfg?.url).toBe(`${BASE_URL}/auth/passkey/login/begin`);
+			expect(cfg?.data).toEqual({});
 			expect(cfg?.headers).toMatchObject({
 				'X-Token-Mode': 'session',
 				'X-Tenant-ID': 'acme',
@@ -159,18 +160,18 @@ describe('AuthServerClient', () => {
 		});
 
 		it('attaches the OIDC id token as a bearer when provided', async () => {
-			post.mockResolvedValue(okData(loginBeginData));
+			request.mockResolvedValue(okData(loginBeginData));
 
 			await client.loginBegin('acme', 'oidc-id-token');
 
-			const [, , cfg] = post.mock.calls[0];
+			const [cfg] = request.mock.calls[0];
 			expect(cfg?.headers).toMatchObject({
 				Authorization: 'Bearer oidc-id-token',
 			});
 		});
 
 		it('throws on an invalid response', async () => {
-			post.mockResolvedValue(okData({ challengeId: 123 }));
+			request.mockResolvedValue(okData({ challengeId: 123 }));
 
 			await expect(client.loginBegin('acme')).rejects.toThrow(
 				'Invalid login begin response',
@@ -180,7 +181,7 @@ describe('AuthServerClient', () => {
 
 	describe('loginFinish', () => {
 		it('posts the challenge and credential and returns parsed data', async () => {
-			post.mockResolvedValue(okData(loginFinishData));
+			request.mockResolvedValue(okData(loginFinishData));
 
 			const res = await client.loginFinish(
 				'chal-1',
@@ -188,29 +189,29 @@ describe('AuthServerClient', () => {
 				'default',
 			);
 
-			const [url, body] = post.mock.calls[0];
-			expect(url).toBe(`${BASE_URL}/auth/passkey/login/finish`);
-			expect(body).toMatchObject({ challengeId: 'chal-1' });
+			const [cfg] = request.mock.calls[0];
+			expect(cfg?.url).toBe(`${BASE_URL}/auth/passkey/login/finish`);
+			expect(cfg?.data).toMatchObject({ challengeId: 'chal-1' });
 			expect(res).toEqual(loginFinishData);
 		});
 	});
 
 	describe('registerBegin', () => {
 		it('posts tenantId + inviteCode in the body', async () => {
-			post.mockResolvedValue(okData(registerBeginData));
+			request.mockResolvedValue(okData(registerBeginData));
 
 			await client.registerBegin('acme', 'invite-123');
 
-			const [url, body, cfg] = post.mock.calls[0];
-			expect(url).toBe(`${BASE_URL}/auth/passkey/register/begin`);
-			expect(body).toEqual({ tenantId: 'acme', inviteCode: 'invite-123' });
+			const [cfg] = request.mock.calls[0];
+			expect(cfg?.url).toBe(`${BASE_URL}/auth/passkey/register/begin`);
+			expect(cfg?.data).toEqual({ tenantId: 'acme', inviteCode: 'invite-123' });
 			expect(cfg?.headers).toMatchObject({ 'X-Tenant-ID': 'acme' });
 		});
 	});
 
 	describe('registerFinish', () => {
 		it('posts displayName, privateData and credential', async () => {
-			post.mockResolvedValue(okData(registerFinishData));
+			request.mockResolvedValue(okData(registerFinishData));
 
 			const res = await client.registerFinish(
 				'chal-2',
@@ -220,9 +221,9 @@ describe('AuthServerClient', () => {
 				'acme',
 			);
 
-			const [url, body] = post.mock.calls[0];
-			expect(url).toBe(`${BASE_URL}/auth/passkey/register/finish`);
-			expect(body).toMatchObject({
+			const [cfg] = request.mock.calls[0];
+			expect(cfg?.url).toBe(`${BASE_URL}/auth/passkey/register/finish`);
+			expect(cfg?.data).toMatchObject({
 				challengeId: 'chal-2',
 				displayName: 'Bob',
 				privateData: { some: 'privateData' },
@@ -232,14 +233,21 @@ describe('AuthServerClient', () => {
 	});
 
 	describe('logout', () => {
-		it('deletes the session with credentials', async () => {
-			del.mockResolvedValue(okData({}));
+		it('deletes the session with credentials and tenant headers', async () => {
+			request.mockResolvedValue(okData({}));
 
-			await client.logout();
+			await client.logout('acme');
 
-			expect(del).toHaveBeenCalledWith(
-				`${BASE_URL}/auth/session`,
-				expect.objectContaining({ withCredentials: true }),
+			expect(request).toHaveBeenCalledWith(
+				expect.objectContaining({
+					method: 'DELETE',
+					url: `${BASE_URL}/auth/session`,
+					withCredentials: true,
+					headers: expect.objectContaining({
+						'X-Token-Mode': 'session',
+						'X-Tenant-ID': 'acme',
+					}),
+				}),
 			);
 		});
 	});

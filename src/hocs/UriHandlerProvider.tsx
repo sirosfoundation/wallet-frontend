@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useContext, Suspense } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router";
 import StatusContext from "../context/StatusContext";
 import { logger } from "@/logger";
 import SessionContext from "../context/SessionContext";
@@ -71,6 +71,13 @@ export const UriHandlerProvider = ({ children }: React.PropsWithChildren) => {
 		cachedUser,
 		keystore
 	]);
+
+	useEffect(() => {
+		if (!isLoggedIn) {
+			setCachedUser(null);
+			setSynced(false);
+		}
+	}, [isLoggedIn]);
 
 	useEffect(() => {
 		if (!getCalculatedWalletState || !cachedUser || !syncPrivateData) {

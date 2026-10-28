@@ -1,6 +1,6 @@
 // App.jsx
 import React, { Suspense, useMemo } from 'react';
-import { Routes, Route, Outlet, useLocation } from 'react-router-dom';
+import { Routes, Route, Outlet, useLocation } from 'react-router';
 
 import FadeInContentTransition from './components/Transitions/FadeInContentTransition';
 import Snowfalling from './components/ChristmasAnimation/Snowfalling';
@@ -24,19 +24,21 @@ const lazyWithDelay = (importFunction, delay = 1000) => {
 const PrivateRoute = React.lazy(() => import('./components/Auth/PrivateRoute'));
 const NotificationOfflineWarning = React.lazy(() => import('./components/Notifications/NotificationOfflineWarning'));
 const AddCredentials = React.lazy(() => import('./pages/AddCredentials/AddCredentials'));
+const ScanPhysicalID = React.lazy(() => import('./pages/AddCredentials/ScanPhysicalID'));
 const Credential = React.lazy(() => import('./pages/Home/Credential'));
 const CredentialHistory = React.lazy(() => import('./pages/Home/CredentialHistory'));
 const History = React.lazy(() => import('./pages/History/History'));
 const Pending = React.lazy(() => import('./pages/Pending/Pending'));
 const HistoryDetail = React.lazy(() => import('./pages/History/HistoryDetail'));
 const Home = React.lazy(() => import('./pages/Home/Home'));
-const SendCredentials = React.lazy(() => import('./pages/SendCredentials/SendCredentials'));
+const ShareCredentials = React.lazy(() => import('./pages/ShareCredentials/ShareCredentials'));
 const Settings = React.lazy(() => import('./pages/Settings/Settings'));
 const VerificationResult = React.lazy(() => import('./pages/VerificationResult/VerificationResult'));
 const OpenIDFlowCallback = React.lazy(() => import('./pages/OpenIDFlowCallback/OpenIDFlowCallback'));
 
 const Layout = lazyWithDelay(() => import('./components/Layout/Layout'), 400);
 const Login = lazyWithDelay(() => import('./pages/Login/Login'), 400);
+const Signup = lazyWithDelay(() => import('./pages/Signup/Signup'), 400);
 const LoginState = lazyWithDelay(() => import('./pages/Login/LoginState'), 400);
 const NotFound = lazyWithDelay(() => import('./pages/NotFound/NotFound'), 400);
 const OIDCCallback = lazyWithDelay(() => import('./pages/OIDCCallback/OIDCCallback'), 400);
@@ -112,7 +114,8 @@ function App() {
 							<Route path="pending" element={<Pending />} />
 							<Route path="history/:transactionId" element={<HistoryDetail />} />
 							<Route path="add" element={<AddCredentials />} />
-							<Route path="send" element={<SendCredentials />} />
+							<Route path="add/digital-id" element={<ScanPhysicalID />} />
+							<Route path="share" element={<ShareCredentials />} />
 							<Route path="verification/result" element={<VerificationResult />} />
 						</Route>
 						{/**
@@ -120,6 +123,7 @@ function App() {
 						 */}
 						<Route element={<PublicRouteWrapper/>}>
 							<Route path="login" element={<Login />} />
+							<Route path="signup" element={<Signup />} />
 							<Route path="login-state" element={<LoginState />} />
 							<Route path="oidc/cb" element={<OIDCCallback />} />
 							<Route path="*" element={<NotFound />} />

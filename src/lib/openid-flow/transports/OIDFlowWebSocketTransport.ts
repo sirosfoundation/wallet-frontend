@@ -19,9 +19,9 @@ import type {
 	OIDFlowResponse,
 	OIDFlowProgressEvent
 } from '../types/OIDFlowTypes';
-import type { OID4VCIFlowParams, OID4VCIFlowResult, OID4VCIIssuerInfo } from '../types/OID4VCITypes';
+import type { OID4VCIFlowParams, OID4VCIFlowResult } from '../types/OID4VCITypes';
 import type { OID4VPFlowParams, OID4VPFlowResult, OID4VPVerifierInfo } from '../types/OID4VPTypes';
-import type { CredentialsMatchedResult } from '@/services/CredentialMatchingService';
+import type { CredentialsMatchedResult } from '@/lib/services/CredentialMatchingService';
 import { logger } from '@/logger';
 import { TrustEvaluators, TrustStatus } from '../types';
 import { DcqlQuery } from 'dcql';
@@ -64,7 +64,7 @@ interface ProofTypesSupported {
 export interface SignRequest {
 	flowId: string;
 	messageId: string;
-	action: 'generate_proof' | 'sign_presentation';
+	action: 'generate_proof' | 'sign_presentation' | 'sign_client_auth';
 	params: {
 		audience?: string;
 		nonce?: string;
@@ -80,6 +80,12 @@ export interface SignRequest {
 		}>;
 		responseUri?: string;
 		verifierJwkThumbprint?: string;
+		htm?: string;
+		htu?: string;
+		dpopNonce?: string;
+		ath?: string;
+		keyId?: string;
+		attestationChallenge?: string;
 	};
 }
 
@@ -100,6 +106,10 @@ export interface SignResponse {
 	proofJwt?: string;       // single proof (legacy)
 	proofs?: ProofObject[];  // batch proofs
 	vpToken?: string;
+	clientAttestation?: string;
+	clientAttestationPoP?: string;
+	dpopKeyId?: string;
+	dpopProof?: string;
 }
 
 /**
@@ -174,10 +184,6 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			evaluateIssuerTrust: async () => ({ trusted: false }),
 			evaluateVerifierTrust: async () => ({ trusted: false }),
 		};
-	}
-
-	getCurrentFlowId(): string | null {
-		return this.currentFlowId;
 	}
 
 	// ===== Connection Lifecycle =====
@@ -327,6 +333,12 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				credential_offer_uri: params.credentialOfferUri,
 				offer: params.credentialOffer,
 				redirect_uri: params.redirectUri,  // Include redirect URI for authorization code flow continuation
+				// Wire names match go-wallet-backend's FlowStartMessage exactly
+				// (internal/engine/messages.go) - see OID4VCITypes.ts for why
+				// these are generated transport-agnostically, once, upstream
+				// of this WebSocket-specific encoding.
+				client_attestation: params.clientAttestation,
+				client_attestation_pop: params.clientAttestationPoP,
 			});
 
 			return this.mapOID4VCIResponse(response);
@@ -421,9 +433,6 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		if (payload?.issuer_metadata) {
 			result.issuerMetadata = payload.issuer_metadata as OID4VCIFlowResult['issuerMetadata'];
 		}
-		if (payload?.issuer_info) {
-			result.issuerInfo = mapIssuerInfo(payload.issuer_info as Record<string, unknown>);
-		}
 		if (payload?.credential_configurations) {
 			result.credentialConfigurations = payload.credential_configurations as OID4VCIFlowResult['credentialConfigurations'];
 		}
@@ -457,13 +466,11 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			result.selectedCredentialConfigurationId = result.credentialOffer.credential_configuration_ids[0];
 		}
 
-		// Credential issuer identifier — from payload, issuer_info, credential_offer, or top-level (flow_complete)
+		// Credential issuer identifier — from payload, credential_offer, or top-level (flow_complete)
 		if (payload?.credential_issuer) {
 			result.credentialIssuerIdentifier = payload.credential_issuer as string;
 		} else if (response.credential_issuer) {
 			result.credentialIssuerIdentifier = response.credential_issuer as string;
-		} else if (result.issuerInfo?.identifier) {
-			result.credentialIssuerIdentifier = result.issuerInfo.identifier;
 		} else if (result.credentialOffer?.credential_issuer) {
 			result.credentialIssuerIdentifier = result.credentialOffer.credential_issuer;
 		}
@@ -583,9 +590,6 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			} else if (typeof creds === 'object') {
 				result.conformantCredentials = new Map(Object.entries(creds));
 			}
-		}
-		if (response.verifier_info) {
-			result.verifierInfo = mapVerifierInfo(response.verifier_info as Record<string, unknown>);
 		}
 		if (response.transaction_data) {
 			result.transactionData = response.transaction_data as OID4VPFlowResult['transactionData'];
@@ -863,7 +867,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		const request: SignRequest = {
 			flowId,
 			messageId: (message.message_id as string) || (message.messageId as string) || '',
-			action: message.action as 'generate_proof' | 'sign_presentation',
+			action: message.action as 'generate_proof' | 'sign_presentation' | 'sign_client_auth',
 			params: {
 				audience: rawParams.audience as string | undefined,
 				issuer: rawParams.issuer as string | undefined,
@@ -873,6 +877,12 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				count: rawParams.count as number | undefined,
 				responseUri: rawParams.response_uri as string | undefined,
 				verifierJwkThumbprint: rawParams.verifier_jwk_thumbprint as string | undefined,
+				htm: rawParams.htm as string | undefined,
+				htu: rawParams.htu as string | undefined,
+				dpopNonce: rawParams.dpop_nonce as string | undefined,
+				attestationChallenge: rawParams.attestation_challenge as string | undefined,
+				ath: rawParams.ath as string | undefined,
+				keyId: rawParams.key_id as string | undefined,
 				credentialsToInclude: (
 					rawParams.credentials_to_include as Array<{
 						credential_id: string;
@@ -943,6 +953,10 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			if (response.proofJwt) msg.proof_jwt = response.proofJwt;
 			if (response.proofs) msg.proofs = response.proofs;
 			if (response.vpToken) msg.vp_token = response.vpToken;
+			if (response.clientAttestation) msg.client_attestation = response.clientAttestation;
+			if (response.clientAttestationPoP) msg.client_attestation_pop = response.clientAttestationPoP;
+			if (response.dpopKeyId) msg.dpop_key_id = response.dpopKeyId;
+			if (response.dpopProof) msg.dpop_proof = response.dpopProof;
 		}
 
 		try {
@@ -1260,25 +1274,6 @@ function mapVerifierInfo(raw: Record<string, unknown>): OID4VPVerifierInfo {
 		logo: parseLogo(raw.logo),
 		clientIdScheme: raw.client_id_scheme as string | undefined,
 		trustFramework: raw.framework as string | undefined,
-	};
-}
-
-/**
- * Map a raw issuer info object from the backend into the typed frontend
- * representation. Handles the backend's snake_case `trusted_status` field
- * as well as the legacy `trusted` boolean.
- *
- * Returns undefined for identifier if the backend doesn't provide a valid string,
- * rather than defaulting to empty string which could mask wire-format issues.
- */
-function mapIssuerInfo(raw: Record<string, unknown>): OID4VCIIssuerInfo {
-	return {
-		identifier: typeof raw.identifier === 'string' ? raw.identifier : undefined,
-		name: raw.name as string | undefined,
-		logo: parseLogo(raw.logo),
-		trustedStatus: parseTrustStatus(raw.trusted_status, raw.trusted),
-		reason: raw.reason as string | undefined,
-		metadata: raw.metadata as Record<string, unknown> | undefined,
 	};
 }
 

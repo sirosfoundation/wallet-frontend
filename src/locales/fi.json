@@ -20,27 +20,27 @@
 		"accept": "Hyväksy",
 		"and": "ja",
 		"cancel": "Peruuta",
+		"close": "Sulje",
 		"continue": "Jatka",
+		"declineAndExit": "Hylkää ja poistu",
 		"delete": "Poista",
 		"externalPasskey": "Passkey turva-avaimella",
 		"hybridPasskey": "Passkey lähellä olevalla laitteella",
 		"loading": "Ladataan...",
+		"logout": "Kirjaudu ulos",
 		"navItemAddCredentials": "Lisää todistuksia",
 		"navItemAddCredentialsSimple": "Lisää",
 		"navItemCredentials": "Todistukset",
 		"navItemHistory": "Historia",
-		"navItemProfile": "Profiili",
-		"navItemSendCredentials": "Lähetä todistuksia",
+		"navItemMore": "Lisää",
 		"navItemSendCredentialsSimple": "Lähetä",
 		"navItemSettings": "Asetukset",
+		"navItemShareCredentials": "Jaa todistuksia",
+		"navItemShareCredentialsSimple": "Jaa",
 		"next": "Seuraava",
 		"offline": "Offline",
 		"offlineTitle": "Olet offline. Sinulla ei ole pääsyä tänne juuri nyt.",
 		"online": "Online",
-		"passwordHideAriaLabel": "Piilota salasana",
-		"passwordHideTitle": "Napsauta piilottaaksesi salasanan",
-		"passwordShowAriaLabel": "Näytä salasana",
-		"passwordShowTitle": "Napsauta näyttääksesi salasanan",
 		"platformPasskey": "Passkey tällä laitteella",
 		"previous": "Edellinen",
 		"privateDataConflict": "Istuntosi ei ole synkronoitu palvelimen kanssa. Kirjaudu ulos ja kirjaudu sitten uudelleen sisään.",
@@ -51,15 +51,34 @@
 		"showMore": "Näytä lisää",
 		"submit": "Lähetä",
 		"tryAgain": "Yritä uudelleen",
-		"walletName": "wwWallet"
+		"walletName": "SIROS ID (dev)"
 	},
 	"credentialInfo": {
 		"legendAriaLabel": "Attribuuttien selite",
 		"legendRequested": "Todentajan pyytämä",
 		"legendRequired": "Pakollinen"
 	},
+	"credentialTypeCard": {
+		"selectAriaLabel": "Valitse todistus {{name}}",
+		"selectedAriaLabel": "Tämä todistus on tällä hetkellä valittuna"
+	},
+	"errors": {
+		"walletServiceAuth": {
+			"description": "Lompakko ei voinut tunnistautua lompakkopalveluun. Kirjaudu sisään uudelleen.",
+			"title": "Lompakkopalvelun todennus epäonnistui"
+		}
+	},
 	"expiredRibbon": {
 		"expired": "Vanhentunut"
+	},
+	"globalError": {
+		"contactSupport": "Tai ota meihin yhteyttä osoitteessa support@siros.org.",
+		"messages": {
+			"default": "Ilmoita tästä ongelmasta, jotta voimme tutkia sitä.",
+			"unsupportedVersion": "Lompakkosi tallennettiin sovelluksen uudemmalla versiolla. Päivitä lataamalla sivu uudelleen, ja jos ongelma jatkuu, ilmoita siitä."
+		},
+		"reportIssueButton": "Ilmoita Ongelmasta",
+		"title": "Tapahtui odottamaton virhe"
 	},
 	"issuance": {
 		"credentialsHaveErrors": "Vastaanotettavan todistuksen vahvistuksessa havaittiin virheitä.",
@@ -93,17 +112,12 @@
 		"acceptPolicies": "Hyväksyn <policyLinks/>.",
 		"alreadyHaveAccountQuestion": "Onko sinulla jo lompakkotili? ",
 		"authOnceMoreLogin": "Todenna passkeyllasi vielä kerran viimeistelläksesi lompakon avauksen.",
-		"capitalLetter": "Vähintään yksi iso kirjain",
 		"choosePasskeyPlatform": "Valitse haluamasi passkey-tyyppi",
 		"choosePasskeyUsername": "Lompakon nimi",
-		"confirmPasswordLabel": "Vahvista salasana",
 		"enterPasskeyName": "Janen lompakko",
-		"enterPassword": "Syötä salasanasi",
 		"enterUsername": "Syötä käyttäjänimesi",
-		"enterconfirmPasswordLabel": "Syötä salasanan vahvistus",
 		"fillInFieldsError": "Täytä kaikki pakolliset kentät",
 		"forgetCachedUser": "Napsauta unohtaaksesi tallennetun käyttäjän {{name}}",
-		"incorrectCredentialsError": "Väärä käyttäjänimi tai salasana",
 		"inviteInvalid": "Kutsukoodi on virheellinen tai vanhentunut.",
 		"inviteRequired": "Kutsukoodi vaaditaan rekisteröitymiseen tähän palveluntarjoajaan.",
 		"login": "Kirjaudu",
@@ -118,7 +132,7 @@
 		"loginWithSecurityKey": "Kirjaudu turva-avaimella",
 		"messageOffline": "Olet offline. Jotkin toiminnot eivät ehkä ole käytettävissä.",
 		"newHereQuestion": "Eikö sinulla ole lompakkotiliä? ",
-		"number": "Vähintään yksi numero",
+		"oidcGateError": "OIDC-yhdyskäytävän määritysvirhe. Ota yhteyttä tukeen.",
 		"or": "TAI",
 		"passkeyInvalid": "Tuntematon passkey, käyttäjä on mahdollisesti poistanut sen.",
 		"passkeyLoginFailedServerError": "Passkey-kirjautumisen aloittaminen epäonnistui, yritä myöhemmin uudelleen.",
@@ -129,23 +143,18 @@
 		"passkeySignupKeystoreFailed": "Lompakon avainvaraston alustaminen epäonnistui, yritä uudelleen.",
 		"passkeySignupPrfNotSupported": "Tätä selainta tai turva-avainta ei tueta. Varmista, että selaimesi tukee WebAuthn PRF -laajennusta ja turva-avaimesi, jos käytössä, tukee \"hmac-secret\" -laajennusta. <docLink>Lue lisää täältä</docLink>.",
 		"passkeySignupPrfNotSupportedAriaLabel": "Lue lisää tuetuista selaimista tai turva-avaimista",
-		"passwordLabel": "Salasana",
-		"passwordLength": "Vähimmäispituus: 8 merkkiä",
-		"passwordUnlockFailed": "Lompakon avaaminen salasanalla epäonnistui",
-		"passwordsNotMatchError": "Salasanat eivät täsmää",
+		"passkeySignupPrfRetryFailed": "Passkeyn luominen epäonnistui uudelleenyrityksen jälkeen. Yritä uudelleen.",
 		"privateDataConflict": "Toinen istunto tällä tilillä häiritsi kirjautumisyritystä. Yritä uudelleen.",
 		"reachedLengthLimit": "Pituusraja ylitetty",
 		"signUp": "Rekisteröidy",
 		"signUpSubmit": "Rekisteröidy",
 		"signUpWithPasskey": "Luo tili Passkeyllä",
 		"signUpWithSecurityKey": "Käytä turva-avainta",
-		"specialCharacter": "Vähintään yksi erikoismerkki",
-		"strength": "Vahvuus",
 		"submitting": "Lähetetään...",
+		"unsupportedVersion": "Tämän lompakon tiedot käyttävät versiota, jota tämä sovellus ei tue. Päivitä sovellus ja yritä uudelleen.",
 		"useOtherAccount": "Käytä toista tiliä",
 		"usernameExistsError": "Käyttäjätilin luominen epäonnistui, käyttäjänimi on jo olemassa",
 		"usernameLabel": "Käyttäjänimi",
-		"weakPasswordError": "Heikko salasana",
 		"welcomeMessage": "Tervetuloa <highlight>$t(common.walletName)</highlight>"
 	},
 	"loginState": {
@@ -178,6 +187,10 @@
 		"success": {
 			"message": "Toiminto suoritettiin onnistuneesti.",
 			"title": "Onnistui"
+		},
+		"unsupportedVersion": {
+			"message": "Lompakkoasi muutettiin sovelluksen versiolla, jota tämä versio ei tue. Päivitä sovellus.",
+			"title": "Lompakon synkronointi epäonnistui"
 		}
 	},
 	"oidcGate": {
@@ -202,21 +215,65 @@
 			"title": "Valtuutusvirhe"
 		},
 		"errorCodes": {
+			"ABORTED": {
+				"description": "Pyyntö peruutettiin.",
+				"title": "Pyyntö peruutettu"
+			},
+			"ACCESS_DENIED": {
+				"description": "Esityspyyntö evättiin.",
+				"title": "Pääsy evätty"
+			},
+			"AUTHORIZATION_FAILED": {
+				"description": "Valtuutusta todentajan kanssa ei voitu suorittaa loppuun.",
+				"title": "Valtuutus epäonnistui"
+			},
 			"AUTHORIZATION_RESPONSE_FAILED": {
 				"description": "Valtuutusvastausta ei voitu suorittaa loppuun.",
 				"title": "Valtuutusvastaus epäonnistui"
+			},
+			"AUTH_FAILED": {
+				"description": "Lompakko ei voinut tunnistautua esityspalveluun. Yritä uudelleen.",
+				"title": "Todenus epäonnistui"
+			},
+			"AUTH_RESPONSE_ERROR": {
+				"description": "Valtuutusvastausta ei voitu suorittaa loppuun. Yritä uudelleen.",
+				"title": "Valtuutusvastaus epäonnistui"
+			},
+			"CONNECTION_LOST": {
+				"description": "Yhteys keskeytyi. Yritä uudelleen.",
+				"title": "Yhteys katkesi"
 			},
 			"FLOW_ERROR": {
 				"description": "Todistusprosessin aikana tapahtui virhe. Yritä uudelleen.",
 				"title": "Prosessivirhe"
 			},
+			"FLOW_EXPIRED": {
+				"description": "Tämä pyyntö on vanhentunut. Aloita uudelleen.",
+				"title": "Pyyntö vanhentunut"
+			},
+			"HTTP_ERROR": {
+				"description": "Verkkovirhe tapahtui todistuksia jaettaessa. Yritä uudelleen.",
+				"title": "Verkkovirhe"
+			},
 			"INSUFFICIENT_CREDENTIALS": {
 				"description": "Yhtä tai useampaa esitettävää todistusta ei ole valittavissa.",
 				"title": "Riittämättömät todistukset"
 			},
+			"INVALID_REQUEST": {
+				"description": "Esityspyyntö on virheellinen eikä sitä voida käsitellä.",
+				"title": "Virheellinen pyyntö"
+			},
+			"NETWORK_TIMEOUT": {
+				"description": "Pyynnön suorittaminen kesti liian kauan. Yritä uudelleen.",
+				"title": "Pyyntö aikakatkaistiin"
+			},
 			"NONTRUSTED_VERIFIER": {
 				"description": "Todentaja ei toimittanut kelvollisia tietoja vahvistusta varten.",
 				"title": "Todentaja ei ole luotettu"
+			},
+			"NO_CREDENTIAL_SELECTION_POPUP": {
+				"description": "Lompakko ei voinut avata todistuksen valintanäyttöä. Yritä uudelleen.",
+				"title": "Todistuksen valinta ei käytettävissä"
 			},
 			"NO_DCQL_QUERY_OR_PREMATCHED_CREDENTIALS": {
 				"description": "Esityspyyntö on virheellinen — kyselyä tai ennalta sovitettuja todistuksia ei annettu.",
@@ -230,17 +287,65 @@
 				"description": "Todennettavaan esitykseen ei ole käytettävissä kuljetustapaa.",
 				"title": "Kuljetus ei käytettävissä"
 			},
+			"NO_TRANSPORT_AVAILABLE": {
+				"description": "Esityksen lähettämiseen ei ole käytettävissä kuljetustapaa.",
+				"title": "Kuljetus ei käytettävissä"
+			},
+			"PREAUTH_ERROR": {
+				"description": "Ennalta valtuutettua todistuspyyntöä ei voitu suorittaa loppuun. Yritä uudelleen.",
+				"title": "Ennakkovaltuutus epäonnistui"
+			},
+			"PROTOCOL_ERROR": {
+				"description": "Pyyntöä ei voitu suorittaa protokollavirheen vuoksi.",
+				"title": "Protokollavirhe"
+			},
 			"RESPONSE_ERROR": {
 				"description": "Esitysvastauksen lähettämisessä tapahtui virhe.",
 				"title": "Vastausvirhe"
+			},
+			"RETRY_EXHAUSTED": {
+				"description": "Pyyntö epäonnistui useiden uudelleenyritysten jälkeen. Yritä myöhemmin uudelleen.",
+				"title": "Pyyntö epäonnistui"
 			},
 			"SELECTION_ERROR": {
 				"description": "Todistuksen valinnassa tapahtui virhe.",
 				"title": "Valintavirhe"
 			},
+			"SIGNING_FAILED": {
+				"description": "Lompakko ei voinut luoda allekirjoitettua esitystä. Yritä uudelleen.",
+				"title": "Allekirjoitus epäonnistui"
+			},
+			"STORE_ERROR": {
+				"description": "Todistus vastaanotettiin, mutta sitä ei voitu tallentaa. Yritä uudelleen.",
+				"title": "Todistusta ei voitu tallentaa"
+			},
+			"UNKNOWN_ERROR": {
+				"description": "Tapahtui odottamaton virhe. Yritä uudelleen.",
+				"title": "Odottamaton virhe"
+			},
+			"UNSUPPORTED_CALLBACK": {
+				"description": "Annettua callback-URL:ää ei tueta.",
+				"title": "Callbackia ei tueta"
+			},
+			"UNSUPPORTED_FLOW_TYPE": {
+				"description": "Tämän tyyppistä pyyntöä ei tueta.",
+				"title": "Pyyntöä ei tueta"
+			},
+			"UNTRUSTED_VERIFIER": {
+				"description": "Todentaja ei toimittanut kelvollisia tietoja vahvistusta varten.",
+				"title": "Todentaja ei ole luotettu"
+			},
+			"USER_CANCELLED": {
+				"description": "Peruutit todistusten jakamisen.",
+				"title": "Jakaminen peruutettu"
+			},
 			"WALLET_STATE_UNAVAILABLE": {
 				"description": "Lompakon tila ei ole käytettävissä. Kirjaudu uudelleen sisään.",
 				"title": "Lompakko ei käytettävissä"
+			},
+			"WEBSOCKET_ERROR": {
+				"description": "Yhteys lompakkopalveluun katkesi. Yritä uudelleen.",
+				"title": "Yhteysvirhe"
 			}
 		},
 		"insufficientCredentials": {
@@ -274,6 +379,13 @@
 		"popup": {
 			"message": "Sinut ohjataan kohteeseen <strong>{{issuerName}}</strong> <i>{{issuerDescription}}</i> myöntämään <strong>{{credentialName}}</strong> <i>{{credentialDescription}}</i>.",
 			"title": "Valittu:"
+		},
+		"scanPhysicalId": {
+			"digitalId": {
+				"description": "Käytä passiasi digitaalisen henkilöllisyystodistuksen luomiseen.",
+				"title": "Digitaalinen henkilöllisyystodistus (skannattu passi)"
+			},
+			"sectionTitle": "Skannaa fyysinen henkilöllisyystodistus"
 		},
 		"searchPlaceholder": "Etsi todistuksia..."
 	},
@@ -317,14 +429,37 @@
 		"noFound": "Odottavia myöntämispyyntöjä ei löytynyt",
 		"title": "Odottavat myöntämispyynnöt"
 	},
-	"pageSendCredentials": {
-		"description": "Etsi ja valitse todentaja, jolle haluat jakaa todistuksia",
-		"noFound": "Vastaavia todentajia ei löytynyt.",
-		"popup": {
-			"message": "Sinut ohjataan kohteeseen <strong>{{verifierName}}</strong>.",
-			"title": "Valittu:"
+	"pageScanPhysicalId": {
+		"beforeYouBegin": {
+			"goodInternet": "Hyvä internetyhteys",
+			"goodLighting": "Hyvä valaistus",
+			"passportReady": "Pidä passi valmiina",
+			"title": "Ennen kuin aloitat"
 		},
-		"searchPlaceholder": "Etsi todentajia..."
+		"biometricConsent": "Suostun biometriseen käsittelyyn henkilöllisyyden varmistamiseksi.",
+		"goBackAriaLabel": "Takaisin",
+		"startScan": "Aloita skannaus",
+		"steps": {
+			"step1": {
+				"description": "Skannaa kasvosi osoittaaksesi, että olet oikea, elävä ihminen",
+				"title": "Vaihe 1"
+			},
+			"step2": {
+				"description": "Skannaa asiakirjasi",
+				"title": "Vaihe 2"
+			},
+			"step3": {
+				"description": "Aseta puhelin asiakirjan päälle NFC-sirun lukemiseksi",
+				"title": "Vaihe 3"
+			}
+		},
+		"title": "Skannaa fyysinen henkilöllisyystodistus",
+		"whyFaceScan": {
+			"description": "Käytämme nopeaa 3D-kasvotunnistusta estääksemme asiakirjasi väärinkäytön. Biometriset tietosi salataan ja hävitetään tarkistuksen jälkeen.",
+			"privacyPolicy": "tietosuojakäytäntömme",
+			"title": "Miksi kasvokuvaus?",
+			"viewOur": "Katso "
+		}
 	},
 	"pageSettings": {
 		"addPasskey": "Lisää passkey:",
@@ -402,12 +537,6 @@
 			"manageOtherPasskeys": "Hallitse muita passkeyjä",
 			"rememberIssuer": "Muista myöntäjä"
 		},
-		"unlockPassword": {
-			"description": "Syötä salasanasi avataksesi lompakon.",
-			"passwordInputAriaLabel": "Salasana",
-			"passwordInputPlaceholder": "Salasana",
-			"title": "Syötä salasana"
-		},
 		"unlockSensitive": "Avaa arkaluontoiset toiminnot",
 		"unlockSensitiveTitle": "Napsauta avataksesi arkaluontoiset toiminnot",
 		"upgradePrfKey": {
@@ -422,6 +551,15 @@
 			"registered": "Rekisteröity Wallet Companioniin",
 			"title": "Wallet Companion (beta)"
 		}
+	},
+	"pageShareCredentials": {
+		"description": "Etsi ja valitse todentaja, jolle haluat jakaa todistuksia",
+		"noFound": "Vastaavia todentajia ei löytynyt.",
+		"popup": {
+			"message": "Sinut ohjataan kohteeseen <strong>{{verifierName}}</strong>.",
+			"title": "Valittu:"
+		},
+		"searchPlaceholder": "Etsi todentajia..."
 	},
 	"parsing": {
 		"errorCouldNotParse": "Todistusta ei voitu jäsentää.",
@@ -446,6 +584,29 @@
 		"subtitle": "Odotetaan myöntämisen valmistumista",
 		"title": "{{count}} odottavaa todistusta",
 		"view": "Näytä tiedot"
+	},
+	"presentCredentialsFlow": {
+		"completed": {
+			"description": "Tietosi jaettiin taholle {{verifierName}}.",
+			"redirecting": "Ohjataan uudelleen...",
+			"title": "Onnistui!"
+		},
+		"error": {
+			"close": "Sulje"
+		},
+		"overview": {
+			"decline": "Hylkää",
+			"purpose": "Tarkoitus",
+			"requestedInformation": "Pyydetyt tiedot",
+			"requester": "Pyytäjä",
+			"share": "Jaa",
+			"switchCredential": "Vaihda todistus",
+			"switchCredentialAria": "Vaihda todistus: {{name}}, {{count}} saatavilla",
+			"title": "Pyyntö jakaa tietoja"
+		},
+		"sharing": {
+			"sending": "Lähetetään..."
+		}
 	},
 	"protocolSteps": {
 		"common": {
@@ -533,11 +694,21 @@
 		"summaryTitle": "Yhteenveto",
 		"transactionDataExample": "Hyväksy esimerkki tapahtumadatan ehdoista"
 	},
+	"sessionRecoveryPopup": {
+		"sessionExpired": "Istuntosi on vanhentunut. Kirjaudu uudelleen jatkaaksesi."
+	},
 	"sidebar": {
 		"navItemLogout": "Kirjaudu ulos",
 		"obliviousEnabled": "Yksityiset pyynnöt Oblivious HTTP:llä käytössä",
-		"poweredBy": "Käyttää <docLinkWalletGithub>wwWallet</docLinkWalletGithub>",
-		"poweredByAriaLabel": "wwWalletin GitHub-repositorio"
+		"poweredBy": "Käyttää <docLinkWalletGithub>SIROS Foundation</docLinkWalletGithub>",
+		"poweredByAriaLabel": "SIROS Foundationin GitHub-repositorio"
+	},
+	"switchCredentialPopup": {
+		"alternativeCredentials": "Valitse toinen todistus",
+		"close": "Sulje",
+		"description": "Valitse todistus, jota käytetään tähän pyyntöön.",
+		"selectedCredential": "Nykyinen todistus",
+		"title": "Vaihda todistus"
 	},
 	"syncPopup": {
 		"description": "Näyttää siltä, että olet <strong>muokannut lompakkoasi toisessa istunnossa</strong>. Käytä <strong>passkeytäsi</strong> synkronoidaksesi lompakon.",
@@ -564,7 +735,7 @@
 		"tourStep2": "'Todistukset'-sivu on etusivusi, jossa voit hallita todistuksiasi.",
 		"tourStep3": "'Lisää todistuksia' -sivulla voit vastaanottaa todistuksia tietyltä myöntäjältä",
 		"tourStep4": "Napsauta tätä painiketta skannataksesi QR-koodin todistusten lähettämistä tai vastaanottamista varten.",
-		"tourStep5": "Käytä 'Lähetä todistuksia' -sivua valitaksesi todentajan, jolle haluat jakaa todistuksesi.",
+		"tourStep5": "Käytä 'Jaa todistuksia' -sivua valitaksesi todentajan, jolle haluat jakaa todistuksesi.",
 		"tourStep6": "'Historia'-sivulla voit tarkastella todistusten lähetystietoja, mukaan lukien milloin ja mille todentajille ne lähetettiin.",
 		"tourStep7": "'Asetukset'-sivulla voit hallita passkeyjäsi ja tiliasetuksiasi."
 	},

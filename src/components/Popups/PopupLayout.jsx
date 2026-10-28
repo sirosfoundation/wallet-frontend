@@ -4,7 +4,16 @@ import Modal from 'react-modal';
 import Spinner from '../Shared/Spinner';
 import Header from '../Layout/Header';
 
-const PopupLayout = ({ isOpen, onClose, loading = false, fullScreen = false, children, padding = 'p-4', shouldCloseOnOverlayClick = true }) => {
+const PopupLayout = ({
+	isOpen,
+	onClose = null,
+	loading = false,
+	fullScreen = false,
+	children,
+	padding = 'p-4',
+	shouldCloseOnOverlayClick = true,
+	ariaLabelledBy = undefined
+}) => {
 
 	if (!isOpen) return null;
 
@@ -14,6 +23,7 @@ const PopupLayout = ({ isOpen, onClose, loading = false, fullScreen = false, chi
 				isOpen={true}
 				className="absolute inset-0 flex items-center justify-center"
 				overlayClassName="fixed inset-0 bg-lm-gray-900/50 dark:bg-dm-gray-500/50 flex items-center justify-center z-50"
+				bodyOpenClassName="overflow-hidden"
 			>
 				<Spinner />
 			</Modal>
@@ -22,6 +32,7 @@ const PopupLayout = ({ isOpen, onClose, loading = false, fullScreen = false, chi
 	return (
 		<Modal
 			isOpen={isOpen}
+			aria={ariaLabelledBy ? { labelledby: ariaLabelledBy } : undefined}
 			onRequestClose={onClose}
 			className={`relative overflow-y-auto overflow-x-hidden bg-lm-gray-100 dark:bg-dm-gray-900 border border-lm-gray-400 dark:border-dm-gray-600 ${fullScreen ? 'flex flex-col space-between w-full h-full' : 'w-full sm:w-1/2 md:w-5/12 lg:w-1/3 max-h-[90vh] rounded-lg shadow-lg m-4'}`}
 			overlayClassName={`fixed inset-0  flex items-center justify-center ${fullScreen ? 'z-50' : 'bg-lm-gray-900/50 dark:bg-dm-gray-500/50 backdrop-blur-xs z-50'}`}

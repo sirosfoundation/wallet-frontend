@@ -10,18 +10,18 @@ import { useHttpClient } from "@/hooks/useHttpClient";
 
 export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 	const httpClient = useHttpClient();
-	const { api } = useContext(SessionContext);
+	const { api, authTokens } = useContext(SessionContext);
 	const { getExternalEntity } = api;
 
 	const authzenClient = useMemo(() => {
 		const clientConfig: AuthZENClientConfig = {
 			httpClient: httpClient,
 			baseUrl: BACKEND_URL,
-			getAuthToken: async () => (await api.authTokens.ensureAnonymousToken()).raw,
+			getAuthToken: async () => (await authTokens.ensureAnonymousToken()).raw,
 			tenantId: getTenantFromUrlPath() ?? 'default',
 		};
 		return AuthZENClient(clientConfig);
-	}, [httpClient, api]);
+	}, [httpClient, authTokens]);
 
 	const getCredentialIssuerMetadata = useCallback(
 		async (credentialIssuerIdentifier: string, useCache?: boolean): Promise<{ metadata: OpenidCredentialIssuerMetadata } | null> => {

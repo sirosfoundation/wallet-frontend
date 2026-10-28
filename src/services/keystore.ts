@@ -8,14 +8,14 @@ import * as didUtil from "@cef-ebsi/key-did-resolver/dist/util.js";
 
 import * as config from '../config';
 import type { DidKeyVersion } from '../config';
-import { byteArrayEquals, filterObject, jsonParseTaggedBinary, jsonStringifyTaggedBinary, toBase64Url } from "../util";
+import { byteArrayEquals, filterObject, jsonParseTaggedBinary, jsonStringifyTaggedBinary, toBase64Url } from '@/lib/utils';
 import { SDJwt } from "@sd-jwt/core";
 import { cborEncode, cborDecode, DataItem, getCborEncodeDecodeOptions, setCborEncodeDecodeOptions } from "@auth0/mdl/lib/cbor";
 import { DeviceResponse, MDoc } from "@auth0/mdl";
 import { SupportedAlgs } from "@auth0/mdl/lib/mdoc/model/types";
 import { COSEKeyToJWK } from "cose-kit";
-import { withHintsFromAllowCredentials } from "@/util-webauthn";
-import { addDeleteKeypairEvent, addNewKeypairEvent, CurrentSchema, foldState, SchemaV1, SchemaV2, SchemaV3 } from "./WalletStateSchema";
+import { withHintsFromAllowCredentials } from "@/lib/utils/webauthn";
+import { addDeleteKeypairEvent, addNewKeypairEvent, CurrentSchema, foldState, SchemaV1, SchemaV2, SchemaV4 } from "./WalletStateSchema";
 import { logger } from "../logger";
 
 type WalletState = CurrentSchema.WalletState;
@@ -30,14 +30,12 @@ const didResolver = new Resolver(keyDidResolver);
 type EncryptedContainerContent = { jwe: string }
 export type EncryptedContainerKeys = {
 	mainKey?: EphemeralEncapsulationInfo,
-	passwordKey?: PasswordKeyInfo,
 	prfKeys: WebauthnPrfEncryptionKeyInfo[],
 }
 export type MixedEncryptedContainer = EncryptedContainerKeys & EncryptedContainerContent;
 
 export type AsymmetricEncryptedContainerKeys = {
 	mainKey: EphemeralEncapsulationInfo,
-	passwordKey?: AsymmetricPasswordKeyInfo,
 	prfKeys: WebauthnPrfEncryptionKeyInfoV2[],
 }
 export type AsymmetricEncryptedContainer = AsymmetricEncryptedContainerKeys & EncryptedContainerContent;
@@ -65,12 +63,9 @@ type StaticEncapsulationInfo = {
 
 function isAsymmetricEncryptedContainer(privateData: EncryptedContainer): privateData is AsymmetricEncryptedContainer {
 	return (
-		(privateData.passwordKey
-			? isAsymmetricPasswordKeyInfo(privateData.passwordKey)
-			: true)
-		&& (privateData.prfKeys
+		privateData.prfKeys
 			? privateData.prfKeys.every(isPrfKeyV2)
-			: true)
+			: true
 	);
 }
 
@@ -81,10 +76,6 @@ export function assertAsymmetricEncryptedContainer(privateData: EncryptedContain
 		throw new Error("Keystore must be upgraded to asymmetric format", { cause: 'keystore_not_asymmetric' });
 	}
 }
-
-// Values from OWASP password guidelines https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#pbkdf2
-const pbkdfHash: HashAlgorithmIdentifier = "SHA-256";
-const pbkdfIterations: number = 600000;
 
 type SymmetricWrappedKeyInfo = {
 	wrappedKey: Uint8Array,
@@ -128,24 +119,6 @@ type EncapsulationUnwrappingKeyInfo = {
 		derivedKeyAlgorithm: { name: "AES-KW", length: 256 },
 	},
 };
-
-type DerivePasswordKeyInfo = {
-	pbkdf2Params: Pbkdf2Params;
-	algorithm?: { name: "AES-GCM", length: 256 },
-}
-
-export type AsymmetricPasswordKeyInfo = DerivePasswordKeyInfo & StaticEncapsulationInfo;
-type SymmetricPasswordKeyInfo = DerivePasswordKeyInfo & {
-	mainKey: SymmetricWrappedKeyInfo,
-}
-type PasswordKeyInfo = (SymmetricPasswordKeyInfo | AsymmetricPasswordKeyInfo);
-export function isAsymmetricPasswordKeyInfo(passwordKeyInfo: PasswordKeyInfo): passwordKeyInfo is AsymmetricPasswordKeyInfo {
-	return (
-		"mainKey" in passwordKeyInfo
-			? false
-			: isAsymmetricWrappedKeyInfo(passwordKeyInfo)
-	);
-}
 
 export type WebauthnPrfSaltInfo = {
 	credentialId: Uint8Array,
@@ -246,7 +219,7 @@ export function migrateV1PrivateData(privateData: PrivateDataV1 | PrivateDataV2)
 export async function migrateV3PrivateData(privateData: PrivateDataV2 | PrivateData, encryptionKey: CryptoKey): Promise<PrivateData> {
 	const state = foldState(privateData);
 	const wrappedKeypairs = state.keypairs
-		.filter(k => "wrappedPrivateKey" in k.keypair) as unknown as SchemaV2.WalletState["keypairs"];
+		.filter(k => typeof k?.keypair === "object" && k.keypair !== null && "wrappedPrivateKey" in k.keypair) as unknown as SchemaV2.WalletState["keypairs"];
 	const unwrappedKeypairs = await Promise.all(wrappedKeypairs.map(async (k) => {
 		const unwrapped = await unwrapPrivateKey(k.keypair.wrappedPrivateKey, encryptionKey, true);
 		const jwk = await crypto.subtle.exportKey("jwk", unwrapped) as JWK;
@@ -268,6 +241,24 @@ export async function migrateV3PrivateData(privateData: PrivateDataV2 | PrivateD
 		privateData = await addNewKeypairEvent(privateData, kid, keypair);
 	}
 	return privateData;
+}
+
+export function migrateV4PrivateData(privateData: PrivateData): PrivateData {
+	return {
+		...privateData,
+		S: {
+			...privateData.S,
+			schemaVersion:
+				// v1/v2 base states keep their version until folded,
+				// relabelling crashes on pending v1/v2 events.
+				privateData.S.schemaVersion === 3
+					? CurrentSchema.SCHEMA_VERSION
+					: privateData.S.schemaVersion,
+			credentials: privateData.S.credentials.map(
+				CurrentSchema.withoutEmptyMetadata,
+			),
+		},
+	};
 }
 
 export type CredentialKeyPair = {
@@ -351,15 +342,6 @@ export async function updatePrivateData(
 		{
 			mainKey: newMainPublicKeyInfo,
 			jwe: await encryptPrivateData(privateDataContent, newMainKey),
-			passwordKey: privateData.passwordKey && {
-				...privateData.passwordKey,
-				...await encapsulateKey(
-					newMainPrivateKey,
-					privateData.passwordKey.keypair.publicKey,
-					privateData.passwordKey.keypair,
-					newMainKey,
-				),
-			},
 			prfKeys: privateData.prfKeys && await Promise.all(
 				privateData.prfKeys.map(async keyInfo => ({
 					...keyInfo,
@@ -571,68 +553,26 @@ async function encryptPrivateData(privateData: PrivateData, encryptionKey: Crypt
 		.encrypt(encryptionKey);
 };
 
-async function decryptPrivateData(privateDataJwe: string, encryptionKey: CryptoKey): Promise<PrivateData> {
-	return migrateV3PrivateData(
-		migrateV1PrivateData(
-			migrateV0PrivateData(
-				jsonParseTaggedBinary(
-					new TextDecoder().decode(
-						(await jose.compactDecrypt(privateDataJwe, encryptionKey)).plaintext
-					))
-			)), encryptionKey);
-};
-
-
-async function derivePasswordKey(password: string, keyInfo: DerivePasswordKeyInfo): Promise<CryptoKey> {
-	const keyMaterial = await crypto.subtle.importKey(
-		"raw",
-		new TextEncoder().encode(password),
-		"PBKDF2",
-		false,
-		["deriveKey"],
-	);
-
-	return await crypto.subtle.deriveKey(
-		keyInfo.pbkdf2Params,
-		keyMaterial,
-		keyInfo.algorithm || { name: "AES-KW", length: 256 },
-		true,
-		["wrapKey", "unwrapKey"],
-	);
-};
-
-export async function upgradePasswordKey(
-	privateData: MixedEncryptedContainer,
-	password: string,
-	currentKeyInfo: SymmetricPasswordKeyInfo,
-	currentPasswordKey: CryptoKey,
-): Promise<EncryptedContainer> {
-	const newDeriveKeyInfo: DerivePasswordKeyInfo = {
-		pbkdf2Params: currentKeyInfo.pbkdf2Params,
-		algorithm: { name: "AES-GCM", length: 256 },
-	};
-	const newPasswordKey = await derivePasswordKey(password, newDeriveKeyInfo);
-	const mainKey = await unwrapKey(
-		currentPasswordKey,
-		privateData.mainKey || null,
-		currentKeyInfo.mainKey,
-		true,
-	);
-	const mainKeyInfo = privateData.mainKey || (await createAsymmetricMainKey(mainKey)).keyInfo;
-	const [passwordKeypair, passwordPrivateKey] = await generateWrappedEncapsulationKeypair(newPasswordKey);
-	return {
-		...privateData,
-		mainKey: mainKeyInfo,
-		passwordKey: {
-			...newDeriveKeyInfo,
-			...await encapsulateKey(
-				passwordPrivateKey,
-				mainKeyInfo.publicKey,
-				passwordKeypair,
-				mainKey,
+async function decryptPrivateData(
+	privateDataJwe: string,
+	encryptionKey: CryptoKey,
+): Promise<PrivateData> {
+	const container = migrateV1PrivateData(
+		migrateV0PrivateData(
+			jsonParseTaggedBinary(
+				new TextDecoder().decode(
+					(await jose.compactDecrypt(privateDataJwe, encryptionKey))
+						.plaintext,
+				),
 			),
-		},
-	};
+		),
+	);
+	// Must run before migrateV3PrivateData, whose fold throws its
+	// own errors on unsupported events.
+	CurrentSchema.assertSupportedContainer(container);
+	return migrateV4PrivateData(
+		await migrateV3PrivateData(container, encryptionKey),
+	);
 }
 
 async function derivePrfKey(
@@ -896,45 +836,6 @@ export async function unlock(mainKey: CryptoKey, privateData: EncryptedContainer
 	};
 }
 
-export async function getPasswordKey(privateData: EncryptedContainer, password: string): Promise<[CryptoKey, PasswordKeyInfo]> {
-	const keyInfo = privateData.passwordKey;
-	if (keyInfo === undefined) {
-		throw new Error("Password key not found");
-	}
-	const passwordKey = await derivePasswordKey(password, keyInfo);
-
-	// Throw an error if the password is incorrect
-	await unwrapKey(
-		passwordKey,
-		privateData.mainKey,
-		isAsymmetricPasswordKeyInfo(keyInfo) ? keyInfo : keyInfo.mainKey,
-	);
-
-	return [passwordKey, keyInfo];
-};
-
-export async function unlockPassword(
-	privateData: EncryptedContainer,
-	password: string,
-): Promise<[UnlockSuccess, EncryptedContainer | null]> {
-	const keyInfo = privateData.passwordKey;
-	if (keyInfo === undefined) {
-		throw new Error("Password key not found");
-	}
-	const passwordKey = await derivePasswordKey(password, keyInfo);
-	const mainKey = isAsymmetricPasswordKeyInfo(keyInfo)
-		? await decapsulateKey(passwordKey, privateData.mainKey, keyInfo, true, ["decrypt", "wrapKey", "unwrapKey"])
-		: await unwrapKey(passwordKey, null, keyInfo.mainKey, true);
-
-	const newPrivateData = (
-		isAsymmetricPasswordKeyInfo(keyInfo)
-			? null
-			: await upgradePasswordKey(privateData, password, keyInfo, passwordKey)
-	);
-
-	return [await unlock(mainKey, privateData), newPrivateData];
-};
-
 export async function unlockPrf(
 	privateData: EncryptedContainer,
 	credential: PublicKeyCredential,
@@ -960,41 +861,9 @@ export async function init(
 ): Promise<UnlockSuccess> {
 	const privateData: EncryptedContainer = {
 		...keyInfo,
-		jwe: await encryptPrivateData(SchemaV3.WalletStateOperations.initialWalletStateContainer(), mainKey),
+		jwe: await encryptPrivateData(SchemaV4.WalletStateOperations.initialWalletStateContainer(), mainKey),
 	};
 	return await unlock(mainKey, privateData);
-}
-
-export async function initPassword(
-	password: string,
-	options?: { pbkdfIterations: number },
-): Promise<{ mainKey: CryptoKey, keyInfo: AsymmetricEncryptedContainerKeys }> {
-	const pbkdf2Params: Pbkdf2Params = {
-		name: "PBKDF2",
-		hash: pbkdfHash,
-		iterations: options?.pbkdfIterations ?? pbkdfIterations,
-		salt: crypto.getRandomValues(new Uint8Array(32)),
-	};
-	const deriveKeyInfo: DerivePasswordKeyInfo = {
-		pbkdf2Params,
-		algorithm: { name: "AES-GCM", length: 256 },
-	};
-	const passwordKey = await derivePasswordKey(password, deriveKeyInfo);
-	const [passwordKeypair, passwordPrivateKey] = await generateWrappedEncapsulationKeypair(passwordKey);
-	const mainKeyInfo = await createAsymmetricMainKey();
-	const passwordKeyInfo = {
-		...deriveKeyInfo,
-		...await encapsulateKey(passwordPrivateKey, mainKeyInfo.keyInfo.publicKey, passwordKeypair, mainKeyInfo.mainKey)
-	};
-
-	return {
-		mainKey: mainKeyInfo.mainKey,
-		keyInfo: {
-			mainKey: mainKeyInfo.keyInfo,
-			passwordKey: passwordKeyInfo,
-			prfKeys: [],
-		},
-	};
 }
 
 export async function initPrf(
@@ -1146,6 +1015,22 @@ async function createDid(publicKey: CryptoKey, didKeyVersion: DidKeyVersion): Pr
 	}
 }
 
+export async function createDidFromJwk(publicKeyJwk: JWK, didKeyVersion: DidKeyVersion): Promise<string> {
+	const { kty, crv, x, y } = publicKeyJwk;
+	const publicKey = await crypto.subtle.importKey(
+		'jwk',
+		{ kty, crv, x, y },
+		{ name: 'ECDSA', namedCurve: 'P-256' },
+		true,
+		['verify'],
+	);
+	return createDid(publicKey, didKeyVersion);
+}
+
+/**
+ * @deprecated in favor of WscdManagerClient.signJwtPresentation().
+ *             Will be removed in a future release.
+ */
 export async function signJwtPresentation([privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState], nonce: string, audience: string, verifiableCredentials: any[], transactionDataResponseParams?: { transaction_data_hashes: string[], transaction_data_hashes_alg: string[] }): Promise<{ vpjwt: string }> {
 	const hasher = async (data: string | ArrayBuffer, alg: string) => {
 		const encoded =
@@ -1197,6 +1082,10 @@ export async function signJwtPresentation([privateData, mainKey, calculatedState
 	return { vpjwt: jws };
 }
 
+/**
+ * @deprecated in favor of WscdManagerClient.generateOpenid4vciProofs().
+ *             Will be removed in a future release.
+ */
 export async function generateOpenid4vciProofs(
 	container: OpenedContainer,
 	didKeyVersion: DidKeyVersion,
@@ -1232,7 +1121,10 @@ export async function generateOpenid4vciProofs(
 	return [{ proof_jwts: proof_jwts }, newPrivateData];
 }
 
-
+/**
+ * @deprecated in favor of WscdManagerClient.generateKeypairs().
+ *             Will be removed in a future release.
+ */
 export async function generateKeypairs(
 	container: OpenedContainer,
 	didKeyVersion: DidKeyVersion,
@@ -1261,6 +1153,10 @@ type SessionTranscriptOptions =
 		jwkThumbprint: string | null,
 	};
 
+/**
+ * @deprecated in favor of WscdManagerClient.signJwtPresentation().
+ *             Will be removed in a future release.
+ */
 async function generateDeviceResponseInternal(
 	[privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState],
 	mdocCredential: MDoc,
@@ -1335,6 +1231,10 @@ async function generateDeviceResponseInternal(
 }
 
 // Original signature for backward compatibility (HTTP redirect flow)
+/**
+ * @deprecated in favor of WscdManagerClient.generateDeviceResponse().
+ *             Will be removed in a future release.
+ */
 export async function generateDeviceResponse(
 	[privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState],
 	mdocCredential: MDoc,
@@ -1359,6 +1259,10 @@ export async function generateDeviceResponse(
 }
 
 // New method for DC API flow
+/**
+ * @deprecated in favor of WscdManagerClient.generateDeviceResponseForDCAPI().
+ *             Will be removed in a future release.
+ */
 export async function generateDeviceResponseForDCAPI(
 	[privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState],
 	mdocCredential: MDoc,
@@ -1380,6 +1284,10 @@ export async function generateDeviceResponseForDCAPI(
 	);
 }
 
+/**
+ * @deprecated in favor of WscdManagerClient.generateDeviceResponseWithProximity().
+ *             Will be removed in a future release.
+ */
 export async function generateDeviceResponseWithProximity([privateData, mainKey, calculatedState]: [PrivateData, CryptoKey, WalletState], mdocCredential: MDoc, presentationDefinition: any, sessionTranscriptBytes: any): Promise<{ deviceResponseMDoc: MDoc }> {
 	// extract the COSE device public key from mdoc
 	const p: DataItem = cborDecode(mdocCredential.documents[0].issuerSigned.issuerAuth.payload);

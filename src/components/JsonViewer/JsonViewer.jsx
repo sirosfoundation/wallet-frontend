@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { formatDate } from 'wallet-common';
 
 const MAX_STRING_LENGTH = 100;
 
@@ -25,6 +26,15 @@ const JsonViewer = ({ name, value, depth = 0 }) => {
 				{expanded && value.map((item, idx) => (
 					<JsonViewer key={idx} name={String(idx)} value={item} depth={depth + 1} />
 				))}
+			</div>
+		);
+	}
+
+	if (value instanceof Date) {
+		return (
+			<div className={`${indentClass}`}>
+				<span className="text-lm-gray-800 dark:text-dm-gray-200">{name && `"${name}"`}:</span>{' '}
+				<span className="text-lm-green dark:text-dm-green">{formatDate(value, 'date')}</span>
 			</div>
 		);
 	}

@@ -8,7 +8,7 @@
  * @see https://github.com/sirosfoundation/wallet-frontend/issues/42
  */
 
-import DOMPurify from 'dompurify';
+import DOMPurify, { type Config } from 'dompurify';
 import { logger } from '@/logger';
 
 /**
@@ -19,7 +19,7 @@ import { logger } from '@/logger';
  * - FORBID_TAGS: Explicitly forbid dangerous elements
  * - FORBID_ATTR: Forbid event handler attributes
  */
-const DOMPURIFY_CONFIG: DOMPurify.Config = {
+const DOMPURIFY_CONFIG: Config = {
 	USE_PROFILES: { svg: true, svgFilters: true },
 	FORBID_TAGS: ['script', 'foreignObject', 'iframe', 'embed', 'object'],
 	FORBID_ATTR: [
@@ -126,7 +126,7 @@ export function sanitizeSvgDataUri(dataUri: string): string | null {
 	}
 
 	// Re-encode as data URI
-	return encodeSvgDataUri(sanitized);
+	return encodeSvgDataUri(normalizeSvgImageDimensions(sanitized));
 }
 
 /**
@@ -136,7 +136,7 @@ export function sanitizeSvgDataUri(dataUri: string): string | null {
  * @returns Sanitized SVG content
  */
 export function sanitizeSvgContent(svgContent: string): string {
-	return DOMPurify.sanitize(svgContent, DOMPURIFY_CONFIG);
+	return normalizeSvgImageDimensions(DOMPurify.sanitize(svgContent, DOMPURIFY_CONFIG));
 }
 
 /**
@@ -144,4 +144,54 @@ export function sanitizeSvgContent(svgContent: string): string {
  */
 export function isSvgDataUri(dataUri: string): boolean {
 	return /^data:image\/svg\+xml/i.test(dataUri);
+}
+
+/**
+ * Default a top-level <image> element's missing width/height to the root
+ * <svg>'s own width/height, in place.
+ *
+ * Per the SVG spec, an <image> element with no height (or width) doesn't
+ * render at all in many renderers - a real third-party credential template
+ * (EHIC's demo-issuer.wwwallet.org SVG: `<image width="100%"
+ * xlink:href="data:image/png;base64,...">`, no height attribute at all) hits
+ * this exactly, producing a blank card with no error anywhere. Only fixes
+ * elements missing the attribute entirely; an explicit height="0" is left
+ * alone since that's a deliberate (if unusual) choice by the template author,
+ * not the same "renderer doesn't know what to paint" gap.
+ */
+export function normalizeSvgImageDimensions(svgContent: string): string {
+	if (typeof DOMParser === 'undefined' || typeof XMLSerializer === 'undefined') {
+		return svgContent;
+	}
+
+	try {
+		const doc = new DOMParser().parseFromString(svgContent, 'image/svg+xml');
+		if (doc.querySelector('parsererror')) {
+			return svgContent;
+		}
+
+		const root = doc.documentElement;
+		const rootWidth = root.getAttribute('width');
+		const rootHeight = root.getAttribute('height');
+		if (!rootWidth && !rootHeight) {
+			return svgContent;
+		}
+
+		let changed = false;
+		doc.querySelectorAll('image').forEach((image) => {
+			if (!image.hasAttribute('width') && rootWidth) {
+				image.setAttribute('width', rootWidth);
+				changed = true;
+			}
+			if (!image.hasAttribute('height') && rootHeight) {
+				image.setAttribute('height', rootHeight);
+				changed = true;
+			}
+		});
+
+		return changed ? new XMLSerializer().serializeToString(doc) : svgContent;
+	} catch (e) {
+		logger.warn('Failed to normalize SVG <image> dimensions:', e);
+		return svgContent;
+	}
 }

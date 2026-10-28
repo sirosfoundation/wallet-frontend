@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { formatDate } from "wallet-common";
-import { reverse, compareBy } from "@/util";
+import { reverse, compareBy } from '@/lib/utils';
 import CredentialsContext from "@/context/CredentialsContext";
 import { useOpenID4VCIHelper } from "@/lib/services/OpenID4VCIHelper";
 import useFilterItemByLang from "@/hooks/useFilterItemByLang";

@@ -24,28 +24,29 @@ export type ExtendedVcEntity = WalletStateCredential & {
 }
 
 export type CredentialsContextValue = {
-	vcEntityList: ExtendedVcEntity[];
+	/**
+	 * Loaded credentials, or null while they are still being fetched.
+	 *
+	 * Nullable on purpose: CredentialsContextProvider initialises this to null
+	 * and only populates it once the credential engine has parsed the wallet's
+	 * store. This type previously claimed ExtendedVcEntity[], which let
+	 * consumers call array methods on it with no complaint from the compiler -
+	 * the presentation flow did exactly that and crashed with "Cannot read
+	 * properties of null (reading 'filter')" whenever a verifier-initiated
+	 * request arrived before the first load finished.
+	 */
+	vcEntityList: ExtendedVcEntity[] | null;
 	latestCredentials: Set<number>;
-	fetchVcData: (credentialId?: number) => Promise<ExtendedVcEntity[]>;
+	fetchVcData: (credentialId?: number) => Promise<ExtendedVcEntity[] | null>;
 	getData: (shouldPoll?: boolean) => Promise<void>;
+	removeCredential: (batchId: number) => void;
 	currentSlide: number;
 	setCurrentSlide: (slide: number) => void;
 	parseCredential: (credential: WalletStateCredential) => Promise<ParsedCredential | null>;
-	credentialEngine: CredentialEngine | null;
+	credentialEngine: Promise<CredentialEngine>;
 	pendingTransactions: Record<string, any>;
 };
 
-const defaultContextValue: CredentialsContextValue = {
-	vcEntityList: [],
-	latestCredentials: new Set<number>(),
-	fetchVcData: async () => [],
-	getData: async () => { },
-	currentSlide: 1,
-	setCurrentSlide: () => { },
-	parseCredential: async () => null,
-	credentialEngine: null,
-	pendingTransactions: null,
-};
-const CredentialsContext = createContext<CredentialsContextValue>(defaultContextValue);
+const CredentialsContext = createContext<CredentialsContextValue | null>(null);
 
 export default CredentialsContext;

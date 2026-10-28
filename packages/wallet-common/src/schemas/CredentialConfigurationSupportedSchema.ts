@@ -1,0 +1,106 @@
+import { z } from 'zod';
+import { VerifiableCredentialFormat } from '../types';
+
+const proofTypesSupportedSchema = z.object({
+	jwt: z.object({
+		proof_signing_alg_values_supported: z.array(z.string()),
+		key_attestations_required: z.object({
+			key_storage: z.array(z.enum(["iso_18045_high", "iso_18045_moderate", "iso_18045_enhanced-basic", "iso_18045_basic"])).optional(),
+			user_authentication: z.array(z.enum(["iso_18045_high", "iso_18045_moderate", "iso_18045_enhanced-basic", "iso_18045_basic"])).optional(),
+		}).optional(),
+	}).passthrough().optional(),
+	attestation: z.object({
+		proof_signing_alg_values_supported: z.array(z.string()),
+		key_attestations_required: z.object({
+			key_storage: z.array(z.enum(["iso_18045_high", "iso_18045_moderate", "iso_18045_enhanced-basic", "iso_18045_basic"])).optional(),
+			user_authentication: z.array(z.enum(["iso_18045_high", "iso_18045_moderate", "iso_18045_enhanced-basic", "iso_18045_basic"])).optional(),
+		}).optional(),
+	}).passthrough().optional(),
+}).passthrough();
+
+const OpenIdClaimSchema = z.object({
+	path: z.array(
+		z.union([z.string(), z.null(), z.number().int().nonnegative()])
+	).nonempty(),
+	svg_id: z.string().optional(),
+	mandatory: z.boolean().optional(),
+	display: z.array(
+		z.object({
+			name: z.string().optional(),
+			locale: z.string().optional(),
+		})
+	).optional(),
+});
+
+const commonSchema = z.object({
+	credential_metadata: z.object({
+		display: z.array(z.object({
+			name: z.string(),
+			description: z.string().optional(),
+			background_color: z.string().optional(),
+			text_color: z.string().optional(),
+			alt_text: z.string().optional(),
+			background_image: z.object({
+				uri: z.string()
+			}).optional(),
+			locale: z.string().optional(),
+			rendering :z.object({svg_templates: z.array(z.object({
+				uri: z.string(),
+				alt_text: z.string().optional(),
+			}))}).optional(),
+			logo: z.object({
+				uri: z.string(),
+				alt_text: z.string().optional(),
+			}).optional(),
+		})).optional(),
+		claims: z.array(OpenIdClaimSchema).optional(),
+	}).optional(),
+	scope: z.string(),
+	cryptographic_binding_methods_supported: z.array(z.string()).optional(),
+	credential_signing_alg_values_supported: z.array(z.string()).optional(),
+	proof_types_supported: proofTypesSupportedSchema.optional(),
+}).passthrough();
+
+
+const dcSdJwtSchema = commonSchema.extend({
+	format: z.literal(VerifiableCredentialFormat.DC_SDJWT),
+	vct: z.string()
+});
+
+const vcSdJwtSchema = commonSchema.extend({
+	format: z.literal(VerifiableCredentialFormat.VC_SDJWT),
+	credential_definition: z.object({
+		"@context": z.array(z.string()).optional(),
+		type: z.array(z.string())
+	}).optional(),
+	vct: z.string().optional() // Some issuers include it, some don't
+});
+
+const sdJwtSchema = vcSdJwtSchema.or(dcSdJwtSchema);
+
+
+const msoDocSchema = commonSchema.extend({
+	format: z.literal(VerifiableCredentialFormat.MSO_MDOC),
+	doctype: z.string(),
+	credential_signing_alg_values_supported: z.array(z.string().or(z.number())).optional(),
+});
+
+
+// jwt_vc_json (VCDM 1.1) and the two VCDM 2.0 securing mechanisms share one
+// arm: none of them carries an SD-JWT `vct` or an mdoc `doctype`, and
+// `commonSchema` passes their remaining members through. Keeping them in a
+// single arm also keeps the surrounding issuer-metadata schema's inferred
+// type within what TypeScript will serialize (TS7056).
+const jwtVcJsonSchema = commonSchema.extend({
+	format: z.union([
+		z.literal(VerifiableCredentialFormat.JWT_VC_JSON),
+		z.literal(VerifiableCredentialFormat.VCDM2_JOSE),
+		z.literal(VerifiableCredentialFormat.LDP_VC),
+	]),
+});
+
+export const CredentialConfigurationSupportedSchema = sdJwtSchema.or(msoDocSchema).or(jwtVcJsonSchema);
+
+export type CredentialConfigurationSupported = z.infer<typeof CredentialConfigurationSupportedSchema>;
+
+export type OpenIdClaim = z.infer<typeof OpenIdClaimSchema>;

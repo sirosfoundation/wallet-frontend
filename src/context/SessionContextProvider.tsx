@@ -10,10 +10,25 @@ import { fetchKeyConfig, HpkeConfig } from '@/lib/utils/ohttpHelpers';
 import { OHTTP_KEY_CONFIG } from '@/config';
 import { logger } from '../logger';
 import useErrorDialog from '@/hooks/useErrorDialog';
+import { useOIDFlowClientAuthStore } from '@/hooks/useOIDFlowClientAuthStore';
+import { useAuthServerClient } from '@/hooks/useAuthServerClient';
+import { getTenantFromUrlPath } from '@/lib/tenant';
+import { AuthTokens } from '@/lib/auth';
+import { SessionRecoveryPopup } from '@/components/Popups/SessionRecoveryPopup';
 
 export const SessionContextProvider = ({ children }: React.PropsWithChildren) => {
 	const { isOnline } = useContext(StatusContext);
-	const api = useApi(isOnline);
+	const authServerClient = useAuthServerClient();
+	const tenantId = getTenantFromUrlPath();
+	const authTokens = useMemo(
+		() => AuthTokens.fromStorage({
+			authServerClient,
+			tenantId,
+			storage: window.sessionStorage,
+		}),
+		[authServerClient, tenantId],
+	);
+	const api = useApi({ isOnline, authTokens });
 	const keystore = useLocalStorageKeystore(keystoreEvents);
 	const { getCalculatedWalletState } = keystore;
 	const isLoggedIn = useMemo(() => api.isLoggedIn() && keystore.isOpen(), [keystore, api]);
@@ -23,21 +38,36 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	const [walletStateLoaded, setWalletStateLoaded] = useState<boolean>(false);
 	const [obliviousKeyConfig, setObliviousKeyConfig] = useState<HpkeConfig>(null);
 
+	const [sessionRecovery, setSessionRecovery] = useState<{
+		resolve: () => void;
+		reject: (reason?: unknown) => void;
+	} | null>(null);
+
 	// A unique id for each logged in tab
 	const [globalTabId] = useLocalStorage<string | null>("globalTabId", null);
 	const [tabId] = useSessionStorage<string | null>("tabId", null);
 
 	const loginIsOnlineRef = useRef<boolean | null>(null);
+	const sessionClearedRef = useRef(false);
+	const consumeSessionCleared = useCallback(() => {
+		const wasCleared = sessionClearedRef.current;
+		sessionClearedRef.current = false;
+		return wasCleared;
+	}, []);
+
+	const oidFlowClientAuthMaterialManager = useOIDFlowClientAuthStore();
 
 	// Use a ref to hold a stable reference to the clearSession function
-	const clearSessionRef = useRef<() => void>();
+	const clearSessionRef = useRef<() => void>(null);
 
 	// Memoize clearSession using useCallback
 	const clearSession = useCallback(async () => {
 		window.history.replaceState({}, '', `${window.location.pathname}`);
+		sessionClearedRef.current = true;
+		oidFlowClientAuthMaterialManager.clear();
 		logger.debug('[Session Context] Clear Session');
 		api.clearSession();
-	}, [api]);
+	}, [api, oidFlowClientAuthMaterialManager]);
 
 	// Update the ref whenever clearSession changes
 	useEffect(() => {
@@ -47,18 +77,30 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	// The close() will dispatch Event CloseSessionTabLocal in order to call the clearSession
 	const logout = useCallback(async () => {
 		logger.debug('[Session Context] Close Keystore');
+		oidFlowClientAuthMaterialManager.clear();
 		await keystore.close();
-	}, [keystore]);
+	}, [keystore, oidFlowClientAuthMaterialManager]);
 
 	useEffect(() => {
-		return api.authTokens.onTokenRejection(() => {
+		return authTokens.onTokenRejection(() => {
 			displayError({
 				title: t('errors.walletServiceAuth.title'),
 				description: t('errors.walletServiceAuth.description'),
 				fatal: true,
 			});
 		});
-	}, [displayError, clearSession, api.authTokens, t]);
+	}, [displayError, clearSession, authTokens, t]);
+
+	useEffect(() => {
+		return authTokens.onSessionExpired(() =>
+			new Promise<void>((resolve, reject) => {
+				setSessionRecovery({
+					resolve: () => { setSessionRecovery(null); resolve(); },
+					reject: (e) => { setSessionRecovery(null); reject(e); },
+				});
+			}),
+		);
+	}, [authTokens]);
 
 	useEffect(() => {
 		// Handler function that calls the current clearSession function
@@ -101,8 +143,20 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 		isLoggedIn: isLoggedIn,
 		keystore,
 		logout,
-		obliviousKeyConfig
-	}), [api, keystore, logout, isLoggedIn, obliviousKeyConfig]);
+		obliviousKeyConfig,
+		consumeSessionCleared,
+		oidFlowClientAuthMaterialManager,
+		authTokens,
+	}), [
+		api,
+		keystore,
+		logout,
+		isLoggedIn,
+		obliviousKeyConfig,
+		consumeSessionCleared,
+		oidFlowClientAuthMaterialManager,
+		authTokens
+	]);
 
 	useEffect(() => {
 		if (api && keystore && api.isLoggedIn() === true && keystore.isOpen() === false && ((tabId && globalTabId && tabId !== globalTabId) || (!tabId && globalTabId))) {
@@ -128,6 +182,12 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	return (
 		<SessionContext.Provider value={value}>
 			{children}
+			{sessionRecovery && (
+				<SessionRecoveryPopup
+					recovery={sessionRecovery}
+					onLogout={() => logout()}
+				/>
+			)}
 		</SessionContext.Provider>
 	);
 };

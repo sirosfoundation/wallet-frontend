@@ -12,7 +12,6 @@
 import React, { createContext, useContext, useMemo, useEffect, useState, useCallback } from 'react';
 import type { IOIDFlowTransport } from '@/lib/openid-flow/types/IOIDFlowTransport';
 import { nullOIDFlowTransport } from '@/lib/openid-flow/types/IOIDFlowTransport';
-import { OIDFlowHttpProxyTransport } from '@/lib/openid-flow/transports/OIDFlowHttpProxyTransport';
 import { OIDFlowWebSocketTransport } from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
 import type { SignRequestHandler, MatchRequestHandler } from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
 import {
@@ -92,7 +91,7 @@ interface OIDFlowTransportProviderProps {
 export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> = ({
 	children,
 }) => {
-	const { api } = useContext(SessionContext);
+	const { authTokens } = useContext(SessionContext);
 	const httpClient = useHttpClient();
 
 	// Tenant ID for multi-tenant routing (from URL path, more robust than sessionStorage)
@@ -101,18 +100,24 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 	// Resolve the backend access token (the WebSocket/relay auth credential) from
 	// the AuthTokens manager exposed on the session api.
 	const [authToken, setAuthToken] = useState<string | null>(null);
+	// Whether the lookup above has finished, with or without a token. Until it
+	// has, a null authToken means "not known yet", not "no WebSocket".
+	const [authTokenSettled, setAuthTokenSettled] = useState(false);
 	useEffect(() => {
 		let active = true;
+		setAuthTokenSettled(false);
 		(async () => {
 			try {
-				const token = await api.authTokens.ensureAnonymousToken();
+				const token = await authTokens.ensureBackendToken();
 				if (active) setAuthToken(token.raw);
 			} catch {
 				if (active) setAuthToken(null);
+			} finally {
+				if (active) setAuthTokenSettled(true);
 			}
 		})();
 		return () => { active = false; };
-	}, [api.authTokens]);
+	}, [authTokens]);
 
 	const [isConnected, setIsConnected] = useState(false);
 	const [wsTransport, setWsTransport] = useState<OIDFlowWebSocketTransport | null>(null);
@@ -130,11 +135,17 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		if (!capabilitiesLoaded) return false;
 		// 2. Wait for any transport mid-connection
 		if (pendingTransports.size > 0) return false;
-		// 3. If WebSocket is expected, wait for it to connect or fail
-		const wsExpected = WEBSOCKET_TRANSPORT_ALLOWED && wsCapabilityAvailable && !!WS_URL && !!authToken;
+		// 3. If WebSocket is possible, wait for the backend token that
+		//    authenticates it. Without this, a page load (e.g. the credential
+		//    offer callback) reports ready before the token resolves, and the
+		//    flow starts with no transport at all.
+		const wsPossible = WEBSOCKET_TRANSPORT_ALLOWED && wsCapabilityAvailable && !!WS_URL;
+		if (wsPossible && !authTokenSettled) return false;
+		// 4. If WebSocket is expected, wait for it to connect or fail
+		const wsExpected = wsPossible && !!authToken;
 		if (wsExpected && !isConnected && !lastError) return false;
 		return true;
-	}, [capabilitiesLoaded, pendingTransports, wsCapabilityAvailable, authToken, isConnected, lastError]);
+	}, [capabilitiesLoaded, pendingTransports, wsCapabilityAvailable, authToken, authTokenSettled, isConnected, lastError]);
 
 	const trustEvaluators = useMemo((): TrustEvaluators => {
 		const evaluateIssuerTrust = createIssuerTrustEvaluator({
@@ -188,20 +199,33 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 	// Determine which transports are available based on config AND capabilities
 	const availableTransports = useMemo(() => {
 		const available: OIDFlowTransportType[] = [];
-		if (HTTP_PROXY_TRANSPORT_ALLOWED) available.push('http_proxy');
+
+		if (HTTP_PROXY_TRANSPORT_ALLOWED) {
+			throw new OIDFlowError({
+				code: 'DISCONTINUED_HTTP_PROXY_FLOW',
+				message: 'HTTP proxy transport flow is discontinued. Please use WebSocket transport instead.',
+			});
+		}
+
 		// Only add websocket if config allows AND engine has capability
 		if (WEBSOCKET_TRANSPORT_ALLOWED && WS_URL && wsCapabilityAvailable) {
 			available.push('websocket');
 		}
+
 		if (DIRECT_TRANSPORT_ALLOWED) available.push('direct');
+
 		return available;
 	}, [wsCapabilityAvailable]);
 
 	// Create HTTP proxy transport only if allowed
 	const httpTransport = useMemo(() => {
 		if (!HTTP_PROXY_TRANSPORT_ALLOWED) return null;
-		return new OIDFlowHttpProxyTransport(httpClient);
-	}, [httpClient]);
+
+		throw new OIDFlowError({
+			code: 'DISCONTINUED_HTTP_PROXY_FLOW',
+			message: 'HTTP proxy transport flow is discontinued. Please use WebSocket transport instead.',
+		});
+	}, []);
 
 	// Create and manage WebSocket transport (only if capability is available)
 	useEffect(() => {
@@ -267,13 +291,13 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 			setLastError(error);
 
 			if (error instanceof OIDFlowError && error.code === 'AUTH_FAILED') {
-				const shouldRetry = api.authTokens.registerAnonymousTokenRejection();
+				const shouldRetry = authTokens.registerBackendTokenRejection();
 				if (!shouldRetry) {
 					logger.error('Engine auth still failing after refresh; giving up (global handler notified)');
 					return;
 				}
 
-				const fresh = await api.authTokens.ensureAnonymousToken();
+				const fresh = await authTokens.ensureBackendToken();
 				setAuthToken(fresh.raw);
 			}
 		});
@@ -290,7 +314,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 				return next;
 			});
 		};
-	}, [authToken, tenantId, capabilitiesLoaded, wsCapabilityAvailable, trustEvaluators, api.authTokens]);
+	}, [authToken, tenantId, capabilitiesLoaded, wsCapabilityAvailable, trustEvaluators, authTokens]);
 
 	// Update auth token and tenant ID on WebSocket when they change
 	useEffect(() => {

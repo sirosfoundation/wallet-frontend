@@ -34,7 +34,6 @@ export const ClientEnvConfigSchema = z.object({
 	ALLOWED_TRANSPORTS: z.string().optional(),
 	TRANSPORT_PREFERENCE: z.string().optional(),
 	DID_KEY_VERSION: z.string().optional(),
-	DISPLAY_CONSOLE: z.string().optional(),
 	LOG_LEVEL: z.string().optional(),
 	WEBAUTHN_RPID: z.string().optional(),
 	OPENID4VCI_PROOF_TYPE_PRECEDENCE: z.string().optional(),
@@ -54,6 +53,9 @@ export const ClientEnvConfigSchema = z.object({
 	SHOW_PWA_INSTALL_PROMPT: z.string().optional(),
 	WALLET_COMPANION_INTEGRATION: z.string().optional(),
 	PRESERVE_PRESENTATION_HISTORY: z.string().optional(),
+	SCAN_PHYSICAL_ID_ENABLED: z.string().optional(),
+	FACETEC_API_URL: z.string().optional(),
+	WIA_ENABLED: z.string().optional(),
 });
 export type ClientEnvConfig = z.infer<typeof ClientEnvConfigSchema>;
 

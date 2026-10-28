@@ -1,3 +1,7 @@
+<p align="center">A fork of <a href="https://github.com/wwWallet/wallet-frontend" target="_blank" rel="noopener">wwWallet frontend</a></p>
+
+---
+
 <img src="./branding/default/logo/logo_dark.svg" width="80" style="max-width: 100%; float:left; margin-right: 20px;"/>
 
 # wwWallet
@@ -9,16 +13,17 @@ Welcome to wwWallet Frontend repository! This application is a user-friendly web
 
 ## Table of Contents
 
-- ✨ [Features](#features)
-- 🔍 [Prerequisites](#prerequisites)
-- 📦 [Installation](#installation)
-- ✅ [Pre-commit Hook](#pre-commit-hook)
-- 🚀 [Usage](#usage)
-- 🔐 [PRF Compatibility](#prf-compatibility)
-- 🎨 [Tailwind CSS](#tailwind-css)
-- 💡 [Contributing](#contributing)
+- [Features](#features)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Pre-commit Hook](#pre-commit-hook)
+- [Usage](#usage)
+- [Changesets & Releases](#changesets--releases)
+- [PRF Compatibility](#prf-compatibility)
+- [Tailwind CSS](#tailwind-css)
+- [Contributing](#contributing)
 
-## ✨Features
+## Features
 
 Our Web Wallet provides a range of features tailored to enhance the credential management experience:
 
@@ -30,12 +35,12 @@ Our Web Wallet provides a range of features tailored to enhance the credential m
 
 - **Presentation History:** The wallet maintains a history of credential presentations, allowing users to review and track when and where they've shared their credentials.
 
-## 🔍Prerequisites
+## Prerequisites
 
 - Node.js
-- npm/yarn
+- pnpm
 
-## 📦Installation
+## Installation
 
 - Clone the repository:
 
@@ -77,7 +82,7 @@ Our Web Wallet provides a range of features tailored to enhance the credential m
   - `WS_URL`: The URL of the websocket service.
   - `WALLET_BACKEND_URL`: The URL of your backend service.
   - `DID_KEY_VERSION`: DID key version format (e.g., `jwk_jcs-pub`).
-  - `DISPLAY_CONSOLE`: Handle console logs (`true` or `false`). If left empty, it will be handled as `true`.
+  - `LOG_LEVEL`: Set the log level of the browser console. Supported options: `"error" | "info" | "warn" | "debug"`. Defaults to `info`.
   - `WEBAUTHN_RPID`: WebAuthn relying party ID (when running locally, set to `localhost`). This must match the `config.webauthn.rp.id` setting in `wallet-backend-server`.
   - `OPENID4VCI_REDIRECT_URI`: Redirect uri after authentication and token request at the authorization server in OID4VCI flow.
   - `OPENID4VCI_PROOF_TYPE_PRECEDENCE`: Proof type precedence for OID4VCI (e.g., `"attestation,jwt"`).
@@ -100,6 +105,8 @@ Our Web Wallet provides a range of features tailored to enhance the credential m
   - `SHOW_PWA_INSTALL_PROMPT`: Hide or show the PWA installation prompt on the login screen. Defaults to false if left blank or invalid.
   - `WALLET_COMPANION_INTEGRATION`: Enable integration with the [Wallet Companion browser extension](https://github.com/sirosfoundation/wallet-companion). Defaults to false if left blank or invalid.
   - `PRESERVE_PRESENTATION_HISTORY`: If enabled, deleting credentials from the wallet will not remove them from the presentation history. Defaults to false if left blank or invalid.
+  - `SCAN_PHYSICAL_ID_ENABLED`: Show the "Scan Physical ID" entry point (native wrapper apps only) on the Add Credentials page. Defaults to true; set to `false` for tenants that don't want this feature offered.
+  - `FACETEC_API_URL`: URL of the facetec-api that the native wrapper apps should use for the Scan Physical ID flow. Passed to the app via `startScanPhysicalId`, and added to the CSP `connect-src`. Defaults to the app's built-in URL if unset.
 
   **Well-known file generation:**
   - `WELLKNOWN_APPLE_APPIDS`: Used to generate the `.well-known/apple-app-site-association` file, used for IOS wrappers. This should be in the format `"<APP_ID>,<APP_ID>,<APP_ID>,..."` Can be left blank.
@@ -107,16 +114,16 @@ Our Web Wallet provides a range of features tailored to enhance the credential m
 
 - Install dependencies:
     ```bash
-    yarn install
+    pnpm install
     ```
 
 - Start the development server:
 
     ```bash
-    yarn start
+    pnpm start
     ```
 
-## ✅Pre-commit Hook
+## Pre-commit Hook
 
 We use [pre-commit](https://pre-commit.com/) to enforce our `.editorconfig` before code is committed.
 
@@ -141,11 +148,86 @@ git add -A
 - After the auto-fixers, the editorconfig-checker runs inside Docker to validate all staged files.
 - If violations remain, fix them manually until the commit passes.
 
-## 🚀Usage
+## Usage
 
 Once the development server is running, you can access the app by visiting http://localhost:3000 in your web browser. The app provides various pages and components that you can interact with. Explore the features and enjoy using the Wallet Frontend!
 
-## 🔐PRF Compatibility
+## `.gitignore` strategy
+
+This repo uses a **allowlist (opt-in) `.gitignore`**: by default nothing at the
+project root is tracked, and we explicitly re-include the files and directories
+we care about.
+
+### What this means day to day
+
+- New top level directories will be ignored by default. Add them to the allowlist
+  in `.gitignore` as required.
+- Any files or sub-directories in top level directories that need to be ignored
+  should be added to the ignorelist at the end of the `.gitignore` file.
+
+## Changesets & Releases
+
+We use [Changesets](https://github.com/changesets/changesets) to track changes and manage version bumps and the `CHANGELOG.md`.
+
+### Adding a changeset
+
+Whenever you make a change that should show up in the changelog (a feature, fix, or other user-facing change), add a changeset as part of your pull request:
+
+```bash
+pnpm changeset
+```
+
+This interactive prompt asks you to:
+
+1. Pick the bump type (`major`, `minor`, or `patch`).
+2. Write a short summary. This text becomes the changelog line, e.g. `fix: reroute the hyperdrive coolant`.
+
+A new markdown file is created under `.changeset/` and commited in a new commit (automatically).
+
+### Releasing
+
+> [!WARNING]
+> Releases are done by a maintainer.
+
+1. **Set up the GitHub token (once).** The changelog links PR numbers and authors, which requires a token:
+
+  ```bash
+  cp .changeset/.env.example .changeset/.env
+  # then edit .changeset/.env and set GITHUB_TOKEN to a token with repo read access
+  ```
+
+  This file is git-ignored and only used locally.
+
+2. **Consume the changesets.** This deletes the pending changeset files, bumps the version in `package.json`, and updates `CHANGELOG.md`:
+
+  ```bash
+  pnpm run version
+  ```
+
+3. **Tag** the release once merged (or pushed):
+
+  ```bash
+  pnpm run tag
+  git push --follow-tags
+  ```
+
+Tags follow the `v${version}` format.
+
+#### Pre-release mode
+
+To release beta or rc releases, you need to enter *prerelease mode*:
+
+```bash
+# to enter beta mode
+pnpm run prerelease-mode enter beta
+
+# to exit beta mode
+pnpm run prerelease-mode exit
+```
+
+Instead of beta, it can be `rc`, or `alpha` or anything else.
+
+## PRF Compatibility
 
 The wwWallet Frontend is designed to be compatible with the PRF extension to WebAuthn, ensuring a streamlined and secure registration and authentication process. Below, we present specific compatibility scenarios based on the operating system, emphasizing both WebAuthn and PRF extension compatibility.
 
@@ -366,7 +448,7 @@ The PRF (Pseudo Random Function) extension in WebAuthn enables the evaluation of
 
 The wwWallet is committed to delivering a secure and adaptable authentication experience with an emphasis on PRF extension compatibility.
 
-## 🎨Tailwind CSS
+## Tailwind CSS
 
 This project utilizes **Tailwind CSS**, a utility-first CSS framework that enables rapid development of custom user interfaces with minimal effort. Tailwind CSS offers a collection of utility classes that make styling components and layouts a breeze, eliminating the need for writing extensive custom CSS.
 
@@ -386,6 +468,6 @@ Tailwind CSS provides an extensive set of default styles, but you can also custo
 
 Explore the [Tailwind CSS documentation](https://tailwindcss.com/docs/installation) to learn about all the utility classes, configuration options, and techniques for building beautiful UIs efficiently.
 
-## 💡Contributing
+## Contributing
 
 Want to contribute? Check out our [Contribution Guidelines](https://github.com/wwWallet/.github/blob/main/CONTRIBUTING.md) for more details!

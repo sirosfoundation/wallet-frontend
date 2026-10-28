@@ -10,7 +10,6 @@ import { StatusContextProvider } from './context/StatusContextProvider';
 import { SessionContextProvider } from './context/SessionContextProvider';
 import { CredentialsContextProvider } from './context/CredentialsContextProvider';
 import { OpenID4VPContextProvider } from './context/OpenID4VPContextProvider';
-import { OpenID4VCIContextProvider } from './context/OpenID4VCIContextProvider';
 import { AppSettingsProvider } from './context/AppSettingsProvider';
 import { NotificationProvider } from './context/NotificationProvider';
 import { OIDFlowTransportProvider } from './context/OIDFlowTransportContext';
@@ -18,6 +17,7 @@ import { WebSocketSignHandlerProvider } from './context/WebSocketSignHandlerProv
 import { ErrorDialogContextProvider } from './context/ErrorDialogContextProvider';
 import { TxCodeInputProvider } from './context/TxCodeInputContext';
 import { WalletCompanionProvider } from './context/WalletCompanionContext';
+import { WscdManagerClientContextProvider } from './context/WscdManagerClientContextProvider';
 
 type RootProviderProps = {
 	children: ReactNode;
@@ -30,10 +30,10 @@ const AppProvider: React.FC<RootProviderProps> = ({ children }) => {
 				<StatusContextProvider>
 					<SessionContextProvider>
 						<CredentialsContextProvider>
-							<OIDFlowTransportProvider>
-								<WebSocketSignHandlerProvider>
-									<OpenID4VPContextProvider>
-										<OpenID4VCIContextProvider>
+							<WscdManagerClientContextProvider>
+								<OIDFlowTransportProvider>
+									<WebSocketSignHandlerProvider>
+										<OpenID4VPContextProvider>
 											<TxCodeInputProvider>
 												<NotificationProvider>
 													<WalletCompanionProvider>
@@ -43,10 +43,10 @@ const AppProvider: React.FC<RootProviderProps> = ({ children }) => {
 													</WalletCompanionProvider>
 												</NotificationProvider>
 											</TxCodeInputProvider>
-										</OpenID4VCIContextProvider>
-									</OpenID4VPContextProvider>
-								</WebSocketSignHandlerProvider>
-							</OIDFlowTransportProvider>
+										</OpenID4VPContextProvider>
+									</WebSocketSignHandlerProvider>
+								</OIDFlowTransportProvider>
+							</WscdManagerClientContextProvider>
 						</CredentialsContextProvider>
 					</SessionContextProvider>
 				</StatusContextProvider>

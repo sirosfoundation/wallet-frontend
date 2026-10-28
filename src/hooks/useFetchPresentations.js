@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext } from 'react';
-import { compareBy, reverse } from '../util';
+import { compareBy, reverse } from '@/lib/utils';
 import { logger } from '../logger';
 
 // Context
@@ -8,7 +8,7 @@ import CredentialsContext from '@/context/CredentialsContext';
 import { CredentialVerificationError } from "wallet-common";
 
 const useFetchPresentations = (keystore, batchId = null, transactionId = null) => {
-	const [history, setHistory] = useState({});
+	const [history, setHistory] = useState([]);
 	const { parseCredential, credentialEngine } = useContext(CredentialsContext);
 
 	useEffect(() => {
@@ -65,7 +65,8 @@ const useFetchPresentations = (keystore, batchId = null, transactionId = null) =
 							credentialIssuerIdentifier: firstVC?.credentialIssuerIdentifier ?? null,
 						});
 
-						const result = await credentialEngine.credentialVerifyingEngine.verify({ rawCredential: presentation.data, opts: {} });
+						const { credentialVerifyingEngine } = await credentialEngine;
+						const result = await credentialVerifyingEngine.verify({ rawCredential: presentation.data, opts: {} });
 
 						return {
 							presentation,
