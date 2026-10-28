@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import JsonViewer from '../JsonViewer/JsonViewer';
 import useScreenType from '../../hooks/useScreenType';
 import { Asterisk, Send } from 'lucide-react';
+import { ensureStringIsImageDataUri, imageBytesToDataUri } from '@/lib/utils';
 
 const Legend = ({ showRequired, showRequested, t }) => {
 	if (!showRequired && !showRequested) return null;
@@ -126,6 +127,23 @@ const isDisplayClaim = (claim) => {
 	return claim.display.some(d => d.locale && d.label);
 };
 
+// toByteArray normalises the two shapes a binary claim reaches this screen in:
+// a Uint8Array, and a plain object keyed by consecutive numeric indices.
+// Anything else is returned untouched, so the caller's image check rejects it.
+const toByteArray = (value) => {
+	if (value instanceof Uint8Array) return value;
+	if (typeof value !== 'object' || value === null) return value;
+
+	const keys = Object.keys(value);
+	if (keys.length === 0) return value;
+	if (!keys.every((k, i) => Number(k) === i)) return value;
+
+	const bytes = Object.values(value);
+	if (!bytes.every(b => Number.isInteger(b) && b >= 0 && b <= 255)) return value;
+
+	return new Uint8Array(bytes);
+};
+
 const formatClaimValue = (value) => {
 
 	const renderImg = (src) => (
@@ -133,7 +151,7 @@ const formatClaimValue = (value) => {
 			src={src}
 			alt=""
 			aria-hidden="true"
-			className="max-h-10 max-w-full rounded-sm border"
+			className="max-h-20 max-w-full rounded-sm border"
 		/>
 	);
 
@@ -149,11 +167,10 @@ const formatClaimValue = (value) => {
 
 	// String handling
 	if (typeof value === 'string') {
-		const lower = value.toLowerCase();
-
 		// Image data URI
-		if (lower.startsWith('data:image/')) {
-			return renderImg(value);
+		const imgDataUri = ensureStringIsImageDataUri(value);
+		if (imgDataUri) {
+			return renderImg(imgDataUri);
 		}
 		// Long string fallback
 		if (!value.includes(' ') && value.length > 30) {
@@ -163,26 +180,19 @@ const formatClaimValue = (value) => {
 
 	if (value instanceof Date) return formatDate(value, 'date');
 
-	// Handle raw image bytes
-	if (
-		typeof value === 'object' &&
-		value !== null &&
-		Object.keys(value).length > 0 &&
-		Object.keys(value).every(k => !isNaN(Number(k))) &&
-		Object.values(value).every(v => typeof v === 'number')
-	) {
-		try {
-			const uint8Array = new Uint8Array(Object.values(value));
-			const base64 = btoa(
-				String.fromCharCode.apply(null, Array.from(uint8Array))
-			);
-			const src = `data:image/jpeg;base64,${base64}`;
-			return renderImg(src);
-		} catch {
-			// fallback if conversion fails
-			return renderJson(value);
-		}
-	}
+	// Raw image bytes, as an mdoc bstr claim arrives. Delegating to the same
+	// helper the presentation UI uses means the two screens agree on what
+	// counts as an image, and it sniffs the MIME from the byte signature
+	// rather than assuming JPEG and base64-encodes in 32 KB chunks -- a
+	// portrait big enough to overflow the call stack in one
+	// String.fromCharCode call needs both.
+	//
+	// toByteArray first because the helper takes only a real Uint8Array,
+	// while this screen has always also accepted a byte-keyed plain object
+	// (what a Uint8Array becomes across a JSON round trip without the
+	// tagged-binary reviver).
+	const imageBytesSrc = imageBytesToDataUri(toByteArray(value));
+	if (imageBytesSrc) return renderImg(imageBytesSrc);
 
 	if (typeof value === 'object') {
 		return renderJson(value);
@@ -191,7 +201,12 @@ const formatClaimValue = (value) => {
 	return formatDate(value, 'date');
 };
 
-const CredentialInfo = ({ parsedCredential, mainClassName = "text-sm lg:text-base w-full", fallbackClaims, requested }) => {
+const CredentialInfo = ({
+	parsedCredential,
+	mainClassName = "text-sm lg:text-base w-full",
+	fallbackClaims = null,
+	requested = null,
+}) => {
 	const { t, i18n } = useTranslation();
 	const screenType = useScreenType();
 	const { language, options: { fallbackLng } } = i18n;

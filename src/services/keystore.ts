@@ -15,7 +15,7 @@ import { DeviceResponse, MDoc } from "@auth0/mdl";
 import { SupportedAlgs } from "@auth0/mdl/lib/mdoc/model/types";
 import { COSEKeyToJWK } from "cose-kit";
 import { withHintsFromAllowCredentials } from "@/lib/utils/webauthn";
-import { addDeleteKeypairEvent, addNewKeypairEvent, CurrentSchema, foldState, SchemaV1, SchemaV2, SchemaV3 } from "./WalletStateSchema";
+import { addDeleteKeypairEvent, addNewKeypairEvent, CurrentSchema, foldState, SchemaV1, SchemaV2, SchemaV4 } from "./WalletStateSchema";
 import { logger } from "../logger";
 
 type WalletState = CurrentSchema.WalletState;
@@ -219,7 +219,7 @@ export function migrateV1PrivateData(privateData: PrivateDataV1 | PrivateDataV2)
 export async function migrateV3PrivateData(privateData: PrivateDataV2 | PrivateData, encryptionKey: CryptoKey): Promise<PrivateData> {
 	const state = foldState(privateData);
 	const wrappedKeypairs = state.keypairs
-		.filter(k => "wrappedPrivateKey" in k.keypair) as unknown as SchemaV2.WalletState["keypairs"];
+		.filter(k => typeof k?.keypair === "object" && k.keypair !== null && "wrappedPrivateKey" in k.keypair) as unknown as SchemaV2.WalletState["keypairs"];
 	const unwrappedKeypairs = await Promise.all(wrappedKeypairs.map(async (k) => {
 		const unwrapped = await unwrapPrivateKey(k.keypair.wrappedPrivateKey, encryptionKey, true);
 		const jwk = await crypto.subtle.exportKey("jwk", unwrapped) as JWK;
@@ -241,6 +241,24 @@ export async function migrateV3PrivateData(privateData: PrivateDataV2 | PrivateD
 		privateData = await addNewKeypairEvent(privateData, kid, keypair);
 	}
 	return privateData;
+}
+
+export function migrateV4PrivateData(privateData: PrivateData): PrivateData {
+	return {
+		...privateData,
+		S: {
+			...privateData.S,
+			schemaVersion:
+				// v1/v2 base states keep their version until folded,
+				// relabelling crashes on pending v1/v2 events.
+				privateData.S.schemaVersion === 3
+					? CurrentSchema.SCHEMA_VERSION
+					: privateData.S.schemaVersion,
+			credentials: privateData.S.credentials.map(
+				CurrentSchema.withoutEmptyMetadata,
+			),
+		},
+	};
 }
 
 export type CredentialKeyPair = {
@@ -535,17 +553,27 @@ async function encryptPrivateData(privateData: PrivateData, encryptionKey: Crypt
 		.encrypt(encryptionKey);
 };
 
-async function decryptPrivateData(privateDataJwe: string, encryptionKey: CryptoKey): Promise<PrivateData> {
-	return migrateV3PrivateData(
-		migrateV1PrivateData(
-			migrateV0PrivateData(
-				jsonParseTaggedBinary(
-					new TextDecoder().decode(
-						(await jose.compactDecrypt(privateDataJwe, encryptionKey)).plaintext
-					))
-			)), encryptionKey);
-};
-
+async function decryptPrivateData(
+	privateDataJwe: string,
+	encryptionKey: CryptoKey,
+): Promise<PrivateData> {
+	const container = migrateV1PrivateData(
+		migrateV0PrivateData(
+			jsonParseTaggedBinary(
+				new TextDecoder().decode(
+					(await jose.compactDecrypt(privateDataJwe, encryptionKey))
+						.plaintext,
+				),
+			),
+		),
+	);
+	// Must run before migrateV3PrivateData, whose fold throws its
+	// own errors on unsupported events.
+	CurrentSchema.assertSupportedContainer(container);
+	return migrateV4PrivateData(
+		await migrateV3PrivateData(container, encryptionKey),
+	);
+}
 
 async function derivePrfKey(
 	prfOutput: BufferSource,
@@ -833,7 +861,7 @@ export async function init(
 ): Promise<UnlockSuccess> {
 	const privateData: EncryptedContainer = {
 		...keyInfo,
-		jwe: await encryptPrivateData(SchemaV3.WalletStateOperations.initialWalletStateContainer(), mainKey),
+		jwe: await encryptPrivateData(SchemaV4.WalletStateOperations.initialWalletStateContainer(), mainKey),
 	};
 	return await unlock(mainKey, privateData);
 }

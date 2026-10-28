@@ -7,7 +7,7 @@ import ScanPhysicalID from './ScanPhysicalID';
 const mockNavigate = vi.fn();
 const mockBuildPath = vi.fn((subPath?: string) => (subPath ? `/${subPath}` : '/'));
 
-const mockConfig = vi.hoisted(() => ({ SCAN_PHYSICAL_ID_ENABLED: true }));
+const mockConfig = vi.hoisted(() => ({ SCAN_PHYSICAL_ID_ENABLED: true, FACETEC_API_URL: 'https://facetec.example.com' as string | undefined, }));
 
 vi.mock('react-router', async () => {
 	const actual = await vi.importActual('react-router');
@@ -28,6 +28,9 @@ vi.mock('@/config', async (importOriginal) => {
 		get SCAN_PHYSICAL_ID_ENABLED() {
 			return mockConfig.SCAN_PHYSICAL_ID_ENABLED;
 		},
+		get FACETEC_API_URL() {
+			return mockConfig.FACETEC_API_URL;
+		},
 	};
 });
 
@@ -36,6 +39,7 @@ beforeEach(() => {
 	mockNavigate.mockClear();
 	mockBuildPath.mockClear();
 	mockConfig.SCAN_PHYSICAL_ID_ENABLED = true;
+	mockConfig.FACETEC_API_URL = 'https://facetec.example.com';
 	// @ts-expect-error - test-only global, cleared/reset per test
 	delete window.nativeWrapper;
 });
@@ -122,6 +126,22 @@ describe('ScanPhysicalID', () => {
 
 		fireEvent.click(startButton);
 		expect(startScanPhysicalId).toHaveBeenCalledTimes(1);
+		expect(startScanPhysicalId).toHaveBeenCalledWith('https://facetec.example.com');
+	});
+
+	it('calls startScanPhysicalId with undefined when FACETEC_API_URL is not configured', () => {
+		mockConfig.FACETEC_API_URL = undefined;
+		const startScanPhysicalId = vi.fn();
+		// @ts-expect-error - test-only global
+		window.nativeWrapper = { startScanPhysicalId };
+		render(<ScanPhysicalID />);
+
+		const [checkbox] = screen.getAllByRole('checkbox');
+		fireEvent.click(checkbox);
+
+		const [startButton] = screen.getAllByRole('button', { name: 'Start Scan' });
+		fireEvent.click(startButton);
+		expect(startScanPhysicalId).toHaveBeenCalledWith(undefined);
 	});
 
 	it('treats a non-function nativeWrapper.startScanPhysicalId as unavailable', () => {

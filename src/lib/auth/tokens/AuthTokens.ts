@@ -51,7 +51,7 @@ export class AuthTokens {
 			tac: 'rwlid',
 		},
 		'anonymous': {
-			audience: 'wallet-backend',
+			audience: 'wallet-registry',
 			tac: 'rl',
 			anonymous: true,
 		},

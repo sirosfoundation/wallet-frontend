@@ -4,6 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { OIDFlowWebSocketTransport } from '../transports/OIDFlowWebSocketTransport';
+import { logger } from '@/logger';
 
 // Mock WebSocket implementation
 class MockWebSocket {
@@ -1306,6 +1307,101 @@ describe('OIDFlowWebSocketTransport', () => {
 			expect(sentMessage.type).toBe('flow_action');
 			expect(sentMessage.action).toBe('consent');
 			expect(sentMessage.payload.selectedCredentials).toHaveLength(1);
+		});
+	});
+
+	describe('Credential Notification', () => {
+		it('should send credential_notification with correct shape', async () => {
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+
+			transport.sendCredentialNotification('flow-123', 'notif-abc', 'credential_accepted');
+
+			await vi.waitFor(() => {
+				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(1);
+			});
+
+			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[1]);
+			expect(sentMessage).toEqual({
+				type: 'credential_notification',
+				flow_id: 'flow-123',
+				notification_id: 'notif-abc',
+				event: 'credential_accepted',
+			});
+		});
+
+		it('should be a no-op when not connected', () => {
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			// Not connected — should not throw
+			expect(() => {
+				transport.sendCredentialNotification('flow-123', 'notif-abc', 'credential_accepted');
+			}).not.toThrow();
+		});
+
+		it('should catch and log errors when send throws', async () => {
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+
+			const mockWs = mockWebSocketInstances[0];
+			// Force send() to throw
+			vi.spyOn(mockWs, 'send').mockImplementation(() => {
+				throw new Error('WebSocket send failed');
+			});
+
+			const errorSpy = vi.spyOn(logger, 'error');
+
+			// Should not propagate the error
+			expect(() => {
+				transport.sendCredentialNotification('flow-123', 'notif-abc', 'credential_accepted');
+			}).not.toThrow();
+			expect(errorSpy).toHaveBeenCalledWith('Failed to send credential notification:', expect.any(Error));
+			errorSpy.mockRestore();
+		});
+
+		it('should handle notification_ack without an unknown-flow warning', async () => {
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+
+			const warnSpy = vi.spyOn(logger, 'warn');
+
+			mockWebSocketInstances[0].simulateMessage({
+				type: 'notification_ack',
+				flow_id: 'flow-123',
+				notification_id: 'notif-abc',
+				status: 'forwarded',
+			});
+
+			expect(warnSpy).not.toHaveBeenCalled();
+			warnSpy.mockRestore();
+		});
+
+		it('should include notification_id in mapped credentials', async () => {
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+
+			const flowPromise = transport.startOID4VCIFlow({
+				credentialOfferUri: 'https://issuer.example.com/offer/123',
+			});
+
+			await vi.waitFor(() => {
+				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(1);
+			});
+
+			mockWebSocketInstances[0].simulateMessage({
+				type: 'flow_complete',
+				flow_id: JSON.parse(mockWebSocketInstances[0].sentMessages[1]).flow_id,
+				credentials: [
+					{ format: 'vc+sd-jwt', credential: 'eyJ...', notification_id: 'notif-xyz' },
+					{ format: 'vc+sd-jwt', credential: 'eyK...' },
+				],
+			});
+
+			const result = await flowPromise;
+			expect(result.success).toBe(true);
+			expect(result.credentials).toHaveLength(2);
+			expect(result.credentials![0].notification_id).toBe('notif-xyz');
+			expect(result.credentials![1].notification_id).toBeUndefined();
+			expect(result.flowId).toBeDefined();
 		});
 	});
 });

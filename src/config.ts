@@ -152,6 +152,7 @@ export const PRESERVE_PRESENTATION_HISTORY: boolean = config.preserve_presentati
  * don't want it offered can opt out via SCAN_PHYSICAL_ID_ENABLED=false.
  */
 export const SCAN_PHYSICAL_ID_ENABLED: boolean = config.scan_physical_id_enabled !== 'false';
+export const FACETEC_API_URL: string | undefined = config.facetec_api_url;
 export const OPENID4VCI_PROOF_TYPE_PRECEDENCE = config.openid4vci_proof_type_precedence || 'jwt';
 export const FOLD_EVENT_HISTORY_AFTER_SECONDS = config.fold_event_history_after_seconds && !isNaN(parseInt(config.fold_event_history_after_seconds)) ? parseInt(config.fold_event_history_after_seconds) : 2592000; // 30 days
 export const DISPLAY_ISSUANCE_WARNINGS: boolean = config.display_issuance_warnings ? JSON.parse(config.display_issuance_warnings) : false;

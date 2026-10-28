@@ -8,11 +8,11 @@ import { CredentialCardSkeleton } from '../Skeletons';
 const CredentialImage = ({
 	vcEntity,
 	className,
-	onClick,
+	onClick = undefined,
 	showRibbon = true,
 	vcEntityInstances = null,
 	filter = null,
-	onLoad,
+	onLoad = undefined,
 	borderColor = undefined,
 	fixedRatio = true
 }) => {

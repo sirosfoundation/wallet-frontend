@@ -152,8 +152,10 @@ export function useOIDFlowSignHandler() {
 		if (!proofTypesSupported) {
 			throw new Error('Missing proofTypesSupported for proof generation');
 		}
+		logger.debug(`[WS Sign Handler] Received supported proof types: ${JSON.stringify(proofTypesSupported)}`);
 
 		// Select proof type
+		logger.debug(`[WS Sign Handler] Selecting proof type from precedence: ${OPENID4VCI_PROOF_TYPE_PRECEDENCE}`);
 		const proofType = OPENID4VCI_PROOF_TYPE_PRECEDENCE
 			.split(',')
 			.find(type => proofTypesSupported[type]) as 'jwt' | 'attestation' | undefined;

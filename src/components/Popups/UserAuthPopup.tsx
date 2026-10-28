@@ -60,6 +60,10 @@ export const UserAuthPopup: FC<UserAuthPopupProps> = ({
 						setError(t('loginSignup.passkeyLoginFailedServerError'));
 						break;
 
+					case 'unsupportedVersion':
+						setError(t('loginSignup.unsupportedVersion'));
+						break;
+
 					default:
 						throw result;
 				}

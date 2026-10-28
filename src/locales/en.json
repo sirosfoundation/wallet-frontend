@@ -81,6 +81,15 @@
 			"title": "Wallet Service Authentication Failed"
 		}
 	},
+	"globalError": {
+		"contactSupport": "Or, please contact us at support@siros.org.",
+		"messages": {
+			"default": "Please report this issue so we can look into it.",
+			"unsupportedVersion": "Your wallet was saved by a newer version of the app. Reload to update, and if issues persist, report it."
+		},
+		"reportIssueButton": "Report Issue",
+		"title": "An unexpected error happened"
+	},
 	"issuance": {
 		"credentialsHaveErrors": "Errors have been found while verifying the credential you are trying to receive.",
 		"error": "Issuance Error",
@@ -103,6 +112,15 @@
 	},
 	"language": {
 		"label": "Language"
+	},
+		"labelSecurityKeyPopup": {
+		"confirm": "Confirm",
+		"description": "Give each security key a label to make it easier to recognize it in the wallet settings.",
+		"error": "Could not label the security key. Try again.",
+		"inputAriaLabel": "Security key label",
+		"placeholder": "Enter label",
+		"skip": "Skip",
+		"title": "Label your security key"
 	},
 	"layout": {
 		"messageAllowPermission": "To receive real-time updates of <strong>Credentials, allow notifications permission and reload this page</strong>.",
@@ -152,6 +170,7 @@
 		"signUpWithPasskey": "Create account with a Passkey",
 		"signUpWithSecurityKey": "Use a Security Key",
 		"submitting": "Submitting...",
+		"unsupportedVersion": "This wallet's data uses a version this app does not support. Update the app and try again.",
 		"useOtherAccount": "Use other Account",
 		"usernameExistsError": "Failed to create user account, username already exists",
 		"usernameLabel": "Username",
@@ -187,6 +206,10 @@
 		"success": {
 			"message": "The operation completed successfully.",
 			"title": "Success"
+		},
+		"unsupportedVersion": {
+			"message": "Your wallet was changed by a version of the app this one does not support. Update the app.",
+			"title": "Can't sync wallet"
 		}
 	},
 	"oidcGate": {
@@ -771,11 +794,5 @@
 		"question": "Are you ready to explore the features of $t(common.walletName) through a guided tour?",
 		"startTourButton": "Start Tour",
 		"title": "Welcome to $t(common.walletName)!"
-	},
-	"globalError": {
-		"title": "An unexpected error happened",
-		"reportIssueButton": "Report Issue",
-		"message": "Please report this issue so we can look into it.",
-		"contactSupport": "Or, please contact us at support@siros.org."
 	}
 }
