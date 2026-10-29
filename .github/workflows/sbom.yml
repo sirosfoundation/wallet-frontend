@@ -3,7 +3,6 @@ name: SBOM
 on:
   push:
     branches: [release/sirosid]
-    tags: ['v*']
   pull_request:
     branches: [release/sirosid]
   release:
@@ -12,6 +11,7 @@ on:
 
 jobs:
   sbom:
+    if: github.event_name != 'pull_request' || !startsWith(github.head_ref, 'release/v')
     uses: sirosfoundation/.github/.github/workflows/sbom.yml@03160e376dbdeb9f2c904e7a9f45499b2f67e8fa # main
     with:
       artifact-name: wallet-frontend
