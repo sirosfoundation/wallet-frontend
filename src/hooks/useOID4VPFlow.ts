@@ -11,7 +11,7 @@ import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useOIDFlowTransportSafe } from '@/context/OIDFlowTransportContext';
 import SessionContext from '@/context/SessionContext';
 import CredentialsContext, { ExtendedVcEntity } from '@/context/CredentialsContext';
-import { matchCredentials } from '@/lib/services/CredentialMatchingService';
+import { matchCredentials, type CredentialsMatchedResult } from '@/lib/services/CredentialMatchingService';
 import type {
 	OID4VPFlowResult,
 	OID4VPSelectedCredential,
@@ -70,6 +70,11 @@ export interface UseOID4VPFlowReturn {
 	sendAuthorizationResponse: (
 		selectedCredentials: OID4VPSelectedCredential[]
 	) => Promise<OID4VPFlowResult>;
+	/**
+	 * Tell the engine nothing matched, so it can notify the verifier.
+	 * Call only after the user has seen the error. Resolves the verifier's redirect URI, if any.
+	 */
+	reportNoMatchingCredentials: () => Promise<string | undefined>;
 	/**
 	 * Current transport type being used
 	 */
@@ -220,33 +225,18 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		}
 	}, [transportType, transport, onProgress, onError]);
 
-	/**
-	 * Build the error for "the wallet holds nothing this verifier asked for",
-	 * telling the engine first.
-	 *
-	 * Local matching is the only place that knows the answer, and until the
-	 * engine hears it the flow sits at credential_selection until the
-	 * five-minute user-interaction timeout and then fails as a generic
-	 * FLOW_TIMEOUT - with the verifier's session left to expire on its own.
-	 * The engine answers with NO_MATCHING_CREDENTIAL, which names the
-	 * credential types the query asked for in `details.requested_types`, so
-	 * its error is preferred over the local one when it arrives. An engine
-	 * that does not handle the action (older than go-wallet-backend #336)
-	 * leaves us with the local error, exactly as before.
-	 */
-	const noMatchingCredentialsError = useCallback(async (
-		noMatchReason?: string,
-		localCode?: string,
-	): Promise<OIDFlowError> => {
-		const engineError = transportType === 'websocket'
-			? (await transport?.reportNoMatchingCredentials?.(noMatchReason))?.error
-			: undefined;
+	const reportNoMatchingCredentials = useCallback(async (): Promise<string | undefined> => {
+		if (transportType !== 'websocket' || !transport?.reportNoMatchingCredentials) {
+			return undefined;
+		}
 
-		return new OIDFlowError({
-			code: engineError?.code ?? localCode ?? 'NO_MATCHING_CREDENTIALS',
-			message: engineError?.message || noMatchReason || 'No matching credentials',
-			details: engineError?.details,
-		});
+		const result = await transport.reportNoMatchingCredentials();
+		if (result?.error?.code !== 'NO_MATCHING_CREDENTIALS') {
+			return undefined;
+		}
+
+		const redirectUri = result.error.details?.redirect_uri;
+		return typeof redirectUri === 'string' ? redirectUri : undefined;
 	}, [transport, transportType]);
 
 	/**
@@ -275,13 +265,16 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 			if (preMatchedCredentials) {
 				conformantCredentialsMap = new Map(preMatchedCredentials);
 			} else if (dcqlQuery) {
-				const { matches, no_match_reason, code } = matchCredentials(credentials, dcqlQuery);
+				const matchResult = matchCredentials(credentials, dcqlQuery);
 
-				if (matches.length === 0) {
-					throw await noMatchingCredentialsError(no_match_reason, code);
+				if (matchResult.matches.length === 0) {
+					throw noMatchError(matchResult);
 				}
 
-				conformantCredentialsMap = new Map(buildConformantCredentialsMap(matches, dcqlQuery));
+				conformantCredentialsMap = new Map(buildConformantCredentialsMap(
+					matchResult.matches,
+					dcqlQuery,
+				));
 			} else {
 				throw new OIDFlowError({ code: 'NO_DCQL_QUERY_OR_PREMATCHED_CREDENTIALS', message: 'No dcqlQuery or preMatchedCredentials provided' });
 			}
@@ -358,7 +351,6 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		keystore,
 		options,
 		waitForCredentials,
-		noMatchingCredentialsError,
 		onError,
 	]);
 
@@ -389,7 +381,11 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 					}
 
 					if (!result.success) {
-						throw new OIDFlowError({ code: result.error?.code || 'AUTHORIZATION_RESPONSE_FAILED', message: result.error?.message || 'Authorization response failed' });
+						throw new OIDFlowError({
+							code: result.error?.code || 'AUTHORIZATION_RESPONSE_FAILED',
+							message: result.error?.message || 'Authorization response failed',
+							details: result.error?.details,
+						});
 					}
 
 					return result;
@@ -464,18 +460,15 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 			const credentials = (await waitForCredentials())
 				.filter(vc => selectedCredentialIDs.length === 0 || selectedCredentialIDs.includes(String(vc.batchId)));
 
-			const { matches, no_match_reason, code } = matchCredentials(credentials, request.dcqlQuery);
+			const matchResult = matchCredentials(credentials, request.dcqlQuery);
 
-			if (matches.length === 0) {
-				throw new OIDFlowError({
-					code: code ?? 'NO_MATCHING_CREDENTIALS',
-					message: no_match_reason || 'No matching credentials',
-				});
+			if (matchResult.matches.length === 0) {
+				throw noMatchError(matchResult);
 			}
 
 			// Build conformant credentials map
 			const conformantCredentials = buildConformantCredentialsMap(
-				matches,
+				matchResult.matches,
 				request.dcqlQuery
 			);
 
@@ -500,7 +493,11 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 			onError?.(error);
 			return {
 				success: false,
-				error: { code: error.code, message: error.message },
+				error: {
+					code: error.code,
+					message: error.message,
+					...(error.details ? { details: error.details } : {}),
+				},
 			};
 		} finally {
 			setIsLoading(false);
@@ -563,6 +560,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		handleAuthorizationRequest,
 		handleCredentialSelection,
 		sendAuthorizationResponse,
+		reportNoMatchingCredentials,
 		transportType,
 		isLoading,
 		error,
@@ -573,6 +571,14 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 }
 
 export default useOID4VPFlow;
+
+function noMatchError({ code, no_match_reason, missing_types }: CredentialsMatchedResult): OIDFlowError {
+	return new OIDFlowError({
+		code: code ?? 'NO_MATCHING_CREDENTIALS',
+		message: no_match_reason || 'No matching credentials',
+		...(missing_types ? { details: { missing_types } } : {}),
+	});
+}
 
 /**
  * Build conformant credentials map from DCQL matches
