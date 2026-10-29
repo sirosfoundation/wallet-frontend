@@ -308,6 +308,9 @@ importers:
       '@sirosfoundation/http-client':
         specifier: workspace:*
         version: link:../http-client
+      '@sirosfoundation/result':
+        specifier: workspace:*
+        version: link:../result
       asn1js:
         specifier: ^3.0.10
         version: 3.0.10
