@@ -46,6 +46,28 @@ export interface OID4VPSelectedCredential {
 /**
  * Result of an OID4VP flow operation
  */
+/**
+ * The OpenID4VP request as the engine validated it (`verified_request` in the engine's
+ * websocket protocol, "Verified request inputs"). It carries no trust verdict. The wallet
+ * applies its own policy over these members; unknown members are ignored.
+ */
+export interface OID4VPVerifiedRequest {
+	/** The request's own `client_id`, after the engine's client_id match and scheme-prefix checks. */
+	clientId?: string;
+	/** `x509_san_dns`, `x509_san_uri`, `x509_hash`, `did`, `verifier_attestation`, `redirect_uri`, ... */
+	clientIdScheme?: string;
+	/** `direct_post`, `direct_post.jwt`, `query` or `fragment`. */
+	responseMode?: string;
+	/** The validated `response_uri` (the `redirect_uri` when the request has no `response_uri`). */
+	responseUri?: string;
+	/** `true` only when `signatureVerification` is `verified`; absent reads as not signed. */
+	signed?: boolean;
+	/** What the engine itself established about the request object's signature. */
+	signatureVerification?: 'verified' | 'deferred' | 'none';
+	/** The verifier's `client_metadata`, verbatim. */
+	clientMetadata?: Record<string, unknown>;
+}
+
 export interface OID4VPFlowResult {
 	/** Whether this step succeeded */
 	success: boolean;
@@ -70,6 +92,9 @@ export interface OID4VPFlowResult {
 
 	/** Verifier information */
 	verifierInfo?: OID4VPVerifierInfo;
+
+	/** The validated request as the engine sent it with the credential selection (data only; no policy here). */
+	verifiedRequest?: OID4VPVerifiedRequest;
 
 	/** Transaction data requiring explicit consent */
 	transactionData?: OID4VPTransactionData[];
