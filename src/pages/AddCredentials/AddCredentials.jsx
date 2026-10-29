@@ -189,6 +189,20 @@ const AddCredentials = () => {
 				<H1 heading={t('common.navItemAddCredentials')} />
 				<PageDescription description={t('pageAddCredentials.description')} />
 
+				<div className={`my-4 ${isScanAvailable ? '' : 'hidden'}`} data-widget="scan-physical-id">
+					<H3 heading={t('pageAddCredentials.scanPhysicalId.sectionTitle')} hr />
+					<button
+						className="w-full flex items-center justify-between gap-4 border border-lm-gray-400 dark:border-dm-gray-600 rounded-xl p-4 bg-lm-gray-50 dark:bg-dm-gray-800 hover:brightness-[0.97] dark:hover:brightness-[1.05] transition-all text-left cursor-pointer"
+						onClick={() => void navigate(buildPath('add/digital-id'))}
+					>
+						<div>
+							<p className="font-semibold text-lm-gray-900 dark:text-white">{t('pageAddCredentials.scanPhysicalId.digitalId.title')}</p>
+							<p className="text-sm text-lm-gray-700 dark:text-dm-gray-300 mt-0.5">{t('pageAddCredentials.scanPhysicalId.digitalId.description')}</p>
+						</div>
+						<Camera size={32} className="text-lm-gray-600 dark:text-dm-gray-300 shrink-0" />
+					</button>
+				</div>
+
 				{credentialConfigurations && recent && (
 					<QueryableList
 						isOnline={isOnline}
@@ -198,21 +212,6 @@ const AddCredentials = () => {
 						translationPrefix='pageAddCredentials'
 						identifierField='identifierField'
 						onClick={handleCredentialConfigurationClick}
-						extraSection={
-							<div className={`mb-4 ${isScanAvailable ? '' : 'hidden'}`} data-widget="scan-physical-id">
-								<H3 heading={t('pageAddCredentials.scanPhysicalId.sectionTitle')} hr />
-								<button
-									className="w-full flex items-center justify-between gap-4 border border-lm-gray-400 dark:border-dm-gray-600 rounded-xl p-4 bg-lm-gray-50 dark:bg-dm-gray-800 hover:brightness-[0.97] dark:hover:brightness-[1.05] transition-all text-left cursor-pointer"
-									onClick={() => navigate(buildPath('add/digital-id'))}
-								>
-									<div>
-										<p className="font-semibold text-lm-gray-900 dark:text-white">{t('pageAddCredentials.scanPhysicalId.digitalId.title')}</p>
-										<p className="text-sm text-lm-gray-700 dark:text-dm-gray-300 mt-0.5">{t('pageAddCredentials.scanPhysicalId.digitalId.description')}</p>
-									</div>
-									<Camera size={32} className="text-lm-gray-600 dark:text-dm-gray-300 shrink-0" />
-								</button>
-							</div>
-						}
 					/>
 				)}
 			</div>
