@@ -78,6 +78,12 @@ export interface IOIDFlowTransport {
 	 */
 	startOID4VPFlow(params: OID4VPFlowParams): Promise<OID4VPFlowResult>;
 
+	/**
+	 * Tell the flow orchestrator that local matching found nothing, so it can end
+	 * the flow and notify the verifier. Resolves `null` if there was no answer.
+	 */
+	reportNoMatchingCredentials?(): Promise<OID4VPFlowResult | null>;
+
 	// ===== Generic Request =====
 
 	/**

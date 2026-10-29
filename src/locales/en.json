@@ -266,6 +266,8 @@
 			},
 			"INSUFFICIENT_CREDENTIALS": {
 				"description": "One or more of the credentials you want to present do not exist for selection.",
+				"descriptionWithTypes_one": "This request needs a credential you do not have: {{types}}.",
+				"descriptionWithTypes_other": "This request needs credentials you do not have: {{types}}.",
 				"title": "Insufficient Credentials"
 			},
 			"INVALID_REQUEST": {
@@ -290,6 +292,8 @@
 			},
 			"NO_MATCHING_CREDENTIALS": {
 				"description": "You do not have any credentials that match this request.",
+				"descriptionWithTypes_one": "This request needs a credential you do not have: {{types}}.",
+				"descriptionWithTypes_other": "This request needs credentials you do not have: {{types}}.",
 				"title": "No Matching Credentials"
 			},
 			"NO_TRANSPORT": {

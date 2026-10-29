@@ -138,6 +138,9 @@ export type MatchResponse = CredentialsMatchedResult;
  */
 export type MatchRequestHandler = (request: MatchRequest) => Promise<MatchResponse>;
 
+// Short because engines without no-match handling never answer.
+const NO_MATCH_RESPONSE_TIMEOUT_MS = 10000;
+
 /**
  * Flow action message to send to server
  */
@@ -550,13 +553,54 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		throw new Error('Invalid OID4VP flow params: no valid entry point or continuation');
 	}
 
+	/**
+	 * Tell the engine that local DCQL matching came up empty, as a
+	 * `credentials_matched` flow action with no matches.
+	 */
+	async reportNoMatchingCredentials(
+		timeoutMs: number = NO_MATCH_RESPONSE_TIMEOUT_MS,
+	): Promise<OID4VPFlowResult | null> {
+		if (!this.isConnected()) {
+			logger.warn('Cannot report no matching credentials: WebSocket not connected');
+			return null;
+		}
+
+		// The engine cancels a connection's flows when it drops, so there is nothing to notify.
+		if (!this.currentFlowId) {
+			logger.warn('Cannot report no matching credentials: no active flow');
+			return null;
+		}
+
+		try {
+			const response = await this.send({
+				type: 'flow_action',
+				flow_id: this.currentFlowId,
+				action: 'credentials_matched',
+				// No no_match_reason: it would tell the backend what the user holds.
+				payload: { matches: [] },
+			}, timeoutMs);
+
+			return this.mapOID4VPResponse(response);
+		} catch (err) {
+			logger.warn('No engine answer to credentials_matched:', err instanceof Error ? err.message : err);
+			return null;
+		}
+	}
+
 	private mapOID4VPResponse(response: ServerMessage): OID4VPFlowResult {
 		if (response.type === 'error' || response.type === 'flow_error') {
+			const error = response.error as {
+				code?: string;
+				message?: string;
+				details?: Record<string, unknown>;
+			} | undefined;
+
 			return {
 				success: false,
 				error: {
-					code: (response.error as { code?: string })?.code ?? 'UNKNOWN_ERROR',
-					message: (response.error as { message?: string })?.message ?? 'Unknown error',
+					code: error?.code ?? 'UNKNOWN_ERROR',
+					message: error?.message ?? 'Unknown error',
+					...(error?.details ? { details: error.details } : {}),
 				},
 			};
 		}
@@ -1139,7 +1183,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		}
 	}
 
-	private send(message: Record<string, unknown>): Promise<ServerMessage> {
+	private send(message: Record<string, unknown>, timeoutMs: number = this.requestTimeout): Promise<ServerMessage> {
 		return new Promise((resolve, reject) => {
 			if (!this.isConnected()) {
 				reject(new Error('WebSocket not connected'));
@@ -1161,7 +1205,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 					this.pending.delete(flowId);
 					reject(new Error('Request timeout'));
 				}
-			}, this.requestTimeout);
+			}, timeoutMs);
 
 			// Store pending request
 			this.pending.set(flowId, { resolve, reject, flowId, timeout });

@@ -266,6 +266,8 @@
 			},
 			"INSUFFICIENT_CREDENTIALS": {
 				"description": "Ένα ή περισσότερα από τα πιστοποιητικά που θέλετε να στείλετε δεν υπάρχουν για επιλογή.",
+				"descriptionWithTypes_one": "Αυτό το αίτημα απαιτεί πιστοποιητικό που δεν διαθέτετε: {{types}}.",
+				"descriptionWithTypes_other": "Αυτό το αίτημα απαιτεί πιστοποιητικά που δεν διαθέτετε: {{types}}.",
 				"title": "Ανεπαρκή Πιστοποιητικά"
 			},
 			"INVALID_REQUEST": {
@@ -290,6 +292,8 @@
 			},
 			"NO_MATCHING_CREDENTIALS": {
 				"description": "Δεν διαθέτετε πιστοποιητικά που ταιριάζουν με αυτό το αίτημα.",
+				"descriptionWithTypes_one": "Αυτό το αίτημα απαιτεί πιστοποιητικό που δεν διαθέτετε: {{types}}.",
+				"descriptionWithTypes_other": "Αυτό το αίτημα απαιτεί πιστοποιητικά που δεν διαθέτετε: {{types}}.",
 				"title": "Χωρίς Αντίστοιχα Πιστοποιητικά"
 			},
 			"NO_TRANSPORT": {
