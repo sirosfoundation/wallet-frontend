@@ -11,7 +11,7 @@
  */
 
 import type { OIDFlowRequest, OIDFlowResponse, OIDFlowProgressEvent } from './OIDFlowTypes';
-import type { OID4VCIFlowParams, OID4VCIFlowResult } from './OID4VCITypes';
+import type { CredentialNotificationEvent, OID4VCIFlowParams, OID4VCIFlowResult } from './OID4VCITypes';
 import type { OID4VPFlowParams, OID4VPFlowResult } from './OID4VPTypes';
 
 /**
@@ -61,6 +61,16 @@ export interface IOIDFlowTransport {
 	 */
 	startOID4VCIFlow(params: OID4VCIFlowParams): Promise<OID4VCIFlowResult>;
 
+	// ===== OID4VCI §11 Notification =====
+
+	/**
+	 * Send an OID4VCI §11 credential lifecycle notification.
+	 * Fire-and-forget: the backend forwards it to the issuer's notification
+	 * endpoint using ephemeral issuance credentials.
+	 * Transports without notification support may no-op.
+	 */
+	sendCredentialNotification(flowId: string, notificationId: string, event: CredentialNotificationEvent): void;
+
 	// ===== OID4VP (Verifiable Presentation) =====
 
 	/**
@@ -74,6 +84,12 @@ export interface IOIDFlowTransport {
 	 * @returns Flow result with presentation definition or submission result
 	 */
 	startOID4VPFlow(params: OID4VPFlowParams): Promise<OID4VPFlowResult>;
+
+	/**
+	 * Tell the flow orchestrator that local matching found nothing, so it can end
+	 * the flow and notify the verifier. Resolves `null` if there was no answer.
+	 */
+	reportNoMatchingCredentials?(): Promise<OID4VPFlowResult | null>;
 
 	// ===== Generic Request =====
 
@@ -119,6 +135,10 @@ export class NullOIDFlowTransport implements IOIDFlowTransport {
 
 	async startOID4VCIFlow(): Promise<OID4VCIFlowResult> {
 		throw new Error('No transport configured');
+	}
+
+	sendCredentialNotification(_flowId: string, _notificationId: string, _event: CredentialNotificationEvent): void {
+		// No-op: notification requires a connected transport
 	}
 
 	async startOID4VPFlow(): Promise<OID4VPFlowResult> {

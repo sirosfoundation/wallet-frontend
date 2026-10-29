@@ -11,7 +11,7 @@ import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useOIDFlowTransportSafe } from '@/context/OIDFlowTransportContext';
 import SessionContext from '@/context/SessionContext';
 import CredentialsContext, { ExtendedVcEntity } from '@/context/CredentialsContext';
-import { matchCredentials } from '@/lib/services/CredentialMatchingService';
+import { matchCredentials, type CredentialsMatchedResult } from '@/lib/services/CredentialMatchingService';
 import type {
 	OID4VPFlowResult,
 	OID4VPSelectedCredential,
@@ -30,6 +30,14 @@ import { parseClientIdScheme, KeyMaterial } from 'wallet-common';
 import { logger } from '@/logger';
 import { ConformantCredentials } from '@/components/flows/PresentCredentialsFlow';
 
+export interface OID4VPErrorActions {
+	/**
+	 * Call only after the user has seen the error.
+	 * Resolves the verifier's redirect URI, if any.
+	 */
+	reportNoMatchingCredentials: () => Promise<string | undefined>;
+}
+
 export interface UseOID4VPFlowOptions {
 	/**
 	 * Called when flow progress updates
@@ -38,7 +46,7 @@ export interface UseOID4VPFlowOptions {
 	/**
 	 * Called when an error occurs
 	 */
-	onError?: (error: Error) => void;
+	onError?: (error: Error, actions?: OID4VPErrorActions) => void;
 	/**
 	 * Callback to show credential selection UI
 	 */
@@ -130,6 +138,8 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 	const vcEntityListRef = useRef(vcEntityList);
 	const credentialsReadyResolvers = useRef<((list: ExtendedVcEntity[]) => void)[]>([]);
 	const verifierAudienceRef = useRef<string>('');
+	// Set only by the engine-orchestrated flow, so a DC API no-match never reports to a stale engine flow.
+	const noMatchPendingRef = useRef(false);
 
 	useEffect(() => {
 		vcEntityListRef.current = vcEntityList;
@@ -154,6 +164,29 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		});
 	}, []);
 
+	const reportNoMatchingCredentials = useCallback(async (): Promise<string | undefined> => {
+		if (!noMatchPendingRef.current) {
+			return undefined;
+		}
+		noMatchPendingRef.current = false;
+
+		if (transportType !== 'websocket' || !transport?.reportNoMatchingCredentials) {
+			return undefined;
+		}
+
+		const result = await transport.reportNoMatchingCredentials();
+		if (result?.error?.code !== 'NO_MATCHING_CREDENTIALS') {
+			return undefined;
+		}
+
+		const redirectUri = result.error.details?.redirect_uri;
+		return typeof redirectUri === 'string' ? redirectUri : undefined;
+	}, [transport, transportType]);
+
+	const reportError = useCallback((error: Error) => {
+		onError?.(error, { reportNoMatchingCredentials });
+	}, [onError, reportNoMatchingCredentials]);
+
 	/**
 	 * Handle authorization request using the appropriate transport
 	 */
@@ -170,7 +203,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 					? transport.onProgress(onProgress)
 					: () => {};
 				const unsubscribeError = onError
-					? transport.onError(onError)
+					? transport.onError(reportError)
 					: () => {};
 
 				try {
@@ -207,7 +240,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		} catch (err) {
 			const error = err instanceof OIDFlowError ? err : new OIDFlowError({ code: 'FLOW_ERROR', message: err instanceof Error ? err.message : String(err) });
 			setError(error);
-			onError?.(error);
+			reportError(error);
 			return {
 				success: false,
 				error: {
@@ -218,7 +251,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		} finally {
 			setIsLoading(false);
 		}
-	}, [transportType, transport, onProgress, onError]);
+	}, [transportType, transport, onProgress, onError, reportError]);
 
 	/**
 	 * Handle credential selection by showing the configured UI and returning the user's selection
@@ -246,13 +279,17 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 			if (preMatchedCredentials) {
 				conformantCredentialsMap = new Map(preMatchedCredentials);
 			} else if (dcqlQuery) {
-				const { matches, no_match_reason, code } = matchCredentials(credentials, dcqlQuery);
+				const matchResult = matchCredentials(credentials, dcqlQuery);
 
-				if (matches.length === 0) {
-					throw new OIDFlowError({ code: code ?? 'NO_MATCHING_CREDENTIALS', message: no_match_reason || 'No matching credentials' });
+				if (matchResult.matches.length === 0) {
+					noMatchPendingRef.current = true;
+					throw noMatchError(matchResult);
 				}
 
-				conformantCredentialsMap = new Map(buildConformantCredentialsMap(matches, dcqlQuery));
+				conformantCredentialsMap = new Map(buildConformantCredentialsMap(
+					matchResult.matches,
+					dcqlQuery,
+				));
 			} else {
 				throw new OIDFlowError({ code: 'NO_DCQL_QUERY_OR_PREMATCHED_CREDENTIALS', message: 'No dcqlQuery or preMatchedCredentials provided' });
 			}
@@ -313,12 +350,13 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 					});
 
 			setError(error);
-			onError?.(error);
+			reportError(error);
 			return {
 				success: false,
 				error: {
 					code: error.code,
 					message: error.message,
+					...(error.details ? { details: error.details } : {}),
 				},
 			};
 		} finally {
@@ -328,7 +366,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		keystore,
 		options,
 		waitForCredentials,
-		onError,
+		reportError,
 	]);
 
 	/**
@@ -358,7 +396,11 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 					}
 
 					if (!result.success) {
-						throw new OIDFlowError({ code: result.error?.code || 'AUTHORIZATION_RESPONSE_FAILED', message: result.error?.message || 'Authorization response failed' });
+						throw new OIDFlowError({
+							code: result.error?.code || 'AUTHORIZATION_RESPONSE_FAILED',
+							message: result.error?.message || 'Authorization response failed',
+							details: result.error?.details,
+						});
 					}
 
 					return result;
@@ -382,7 +424,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				? err
 				: new OIDFlowError({ code: 'RESPONSE_ERROR', message: err instanceof Error ? err.message : String(err) });
 			setError(error);
-			onError?.(error);
+			reportError(error);
 			return {
 				success: false,
 				error: {
@@ -393,7 +435,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		} finally {
 			setIsLoading(false);
 		}
-	}, [transportType, transport, onProgress, onError, keystore, api]);
+	}, [transportType, transport, onProgress, reportError, keystore, api]);
 
 	/**
 	 * Handle DC API request - parse URL, match credentials, store session
@@ -433,18 +475,15 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 			const credentials = (await waitForCredentials())
 				.filter(vc => selectedCredentialIDs.length === 0 || selectedCredentialIDs.includes(String(vc.batchId)));
 
-			const { matches, no_match_reason, code } = matchCredentials(credentials, request.dcqlQuery);
+			const matchResult = matchCredentials(credentials, request.dcqlQuery);
 
-			if (matches.length === 0) {
-				throw new OIDFlowError({
-					code: code ?? 'NO_MATCHING_CREDENTIALS',
-					message: no_match_reason || 'No matching credentials',
-				});
+			if (matchResult.matches.length === 0) {
+				throw noMatchError(matchResult);
 			}
 
 			// Build conformant credentials map
 			const conformantCredentials = buildConformantCredentialsMap(
-				matches,
+				matchResult.matches,
 				request.dcqlQuery
 			);
 
@@ -466,15 +505,19 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				? err
 				: new OIDFlowError({ code: 'FLOW_ERROR', message: err instanceof Error ? err.message : String(err) });
 			setError(error);
-			onError?.(error);
+			reportError(error);
 			return {
 				success: false,
-				error: { code: error.code, message: error.message },
+				error: {
+					code: error.code,
+					message: error.message,
+					...(error.details ? { details: error.details } : {}),
+				},
 			};
 		} finally {
 			setIsLoading(false);
 		}
-	}, [waitForCredentials, onError, transportContext?.trustEvaluators]);
+	}, [waitForCredentials, reportError, transportContext?.trustEvaluators]);
 
 	/**
 	 * Send DC API response - sign, record history, send via session
@@ -518,7 +561,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				? err
 				: new OIDFlowError({ code: 'RESPONSE_ERROR', message: err instanceof Error ? err.message : String(err) });
 			setError(error);
-			onError?.(error);
+			reportError(error);
 			return {
 				success: false,
 				error: { code: error.code, message: error.message },
@@ -526,7 +569,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		} finally {
 			setIsLoading(false);
 		}
-	}, [signPresentation, keystore, api, onError]);
+	}, [signPresentation, keystore, api, reportError]);
 
 	return {
 		handleAuthorizationRequest,
@@ -542,6 +585,14 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 }
 
 export default useOID4VPFlow;
+
+function noMatchError({ code, no_match_reason, missing_types }: CredentialsMatchedResult): OIDFlowError {
+	return new OIDFlowError({
+		code: code ?? 'NO_MATCHING_CREDENTIALS',
+		message: no_match_reason || 'No matching credentials',
+		...(missing_types ? { details: { missing_types } } : {}),
+	});
+}
 
 /**
  * Build conformant credentials map from DCQL matches

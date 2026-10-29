@@ -27,7 +27,7 @@ import type {
 	OIDFlowResponse,
 	OIDFlowProgressEvent
 } from '../types/OIDFlowTypes';
-import type { OID4VCIFlowParams, OID4VCIFlowResult } from '../types/OID4VCITypes';
+import type { CredentialNotificationEvent, OID4VCIFlowParams, OID4VCIFlowResult } from '../types/OID4VCITypes';
 import type {
 	OID4VPFlowParams,
 	OID4VPFlowResult,
@@ -185,6 +185,9 @@ export type MatchResponse = CredentialsMatchedResult;
  * Match request handler callback type
  */
 export type MatchRequestHandler = (request: MatchRequest) => Promise<MatchResponse>;
+
+// Short because engines without no-match handling never answer.
+const NO_MATCH_RESPONSE_TIMEOUT_MS = 10000;
 
 /**
  * Flow action message to send to server
@@ -522,6 +525,29 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		throw new Error('Invalid OID4VCI flow params: no valid entry point or continuation');
 	}
 
+	/**
+	 * Send an OID4VCI §11 credential lifecycle notification to the backend.
+	 * Fire-and-forget over the existing WebSocket connection. The backend
+	 * forwards it to the issuer's notification endpoint using the ephemeral
+	 * issuance credentials retained in memory for the given flow.
+	 */
+	sendCredentialNotification(flowId: string, notificationId: string, event: CredentialNotificationEvent): void {
+		if (!this.isConnected()) {
+			logger.debug('Dropping credential notification: transport not connected');
+			return;
+		}
+		try {
+			this.ws!.send(JSON.stringify({
+				type: 'credential_notification',
+				flow_id: flowId,
+				notification_id: notificationId,
+				event,
+			}));
+		} catch (e) {
+			logger.error('Failed to send credential notification:', e);
+		}
+	}
+
 	private mapOID4VCIResponse(response: ServerMessage): OID4VCIFlowResult {
 		if (response.type === 'error' || response.type === 'flow_error') {
 			return {
@@ -618,7 +644,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		}
 		// Handle credentials array from server
 		if (response?.credentials && Array.isArray(response.credentials)) {
-				result.credentials = (response.credentials as Array<{format: string; credential: string; vct?: string; notification_id?: string}>);
+			result.credentials = (response.credentials as Array<{format: string; credential: string; vct?: string; notification_id?: string}>);
 		}
 		// Response-level credential_metadata. For an encrypted response it is the object this
 		// wallet decrypted. From any message that resolves the flow, a frame's own value is
@@ -627,6 +653,12 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		const credentialMetadata = decrypted ? decrypted.credentialMetadata : displayMetadataOnly(response.credential_metadata);
 		if (credentialMetadata) {
 			result.credentialMetadata = credentialMetadata;
+		}
+
+		// Flow ID (needed for credential notification)
+		const flowId = (response.flow_id as string) || (response.flowId as string);
+		if (flowId) {
+			result.flowId = flowId;
 		}
 
 		// Deferred
@@ -675,13 +707,54 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		throw new Error('Invalid OID4VP flow params: no valid entry point or continuation');
 	}
 
+	/**
+	 * Tell the engine that local DCQL matching came up empty, as a
+	 * `credentials_matched` flow action with no matches.
+	 */
+	async reportNoMatchingCredentials(
+		timeoutMs: number = NO_MATCH_RESPONSE_TIMEOUT_MS,
+	): Promise<OID4VPFlowResult | null> {
+		if (!this.isConnected()) {
+			logger.warn('Cannot report no matching credentials: WebSocket not connected');
+			return null;
+		}
+
+		// The engine cancels a connection's flows when it drops, so there is nothing to notify.
+		if (!this.currentFlowId) {
+			logger.warn('Cannot report no matching credentials: no active flow');
+			return null;
+		}
+
+		try {
+			const response = await this.send({
+				type: 'flow_action',
+				flow_id: this.currentFlowId,
+				action: 'credentials_matched',
+				// No no_match_reason: it would tell the backend what the user holds.
+				payload: { matches: [] },
+			}, timeoutMs);
+
+			return this.mapOID4VPResponse(response);
+		} catch (err) {
+			logger.warn('No engine answer to credentials_matched:', err instanceof Error ? err.message : err);
+			return null;
+		}
+	}
+
 	private mapOID4VPResponse(response: ServerMessage): OID4VPFlowResult {
 		if (response.type === 'error' || response.type === 'flow_error') {
+			const error = response.error as {
+				code?: string;
+				message?: string;
+				details?: Record<string, unknown>;
+			} | undefined;
+
 			return {
 				success: false,
 				error: {
-					code: (response.error as { code?: string })?.code ?? 'UNKNOWN_ERROR',
-					message: (response.error as { message?: string })?.message ?? 'Unknown error',
+					code: error?.code ?? 'UNKNOWN_ERROR',
+					message: error?.message ?? 'Unknown error',
+					...(error?.details ? { details: error.details } : {}),
 				},
 			};
 		}
@@ -895,6 +968,12 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				code: message.code as string,
 				message: (message.message as string) ?? 'Authentication failed',
 			}));
+			return;
+		}
+
+		// Arrives after flow_complete, so there is no pending request to resolve.
+		if (type === 'notification_ack') {
+			logger.debug('Credential notification ack:', message.status, message.error);
 			return;
 		}
 
@@ -1548,7 +1627,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		}
 	}
 
-	private send(message: Record<string, unknown>): Promise<ServerMessage> {
+	private send(message: Record<string, unknown>, timeoutMs: number = this.requestTimeout): Promise<ServerMessage> {
 		return new Promise((resolve, reject) => {
 			if (!this.isConnected()) {
 				reject(new Error('WebSocket not connected'));
@@ -1570,7 +1649,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 					this.pending.delete(flowId);
 					reject(new Error('Request timeout'));
 				}
-			}, this.requestTimeout);
+			}, timeoutMs);
 
 			// Store pending request
 			this.pending.set(flowId, { resolve, reject, flowId, timeout });

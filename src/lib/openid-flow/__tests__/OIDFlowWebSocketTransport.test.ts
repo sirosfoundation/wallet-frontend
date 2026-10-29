@@ -4,6 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { OIDFlowWebSocketTransport } from '../transports/OIDFlowWebSocketTransport';
+import { logger } from '@/logger';
 
 // Mock WebSocket implementation
 class MockWebSocket {
@@ -1101,6 +1102,102 @@ describe('OIDFlowWebSocketTransport', () => {
 		});
 	});
 
+	describe('Reporting no matching credentials', () => {
+		/** The flow_action the transport sends, once it has been sent. */
+		async function sentCredentialsMatched(mockWs: MockWebSocket) {
+			let message: Record<string, unknown> | undefined;
+			await vi.waitFor(() => {
+				const raw = mockWs.sentMessages.find(
+					m => JSON.parse(m).action === 'credentials_matched'
+				);
+				expect(raw).toBeDefined();
+				message = JSON.parse(raw!);
+			});
+			return message!;
+		}
+
+		/** Start an OID4VP flow and let the engine park it at credential_selection. */
+		async function flowAtCredentialSelection(transport: OIDFlowWebSocketTransport, mockWs: MockWebSocket) {
+			const started = transport.startOID4VPFlow({ requestUriRef: 'https://verifier.example.com/request', clientId: 'x509_san_dns:verifier.example.com' });
+
+			let flowId = '';
+			await vi.waitFor(() => {
+				const raw = mockWs.sentMessages.find(m => JSON.parse(m).type === 'flow_start');
+				expect(raw).toBeDefined();
+				flowId = JSON.parse(raw!).flow_id;
+			});
+
+			mockWs.simulateMessage({
+				type: 'flow_progress',
+				flow_id: flowId,
+				step: 'credential_selection',
+				payload: { dcql_query: { credentials: [] }, verifier: { name: 'Test Verifier' } },
+			});
+			await started;
+
+			return flowId;
+		}
+
+		it('sends an empty credentials_matched for the current flow and returns the engine answer', async () => {
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+			const mockWs = mockWebSocketInstances[0];
+			const flowId = await flowAtCredentialSelection(transport, mockWs);
+
+			const reported = transport.reportNoMatchingCredentials();
+
+			const message = await sentCredentialsMatched(mockWs);
+			expect(message.type).toBe('flow_action');
+			expect(message.flow_id).toBe(flowId);
+			// No no_match_reason: it would tell the backend what the user holds.
+			expect(message.payload).toEqual({ matches: [] });
+
+			mockWs.simulateMessage({
+				type: 'flow_error',
+				flow_id: flowId,
+				step: 'credential_selection',
+				error: {
+					code: 'NO_MATCHING_CREDENTIALS',
+					message: 'You do not have a credential that matches this request',
+					details: { redirect_uri: 'https://verifier.example.com/cb#error=access_denied' },
+				},
+			});
+
+			expect(await reported).toEqual({
+				success: false,
+				error: {
+					code: 'NO_MATCHING_CREDENTIALS',
+					message: 'You do not have a credential that matches this request',
+					details: { redirect_uri: 'https://verifier.example.com/cb#error=access_denied' },
+				},
+			});
+		});
+
+		it('resolves with null when the engine ignores the action', async () => {
+			// An engine without no-match handling drops credentials_matched silently.
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+			await flowAtCredentialSelection(transport, mockWebSocketInstances[0]);
+
+			expect(await transport.reportNoMatchingCredentials(20)).toBeNull();
+		});
+
+		it('sends nothing and resolves with null when there is no active flow', async () => {
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+			const mockWs = mockWebSocketInstances[0];
+
+			expect(await transport.reportNoMatchingCredentials()).toBeNull();
+			expect(mockWs.sentMessages.some(m => JSON.parse(m).action === 'credentials_matched')).toBe(false);
+		});
+
+		it('resolves with null when the transport is not connected', async () => {
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+
+			expect(await transport.reportNoMatchingCredentials()).toBeNull();
+		});
+	});
+
 	describe('Flow Action Sending', () => {
 		it('should send flow_action message with sendFlowAction', async () => {
 			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
@@ -1154,6 +1251,101 @@ describe('OIDFlowWebSocketTransport', () => {
 			expect(sentMessage.type).toBe('flow_action');
 			expect(sentMessage.action).toBe('consent');
 			expect(sentMessage.payload.selectedCredentials).toHaveLength(1);
+		});
+	});
+
+	describe('Credential Notification', () => {
+		it('should send credential_notification with correct shape', async () => {
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+
+			transport.sendCredentialNotification('flow-123', 'notif-abc', 'credential_accepted');
+
+			await vi.waitFor(() => {
+				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(1);
+			});
+
+			const sentMessage = JSON.parse(mockWebSocketInstances[0].sentMessages[1]);
+			expect(sentMessage).toEqual({
+				type: 'credential_notification',
+				flow_id: 'flow-123',
+				notification_id: 'notif-abc',
+				event: 'credential_accepted',
+			});
+		});
+
+		it('should be a no-op when not connected', () => {
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			// Not connected — should not throw
+			expect(() => {
+				transport.sendCredentialNotification('flow-123', 'notif-abc', 'credential_accepted');
+			}).not.toThrow();
+		});
+
+		it('should catch and log errors when send throws', async () => {
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+
+			const mockWs = mockWebSocketInstances[0];
+			// Force send() to throw
+			vi.spyOn(mockWs, 'send').mockImplementation(() => {
+				throw new Error('WebSocket send failed');
+			});
+
+			const errorSpy = vi.spyOn(logger, 'error');
+
+			// Should not propagate the error
+			expect(() => {
+				transport.sendCredentialNotification('flow-123', 'notif-abc', 'credential_accepted');
+			}).not.toThrow();
+			expect(errorSpy).toHaveBeenCalledWith('Failed to send credential notification:', expect.any(Error));
+			errorSpy.mockRestore();
+		});
+
+		it('should handle notification_ack without an unknown-flow warning', async () => {
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+
+			const warnSpy = vi.spyOn(logger, 'warn');
+
+			mockWebSocketInstances[0].simulateMessage({
+				type: 'notification_ack',
+				flow_id: 'flow-123',
+				notification_id: 'notif-abc',
+				status: 'forwarded',
+			});
+
+			expect(warnSpy).not.toHaveBeenCalled();
+			warnSpy.mockRestore();
+		});
+
+		it('should include notification_id in mapped credentials', async () => {
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+
+			const flowPromise = transport.startOID4VCIFlow({
+				credentialOfferUri: 'https://issuer.example.com/offer/123',
+			});
+
+			await vi.waitFor(() => {
+				expect(mockWebSocketInstances[0].sentMessages.length).toBeGreaterThan(1);
+			});
+
+			mockWebSocketInstances[0].simulateMessage({
+				type: 'flow_complete',
+				flow_id: JSON.parse(mockWebSocketInstances[0].sentMessages[1]).flow_id,
+				credentials: [
+					{ format: 'vc+sd-jwt', credential: 'eyJ...', notification_id: 'notif-xyz' },
+					{ format: 'vc+sd-jwt', credential: 'eyK...' },
+				],
+			});
+
+			const result = await flowPromise;
+			expect(result.success).toBe(true);
+			expect(result.credentials).toHaveLength(2);
+			expect(result.credentials![0].notification_id).toBe('notif-xyz');
+			expect(result.credentials![1].notification_id).toBeUndefined();
+			expect(result.flowId).toBeDefined();
 		});
 	});
 });

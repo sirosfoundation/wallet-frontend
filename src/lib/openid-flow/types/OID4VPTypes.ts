@@ -113,6 +113,8 @@ export interface OID4VPFlowResult {
 	error?: {
 		code: string;
 		message: string;
+		/** Structured details, e.g. `missing_types` or the engine's `redirect_uri`. */
+		details?: Record<string, unknown>;
 	};
 }
 

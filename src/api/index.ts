@@ -29,6 +29,7 @@ type SessionState = {
 	webauthnCredentialCredentialId: string,
 	authenticationType: 'signup' | 'login',
 	showWelcome: boolean,
+	showLabelSecurityKey: boolean,
 }
 
 type SignupWebauthnError = (
@@ -99,6 +100,7 @@ export interface BackendApi {
 	updatePrivateDataEtag(resp: AxiosResponse): AxiosResponse,
 
 	updateShowWelcome(showWelcome: boolean): void,
+	updateShowLabelSecurityKey(show: boolean): void,
 
 	addEventListener(type: ApiEventType, listener: EventListener, options?: boolean | AddEventListenerOptions): void,
 	removeEventListener(type: ApiEventType, listener: EventListener, options?: boolean | EventListenerOptions): void,
@@ -345,6 +347,15 @@ export function useApi({
 		}
 	}, [sessionState, setSessionState]);
 
+	const updateShowLabelSecurityKey = useCallback((show: boolean): void => {
+		if (sessionState) {
+			setSessionState((prevState) => ({
+				...prevState,
+				showLabelSecurityKey: show,
+			}));
+		}
+	}, [sessionState, setSessionState]);
+
 	const getSession = useCallback((): SessionState => {
 		return sessionState;
 	}, [sessionState]);
@@ -365,6 +376,7 @@ export function useApi({
 			webauthnCredentialCredentialId: credential?.id,
 			authenticationType,
 			showWelcome: authenticationType === 'signup',
+			showLabelSecurityKey: authenticationType === 'signup',
 		});
 
 		await addItem('users', userRecord.uuid, userRecord);
@@ -774,6 +786,7 @@ export function useApi({
 		post,
 
 		updateShowWelcome,
+		updateShowLabelSecurityKey,
 
 		getSession,
 		isLoggedIn,
@@ -800,6 +813,7 @@ export function useApi({
 		post,
 
 		updateShowWelcome,
+		updateShowLabelSecurityKey,
 
 		getSession,
 		isLoggedIn,

@@ -9,6 +9,7 @@ import { notify } from '@/context/notifier';
 import { deriveHolderKidFromCredential } from '@/lib/verifiable-credentials';
 import CredentialsContext from '@/context/CredentialsContext';
 import { logger } from '@/logger';
+import { dispatchCredentialNotifications } from '@/lib/openid-flow/utils/credentialNotifications';
 import { OIDFlowError } from '@/lib/openid-flow/errors';
 import { SerializedClientAuthMaterial } from '@/lib/openid-flow/OIDFlowClientAuthMaterial';
 
@@ -50,6 +51,7 @@ export interface UseOID4VCIFlowReturn {
 		credentials: OID4VCIFlowResult['credentials'],
 		credentialIssuerIdentifier?: string,
 		credentialConfigurationId?: string,
+		flowId?: string,
 	) => Promise<OID4VCIFlowResult>;
 	/**
 	 * Current transport type being used
@@ -416,7 +418,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		credentials: OID4VCIFlowResult['credentials'],
 		credentialIssuerIdentifier?: OID4VCIFlowResult['credentialIssuerIdentifier'],
 		credentialConfigurationId?: OID4VCIFlowResult['selectedCredentialConfigurationId'],
-
+		flowId?: OID4VCIFlowResult['flowId'],
 	): Promise<OID4VCIFlowResult> => {
 		setIsLoading(true);
 		setError(null);
@@ -492,6 +494,9 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 
 			notify('newCredential');
 
+			// OID4VCI §11: once credentials are stored, send credential_accepted.
+			dispatchCredentialNotifications(transport, credentials, flowId);
+
 			return { success: true };
 		} catch (err) {
 			if (abortRef.current.signal.aborted) {
@@ -511,7 +516,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		} finally {
 			setIsLoading(false);
 		}
-	}, [api, keystore,	credentialEngine, onError, onIssuanceWarnings, assertNotAborted]);
+	}, [api, keystore, credentialEngine, onError, onIssuanceWarnings, assertNotAborted, transport]);
 
 	return {
 		handleCredentialOffer,

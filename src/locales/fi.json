@@ -103,6 +103,15 @@
 	"language": {
 		"label": "Kieli"
 	},
+	"labelSecurityKeyPopup": {
+		"confirm": "Vahvista",
+		"description": "Anna jokaiselle turva-avaimelle tunniste, jotta sen tunnistaminen lompakon asetuksissa on helpompaa.",
+		"error": "Turva-avaimen nimeäminen epäonnistui. Yritä uudelleen.",
+		"inputAriaLabel": "Turva-avaimen tunniste",
+		"placeholder": "Anna tunniste",
+		"skip": "Ohita",
+		"title": "Nimeä turva-avaimesi"
+	},
 	"layout": {
 		"messageAllowPermission": "Saadaksesi reaaliaikaiset päivitykset <strong>todistuksista, salli ilmoitukset ja lataa tämä sivu uudelleen</strong>.",
 		"messageOffline": "Olet tällä hetkellä <strong>offline. Jotkin toiminnot eivät ehkä ole käytettävissä.</strong>",
@@ -257,6 +266,8 @@
 			},
 			"INSUFFICIENT_CREDENTIALS": {
 				"description": "Yhtä tai useampaa esitettävää todistusta ei ole valittavissa.",
+				"descriptionWithTypes_one": "Tämä pyyntö edellyttää todistusta, jota sinulla ei ole: {{types}}.",
+				"descriptionWithTypes_other": "Tämä pyyntö edellyttää todistuksia, joita sinulla ei ole: {{types}}.",
 				"title": "Riittämättömät todistukset"
 			},
 			"INVALID_REQUEST": {
@@ -281,6 +292,8 @@
 			},
 			"NO_MATCHING_CREDENTIALS": {
 				"description": "Sinulla ei ole todistuksia, jotka vastaavat tätä pyyntöä.",
+				"descriptionWithTypes_one": "Tämä pyyntö edellyttää todistusta, jota sinulla ei ole: {{types}}.",
+				"descriptionWithTypes_other": "Tämä pyyntö edellyttää todistuksia, joita sinulla ei ole: {{types}}.",
 				"title": "Ei vastaavia todistuksia"
 			},
 			"NO_TRANSPORT": {
