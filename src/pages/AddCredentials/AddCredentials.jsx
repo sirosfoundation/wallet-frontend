@@ -14,8 +14,6 @@ import QueryableList from '../../components/QueryableList/QueryableList';
 import CredentialsContext from '@/context/CredentialsContext';
 import useFilterItemByLang from '@/hooks/useFilterItemByLang';
 import { buildCredentialConfiguration } from '@/components/QueryableList/CredentialsDisplayUtils';
-import Button from '@/components/Buttons/Button';
-import { hasUsedScanPhysicalId, recordScanPhysicalIdUsed } from '@/lib/utils/scanPhysicalIdUsage';
 import { useOpenID4VCIHelper } from '@/lib/services/OpenID4VCIHelper';
 
 const AddCredentials = () => {
@@ -25,7 +23,6 @@ const AddCredentials = () => {
 	const [recent, setRecent] = useState([]);
 	const [credentialConfigurations, setCredentialConfigurations] = useState([]);
 	const [showRedirectPopup, setShowRedirectPopup] = useState(false);
-	const [scanUsed, setScanUsed] = useState(() => hasUsedScanPhysicalId());
 
 	const [selectedCredentialConfiguration, setSelectedCredentialConfiguration] = useState(null);
 	const { vcEntityList, getData } = useContext(CredentialsContext);
@@ -156,16 +153,6 @@ const AddCredentials = () => {
 		}
 	}
 
-	// Scan Physical ID is a local route rather than an issuer's credential
-	// configuration, so its Recent entry cannot be derived from a stored
-	// credential the way the others are (wallet-frontend#307). Starting the flow
-	// is what makes it recent.
-	const openScanPhysicalId = () => {
-		recordScanPhysicalIdUsed();
-		setScanUsed(true);
-		void navigate(buildPath('add/digital-id'));
-	};
-
 	const handleCancel = () => {
 		setShowRedirectPopup(false);
 		setSelectedCredentialConfiguration(null);
@@ -202,6 +189,20 @@ const AddCredentials = () => {
 				<H1 heading={t('common.navItemAddCredentials')} />
 				<PageDescription description={t('pageAddCredentials.description')} />
 
+				<div className={`my-4 ${isScanAvailable ? '' : 'hidden'}`} data-widget="scan-physical-id">
+					<H3 heading={t('pageAddCredentials.scanPhysicalId.sectionTitle')} hr />
+					<button
+						className="w-full flex items-center justify-between gap-4 border border-lm-gray-400 dark:border-dm-gray-600 rounded-xl p-4 bg-lm-gray-50 dark:bg-dm-gray-800 hover:brightness-[0.97] dark:hover:brightness-[1.05] transition-all text-left cursor-pointer"
+						onClick={() => void navigate(buildPath('add/digital-id'))}
+					>
+						<div>
+							<p className="font-semibold text-lm-gray-900 dark:text-white">{t('pageAddCredentials.scanPhysicalId.digitalId.title')}</p>
+							<p className="text-sm text-lm-gray-700 dark:text-dm-gray-300 mt-0.5">{t('pageAddCredentials.scanPhysicalId.digitalId.description')}</p>
+						</div>
+						<Camera size={32} className="text-lm-gray-600 dark:text-dm-gray-300 shrink-0" />
+					</button>
+				</div>
+
 				{credentialConfigurations && recent && (
 					<QueryableList
 						isOnline={isOnline}
@@ -211,31 +212,6 @@ const AddCredentials = () => {
 						translationPrefix='pageAddCredentials'
 						identifierField='identifierField'
 						onClick={handleCredentialConfigurationClick}
-						recentExtra={isScanAvailable && scanUsed ? (
-							<Button
-								id="querylist-recent-scan-physical-id"
-								variant="outline"
-								additionalClassName="wrap-break-word w-full text-left"
-								onClick={openScanPhysicalId}
-							>
-								{t('pageAddCredentials.scanPhysicalId.digitalId.title')}
-							</Button>
-						) : null}
-						extraSection={
-							<div className={`mb-4 ${isScanAvailable ? '' : 'hidden'}`} data-widget="scan-physical-id">
-								<H3 heading={t('pageAddCredentials.scanPhysicalId.sectionTitle')} hr />
-								<button
-									className="w-full flex items-center justify-between gap-4 border border-lm-gray-400 dark:border-dm-gray-600 rounded-xl p-4 bg-lm-gray-50 dark:bg-dm-gray-800 hover:brightness-[0.97] dark:hover:brightness-[1.05] transition-all text-left cursor-pointer"
-									onClick={openScanPhysicalId}
-								>
-									<div>
-										<p className="font-semibold text-lm-gray-900 dark:text-white">{t('pageAddCredentials.scanPhysicalId.digitalId.title')}</p>
-										<p className="text-sm text-lm-gray-700 dark:text-dm-gray-300 mt-0.5">{t('pageAddCredentials.scanPhysicalId.digitalId.description')}</p>
-									</div>
-									<Camera size={32} className="text-lm-gray-600 dark:text-dm-gray-300 shrink-0" />
-								</button>
-							</div>
-						}
 					/>
 				)}
 			</div>
