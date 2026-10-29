@@ -163,7 +163,7 @@ const AddCredentials = () => {
 	const openScanPhysicalId = () => {
 		recordScanPhysicalIdUsed();
 		setScanUsed(true);
-		navigate(buildPath('add/digital-id'));
+		void navigate(buildPath('add/digital-id'));
 	};
 
 	const handleCancel = () => {
