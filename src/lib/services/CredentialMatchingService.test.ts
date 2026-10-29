@@ -243,4 +243,11 @@ describe('matchCredentials — missing_types', () => {
 		expect(result.matches).toHaveLength(1);
 		expect(result.missing_types).toBeUndefined();
 	});
+
+	it('names nothing for an empty wallet, so the generic copy is shown', () => {
+		const result = matchCredentials([], { credentials: [pidQuery] } as never);
+
+		expect(result.matches).toHaveLength(0);
+		expect(result.missing_types).toBeUndefined();
+	});
 });
