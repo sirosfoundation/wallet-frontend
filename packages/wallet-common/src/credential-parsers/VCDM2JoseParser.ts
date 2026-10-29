@@ -72,9 +72,13 @@ export function VCDM2JoseParser(args: { context: Context, httpClient: HttpClient
 
 			const issuerId = issuerIdentifier(credential.issuer);
 
-			const { metadata: issuerMetadata } = await getIssuerMetadata(
-				args.httpClient, issuerId, warnings, true, args.authzenClient,
-			);
+			const { metadata: issuerMetadata } = await getIssuerMetadata({
+				httpClient: args.httpClient,
+				issuer: credentialIssuer?.credentialIssuerIdentifier ?? issuerId,
+				warnings,
+				useCache: true,
+				authzenClient: args.authzenClient,
+			});
 
 			const credentialIssuerMetadata = credentialIssuer?.credentialConfigurationId
 				? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]
