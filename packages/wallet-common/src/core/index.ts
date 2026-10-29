@@ -8,6 +8,4 @@ export * from "./ECDH-ES";
 export * from "./Store";
 export * from "./MemoryStore";
 
-export * from "./Result";
-
 export * from "./VctDocumentProvider";
