@@ -18,7 +18,7 @@ import {
 	primaryCredentialType,
 	toTypeArray,
 } from "../utils/vcdm2";
-import type { IAuthZENClient } from "../authzen/AuthZENClient";
+import type { IAuthZENClient } from "@sirosfoundation/authzen-client";
 
 /**
  * Parser for W3C VCDM 2.0 credentials secured with an embedded Data Integrity

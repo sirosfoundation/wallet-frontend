@@ -19,18 +19,17 @@ import {
 	VCDM2SdJwtParser,
 	VCDM2SdJwtVerifier,
 	VerifyingEngine,
-	IAuthZENClient,
 } from 'wallet-common';
+import type { IAuthZENClient } from '@sirosfoundation/authzen-client';
 import { IOpenID4VCIHelper } from './interfaces/IOpenID4VCIHelper';
 import {
 	createVctDocumentResolutionEngine,
 	VctDocumentProvider,
 	VctResolutionErrors,
-	ok,
-	err,
 } from 'wallet-common';
 import { logger } from '@/logger';
 import { HttpClient } from '@sirosfoundation/http-client';
+import { ok, err } from '@sirosfoundation/result';
 
 export async function initializeCredentialEngine(
 	httpClient: HttpClient,

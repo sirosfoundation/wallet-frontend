@@ -1,8 +1,9 @@
 import { IOpenID4VCIHelper } from "../interfaces/IOpenID4VCIHelper";
 import { useCallback, useContext, useMemo } from "react";
 import SessionContext from "@/context/SessionContext";
-import { AuthZENClient, OpenidAuthorizationServerMetadataSchema, OpenidCredentialIssuerMetadataSchema } from 'wallet-common';
-import type { AuthZENClientConfig, OpenidAuthorizationServerMetadata, OpenidCredentialIssuerMetadata } from 'wallet-common';
+import { OpenidAuthorizationServerMetadataSchema, OpenidCredentialIssuerMetadataSchema } from 'wallet-common';
+import type { OpenidAuthorizationServerMetadata, OpenidCredentialIssuerMetadata } from 'wallet-common';
+import { AuthZENClient, type AuthZENClientConfig } from '@sirosfoundation/authzen-client';
 import { BACKEND_URL, OPENID4VCI_REDIRECT_URI } from "@/config";
 import { logger } from '@/logger';
 import { getTenantFromUrlPath } from "../tenant";
@@ -20,7 +21,7 @@ export function useOpenID4VCIHelper(): IOpenID4VCIHelper {
 			getAuthToken: async () => (await authTokens.ensureAnonymousToken()).raw,
 			tenantId: getTenantFromUrlPath() ?? 'default',
 		};
-		return AuthZENClient(clientConfig);
+		return new AuthZENClient(clientConfig);
 	}, [httpClient, authTokens]);
 
 	const getCredentialIssuerMetadata = useCallback(

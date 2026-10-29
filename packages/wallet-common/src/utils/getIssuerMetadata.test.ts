@@ -3,9 +3,8 @@ import { getIssuerMetadata } from "../utils/getIssuerMetadata";
 import { HttpClient } from "../interfaces";
 import { CredentialParsingError } from "../error";
 import { MetadataWarning } from "../types";
-import { IAuthZENClient } from "../authzen/AuthZENClient";
-import { ok, err } from "../core/Result";
-import { AuthZENErrorCode } from "../authzen/types";
+import { type IAuthZENClient, AuthZENErrorCode } from "@sirosfoundation/authzen-client";
+import { ok, err } from "@sirosfoundation/result";
 
 describe("getIssuerMetadata", () => {
 	it("should warn if issuer metadata fetch fails", async () => {
