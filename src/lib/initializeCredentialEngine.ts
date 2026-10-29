@@ -26,11 +26,10 @@ import {
 	createVctDocumentResolutionEngine,
 	VctDocumentProvider,
 	VctResolutionErrors,
-	ok,
-	err,
 } from 'wallet-common';
 import { logger } from '@/logger';
 import { HttpClient } from '@sirosfoundation/http-client';
+import { ok, err } from '@sirosfoundation/result';
 
 export async function initializeCredentialEngine(
 	httpClient: HttpClient,

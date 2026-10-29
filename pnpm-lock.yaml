@@ -45,6 +45,9 @@ importers:
       '@sirosfoundation/http-client':
         specifier: workspace:*
         version: link:packages/http-client
+      '@sirosfoundation/result':
+        specifier: workspace:*
+        version: link:packages/result
       '@sirosfoundation/wcc-types':
         specifier: 0.1.0-beta.1
         version: 0.1.0-beta.1
@@ -147,9 +150,6 @@ importers:
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3
-      ts-results:
-        specifier: ^3.3.0
-        version: 3.3.0
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -282,6 +282,15 @@ importers:
         specifier: ^5.0.2
         version: 5.0.2(@types/node@20.19.43)(@vitest/coverage-v8@4.1.11(vitest@4.1.11))(happy-dom@20.14.5)(jsdom@28.1.0(@noble/hashes@1.8.0)(supports-color@10.2.2))(vite@6.4.5(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.39.0)(yaml@2.9.1))
 
+  packages/result:
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^5.0.2
+        version: 5.0.2(@types/node@20.19.43)(@vitest/coverage-v8@4.1.11(vitest@4.1.11))(happy-dom@20.14.5)(jsdom@28.1.0(@noble/hashes@1.8.0)(supports-color@10.2.2))(vite@6.4.5(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.39.0)(yaml@2.9.1))
+
   packages/wallet-common:
     dependencies:
       '@auth0/mdl':
@@ -299,6 +308,9 @@ importers:
       '@sirosfoundation/http-client':
         specifier: workspace:*
         version: link:../http-client
+      '@sirosfoundation/result':
+        specifier: workspace:*
+        version: link:../result
       asn1js:
         specifier: ^3.0.10
         version: 3.0.10
@@ -4738,9 +4750,6 @@ packages:
   tree-kill@1.2.2:
     resolution: {integrity: sha512-L0Orpi8qGpRG//Nd+H90vFB+3iHnue1zSSGmNOOCh1GLJ7rUKVwV2HvijphGQS2UmhUZewS9VgvxYIdgr+fG1A==}
     hasBin: true
-
-  ts-results@3.3.0:
-    resolution: {integrity: sha512-FWqxGX2NHp5oCyaMd96o2y2uMQmSu8Dey6kvyuFdRJ2AzfmWo3kWa4UsPlCGlfQ/qu03m09ZZtppMoY8EMHuiA==}
 
   tsconfig-paths@3.15.0:
     resolution: {integrity: sha512-2Ac2RgzDe/cn48GvOe3M+o82pEFewD3UPbyoUHHdKasHwJKjds4fLXWf/Ux5kATBKN20oaFGu+jbElp1pos0mg==}
@@ -10110,8 +10119,6 @@ snapshots:
       punycode: 2.3.1
 
   tree-kill@1.2.2: {}
-
-  ts-results@3.3.0: {}
 
   tsconfig-paths@3.15.0:
     dependencies:
