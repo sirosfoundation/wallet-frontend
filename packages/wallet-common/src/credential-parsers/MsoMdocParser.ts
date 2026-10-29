@@ -13,7 +13,7 @@ import { OpenidCredentialIssuerMetadataSchema, } from "../schemas";
 import { dataUriResolver } from "../resolvers/dataUriResolver";
 import { friendlyNameResolver } from "../resolvers/friendlyNameResolver";
 import { renderingResolver } from "../resolvers/renderingResolver";
-import type { IAuthZENClient } from "../authzen/AuthZENClient";
+import type { IAuthZENClient } from "@sirosfoundation/authzen-client";
 import { CredentialRenderingService } from "../rendering";
 
 

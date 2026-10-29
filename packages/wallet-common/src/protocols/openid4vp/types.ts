@@ -1,5 +1,5 @@
 import type { JWK } from "jose";
-import type { TrustStatus } from "../../authzen/types";
+import type { TrustStatus } from "@sirosfoundation/authzen-client";
 
 export type ClaimRecord = {
 	key: string;

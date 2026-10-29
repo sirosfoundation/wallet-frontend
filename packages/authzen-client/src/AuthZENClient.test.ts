@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
-import { HttpClient } from '@sirosfoundation/http-client';
+import type { HttpClient } from '@sirosfoundation/http-client';
+import { AuthZENClient } from './AuthZENClient';
+import { AuthZENErrorCode, TrustStatus } from './resources';
+import type { AuthZENClientConfig, AuthZENEvaluationResponse, KeyMaterial } from './types';
 
 /**
  * HTTP response type for testing.
@@ -25,7 +28,7 @@ function createMockHttpClient(responses: Map<string, HttpResponse>): HttpClient 
 			if (response) return response;
 			return { status: 404, headers: {}, data: { error: 'not_found' } };
 		}),
-	};
+	} as unknown as HttpClient;
 }
 
 describe('AuthZENClient', () => {
@@ -33,14 +36,14 @@ describe('AuthZENClient', () => {
 	const tenantId = 'test-tenant';
 	const authToken = 'test-token';
 
-	function createClient(httpClient: HttpClient): ReturnType<typeof AuthZENClient> {
+	function createClient(httpClient: HttpClient): AuthZENClient {
 		const config: AuthZENClientConfig = {
 			httpClient,
 			baseUrl,
 			getAuthToken: () => authToken,
 			tenantId,
 		};
-		return AuthZENClient(config);
+		return new AuthZENClient(config);
 	}
 
 	describe('evaluate', () => {
@@ -94,10 +97,10 @@ describe('AuthZENClient', () => {
 		});
 
 		it('should handle network errors', async () => {
-			const httpClient: HttpClient = {
+			const httpClient = {
 				get: vi.fn().mockRejectedValue(new Error('Network error')),
 				post: vi.fn().mockRejectedValue(new Error('Network error')),
-			};
+			} as unknown as HttpClient;
 
 			const client = createClient(httpClient);
 
@@ -413,7 +416,7 @@ describe('AuthZENClient', () => {
 				tenantId: 'tenant',
 			};
 
-			const client = AuthZENClient(config);
+			const client = new AuthZENClient(config);
 
 			await client.evaluate({
 				subject: { type: 'key', id: 'test' },
@@ -449,7 +452,7 @@ describe('AuthZENClient', () => {
 				tenantId,
 			};
 
-			const client = AuthZENClient(config);
+			const client = new AuthZENClient(config);
 
 			await client.evaluate({
 				subject: { type: 'key', id: 'test' },

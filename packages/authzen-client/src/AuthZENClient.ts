@@ -7,8 +7,8 @@
  *
  * @example
  * ```typescript
- * const client = AuthZENClient({
- *   httpClient: defaultHttpClient,
+ * const client = new AuthZENClient({
+ *   httpClient: httpClient,
  *   baseUrl: 'https://wallet-backend.example.com',
  *   getAuthToken: () => authService.getToken(),
  *   tenantId: 'default',

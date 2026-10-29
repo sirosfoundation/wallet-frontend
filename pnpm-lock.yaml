@@ -39,6 +39,9 @@ importers:
       '@sd-jwt/core':
         specifier: ^0.10.0
         version: 0.10.0
+      '@sirosfoundation/authzen-client':
+        specifier: workspace:*
+        version: link:packages/authzen-client
       '@sirosfoundation/browser-log':
         specifier: 1.0.0
         version: 1.0.0
@@ -266,6 +269,25 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@types/node@20.19.43)(@vitest/coverage-v8@4.1.11)(happy-dom@20.14.5)(jsdom@28.1.0(@noble/hashes@1.8.0)(supports-color@10.2.2))(vite@6.4.5(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.39.0)(yaml@2.9.1))
 
+  packages/authzen-client:
+    dependencies:
+      '@sirosfoundation/browser-log':
+        specifier: 1.0.0
+        version: 1.0.0
+      '@sirosfoundation/http-client':
+        specifier: workspace:*
+        version: link:../http-client
+      '@sirosfoundation/result':
+        specifier: workspace:*
+        version: link:../result
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^5.0.2
+        version: 5.0.2(@types/node@20.19.43)(@vitest/coverage-v8@4.1.11(vitest@4.1.11))(happy-dom@20.14.5)(jsdom@28.1.0(@noble/hashes@1.8.0)(supports-color@10.2.2))(vite@6.4.5(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.39.0)(yaml@2.9.1))
+
   packages/http-client:
     dependencies:
       '@sirosfoundation/browser-log':
@@ -302,6 +324,9 @@ importers:
       '@sd-jwt/sd-jwt-vc':
         specifier: ^0.13.0
         version: 0.13.0
+      '@sirosfoundation/authzen-client':
+        specifier: workspace:*
+        version: link:../authzen-client
       '@sirosfoundation/browser-log':
         specifier: ^1.0.0
         version: 1.0.0

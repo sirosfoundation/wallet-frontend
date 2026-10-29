@@ -9,7 +9,7 @@ import { dataUriResolver } from "../resolvers/dataUriResolver";
 import { friendlyNameResolver } from "../resolvers/friendlyNameResolver";
 import { renderingResolver } from "../resolvers/renderingResolver";
 import { fromBase64Url } from "../utils";
-import type { IAuthZENClient } from "../authzen/AuthZENClient";
+import type { IAuthZENClient } from "@sirosfoundation/authzen-client";
 
 export function JWTVCJSONParser(args: { context: Context, httpClient: HttpClient, authzenClient?: IAuthZENClient }): CredentialParser {
 	const decoder = new TextDecoder();
