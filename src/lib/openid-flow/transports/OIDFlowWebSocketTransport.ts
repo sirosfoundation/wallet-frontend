@@ -138,13 +138,7 @@ export type MatchResponse = CredentialsMatchedResult;
  */
 export type MatchRequestHandler = (request: MatchRequest) => Promise<MatchResponse>;
 
-/**
- * How long to wait for the engine's answer to a `credentials_matched` action
- * reporting an empty match set. The engine ends the flow as soon as it reads
- * the action, so this only has to cover one round trip - kept far below the
- * general request timeout so an engine that ignores the action (one older than
- * go-wallet-backend #336) costs the user a moment, not a minute.
- */
+// Short because engines without no-match handling never answer.
 const NO_MATCH_RESPONSE_TIMEOUT_MS = 10000;
 
 /**
@@ -562,20 +556,8 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	/**
 	 * Tell the engine that local DCQL matching came up empty, as a
 	 * `credentials_matched` flow action with no matches.
-	 *
-	 * The engine ends the flow with `NO_MATCHING_CREDENTIAL` - naming the
-	 * credential types the query asked for - and reports `access_denied` to the
-	 * verifier, so neither the user nor the verifier's session waits out the
-	 * five-minute user-interaction timeout. Declining is not the honest
-	 * alternative here: the user was never asked and declined nothing.
-	 *
-	 * An engine that predates that handling (go-wallet-backend #336) drops the
-	 * action silently, so the wait is deliberately short and `null` means "no
-	 * answer" - the caller then falls back to its own local error rather than
-	 * leaving the user at a spinner.
 	 */
 	async reportNoMatchingCredentials(
-		noMatchReason?: string,
 		timeoutMs: number = NO_MATCH_RESPONSE_TIMEOUT_MS,
 	): Promise<OID4VPFlowResult | null> {
 		if (!this.isConnected()) {
@@ -583,14 +565,19 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			return null;
 		}
 
+		// The engine cancels a connection's flows when it drops, so there is nothing to notify.
+		if (!this.currentFlowId) {
+			logger.warn('Cannot report no matching credentials: no active flow');
+			return null;
+		}
+
 		try {
 			const response = await this.send({
 				type: 'flow_action',
+				flow_id: this.currentFlowId,
 				action: 'credentials_matched',
-				payload: {
-					matches: [],
-					...(noMatchReason ? { no_match_reason: noMatchReason } : {}),
-				},
+				// No no_match_reason: it would tell the backend what the user holds.
+				payload: { matches: [] },
 			}, timeoutMs);
 
 			return this.mapOID4VPResponse(response);
