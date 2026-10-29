@@ -9,6 +9,7 @@ export type HttpClientRequestOptions = {
 	useCache?: boolean;
 	wantRaw?: boolean;
 	binary?: boolean; // overrides the URL-extension heuristic
+	timeout?: number;
 };
 
 export type HttpTransportRequest = {
