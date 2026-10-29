@@ -32,6 +32,8 @@ export interface CredentialsMatchedResult {
 	matches: CredentialMatch[];
 	no_match_reason?: string;
 	code?: 'NO_MATCHING_CREDENTIALS' | 'INSUFFICIENT_CREDENTIALS';
+	/** Types requested by query entries that nothing in the wallet satisfied. */
+	missing_types?: string[];
 }
 
 /**
@@ -92,6 +94,7 @@ export function matchCredentials(
 
 	// 3. Map results back to CredentialMatch format
 	const matches: CredentialMatch[] = [];
+	const unmatched: DcqlQuery.Input['credentials'][number][] = [];
 
 	for (const credReq of dcqlQuery.credentials) {
 		const match = result.credential_matches[credReq.id];
@@ -107,6 +110,7 @@ export function matchCredentials(
 					claims: f?.claims?.issues,
 				})),
 			});
+			unmatched.push(credReq);
 			continue;
 		}
 
@@ -126,12 +130,53 @@ export function matchCredentials(
 	}
 
 	if (!result.can_be_satisfied) {
-		return matches.length > 0
+		const base: CredentialsMatchedResult = matches.length > 0
 			? { matches: [], code: 'INSUFFICIENT_CREDENTIALS', no_match_reason: 'Not all required credentials are available' }
 			: { matches: [], code: 'NO_MATCHING_CREDENTIALS', no_match_reason: 'No credentials match DCQL query' };
+
+		// With credential_sets, an unmatched entry may be an alternative the user does not need.
+		const missing_types = dcqlQuery.credential_sets
+			? []
+			: [...new Set(unmatched.map(typeLabel).filter((type): type is string => !!type))];
+
+		return missing_types.length > 0 ? { ...base, missing_types } : base;
 	}
 
 	return { matches };
+}
+
+/**
+ * One label naming a DCQL credential query. `vct_values` and the outer
+ * `type_values` array list alternatives, so only the first is used.
+ */
+function typeLabel(credReq: DcqlQuery.Input['credentials'][number]): string | undefined {
+	const meta = (credReq as { meta?: Record<string, unknown> }).meta;
+
+	const candidates: unknown[] = [
+		Array.isArray(meta?.vct_values) ? meta.vct_values[0] : undefined,
+		meta?.doctype_value,
+		Array.isArray(meta?.type_values) ? w3cTypeLabel(meta.type_values[0]) : undefined,
+	];
+
+	return candidates.find((candidate): candidate is string => typeof candidate === 'string' && !!candidate);
+}
+
+const BASE_W3C_TYPES = new Set([
+	'VerifiableCredential',
+	'https://www.w3.org/2018/credentials#VerifiableCredential',
+]);
+
+// Every type in a `type_values` set is required and their order is not significant (OpenID4VP B.1.1).
+function w3cTypeLabel(typeSet: unknown): string | undefined {
+	if (!Array.isArray(typeSet)) {
+		return undefined;
+	}
+
+	const types = typeSet.filter((type): type is string =>
+		typeof type === 'string' && !!type && !BASE_W3C_TYPES.has(type)
+	);
+
+	return types.length > 0 ? types.join(' + ') : undefined;
 }
 
 /**
