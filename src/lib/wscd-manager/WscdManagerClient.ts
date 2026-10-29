@@ -28,7 +28,6 @@ import {
 import { base64url } from 'jose';
 import { logger } from '@/logger';
 import { Mutex } from '../utils';
-import { holderJwkFromCredential } from 'wallet-common';
 import { prepareVcdm2Presentation } from '../verifiable-credentials/formats/vcdm2';
 
 export class WscdManagerClient implements IWscdManagerClient {
