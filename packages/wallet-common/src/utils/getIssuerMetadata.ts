@@ -5,13 +5,21 @@ import { MetadataWarning } from "../types";
 import { CredentialParsingError } from "../error";
 import type { IAuthZENClient } from "../authzen/AuthZENClient";
 
-export async function getIssuerMetadata(
-	httpClient: HttpClient,
-	issuer: string | undefined,
-	warnings: MetadataWarning[],
-	useCache?: boolean,
-	authzenClient?: IAuthZENClient,
-): Promise<{
+export type GetIssuerMetadataOptions = {
+	httpClient: HttpClient;
+	issuer: string | undefined;
+	warnings: MetadataWarning[];
+	useCache?: boolean;
+	authzenClient?: IAuthZENClient;
+};
+
+export async function getIssuerMetadata({
+	httpClient,
+	issuer,
+	warnings,
+	useCache,
+	authzenClient,
+}: GetIssuerMetadataOptions): Promise<{
 	metadata: z.infer<typeof OpenidCredentialIssuerMetadataSchema> | null;
 }> {
 	if (!issuer) return { metadata: null };
