@@ -7,6 +7,7 @@ import {
 	ParsingEngine,
 	SDJWTVCParser,
 	PublicKeyResolverEngine,
+	DidPublicKeyResolver,
 	SDJWTVCVerifier,
 	MsoMdocParser,
 	MsoMdocVerifier,
@@ -113,6 +114,9 @@ export async function initializeCredentialEngine(
 	);
 
 	const pkResolverEngine = PublicKeyResolverEngine();
+	// DIIP v5 identifies Issuers by did:jwk or did:web, so credentials signed by a DID-identified
+	// issuer resolve their key from the DID document's assertionMethod.
+	pkResolverEngine.register(DidPublicKeyResolver({ httpClient }));
 	const credentialVerifyingEngine = VerifyingEngine();
 	// Ahead of SDJWTVCVerifier, which resolves the issuer key from an `iss`
 	// claim that a VCDM 2.0 credential need not carry.

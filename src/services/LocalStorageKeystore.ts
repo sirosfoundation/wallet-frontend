@@ -4,6 +4,8 @@ import { Err, Ok, Result } from 'ts-results';
 import * as jose from 'jose';
 
 import * as config from "../config";
+import type { DidKeyVersion } from "../config";
+import { resolveDidKeyVersion } from "@/lib/interopProfile";
 import { useClearStorages, useLocalStorage, useSessionStorage } from "../hooks/useStorage";
 import { fromBase64Url, jsonStringifyTaggedBinary, toBase64Url } from '@/lib/utils';
 import { useIndexedDb } from "../hooks/useIndexedDb";
@@ -182,6 +184,21 @@ export interface LocalStorageKeystore {
 }
 
 /** A stateful wrapper around the keystore module, storing state in the browser's localStorage and sessionStorage. */
+
+/**
+ * How Holder keys are identified for this wallet.
+ *
+ * A thin wrapper so both key-minting paths agree, and so the seam is named for when the Issuer's
+ * own `cryptographic_binding_methods_supported` can be threaded in - see
+ * lib/interopProfile.ts, which has the negotiation rule and why nothing feeds it yet.
+ */
+function holderKeyVersion(): DidKeyVersion {
+	return resolveDidKeyVersion({
+		profile: config.INTEROP_PROFILE,
+		configuredDidKeyVersion: config.DID_KEY_VERSION,
+	}) as DidKeyVersion;
+}
+
 export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageKeystore {
 	const { showBoundary } = useErrorBoundary();
 	const [cachedUsers, setCachedUsers,] = useLocalStorage<CachedUser[]>("cachedUsers", []);
@@ -760,7 +777,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 			const { nonce, audience, issuer } = requests[0]; // the first row is enough since the nonce remains the same
 			return await keystore.generateOpenid4vciProofs(
 				originalContainer,
-				config.DID_KEY_VERSION,
+				holderKeyVersion(),
 				nonce,
 				audience,
 				issuer,
@@ -782,7 +799,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 			await editPrivateData(async (originalContainer) => {
 				return await keystore.generateKeypairs(
 					originalContainer,
-					config.DID_KEY_VERSION,
+					holderKeyVersion(),
 					n
 				);
 			})

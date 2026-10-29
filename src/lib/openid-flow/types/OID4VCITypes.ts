@@ -7,6 +7,7 @@ import type {
 	OpenidCredentialIssuerMetadata
 } from 'wallet-common';
 import type { TrustEvaluation } from './TrustTypes';
+import type { OID4VCIAuthorizationDetail } from '../authorizationDetails';
 
 /**
  * Parameters for starting or continuing an OID4VCI flow
@@ -45,6 +46,16 @@ export interface OID4VCIFlowParams {
 
 	/** Selected credential configuration ID */
 	credentialConfigurationId?: string;
+
+	/**
+	 * OID4VCI `authorization_details` naming the credential configuration being requested.
+	 *
+	 * Built by buildAuthorizationDetails (openid-flow/authorizationDetails.ts) so the policy is
+	 * transport-agnostic; each transport forwards it in its own wire format. Absent means the
+	 * wallet is not asking for a specific configuration this way and the engine falls back to
+	 * `scope`, so transports omit the key entirely rather than sending an empty value.
+	 */
+	authorizationDetails?: OID4VCIAuthorizationDetail[];
 
 	// ===== Authorization code flow =====
 
