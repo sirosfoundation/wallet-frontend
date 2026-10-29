@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useCallback, useRef, useMemo, useState } 
 import { useTranslation } from 'react-i18next';
 import StatusContext from './StatusContext';
 import { useApi } from '../api';
-import { KeystoreEvent, useLocalStorageKeystore } from '../services/LocalStorageKeystore';
+import { CloseSessionTabLocalDetail, KeystoreEvent, useLocalStorageKeystore } from '../services/LocalStorageKeystore';
 import keystoreEvents from '../services/keystoreEvents';
 import SessionContext, { SessionContextValue } from './SessionContext';
 import { useLocalStorage, useSessionStorage } from '@/hooks/useStorage';
@@ -58,15 +58,15 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	const oidFlowClientAuthMaterialManager = useOIDFlowClientAuthStore();
 
 	// Use a ref to hold a stable reference to the clearSession function
-	const clearSessionRef = useRef<() => void>(null);
+	const clearSessionRef = useRef<(serverLogout?: boolean) => void>(null);
 
 	// Memoize clearSession using useCallback
-	const clearSession = useCallback(async () => {
+	const clearSession = useCallback(async (serverLogout: boolean = true) => {
 		window.history.replaceState({}, '', `${window.location.pathname}`);
 		sessionClearedRef.current = true;
 		oidFlowClientAuthMaterialManager.clear();
-		logger.debug('[Session Context] Clear Session');
-		api.clearSession();
+		logger.debug('[Session Context] Clear Session', { serverLogout });
+		api.clearSession({ serverLogout });
 	}, [api, oidFlowClientAuthMaterialManager]);
 
 	// Update the ref whenever clearSession changes
@@ -104,9 +104,12 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 
 	useEffect(() => {
 		// Handler function that calls the current clearSession function
-		const handleClearSession = () => {
+		const handleClearSession = (event: Event) => {
 			if (clearSessionRef.current) {
-				clearSessionRef.current();
+				clearSessionRef.current(
+					(event as CustomEvent<CloseSessionTabLocalDetail>)
+						.detail?.serverLogout ?? true
+				);
 			}
 		};
 
@@ -160,7 +163,8 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 
 	useEffect(() => {
 		if (api && keystore && api.isLoggedIn() === true && keystore.isOpen() === false && ((tabId && globalTabId && tabId !== globalTabId) || (!tabId && globalTabId))) {
-			clearSession();
+			// Another tab owns the session.
+			clearSession(false);
 		}
 	}, [globalTabId, tabId, clearSession, api, keystore]);
 
