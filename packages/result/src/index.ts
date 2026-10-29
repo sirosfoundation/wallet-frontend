@@ -9,6 +9,11 @@ export function ok<T>(value: T): Result<T, never> {
 	return { ok: true, value };
 }
 
+/**
+ * Empty ok result
+ */
+ok.EMPTY = Object.freeze(ok(undefined)) as Result<undefined, never>;
+
 export function err<E>(
 	error: E,
 	error_description?: string,
