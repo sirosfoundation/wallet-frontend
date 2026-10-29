@@ -331,10 +331,17 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 			return;
 		}
 
+		// The engine report can take seconds,so
+		// a second click must not race it to navigate.
+		let closing = false;
+
 		displayErrorScreen({
 			...message,
 			err,
 			onClose: async () => {
+				if (closing) return;
+				closing = true;
+
 				// Reported only now: OpenID4VP §15.1 wants user interaction before an error goes to the verifier.
 				const detailsRedirectUri = err.details?.redirect_uri;
 				const redirectUri = await actions?.reportNoMatchingCredentials()
