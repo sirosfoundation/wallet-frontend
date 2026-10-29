@@ -266,6 +266,8 @@
 			},
 			"INSUFFICIENT_CREDENTIALS": {
 				"description": "One or more of the credentials you want to present do not exist for selection.",
+				"descriptionWithTypes_one": "This request needs a credential you do not have: {{types}}.",
+				"descriptionWithTypes_other": "This request needs credentials you do not have: {{types}}.",
 				"title": "Insufficient Credentials"
 			},
 			"INVALID_REQUEST": {
@@ -288,13 +290,10 @@
 				"description": "The presentation request is malformed — no query or pre-matched credentials provided.",
 				"title": "Invalid Presentation Request"
 			},
-			"NO_MATCHING_CREDENTIAL": {
-				"description": "You do not have a credential that matches this request.",
-				"descriptionWithTypes": "This request needs a credential you do not have: {{types}}.",
-				"title": "No Matching Credential"
-			},
 			"NO_MATCHING_CREDENTIALS": {
 				"description": "You do not have any credentials that match this request.",
+				"descriptionWithTypes_one": "This request needs a credential you do not have: {{types}}.",
+				"descriptionWithTypes_other": "This request needs credentials you do not have: {{types}}.",
 				"title": "No Matching Credentials"
 			},
 			"NO_TRANSPORT": {

@@ -600,8 +600,6 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				error: {
 					code: error?.code ?? 'UNKNOWN_ERROR',
 					message: error?.message ?? 'Unknown error',
-					// e.g. requested_types on NO_MATCHING_CREDENTIAL - the UI
-					// needs them to name the credential the user is missing.
 					...(error?.details ? { details: error.details } : {}),
 				},
 			};

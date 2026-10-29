@@ -266,6 +266,8 @@
 			},
 			"INSUFFICIENT_CREDENTIALS": {
 				"description": "Ett eller flera av de intyg du vill presentera finns inte tillgängliga för val.",
+				"descriptionWithTypes_one": "Denna förfrågan kräver ett intyg som du inte har: {{types}}.",
+				"descriptionWithTypes_other": "Denna förfrågan kräver intyg som du inte har: {{types}}.",
 				"title": "Otillräckliga intyg"
 			},
 			"INVALID_REQUEST": {
@@ -288,13 +290,10 @@
 				"description": "Presentationsförfrågan är felaktig — ingen fråga eller förmatchade intyg angavs.",
 				"title": "Ogiltig presentationsförfrågan"
 			},
-			"NO_MATCHING_CREDENTIAL": {
-				"description": "Du har inget intyg som matchar denna förfrågan.",
-				"descriptionWithTypes": "Denna förfrågan kräver ett intyg som du inte har: {{types}}.",
-				"title": "Inget matchande intyg"
-			},
 			"NO_MATCHING_CREDENTIALS": {
 				"description": "Du har inga intyg som matchar denna förfrågan.",
+				"descriptionWithTypes_one": "Denna förfrågan kräver ett intyg som du inte har: {{types}}.",
+				"descriptionWithTypes_other": "Denna förfrågan kräver intyg som du inte har: {{types}}.",
 				"title": "Inga matchande intyg"
 			},
 			"NO_TRANSPORT": {

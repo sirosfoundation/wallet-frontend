@@ -2,12 +2,7 @@
 type OIDFlowErrorParams = {
 	code: string;
 	message: string;
-	/**
-	 * Structured details the engine attached to a `flow_error` (see
-	 * go-wallet-backend `FlowError.details`), e.g. `requested_types` on
-	 * `NO_MATCHING_CREDENTIAL`. Carried through so the UI can say *which*
-	 * credential is missing instead of only that something is.
-	 */
+	/** Structured details, e.g. `missing_types` or the engine's `redirect_uri`. */
 	details?: Record<string, unknown>;
 };
 /**

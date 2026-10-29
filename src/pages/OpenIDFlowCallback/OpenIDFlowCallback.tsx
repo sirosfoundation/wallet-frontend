@@ -8,7 +8,7 @@ import { OIDFlowCallbackURL, OIDFlowProgressEvent } from '@/lib/openid-flow/type
 import useErrorDialog from '@/hooks/useErrorDialog';
 import useOID4VCIFlow from '@/hooks/useOID4VCIFlow';
 import OpenID4VPContext from '@/context/OpenID4VPContext';
-import useOID4VPFlow from '@/hooks/useOID4VPFlow';
+import useOID4VPFlow, { type OID4VPErrorActions } from '@/hooks/useOID4VPFlow';
 import { useTxCodeInput } from '@/context/TxCodeInputContext';
 import { TxCodeInputPopup } from '@/components/Popups/TxCodeInputPopup';
 import Spinner from '@/components/Shared/Spinner';
@@ -323,7 +323,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	/**
 	 * Handle errors thrown during OID4VP flows.
 	 */
-	const handleOID4VPError = useCallback((err: Error) => {
+	const handleOID4VPError = useCallback((err: Error, actions?: OID4VPErrorActions) => {
 		logger.error("Error in OID4VP flow:", err);
 		const message = translateOIDFlowError(t, err, 'vpFlowError');
 		if (!(err instanceof OIDFlowError)) {
@@ -334,8 +334,23 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		displayErrorScreen({
 			...message,
 			err,
-			onClose: () => {
-				navigateHome();
+			onClose: async () => {
+				// Reported only now: OpenID4VP §15.1 wants user interaction before an error goes to the verifier.
+				const detailsRedirectUri = err.details?.redirect_uri;
+				const redirectUri = await actions?.reportNoMatchingCredentials()
+					?? (typeof detailsRedirectUri === 'string' ? detailsRedirectUri : undefined);
+
+				if (!redirectUri) {
+					navigateHome();
+					return;
+				}
+
+				try {
+					window.location.href = sanitizeRedirectUrl(redirectUri);
+				} catch (redirectError) {
+					logger.error('Refusing verifier redirect:', redirectError);
+					navigateHome();
+				}
 			},
 		});
 	}, [displayError, displayErrorScreen, navigateHome, t]);

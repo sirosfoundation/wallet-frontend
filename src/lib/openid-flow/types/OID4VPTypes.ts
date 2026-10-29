@@ -88,10 +88,7 @@ export interface OID4VPFlowResult {
 	error?: {
 		code: string;
 		message: string;
-		/**
-		 * Structured details from the engine's `flow_error`, e.g.
-		 * `requested_types` / `no_match_reason` on `NO_MATCHING_CREDENTIAL`.
-		 */
+		/** Structured details, e.g. `missing_types` or the engine's `redirect_uri`. */
 		details?: Record<string, unknown>;
 	};
 }

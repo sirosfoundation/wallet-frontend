@@ -266,6 +266,8 @@
 			},
 			"INSUFFICIENT_CREDENTIALS": {
 				"description": "Yhtä tai useampaa esitettävää todistusta ei ole valittavissa.",
+				"descriptionWithTypes_one": "Tämä pyyntö edellyttää todistusta, jota sinulla ei ole: {{types}}.",
+				"descriptionWithTypes_other": "Tämä pyyntö edellyttää todistuksia, joita sinulla ei ole: {{types}}.",
 				"title": "Riittämättömät todistukset"
 			},
 			"INVALID_REQUEST": {
@@ -288,13 +290,10 @@
 				"description": "Esityspyyntö on virheellinen — kyselyä tai ennalta sovitettuja todistuksia ei annettu.",
 				"title": "Virheellinen esityspyyntö"
 			},
-			"NO_MATCHING_CREDENTIAL": {
-				"description": "Sinulla ei ole todistusta, joka vastaa tätä pyyntöä.",
-				"descriptionWithTypes": "Tämä pyyntö edellyttää todistusta, jota sinulla ei ole: {{types}}.",
-				"title": "Ei vastaavaa todistusta"
-			},
 			"NO_MATCHING_CREDENTIALS": {
 				"description": "Sinulla ei ole todistuksia, jotka vastaavat tätä pyyntöä.",
+				"descriptionWithTypes_one": "Tämä pyyntö edellyttää todistusta, jota sinulla ei ole: {{types}}.",
+				"descriptionWithTypes_other": "Tämä pyyntö edellyttää todistuksia, joita sinulla ei ole: {{types}}.",
 				"title": "Ei vastaavia todistuksia"
 			},
 			"NO_TRANSPORT": {

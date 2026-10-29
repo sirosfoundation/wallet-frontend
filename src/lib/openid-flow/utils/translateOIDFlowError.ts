@@ -4,14 +4,10 @@ import { OIDFlowError } from '../errors';
 type FlowErrorFallback = 'vpFlowError' | 'vciFlowError';
 
 /**
- * Credential types an error's details name as requested, if any.
- *
- * The engine sends these on `NO_MATCHING_CREDENTIAL` (`details.requested_types`)
- * so the wallet can say which credential the user is missing rather than only
- * that something did not match.
+ * Credential types the wallet found missing locally (`details.missing_types`), if any.
  */
-function requestedTypes(details: Record<string, unknown> | undefined): string[] {
-	const types = details?.requested_types;
+function missingTypes(details: Record<string, unknown> | undefined): string[] {
+	const types = details?.missing_types;
 	if (!Array.isArray(types)) {
 		return [];
 	}
@@ -24,7 +20,7 @@ function requestedTypes(details: Record<string, unknown> | undefined): string[] 
  * Known `OIDFlowError` codes map to `openIdCallback.errorCodes.<CODE>`.
  * Unknown codes and non-OIDFlow errors use the generic VCI or VP fallback.
  *
- * A code whose details name the credential types involved uses the
+ * A code whose details name missing credential types uses the
  * `descriptionWithTypes` variant of its copy when the locale defines one.
  */
 export function translateOIDFlowError(
@@ -43,10 +39,11 @@ export function translateOIDFlowError(
 	const title = t(`openIdCallback.errorCodes.${code}.title`, { defaultValue: '' });
 	const description = t(`openIdCallback.errorCodes.${code}.description`, { defaultValue: '' });
 
-	const types = requestedTypes(err.details);
+	const types = missingTypes(err.details);
 	const descriptionWithTypes = types.length > 0
 		? t(`openIdCallback.errorCodes.${code}.descriptionWithTypes`, {
 			defaultValue: '',
+			count: types.length,
 			types: types.join(', '),
 		})
 		: '';
