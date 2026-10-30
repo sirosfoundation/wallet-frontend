@@ -26,6 +26,7 @@ import { logger } from '@/logger';
 import { TrustEvaluators, TrustStatus } from '../types';
 import { DcqlQuery } from 'dcql';
 import { OIDFlowError } from '../errors';
+import { verifySignRequestAgainstConsent, type ConsentedCredential } from '../consentGuard';
 
 /**
  * Pending request waiting for a response
@@ -167,6 +168,8 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	private signHandlers = new Set<SignRequestHandler>();
 	private matchHandlers = new Set<MatchRequestHandler>();
 	private vpCredentialCache = new Map<string, string>();
+	/** What the user consented to, per flow. Sign requests are verified against it. */
+	private vpConsents = new Map<string, ConsentedCredential[]>();
 
 	private reconnectAttempts = 0;
 	private maxReconnectAttempts = 5;
@@ -291,6 +294,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		this.currentFlowId = null;
 		this.connectionPromise = null;
 		this.vpCredentialCache.clear();
+		this.vpConsents.clear();
 	}
 
 	/**
@@ -536,17 +540,33 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				this.vpCredentialCache.set(c.walletCredentialRef, c.credentialRaw);
 			}
 
-			const response = await this.send({
-				type: 'flow_action',
-				action: 'consent',
-				payload: {
-					selected_credentials: params.selectedCredentials.map(c => ({
-						credential_id: c.walletCredentialRef,
-						credential_query_id: c.credentialQueryId,
-						disclosed_claims: c.disclosedClaims ?? [],
-					})),
-				},
-			});
+			// Record the consent so sign requests can be verified against it.
+			const flowId = this.currentFlowId ?? crypto.randomUUID();
+			this.vpConsents.set(flowId, params.selectedCredentials.map(c => ({
+				credentialId: c.walletCredentialRef,
+				credentialQueryId: c.credentialQueryId,
+				disclosedClaims: c.disclosedClaims ?? [],
+				credentialRaw: c.credentialRaw,
+			})));
+
+			let response: ServerMessage;
+			try {
+				response = await this.send({
+					type: 'flow_action',
+					flow_id: flowId,
+					action: 'consent',
+					payload: {
+						selected_credentials: params.selectedCredentials.map(c => ({
+							credential_id: c.walletCredentialRef,
+							credential_query_id: c.credentialQueryId,
+							disclosed_claims: c.disclosedClaims ?? [],
+						})),
+					},
+				});
+			} finally {
+				// Revoke the recorded consent on success and failure (incl. timeout).
+				this.vpConsents.delete(flowId);
+			}
 			return this.mapOID4VPResponse(response);
 		}
 
@@ -811,6 +831,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			if (type === 'flow_complete' || type === 'flow_error' || type === 'error') {
 				this.currentFlowId = null;
 				this.vpCredentialCache.clear();
+				this.vpConsents.delete(flowId);
 			}
 
 			// Resolve all non-progress, non-sign_request messages (including error/flow_error)
@@ -936,20 +957,26 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				attestationChallenge: rawParams.attestation_challenge as string | undefined,
 				ath: rawParams.ath as string | undefined,
 				keyId: rawParams.key_id as string | undefined,
-				credentialsToInclude: (
-					rawParams.credentials_to_include as Array<{
-						credential_id: string;
-						credential_query_id?: string;
-						disclosed_claims?: string[];
-					}> | undefined
-				)?.map(c => ({
-					credentialId: c.credential_id,
-					credentialQueryId: c.credential_query_id,
-					disclosedClaims: c.disclosed_claims,
-					credentialRaw: this.vpCredentialCache.get(c.credential_id),
-				})),
+				credentialsToInclude: undefined,
 			},
 		};
+
+		let consentSnapshot: ConsentedCredential[] | undefined;
+		if (request.action === 'sign_presentation') {
+			// Interim defence: never disclose/sign what the user did not consent to.
+			// The presentation is built from the locally stored consent; the engine's
+			// list is only verified (see consentGuard.ts).
+			consentSnapshot = this.vpConsents.get(flowId);
+			const verification = verifySignRequestAgainstConsent(
+				consentSnapshot,
+				rawParams.credentials_to_include,
+			);
+			if (verification.ok === false) {
+				this.refuseSignRequest(request, verification.reason);
+				return;
+			}
+			request.params.credentialsToInclude = verification.credentials;
+		}
 
 		if (this.signHandlers.size === 0) {
 			logger.error('No sign handlers registered, cannot respond to sign request');
@@ -962,6 +989,13 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		for (const handler of this.signHandlers) {
 			try {
 				const response = await handler(request);
+				// The consent may have been revoked (refusal of another request,
+				// flow end) while the signer ran: do not release the VP token then.
+				if (consentSnapshot && this.vpConsents.get(flowId) !== consentSnapshot) {
+					logger.error(`[WS Transport] Consent revoked while signing for flow ${flowId}; withholding VP token`);
+					this.sendSignResponse(request.flowId, request.messageId, {}, 'Sign request does not match the user consent');
+					return;
+				}
 				this.sendSignResponse(request.flowId, request.messageId, response);
 				return;
 			} catch (err) {
@@ -977,6 +1011,34 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			{},
 			lastError?.message || 'Sign operation failed'
 		);
+	}
+
+	/**
+	 * Fail closed on a sign request that does not match the consent: nothing is
+	 * disclosed or signed, the engine is told via the sign_response error path,
+	 * and the pending flow request is resolved with a user-visible error.
+	 * The log line carries only the flow id and a reason without claim values.
+	 */
+	private refuseSignRequest(request: SignRequest, reason: string): void {
+		logger.error(`[WS Transport] Refusing sign_presentation for flow ${request.flowId}: ${reason}`);
+		this.vpConsents.delete(request.flowId);
+		this.vpCredentialCache.clear();
+		this.sendSignResponse(request.flowId, request.messageId, {}, 'Sign request does not match the user consent');
+
+		const pending = this.pending.get(request.flowId);
+		if (pending) {
+			clearTimeout(pending.timeout);
+			this.pending.delete(request.flowId);
+			if (this.currentFlowId === request.flowId) this.currentFlowId = null;
+			pending.resolve({
+				type: 'flow_error',
+				flow_id: request.flowId,
+				error: {
+					code: 'CONSENT_MISMATCH',
+					message: 'The verifier request was refused because it asked for more than you agreed to share. Nothing was shared.',
+				},
+			} as ServerMessage);
+		}
 	}
 
 	/**
@@ -1130,6 +1192,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		this.connectionPromise = null;
 		this.currentFlowId = null;
 		this.vpCredentialCache.clear();
+		this.vpConsents.clear();
 
 		// Don't reconnect if it was a clean close
 		if (event.code === 1000) {
