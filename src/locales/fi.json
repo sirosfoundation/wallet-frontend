@@ -448,6 +448,18 @@
 				"label": "Vanhentunut",
 				"short": "Vaatii päivityksen.",
 				"title": "Todistus vanhentunut"
+			},
+			"invalid": {
+				"description": "Myöntäjä on peruuttanut tämän todistuksen, joten sitä ei voi enää käyttää. Ota yhteyttä myöntäjään, jos uskot tämän olevan virhe.",
+				"label": "Peruutettu",
+				"short": "Myöntäjä on peruuttanut.",
+				"title": "Todistus peruutettu"
+			},
+			"suspended": {
+				"description": "Myöntäjä on keskeyttänyt tämän todistuksen väliaikaisesti. Sitä ei voi käyttää juuri nyt, mutta se voi tulla taas käyttöön. Ota yhteyttä myöntäjään saadaksesi lisätietoja.",
+				"label": "Keskeytetty",
+				"short": "Tilapäisesti poissa käytöstä.",
+				"title": "Todistus keskeytetty"
 			}
 		}
 	},

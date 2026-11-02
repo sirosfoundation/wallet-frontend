@@ -448,6 +448,18 @@
 				"label": "Expired",
 				"short": "Needs refresh.",
 				"title": "Credential expired"
+			},
+			"invalid": {
+				"description": "The issuer has revoked this credential, so it can no longer be used. Contact the issuer if you think this is a mistake.",
+				"label": "Revoked",
+				"short": "Revoked by the issuer.",
+				"title": "Credential revoked"
+			},
+			"suspended": {
+				"description": "The issuer has temporarily suspended this credential. It can't be used for now, but it may become usable again. Contact the issuer for more information.",
+				"label": "Suspended",
+				"short": "Temporarily unavailable.",
+				"title": "Credential suspended"
 			}
 		}
 	},

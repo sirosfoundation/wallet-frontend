@@ -448,6 +448,18 @@
 				"label": "Har gått ut",
 				"short": "Behöver förnyas.",
 				"title": "Intyget har gått ut"
+			},
+			"invalid": {
+				"description": "Utfärdaren har återkallat detta intyg, så det kan inte längre användas. Kontakta utfärdaren om du tror att det är ett misstag.",
+				"label": "Återkallat",
+				"short": "Återkallat av utfärdaren.",
+				"title": "Intyget har återkallats"
+			},
+			"suspended": {
+				"description": "Utfärdaren har tillfälligt spärrat detta intyg. Det kan inte användas just nu, men det kan bli användbart igen. Kontakta utfärdaren för mer information.",
+				"label": "Spärrat",
+				"short": "Tillfälligt otillgängligt.",
+				"title": "Intyget är spärrat"
 			}
 		}
 	},

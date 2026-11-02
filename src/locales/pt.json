@@ -448,6 +448,18 @@
 				"label": "Expirada",
 				"short": "Precisa de ser atualizada.",
 				"title": "Credencial expirada"
+			},
+			"invalid": {
+				"description": "O emissor revogou esta credencial, pelo que já não pode ser utilizada. Contacte o emissor se considerar que se trata de um erro.",
+				"label": "Revogada",
+				"short": "Revogada pelo emissor.",
+				"title": "Credencial revogada"
+			},
+			"suspended": {
+				"description": "O emissor suspendeu temporariamente esta credencial. Não pode ser utilizada por agora, mas poderá voltar a estar disponível. Contacte o emissor para mais informações.",
+				"label": "Suspensa",
+				"short": "Temporariamente indisponível.",
+				"title": "Credencial suspensa"
 			}
 		}
 	},
