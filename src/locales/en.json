@@ -252,6 +252,10 @@
 				"description": "The connection was interrupted. Please try again.",
 				"title": "Connection Lost"
 			},
+			"CREDENTIAL_EXPIRED": {
+				"description": "The credentials that match this request have expired and cannot be shared.",
+				"title": "Credential Expired"
+			},
 			"CREDENTIAL_REVOKED_OR_SUSPENDED": {
 				"description": "The credentials that match this request have been revoked or suspended by their issuer and cannot be shared.",
 				"title": "Credential Not Valid"
