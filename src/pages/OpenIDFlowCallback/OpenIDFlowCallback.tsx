@@ -235,6 +235,7 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 					dpopKeyId: result.dpopKeyId,
 					refreshToken: result.refreshToken,
 				},
+				result.replacesBatchId,
 			);
 		}
 	};
@@ -258,6 +259,11 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				},
 				batchId,
 			);
+		}
+
+		// No usable refresh token: the issuer has to authorize again.
+		if (result.authorizationUrl) {
+			window.location.href = sanitizeRedirectUrl(result.authorizationUrl);
 		}
 	};
 

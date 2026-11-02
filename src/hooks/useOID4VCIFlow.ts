@@ -35,7 +35,7 @@ export interface UseOID4VCIFlowReturn {
 	/**
 	 * Start an OID4VCI flow with a credential offer URI
 	 */
-	handleCredentialOffer: (credentialOfferUri: URL) => Promise<OID4VCIFlowResult>;
+	handleCredentialOffer: (credentialOfferUri: URL, replacesBatchId?: number) => Promise<OID4VCIFlowResult>;
 	/**
 	 * Continue flow with authorization code (after redirect)
 	 */
@@ -155,7 +155,8 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 	 * Handle credential offer using the appropriate transport
 	 */
 	const handleCredentialOffer = useCallback(async (
-		credentialOfferUrl: URL
+		credentialOfferUrl: URL,
+		replacesBatchId?: number,
 	): Promise<OID4VCIFlowResult> => {
 		setIsLoading(true);
 		setError(null);
@@ -210,6 +211,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 								? JSON.stringify(result.credentialOffer)
 								: undefined,
 							clientAuthKey,
+							replacesBatchId,
 							timestamp: Date.now(),
 						});
 					}
@@ -297,7 +299,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 						throw new Error(result.error.message);
 					}
 
-					return result;
+					return { ...result, replacesBatchId: storedFlow?.replacesBatchId };
 				} finally {
 					unsubscribeProgress();
 				}
@@ -558,19 +560,35 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			}
 
 			const walletState = keystore.getCalculatedWalletState();
-			if (!walletState?.credentials.some((c) => c.batchId === batchId)) {
+			const credential = walletState?.credentials.find((c) => c.batchId === batchId);
+			if (!credential) {
 				throw new Error('Credential batch not found');
 			}
 
 			const entry = parseOID4VCIRefreshEntry(
 				walletState.extensions?.[WalletStateExtension.OID4VCI_REFRESH]?.[String(batchId)],
 			);
-			// @todo Fall back to a new authorization when there is no usable entry.
+
+			const reauthorize = async () => {
+				if (!credential.credentialIssuerIdentifier || !credential.credentialConfigurationId) {
+					throw new OIDFlowError({
+						code: 'REISSUANCE_NOT_POSSIBLE',
+						message: 'Credential has no issuer or configuration to reissue from',
+					});
+				}
+
+				const offerUrl = new URL('openid-credential-offer://');
+				offerUrl.searchParams.set('credential_offer', JSON.stringify({
+					credential_issuer: credential.credentialIssuerIdentifier,
+					credential_configuration_ids: [credential.credentialConfigurationId],
+					grants: { authorization_code: {} },
+				}));
+
+				return await handleCredentialOffer(offerUrl, batchId);
+			};
+
 			if (!entry || entry.dpopKid !== undefined) {
-				throw new OIDFlowError({
-					code: 'REISSUANCE_NOT_POSSIBLE',
-					message: 'No usable refresh token for this credential',
-				});
+				return await reauthorize();
 			}
 
 			let dpopKeyId: string | undefined;
@@ -589,8 +607,9 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 				? transport.onProgress(onProgress)
 				: () => {};
 
+			let result: OID4VCIFlowResult;
 			try {
-				const result = await transport.startOID4VCIFlow({
+				result = await transport.startOID4VCIFlow({
 					renewal: {
 						refreshToken: entry.refreshToken,
 						credentialIssuer: entry.credentialIssuerIdentifier,
@@ -599,17 +618,24 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 					},
 					redirectUri: OPENID4VCI_REDIRECT_URI,
 				});
-
-				assertNotAborted();
-
-				if (!result.success && result.error) {
-					throw new Error(result.error.message);
-				}
-
-				return result;
 			} finally {
 				unsubscribeProgress();
 			}
+
+			assertNotAborted();
+
+			// The backend reports any token endpoint rejection as TOKEN_ERROR (expired, revoked, ...).
+			if (result.error?.code === 'TOKEN_ERROR') {
+				logger.info('Refresh token rejected, falling back to a new authorization');
+				oidFlowClientAuthMaterialManager.clear();
+				return await reauthorize();
+			}
+
+			if (!result.success && result.error) {
+				throw new Error(result.error.message);
+			}
+
+			return result;
 		} catch (err) {
 			if (abortRef.current.signal.aborted) {
 				return { success: false, error: { code: 'ABORTED', message: 'Flow cancelled' } };
@@ -628,7 +654,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		} finally {
 			setIsLoading(false);
 		}
-	}, [transportType, transport, keystore, onProgress, onError, assertNotAborted, oidFlowClientAuthMaterialManager]);
+	}, [transportType, transport, keystore, onProgress, onError, assertNotAborted, oidFlowClientAuthMaterialManager, handleCredentialOffer]);
 
 	return {
 		handleCredentialOffer,
@@ -652,6 +678,7 @@ export interface PendingOID4VCIFlow {
 	state?: string;
 	credentialOffer?: string;
 	clientAuthKey?: SerializedClientAuthMaterial;
+	replacesBatchId?: number;
 	timestamp: number;
 }
 

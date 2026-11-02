@@ -192,6 +192,11 @@ export interface OID4VCIFlowResult {
 	 */
 	dpopKeyId?: string;
 
+	/**
+	 * Batch this issuance replaces, carried across the authorization redirect.
+	 */
+	replacesBatchId?: number;
+
 	// ===== Deferred issuance =====
 
 	/** Transaction ID for deferred credential polling */
