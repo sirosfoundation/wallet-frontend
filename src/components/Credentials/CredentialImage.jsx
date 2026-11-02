@@ -4,6 +4,7 @@ import UsagesRibbon from "./UsagesRibbon";
 import { logger } from '@/logger';
 import DefaultCred from "../../assets/images/cred.png";
 import { CredentialCardSkeleton } from '../Skeletons';
+import { TokenStatus } from '@sirosfoundation/token-status-list';
 
 const CredentialImage = ({
 	vcEntity,
@@ -68,6 +69,11 @@ const CredentialImage = ({
 						{showRibbon &&
 							<UsagesRibbon vcEntityInstances={vcEntityInstances} borderColor={borderColor} />
 						}
+						{[TokenStatus.INVALID, TokenStatus.SUSPENDED].includes(vcEntity?.status) && (
+							<div className="absolute inset-0 flex items-center justify-center backdrop-blur-xs backdrop-grayscale rounded-xl">
+								{TokenStatus.label(vcEntity.status)}
+							</div>
+						)}
 					</div>
 				</>
 			) : (

@@ -97,6 +97,10 @@ export interface ITokenStatusLists {
 	 */
 	subscribe(listener: TokenStatusListsListener): () => void;
 	/**
+	 * Current status of every watched token.
+	 */
+	getStatuses(): ReadonlyMap<TokenId, TokenStatus>;
+	/**
 	 * Clean up resources and stop any background tasks.
 	 */
 	dispose(): void;

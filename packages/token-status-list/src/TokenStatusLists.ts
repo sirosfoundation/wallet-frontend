@@ -84,9 +84,11 @@ export class TokenStatusLists implements ITokenStatusLists {
 	public subscribe(listener: TokenStatusListsListener): () => void {
 		this.#subscribers.add(listener);
 
-		if (this.#statuses.size) listener(new Map(this.#statuses));
-
 		return () => this.#subscribers.delete(listener);
+	}
+
+	public getStatuses(): ReadonlyMap<TokenId, TokenStatus> {
+		return this.#statuses;
 	}
 
 	#queueRestart() {
@@ -263,20 +265,25 @@ export class TokenStatusLists implements ITokenStatusLists {
 	 */
 	#handleChangedStatuses(current: Map<TokenId, TokenStatus>) {
 		const changes = new Map<TokenId, TokenStatus | undefined>();
+		const next = new Map(this.#statuses);
 
 		for (const [id, status] of current) {
-			if (this.#statuses.get(id) === status) continue;
-			this.#statuses.set(id, status);
+			if (next.get(id) === status) continue;
+			next.set(id, status);
 			changes.set(id, status);
 		}
 
-		for (const id of this.#statuses.keys()) {
+		for (const id of next.keys()) {
 			if (this.#tokens.has(id)) continue;
-			this.#statuses.delete(id);
+			next.delete(id);
 			changes.set(id, undefined);
 		}
 
-		if (changes.size) this.#notifySubscribers(changes);
+		if (!changes.size) return;
+
+		// Replaced, never mutated
+		this.#statuses = next;
+		this.#notifySubscribers(changes);
 	}
 
 	#notifySubscribers(changes: Map<TokenId, TokenStatus | undefined>) {

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useContext, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useContext, useRef, useEffect, useMemo, useSyncExternalStore } from 'react';
 import SessionContext from './SessionContext';
 import { initializeCredentialEngine } from "../lib/initializeCredentialEngine";
 import { AuthZENClient, AuthZENClientConfig, CredentialVerificationError, ParsedCredential } from "wallet-common";
@@ -11,7 +11,7 @@ import { getTenantFromUrlPath } from '@/lib/tenant';
 import { useHttpClient } from '@/hooks/useHttpClient';
 import { createDeferred } from '@/lib/utils/createDeferred';
 import { useTokenStatusLists } from '@/hooks/useTokenStatusLists';
-import { getStatusListRef, TokenId, TokenEntity } from '@sirosfoundation/token-status-list';
+import { getStatusListRef, TokenEntity, TokenId } from '@sirosfoundation/token-status-list';
 
 type WalletStateCredential = CurrentSchema.WalletStateCredential;
 
@@ -52,28 +52,39 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 
 	const tokenStatusLists = useTokenStatusLists();
 
-	// TEMP - testing backend /status/v1/lists
 	useEffect(() => {
-		if (!isLoggedIn) return;
 		if (!vcEntityList) return;
-
-		// POC goal: find status for idx in the list
-
-		void (async () => {
-			tokenStatusLists.subscribe((changed) => {
-				logger.debug('Token status list updated');
-				logger.debug({ changed });
-			});
-
-				const tokens = new Map<TokenId, TokenEntity>();
-				for (const vc of vcEntityList) {
-					const ref = getStatusListRef(vc.parsedCredential.signedClaims);
-				if (ref) tokens.set(vc.batchId, ref);
+		const tokens = new Map<TokenId, TokenEntity>();
+		for (const vc of vcEntityList) {
+			const ref = getStatusListRef(vc.parsedCredential.signedClaims);
+			if (ref) tokens.set(vc.batchId, ref);
 		}
 
-			tokenStatusLists.addTokens(tokens)
-		})();
-	}, [isLoggedIn, authTokens, httpClient, vcEntityList, tokenStatusLists]);
+		tokenStatusLists.setTokens(tokens);
+	}, [vcEntityList, tokenStatusLists]);
+
+
+	const subscribeToStatuses = useCallback(
+		(onChange: () => void) => tokenStatusLists.subscribe(onChange),
+		[tokenStatusLists],
+	);
+	const getStatuses = useCallback(
+		() => tokenStatusLists.getStatuses(),
+		[tokenStatusLists],
+	);
+	const vcEntityStatuses = useSyncExternalStore(subscribeToStatuses, getStatuses);
+
+	/**
+	 * Combine VCs with external info, for now just status.
+	 */
+	const vcEntityListWithDeps = useMemo(
+		() =>
+			vcEntityList?.map((vc) => ({
+				...vc,
+				status: vcEntityStatuses.get(vc.batchId),
+			})) ?? null,
+		[vcEntityList, vcEntityStatuses],
+	);
 
 	useEffect(() => {
 		if (!getCalculatedWalletState) return;
@@ -263,7 +274,7 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 	}, [getData, getCalculatedWalletState, credentialEngine, isLoggedIn]);
 
 	const value = useMemo(() => ({
-		vcEntityList,
+		vcEntityList: vcEntityListWithDeps,
 		latestCredentials,
 		fetchVcData,
 		getData,
@@ -274,7 +285,7 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 		pendingTransactions,
 		removeCredential,
 	}), [
-		vcEntityList,
+		vcEntityListWithDeps,
 		latestCredentials,
 		fetchVcData,
 		getData,
