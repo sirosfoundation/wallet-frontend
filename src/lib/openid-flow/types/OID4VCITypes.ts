@@ -72,6 +72,26 @@ export interface OID4VCIFlowParams {
 
 	/** Transaction code input (user-provided PIN for pre-auth flow) */
 	txCodeInput?: string;
+
+	// ===== Renewal =====
+
+	/**
+	 * Renew a batch with a stored refresh token instead of an offer.
+	 */
+	renewal?: OID4VCIRenewalParams;
+}
+
+/**
+ * What a renewal flow needs from a stored refresh token entry.
+ */
+export interface OID4VCIRenewalParams {
+	refreshToken: string;
+	credentialIssuer: string;
+	credentialConfigurationId: string;
+	/**
+	 * Id of the client-held DPoP key the refresh token is bound to.
+	 */
+	dpopKeyId?: string;
 }
 
 /**

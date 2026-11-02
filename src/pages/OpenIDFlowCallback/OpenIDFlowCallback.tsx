@@ -1,5 +1,5 @@
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router';
+import { Navigate, useLocation, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { jsonToLog, logger } from '@/logger';
 import { OIDFlowError } from '@/lib/openid-flow/errors';
@@ -22,6 +22,7 @@ import { ConformantCredentials, PresentCredentialsFlow, usePresentCredentialsFlo
 import { DcqlQuery } from 'dcql';
 import { OID4VPVerifierInfo } from '@/lib/openid-flow/types/OID4VPTypes';
 import { useStatusContext } from '@/hooks/useStatusContext';
+import CredentialsContext from '@/context/CredentialsContext';
 
 type OpenIDFlowCallbackProps = {
 	callbackUrl: OIDFlowCallbackURL;
@@ -47,6 +48,7 @@ type OpenIDFlowCallbackHandler = React.FC<OpenIDFlowCallbackProps>;
  *   extract synced state from UriHandlerProvider into a shared context.
  */
 const OpenIDFlowCallback: React.FC = () => {
+	const location = useLocation();
 	const { transportReady } = useOIDFlowTransport();
 	/**
 	 * Parse the callback URL on initial load to determine the flow type and relevant parameters.
@@ -54,7 +56,7 @@ const OpenIDFlowCallback: React.FC = () => {
 	const callbackUrl: OIDFlowCallbackURL = useMemo(() => {
 		const url = new URL(window.location.href);
 
-		return parseOIDFlowCallbackUrl(url);
+		return parseOIDFlowCallbackUrl(url, location.state);
 	}, []);
 
 	if (!transportReady) return <Spinner />;
@@ -146,6 +148,7 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		requestWithPreAuthorization,
 		handleAuthorizationResponse,
 		handleReceivedCredentials,
+		requestReissuance,
 	} = useOID4VCIFlow({
 		onError: handleError,
 		onProgress: handleProgress,
@@ -164,6 +167,7 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				offer.credentialIssuerIdentifier,
 				offer.selectedCredentialConfigurationId,
 				offer.flowId,
+				offer,
 			);
 		}
 
@@ -200,6 +204,7 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				preAuthResult.credentialIssuerIdentifier,
 				preAuthResult.selectedCredentialConfigurationId,
 				preAuthResult.flowId,
+				preAuthResult,
 			);
 		}
 	};
@@ -218,6 +223,24 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				result.credentialIssuerIdentifier,
 				result.selectedCredentialConfigurationId,
 				result.flowId,
+				result,
+			);
+		}
+	};
+
+	const processReissue = async (batchId: number) => {
+		// Also clears the router state, so a reload does not renew again.
+		cleanupUrl();
+
+		const result = await requestReissuance(batchId);
+
+		if (result.success && result.credentials?.length) {
+			await handleReceivedCredentials(
+				result.credentials,
+				result.credentialIssuerIdentifier,
+				result.selectedCredentialConfigurationId,
+				result.flowId,
+				result,
 			);
 		}
 	};
@@ -250,6 +273,9 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 						break;
 					case 'authorization_code':
 						await processAuthorizationCode(callbackUrl.url);
+						break;
+					case 'reissue':
+						await processReissue(callbackUrl.batchId);
 						break;
 					default:
 						throw new OIDFlowError({

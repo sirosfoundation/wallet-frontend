@@ -27,7 +27,7 @@ export class OIDFlowClientAuthMaterial {
 		{ dpopKeyId, privateJwk, publicJwk, wia }:
 		SerializedClientAuthMaterial): Promise<OIDFlowClientAuthMaterial> {
 		const keyPair: ClientAuthKeyPair = {
-			privateKey: await importJWK(privateJwk, 'ES256'),
+			privateKey: await importJWK({ ...privateJwk, ext: true }, 'ES256'),
 			publicKeyJwk: publicJwk,
 		};
 		return new OIDFlowClientAuthMaterial(dpopKeyId, keyPair, wia);

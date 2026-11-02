@@ -6,13 +6,14 @@
  * Generic callback URL type for OpenID flows, with specific subtypes for
  * credential offers, authorization codes, presentation requests, and errors.
  */
-export type OIDFlowCallbackURLType<P extends string, T extends string> = {
+export type OIDFlowCallbackURLType<P extends string, T extends string, E extends object = {}> = {
 	protocol: P;
 	type: T;
 	url: URL;
-};
+} & E;
 
 export type OIDFlowCredentialOfferCallback = OIDFlowCallbackURLType<'oid4vci', 'credential_offer'>;
+export type OIDFlowReissueCallback = OIDFlowCallbackURLType<'oid4vci', 'reissue', { batchId: number }>;
 export type OIDFlowAuthorizationCodeCallback = OIDFlowCallbackURLType<'oid4vci', 'authorization_code'>;
 export type OIDFlowPresentationRequestCallback = OIDFlowCallbackURLType<'oid4vp', 'presentation_request'>;
 export type OIDFlowDCAPIRequestCallback = OIDFlowCallbackURLType<'oid4vp', 'dc_api_request'>;
@@ -26,6 +27,7 @@ export type OIDFlowNoCallback = OIDFlowCallbackURLType<'none', 'none'>;
  */
 export type OIDFlowCallbackURL =
 	| OIDFlowCredentialOfferCallback
+	| OIDFlowReissueCallback
 	| OIDFlowAuthorizationCodeCallback
 	| OIDFlowPresentationRequestCallback
 	| OIDFlowDCAPIRequestCallback

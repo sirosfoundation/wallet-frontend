@@ -13,7 +13,7 @@ import * as keystore from "./keystore";
 import type { AsymmetricEncryptedContainer, AsymmetricEncryptedContainerKeys, EncryptedContainer, OpenedContainer, PrivateData, UnlockSuccess, WebauthnPrfEncryptionKeyInfo, WebauthnPrfSaltInfo, WrappedKeyInfo } from "./keystore";
 import { MDoc } from "@auth0/mdl";
 import { WalletStateUtils } from "./WalletStateUtils";
-import { addAlterSettingsEvent, addDeleteCredentialEvent, addDeleteCredentialIssuanceSessionEvent, addDeleteKeypairEvent, addDeletePresentationEvent, addNewCredentialEvent, addNewKeypairEvent, addNewPresentationEvent, addSaveCredentialIssuanceSessionEvent, CurrentSchema, foldOldEventsIntoBaseState, foldState, mergeEventHistories } from "./WalletStateSchema";
+import { addAlterSettingsEvent, addDeleteCredentialEvent, addDeleteCredentialIssuanceSessionEvent, addDeleteKeypairEvent, addDeletePresentationEvent, addNewCredentialEvent, addNewKeypairEvent, addNewPresentationEvent, addSaveCredentialIssuanceSessionEvent, addSetExtensionEvent, CurrentSchema, foldOldEventsIntoBaseState, foldState, mergeEventHistories, WalletStateExtension } from "./WalletStateSchema";
 import { UserId } from "@/api/types";
 import { getItem } from "@/indexedDB";
 import { UnsupportedSchemaVersionError, WalletStateContainerGeneric } from "./WalletStateSchemaCommon";
@@ -143,7 +143,10 @@ export interface LocalStorageKeystore {
 	generateDeviceResponseWithProximity(mdocCredential: MDoc, presentationDefinition: any, sessionTranscriptBytes: any): Promise<{ deviceResponseMDoc: MDoc }>,
 
 	getCalculatedWalletState(): WalletState | null,
-	addCredentials(credentials: { data: string, format: string, kid: string, batchId: number, credentialIssuerIdentifier: string, credentialConfigurationId: string, instanceId: number, credentialId?: number }[]): Promise<[
+	addCredentials(
+		credentials: { data: string, format: string, kid: string, batchId: number, credentialIssuerIdentifier: string, credentialConfigurationId: string, instanceId: number, credentialId?: number }[],
+		extensions?: { namespace: string, key: string, value: string }[],
+	): Promise<[
 		{},
 		AsymmetricEncryptedContainer,
 		CommitCallback,
@@ -829,7 +832,10 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		return (calculatedWalletState);
 	}, [calculatedWalletState]);
 
-	const addCredentials = useCallback(async (credentials: { data: string, format: string, kid: string, batchId: number, credentialIssuerIdentifier: string, credentialConfigurationId: string, instanceId: number, credentialId?: number, }[]): Promise<[
+	const addCredentials = useCallback(async (
+		credentials: { data: string, format: string, kid: string, batchId: number, credentialIssuerIdentifier: string, credentialConfigurationId: string, instanceId: number, credentialId?: number, }[],
+		extensions: { namespace: string, key: string, value: string }[] = [],
+	): Promise<[
 		{},
 		AsymmetricEncryptedContainer,
 		CommitCallback,
@@ -839,6 +845,10 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 
 		for (const { data, format, batchId, credentialIssuerIdentifier, kid, credentialConfigurationId, instanceId, credentialId } of credentials) {
 			walletStateContainer = await addNewCredentialEvent(walletStateContainer, data, format, kid, batchId, credentialIssuerIdentifier, credentialConfigurationId, instanceId, credentialId);
+		}
+
+		for (const { namespace, key, value } of extensions) {
+			walletStateContainer = await addSetExtensionEvent(walletStateContainer, namespace, key, value);
 		}
 
 		return editPrivateData(async (originalContainer) => {
@@ -870,6 +880,16 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 			if (kid) {
 				walletStateContainer = await addDeleteKeypairEvent(walletStateContainer, kid);
 			}
+		}
+
+		const refreshEntries = calculatedWalletState.extensions?.[WalletStateExtension.OID4VCI_REFRESH];
+		if (refreshEntries && Object.prototype.hasOwnProperty.call(refreshEntries, String(batchId))) {
+			walletStateContainer = await addSetExtensionEvent(
+				walletStateContainer,
+				WalletStateExtension.OID4VCI_REFRESH,
+				String(batchId),
+				null,
+			);
 		}
 
 		// delete presentations that reference any of the deleted credentials

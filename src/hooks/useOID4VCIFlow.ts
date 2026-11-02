@@ -12,6 +12,9 @@ import { logger } from '@/logger';
 import { dispatchCredentialNotifications } from '@/lib/openid-flow/utils/credentialNotifications';
 import { OIDFlowError } from '@/lib/openid-flow/errors';
 import { SerializedClientAuthMaterial } from '@/lib/openid-flow/OIDFlowClientAuthMaterial';
+import { WalletStateExtension } from '@/services/WalletStateSchema';
+import { generateRandomIdentifier } from '@/lib/utils/generateRandomIdentifier';
+import { parseOID4VCIRefreshEntry, serializeOID4VCIRefreshEntry } from '@/services/extensions/oid4vci-refresh';
 
 export interface UseOID4VCIFlowOptions {
 	/**
@@ -52,7 +55,12 @@ export interface UseOID4VCIFlowReturn {
 		credentialIssuerIdentifier?: string,
 		credentialConfigurationId?: string,
 		flowId?: string,
+		renewal?: Pick<OID4VCIFlowResult, 'refreshToken' | 'dpopJwk' | 'dpopKeyId'>,
 	) => Promise<OID4VCIFlowResult>;
+	/**
+	 * Renew a credential batch with its stored refresh token.
+	 */
+	requestReissuance: (batchId: number) => Promise<OID4VCIFlowResult>;
 	/**
 	 * Current transport type being used
 	 */
@@ -398,6 +406,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		credentialIssuerIdentifier?: OID4VCIFlowResult['credentialIssuerIdentifier'],
 		credentialConfigurationId?: OID4VCIFlowResult['selectedCredentialConfigurationId'],
 		flowId?: OID4VCIFlowResult['flowId'],
+		renewal?: Pick<OID4VCIFlowResult, 'refreshToken' | 'dpopJwk' | 'dpopKeyId'>,
 	): Promise<OID4VCIFlowResult> => {
 		setIsLoading(true);
 		setError(null);
@@ -465,7 +474,32 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			}
 
 			assertNotAborted();
-			const [, privateData, commit] = await keystore.addCredentials(credentialsToStore);
+
+			const extensions: { namespace: string, key: string, value: string }[] = [];
+			if (renewal?.refreshToken) {
+				// Client-held key: only in memory, so store it with the token.
+				const clientKey = renewal.dpopKeyId
+					? await oidFlowClientAuthMaterialManager.exportAuthMaterial()
+					: undefined;
+
+				if (renewal.dpopKeyId && clientKey?.dpopKeyId !== renewal.dpopKeyId) {
+					logger.warn('DPoP key for refresh token not found, renewal will not be possible');
+				} else {
+					extensions.push({
+						namespace: WalletStateExtension.OID4VCI_REFRESH,
+						key: String(batchId),
+						value: serializeOID4VCIRefreshEntry({
+							refreshToken: renewal.refreshToken,
+							dpopJwk: clientKey?.privateJwk ?? (renewal.dpopJwk && JSON.parse(renewal.dpopJwk)),
+							credentialIssuerIdentifier: credentialIssuer,
+							credentialConfigurationId: credentialConfigId,
+						}),
+					});
+					logger.debug('Stored refresh token with batchId', batchId);
+				}
+			}
+
+			const [, privateData, commit] = await keystore.addCredentials(credentialsToStore, extensions);
 
 			assertNotAborted();
 			await api.updatePrivateData(privateData);
@@ -495,13 +529,101 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		} finally {
 			setIsLoading(false);
 		}
-	}, [api, keystore, credentialEngine, onError, onIssuanceWarnings, assertNotAborted, transport]);
+	}, [api, keystore, credentialEngine, onError, onIssuanceWarnings, assertNotAborted, transport, oidFlowClientAuthMaterialManager]);
+
+	/**
+	 * Renew a credential batch with its stored refresh token.
+	 */
+	const requestReissuance = useCallback(async (
+		batchId: number,
+	): Promise<OID4VCIFlowResult> => {
+		setIsLoading(true);
+		setError(null);
+
+		try {
+			if (transportType !== 'websocket' || !transport) {
+				throw new Error('No transport available');
+			}
+
+			const walletState = keystore.getCalculatedWalletState();
+			if (!walletState?.credentials.some((c) => c.batchId === batchId)) {
+				throw new Error('Credential batch not found');
+			}
+
+			const entry = parseOID4VCIRefreshEntry(
+				walletState.extensions?.[WalletStateExtension.OID4VCI_REFRESH]?.[String(batchId)],
+			);
+			// @todo Fall back to a new authorization when there is no usable entry.
+			if (!entry || entry.dpopKid !== undefined) {
+				throw new OIDFlowError({
+					code: 'REISSUANCE_NOT_POSSIBLE',
+					message: 'No usable refresh token for this credential',
+				});
+			}
+
+			let dpopKeyId: string | undefined;
+			if (entry.dpopJwk) {
+				// The token is bound to this key, so the renewal has to sign with it.
+				const { d: _d, ...publicJwk } = entry.dpopJwk;
+				dpopKeyId = generateRandomIdentifier(16);
+				oidFlowClientAuthMaterialManager.seedMaterial({
+					dpopKeyId,
+					privateJwk: entry.dpopJwk,
+					publicJwk,
+				});
+			}
+
+			const unsubscribeProgress = onProgress
+				? transport.onProgress(onProgress)
+				: () => {};
+
+			try {
+				const result = await transport.startOID4VCIFlow({
+					renewal: {
+						refreshToken: entry.refreshToken,
+						credentialIssuer: entry.credentialIssuerIdentifier,
+						credentialConfigurationId: entry.credentialConfigurationId,
+						dpopKeyId,
+					},
+					redirectUri: OPENID4VCI_REDIRECT_URI,
+				});
+
+				assertNotAborted();
+
+				if (!result.success && result.error) {
+					throw new Error(result.error.message);
+				}
+
+				return result;
+			} finally {
+				unsubscribeProgress();
+			}
+		} catch (err) {
+			if (abortRef.current.signal.aborted) {
+				return { success: false, error: { code: 'ABORTED', message: 'Flow cancelled' } };
+			}
+
+			const error = err instanceof Error ? err : new Error(String(err));
+			setError(error);
+			onError?.(error);
+			return {
+				success: false,
+				error: {
+					code: err instanceof OIDFlowError ? err.code : 'REISSUANCE_ERROR',
+					message: error.message,
+				},
+			};
+		} finally {
+			setIsLoading(false);
+		}
+	}, [transportType, transport, keystore, onProgress, onError, assertNotAborted, oidFlowClientAuthMaterialManager]);
 
 	return {
 		handleCredentialOffer,
 		handleAuthorizationResponse,
 		requestWithPreAuthorization,
 		handleReceivedCredentials,
+		requestReissuance,
 		transportType,
 		isLoading,
 		error,

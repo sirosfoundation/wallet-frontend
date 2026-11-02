@@ -313,6 +313,20 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	async startOID4VCIFlow(params: OID4VCIFlowParams): Promise<OID4VCIFlowResult> {
 		// Determine which phase of the flow we're in based on params
 
+		if (params.renewal) {
+			const response = await this.send({
+				type: 'flow_start',
+				protocol: 'oid4vci',
+				refresh_token: params.renewal.refreshToken,
+				credential_issuer: params.renewal.credentialIssuer,
+				selected_credential_configuration_id: params.renewal.credentialConfigurationId,
+				dpop_key_id: params.renewal.dpopKeyId,
+				redirect_uri: params.redirectUri,
+			});
+
+			return this.mapOID4VCIResponse(response);
+		}
+
 		// Resumption: same-tab redirect returned with auth code
 		// We have both the saved offer AND the authorization code from the redirect URL
 		if (params.authorizationCode && params.credentialOffer) {

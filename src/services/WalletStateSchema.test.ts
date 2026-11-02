@@ -1,6 +1,6 @@
 import { assert, describe, expect, it } from "vitest";
 import { CredentialKeyPair } from "./keystore";
-import { addAlterSettingsEvent, addDeleteCredentialEvent, addDeletePresentationEvent, addNewCredentialEvent, addNewKeypairEvent, addNewPresentationEvent, addSaveCredentialIssuanceSessionEvent, CurrentSchema, findMergeBase, foldNextEvent, foldOldEventsIntoBaseState, foldState, mergeEventHistories, SchemaV1 } from "./WalletStateSchema";
+import { addAlterSettingsEvent, addDeleteCredentialEvent, addDeletePresentationEvent, addNewCredentialEvent, addNewKeypairEvent, addNewPresentationEvent, addSaveCredentialIssuanceSessionEvent, addSetExtensionEvent, CurrentSchema, findMergeBase, foldNextEvent, foldOldEventsIntoBaseState, foldState, mergeEventHistories, SchemaV1 } from "./WalletStateSchema";
 import { jsonParseTaggedBinary, last } from '@/lib/utils';
 
 
@@ -677,6 +677,80 @@ describe("Merging set_extension events across schema versions", () => {
 		expect(S.extensions["ns"]["k"]).toBe("new");
 	});
 });
+
+describe("addSetExtensionEvent", () => {
+	it("writes a set_extension event of the current schema version", async () => {
+		const container = await addSetExtensionEvent(empty(), "ns", "k", "v");
+
+		expect(last(container.events)).toMatchObject({
+			type: "set_extension",
+			schemaVersion: CurrentSchema.SCHEMA_VERSION,
+			namespace: "ns",
+			key: "k",
+			value: "v",
+		});
+		expect(foldState(container).extensions).toEqual({ ns: { k: "v" } });
+	});
+
+	it("lets a later value overwrite an earlier one", async () => {
+		let container = await addSetExtensionEvent(empty(), "ns", "k", "v1");
+		container = await addSetExtensionEvent(container, "ns", "k", "v2");
+
+		expect(foldState(container).extensions).toEqual({ ns: { k: "v2" } });
+	});
+
+	it("removes only the entry a null value names", async () => {
+		let container = await addSetExtensionEvent(empty(), "ns", "a", "1");
+		container = await addSetExtensionEvent(container, "ns", "b", "2");
+		container = await addSetExtensionEvent(container, "other", "a", "3");
+		container = await addSetExtensionEvent(container, "ns", "a", null);
+
+		expect(foldState(container).extensions).toEqual({ ns: { b: "2" }, other: { a: "3" } });
+	});
+
+	it("keeps a removed entry removed after folding old events", async () => {
+		let container = await addSetExtensionEvent(empty(), "ns", "k", "v");
+		container = await addSetExtensionEvent(container, "ns", "k", null);
+		container = await foldOldEventsIntoBaseState(container, -1);
+
+		expect(container.events).toHaveLength(0);
+		expect(foldState(container).extensions?.["ns"]).not.toHaveProperty("k");
+	});
+
+	it("lets a removal on one device win over an older write on another", async () => {
+		const base = await addSetExtensionEvent(empty(), "ns", "k", "v1");
+		last(base.events).timestampSeconds = 100;
+
+		const removed = await addSetExtensionEvent(base, "ns", "k", null);
+		last(removed.events).timestampSeconds = 300;
+
+		const rewritten = await addSetExtensionEvent(base, "ns", "k", "v2");
+		last(rewritten.events).timestampSeconds = 200;
+
+		const merged = await mergeEventHistories(removed, rewritten);
+
+		expect(foldState(merged as CurrentSchema.WalletStateContainer).extensions?.["ns"]).not.toHaveProperty("k");
+	});
+
+	it("lets a newer write on one device win over an older removal on another", async () => {
+		const base = await addSetExtensionEvent(empty(), "ns", "k", "v1");
+		last(base.events).timestampSeconds = 100;
+
+		const removed = await addSetExtensionEvent(base, "ns", "k", null);
+		last(removed.events).timestampSeconds = 200;
+
+		const rewritten = await addSetExtensionEvent(base, "ns", "k", "v2");
+		last(rewritten.events).timestampSeconds = 300;
+
+		const merged = await mergeEventHistories(removed, rewritten);
+
+		expect(foldState(merged as CurrentSchema.WalletStateContainer).extensions).toEqual({ ns: { k: "v2" } });
+	});
+});
+
+function empty(): CurrentSchema.WalletStateContainer {
+	return CurrentSchema.WalletStateOperations.initialWalletStateContainer();
+}
 
 let nextSetExtensionEventId = 1;
 function setExtension(fields: object, schemaVersion: number) {

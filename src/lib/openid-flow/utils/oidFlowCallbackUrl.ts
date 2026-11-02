@@ -3,7 +3,7 @@ import { OIDFlowCallbackURL } from '../types';
 /**
  * Parses a callback URL to determine the OpenID flow type and relevant parameters.
  */
-export function parseOIDFlowCallbackUrl(url: URL): OIDFlowCallbackURL {
+export function parseOIDFlowCallbackUrl(url: URL, routerState: any): OIDFlowCallbackURL {
 	// credential offer
 	if (
 		url.protocol === 'openid-credential-offer:' ||
@@ -13,6 +13,18 @@ export function parseOIDFlowCallbackUrl(url: URL): OIDFlowCallbackURL {
 		protocol: 'oid4vci',
 		type: 'credential_offer',
 		url,
+	};
+
+	// reissuance
+	if (
+		typeof routerState === 'object' &&
+		routerState !== null &&
+		typeof routerState.reissueBatchId === 'number'
+	) return {
+		protocol: 'oid4vci',
+		type: 'reissue',
+		url,
+		batchId: routerState.reissueBatchId,
 	};
 
 	// authorization code

@@ -45,6 +45,9 @@ export function getSchema(schemaVersion: number): WalletStateOperations<WalletSt
 	}
 }
 
+export enum WalletStateExtension {
+	OID4VCI_REFRESH = 'org.siros.oid4vci.refresh',
+}
 
 export async function createWalletSessionEvent(container: WalletStateContainer): Promise<{ schemaVersion: number, eventId: number, parentHash: string, timestampSeconds: number }> {
 	const baseEvent = {
@@ -282,6 +285,32 @@ export async function addDeleteCredentialIssuanceSessionEvent(container: WalletS
 	await validateEventHistoryContinuity(newContainer);
 	return newContainer;
 }
+
+export async function addSetExtensionEvent(
+	container: WalletStateContainer,
+	namespace: string,
+	key: string,
+	value: string | null,
+): Promise<WalletStateContainer> {
+	await validateEventHistoryContinuity(container);
+	const newContainer: WalletStateContainer = {
+		lastEventHash: container.lastEventHash,
+		events: [
+			...container.events,
+			{
+				...(await createWalletSessionEvent(container)),
+				type: 'set_extension',
+				namespace,
+				key,
+				value,
+			},
+		],
+		S: container.S,
+	};
+	await validateEventHistoryContinuity(newContainer);
+	return newContainer;
+}
+
 
 /**
  * Returns the container with the next event, if any, folded into the base
