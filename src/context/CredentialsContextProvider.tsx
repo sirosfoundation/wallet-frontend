@@ -279,7 +279,13 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 				if (
 					!prev ||
 					prev.length !== storedCredentials.length ||
-					prev.some((vc, i) => vc.batchId !== storedCredentials[i].batchId)
+					prev.some((vc, i) => {
+						const next = storedCredentials[i];
+						return vc.batchId !== next.batchId
+							|| vc.sigCount !== next.sigCount
+							|| vc.isExpired !== next.isExpired
+							|| vc.isBatchExhausted !== next.isBatchExhausted;
+					})
 				) {
 					return storedCredentials;
 				}
