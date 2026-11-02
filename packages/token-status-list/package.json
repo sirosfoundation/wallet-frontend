@@ -15,7 +15,9 @@
 	"dependencies": {
 		"@sirosfoundation/browser-log": "1.0.0",
 		"@sirosfoundation/http-client": "workspace:*",
-		"wallet-common": "workspace:*"
+		"jose": "^5.10.0",
+		"wallet-common": "workspace:*",
+		"zod": "^3.25.76"
 	},
 	"devDependencies": {
 		"typescript": "^5.9.3",
