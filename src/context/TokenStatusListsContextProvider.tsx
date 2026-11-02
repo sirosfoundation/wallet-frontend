@@ -43,7 +43,7 @@ export const TokenStatusListsContextProvider: FC<PropsWithChildren> = ({
 		httpClient,
 		backendUrl: BACKEND_URL,
 		getAuthToken: async () => (await authTokens.ensureBackendToken()).raw,
-	 }), [httpClient, authTokens]);
+	}), [httpClient, authTokens]);
 
 	const value = useMemo(
 		() =>
