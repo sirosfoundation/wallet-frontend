@@ -10,6 +10,8 @@ import { BACKEND_URL } from '@/config';
 import { getTenantFromUrlPath } from '@/lib/tenant';
 import { useHttpClient } from '@/hooks/useHttpClient';
 import { createDeferred } from '@/lib/utils/createDeferred';
+import { useTokenStatusLists } from '@/hooks/useTokenStatusLists';
+import { getStatusListRef, TokenId, TokenEntity } from '@sirosfoundation/token-status-list';
 
 type WalletStateCredential = CurrentSchema.WalletStateCredential;
 
@@ -47,6 +49,31 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 		};
 		return AuthZENClient(clientConfig);
 	}, [authTokens, httpClient]);
+
+	const tokenStatusLists = useTokenStatusLists();
+
+	// TEMP - testing backend /status/v1/lists
+	useEffect(() => {
+		if (!isLoggedIn) return;
+		if (!vcEntityList) return;
+
+		// POC goal: find status for idx in the list
+
+		void (async () => {
+			tokenStatusLists.subscribe((changed) => {
+				logger.debug('Token status list updated');
+				logger.debug({ changed });
+			});
+
+				const tokens = new Map<TokenId, TokenEntity>();
+				for (const vc of vcEntityList) {
+					const ref = getStatusListRef(vc.parsedCredential.signedClaims);
+				if (ref) tokens.set(vc.batchId, ref);
+		}
+
+			tokenStatusLists.addTokens(tokens)
+		})();
+	}, [isLoggedIn, authTokens, httpClient, vcEntityList, tokenStatusLists]);
 
 	useEffect(() => {
 		if (!getCalculatedWalletState) return;
