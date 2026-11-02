@@ -7,6 +7,7 @@ import { cborDecode, cborEncode } from "@auth0/mdl/lib/cbor";
 import { IssuerSigned } from "@auth0/mdl/lib/mdoc/model/types";
 import { CustomCredentialSvg } from "../functions/CustomCredentialSvg";
 import { getIssuerMetadata } from "../utils/getIssuerMetadata";
+import { extractStatusListReference } from "../utils/statusListReference";
 import { convertOpenid4vciToSdjwtvcClaims } from "../functions/convertOpenid4vciToSdjwtvcClaims";
 import type { z } from "zod";
 import { OpenidCredentialIssuerMetadataSchema, } from "../schemas";
@@ -107,8 +108,10 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient, 
 				}
 			},
 			signedClaims: { ...signedClaims },
-			validityInfo: { ...extractValidityInfo(parsedDocument.issuerSigned) }
-		};
+			validityInfo: { ...extractValidityInfo(parsedDocument.issuerSigned) }	,		// An mdoc keeps its status reference in the MSO, not in the namespaces.
+			statusReference: extractStatusListReference(
+				cborToPlain((parsedDocument.issuerSigned.issuerAuth.decodedPayload as Record<string, unknown>).status),
+			),		};
 	}
 
 	async function deviceResponseParser(

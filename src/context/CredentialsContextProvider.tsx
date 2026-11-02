@@ -11,7 +11,7 @@ import { getTenantFromUrlPath } from '@/lib/tenant';
 import { useHttpClient } from '@/hooks/useHttpClient';
 import { createDeferred } from '@/lib/utils/createDeferred';
 import { useTokenStatusLists } from '@/hooks/useTokenStatusLists';
-import { getStatusListRef, TokenEntity, TokenId } from '@sirosfoundation/token-status-list';
+import { getStatusListTokenEntity, TokenEntity, TokenId } from '@sirosfoundation/token-status-list';
 
 type WalletStateCredential = CurrentSchema.WalletStateCredential;
 
@@ -56,7 +56,7 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 		if (!vcEntityList) return;
 		const tokens = new Map<TokenId, TokenEntity>();
 		for (const vc of vcEntityList) {
-			const ref = getStatusListRef(vc.parsedCredential.signedClaims);
+			const ref = getStatusListTokenEntity(vc.parsedCredential);
 			if (ref) tokens.set(vc.batchId, ref);
 		}
 

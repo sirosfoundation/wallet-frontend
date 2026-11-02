@@ -4,6 +4,7 @@ import { MetadataWarning, TypeMetadataResult, VerifiableCredentialFormat } from 
 import { Vcdm2JoseHeaderSchema } from "../schemas/Vcdm2CredentialSchema";
 import { CustomCredentialSvg } from "../functions/CustomCredentialSvg";
 import { getIssuerMetadata } from "../utils/getIssuerMetadata";
+import { extractStatusListReference } from "../utils/statusListReference";
 import { convertOpenid4vciToSdjwtvcClaims } from "../functions/convertOpenid4vciToSdjwtvcClaims";
 import { dataUriResolver } from "../resolvers/dataUriResolver";
 import { friendlyNameResolver } from "../resolvers/friendlyNameResolver";
@@ -136,6 +137,7 @@ export function VCDM2JoseParser(args: { context: Context, httpClient: HttpClient
 					validityInfo: {
 						...extractVcdm2ValidityInfo(credential, jwtClaims),
 					},
+					statusReference: extractStatusListReference(decoded.payload?.status),
 					warnings: warnings.length > 0 ? warnings : undefined,
 				},
 			};

@@ -15,6 +15,7 @@
 	"dependencies": {
 		"@sirosfoundation/browser-log": "1.0.0",
 		"@sirosfoundation/http-client": "workspace:*",
+		"wallet-common": "workspace:*",
 		"axios": "^1.20.0"
 	},
 	"devDependencies": {

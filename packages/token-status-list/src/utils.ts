@@ -1,17 +1,7 @@
 import { base64url } from 'jose';
+import type { ParsedCredential } from 'wallet-common';
 import { TokenStatus, TokenStatusListsError } from './resources';
-import { z } from 'zod';
 import { TokenEntity } from './types';
-
-const statusClaimSchema = z.object({
-	iat: z.number().optional(),
-	status: z.object({
-		status_list: z.object({
-			idx: z.number().int().nonnegative(),
-			uri: z.string(),
-		}),
-	}),
-});
 
 export async function decompressStatusListToArray(
 	list: string,
@@ -63,11 +53,17 @@ export function resolveTokenStatus(status: number): TokenStatus {
 	}
 }
 
-export function getStatusListRef(claims: unknown): TokenEntity | undefined {
-	const result = statusClaimSchema.safeParse(claims);
-	if (!result.success) return undefined;
+export function getStatusListTokenEntity(
+	credential: Pick<ParsedCredential, 'statusReference' | 'validityInfo'>,
+): TokenEntity | undefined {
+	const { statusReference, validityInfo } = credential;
+	if (!statusReference) return undefined;
 
-	const { status, iat } = result.data;
-	const { uri, idx } = status.status_list;
-	return { uri, idx, iat };
+	const signed = validityInfo?.signed;
+	return {
+		uri: statusReference.uri,
+		idx: statusReference.idx,
+		// Seconds, to match the status list's own iat.
+		iat: signed ? Math.floor(signed.getTime() / 1000) : undefined,
+	};
 }
