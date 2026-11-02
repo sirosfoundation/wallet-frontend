@@ -2,6 +2,8 @@
 type OIDFlowErrorParams = {
 	code: string;
 	message: string;
+	/** Structured details, e.g. `missing_types` or the engine's `redirect_uri`. */
+	details?: Record<string, unknown>;
 };
 /**
  * Errors during OpenID VCI and VP flows.
@@ -12,12 +14,15 @@ type OIDFlowErrorParams = {
  */
 export class OIDFlowError extends Error {
 	public readonly code: string;
+	public readonly details?: Record<string, unknown>;
 	constructor({
 		code,
 		message,
+		details,
 	}: OIDFlowErrorParams) {
 		super(message);
 		this.code = code;
+		this.details = details;
 		this.name = 'OIDFlowError';
 	}
 }

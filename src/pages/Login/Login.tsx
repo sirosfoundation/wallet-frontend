@@ -41,7 +41,7 @@ const Login = () => {
 		setIsLoginCache(filterUsersByTenantID(urlTenantId, getCachedUsers()).length > 0);
 	}, [getCachedUsers, urlTenantId]);
 
-	useRedirectWhenLoggedIn(true);
+	useRedirectWhenLoggedIn(true, false);
 
 	const onLogin = useCallback(
 		async (hints: string[], cachedUser?: CachedUser) => {
@@ -73,6 +73,10 @@ const Login = () => {
 
 					case 'x-private-data-etag':
 						setError(t('loginSignup.privateDataConflict'));
+						break;
+
+					case 'unsupportedVersion':
+						setError(t('loginSignup.unsupportedVersion'));
 						break;
 
 					default:

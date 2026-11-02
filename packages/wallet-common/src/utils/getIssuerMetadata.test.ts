@@ -20,7 +20,7 @@ describe("getIssuerMetadata", () => {
 			}
 		};
 
-		const result = await getIssuerMetadata(httpClient, "https://example.com", warnings);
+		const result = await getIssuerMetadata({ httpClient, issuer: "https://example.com", warnings });
 
 		assert(result.metadata === null);
 		assert(warnings.some(w => w.code === CredentialParsingError.FailFetchIssuerMetadata));
@@ -37,7 +37,7 @@ describe("getIssuerMetadata", () => {
 			}
 		};
 
-		await getIssuerMetadata(httpClient, "https://example.com/issuer/", warnings);
+		await getIssuerMetadata({ httpClient, issuer: "https://example.com/issuer/", warnings });
 
 		assert(requestedUrl === "https://example.com/.well-known/openid-credential-issuer/issuer",
 			`Expected trailing slash stripped, got: ${requestedUrl}`);
@@ -54,7 +54,7 @@ describe("getIssuerMetadata", () => {
 			}
 		};
 
-		await getIssuerMetadata(httpClient, "https://example.com/tenant/1", warnings);
+		await getIssuerMetadata({ httpClient, issuer: "https://example.com/tenant/1", warnings });
 
 		assert(requestedUrl === "https://example.com/.well-known/openid-credential-issuer/tenant/1",
 			`Expected RFC 8615 path insertion, got: ${requestedUrl}`);
@@ -77,7 +77,7 @@ describe("getIssuerMetadata", () => {
 			}
 		};
 
-		const result = await getIssuerMetadata(httpClient, "https://example.com", warnings);
+		const result = await getIssuerMetadata({ httpClient, issuer: "https://example.com", warnings });
 		assert(result.metadata === null);
 		assert(warnings.some(w => w.code === CredentialParsingError.FailSchemaIssuerMetadata));
 	});
@@ -109,7 +109,7 @@ describe("getIssuerMetadata", () => {
 				},
 			}));
 
-			const result = await getIssuerMetadata(dummyHttpClient, "https://issuer.example.com", warnings, true, client);
+			const result = await getIssuerMetadata({ httpClient: dummyHttpClient, issuer: "https://issuer.example.com", warnings, useCache: true, authzenClient: client });
 			assert(result.metadata !== null);
 			assert(result.metadata!.credential_issuer === "https://issuer.example.com");
 			assert(warnings.length === 0);
@@ -122,7 +122,7 @@ describe("getIssuerMetadata", () => {
 				details: "timeout",
 			}));
 
-			const result = await getIssuerMetadata(dummyHttpClient, "https://issuer.example.com", warnings, true, client);
+			const result = await getIssuerMetadata({ httpClient: dummyHttpClient, issuer: "https://issuer.example.com", warnings, useCache: true, authzenClient: client });
 			assert(result.metadata === null);
 			assert(warnings.some(w => w.code === CredentialParsingError.FailFetchIssuerMetadata));
 		});
@@ -134,7 +134,7 @@ describe("getIssuerMetadata", () => {
 				context: {},
 			}));
 
-			const result = await getIssuerMetadata(dummyHttpClient, "https://issuer.example.com", warnings, true, client);
+			const result = await getIssuerMetadata({ httpClient: dummyHttpClient, issuer: "https://issuer.example.com", warnings, useCache: true, authzenClient: client });
 			assert(result.metadata === null);
 			assert(warnings.some(w => w.code === CredentialParsingError.FailFetchIssuerMetadata));
 		});
@@ -148,7 +148,7 @@ describe("getIssuerMetadata", () => {
 				},
 			}));
 
-			const result = await getIssuerMetadata(dummyHttpClient, "https://issuer.example.com", warnings, true, client);
+			const result = await getIssuerMetadata({ httpClient: dummyHttpClient, issuer: "https://issuer.example.com", warnings, useCache: true, authzenClient: client });
 			assert(result.metadata === null);
 			assert(warnings.some(w => w.code === CredentialParsingError.FailSchemaIssuerMetadata));
 		});

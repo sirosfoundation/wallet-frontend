@@ -23,6 +23,7 @@ import TenantSelector from '@/components/TenantSelector/TenantSelector';
 import PolicyLinks from '@/components/Shared/PolicyLinks';
 import PasskeyInfoPopup from '@/components/Popups/PasskeyInfoPopup';
 import GetReadyInfo from '@/components/Auth/GetReadyInfo';
+import LabelSecurityKeyPrompt from '@/pages/Signup/LabelSecurityKeyPrompt';
 
 const FormInputRow = ({
 	IconComponent,
@@ -96,7 +97,15 @@ const Signup = () => {
 
 	const inviteCode = new URLSearchParams(location.search).get('invite') || undefined;
 
-	useRedirectWhenLoggedIn(false);
+	const session = api.getSession();
+	let showLabelSecurityKey: boolean;
+
+	if (session) {
+		showLabelSecurityKey = session.showLabelSecurityKey;
+	} else {
+		showLabelSecurityKey = false;
+	}
+	useRedirectWhenLoggedIn(false, showLabelSecurityKey);
 
 	const onSignup = async (hints: string[]) => {
 		const result = await api.signupWebauthn(
@@ -299,6 +308,7 @@ const Signup = () => {
 					)}
 				</form>
 			</OIDCGateBoundary>
+			<LabelSecurityKeyPrompt />
 		</AuthLayout>
 	);
 };

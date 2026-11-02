@@ -163,3 +163,91 @@ describe('matchCredentials — W3C VCDM 2.0', () => {
 		expect(matchCredentials([entity('vc+sd-jwt', other)], query).matches).toHaveLength(0);
 	});
 });
+
+describe('matchCredentials — missing_types', () => {
+	const pid = entity('dc+sd-jwt', { vct: 'urn:eudi:pid:1', given_name: 'Jane' });
+
+	const pidQuery = {
+		id: 'pid',
+		format: 'dc+sd-jwt',
+		meta: { vct_values: ['urn:eudi:pid:1'] },
+	};
+
+	it('names the type of a requested credential the wallet does not hold', () => {
+		const result = matchCredentials([pid], {
+			credentials: [{ id: 'ehic', format: 'dc+sd-jwt', meta: { vct_values: ['urn:eudi:ehic:1'] } }],
+		} as never);
+
+		expect(result.code).toBe('NO_MATCHING_CREDENTIALS');
+		expect(result.missing_types).toEqual(['urn:eudi:ehic:1']);
+	});
+
+	it('names only what is missing when the wallet holds part of the request', () => {
+		const result = matchCredentials([pid], {
+			credentials: [pidQuery, { id: 'ehic', format: 'dc+sd-jwt', meta: { vct_values: ['urn:eudi:ehic:1'] } }],
+		} as never);
+
+		expect(result.code).toBe('INSUFFICIENT_CREDENTIALS');
+		expect(result.missing_types).toEqual(['urn:eudi:ehic:1']);
+	});
+
+	it('names one type per query, since vct_values are alternatives', () => {
+		const result = matchCredentials([pid], {
+			credentials: [{ id: 'ehic', format: 'dc+sd-jwt', meta: { vct_values: ['urn:eudi:ehic:1', 'urn:eudi:ehic:2'] } }],
+		} as never);
+
+		expect(result.missing_types).toEqual(['urn:eudi:ehic:1']);
+	});
+
+	it('names an mdoc by its doctype', () => {
+		const result = matchCredentials([pid], {
+			credentials: [{ id: 'mdl', format: 'mso_mdoc', meta: { doctype_value: 'org.iso.18013.5.1.mDL' } }],
+		} as never);
+
+		expect(result.missing_types).toEqual(['org.iso.18013.5.1.mDL']);
+	});
+
+	it('names every required W3C type of the first alternative, without the base type', () => {
+		const result = matchCredentials([pid], {
+			credentials: [{
+				id: 'degree',
+				format: 'vc+sd-jwt',
+				meta: {
+					type_values: [
+						['https://www.w3.org/2018/credentials#VerifiableCredential', 'AlumniCredential', 'BachelorDegree'],
+						['UniversityDegreeCredential'],
+					],
+				},
+			}],
+		} as never);
+
+		expect(result.missing_types).toEqual(['AlumniCredential + BachelorDegree']);
+	});
+
+	it('names nothing when credential_sets make some queries alternatives', () => {
+		const result = matchCredentials([pid], {
+			credentials: [
+				{ id: 'ehic', format: 'dc+sd-jwt', meta: { vct_values: ['urn:eudi:ehic:1'] } },
+				{ id: 'ehic_v2', format: 'dc+sd-jwt', meta: { vct_values: ['urn:eudi:ehic:2'] } },
+			],
+			credential_sets: [{ options: [['ehic'], ['ehic_v2']] }],
+		} as never);
+
+		expect(result.matches).toHaveLength(0);
+		expect(result.missing_types).toBeUndefined();
+	});
+
+	it('names nothing when everything matches', () => {
+		const result = matchCredentials([pid], { credentials: [pidQuery] } as never);
+
+		expect(result.matches).toHaveLength(1);
+		expect(result.missing_types).toBeUndefined();
+	});
+
+	it('names nothing for an empty wallet, so the generic copy is shown', () => {
+		const result = matchCredentials([], { credentials: [pidQuery] } as never);
+
+		expect(result.matches).toHaveLength(0);
+		expect(result.missing_types).toBeUndefined();
+	});
+});

@@ -5,14 +5,14 @@ import { useTenant } from '@/context/TenantContext';
 import { buildTenantRoutePath, matchesTenantFromUrl } from '@/lib/tenant';
 import { getReturnToUrl } from '@/lib/utils/returnToUrl';
 
-export function useRedirectWhenLoggedIn(honourReturnTo: boolean) {
+export function useRedirectWhenLoggedIn(honourReturnTo: boolean, paused: boolean) {
 	const { isLoggedIn } = useContext(SessionContext);
 	const { urlTenantId, effectiveTenantId } = useTenant();
 	const navigate = useNavigate();
 	const location = useLocation();
 
 	useEffect(() => {
-		if (!isLoggedIn) return;
+		if (!isLoggedIn || paused) return;
 
 		const redirect = async () => {
 			const returnTo = getReturnToUrl();
@@ -25,5 +25,5 @@ export function useRedirectWhenLoggedIn(honourReturnTo: boolean) {
 			}
 		};
 		void redirect();
-	}, [isLoggedIn, honourReturnTo, effectiveTenantId, urlTenantId, navigate, location.search]);
+	}, [isLoggedIn, paused, honourReturnTo, effectiveTenantId, urlTenantId, navigate, location.search]);
 }

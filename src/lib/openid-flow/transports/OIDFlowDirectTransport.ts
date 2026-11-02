@@ -92,6 +92,12 @@ export class OIDFlowDirectTransport implements IOIDFlowTransport {
 		);
 	}
 
+	// ===== OID4VCI §11 Notification =====
+
+	sendCredentialNotification(): void {
+		// No-op: direct transport has no persistent connection for notifications
+	}
+
 	// ===== Event Subscriptions =====
 
 	onProgress(callback: (event: OIDFlowProgressEvent) => void): () => void {

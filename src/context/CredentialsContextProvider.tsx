@@ -9,6 +9,7 @@ import { logger } from '../logger';
 import { BACKEND_URL } from '@/config';
 import { getTenantFromUrlPath } from '@/lib/tenant';
 import { useHttpClient } from '@/hooks/useHttpClient';
+import { createDeferred } from '@/lib/utils/createDeferred';
 
 type WalletStateCredential = CurrentSchema.WalletStateCredential;
 
@@ -22,7 +23,15 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 	const helper = useOpenID4VCIHelper();
 	const credentialNumber = useRef<number | null>(null)
 	const { getCalculatedWalletState } = keystore;
-	const [credentialEngine, setCredentialEngine] = useState<any | null>(null);
+	const [engineDeferred] = useState(() =>
+		createDeferred<Awaited<ReturnType<typeof initializeCredentialEngine>>>()
+	);
+	// engineDeferred lets early consumers await the first initialization.
+	// credentialEngine exposes that promise, then the latest successfully
+	// initialized engine.
+	const [credentialEngine, setCredentialEngine] = useState(
+		() => engineDeferred.promise
+	);
 	// const engineRef = useRef<any>(null);
 	const prevIsLoggedIn = useRef<boolean>(null);
 
@@ -54,19 +63,25 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 	const initializeEngine = useCallback(async (useCache: boolean) => {
 		const trustedCertificates: string[] = [];
 
-		const engine = await initializeCredentialEngine(
-			httpClient,
-			helper,
-			() => getExternalEntity("/issuer/all", undefined, useCache).then(res => res.data),
-			trustedCertificates,
-			useCache,
-			(issuerIdentifier: string) => {
-				logger.debug(`[CredentialsContext] Issuer metadata resolved for: ${issuerIdentifier}`);
-			},
-			authzenClient,
-		);
-		setCredentialEngine(engine);
-	}, [httpClient, helper, getExternalEntity, authzenClient]);
+		try {
+			const engine = await initializeCredentialEngine(
+				httpClient,
+				helper,
+				() => getExternalEntity("/issuer/all", undefined, useCache).then(res => res.data),
+				trustedCertificates,
+				useCache,
+				(issuerIdentifier: string) => {
+					logger.debug(`[CredentialsContext] Issuer metadata resolved for: ${issuerIdentifier}`);
+				},
+				authzenClient,
+			);
+
+			engineDeferred.resolve(engine);
+			setCredentialEngine(Promise.resolve(engine));
+		} catch (err) {
+			engineDeferred.reject(err);
+		}
+	}, [httpClient, helper, getExternalEntity, authzenClient, engineDeferred]);
 
 	useEffect(() => {
 		if (httpClient && helper) {
@@ -83,7 +98,7 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 
 
 	const parseCredential = useCallback(async (vcEntity: WalletStateCredential): Promise<ParsedCredential | null> => {
-		const engine = credentialEngine;
+		const engine = await credentialEngine;
 		if (!engine) return null;
 		try {
 
@@ -93,7 +108,7 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 				credentialConfigurationId,
 			} = vcEntity;
 
-			const result = await credentialEngine.credentialParsingEngine.parse({
+			const result = await engine.credentialParsingEngine.parse({
 				rawCredential: data,
 				credentialIssuer: {
 					credentialIssuerIdentifier: credentialIssuerIdentifier,
@@ -113,7 +128,7 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 	}, [credentialEngine]);
 
 	const fetchVcData = useCallback(async (batchId?: number): Promise<ExtendedVcEntity[] | null> => {
-		const engine = credentialEngine;
+		const engine = await credentialEngine;
 		if (!engine) return null;
 
 		const S = getCalculatedWalletState();
@@ -213,7 +228,7 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 	}, []);
 
 	useEffect(() => {
-		if (!getCalculatedWalletState || !credentialEngine || !isLoggedIn) {
+		if (!getCalculatedWalletState || !isLoggedIn) {
 			return;
 		}
 		logger.debug("Triggerring getData()")

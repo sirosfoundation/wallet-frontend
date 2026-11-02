@@ -28,3 +28,7 @@ export interface WalletStateOperations<S extends WalletState, E extends WalletSe
 		lastCommonAncestorHashFromEventHistory: string,
 	): Promise<E[]>;
 }
+
+export class UnsupportedSchemaVersionError extends Error {
+	name = "UnsupportedSchemaVersionError";
+}

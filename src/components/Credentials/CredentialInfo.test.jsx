@@ -357,4 +357,74 @@ describe('CredentialInfo Component', () => {
 		expect(screen.getByText('Βαθμίδα:')).toBeInTheDocument();
 		expect(screen.getByText('8')).toBeInTheDocument();
 	});
+	// A portrait claim is the one element of an EWC RFC013 Photo ID that
+	// arrives as bytes rather than text, and the detail view used to build the
+	// data URI itself: it hardcoded image/jpeg and base64-encoded the whole
+	// array in one String.fromCharCode call. These pin the three ways that
+	// differed from the presentation UI, which already shares a helper.
+	describe('portrait claims', () => {
+		const PNG_BYTES = new Uint8Array([
+			0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+		]);
+
+		const withPortrait = (portrait) => ({
+			signedClaims: { portrait },
+			metadata: {
+				credential: {
+					TypeMetadata: {
+						claims: [
+							{
+								path: ['portrait'],
+								display: [{ locale: 'en', label: 'Portrait' }],
+							},
+						],
+					},
+				},
+			},
+		});
+
+		it('renders PNG bytes as a PNG, not as a mislabelled JPEG', () => {
+			render(<CredentialInfo parsedCredential={withPortrait(PNG_BYTES)} />);
+
+			const img = document.querySelector('img');
+			expect(img).not.toBeNull();
+			expect(img.getAttribute('src')).toMatch(/^data:image\/png;base64,/);
+		});
+
+		it('renders a portrait too large to encode in one call', () => {
+			// 200 KB: String.fromCharCode.apply over an array this long throws
+			// RangeError, which the previous implementation caught and answered
+			// by rendering the raw byte array as JSON -- the reported symptom.
+			const big = new Uint8Array(200 * 1024);
+			big.set(PNG_BYTES);
+
+			render(<CredentialInfo parsedCredential={withPortrait(big)} />);
+
+			const img = document.querySelector('img');
+			expect(img).not.toBeNull();
+			expect(img.getAttribute('src')).toMatch(/^data:image\/png;base64,/);
+		});
+
+		it('still accepts a byte-keyed plain object', () => {
+			const asObject = Object.fromEntries(
+				Array.from(PNG_BYTES, (b, i) => [String(i), b]),
+			);
+
+			render(<CredentialInfo parsedCredential={withPortrait(asObject)} />);
+
+			const img = document.querySelector('img');
+			expect(img).not.toBeNull();
+			expect(img.getAttribute('src')).toMatch(/^data:image\/png;base64,/);
+		});
+
+		it('does not render an object of ordinary numbers as an image', () => {
+			render(
+				<CredentialInfo
+					parsedCredential={withPortrait({ width: 480, height: 640 })}
+				/>,
+			);
+
+			expect(document.querySelector('img')).toBeNull();
+		});
+	});
 });

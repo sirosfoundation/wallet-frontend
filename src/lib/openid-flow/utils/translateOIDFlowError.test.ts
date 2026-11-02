@@ -32,6 +32,45 @@ describe('translateOIDFlowError', () => {
 		});
 	});
 
+	it('names the one credential type the wallet is missing', () => {
+		const err = new OIDFlowError({
+			code: 'NO_MATCHING_CREDENTIALS',
+			message: 'No credentials match DCQL query',
+			details: { missing_types: ['urn:eudi:pid:1'] },
+		});
+
+		expect(translateOIDFlowError(i18n.t.bind(i18n), err, 'vpFlowError')).toEqual({
+			title: 'No Matching Credentials',
+			description: 'This request needs a credential you do not have: urn:eudi:pid:1.',
+		});
+	});
+
+	it('names several missing credential types', () => {
+		const err = new OIDFlowError({
+			code: 'INSUFFICIENT_CREDENTIALS',
+			message: 'Not all required credentials are available',
+			details: { missing_types: ['urn:eudi:ehic:1', 'org.iso.18013.5.1.mDL'] },
+		});
+
+		expect(translateOIDFlowError(i18n.t.bind(i18n), err, 'vpFlowError')).toEqual({
+			title: 'Insufficient Credentials',
+			description: 'This request needs credentials you do not have: urn:eudi:ehic:1, org.iso.18013.5.1.mDL.',
+		});
+	});
+
+	it('uses the plain copy when no missing types are known, ignoring the engine requested_types', () => {
+		const err = new OIDFlowError({
+			code: 'NO_MATCHING_CREDENTIALS',
+			message: 'You do not have a credential that matches this request',
+			details: { requested_types: ['urn:eudi:pid:1'] },
+		});
+
+		expect(translateOIDFlowError(i18n.t.bind(i18n), err, 'vpFlowError')).toEqual({
+			title: 'No Matching Credentials',
+			description: 'You do not have any credentials that match this request.',
+		});
+	});
+
 	it('falls back to generic verification copy for unknown codes', () => {
 		const err = new OIDFlowError({
 			code: 'SOME_NEW_CODE',

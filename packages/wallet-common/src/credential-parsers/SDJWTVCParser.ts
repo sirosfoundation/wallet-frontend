@@ -128,7 +128,14 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient, 
 			}
 
 
-			const { metadata: issuerMetadata } = await getIssuerMetadata(args.httpClient, validatedParsedClaims.iss, warnings, true, args.authzenClient);
+			// `iss` may differ from the credential issuer identifier (e.g. trailing slash), which metadata must match exactly.
+			const { metadata: issuerMetadata } = await getIssuerMetadata({
+				httpClient: args.httpClient,
+				issuer: credentialIssuer?.credentialIssuerIdentifier ?? validatedParsedClaims.iss,
+				warnings,
+				useCache: true,
+				authzenClient: args.authzenClient,
+			});
 
 			const vctIntegrity = validatedParsedClaims['vct#integrity'] as string | undefined;
 			const getSdJwtMetadataResult = await getSdJwtVcMetadata(args.context.vctResolutionEngine, args.context.subtle, args.httpClient, validatedParsedClaims.vct, vctIntegrity, warnings);
