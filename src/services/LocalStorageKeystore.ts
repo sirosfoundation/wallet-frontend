@@ -151,7 +151,7 @@ export interface LocalStorageKeystore {
 		AsymmetricEncryptedContainer,
 		CommitCallback,
 	]>,
-	deleteCredentialsByBatchId(batchId: number): Promise<[
+	deleteCredentialsByBatchId(batchId: number, options?: { keepPresentations?: boolean }): Promise<[
 		{},
 		AsymmetricEncryptedContainer,
 		CommitCallback,
@@ -863,7 +863,10 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 	}, [calculatedWalletState]);
 
 
-	const deleteCredentialsByBatchId = useCallback(async (batchId: number): Promise<[
+	const deleteCredentialsByBatchId = useCallback(async (
+		batchId: number,
+		options?: { keepPresentations?: boolean },
+	): Promise<[
 		{},
 		AsymmetricEncryptedContainer,
 		CommitCallback,
@@ -894,7 +897,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 
 		// delete presentations that reference any of the deleted credentials
 		// (unless the deployment has opted to preserve history via config)
-		if (!config.PRESERVE_PRESENTATION_HISTORY) {
+		if (!config.PRESERVE_PRESENTATION_HISTORY && !options?.keepPresentations) {
 			const presentationsToDelete = calculatedWalletState.presentations.filter((p) =>
 				p.usedCredentialIds.some((id) => deletedCredentialIds.has(id))
 			);
