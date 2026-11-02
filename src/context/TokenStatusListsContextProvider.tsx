@@ -52,6 +52,7 @@ export const TokenStatusListsContextProvider: FC<PropsWithChildren> = ({
 					logger: logger,
 					refreshListOnExpiry: true,
 					storage: tokenStatusListStorage,
+					onError: (err) => logger.warn('Token status list check failed', err),
 				},
 				source,
 			),

@@ -197,33 +197,37 @@ export class TokenStatusLists implements ITokenStatusLists {
 	 */
 	async #handleFetchedLists(res: StatusList[]) {
 		await Promise.all(res.map(async (list) => {
-			switch (list.state) {
-				case 'verified': {
-					this.#logger.debug('verified', list.uri);
-					const decompressed = await decompressStatusListToArray(list.lst);
-					await this.#storage.set(list.uri, {
-						uri: list.uri,
-						bits: list.bits,
-						etag: list.etag,
-						iat: list.iat,
-						expiresAt: list.expiresAt * 1000,
-						statuses: decompressed,
-					});
-					break;
-				}
-				case 'not_modified': {
-					const existing = await this.#storage.get(list.uri);
-					if (existing) {
-						this.#logger.debug('not modified', list.uri);
-						existing.expiresAt = list.expiresAt * 1000;
-						await this.#storage.set(existing.uri, existing);
+			try {
+				switch (list.state) {
+					case 'verified': {
+						this.#logger.debug('verified', list.uri);
+						const decompressed = await decompressStatusListToArray(list.lst);
+						await this.#storage.set(list.uri, {
+							uri: list.uri,
+							bits: list.bits,
+							etag: list.etag,
+							iat: list.iat,
+							expiresAt: list.expiresAt * 1000,
+							statuses: decompressed,
+						});
+						break;
 					}
-					break;
+					case 'not_modified': {
+						const existing = await this.#storage.get(list.uri);
+						if (existing) {
+							this.#logger.debug('not modified', list.uri);
+							existing.expiresAt = list.expiresAt * 1000;
+							await this.#storage.set(existing.uri, existing);
+						}
+						break;
+					}
+					case 'undetermined': {
+						this.#logger.debug('undetermined', list.uri);
+						break;
+					}
 				}
-				case 'undetermined': {
-					this.#logger.debug('undetermined', list.uri);
-					break;
-				}
+			} catch (err) {
+				this.#onError?.(err);
 			}
 		}));
 	}
