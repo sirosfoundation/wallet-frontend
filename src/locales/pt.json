@@ -100,9 +100,6 @@
 		"description": "O credencial foi recebido, mas algumas verificações não foram bem-sucedidas. Reveja os detalhes abaixo antes de decidir se pretende aceitá-lo.",
 		"title": "Avisos do Credencial"
 	},
-	"language": {
-		"label": "Idioma"
-	},
 	"labelSecurityKeyPopup": {
 		"confirm": "Confirmar",
 		"description": "Dê a cada chave de segurança um rótulo para facilitar o reconhecimento nas configurações da carteira.",
@@ -111,6 +108,9 @@
 		"placeholder": "Introduza o rótulo",
 		"skip": "Ignorar",
 		"title": "Rotule a sua chave de segurança"
+	},
+	"language": {
+		"label": "Idioma"
 	},
 	"layout": {
 		"messageAllowPermission": "Para receber atualizações em tempo real de <strong>Credenciais, ative a permissão de notificações e recarregue esta página</strong>.",
@@ -427,7 +427,21 @@
 		"slideButtonTitleDisable": "Sem credencial {{direction}} disponível",
 		"slideButtonTitleEnable": "Clique para ir para a credencial {{direction}}",
 		"slideNext": "Seguinte",
-		"slidePrevious": "Anterior"
+		"slidePrevious": "Anterior",
+		"status": {
+			"batchExhausted": {
+				"description": "Esta credencial esgotou-se e tem de ser atualizada antes de poder ser utilizada novamente.",
+				"label": "Esgotada",
+				"short": "Sem utilizações restantes.",
+				"title": "Credencial esgotada"
+			},
+			"expired": {
+				"description": "Esta credencial expirou. Para continuar a utilizá-la, é necessário atualizá-la.",
+				"label": "Expirada",
+				"short": "Precisa de ser atualizada.",
+				"title": "Credencial expirada"
+			}
+		}
 	},
 	"pageHistory": {
 		"description": "Consulte o histórico de transmissões de credenciais, com informação sobre quando e para que verifiers elas foram enviadas.",
