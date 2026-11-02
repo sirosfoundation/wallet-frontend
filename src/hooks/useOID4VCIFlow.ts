@@ -56,6 +56,7 @@ export interface UseOID4VCIFlowReturn {
 		credentialConfigurationId?: string,
 		flowId?: string,
 		renewal?: Pick<OID4VCIFlowResult, 'refreshToken' | 'dpopJwk' | 'dpopKeyId'>,
+		replacesBatchId?: number,
 	) => Promise<OID4VCIFlowResult>;
 	/**
 	 * Renew a credential batch with its stored refresh token.
@@ -407,6 +408,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		credentialConfigurationId?: OID4VCIFlowResult['selectedCredentialConfigurationId'],
 		flowId?: OID4VCIFlowResult['flowId'],
 		renewal?: Pick<OID4VCIFlowResult, 'refreshToken' | 'dpopJwk' | 'dpopKeyId'>,
+		replacesBatchId?: number,
 	): Promise<OID4VCIFlowResult> => {
 		setIsLoading(true);
 		setError(null);
@@ -504,6 +506,16 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			assertNotAborted();
 			await api.updatePrivateData(privateData);
 			await commit();
+
+			// Only after the new batch is stored, so a failure here keeps both rather than neither.
+			if (replacesBatchId !== undefined) {
+				const [, replacedPrivateData, commitReplaced] = await keystore.deleteCredentialsByBatchId(
+					replacesBatchId,
+					{ replacedBy: batchId },
+				);
+				await api.updatePrivateData(replacedPrivateData);
+				await commitReplaced();
+			}
 
 			notify('newCredential');
 

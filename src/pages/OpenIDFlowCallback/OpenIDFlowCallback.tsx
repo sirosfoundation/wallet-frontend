@@ -22,7 +22,6 @@ import { ConformantCredentials, PresentCredentialsFlow, usePresentCredentialsFlo
 import { DcqlQuery } from 'dcql';
 import { OID4VPVerifierInfo } from '@/lib/openid-flow/types/OID4VPTypes';
 import { useStatusContext } from '@/hooks/useStatusContext';
-import CredentialsContext from '@/context/CredentialsContext';
 
 type OpenIDFlowCallbackProps = {
 	callbackUrl: OIDFlowCallbackURL;
@@ -241,6 +240,7 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				result.selectedCredentialConfigurationId,
 				result.flowId,
 				result,
+				batchId,
 			);
 		}
 	};

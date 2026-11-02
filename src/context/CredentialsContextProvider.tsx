@@ -236,7 +236,16 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 					}
 					const result = await credentialVerifyingEngine.verify({ rawCredential: credential.data, opts: {} });
 
-					const instances: Instance[] = instancesMap[credential.batchId];
+					// History moved over from a renewed batch predates this one and is not usage.
+					const signed = parsedCredential.validityInfo?.signed;
+					const issuedAtSeconds = signed ? Math.floor(signed.getTime() / 1000) : 0;
+					const instances: Instance[] = instancesMap[credential.batchId].map(({ instanceId, credentialId }) => ({
+						instanceId,
+						sigCount: presentations.filter((p) =>
+							p.usedCredentialIds.includes(credentialId) &&
+							p.presentationTimestampSeconds >= issuedAtSeconds
+						).length,
+					}));
 
 					// Attach the instances array from the map and add parsedCredential
 					return {
