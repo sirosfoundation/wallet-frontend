@@ -166,7 +166,11 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				offer.credentialIssuerIdentifier,
 				offer.selectedCredentialConfigurationId,
 				offer.flowId,
-				offer,
+				{
+					dpopJwk: offer.dpopJwk,
+					dpopKeyId: offer.dpopKeyId,
+					refreshToken: offer.refreshToken,
+				},
 			);
 		}
 
@@ -203,7 +207,11 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				preAuthResult.credentialIssuerIdentifier,
 				preAuthResult.selectedCredentialConfigurationId,
 				preAuthResult.flowId,
-				preAuthResult,
+				{
+					dpopJwk: preAuthResult.dpopJwk,
+					dpopKeyId: preAuthResult.dpopKeyId,
+					refreshToken: preAuthResult.refreshToken,
+				},
 			);
 		}
 	};
@@ -222,7 +230,11 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				result.credentialIssuerIdentifier,
 				result.selectedCredentialConfigurationId,
 				result.flowId,
-				result,
+				{
+					dpopJwk: result.dpopJwk,
+					dpopKeyId: result.dpopKeyId,
+					refreshToken: result.refreshToken,
+				},
 			);
 		}
 	};
@@ -239,7 +251,11 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				result.credentialIssuerIdentifier,
 				result.selectedCredentialConfigurationId,
 				result.flowId,
-				result,
+				{
+					dpopJwk: result.dpopJwk,
+					dpopKeyId: result.dpopKeyId,
+					refreshToken: result.refreshToken,
+				},
 				batchId,
 			);
 		}

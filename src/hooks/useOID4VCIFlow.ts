@@ -55,7 +55,7 @@ export interface UseOID4VCIFlowReturn {
 		credentialIssuerIdentifier?: string,
 		credentialConfigurationId?: string,
 		flowId?: string,
-		renewal?: Pick<OID4VCIFlowResult, 'refreshToken' | 'dpopJwk' | 'dpopKeyId'>,
+		refresh?: Pick<OID4VCIFlowResult, 'refreshToken' | 'dpopJwk' | 'dpopKeyId'>,
 		replacesBatchId?: number,
 	) => Promise<OID4VCIFlowResult>;
 	/**
@@ -407,7 +407,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		credentialIssuerIdentifier?: OID4VCIFlowResult['credentialIssuerIdentifier'],
 		credentialConfigurationId?: OID4VCIFlowResult['selectedCredentialConfigurationId'],
 		flowId?: OID4VCIFlowResult['flowId'],
-		renewal?: Pick<OID4VCIFlowResult, 'refreshToken' | 'dpopJwk' | 'dpopKeyId'>,
+		refresh?: Pick<OID4VCIFlowResult, 'refreshToken' | 'dpopJwk' | 'dpopKeyId'>,
 		replacesBatchId?: number,
 	): Promise<OID4VCIFlowResult> => {
 		setIsLoading(true);
@@ -478,21 +478,21 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			assertNotAborted();
 
 			const extensions: { namespace: string, key: string, value: string }[] = [];
-			if (renewal?.refreshToken) {
+			if (refresh?.refreshToken) {
 				// Client-held key: only in memory, so store it with the token.
-				const clientKey = renewal.dpopKeyId
+				const clientKey = refresh.dpopKeyId
 					? await oidFlowClientAuthMaterialManager.exportAuthMaterial()
 					: undefined;
 
-				if (renewal.dpopKeyId && clientKey?.dpopKeyId !== renewal.dpopKeyId) {
+				if (refresh.dpopKeyId && clientKey?.dpopKeyId !== refresh.dpopKeyId) {
 					logger.warn('DPoP key for refresh token not found, renewal will not be possible');
 				} else {
 					extensions.push({
 						namespace: WalletStateExtension.OID4VCI_REFRESH,
 						key: String(batchId),
 						value: serializeOID4VCIRefreshEntry({
-							refreshToken: renewal.refreshToken,
-							dpopJwk: clientKey?.privateJwk ?? (renewal.dpopJwk && JSON.parse(renewal.dpopJwk)),
+							refreshToken: refresh.refreshToken,
+							dpopJwk: clientKey?.privateJwk ?? (refresh.dpopJwk && JSON.parse(refresh.dpopJwk)),
 							credentialIssuerIdentifier: credentialIssuer,
 							credentialConfigurationId: credentialConfigId,
 						}),
