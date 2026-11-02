@@ -74,10 +74,6 @@ export type TokenStatusListsConfig = {
  */
 export interface ITokenStatusLists {
 	/**
-	 * Any first-time setup, loading saved status list from storage, etc.
-	 */
-	init(): Promise<void>;
-	/**
 	 * Add new tokens to the map.
 	 */
 	addTokens(tokens: Map<TokenId, TokenEntity>): void;
@@ -111,10 +107,6 @@ export interface ITokenStatusLists {
  * The source is not responsible for caching, only fetching & parsing.
  */
 export interface ITokenStatusListsSource {
-	/**
-	 * Initialize the source.
-	 */
-	init?(): Promise<void>;
 	/**
 	 * Whether the source can be used right now, e.g. false while rate limited.
 	 */

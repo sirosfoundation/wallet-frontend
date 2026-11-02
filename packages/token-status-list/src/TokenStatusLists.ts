@@ -58,10 +58,6 @@ export class TokenStatusLists implements ITokenStatusLists {
 		this.#source = source;
 	}
 
-	public async init() {
-		// no-op for now
-	}
-
 	public dispose(): void {
 		this.#subscribers.clear();
 		clearInterval(this.#schedule);
