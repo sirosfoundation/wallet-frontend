@@ -32,7 +32,7 @@ export type CachedTokenStatusList = {
 	uri: string;
 	bits: number;
 	statuses: Uint8Array;
-	iat?: number;
+	iat: number;
 	expiresAt: number;
 	etag: string;
 };

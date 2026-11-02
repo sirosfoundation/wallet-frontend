@@ -34,6 +34,12 @@ export class TokenStatusLists implements ITokenStatusLists {
 	// Backend recommends 1-3 lists per request so it can't link issuers together.
 	readonly #LISTS_PER_REQUEST = 1;
 
+	readonly #BACKOFF_MIN = 1000 * 60 * 10;
+	readonly #BACKOFF_MAX = 1000 * 60 * 60;
+
+	// Lists that came back undetermined, by URI.
+	#backoff = new Map<string, { until: number; delay: number }>();
+
 	#debounce?: ReturnType<typeof setTimeout>;
 
 	constructor(
@@ -148,22 +154,27 @@ export class TokenStatusLists implements ITokenStatusLists {
 
 	/**
 	 * Pick lists that are missing, or past their expiry time when
-	 * refreshListOnExpiry is enabled.
+	 * refreshListOnExpiry is enabled. Lists backing off are skipped.
 	 */
 	async #findListsToFetch(): Promise<{ uri: string; etag?: string }[]> {
 		const lists = await this.#storage.getAll();
 		const cached = new Set(lists.map((l) => l.uri));
 		const wanted = new Set(Array.from(this.#tokens.values(), ({ uri }) => uri));
+		const now = Date.now();
+		const ready = ({ uri }: { uri: string }) =>
+			(this.#backoff.get(uri)?.until ?? 0) <= now;
 
 		const missing = [...wanted]
 			.filter((uri) => !cached.has(uri))
-			.map((uri) => ({ uri }));
+			.map((uri) => ({ uri }))
+			.filter(ready);
 
 		if (!this.#refreshListOnExpiry) return missing;
 
 		const expired = lists
-			.filter((l) => l.expiresAt < Date.now())
-			.map(({ uri, etag }) => ({ uri, etag }));
+			.filter((l) => l.expiresAt < now)
+			.map(({ uri, etag }) => ({ uri, etag }))
+			.filter(ready);
 
 		return [...missing, ...expired];
 	}
@@ -196,7 +207,7 @@ export class TokenStatusLists implements ITokenStatusLists {
 	 * Store fetched lists:
 	 * - verified: decompress and store
 	 * - not_modified: keep the bytes, update expiresAt
-	 * - undetermined: keep the old list
+	 * - undetermined: keep the old list, back off before asking again
 	 */
 	async #handleFetchedLists(res: StatusList[]) {
 		await Promise.all(res.map(async (list) => {
@@ -213,6 +224,7 @@ export class TokenStatusLists implements ITokenStatusLists {
 							expiresAt: list.expiresAt * 1000,
 							statuses: decompressed,
 						});
+						this.#backoff.delete(list.uri);
 						break;
 					}
 					case 'not_modified': {
@@ -222,10 +234,14 @@ export class TokenStatusLists implements ITokenStatusLists {
 							existing.expiresAt = list.expiresAt * 1000;
 							await this.#storage.set(existing.uri, existing);
 						}
+						this.#backoff.delete(list.uri);
 						break;
 					}
 					case 'undetermined': {
 						this.#logger.debug('undetermined', list.uri);
+						const prev = this.#backoff.get(list.uri)?.delay;
+						const delay = prev ? Math.min(prev * 2, this.#BACKOFF_MAX) : this.#BACKOFF_MIN;
+						this.#backoff.set(list.uri, { until: Date.now() + delay, delay });
 						break;
 					}
 				}
