@@ -44,7 +44,7 @@ export const CredentialStatusDetails: FC<CredentialStatusDetailsProps> = ({
 					<p>{t(descriptionKey)}</p>
 					{isReissuable && (
 						<div className="mt-2">
-							<Button onClick={handleReissue}>Reissue</Button>
+							<Button variant="outline" onClick={handleReissue}>Reissue</Button>
 						</div>
 					)}
 				</section>
