@@ -435,7 +435,21 @@
 		"slideButtonTitleDisable": "Inget {{direction}} intyg tillgängligt",
 		"slideButtonTitleEnable": "Klicka för att gå till {{direction}} intyg",
 		"slideNext": "nästa",
-		"slidePrevious": "föregående"
+		"slidePrevious": "föregående",
+		"status": {
+			"batchExhausted": {
+				"description": "Detta intyg är förbrukat och behöver förnyas innan det kan användas igen.",
+				"label": "Förbrukat",
+				"short": "Inga användningar kvar.",
+				"title": "Intyget är förbrukat"
+			},
+			"expired": {
+				"description": "Detta intyg har gått ut. För att kunna fortsätta använda det behöver det förnyas.",
+				"label": "Har gått ut",
+				"short": "Behöver förnyas.",
+				"title": "Intyget har gått ut"
+			}
+		}
 	},
 	"pageHistory": {
 		"description": "Visa historik över intygssändningar, inklusive när och till vilka verifierare du skickade",

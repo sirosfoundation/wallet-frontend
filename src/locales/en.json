@@ -435,7 +435,21 @@
 		"slideButtonTitleDisable": "No {{direction}} credential available",
 		"slideButtonTitleEnable": "Click to move to the {{direction}} credential",
 		"slideNext": "next",
-		"slidePrevious": "previous"
+		"slidePrevious": "previous",
+		"status": {
+			"batchExhausted": {
+				"description": "This credential is depleted and needs to be refreshed before it can be used again.",
+				"label": "Depleted",
+				"short": "No uses remaining.",
+				"title": "Credential depleted"
+			},
+			"expired": {
+				"description": "This credential has expired. To continue using it, it needs to be refreshed.",
+				"label": "Expired",
+				"short": "Needs refresh.",
+				"title": "Credential expired"
+			}
+		}
 	},
 	"pageHistory": {
 		"description": "View history of credential transmissions, detailing when and to which verifiers you sent",

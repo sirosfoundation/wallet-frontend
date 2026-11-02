@@ -20,6 +20,7 @@ export type Instance = {
 export type ExtendedVcEntity = WalletStateCredential & {
 	parsedCredential: ParsedCredential;
 	isExpired: boolean;
+	isBatchExhausted: boolean;
 	instances: Instance[];
 	sigCount: number; // calculate usage by parsing all presentation history
 	status?: TokenStatus,

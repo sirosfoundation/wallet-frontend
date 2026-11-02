@@ -435,7 +435,21 @@
 		"slideButtonTitleDisable": "Sem credencial {{direction}} disponível",
 		"slideButtonTitleEnable": "Clique para ir para a credencial {{direction}}",
 		"slideNext": "Seguinte",
-		"slidePrevious": "Anterior"
+		"slidePrevious": "Anterior",
+		"status": {
+			"batchExhausted": {
+				"description": "Esta credencial esgotou-se e tem de ser atualizada antes de poder ser utilizada novamente.",
+				"label": "Esgotada",
+				"short": "Sem utilizações restantes.",
+				"title": "Credencial esgotada"
+			},
+			"expired": {
+				"description": "Esta credencial expirou. Para continuar a utilizá-la, é necessário atualizá-la.",
+				"label": "Expirada",
+				"short": "Precisa de ser atualizada.",
+				"title": "Credencial expirada"
+			}
+		}
 	},
 	"pageHistory": {
 		"description": "Consulte o histórico de transmissões de credenciais, com informação sobre quando e para que verifiers elas foram enviadas.",

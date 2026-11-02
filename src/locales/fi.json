@@ -435,7 +435,21 @@
 		"slideButtonTitleDisable": "Ei {{direction}} todistusta saatavilla",
 		"slideButtonTitleEnable": "Napsauta siirtyäksesi {{direction}} todistukseen",
 		"slideNext": "seuraava",
-		"slidePrevious": "edellinen"
+		"slidePrevious": "edellinen",
+		"status": {
+			"batchExhausted": {
+				"description": "Tämä todistus on käytetty loppuun, ja se on päivitettävä ennen kuin sitä voi käyttää uudelleen.",
+				"label": "Käytetty loppuun",
+				"short": "Käyttökertoja ei ole jäljellä.",
+				"title": "Todistus käytetty loppuun"
+			},
+			"expired": {
+				"description": "Tämä todistus on vanhentunut. Jotta voit jatkaa sen käyttöä, se on päivitettävä.",
+				"label": "Vanhentunut",
+				"short": "Vaatii päivityksen.",
+				"title": "Todistus vanhentunut"
+			}
+		}
 	},
 	"pageHistory": {
 		"description": "Näytä todistusten lähetyshistoria, milloin ja mille todentajille lähetit",
