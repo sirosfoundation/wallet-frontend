@@ -293,9 +293,6 @@ importers:
       '@sirosfoundation/http-client':
         specifier: workspace:*
         version: link:../http-client
-      axios:
-        specifier: ^1.20.0
-        version: 1.20.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
       wallet-common:
         specifier: workspace:*
         version: link:../wallet-common
