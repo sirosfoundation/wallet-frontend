@@ -100,9 +100,6 @@
 		"description": "Intyget mottogs men vissa verifieringskontroller godkändes inte. Granska detaljerna nedan innan du bestämmer dig.",
 		"title": "Intygsvarningar"
 	},
-	"language": {
-		"label": "Språk"
-	},
 	"labelSecurityKeyPopup": {
 		"confirm": "Bekräfta",
 		"description": "Ge varje säkerhetsnyckel en etikett för att göra det lättare att känna igen den i plånbokens inställningar.",
@@ -111,6 +108,9 @@
 		"placeholder": "Ange etikett",
 		"skip": "Hoppa över",
 		"title": "Märk din säkerhetsnyckel"
+	},
+	"language": {
+		"label": "Språk"
 	},
 	"layout": {
 		"messageAllowPermission": "För att ta emot realtidsuppdateringar av <strong>intyg, tillåt aviseringar och ladda om den här sidan</strong>.",
@@ -251,6 +251,14 @@
 			"CONNECTION_LOST": {
 				"description": "Anslutningen avbröts. Försök igen.",
 				"title": "Anslutningen bröts"
+			},
+			"CREDENTIAL_EXPIRED": {
+				"description": "De intyg som matchar denna förfrågan har gått ut och kan inte delas.",
+				"title": "Intyget har gått ut"
+			},
+			"CREDENTIAL_REVOKED_OR_SUSPENDED": {
+				"description": "De intyg som matchar denna förfrågan har återkallats eller spärrats av utfärdaren och kan inte delas.",
+				"title": "Intyget är inte giltigt"
 			},
 			"FLOW_ERROR": {
 				"description": "Ett fel inträffade under intygsflödet. Försök igen.",

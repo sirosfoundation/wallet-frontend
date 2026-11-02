@@ -100,9 +100,6 @@
 		"description": "Todistus vastaanotettiin, mutta jotkin vahvistustarkistukset eivät läpäisseet. Tarkista alla olevat tiedot ennen päätöksentekoa.",
 		"title": "Todistusvaroitukset"
 	},
-	"language": {
-		"label": "Kieli"
-	},
 	"labelSecurityKeyPopup": {
 		"confirm": "Vahvista",
 		"description": "Anna jokaiselle turva-avaimelle tunniste, jotta sen tunnistaminen lompakon asetuksissa on helpompaa.",
@@ -111,6 +108,9 @@
 		"placeholder": "Anna tunniste",
 		"skip": "Ohita",
 		"title": "Nimeä turva-avaimesi"
+	},
+	"language": {
+		"label": "Kieli"
 	},
 	"layout": {
 		"messageAllowPermission": "Saadaksesi reaaliaikaiset päivitykset <strong>todistuksista, salli ilmoitukset ja lataa tämä sivu uudelleen</strong>.",
@@ -251,6 +251,14 @@
 			"CONNECTION_LOST": {
 				"description": "Yhteys keskeytyi. Yritä uudelleen.",
 				"title": "Yhteys katkesi"
+			},
+			"CREDENTIAL_EXPIRED": {
+				"description": "Tähän pyyntöön sopivat todistukset ovat vanhentuneet, eikä niitä voi jakaa.",
+				"title": "Todistus vanhentunut"
+			},
+			"CREDENTIAL_REVOKED_OR_SUSPENDED": {
+				"description": "Myöntäjä on peruuttanut tai keskeyttänyt tähän pyyntöön sopivat todistukset, eikä niitä voi jakaa.",
+				"title": "Todistus ei ole voimassa"
 			},
 			"FLOW_ERROR": {
 				"description": "Todistusprosessin aikana tapahtui virhe. Yritä uudelleen.",
