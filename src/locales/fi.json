@@ -107,15 +107,9 @@
 			"pin": { "title": "Varmista, että siinä on PIN-koodi", "text": "Jos turva-avaimessasi ei ole PIN-koodia, sinua pyydetään luomaan sellainen." },
 			"secondKey": { "title": "Hanki toinen turva-avain (suositeltavaa)", "text": "Sinulta kysytään, haluatko määrittää toisen turva-avaimen. Tämä varmistaa, että pääset lompakkoosi, jos kadotat ensimmäisen avaimen." }
 		},
-		"whyYubiKey": "Miksi valita YubiKey?",
-		"benefits": {
-			"phishingProof": {"label": "Phishing-suojattu:", "text": "Se tarkistaa verkkosivuston verkkotunnuksen ja kieltäytyy todentamasta väärennetyillä sivustoilla."},
-			"hardwareSecured": {"label": "Laitetasolla suojattu:", "text": "Kryptografiset avaimet ovat lukittuina väärentämistä kestävään siruun, eikä niitä voi varastaa etänä."},
-			"physicalProof": {"label": "Fyysinen todiste:", "text": "Vaatii tahallisen kosketuksen tai NFC-napautuksen myöntääkseen pääsyn."},
-			"maintenanceFree": {"label": "Huoltovapaa:", "text": "Toimii laitteesi virralla (USB/NFC) - ei vaadi paristoja eikä ohjelmistoja."},
-			"private": {"label": "Täysin yksityinen:", "text": "Ei tallenna henkilökohtaisia tietoja eikä seuraa pilvessä."},
-			"compatible": {"label": "Laajasti yhteensopiva:", "text": "Toimii välittömästi suurten palveluiden, kuten Googlen, Microsoftin ja huippuluokan salasanojen hallitsijoiden kanssa."}
-		}
+		"noKey": "Eikö sinulla ole suoja-avainta? <u>Kokeile toista tapaa</u>.",
+		"about": {"title": "Tietoa turva-avaimista", "text": "Turva-avaimet tarjoavat yksityistä, laitteistopohjaista suojaa, ja pääsyn myöntämiseen tarvitaan vain fyysinen kosketus tai NFC-napautus.", "compatible": "SIROS ID toimii Yubicon, Googlen ja muiden turva-avainten kanssa. Katso <u>yhteensopivat turva-avaimet</u>"},
+		"tip": "<b>Vinkki:</b> Jos turva-avaimesi ei tue NFC:tä, aseta se nyt."
 	},
 	"loginSignup": {
 		"acceptPolicies": "Hyväksyn <policyLinks/>.",

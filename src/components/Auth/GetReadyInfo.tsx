@@ -1,5 +1,5 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { ArrowLeft, SquareAsterisk } from 'lucide-react';
 import { DoubleUsbStickDotIcon, UsbStickDotIcon } from '@/components/Shared/CustomIcons';
 import Button from '@/components/Buttons/Button';
@@ -16,8 +16,6 @@ const STEPS = [
 	{ Icons: [SquareAsterisk], key: 'pin' },
 	{ Icons: [DoubleUsbStickDotIcon], key: 'secondKey' },
 ];
-
-const BENEFITS = ['phishingProof', 'hardwareSecured', 'physicalProof', 'maintenanceFree', 'private', 'compatible'];
 
 export default function GetReadyInfo({ onBack, onCancel, onContinue }: Props) {
 	const { t } = useTranslation();
@@ -36,39 +34,50 @@ export default function GetReadyInfo({ onBack, onCancel, onContinue }: Props) {
 				</div>
 
 				{/* Instruction Steps */}
-				<ul className={`${card} space-y-4`}>
-					{STEPS.map(({ Icons, key }) => (
-						<li key={key} className="flex gap-3">
-							<div className="size-10 shrink-0 mt-1 flex items-center justify-center gap-1 rounded-sm bg-lm-gray-200 border border-lm-gray-400 dark:bg-dm-gray-800 dark:border-dm-gray-600">
-								{Icons.map((Icon, i) => (
-									<Icon key={`${key}-${i}`} size={Icons.length > 1 ? 16 : 20} />
-								))}
-							</div>
-							<div className="text-sm">
-								<p className="font-bold">{t(`getReady.steps.${key}.title`)}</p>
-								<p>{t(`getReady.steps.${key}.text`)}</p>
-							</div>
-						</li>
-						))}
-				</ul>
+				<div className={card}>
+					<ul className="space-y-4">
+						{STEPS.map(({ Icons, key }) => (
+							<li key={key} className="flex gap-3">
+								<div className="size-10 shrink-0 mt-1 flex items-center justify-center gap-1 rounded-sm bg-lm-gray-200 border border-lm-gray-400 dark:bg-dm-gray-800 dark:border-dm-gray-600">
+									{Icons.map((Icon, i) => (
+										<Icon key={`${key}-${i}`} size={Icons.length > 1 ? 16 : 20} className="text-primary"/>
+									))}
+								</div>
+								<div className="text-sm">
+									<p className="font-bold">{t(`getReady.steps.${key}.title`)}</p>
+									<p>{t(`getReady.steps.${key}.text`)}</p>
+								</div>
+							</li>
+							))}
+					</ul>
+					<p className="mt-4 text-xs ml-[52px]">
+						<Trans i18nKey="getReady.noKey" components={{ u: <span className="underline" /> }} />
+					</p>
+				</div>
 
-				{/* YubiKey Card */}
+				{/* About Security Keys Card */}
 				<div className={`${card} text-sm`}>
-					<figure className="float-right ml-2 p-2.5 text-center">
+					<figure className="float-right ml-2 p-3 text-center">
 						<img src={YubiKeyImage} alt="" className="w-22" />
 						<figcaption className="mt-1 text-[8px] text-lm-gray-600 dark:text-dm-gray-400">
 							© Yubico
 						</figcaption>
 					</figure>
-					<h2 className="font-bold mb-3">{t('getReady.whyYubiKey')}</h2>
-					<ul className="space-y-3">
-						{BENEFITS.map((key) => (
-							<li key={key}>
-								<span className="font-bold">{t(`getReady.benefits.${key}.label`)}</span>{' '}
-								{t(`getReady.benefits.${key}.text`)}
-							</li>
-						))}
-					</ul>
+					<h2 className="font-bold mb-3">{t('getReady.about.title')}</h2>
+					<p>{t('getReady.about.text')}</p>
+					<p className="mt-4 clear-both">
+						<Trans i18nKey="getReady.about.compatible" components={{ u: <span className="underline" /> }} />
+					</p>
+				</div>
+
+				{/* Tip Card */}
+				<div className={`${card} flex items-center gap-4 text-sm`}>
+					<div className="size-20 shrink-0 flex items-center justify-center rounded-lg bg-lm-gray-200 dark:bg-dm-gray-800 border border-lm-gray-400 dark:bg-dm-gray-800 dark:border-dm-gray-600">
+						<UsbStickDotIcon size={36} className="text-primary"/>
+					</div>
+					<p>
+						<Trans i18nKey="getReady.tip" components={{ b: <span className="font-bold" /> }} />
+					</p>
 				</div>
 
 				{/* Buttons */}
