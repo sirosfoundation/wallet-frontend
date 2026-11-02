@@ -100,9 +100,6 @@
 		"description": "Todistus vastaanotettiin, mutta jotkin vahvistustarkistukset eivät läpäisseet. Tarkista alla olevat tiedot ennen päätöksentekoa.",
 		"title": "Todistusvaroitukset"
 	},
-	"language": {
-		"label": "Kieli"
-	},
 	"labelSecurityKeyPopup": {
 		"confirm": "Vahvista",
 		"description": "Anna jokaiselle turva-avaimelle tunniste, jotta sen tunnistaminen lompakon asetuksissa on helpompaa.",
@@ -111,6 +108,9 @@
 		"placeholder": "Anna tunniste",
 		"skip": "Ohita",
 		"title": "Nimeä turva-avaimesi"
+	},
+	"language": {
+		"label": "Kieli"
 	},
 	"layout": {
 		"messageAllowPermission": "Saadaksesi reaaliaikaiset päivitykset <strong>todistuksista, salli ilmoitukset ja lataa tämä sivu uudelleen</strong>.",
@@ -427,7 +427,21 @@
 		"slideButtonTitleDisable": "Ei {{direction}} todistusta saatavilla",
 		"slideButtonTitleEnable": "Napsauta siirtyäksesi {{direction}} todistukseen",
 		"slideNext": "seuraava",
-		"slidePrevious": "edellinen"
+		"slidePrevious": "edellinen",
+		"status": {
+			"batchExhausted": {
+				"description": "Tämä todistus on käytetty loppuun, ja se on päivitettävä ennen kuin sitä voi käyttää uudelleen.",
+				"label": "Käytetty loppuun",
+				"short": "Käyttökertoja ei ole jäljellä.",
+				"title": "Todistus käytetty loppuun"
+			},
+			"expired": {
+				"description": "Tämä todistus on vanhentunut. Jotta voit jatkaa sen käyttöä, se on päivitettävä.",
+				"label": "Vanhentunut",
+				"short": "Vaatii päivityksen.",
+				"title": "Todistus vanhentunut"
+			}
+		}
 	},
 	"pageHistory": {
 		"description": "Näytä todistusten lähetyshistoria, milloin ja mille todentajille lähetit",

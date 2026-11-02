@@ -84,7 +84,7 @@ const CredentialImage: FC<CredentialImageProps> = ({
 							<UsagesRibbon vcEntityInstances={vcEntityInstances} borderColor={borderColor} />
 						}
 						{(vcEntity.isBatchExhausted || vcEntity.isExpired) && showOverlay && (
-							<CredentialImageStatusOverlay status={vcEntity.isExpired ? 'expired' : 'batchExhausted'} />
+							<CredentialImageStatusOverlay vcEntity={vcEntity} />
 						)}
 					</div>
 				</>

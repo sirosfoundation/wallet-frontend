@@ -19,14 +19,14 @@
 	--color-lm-red: hsl(3 76% 42%);
 	--color-lm-red-hover: hsl(3 76% 48%);
 	--color-lm-red-light: hsl(3 76% 93%);
-	--color-lm-red-bg: hsl(3 75% 38%);
-	--color-lm-red-bg-hover: hsl(3 75% 48%);
+	--color-lm-red-dark: hsl(3 75% 38%);
+	--color-lm-red-dark-hover: hsl(3 75% 48%);
 
 	--color-dm-red: hsl(3 100% 54%);
 	--color-dm-red-hover: hsl(3 100% 60%);
 	--color-dm-red-light: hsl(3 100% 95%);
-	--color-dm-red-bg: hsl(3 100% 40%);
-	--color-dm-red-bg-hover: hsl(3 100% 48%);
+	--color-dm-red-dark: hsl(3 100% 40%);
+	--color-dm-red-dark-hover: hsl(3 100% 48%);
 
 	--color-lm-orange: hsl(35 100% 50%);
 	--color-lm-orange-light: hsl(35 100% 95%);

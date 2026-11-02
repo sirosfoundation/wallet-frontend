@@ -100,9 +100,6 @@
 		"description": "Intyget mottogs men vissa verifieringskontroller godkändes inte. Granska detaljerna nedan innan du bestämmer dig.",
 		"title": "Intygsvarningar"
 	},
-	"language": {
-		"label": "Språk"
-	},
 	"labelSecurityKeyPopup": {
 		"confirm": "Bekräfta",
 		"description": "Ge varje säkerhetsnyckel en etikett för att göra det lättare att känna igen den i plånbokens inställningar.",
@@ -111,6 +108,9 @@
 		"placeholder": "Ange etikett",
 		"skip": "Hoppa över",
 		"title": "Märk din säkerhetsnyckel"
+	},
+	"language": {
+		"label": "Språk"
 	},
 	"layout": {
 		"messageAllowPermission": "För att ta emot realtidsuppdateringar av <strong>intyg, tillåt aviseringar och ladda om den här sidan</strong>.",
@@ -427,7 +427,21 @@
 		"slideButtonTitleDisable": "Inget {{direction}} intyg tillgängligt",
 		"slideButtonTitleEnable": "Klicka för att gå till {{direction}} intyg",
 		"slideNext": "nästa",
-		"slidePrevious": "föregående"
+		"slidePrevious": "föregående",
+		"status": {
+			"batchExhausted": {
+				"description": "Detta intyg är förbrukat och behöver förnyas innan det kan användas igen.",
+				"label": "Förbrukat",
+				"short": "Inga användningar kvar.",
+				"title": "Intyget är förbrukat"
+			},
+			"expired": {
+				"description": "Detta intyg har gått ut. För att kunna fortsätta använda det behöver det förnyas.",
+				"label": "Har gått ut",
+				"short": "Behöver förnyas.",
+				"title": "Intyget har gått ut"
+			}
+		}
 	},
 	"pageHistory": {
 		"description": "Visa historik över intygssändningar, inklusive när och till vilka verifierare du skickade",

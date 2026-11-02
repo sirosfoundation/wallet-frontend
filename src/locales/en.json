@@ -100,10 +100,7 @@
 		"description": "The credential was received but some verification checks did not pass. Review the details below before deciding whether to accept it.",
 		"title": "Credential Warnings"
 	},
-	"language": {
-		"label": "Language"
-	},
-		"labelSecurityKeyPopup": {
+	"labelSecurityKeyPopup": {
 		"confirm": "Confirm",
 		"description": "Give each security key a label to make it easier to recognize it in the wallet settings.",
 		"error": "Could not label the security key. Try again.",
@@ -111,6 +108,9 @@
 		"placeholder": "Enter label",
 		"skip": "Skip",
 		"title": "Label your security key"
+	},
+	"language": {
+		"label": "Language"
 	},
 	"layout": {
 		"messageAllowPermission": "To receive real-time updates of <strong>Credentials, allow notifications permission and reload this page</strong>.",
@@ -427,7 +427,21 @@
 		"slideButtonTitleDisable": "No {{direction}} credential available",
 		"slideButtonTitleEnable": "Click to move to the {{direction}} credential",
 		"slideNext": "next",
-		"slidePrevious": "previous"
+		"slidePrevious": "previous",
+		"status": {
+			"batchExhausted": {
+				"description": "This credential is depleted and needs to be refreshed before it can be used again.",
+				"label": "Depleted",
+				"short": "No uses remaining.",
+				"title": "Credential depleted"
+			},
+			"expired": {
+				"description": "This credential has expired. To continue using it, it needs to be refreshed.",
+				"label": "Expired",
+				"short": "Needs refresh.",
+				"title": "Credential expired"
+			}
+		}
 	},
 	"pageHistory": {
 		"description": "View history of credential transmissions, detailing when and to which verifiers you sent",
