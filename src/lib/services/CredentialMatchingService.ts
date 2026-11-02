@@ -14,6 +14,7 @@ import { ExtendedVcEntity } from '@/context/CredentialsContext';
 import { DcqlQuery, DcqlCredential, DcqlQueryResult } from 'dcql';
 import { logger } from '@/logger';
 import { isVcdm2Credential, toTypeArray } from 'wallet-common';
+import { TokenStatus } from '@sirosfoundation/token-status-list';
 import {
 	decodeStoredMdoc,
 	mdocNameSpacesToClaims,
@@ -31,15 +32,41 @@ export interface CredentialMatch {
 export interface CredentialsMatchedResult {
 	matches: CredentialMatch[];
 	no_match_reason?: string;
-	code?: 'NO_MATCHING_CREDENTIALS' | 'INSUFFICIENT_CREDENTIALS';
+	code?: 'NO_MATCHING_CREDENTIALS' | 'INSUFFICIENT_CREDENTIALS' | 'CREDENTIAL_REVOKED_OR_SUSPENDED';
 	/** Types requested by query entries that nothing in the wallet satisfied. */
 	missing_types?: string[];
 }
 
 /**
  * Match local credentials against a DCQL query using the dcql library.
+ * Revoked and suspended credentials are never offered for presentation.
  */
 export function matchCredentials(
+	credentials: ExtendedVcEntity[],
+	dcqlQuery: DcqlQuery.Input
+): CredentialsMatchedResult {
+	const usable = credentials.filter((credential) => !isBlockedFromPresentation(credential));
+	const result = matchUsableCredentials(usable, dcqlQuery);
+	if (result.matches.length > 0 || usable.length === credentials.length) {
+		return result;
+	}
+
+	// Say why when only blocked credentials would have satisfied the request.
+	if (matchUsableCredentials(credentials, dcqlQuery).matches.length > 0) {
+		return { matches: [], code: 'CREDENTIAL_REVOKED_OR_SUSPENDED' };
+	}
+
+	return result;
+}
+
+/**
+ * Unknown or pending statuses stay presentable, so presentation keeps working offline.
+ */
+function isBlockedFromPresentation(credential: ExtendedVcEntity): boolean {
+	return credential.status === TokenStatus.INVALID || credential.status === TokenStatus.SUSPENDED;
+}
+
+function matchUsableCredentials(
 	credentials: ExtendedVcEntity[],
 	dcqlQuery: DcqlQuery.Input
 ): CredentialsMatchedResult {

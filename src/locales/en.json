@@ -252,6 +252,10 @@
 				"description": "The connection was interrupted. Please try again.",
 				"title": "Connection Lost"
 			},
+			"CREDENTIAL_REVOKED_OR_SUSPENDED": {
+				"description": "The credentials that match this request have been revoked or suspended by their issuer and cannot be shared.",
+				"title": "Credential Not Valid"
+			},
 			"FLOW_ERROR": {
 				"description": "An error occurred during the credential flow. Please try again.",
 				"title": "Flow Error"
