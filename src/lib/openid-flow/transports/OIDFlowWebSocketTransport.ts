@@ -507,6 +507,17 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			result.flowId = flowId;
 		}
 
+		// Renewal
+		if (response.refresh_token) {
+			result.refreshToken = response.refresh_token as string;
+		}
+		if (response.dpop_jwk) {
+			result.dpopJwk = response.dpop_jwk as string;
+		}
+		if (response.dpop_key_id) {
+			result.dpopKeyId = response.dpop_key_id as string;
+		}
+
 		// Deferred
 		if (response?.transactionId) {
 			result.transactionId = response.transactionId as string;

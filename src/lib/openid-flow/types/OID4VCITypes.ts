@@ -155,6 +155,23 @@ export interface OID4VCIFlowResult {
 	/** Flow ID from the backend (needed for credential notification) */
 	flowId?: string;
 
+	// ===== Renewal =====
+
+	/**
+	 * Issuer refresh_token for renewing this batch.
+	 */
+	refreshToken?: string;
+
+	/**
+	 * Private JWK of the backend-held DPoP key the refresh token is bound to.
+	 */
+	dpopJwk?: string;
+
+	/**
+	 * Id of the client-held DPoP key the refresh token is bound to.
+	 */
+	dpopKeyId?: string;
+
 	// ===== Deferred issuance =====
 
 	/** Transaction ID for deferred credential polling */
