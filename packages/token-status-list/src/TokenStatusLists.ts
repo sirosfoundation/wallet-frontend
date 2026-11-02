@@ -171,6 +171,7 @@ export class TokenStatusLists implements ITokenStatusLists {
 	/**
 	 * Fetch lists from the source in small batches, sending stored etags.
 	 * A failing batch is reported and skipped so the others still update.
+	 * Stops when the source becomes unavailable.
 	 */
 	async #fetchLists(
 		toFetch: { uri: string; etag?: string }[],
@@ -178,6 +179,8 @@ export class TokenStatusLists implements ITokenStatusLists {
 		const results: StatusList[] = [];
 
 		for (let i = 0; i < toFetch.length; i += this.#LISTS_PER_REQUEST) {
+			if (!this.#source.isAvailable()) break;
+
 			const batch = toFetch.slice(i, i + this.#LISTS_PER_REQUEST);
 			try {
 				results.push(...(await this.#source.fetchLists(batch)));

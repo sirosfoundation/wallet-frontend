@@ -116,6 +116,10 @@ export interface ITokenStatusListsSource {
 	 */
 	init?(): Promise<void>;
 	/**
+	 * Whether the source can be used right now, e.g. false while rate limited.
+	 */
+	isAvailable(): boolean;
+	/**
 	 * Fetch status lists by URIs.
 	 */
 	fetchLists(toFetch: { uri: string, etag?: string }[]): Promise<StatusList[]>;

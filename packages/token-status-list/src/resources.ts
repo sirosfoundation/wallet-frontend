@@ -40,7 +40,7 @@ export namespace TokenStatus {
 
 export class TokenStatusListsError extends Error {
 	constructor(
-		public readonly kind: 'network' | 'auth' | 'untrusted' | 'malformed' | 'out_of_range' | 'storage',
+		public readonly kind: 'network' | 'auth' | 'untrusted' | 'malformed' | 'out_of_range' | 'storage' | 'rate_limited' | 'not_supported',
 		public readonly uri?: string,
 		options?: ErrorOptions,
 	) {

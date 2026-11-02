@@ -22,6 +22,9 @@ export class TokenStatusListsBackendSource implements ITokenStatusListsSource {
 
 	readonly #apiEndpoint = '/status/v1/lists';
 
+	// Set after 429 (Retry-After) or 503 STATUS_NOT_SUPPORTED (Infinity).
+	#pausedUntil = 0;
+
 	constructor({
 		httpClient,
 		getAuthToken,
@@ -30,6 +33,10 @@ export class TokenStatusListsBackendSource implements ITokenStatusListsSource {
 		this.#httpClient = httpClient;
 		this.#getAuthToken = getAuthToken;
 		this.#backendUrl = backendUrl;
+	}
+
+	public isAvailable(): boolean {
+		return Date.now() >= this.#pausedUntil;
 	}
 
 	public async fetchLists(
@@ -48,6 +55,15 @@ export class TokenStatusListsBackendSource implements ITokenStatusListsSource {
 		if (res.status !== 200) {
 			if ([401, 403].includes(res.status))
 				throw new TokenStatusListsError('auth');
+			if (res.status === 429) {
+				const retryAfter = Number(res.headers['retry-after']) || 60;
+				this.#pausedUntil = Date.now() + retryAfter * 1000;
+				throw new TokenStatusListsError('rate_limited');
+			}
+			if (res.status === 503 && (res.data as { error?: string } | undefined)?.error === 'STATUS_NOT_SUPPORTED') {
+				this.#pausedUntil = Infinity;
+				throw new TokenStatusListsError('not_supported');
+			}
 			throw new TokenStatusListsError('network');
 		}
 
