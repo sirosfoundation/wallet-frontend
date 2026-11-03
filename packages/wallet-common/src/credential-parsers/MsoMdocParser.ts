@@ -108,10 +108,12 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient, 
 				}
 			},
 			signedClaims: { ...signedClaims },
-			validityInfo: { ...extractValidityInfo(parsedDocument.issuerSigned) }	,		// An mdoc keeps its status reference in the MSO, not in the namespaces.
+			validityInfo: { ...extractValidityInfo(parsedDocument.issuerSigned) },
+			// An mdoc keeps its status reference in the MSO, not in the namespaces.
 			statusReference: extractStatusListReference(
 				cborToPlain((parsedDocument.issuerSigned.issuerAuth.decodedPayload as Record<string, unknown>).status),
-			),		};
+			),
+		};
 	}
 
 	async function deviceResponseParser(
