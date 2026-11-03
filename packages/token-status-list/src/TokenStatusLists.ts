@@ -7,6 +7,7 @@ import type {
 	TokenEntity,
 	TokenStatusListsConfig,
 	TokenStatusListsListener,
+	CachedTokenStatusList,
 } from './types';
 import { StatusList, TokenStatus, TokenStatusListsError } from './resources';
 import { decompressStatusListToArray, readTokenStatusFromArray, resolveTokenStatus } from './utils';
@@ -126,25 +127,28 @@ export class TokenStatusLists implements ITokenStatusLists {
 	}
 
 	async #check(): Promise<void> {
-		await this.#dropUnusedLists();
-		const toFetch = await this.#findListsToFetch();
+		const lists = new Map((await this.#storage.getAll()).map((l) => [l.uri, l]));
+		await this.#dropUnusedLists(lists);
+		const toFetch = await this.#findListsToFetch(lists);
 		const res = await this.#fetchLists(toFetch);
-		await this.#handleFetchedLists(res);
-		const current = await this.#readStatuses();
+		await this.#handleFetchedLists(res, lists);
+		const current = await this.#readStatuses(lists);
 		this.#handleChangedStatuses(current);
 	}
 
 	/**
 	 * Drop lists no token uses anymore from storage.
 	 */
-	async #dropUnusedLists() {
-		const lists = await this.#storage.getAll();
+	async #dropUnusedLists(storedLists: Map<string, CachedTokenStatusList>) {
 		const used = new Set(Array.from(this.#tokens.values(), ({ uri }) => uri));
 
 		await Promise.all(
-			lists
-				.filter((list) => !used.has(list.uri))
-				.map((list) => this.#storage.delete(list.uri)),
+			[...storedLists.keys()]
+				.filter((uri) => !used.has(uri))
+				.map((uri) => {
+					storedLists.delete(uri);
+					return this.#storage.delete(uri);
+				}),
 		);
 	}
 
@@ -152,9 +156,8 @@ export class TokenStatusLists implements ITokenStatusLists {
 	 * Pick lists that are missing, or past their expiry time when
 	 * refreshListOnExpiry is enabled. Lists backing off are skipped.
 	 */
-	async #findListsToFetch(): Promise<{ uri: string; etag?: string }[]> {
-		const lists = await this.#storage.getAll();
-		const cached = new Set(lists.map((l) => l.uri));
+	async #findListsToFetch(storedLists: Map<string, CachedTokenStatusList>): Promise<{ uri: string; etag?: string }[]> {
+		const cached = new Set(storedLists.keys());
 		const wanted = new Set(Array.from(this.#tokens.values(), ({ uri }) => uri));
 		const now = Date.now();
 		const ready = ({ uri }: { uri: string }) =>
@@ -167,7 +170,7 @@ export class TokenStatusLists implements ITokenStatusLists {
 
 		if (!this.#refreshListOnExpiry) return missing;
 
-		const expired = lists
+		const expired = Array.from(storedLists.values())
 			.filter((l) => l.expiresAt < now)
 			.map(({ uri, etag }) => ({ uri, etag }))
 			.filter(ready);
@@ -205,26 +208,28 @@ export class TokenStatusLists implements ITokenStatusLists {
 	 * - not_modified: keep the bytes, update expiresAt
 	 * - undetermined: keep the old list, back off before asking again
 	 */
-	async #handleFetchedLists(res: StatusList[]) {
+	async #handleFetchedLists(res: StatusList[], storedLists: Map<string, CachedTokenStatusList>) {
 		await Promise.all(res.map(async (list) => {
 			try {
 				switch (list.state) {
 					case 'verified': {
 						this.#logger.debug('verified', list.uri);
 						const decompressed = await decompressStatusListToArray(list.lst);
-						await this.#storage.set(list.uri, {
+						const entry = {
 							uri: list.uri,
 							bits: list.bits,
 							etag: list.etag,
 							iat: list.iat,
 							expiresAt: list.expiresAt * 1000,
 							statuses: decompressed,
-						});
+						};
+						await this.#storage.set(list.uri, entry);
+						storedLists.set(list.uri, entry);
 						this.#backoff.delete(list.uri);
 						break;
 					}
 					case 'not_modified': {
-						const existing = await this.#storage.get(list.uri);
+						const existing = storedLists.get(list.uri);
 						if (existing) {
 							this.#logger.debug('not modified', list.uri);
 							existing.expiresAt = list.expiresAt * 1000;
@@ -251,12 +256,11 @@ export class TokenStatusLists implements ITokenStatusLists {
 	 * Work out each token's status from its cached list. Tokens whose list is
 	 * missing are skipped, so they keep their last known status.
 	 */
-	async #readStatuses(): Promise<Map<TokenId, TokenStatus>> {
-		const lists = await this.#storage.getAll();
+	async #readStatuses(storedLists: Map<string, CachedTokenStatusList>): Promise<Map<TokenId, TokenStatus>> {
 		const current = new Map<TokenId, TokenStatus>();
 
 		for (const [id, token] of this.#tokens) {
-			const list = lists.find((l) => l.uri === token.uri);
+			const list = storedLists.get(token.uri);
 			if (!list) continue;
 
 			// A list signed before the token was issued says nothing about it.
