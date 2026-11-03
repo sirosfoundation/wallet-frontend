@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { base64url } from 'jose';
 import type { Logger } from '@sirosfoundation/browser-log';
 import { TokenStatusLists } from './TokenStatusLists';
-import { StatusList, TokenStatus } from './resources';
+import { StatusList, TokenStatus, TokenStatusListsError } from './resources';
 import type {
 	CachedTokenStatusList,
 	ITokenStatusListsSource,
@@ -193,6 +193,34 @@ describe('TokenStatusLists', () => {
 
 		await vi.advanceTimersByTimeAsync(INTERVAL * 2);
 		await vi.waitFor(() => expect(source.fetchLists).toHaveBeenCalledTimes(3));
+	});
+
+	it('backs off a list the backend rejects', async () => {
+		const { service, source } = setup(() => {
+			throw new TokenStatusListsError('rejected', A);
+		});
+
+		service.setTokens(tokens([[1, { uri: A, idx: 0 }]]));
+		await vi.waitFor(() => expect(source.fetchLists).toHaveBeenCalledTimes(1));
+
+		// Backing off for 10 minutes, so the next tick skips the list.
+		await vi.advanceTimersByTimeAsync(INTERVAL);
+		expect(source.fetchLists).toHaveBeenCalledTimes(1);
+
+		await vi.advanceTimersByTimeAsync(INTERVAL * 2);
+		await vi.waitFor(() => expect(source.fetchLists).toHaveBeenCalledTimes(2));
+	});
+
+	it('retries a network failure on the next tick', async () => {
+		const { service, source } = setup(() => {
+			throw new TokenStatusListsError('network', A);
+		});
+
+		service.setTokens(tokens([[1, { uri: A, idx: 0 }]]));
+		await vi.waitFor(() => expect(source.fetchLists).toHaveBeenCalledTimes(1));
+
+		await vi.advanceTimersByTimeAsync(INTERVAL);
+		await vi.waitFor(() => expect(source.fetchLists).toHaveBeenCalledTimes(2));
 	});
 
 	it('stops fetching once the source is unavailable', async () => {

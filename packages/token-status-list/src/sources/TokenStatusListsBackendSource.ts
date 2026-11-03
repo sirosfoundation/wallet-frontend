@@ -53,12 +53,16 @@ export class TokenStatusListsBackendSource implements ITokenStatusListsSource {
 		);
 
 		if (res.status !== 200) {
-			if ([401, 403].includes(res.status))
-				throw new TokenStatusListsError('auth');
-			if (res.status === 429) {
-				const retryAfter = Number(res.headers['retry-after']) || 60;
-				this.#pausedUntil = Date.now() + retryAfter * 1000;
-				throw new TokenStatusListsError('rate_limited');
+			if (res.status.toString().startsWith('4')) {
+				if ([401, 403].includes(res.status)) {
+					throw new TokenStatusListsError('auth');
+				} else if (res.status === 429) {
+					const retryAfter = Number(res.headers['retry-after']) || 60;
+					this.#pausedUntil = Date.now() + retryAfter * 1000;
+					throw new TokenStatusListsError('rate_limited');
+				} else {
+					throw new TokenStatusListsError('rejected');
+				}
 			}
 			if (res.status === 503 && (res.data as { error?: string } | undefined)?.error === 'STATUS_NOT_SUPPORTED') {
 				this.#pausedUntil = Infinity;

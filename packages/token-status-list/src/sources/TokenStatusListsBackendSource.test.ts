@@ -50,6 +50,15 @@ describe('TokenStatusListsBackendSource', () => {
 		expect(source.isAvailable()).toBe(true);
 	});
 
+	it.each([400, 404, 413])('throws rejected on %i', async (status) => {
+		const { source } = setup({ status });
+
+		await expect(source.fetchLists([{ uri: URI }])).rejects.toMatchObject({
+			kind: 'rejected',
+		});
+		expect(source.isAvailable()).toBe(true);
+	});
+
 	it('pauses for Retry-After seconds on 429', async () => {
 		const { source } = setup({ status: 429, headers: { 'retry-after': '30' } });
 

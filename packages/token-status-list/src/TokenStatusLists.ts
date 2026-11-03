@@ -203,6 +203,12 @@ export class TokenStatusLists implements ITokenStatusLists {
 			try {
 				results.push(...(await this.#source.fetchLists(batch)));
 			} catch (err) {
+				if (err instanceof TokenStatusListsError) {
+					if (['rejected', 'malformed','untrusted'].includes(err.kind)) {
+						for (const { uri } of batch) this.#backOff(uri);
+					}
+				}
+
 				this.#onError?.(err);
 			}
 		}
@@ -249,9 +255,7 @@ export class TokenStatusLists implements ITokenStatusLists {
 					}
 					case 'undetermined': {
 						this.#logger.debug('undetermined', list.uri);
-						const prev = this.#backoff.get(list.uri)?.delay;
-						const delay = prev ? Math.min(prev * 2, this.#BACKOFF_MAX) : this.#BACKOFF_MIN;
-						this.#backoff.set(list.uri, { until: Date.now() + delay, delay });
+						this.#backOff(list.uri);
 						break;
 					}
 				}
@@ -321,6 +325,15 @@ export class TokenStatusLists implements ITokenStatusLists {
 		// Replaced, never mutated
 		this.#statuses = next;
 		this.#notifySubscribers(changes);
+	}
+
+	#backOff(uri: string) {
+		const prev = this.#backoff.get(uri)?.delay;
+		const delay = prev
+			? Math.min(prev * 2, this.#BACKOFF_MAX)
+			: this.#BACKOFF_MIN;
+
+		this.#backoff.set(uri, { until: Date.now() + delay, delay });
 	}
 
 	#notifySubscribers(changes: Map<TokenId, TokenStatus | undefined>) {
