@@ -239,8 +239,9 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 					// History moved over from a renewed batch predates this one and is not usage.
 					const signed = parsedCredential.validityInfo?.signed;
 					const issuedAtSeconds = signed ? Math.floor(signed.getTime() / 1000) : 0;
-					const instances: Instance[] = instancesMap[credential.batchId].map(({ instanceId, credentialId }) => ({
-						instanceId,
+					const instances: Instance[] = instancesMap[credential.batchId].map(({ credentialId, ...instance }) => ({
+						...instance,
+						credentialId,
 						sigCount: presentations.filter((p) =>
 							p.usedCredentialIds.includes(credentialId) &&
 							p.presentationTimestampSeconds >= issuedAtSeconds
