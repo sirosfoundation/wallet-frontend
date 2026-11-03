@@ -23,7 +23,7 @@ export type ExtendedVcEntity = WalletStateCredential & {
 	isBatchExhausted: boolean;
 	instances: Instance[];
 	sigCount: number; // calculate usage by parsing all presentation history
-	status?: TokenStatus,
+	status?: TokenStatus;
 }
 
 export type CredentialsContextValue = {

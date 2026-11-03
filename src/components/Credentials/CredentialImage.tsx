@@ -1,11 +1,11 @@
 import { FC, useEffect, useState } from 'react'
+import { isRevokedOrSuspended } from '@/lib/services/CredentialMatchingService';
 import { CredentialImageStatusOverlay } from './CredentialImageStatusOverlay';
 import ExpiredRibbon from './ExpiredRibbon';
 import UsagesRibbon from "./UsagesRibbon";
 import { logger } from '@/logger';
 import DefaultCred from "../../assets/images/cred.png";
 import { CredentialCardSkeleton } from '../Skeletons';
-import { TokenStatus } from '@sirosfoundation/token-status-list';
 
 export type CredentialImageProps = {
 	vcEntity: any;
@@ -70,8 +70,8 @@ const CredentialImage: FC<CredentialImageProps> = ({
 	const hasStatus = (
 		vcEntity.isBatchExhausted ||
 		vcEntity.isExpired ||
-		[TokenStatus.INVALID, TokenStatus.SUSPENDED].includes(vcEntity?.status)
-	)
+		isRevokedOrSuspended(vcEntity)
+	);
 
 	return (
 		<>
