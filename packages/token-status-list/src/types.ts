@@ -26,6 +26,20 @@ export type TokenEntity = {
 };
 
 /**
+ * Represents an instance of a token batch.
+ */
+export type TokenBatchInstance = {
+	/**
+	 * Status of the token.
+	 */
+	status?: TokenStatus;
+	/**
+	 * Whether the token was used.
+	 */
+	spent: boolean;
+};
+
+/**
  * A cached token status list.
  */
 export type CachedTokenStatusList = {

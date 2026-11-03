@@ -1,7 +1,6 @@
 import { base64url } from 'jose';
-import type { ParsedCredential } from 'wallet-common';
 import { TokenStatus, TokenStatusListsError } from './resources';
-import { TokenEntity } from './types';
+import { TokenBatchInstance } from './types';
 
 // Draft §7.1: values 0x04-0x0B are reserved for future registration.
 const RESERVED_STATUS_MIN = 0x04;
@@ -59,17 +58,39 @@ export function resolveTokenStatus(status: number): TokenStatus {
 	}
 }
 
-export function getStatusListTokenEntity(
-	credential: Pick<ParsedCredential, 'statusReference' | 'validityInfo'>,
-): TokenEntity | undefined {
-	const { statusReference, validityInfo } = credential;
-	if (!statusReference) return undefined;
+// Worst first.
+const BLOCKED_STATUSES = [
+	TokenStatus.INVALID,
+	TokenStatus.REJECTED,
+	TokenStatus.SUSPENDED,
+];
+// Best first.
+const USABLE_STATUSES = [
+	TokenStatus.VALID,
+	TokenStatus.PENDING,
+	TokenStatus.UNKNOWN,
+];
 
-	const signed = validityInfo?.signed;
-	return {
-		uri: statusReference.uri,
-		idx: statusReference.idx,
-		// Seconds, to match the status list's own iat.
-		iat: signed ? Math.floor(signed.getTime() / 1000) : undefined,
-	};
+/**
+ * Status of a token batch, from its unused instances,
+ * or all of them once every one is used.
+ */
+export function deriveTokenBatchStatus(
+	instances: TokenBatchInstance[],
+): TokenStatus | undefined {
+	const unused = instances.filter((i) => i.spent === false);
+	const relevant = unused.length > 0 ? unused : instances;
+
+	if (
+		relevant.length > 0 &&
+		relevant.every((i) => TokenStatus.isBlocked(i.status))
+	) {
+		return BLOCKED_STATUSES.find((status) =>
+			relevant.some((i) => i.status === status),
+		);
+	}
+
+	return USABLE_STATUSES.find((status) =>
+		relevant.some((i) => i.status === status),
+	);
 }

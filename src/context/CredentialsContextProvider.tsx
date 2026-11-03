@@ -11,7 +11,8 @@ import { getTenantFromUrlPath } from '@/lib/tenant';
 import { useHttpClient } from '@/hooks/useHttpClient';
 import { createDeferred } from '@/lib/utils/createDeferred';
 import { useTokenStatusLists } from '@/hooks/useTokenStatusLists';
-import { getStatusListTokenEntity, TokenEntity, TokenId } from '@sirosfoundation/token-status-list';
+import { deriveTokenBatchStatus, TokenEntity, TokenId } from '@sirosfoundation/token-status-list';
+import { getTokenStatusListEntity } from '@/lib/verifiable-credentials';
 
 type WalletStateCredential = CurrentSchema.WalletStateCredential;
 
@@ -55,9 +56,13 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 	useEffect(() => {
 		if (!vcEntityList) return;
 		const tokens = new Map<TokenId, TokenEntity>();
-		for (const vc of vcEntityList) {
-			const ref = getStatusListTokenEntity(vc.parsedCredential);
-			if (ref) tokens.set(vc.batchId, ref);
+		for (const cred of vcEntityList) {
+			for (const instance of cred.instances) {
+				if (instance.statusList) tokens.set(
+					instance.credentialId,
+					instance.statusList,
+				);
+			}
 		}
 
 		tokenStatusLists.setTokens(tokens);
@@ -79,10 +84,21 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 	 */
 	const vcEntityListWithDeps = useMemo(
 		() =>
-			vcEntityList?.map((vc) => ({
-				...vc,
-				status: vcEntityStatuses.get(vc.batchId),
-			})) ?? null,
+			vcEntityList?.map((vc) => {
+				const instances = vc.instances.map((i) => ({
+					...i,
+					status: vcEntityStatuses.get(i.credentialId),
+				}));
+
+				return {
+					...vc,
+					instances,
+					status: deriveTokenBatchStatus(instances.map(i => ({
+						status: i.status,
+						spent: i.sigCount > 0,
+					}))),
+				};
+			}) ?? null,
 		[vcEntityList, vcEntityStatuses],
 	);
 
@@ -183,14 +199,18 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 			return null;
 		}
 		// Create a map of instances grouped by credentialIdentifier
-		const instancesMap = credentials.reduce((acc: any, vcEntity: WalletStateCredential) => {
+		const instancesMap = credentials.reduce((acc: Record<number, Instance[]>, vcEntity: WalletStateCredential) => {
 			if (!acc[vcEntity.batchId]) {
 				acc[vcEntity.batchId] = [];
 			}
 
+			const statusList = getTokenStatusListEntity(vcEntity.data, vcEntity.format);
+
 			acc[vcEntity.batchId].push({
 				instanceId: vcEntity.instanceId,
+				credentialId: vcEntity.credentialId,
 				sigCount: presentations.filter(x => x.usedCredentialIds.includes(vcEntity.credentialId)).length,
+				statusList,
 			});
 			return acc;
 		}, {});

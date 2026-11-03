@@ -49,7 +49,7 @@ export function matchCredentials(
 	credentials: ExtendedVcEntity[],
 	dcqlQuery: DcqlQuery.Input
 ): CredentialsMatchedResult {
-	const notRevoked = credentials.filter((credential) => !isRevokedOrSuspended(credential));
+	const notRevoked = credentials.filter((credential) => !TokenStatus.isBlocked(credential.status));
 	const usable = notRevoked.filter((credential) => !credential.isExpired);
 	const result = runMatch(usable, dcqlQuery);
 	if (result.matches.length > 0 || usable.length === credentials.length) {
@@ -65,15 +65,6 @@ export function matchCredentials(
 	}
 
 	return result;
-}
-
-/**
- * Unknown or pending statuses stay presentable, so presentation keeps working offline.
- */
-export function isRevokedOrSuspended(credential: ExtendedVcEntity): boolean {
-	return credential.status === TokenStatus.INVALID
-		|| credential.status === TokenStatus.SUSPENDED
-		|| credential.status === TokenStatus.REJECTED;
 }
 
 function runMatch(

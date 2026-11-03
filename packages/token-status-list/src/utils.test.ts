@@ -3,7 +3,7 @@ import { base64url } from 'jose';
 import { TokenStatus } from './resources';
 import {
 	decompressStatusListToArray,
-	getStatusListTokenEntity,
+	deriveTokenBatchStatus,
 	readTokenStatusFromArray,
 	resolveTokenStatus,
 } from './utils';
@@ -89,31 +89,79 @@ describe('resolveTokenStatus', () => {
 	});
 });
 
-describe('getStatusListTokenEntity', () => {
-	it('returns undefined without a status reference', () => {
-		expect(getStatusListTokenEntity({ validityInfo: {} })).toBeUndefined();
+describe('deriveTokenBatchStatus', () => {
+	const unused = (status?: TokenStatus) => ({ status, spent: false });
+	const spent = (status?: TokenStatus) => ({ status, spent: true });
+
+	it('is valid when an unused instance is valid', () => {
+		expect(
+			deriveTokenBatchStatus([
+				unused(TokenStatus.INVALID),
+				unused(TokenStatus.VALID),
+			]),
+		).toBe(TokenStatus.VALID);
 	});
 
-	it('takes uri, idx and iat in seconds', () => {
-		const entity = getStatusListTokenEntity({
-			statusReference: { uri: 'https://example.com/list', idx: 42 },
-			validityInfo: { signed: new Date(1_700_000_000_500) },
-		});
-
-		expect(entity).toEqual({
-			uri: 'https://example.com/list',
-			idx: 42,
-			iat: 1_700_000_000,
-		});
+	it('ignores spent instances while unused ones remain', () => {
+		expect(
+			deriveTokenBatchStatus([
+				spent(TokenStatus.INVALID),
+				unused(TokenStatus.VALID),
+			]),
+		).toBe(TokenStatus.VALID);
 	});
 
-	it('leaves iat undefined when the signing time is unknown', () => {
-		const entity = getStatusListTokenEntity({
-			statusReference: { uri: 'https://example.com/list', idx: 0 },
-			validityInfo: {},
-		});
+	it('is blocked when every unused instance is blocked', () => {
+		expect(
+			deriveTokenBatchStatus([
+				spent(TokenStatus.VALID),
+				unused(TokenStatus.INVALID),
+			]),
+		).toBe(TokenStatus.INVALID);
+	});
 
-		expect(entity?.iat).toBeUndefined();
+	it('reports the worst blocked status', () => {
+		expect(
+			deriveTokenBatchStatus([
+				unused(TokenStatus.SUSPENDED),
+				unused(TokenStatus.INVALID),
+			]),
+		).toBe(TokenStatus.INVALID);
+		expect(
+			deriveTokenBatchStatus([
+				unused(TokenStatus.SUSPENDED),
+				unused(TokenStatus.REJECTED),
+			]),
+		).toBe(TokenStatus.REJECTED);
+	});
+
+	it('reports the best usable status', () => {
+		expect(
+			deriveTokenBatchStatus([
+				unused(TokenStatus.UNKNOWN),
+				unused(TokenStatus.PENDING),
+			]),
+		).toBe(TokenStatus.PENDING);
+	});
+
+	it('looks at every instance once all are spent', () => {
+		expect(
+			deriveTokenBatchStatus([
+				spent(TokenStatus.INVALID),
+				spent(TokenStatus.INVALID),
+			]),
+		).toBe(TokenStatus.INVALID);
+		expect(
+			deriveTokenBatchStatus([
+				spent(TokenStatus.INVALID),
+				spent(TokenStatus.VALID),
+			]),
+		).toBe(TokenStatus.VALID);
+	});
+
+	it('is undefined when no instance has a status yet', () => {
+		expect(deriveTokenBatchStatus([unused(), unused()])).toBeUndefined();
+		expect(deriveTokenBatchStatus([])).toBeUndefined();
 	});
 });
 

@@ -41,6 +41,17 @@ export namespace TokenStatus {
 	export function label(status: TokenStatus): string {
 		return TokenStatus[status].toLowerCase();
 	}
+
+	/**
+	 * Revoked, suspended or rejected: must not be presented.
+	 */
+	export function isBlocked(status?: TokenStatus): boolean {
+		return (
+			status === TokenStatus.INVALID ||
+			status === TokenStatus.SUSPENDED ||
+			status === TokenStatus.REJECTED
+		);
+	}
 }
 
 export class TokenStatusListsError extends Error {
