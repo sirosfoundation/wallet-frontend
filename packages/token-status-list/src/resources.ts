@@ -58,7 +58,8 @@ const verifiedSchema = z.object({
 	ttl: z.number().optional(),
 	expires_at: z.number(),
 	etag: z.string(),
-	signer_trust: z.string(),
+	// We don't use this field at the moment.
+	signer_trust: z.string().optional(),
 });
 
 const notModifiedSchema = z.object({
