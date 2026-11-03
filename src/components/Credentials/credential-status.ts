@@ -68,7 +68,9 @@ export const CREDENTIAL_STATUSES = {
 export function getCredentialStatuses(vcEntity?: ExtendedVcEntity): CredentialStatus[] {
 	const statuses: CredentialStatus[] = [];
 	if (vcEntity?.isExpired) statuses.push(CREDENTIAL_STATUSES.expired);
-	if (vcEntity?.status === TokenStatus.INVALID) statuses.push(CREDENTIAL_STATUSES.invalid);
+	if (vcEntity?.status === TokenStatus.INVALID || vcEntity?.status === TokenStatus.REJECTED) {
+		statuses.push(CREDENTIAL_STATUSES.invalid);
+	}
 	if (vcEntity?.status === TokenStatus.SUSPENDED) statuses.push(CREDENTIAL_STATUSES.suspended);
 	if (vcEntity?.isBatchExhausted) statuses.push(CREDENTIAL_STATUSES.batchExhausted);
 	return statuses;

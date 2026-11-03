@@ -71,7 +71,9 @@ export function matchCredentials(
  * Unknown or pending statuses stay presentable, so presentation keeps working offline.
  */
 export function isRevokedOrSuspended(credential: ExtendedVcEntity): boolean {
-	return credential.status === TokenStatus.INVALID || credential.status === TokenStatus.SUSPENDED;
+	return credential.status === TokenStatus.INVALID
+		|| credential.status === TokenStatus.SUSPENDED
+		|| credential.status === TokenStatus.REJECTED;
 }
 
 function runMatch(

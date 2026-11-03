@@ -94,14 +94,14 @@ describe('TokenStatusLists', () => {
 		);
 	});
 
-	it('marks an out-of-range index UNKNOWN and reports it', async () => {
+	it('marks an out-of-range index REJECTED and reports it', async () => {
 		const list = await verified(A, [0]);
 		const { service, onError } = setup(() => [list]);
 
 		service.setTokens(tokens([[1, { uri: A, idx: 10 }]]));
 
 		await vi.waitFor(() =>
-			expect(service.getStatuses().get(1)).toBe(TokenStatus.UNKNOWN),
+			expect(service.getStatuses().get(1)).toBe(TokenStatus.REJECTED),
 		);
 		expect(onError).toHaveBeenCalledWith(
 			expect.objectContaining({ kind: 'out_of_range' }),

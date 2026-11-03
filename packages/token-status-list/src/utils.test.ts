@@ -77,8 +77,14 @@ describe('resolveTokenStatus', () => {
 		expect(resolveTokenStatus(2)).toBe(TokenStatus.SUSPENDED);
 	});
 
-	it('treats any other value as unknown', () => {
-		expect(resolveTokenStatus(3)).toBe(TokenStatus.UNKNOWN);
+	it('rejects reserved values', () => {
+		expect(resolveTokenStatus(0x04)).toBe(TokenStatus.REJECTED);
+		expect(resolveTokenStatus(0x0b)).toBe(TokenStatus.REJECTED);
+	});
+
+	it('treats application-specific and other values as unknown', () => {
+		expect(resolveTokenStatus(0x03)).toBe(TokenStatus.UNKNOWN);
+		expect(resolveTokenStatus(0x0c)).toBe(TokenStatus.UNKNOWN);
 		expect(resolveTokenStatus(255)).toBe(TokenStatus.UNKNOWN);
 	});
 });

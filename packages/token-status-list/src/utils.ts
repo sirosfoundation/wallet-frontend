@@ -3,6 +3,10 @@ import type { ParsedCredential } from 'wallet-common';
 import { TokenStatus, TokenStatusListsError } from './resources';
 import { TokenEntity } from './types';
 
+// Draft §7.1: values 0x04-0x0B are reserved for future registration.
+const RESERVED_STATUS_MIN = 0x04;
+const RESERVED_STATUS_MAX = 0x0b;
+
 export async function decompressStatusListToArray(
 	list: string,
 ): Promise<Uint8Array> {
@@ -49,7 +53,9 @@ export function resolveTokenStatus(status: number): TokenStatus {
 		case TokenStatus.SUSPENDED:
 			return TokenStatus.SUSPENDED;
 		default:
-			return TokenStatus.UNKNOWN;
+			return status >= RESERVED_STATUS_MIN && status <= RESERVED_STATUS_MAX
+				? TokenStatus.REJECTED
+				: TokenStatus.UNKNOWN;
 	}
 }
 

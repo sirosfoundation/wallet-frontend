@@ -305,7 +305,7 @@ export class TokenStatusLists implements ITokenStatusLists {
 			} catch (err) {
 				if (!(err instanceof TokenStatusListsError)) throw err;
 				this.#onError?.(err);
-				current.set(id, TokenStatus.UNKNOWN);
+				current.set(id, TokenStatus.REJECTED);
 			}
 		}
 

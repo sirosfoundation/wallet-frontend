@@ -281,6 +281,7 @@ describe('matchCredentials: status', () => {
 	it.each([
 		['revoked', TokenStatus.INVALID],
 		['suspended', TokenStatus.SUSPENDED],
+		['rejected', TokenStatus.REJECTED],
 	])('does not offer a %s credential', (_, status) => {
 		const result = matchCredentials([pid(1, { status })], query);
 

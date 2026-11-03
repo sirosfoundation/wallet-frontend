@@ -21,8 +21,8 @@ export enum TokenStatus {
 	 */
 	SUSPENDED = 2,
 	/**
-	 * Not spec: any other list value (application-specific or reserved),
-	 * or an index outside the list. Must not be shown as valid.
+	 * Not spec: an application-specific list value, or a list token past its exp.
+	 * Says nothing either way, so the token stays usable.
 	 */
 	UNKNOWN = -1,
 	/**
@@ -30,6 +30,11 @@ export enum TokenStatus {
 	 * so it says nothing about this token yet.
 	 */
 	PENDING = -2,
+	/**
+	 * Not spec: an index outside the list or a reserved value (0x04-0x0B).
+	 * A verifier MUST reject the token (draft §8.3), so it must not be presented.
+	 */
+	REJECTED = -3,
 }
 
 export namespace TokenStatus {
