@@ -74,6 +74,26 @@ describe('TokenStatusLists', () => {
 		);
 	});
 
+	it('marks a token UNKNOWN once its cached list has expired', async () => {
+		const responses: StatusList[][] = [
+			[await verified(A, [0b01], { ttl: 60, exp: NOW + 120 })],
+		];
+		const { service } = setup(() => responses.shift() ?? [
+			{ uri: A, state: 'undetermined', reason: 'fetch_failed' },
+		]);
+
+		service.setTokens(tokens([[1, { uri: A, idx: 0 }]]));
+		await vi.waitFor(() =>
+			expect(service.getStatuses().get(1)).toBe(TokenStatus.INVALID),
+		);
+
+		// Offline: the refresh fails and the list's exp passes.
+		await vi.advanceTimersByTimeAsync(INTERVAL);
+		await vi.waitFor(() =>
+			expect(service.getStatuses().get(1)).toBe(TokenStatus.UNKNOWN),
+		);
+	});
+
 	it('marks an out-of-range index UNKNOWN and reports it', async () => {
 		const list = await verified(A, [0]);
 		const { service, onError } = setup(() => [list]);
@@ -250,7 +270,8 @@ async function verified(
 		iat = NOW,
 		ttl = 3600,
 		etag = 'e1',
-	}: { iat?: number; ttl?: number; etag?: string } = {},
+		exp,
+	}: { iat?: number; ttl?: number; etag?: string; exp?: number } = {},
 ): Promise<StatusList> {
 	return {
 		uri,
@@ -258,6 +279,7 @@ async function verified(
 		bits: 2,
 		lst: await compress(bytes),
 		iat,
+		exp,
 		etag,
 		expiresAt: NOW + ttl,
 		signerTrust: 'trusted',

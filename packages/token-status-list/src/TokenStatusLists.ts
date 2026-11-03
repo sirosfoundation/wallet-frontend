@@ -228,6 +228,7 @@ export class TokenStatusLists implements ITokenStatusLists {
 							bits: list.bits,
 							etag: list.etag,
 							iat: list.iat,
+							exp: list.exp,
 							expiresAt: list.expiresAt * 1000,
 							statuses: decompressed,
 						};
@@ -274,6 +275,11 @@ export class TokenStatusLists implements ITokenStatusLists {
 			// A list signed before the token was issued says nothing about it.
 			if (token.iat !== undefined && list.iat < token.iat) {
 				current.set(id, TokenStatus.PENDING);
+				continue;
+			}
+
+			if (list.exp && Date.now() > (list.exp * 1000)) {
+				current.set(id, TokenStatus.UNKNOWN);
 				continue;
 			}
 
