@@ -223,6 +223,27 @@ describe('TokenStatusLists', () => {
 		await vi.waitFor(() => expect(source.fetchLists).toHaveBeenCalledTimes(2));
 	});
 
+	it('does not run a check when setTokens gets the same tokens again', async () => {
+		const list = await verified(A, [0]);
+		const { service, storage } = setup(() => [list]);
+		const getAll = vi.spyOn(storage, 'getAll');
+
+		service.setTokens(tokens([[1, { uri: A, idx: 0 }]]));
+		await vi.waitFor(() =>
+			expect(service.getStatuses().get(1)).toBe(TokenStatus.VALID),
+		);
+		expect(getAll).toHaveBeenCalledTimes(1);
+
+		// Rebuilt entries with the same values, as from a re-rendered vcEntityList.
+		service.setTokens(tokens([[1, { uri: A, idx: 0 }]]));
+		await vi.advanceTimersByTimeAsync(200);
+		expect(getAll).toHaveBeenCalledTimes(1);
+
+		service.setTokens(tokens([[1, { uri: A, idx: 1 }]]));
+		await vi.advanceTimersByTimeAsync(200);
+		expect(getAll).toHaveBeenCalledTimes(2);
+	});
+
 	it('stops fetching once the source is unavailable', async () => {
 		const lists: Record<string, StatusList> = {
 			[A]: await verified(A, [0]),

@@ -80,6 +80,18 @@ export class TokenStatusLists implements ITokenStatusLists {
 	}
 
 	public setTokens(tokens: Map<TokenId, TokenEntity>): void {
+		const unchanged =
+			tokens.size === this.#tokens.size &&
+			[...tokens].every(([id, token]) => {
+				const old = this.#tokens.get(id);
+				return (
+					old?.uri === token.uri &&
+					old.idx === token.idx &&
+					old.iat === token.iat
+				);
+			});
+		if (unchanged) return;
+
 		this.#tokens.clear();
 		for (const [id, ref] of tokens) this.#tokens.set(id, ref);
 
