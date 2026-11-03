@@ -40,8 +40,8 @@ export class TokenStatusLists implements ITokenStatusLists {
 
 	// Lists that came back undetermined, by URI.
 	#backoff = new Map<string, { until: number; delay: number }>();
-
 	#debounce?: ReturnType<typeof setTimeout>;
+	#disposed = false;
 
 	constructor(
 		{
@@ -60,7 +60,9 @@ export class TokenStatusLists implements ITokenStatusLists {
 	}
 
 	public dispose(): void {
+		this.#disposed = true;
 		this.#subscribers.clear();
+		this.#source.dispose?.();
 		clearInterval(this.#schedule);
 		clearTimeout(this.#debounce);
 	}
@@ -94,6 +96,10 @@ export class TokenStatusLists implements ITokenStatusLists {
 		return this.#statuses;
 	}
 
+	public async settled(): Promise<void> {
+		await this.#inFlight?.catch(() => {});
+	}
+
 	#queueRestart() {
 		clearTimeout(this.#debounce);
 		this.#debounce = setTimeout(() => this.#restartSchedule(), 100);
@@ -106,6 +112,8 @@ export class TokenStatusLists implements ITokenStatusLists {
 	}
 
 	async #runCheck() {
+		if (this.#disposed) return;
+
 		// Tokens changed mid-check, so run again afterwards instead of skipping.
 		if (this.#inFlight) {
 			this.#rerun = true;

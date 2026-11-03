@@ -100,6 +100,10 @@ export interface ITokenStatusLists {
 	 * Clean up resources and stop any background tasks.
 	 */
 	dispose(): void;
+	/**
+	 * Wait for any ongoing checks to finish.
+	 */
+	settled(): Promise<void>;
 }
 
 /**

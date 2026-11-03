@@ -45,6 +45,7 @@ export const TokenStatusListsContextProvider: FC<PropsWithChildren> = ({
 
 		void (async () => {
 			try {
+				await value.settled();
 				await clearTokenStatusLists();
 			} catch (err) {
 				logger.error('Failed to clear token status lists', err);
