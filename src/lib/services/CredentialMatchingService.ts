@@ -58,10 +58,10 @@ export function matchCredentials(
 
 	// Say why when only unusable credentials would have satisfied the request.
 	if (notRevoked.length > usable.length && runMatch(notRevoked, dcqlQuery).matches.length > 0) {
-		return { matches: [], code: 'CREDENTIAL_EXPIRED' };
+		return { matches: [], code: 'CREDENTIAL_EXPIRED', no_match_reason: 'Only expired credentials match the request' };
 	}
 	if (credentials.length > notRevoked.length && runMatch(credentials, dcqlQuery).matches.length > 0) {
-		return { matches: [], code: 'CREDENTIAL_REVOKED_OR_SUSPENDED' };
+		return { matches: [], code: 'CREDENTIAL_REVOKED_OR_SUSPENDED', no_match_reason: 'Only revoked or suspended credentials match the request' };
 	}
 
 	return result;
