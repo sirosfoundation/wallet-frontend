@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useContext, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useContext, useRef, useEffect, useMemo, useSyncExternalStore } from 'react';
 import SessionContext from './SessionContext';
 import { initializeCredentialEngine } from "../lib/initializeCredentialEngine";
 import { AuthZENClient, AuthZENClientConfig, CredentialVerificationError, ParsedCredential } from "wallet-common";
@@ -10,6 +10,9 @@ import { BACKEND_URL } from '@/config';
 import { getTenantFromUrlPath } from '@/lib/tenant';
 import { useHttpClient } from '@/hooks/useHttpClient';
 import { createDeferred } from '@/lib/utils/createDeferred';
+import { useTokenStatusLists } from '@/hooks/useTokenStatusLists';
+import { deriveTokenBatchStatus, TokenEntity, TokenId } from '@sirosfoundation/token-status-list';
+import { getTokenStatusListEntity } from '@/lib/verifiable-credentials';
 
 type WalletStateCredential = CurrentSchema.WalletStateCredential;
 
@@ -47,6 +50,57 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 		};
 		return AuthZENClient(clientConfig);
 	}, [authTokens, httpClient]);
+
+	const tokenStatusLists = useTokenStatusLists();
+
+	useEffect(() => {
+		if (!vcEntityList) return;
+		const tokens = new Map<TokenId, TokenEntity>();
+		for (const cred of vcEntityList) {
+			for (const instance of cred.instances) {
+				if (instance.statusList) tokens.set(
+					instance.credentialId,
+					instance.statusList,
+				);
+			}
+		}
+
+		tokenStatusLists.setTokens(tokens);
+	}, [vcEntityList, tokenStatusLists]);
+
+
+	const subscribeToStatuses = useCallback(
+		(onChange: () => void) => tokenStatusLists.subscribe(onChange),
+		[tokenStatusLists],
+	);
+	const getStatuses = useCallback(
+		() => tokenStatusLists.getStatuses(),
+		[tokenStatusLists],
+	);
+	const vcEntityStatuses = useSyncExternalStore(subscribeToStatuses, getStatuses);
+
+	/**
+	 * Combine VCs with external info, for now just status.
+	 */
+	const vcEntityListWithDeps = useMemo(
+		() =>
+			vcEntityList?.map((vc) => {
+				const instances = vc.instances.map((i) => ({
+					...i,
+					status: vcEntityStatuses.get(i.credentialId),
+				}));
+
+				return {
+					...vc,
+					instances,
+					status: deriveTokenBatchStatus(instances.map(i => ({
+						status: i.status,
+						spent: i.sigCount > 0,
+					}))),
+				};
+			}) ?? null,
+		[vcEntityList, vcEntityStatuses],
+	);
 
 	useEffect(() => {
 		if (!getCalculatedWalletState) return;
@@ -145,14 +199,18 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 			return null;
 		}
 		// Create a map of instances grouped by credentialIdentifier
-		const instancesMap = credentials.reduce((acc: any, vcEntity: WalletStateCredential) => {
+		const instancesMap = credentials.reduce((acc: Record<number, Instance[]>, vcEntity: WalletStateCredential) => {
 			if (!acc[vcEntity.batchId]) {
 				acc[vcEntity.batchId] = [];
 			}
 
+			const statusList = getTokenStatusListEntity(vcEntity.data, vcEntity.format);
+
 			acc[vcEntity.batchId].push({
 				instanceId: vcEntity.instanceId,
+				credentialId: vcEntity.credentialId,
 				sigCount: presentations.filter(x => x.usedCredentialIds.includes(vcEntity.credentialId)).length,
+				statusList,
 			});
 			return acc;
 		}, {});
@@ -237,7 +295,7 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 	}, [getData, getCalculatedWalletState, credentialEngine, isLoggedIn]);
 
 	const value = useMemo(() => ({
-		vcEntityList,
+		vcEntityList: vcEntityListWithDeps,
 		latestCredentials,
 		fetchVcData,
 		getData,
@@ -248,7 +306,7 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 		pendingTransactions,
 		removeCredential,
 	}), [
-		vcEntityList,
+		vcEntityListWithDeps,
 		latestCredentials,
 		fetchVcData,
 		getData,

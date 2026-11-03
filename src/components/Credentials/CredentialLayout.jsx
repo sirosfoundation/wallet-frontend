@@ -1,4 +1,4 @@
-// External libraries
+import { TokenStatus } from '@sirosfoundation/token-status-list';
 import React, { useState, useEffect, useContext } from 'react';
 import { Link, useParams, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
@@ -106,7 +106,14 @@ const CredentialLayout = ({ children, title = null, displayCredentialInfo = null
 					<UsageStats zeroSigCount={zeroSigCount} sigTotal={sigTotal} screenType={screenType} t={t} />
 				)}
 
-				{(vcEntity?.isExpired || vcEntity?.isBatchExhausted) && (
+				{(
+					vcEntity &&
+					(
+						vcEntity.isExpired ||
+						vcEntity.isBatchExhausted ||
+						TokenStatus.isBlocked(vcEntity.status)
+					)
+				) && (
 					<CredentialStatusDetails vcEntity={vcEntity} />
 				)}
 

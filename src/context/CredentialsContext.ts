@@ -1,5 +1,6 @@
 // CredentialsContext.ts
 import { CurrentSchema } from '@/services/WalletStateSchema';
+import { TokenEntity, TokenStatus } from '@sirosfoundation/token-status-list';
 import { createContext } from 'react';
 import { ParsedCredential, ParsingEngineI, CredentialVerifier } from 'wallet-common';
 
@@ -12,8 +13,11 @@ type CredentialEngine = {
 };
 
 export type Instance = {
+	credentialId: number;
 	instanceId: number;
 	sigCount: number;
+	statusList?: TokenEntity;
+	status?: TokenStatus;
 }
 
 export type ExtendedVcEntity = WalletStateCredential & {
@@ -22,6 +26,7 @@ export type ExtendedVcEntity = WalletStateCredential & {
 	isBatchExhausted: boolean;
 	instances: Instance[];
 	sigCount: number; // calculate usage by parsing all presentation history
+	status?: TokenStatus;
 }
 
 export type CredentialsContextValue = {

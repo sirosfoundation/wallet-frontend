@@ -252,6 +252,14 @@
 				"description": "Anslutningen avbröts. Försök igen.",
 				"title": "Anslutningen bröts"
 			},
+			"CREDENTIAL_EXPIRED": {
+				"description": "De intyg som matchar denna förfrågan har gått ut och kan inte delas.",
+				"title": "Intyget har gått ut"
+			},
+			"CREDENTIAL_REVOKED_OR_SUSPENDED": {
+				"description": "De intyg som matchar denna förfrågan har återkallats eller spärrats av utfärdaren och kan inte delas.",
+				"title": "Intyget är inte giltigt"
+			},
 			"FLOW_ERROR": {
 				"description": "Ett fel inträffade under intygsflödet. Försök igen.",
 				"title": "Flödesfel"
@@ -440,6 +448,18 @@
 				"label": "Har gått ut",
 				"short": "Behöver förnyas.",
 				"title": "Intyget har gått ut"
+			},
+			"invalid": {
+				"description": "Utfärdaren har återkallat detta intyg, så det kan inte längre användas. Kontakta utfärdaren om du tror att det är ett misstag.",
+				"label": "Återkallat",
+				"short": "Återkallat av utfärdaren.",
+				"title": "Intyget har återkallats"
+			},
+			"suspended": {
+				"description": "Utfärdaren har tillfälligt spärrat detta intyg. Det kan inte användas just nu, men det kan bli användbart igen. Kontakta utfärdaren för mer information.",
+				"label": "Spärrat",
+				"short": "Tillfälligt otillgängligt.",
+				"title": "Intyget är spärrat"
 			}
 		}
 	},

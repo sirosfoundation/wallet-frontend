@@ -252,6 +252,14 @@
 				"description": "A ligação foi interrompida. Tente novamente.",
 				"title": "Ligação Perdida"
 			},
+			"CREDENTIAL_EXPIRED": {
+				"description": "As credenciais que correspondem a este pedido expiraram e não podem ser partilhadas.",
+				"title": "Credencial Expirada"
+			},
+			"CREDENTIAL_REVOKED_OR_SUSPENDED": {
+				"description": "As credenciais que correspondem a este pedido foram revogadas ou suspensas pelo emissor e não podem ser partilhadas.",
+				"title": "Credencial Inválida"
+			},
 			"FLOW_ERROR": {
 				"description": "Ocorreu um erro durante o fluxo de credencial. Tente novamente.",
 				"title": "Erro de Fluxo"
@@ -440,6 +448,18 @@
 				"label": "Expirada",
 				"short": "Precisa de ser atualizada.",
 				"title": "Credencial expirada"
+			},
+			"invalid": {
+				"description": "O emissor revogou esta credencial, pelo que já não pode ser utilizada. Contacte o emissor se considerar que se trata de um erro.",
+				"label": "Revogada",
+				"short": "Revogada pelo emissor.",
+				"title": "Credencial revogada"
+			},
+			"suspended": {
+				"description": "O emissor suspendeu temporariamente esta credencial. Não pode ser utilizada por agora, mas poderá voltar a estar disponível. Contacte o emissor para mais informações.",
+				"label": "Suspensa",
+				"short": "Temporariamente indisponível.",
+				"title": "Credencial suspensa"
 			}
 		}
 	},
