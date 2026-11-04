@@ -1,5 +1,5 @@
 import { TypeMetadata } from "../schemas/SdJwtVcTypeMetadataSchema";
-import { err, ok, Result } from "./Result";
+import { err, ok, Result } from "@sirosfoundation/result";
 
 export const VctResolutionErrors = {
 	InvalidSchema: "invalid_schema",

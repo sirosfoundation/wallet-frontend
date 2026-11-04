@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate } from 'react-router';
-import { Err, Ok, Result } from 'ts-results';
 import * as jose from 'jose';
-
+import { ok, err, type Result } from '@sirosfoundation/result';
 import * as config from "../config";
 import { useClearStorages, useLocalStorage, useSessionStorage } from "../hooks/useStorage";
 import { fromBase64Url, jsonStringifyTaggedBinary, toBase64Url } from '@/lib/utils';
@@ -953,7 +952,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 
 	const syncWithRemoteData = useCallback(async (remotePrivateDataRaw: Uint8Array): Promise<Result<keystore.AsymmetricEncryptedContainer, 'keystoreNotOpen' | 'mergeFailed' | 'unsupportedVersion'> > => {
 		if (!privateData || !mainKey) {
-			return Err('keystoreNotOpen');
+			return err('keystoreNotOpen');
 		}
 
 		try {
@@ -976,14 +975,14 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 			const foldedState = foldState(mergedContainer as CurrentSchema.WalletStateContainer);
 			setCalculatedWalletState(foldedState);
 
-			return Ok(newPrivateDataEncryptedContainer);
+			return ok(newPrivateDataEncryptedContainer);
 		} catch (error) {
 			if (error instanceof UnsupportedSchemaVersionError) {
 				console.error("Remote data has a schema version this wallet does not support", error);
-				return Err('unsupportedVersion');
+				return err('unsupportedVersion');
 			}
 			console.error("Failed to sync with remote data", error);
-			return Err('mergeFailed');
+			return err('mergeFailed');
 		}
 	}, [privateData, mainKey, assertKeystoreOpen, writePrivateDataOnIdb, userHandleB64u, setPrivateData, setMainKey, setCalculatedWalletState]);
 

@@ -1,5 +1,5 @@
 import axios, { AxiosResponse } from 'axios';
-import { Err, Ok, Result } from 'ts-results';
+import { ok, err, Result } from '@sirosfoundation/result';
 
 import * as config from '../config';
 import { logger } from '../logger';
@@ -278,11 +278,11 @@ export function useApi({
 
 		try {
 			if (!isOnline) {
-				return Ok.EMPTY;
+				return ok.EMPTY;
 			}
 			const getPrivateDataResponse = await get('/user/session/private-data', { headers: { 'If-None-Match': getPrivateDataEtag() } });
 			if (getPrivateDataResponse.status === 304) {
-				return Ok.EMPTY; // already synced
+				return ok.EMPTY; // already synced
 			}
 
 			// Try to merge without re-authentication if keystore is available
@@ -292,7 +292,7 @@ export function useApi({
 					const mergeResult = await keystore.syncWithRemoteData(remotePrivateData);
 					if (!mergeResult.ok && mergeResult.val === 'unsupportedVersion') {
 						notify('unsupportedVersion');
-						return Err('unsupportedVersion');
+						return err('unsupportedVersion');
 					}
 					if (mergeResult.ok) {
 						const newEtag =
@@ -305,7 +305,7 @@ export function useApi({
 						);
 						if (updateResp.status === 204) {
 							console.debug('syncPrivateData: merged remote and local data successfully');
-							return Ok.EMPTY;
+							return ok.EMPTY;
 						}
 					}
 				} catch (mergeErr) {
@@ -325,15 +325,15 @@ export function useApi({
 			queryParams.append('sync', 'fail');
 
 			navigate(`${window.location.pathname}?${queryParams.toString()}`, { replace: true });
-			return Err('syncFailed');
+			return err('syncFailed');
 		}
 		catch (err) {
 			if (typeof err === 'object' && err !== null && 'cause' in err && err.cause === 'x-private-data-etag') {
 				logger.debug('syncPrivateData: private data etag conflict', err);
-				return Err('x-private-data-etag');
+				return err('x-private-data-etag');
 			}
 			logger.error('syncPrivateData failed', err);
-			return Err('syncFailed');
+			return err('syncFailed');
 		}
 
 	}, [getPrivateDataEtag, get, navigate, isOnline, post, updatePrivateDataEtag]);
@@ -572,9 +572,9 @@ export function useApi({
 				} catch (e) {
 					logger.error("Failed to upgrade PRF key", e, e.status);
 					if (e?.cause === 'x-private-data-etag') {
-						return Err('x-private-data-etag');
+						return err('x-private-data-etag');
 					}
-					return Err('loginKeystoreFailed');
+					return err('loginKeystoreFailed');
 				}
 			}
 
@@ -593,28 +593,28 @@ export function useApi({
 			}
 
 			await setSession(userRecord, credential, 'login');
-			return Ok.EMPTY;
+			return ok.EMPTY;
 
 		} catch (e) {
 			logger.error("Login failed", e);
 
 			if (e instanceof UnsupportedSchemaVersionError) {
-				return Err('unsupportedVersion');
+				return err('unsupportedVersion');
 			}
 
 			if (e?.response?.status === 401) {
 				// OIDC gate token expired or invalid - user must re-authenticate via IdP
-				return Err('oidcTokenExpired');
+				return err('oidcTokenExpired');
 			}
 			if (e?.response?.status === 403) {
 				// Tenant access denied - passkey belongs to different tenant
-				return Err('passkeyLoginFailedTryAgain');
+				return err('passkeyLoginFailedTryAgain');
 			}
 			if (e?.name === 'NotAllowedError') {
 				// User cancelled or passkey not available
-				return Err('passkeyLoginFailedTryAgain');
+				return err('passkeyLoginFailedTryAgain');
 			}
-			return Err('passkeyLoginFailedServerError');
+			return err('passkeyLoginFailedServerError');
 		}
 	}, [authServer, authedRequest, updatePrivateDataEtag, updatePrivateData, setSession, isOnline]);
 
@@ -718,39 +718,39 @@ export function useApi({
 							credential,
 							'signup',
 						);
-						return Ok.EMPTY;
+						return ok.EMPTY;
 
 					} catch (e) {
 						if (e?.response?.status === 401) {
 							// OIDC gate token expired or invalid - user must re-authenticate via IdP
-							return Err('oidcTokenExpired');
+							return err('oidcTokenExpired');
 						}
-						return Err('passkeySignupFailedServerError');
+						return err('passkeySignupFailedServerError');
 					}
 
 				} catch (e) {
 					if (e?.cause?.errorId === "prf_retry_failed") {
-						return Err({ errorId: 'prfRetryFailed', retryFrom: { credential, beginData } });
+						return err({ errorId: 'prfRetryFailed', retryFrom: { credential, beginData } });
 					} else if (e?.cause?.errorId === "prf_not_supported") {
-						return Err('passkeySignupPrfNotSupported');
+						return err('passkeySignupPrfNotSupported');
 					} else {
-						return Err('passkeySignupKeystoreFailed');
+						return err('passkeySignupKeystoreFailed');
 					}
 				}
 
 			} catch (e) {
-				return Err('passkeySignupFailedTryAgain');
+				return err('passkeySignupFailedTryAgain');
 			}
 
 		} catch (e) {
 			if (e?.response?.status === 401) {
 				// OIDC gate token expired or invalid - user must re-authenticate via IdP
-				return Err('oidcTokenExpired');
+				return err('oidcTokenExpired');
 			}
 			const errorMsg = e?.response?.data?.error;
-			if (errorMsg === 'invite_required') return Err('inviteRequired');
-			if (errorMsg === 'invite_invalid') return Err('inviteInvalid');
-			return Err('passkeySignupFinishFailedServerError');
+			if (errorMsg === 'invite_required') return err('inviteRequired');
+			if (errorMsg === 'invite_invalid') return err('inviteInvalid');
+			return err('passkeySignupFinishFailedServerError');
 		}
 	}, [authServer, authedRequest, setSession, updatePrivateDataEtag]);
 
