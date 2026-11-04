@@ -56,7 +56,7 @@ const OpenIDFlowCallback: React.FC = () => {
 		const url = new URL(window.location.href);
 
 		return parseOIDFlowCallbackUrl(url, location.state);
-	}, []);
+	}, [location.state]);
 
 	if (!transportReady) return <Spinner />;
 
