@@ -1,5 +1,25 @@
 # wallet-frontend
 
+## 0.7.0-beta.5
+
+### Minor Changes
+
+- Implement Wallet State Schema V4 by [@smncd](https://github.com/smncd) in [#398](https://github.com/sirosfoundation/wallet-frontend/pull/398)
+- implemented a Label Your Security Key Popup. by [@lov1saconde](https://github.com/lov1saconde) in [#411](https://github.com/sirosfoundation/wallet-frontend/pull/411)
+- added arm64 build of container images by [@Thomas-The-Locomotive](https://github.com/Thomas-The-Locomotive) in [#391](https://github.com/sirosfoundation/wallet-frontend/pull/391)
+- Send OID4VCI `credential_accepted` notifications to the issuer after credentials are stored by [@leifj](https://github.com/leifj) in [#184](https://github.com/sirosfoundation/wallet-frontend/pull/184)
+
+### Patch Changes
+
+- use ` credentialIssuer?.credentialIssuerIdentifier` rather than `iss` as source for issuer metadata fetching by [@smncd](https://github.com/smncd) in [#418](https://github.com/sirosfoundation/wallet-frontend/pull/418)
+- Fix blank screen on a sync fail, handle the error and redirect to /login-state by [@smncd](https://github.com/smncd) in [#407](https://github.com/sirosfoundation/wallet-frontend/pull/407)
+- scope the anonymous token to `wallet-registry` rather than `wallet-backend` by [@leifj](https://github.com/leifj) in [#197](https://github.com/sirosfoundation/wallet-frontend/pull/197)
+- Report a request the wallet cannot satisfy instead of abandoning the presentation. by [@leifj](https://github.com/leifj) in [#303](https://github.com/sirosfoundation/wallet-frontend/pull/303)
+- Render a portrait claim as an image in the credential detail view, matching the presentation UI by [@jessevanmuijden](https://github.com/jessevanmuijden) in [#414](https://github.com/sirosfoundation/wallet-frontend/pull/414)
+- Scan Physical ID sits above the search bar on Add Credentials, as its own section rather than inside the credential list by [@jessevanmuijden](https://github.com/jessevanmuijden) in [#415](https://github.com/sirosfoundation/wallet-frontend/pull/415)
+- Updated dependencies [[`6fa70bc`](https://github.com/sirosfoundation/wallet-frontend/commit/6fa70bc6f0ae0a518e44868539c881fcccc1840a)]:
+  - wallet-common@0.1.0-beta.2
+
 ## 0.7.0-beta.4
 
 ### Patch Changes

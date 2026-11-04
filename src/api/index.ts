@@ -155,7 +155,7 @@ export function useApi({
 	}, []);
 
 	const authedRequest = useTokenRequest(authTokens, 'backend', getPrivateDataEtag);
-	const anonRequest   = useTokenRequest(authTokens, 'anonymous');
+	const anonRequest = useTokenRequest(authTokens, 'anonymous');
 
 	const navigate = useNavigate();
 	const clearSessionStorage = useClearStorages(clearSessionState);
