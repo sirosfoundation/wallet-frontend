@@ -31,9 +31,11 @@ import {
 } from 'wallet-common';
 import { logger } from '@/logger';
 import { HttpClient } from '@sirosfoundation/http-client';
+import { AuthTokens } from './auth';
 
 export async function initializeCredentialEngine(
 	httpClient: HttpClient,
+	authTokens: AuthTokens,
 	helper: IOpenID4VCIHelper,
 	getIssuers: () => Promise<Record<string, unknown>[]>,
 	trustedCertificates: string[] = [],
@@ -49,8 +51,10 @@ export async function initializeCredentialEngine(
 				url.searchParams.set('vct', vct);
 				const res = await httpClient.get(
 					url.toString(),
-					{},
-					{ useCache: true },
+					{
+						Authorization: `Bearer ${(await authTokens.ensureRegistryToken()).raw}`
+					},
+					{ useCache: true,  },
 				);
 				if (!res?.data || res.status !== 200)
 					return err(VctResolutionErrors.NotFound);

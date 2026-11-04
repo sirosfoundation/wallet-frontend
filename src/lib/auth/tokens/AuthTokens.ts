@@ -51,6 +51,11 @@ export class AuthTokens {
 			tac: 'rwlid',
 		},
 		'anonymous': {
+			audience: 'wallet-backend',
+			tac: 'rl',
+			anonymous: true,
+		},
+		'registry': {
 			audience: 'wallet-registry',
 			tac: 'rl',
 			anonymous: true,
@@ -130,6 +135,13 @@ export class AuthTokens {
 	}
 
 	/**
+	 * @see {@link AuthTokens.registerTokenRejection}
+	 */
+	public registerRegistryTokenRejection(): boolean {
+		return this.registerTokenRejection('registry');
+	}
+
+	/**
 	 * Ensure that a valid backend token is available.
 	 *
 	 * @see {@link AuthTokens.ensureToken}
@@ -145,6 +157,15 @@ export class AuthTokens {
 	 */
 	public async ensureAnonymousToken(): Promise<AccessTokenInterface> {
 		return this.ensureToken('anonymous');
+	}
+
+	/**
+	 * Ensure that a valid registry token is available.
+	 *
+	 * @see {@link AuthTokens.ensureToken}
+	 */
+	public async ensureRegistryToken(): Promise<AccessTokenInterface> {
+		return this.ensureToken('registry');
 	}
 
 	/**
@@ -178,6 +199,15 @@ export class AuthTokens {
 	 */
 	public anonymousTokenExists(checkExpiration: boolean = true): boolean {
 		return this.tokenExists('anonymous', checkExpiration);
+	}
+
+	/**
+	 * Check if a valid registry token exists.
+	 *
+	 * @see {@link AuthTokens.tokenExists}
+	 */
+	public registryTokenExists(checkExpiration: boolean = true): boolean {
+		return this.tokenExists('registry', checkExpiration);
 	}
 
 	/**
@@ -220,6 +250,15 @@ export class AuthTokens {
 	 */
 	public forceRefreshAnonymousToken(): Promise<AccessTokenInterface> {
 		return this.forceRefreshToken('anonymous');
+	}
+
+	/**
+	 * Force-refresh registry token.
+	 *
+	 * @see {@link AuthTokens.forceRefreshToken}
+	 */
+	public forceRefreshRegistryToken(): Promise<AccessTokenInterface> {
+		return this.forceRefreshToken('registry');
 	}
 
 	/**
