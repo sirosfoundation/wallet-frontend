@@ -28,10 +28,11 @@ import CredentialLayout from '../../components/Credentials/CredentialLayout';
 import PopupLayout from '../../components/Popups/PopupLayout';
 import CredentialImage from '../../components/Credentials/CredentialImage';
 import CredentialTabsPanel from '@/components/Credentials/CredentialTabsPanel';
+import CredentialDebugInfo from '@/components/Credentials/CredentialDebugInfo';
 
 import { useMdocAppCommunication } from '@/lib/services/MdocAppCommunication';
 import { BookCheck, QrCode } from 'lucide-react';
-import { PRESERVE_PRESENTATION_HISTORY } from '@/config';
+import { LOG_LEVEL, PRESERVE_PRESENTATION_HISTORY } from '@/config';
 import Spinner from '@/components/Shared/Spinner';
 
 const Credential = () => {
@@ -191,6 +192,9 @@ const Credential = () => {
 				<CredentialJson parsedCredential={vcEntity?.parsedCredential} />
 			),
 		},
+		...(LOG_LEVEL === 'debug' && vcEntity
+			? [{ label: 'Debug', component: <CredentialDebugInfo vcEntity={vcEntity} /> }]
+			: []),
 	];
 
 	if (loading) {
