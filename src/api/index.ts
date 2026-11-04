@@ -155,7 +155,6 @@ export function useApi({
 	}, []);
 
 	const authedRequest = useTokenRequest(authTokens, 'backend', getPrivateDataEtag);
-	const anonRequest   = useTokenRequest(authTokens, 'anonymous');
 
 	const navigate = useNavigate();
 	const clearSessionStorage = useClearStorages(clearSessionState);
@@ -230,8 +229,8 @@ export function useApi({
 		const tenantId = getTenantFromUrlPath() || 'default';
 		// Include tenant in cache key so different tenants have separate caches
 		const cacheKey = `${tenantId}:${path}`;
-		return getWithLocalDbKey(anonRequest.get, path, cacheKey, options, force);
-	}, [getWithLocalDbKey, anonRequest]);
+		return getWithLocalDbKey(authedRequest.get, path, cacheKey, options, force);
+	}, [getWithLocalDbKey, authedRequest]);
 
 	const fetchInitialData = useCallback(async (
 		userUuid: string
