@@ -2,4 +2,4 @@
 "wallet-frontend": patch
 ---
 
-use backend token for `getExternalEntity()` requests.
+split auth tokens into backend, anonymous and registry
