@@ -1,10 +1,7 @@
 import { TakeOverTabPopup } from '@/components/Popups/TakeOverTabPopup';
 import Spinner from '@/components/Shared/Spinner';
 import { SESSION_STATE_KEY } from '@/api';
-import {
-	ActiveTabLock,
-	type HandOverSession,
-} from '@/lib/active-tab';
+import { ActiveTabLock, type HandOverSession } from '@/lib/active-tab';
 import { AuthTokens } from '@/lib/auth';
 import { SESSION_TENANT_KEY } from '@/lib/tenant';
 import { logger } from '@/logger';
@@ -61,7 +58,10 @@ export const ActiveTabProvider: FC<PropsWithChildren> = ({ children }) => {
 
 		// Never switch users through a hand-over; a different user must log in.
 		const ownUserHandle = sessionStorage.getItem(SESSION_USER_HANDLE_KEY);
-		if (ownUserHandle !== null && ownUserHandle !== session[SESSION_USER_HANDLE_KEY]) {
+		if (
+			ownUserHandle !== null &&
+			ownUserHandle !== session[SESSION_USER_HANDLE_KEY]
+		) {
 			sessionStorage.clear();
 			return;
 		}
@@ -86,7 +86,9 @@ export const ActiveTabProvider: FC<PropsWithChildren> = ({ children }) => {
 
 	useEffect(() => {
 		const lock = new ActiveTabLock({ onTakenOver, onHandedOver });
-		lock.start({ passive: sessionStorage.getItem(SESSION_HANDED_OVER_KEY) !== null });
+		lock.start({
+			passive: sessionStorage.getItem(SESSION_HANDED_OVER_KEY) !== null,
+		});
 		setLock(lock);
 		return () => lock.dispose();
 	}, [onTakenOver, onHandedOver]);
