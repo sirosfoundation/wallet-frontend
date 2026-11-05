@@ -1,4 +1,9 @@
 {
+	"takeOverTabPopup": {
+		"title": "The wallet is active in another tab",
+		"description": "The wallet is already open in another tab in this browser. Switching to this tab will log you out of that tab.",
+		"takeOver": "Take Over"
+	},
 	"ConnectionStatusIcon": {
 		"qualityLabels": {
 			"connecting": "Connecting...",
