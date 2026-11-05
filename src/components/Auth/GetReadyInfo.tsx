@@ -47,7 +47,7 @@ export default function GetReadyInfo({ onBack, onCancel, onContinue }: Props) {
 							<li key={key} className="flex gap-3">
 								<div className="size-10 shrink-0 mt-1 flex items-center justify-center gap-1 rounded-sm bg-lm-gray-200 border border-lm-gray-400 dark:bg-dm-gray-800 dark:border-dm-gray-600">
 									{Icons.map((Icon, i) => (
-										<Icon 
+										<Icon
 											key={`${key}-${i}`}
 											size={Icons.length > 1 ? 16 : 20}
 											className="text-primary dark:text-white"
@@ -96,7 +96,7 @@ export default function GetReadyInfo({ onBack, onCancel, onContinue }: Props) {
 
 				{/* Buttons */}
 				<div className="space-y-3">
-					<Button 
+					<Button
 						id="getReady-continue-loginsignup"
 						variant="primary"
 						additionalClassName="w-full"
@@ -104,7 +104,7 @@ export default function GetReadyInfo({ onBack, onCancel, onContinue }: Props) {
 					>
 						{t('common.continue')}
 					</Button>
-					<Button 
+					<Button
 						id="getReady-cancel-loginsignup"
 						variant="outline"
 						additionalClassName="w-full"
