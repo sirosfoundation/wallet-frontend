@@ -126,7 +126,7 @@
 			"secondKey": { "title": "Hämta en andra säkerhetsnyckel (rekommenderas)", "text": "Du kommer att bli ombedd om du vill konfigurera en andra säkerhetsnyckel. Detta säkerställer att du kan komma åt din plånbok om du tappar bort din första nyckel." }
 		},
 		"noKey": "Har du ingen säkerhetsnyckel? <u>Prova ett annat sätt</u>.",
-		"about": {"title": "Om säkerhetsnycklar", "text": "Säkerhetsnycklar ger privat, hårdvarubaserat skydd och kräver bara en fysisk beröring eller NFC-tryck för att ge åtkomst.", "compatible": "SIROS ID fungerar med säkerhetsnycklar från Yubico, Google och fler. Se <u>kompatibla säkerhetsnycklar</u>"},
+		"about": {"title": "Om säkerhetsnycklar", "text": "Säkerhetsnycklar ger privat, hårdvarubaserat skydd och kräver bara en fysisk beröring eller NFC-tryck för att ge åtkomst.", "compatible": "SIROS ID fungerar med säkerhetsnycklar från Yubico, Google och fler. <u>Se kompatibla säkerhetsnycklar</u>", "imgAlt": "YubiKey 5C: en svart USB-C-säkerhetsnyckel med en rund gyllene beröringssensor."},
 		"tip": "<b>Tips:</b> Om din säkerhetsnyckel inte stöder NFC, sätt i den nu."
 	},
 	"loginSignup": {
