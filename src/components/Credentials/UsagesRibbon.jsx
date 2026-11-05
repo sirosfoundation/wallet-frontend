@@ -2,6 +2,9 @@
 import { GalleryHorizontalEnd } from 'lucide-react';
 import React from 'react';
 
+/**
+ * @deprecated - replaced by CredentialImageStatusOverlay
+ */
 const UsagesRibbon = ({ vcEntityInstances, borderColor }) => {
 	const zeroSigCount = vcEntityInstances?.filter(instance => instance.sigCount === 0).length || 0;
 

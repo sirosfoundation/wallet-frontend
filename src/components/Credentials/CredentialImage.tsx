@@ -1,21 +1,18 @@
 import { FC, useEffect, useState } from 'react'
 import { CredentialImageStatusOverlay } from './CredentialImageStatusOverlay';
-// import ExpiredRibbon from './ExpiredRibbon';
-// import UsagesRibbon from "./UsagesRibbon";
 import { logger } from '@/logger';
 import DefaultCred from "../../assets/images/cred.png";
 import { CredentialCardSkeleton } from '../Skeletons';
+import { ExtendedVcEntity } from '@/context/CredentialsContext';
 
 export type CredentialImageProps = {
-	vcEntity: any;
+	vcEntity: ExtendedVcEntity;
 	className?: string;
 	onClick?: () => void;
 	showRibbon?: boolean;
 	showOverlay?: boolean;
-	vcEntityInstances?: any[] | null;
 	filter?: any | null;
 	onLoad?: () => void;
-	borderColor?: string;
 	fixedRatio?: boolean;
 };
 
@@ -23,11 +20,8 @@ const CredentialImage: FC<CredentialImageProps> = ({
 	vcEntity,
 	className,
 	onClick = undefined,
-	showRibbon = true,
-	vcEntityInstances = null,
 	filter = null,
 	onLoad = undefined,
-	borderColor = undefined,
 	showOverlay = true,
 	fixedRatio = true
 }) => {
@@ -78,12 +72,6 @@ const CredentialImage: FC<CredentialImageProps> = ({
 							className={`w-full h-full object-cover object-top ${className ?? ''}`}
 							onClick={onClick}
 						/>
-						{/* {vcEntity.isBatchExhausted && showRibbon &&
-							<ExpiredRibbon vcEntity={vcEntity} borderColor={borderColor} />
-						}
-						{vcEntity.isBatchExhausted !== true && showRibbon &&
-							<UsagesRibbon vcEntityInstances={vcEntityInstances} borderColor={borderColor} />
-						} */}
 						{showOverlay && (
 							<CredentialImageStatusOverlay vcEntity={vcEntity} />
 						)}
