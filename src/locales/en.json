@@ -761,6 +761,11 @@
 		"description": "Looks like you've <strong>modified your wallet in another session</strong>. Use your <strong>passkey</strong> to sync your wallet.",
 		"title": "Synchronize Wallet"
 	},
+	"takeOverTabPopup": {
+		"description": "The wallet is already open in another tab in this browser. Switching to this tab will log you out of that tab.",
+		"takeOver": "Take Over",
+		"title": "The wallet is active in another tab"
+	},
 	"tenantSelector": {
 		"closePopup": "Close popup",
 		"currentTenantHeading": "Current tenant",

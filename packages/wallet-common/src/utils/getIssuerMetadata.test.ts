@@ -4,7 +4,7 @@ import { HttpClient } from "../interfaces";
 import { CredentialParsingError } from "../error";
 import { MetadataWarning } from "../types";
 import { IAuthZENClient } from "../authzen/AuthZENClient";
-import { ok, err } from "../core/Result";
+import { ok, err } from "@sirosfoundation/result";
 import { AuthZENErrorCode } from "../authzen/types";
 
 describe("getIssuerMetadata", () => {

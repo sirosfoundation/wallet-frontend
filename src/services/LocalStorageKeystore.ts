@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate } from 'react-router';
-import { Err, Ok, Result } from 'ts-results';
 import * as jose from 'jose';
-
+import { ok, err, type Result } from '@sirosfoundation/result';
 import * as config from "../config";
 import { useClearStorages, useLocalStorage, useSessionStorage } from "../hooks/useStorage";
 import { fromBase64Url, jsonStringifyTaggedBinary, toBase64Url } from '@/lib/utils';
@@ -58,6 +57,14 @@ export enum KeystoreEvent {
 }
 
 export type CommitCallback = () => Promise<void>;
+
+export const SESSION_USER_HANDLE_KEY = 'userHandle';
+export const SESSION_MAIN_KEY_KEY = 'mainKey';
+/**
+ * @deprecated Replaced by ActiveTabLock.
+ */
+export const SESSION_TAB_ID_KEY = 'tabId';
+
 export interface LocalStorageKeystore {
 	isOpen(): boolean,
 	close(): Promise<void>,
@@ -190,13 +197,19 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 	const privateDataRef = useRef<EncryptedContainer | null>(null);
 
 	const [globalUserHandleB64u, setGlobalUserHandleB64u, clearGlobalUserHandleB64u] = useLocalStorage<string | null>("userHandle", null);
-	const [userHandleB64u, setUserHandleB64u, clearUserHandleB64u] = useSessionStorage<string | null>("userHandle", null);
+	const [userHandleB64u, setUserHandleB64u, clearUserHandleB64u] = useSessionStorage<string | null>(SESSION_USER_HANDLE_KEY, null);
 
 	// A unique id for each logged in tab
+	/**
+	 * @deprecated Replaced by ActiveTabLock.
+	 */
 	const [globalTabId, setGlobalTabId, clearGlobalTabId] = useLocalStorage<string | null>("globalTabId", null);
-	const [tabId, setTabId, clearTabId] = useSessionStorage<string | null>("tabId", null);
+	/**
+	 * @deprecated Replaced by ActiveTabLock.
+	 */
+	const [tabId, setTabId, clearTabId] = useSessionStorage<string | null>(SESSION_TAB_ID_KEY, null);
 
-	const [mainKey, setMainKeyStorage, clearMainKey] = useSessionStorage<BufferSource | null>("mainKey", null);
+	const [mainKey, setMainKeyStorage, clearMainKey] = useSessionStorage<BufferSource | null>(SESSION_MAIN_KEY_KEY, null);
 	const mainKeyRef = useRef<BufferSource | null>(null);
 	const [calculatedWalletState, setCalculatedWalletState] = useState<WalletState | null>(null);
 	const clearSessionStorage = useClearStorages(clearUserHandleB64u, clearMainKey, clearTabId);
@@ -337,6 +350,9 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		[closeSessionTabLocal, privateData, userHandleB64u, globalUserHandleB64u, setCachedUsers],
 	);
 
+	/**
+	 * @deprecated Replaced by ActiveTabLock.
+	 */
 	useEffect(
 		() => {
 			if (tabId && globalTabId && (tabId !== globalTabId)) {
@@ -495,6 +511,9 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 
 			setUserHandleB64u(userHandleB64u);
 
+			/**
+			 * @deprecated Replaced by ActiveTabLock.
+			 */
 			const newTabId = tabId ?? WalletStateUtils.getRandomUint32().toString();
 			setTabId(newTabId);
 			setGlobalTabId(newTabId);
@@ -953,7 +972,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 
 	const syncWithRemoteData = useCallback(async (remotePrivateDataRaw: Uint8Array): Promise<Result<keystore.AsymmetricEncryptedContainer, 'keystoreNotOpen' | 'mergeFailed' | 'unsupportedVersion'> > => {
 		if (!privateData || !mainKey) {
-			return Err('keystoreNotOpen');
+			return err('keystoreNotOpen');
 		}
 
 		try {
@@ -976,14 +995,14 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 			const foldedState = foldState(mergedContainer as CurrentSchema.WalletStateContainer);
 			setCalculatedWalletState(foldedState);
 
-			return Ok(newPrivateDataEncryptedContainer);
+			return ok(newPrivateDataEncryptedContainer);
 		} catch (error) {
 			if (error instanceof UnsupportedSchemaVersionError) {
 				console.error("Remote data has a schema version this wallet does not support", error);
-				return Err('unsupportedVersion');
+				return err('unsupportedVersion');
 			}
 			console.error("Failed to sync with remote data", error);
-			return Err('mergeFailed');
+			return err('mergeFailed');
 		}
 	}, [privateData, mainKey, assertKeystoreOpen, writePrivateDataOnIdb, userHandleB64u, setPrivateData, setMainKey, setCalculatedWalletState]);
 

@@ -120,6 +120,7 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 		try {
 			const engine = await initializeCredentialEngine(
 				httpClient,
+				authTokens,
 				helper,
 				() => getExternalEntity("/issuer/all", undefined, useCache).then(res => res.data),
 				trustedCertificates,
@@ -135,7 +136,7 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 		} catch (err) {
 			engineDeferred.reject(err);
 		}
-	}, [httpClient, helper, getExternalEntity, authzenClient, engineDeferred]);
+	}, [httpClient, authTokens, helper, getExternalEntity, authzenClient, engineDeferred]);
 
 	useEffect(() => {
 		if (httpClient && helper) {

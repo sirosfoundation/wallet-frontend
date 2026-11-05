@@ -761,6 +761,11 @@
 		"description": "Det verkar som att du har <strong>ändrat din plånbok i en annan session</strong>. Använd din <strong>passkey</strong> för att synkronisera din plånbok.",
 		"title": "Synkronisera plånbok"
 	},
+	"takeOverTabPopup": {
+		"description": "Plånboken är redan öppen i en annan flik i den här webbläsaren. Om du byter till den här fliken loggas du ut i den andra.",
+		"takeOver": "Använd här",
+		"title": "Plånboken är aktiv i en annan flik"
+	},
 	"tenantSelector": {
 		"closePopup": "Stäng popup",
 		"currentTenantHeading": "Aktuell klient",

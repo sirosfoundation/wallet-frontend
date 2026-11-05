@@ -761,6 +761,11 @@
 		"description": "Parece que <strong>modificou a sua carteira noutra sessão</strong>. Use a sua <strong>passkey</strong> para sincronizar a sua carteira.",
 		"title": "Sincronizar Carteira"
 	},
+	"takeOverTabPopup": {
+		"description": "A carteira já está aberta noutro separador deste navegador. Mudar para este separador irá terminar a sessão nesse separador.",
+		"takeOver": "Usar aqui",
+		"title": "A carteira está ativa noutro separador"
+	},
 	"tenantSelector": {
 		"closePopup": "Fechar popup",
 		"currentTenantHeading": "Tenant atual",

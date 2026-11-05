@@ -12,6 +12,8 @@ type AuthTokensOptions = {
 type AuthTokensManifest = typeof AuthTokens.MANIFEST;
 
 export class AuthTokens {
+	static readonly #storagePrefix = 'authToken';
+
 	readonly #tenantId: string;
 	readonly #authServerClient: AuthServerClient;
 
@@ -26,7 +28,7 @@ export class AuthTokens {
 	readonly #tokens = new Map<string, AccessTokenInterface>();
 
 	readonly #tokenStorageBackend: Storage;
-	readonly #tokenStoragePrefix = 'authToken';
+	readonly #tokenStoragePrefix = AuthTokens.#storagePrefix;
 	readonly #tokenStorage = {
 		get: (tokenId: string): string | undefined => {
 			return this.#tokenStorageBackend.getItem(`${this.#tokenStoragePrefix}:${tokenId}`) ?? undefined;
@@ -51,6 +53,11 @@ export class AuthTokens {
 			tac: 'rwlid',
 		},
 		'anonymous': {
+			audience: 'wallet-backend',
+			tac: 'rl',
+			anonymous: true,
+		},
+		'registry': {
 			audience: 'wallet-registry',
 			tac: 'rl',
 			anonymous: true,
@@ -70,6 +77,19 @@ export class AuthTokens {
 		const session = new AuthTokens(options);
 		session.#loadTokensFromStorage();
 		return session;
+	}
+
+	/**
+	 * Remove every stored token from the given storage, including tokens no
+	 * instance has loaded.
+	 */
+	static clearStorage(storage: Storage): void {
+		const keys = Array.from({ length: storage.length }, (_, index) => storage.key(index));
+		for (const key of keys) {
+			if (key?.startsWith(`${AuthTokens.#storagePrefix}:`)) {
+				storage.removeItem(key);
+			}
+		}
 	}
 
 	/**
@@ -130,6 +150,13 @@ export class AuthTokens {
 	}
 
 	/**
+	 * @see {@link AuthTokens.registerTokenRejection}
+	 */
+	public registerRegistryTokenRejection(): boolean {
+		return this.registerTokenRejection('registry');
+	}
+
+	/**
 	 * Ensure that a valid backend token is available.
 	 *
 	 * @see {@link AuthTokens.ensureToken}
@@ -145,6 +172,15 @@ export class AuthTokens {
 	 */
 	public async ensureAnonymousToken(): Promise<AccessTokenInterface> {
 		return this.ensureToken('anonymous');
+	}
+
+	/**
+	 * Ensure that a valid registry token is available.
+	 *
+	 * @see {@link AuthTokens.ensureToken}
+	 */
+	public async ensureRegistryToken(): Promise<AccessTokenInterface> {
+		return this.ensureToken('registry');
 	}
 
 	/**
@@ -178,6 +214,15 @@ export class AuthTokens {
 	 */
 	public anonymousTokenExists(checkExpiration: boolean = true): boolean {
 		return this.tokenExists('anonymous', checkExpiration);
+	}
+
+	/**
+	 * Check if a valid registry token exists.
+	 *
+	 * @see {@link AuthTokens.tokenExists}
+	 */
+	public registryTokenExists(checkExpiration: boolean = true): boolean {
+		return this.tokenExists('registry', checkExpiration);
 	}
 
 	/**
@@ -223,6 +268,15 @@ export class AuthTokens {
 	}
 
 	/**
+	 * Force-refresh registry token.
+	 *
+	 * @see {@link AuthTokens.forceRefreshToken}
+	 */
+	public forceRefreshRegistryToken(): Promise<AccessTokenInterface> {
+		return this.forceRefreshToken('registry');
+	}
+
+	/**
 	 * Force-refresh a token, clearing any cached value and requesting a new one from the auth server.
 	 *
 	 * @param name The name of the token to refresh. Must be present in the {@link AuthTokens.MANIFEST}.
@@ -238,7 +292,7 @@ export class AuthTokens {
 	 * It does not notify listeners of token rejections.
 	 */
 	async clear(): Promise<void> {
-		for (const name of this.#tokens.keys()) {
+		for (const name in AuthTokens.MANIFEST) {
 			this.#tokenStorage.clear(name);
 		}
 		this.#tokenRejectionTimes.clear();

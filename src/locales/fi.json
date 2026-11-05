@@ -761,6 +761,11 @@
 		"description": "Näyttää siltä, että olet <strong>muokannut lompakkoasi toisessa istunnossa</strong>. Käytä <strong>passkeytäsi</strong> synkronoidaksesi lompakon.",
 		"title": "Synkronoi lompakko"
 	},
+	"takeOverTabPopup": {
+		"description": "Lompakko on jo auki toisessa välilehdessä tässä selaimessa. Siirtyminen tähän välilehteen kirjaa sinut ulos toisesta välilehdestä.",
+		"takeOver": "Käytä tässä",
+		"title": "Lompakko on käytössä toisessa välilehdessä"
+	},
 	"tenantSelector": {
 		"closePopup": "Sulje ikkuna",
 		"currentTenantHeading": "Nykyinen palveluntarjoaja",
