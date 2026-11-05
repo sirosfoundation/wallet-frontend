@@ -32,6 +32,9 @@ jobs:
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
 
+      - name: Configure the wallet
+        run: cp .env.template .env
+
       - name: Run e2e tests
         run: pnpm test:e2e
 
