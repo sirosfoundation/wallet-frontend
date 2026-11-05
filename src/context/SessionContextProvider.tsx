@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useCallback, useRef, useMemo, useState } 
 import { useTranslation } from 'react-i18next';
 import StatusContext from './StatusContext';
 import { useApi } from '../api';
-import { KeystoreEvent, useLocalStorageKeystore } from '../services/LocalStorageKeystore';
+import { KeystoreEvent, SESSION_TAB_ID_KEY, useLocalStorageKeystore } from '../services/LocalStorageKeystore';
 import keystoreEvents from '../services/keystoreEvents';
 import SessionContext, { SessionContextValue } from './SessionContext';
 import { useLocalStorage, useSessionStorage } from '@/hooks/useStorage';
@@ -45,7 +45,7 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 
 	// A unique id for each logged in tab
 	const [globalTabId] = useLocalStorage<string | null>("globalTabId", null);
-	const [tabId] = useSessionStorage<string | null>("tabId", null);
+	const [tabId] = useSessionStorage<string | null>(SESSION_TAB_ID_KEY, null);
 
 	const loginIsOnlineRef = useRef<boolean | null>(null);
 	const sessionClearedRef = useRef(false);

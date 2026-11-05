@@ -1,10 +1,18 @@
 import { TakeOverTabPopup } from '@/components/Popups/TakeOverTabPopup';
 import Spinner from '@/components/Shared/Spinner';
+import { SESSION_STATE_KEY } from '@/api';
 import {
 	ActiveTabLock,
 	type HandOverSession,
 } from '@/lib/active-tab';
+import { AuthTokens } from '@/lib/auth';
+import { SESSION_TENANT_KEY } from '@/lib/tenant';
 import { logger } from '@/logger';
+import {
+	SESSION_MAIN_KEY_KEY,
+	SESSION_TAB_ID_KEY,
+	SESSION_USER_HANDLE_KEY,
+} from '@/services/LocalStorageKeystore';
 import {
 	FC,
 	PropsWithChildren,
@@ -16,14 +24,14 @@ import {
 
 // The login session and keystore; tokens are left out so the new tab mints fresh ones.
 const SESSION_KEYS = [
-	'sessionState',
-	'userHandle',
-	'mainKey',
-	'tabId',
-	'wallet_tenant_id',
+	SESSION_STATE_KEY,
+	SESSION_USER_HANDLE_KEY,
+	SESSION_MAIN_KEY_KEY,
+	SESSION_TAB_ID_KEY,
+	SESSION_TENANT_KEY,
 ];
 // Keeps a tab that handed over from grabbing the lock back after its reload.
-const HANDED_OVER_KEY = 'activeTab:handedOver';
+const SESSION_HANDED_OVER_KEY = 'activeTab:handedOver';
 
 export const ActiveTabProvider: FC<PropsWithChildren> = ({ children }) => {
 	const [lock, setLock] = useState<ActiveTabLock | null>(null);
@@ -38,7 +46,7 @@ export const ActiveTabProvider: FC<PropsWithChildren> = ({ children }) => {
 		}
 
 		sessionStorage.clear();
-		sessionStorage.setItem(HANDED_OVER_KEY, 'true');
+		sessionStorage.setItem(SESSION_HANDED_OVER_KEY, 'true');
 		// After the lock has sent the session and released.
 		setTimeout(() => window.location.reload(), 0);
 
@@ -47,23 +55,19 @@ export const ActiveTabProvider: FC<PropsWithChildren> = ({ children }) => {
 
 	const onHandedOver = useCallback((session: HandOverSession) => {
 		// The other tab was logged out; keep this tab's own session.
-		if (!('sessionState' in session)) {
+		if (!(SESSION_STATE_KEY in session)) {
 			return;
 		}
 
 		// Never switch users through a hand-over; a different user must log in.
-		const ownUserHandle = sessionStorage.getItem('userHandle');
-		if (ownUserHandle !== null && ownUserHandle !== session.userHandle) {
+		const ownUserHandle = sessionStorage.getItem(SESSION_USER_HANDLE_KEY);
+		if (ownUserHandle !== null && ownUserHandle !== session[SESSION_USER_HANDLE_KEY]) {
 			sessionStorage.clear();
 			return;
 		}
 
 		// Tokens may belong to an earlier login; the adopted session mints fresh ones.
-		for (const key of Object.keys(sessionStorage)) {
-			if (key.startsWith('authToken:')) {
-				sessionStorage.removeItem(key);
-			}
-		}
+		AuthTokens.clearStorage(sessionStorage);
 
 		for (const [key, value] of Object.entries(session)) {
 			sessionStorage.setItem(key, value);
@@ -71,7 +75,7 @@ export const ActiveTabProvider: FC<PropsWithChildren> = ({ children }) => {
 	}, []);
 
 	const handleTakeOver = async () => {
-		sessionStorage.removeItem(HANDED_OVER_KEY);
+		sessionStorage.removeItem(SESSION_HANDED_OVER_KEY);
 
 		try {
 			await lock?.takeOver();
@@ -82,7 +86,7 @@ export const ActiveTabProvider: FC<PropsWithChildren> = ({ children }) => {
 
 	useEffect(() => {
 		const lock = new ActiveTabLock({ onTakenOver, onHandedOver });
-		lock.start({ passive: sessionStorage.getItem(HANDED_OVER_KEY) !== null });
+		lock.start({ passive: sessionStorage.getItem(SESSION_HANDED_OVER_KEY) !== null });
 		setLock(lock);
 		return () => lock.dispose();
 	}, [onTakenOver, onHandedOver]);
