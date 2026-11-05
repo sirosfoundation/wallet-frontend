@@ -176,7 +176,7 @@ export class ActiveTabLock {
 			} catch (err) {
 				// Rejecting after the lock was granted means another tab stole it.
 				if (held) {
-					this.#handOver();
+					void this.#handOver();
 				} else {
 					notGranted(err);
 				}
@@ -191,7 +191,7 @@ export class ActiveTabLock {
 			message?.type === TAKE_OVER_MESSAGE &&
 			this.#snapshot.state === 'active'
 		) {
-			this.#handOver();
+			void this.#handOver();
 		} else if (message?.type === HANDED_OVER_MESSAGE) {
 			this.#receiveHandOver?.(message);
 		}

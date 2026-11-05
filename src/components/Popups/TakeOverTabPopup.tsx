@@ -1,9 +1,8 @@
 import React, { type FC, useId } from 'react';
-import { SquareArrowRightEnterIcon } from 'lucide-react';
+import { AppWindowIcon, SquareArrowRightEnterIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import PopupLayout from './PopupLayout';
 import Button from '../Buttons/Button';
-import { AppWindowIcon } from 'lucide-react';
 
 export type TakeOverTabPopupProps = { onTakeOver: () => void };
 

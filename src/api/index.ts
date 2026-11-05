@@ -537,7 +537,7 @@ export function useApi({
 					loginTenantId,
 					oidcIdToken,
 				);
-				authTokens.forceRefreshBackendToken();
+				await authTokens.forceRefreshBackendToken();
 				const privateDataResp = updatePrivateDataEtag(
 					await authedRequest.get('/user/session/private-data'),
 				);
@@ -685,7 +685,7 @@ export function useApi({
 							storedTenant,
 							oidcIdToken,
 						);
-						authTokens.forceRefreshBackendToken();
+						await authTokens.forceRefreshBackendToken();
 						// Seed the private-data etag after signup.
 						// We want to do this here to ensure the private-data etag is set
 						// immediately after signup, avoiding potential race conditions.
