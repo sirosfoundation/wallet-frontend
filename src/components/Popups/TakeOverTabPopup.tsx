@@ -25,7 +25,7 @@ export const TakeOverTabPopup: FC<TakeOverTabPopupProps> = ({ onTakeOver }) => {
 				size="lg"
 				additionalClassName="w-full"
 			>
-				<SquareArrowRightEnterIcon /> {t('takeOverTabPopup.takeOver')}
+				<SquareArrowRightEnterIcon size={18} /> {t('takeOverTabPopup.takeOver')}
 			</Button>
 		</PopupLayout>
 	);
