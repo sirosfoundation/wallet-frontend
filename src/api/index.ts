@@ -536,6 +536,7 @@ export function useApi({
 					loginTenantId,
 					oidcIdToken,
 				);
+				authTokens.forceRefreshBackendToken();
 				const privateDataResp = updatePrivateDataEtag(
 					await authedRequest.get('/user/session/private-data'),
 				);
@@ -616,7 +617,7 @@ export function useApi({
 			}
 			return err('passkeyLoginFailedServerError');
 		}
-	}, [authServer, authedRequest, updatePrivateDataEtag, updatePrivateData, setSession, isOnline]);
+	}, [authServer, authTokens, authedRequest, updatePrivateDataEtag, updatePrivateData, setSession, isOnline]);
 
 	const signupWebauthn = useCallback(async (
 		name: string,
@@ -683,7 +684,7 @@ export function useApi({
 							storedTenant,
 							oidcIdToken,
 						);
-
+						authTokens.forceRefreshBackendToken();
 						// Seed the private-data etag after signup.
 						// We want to do this here to ensure the private-data etag is set
 						// immediately after signup, avoiding potential race conditions.
@@ -752,7 +753,7 @@ export function useApi({
 			if (errorMsg === 'invite_invalid') return err('inviteInvalid');
 			return err('passkeySignupFinishFailedServerError');
 		}
-	}, [authServer, authedRequest, setSession, updatePrivateDataEtag]);
+	}, [authServer, authTokens, authedRequest, setSession, updatePrivateDataEtag]);
 
 	const addEventListener = useCallback((type: ApiEventType, listener: EventListener, options?: boolean | AddEventListenerOptions): void => {
 		events.addEventListener(type, listener, options);
