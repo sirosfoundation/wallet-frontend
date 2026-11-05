@@ -26,3 +26,21 @@ export const UsbStickDotIcon = createLucideIcon("usb-stick-dot", [
 		}
 	]
 ]);
+
+export const DoubleUsbStickDotIcon = ({ size = 24, className }: { size?: number; className?: string }) => (
+	<svg
+		className={className}
+		width={size}
+		height={size}
+		viewBox="0 0 24 24"
+		fill="none"
+		aria-hidden="true"
+	>
+		<g transform="translate(14 0) scale(0.55)">
+			<UsbStickDotIcon />
+		</g>
+		<g transform="translate(-2 3) scale(0.8)">
+			<UsbStickDotIcon />
+		</g>
+	</svg>
+);
