@@ -635,6 +635,11 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 				throw new Error(result.error.message);
 			}
 
+			// if no new refresh token is issued, the old one stays valid.
+			if (!result.refreshToken) {
+				return { ...result, refreshToken: entry.refreshToken, dpopKeyId };
+			}
+
 			return result;
 		} catch (err) {
 			if (abortRef.current.signal.aborted) {
