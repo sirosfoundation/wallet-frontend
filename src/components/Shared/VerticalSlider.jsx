@@ -57,7 +57,7 @@ const VerticalSlider = ({
 					return (
 						<SwiperSlide
 							key={item.batchId ?? item.id ?? i}
-							className="h-auto! flex items-center justify-center"
+							className="h-auto! flex items-center justify-center overflow-visible!"
 							aria-hidden={isFar ? 'true' : 'false'}
 						>
 							<div

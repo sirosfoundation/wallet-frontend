@@ -36,7 +36,7 @@ const Slider = ({ items, renderSlideContent, onSlideChange, initialSlide = 1, cl
 					<SwiperSlide
 						key={item.id || index}
 						className={`rounded-xl ${Math.abs(currentSlide - (index + 1)) > 1 && 'invisible pointer-events-none'
-							} ${currentSlide === index + 1 && 'overflow-visible-force'} `}
+							} ${currentSlide === index + 1 && 'overflow-visible-force'} overflow-visible!`}
 					>
 						{renderSlideContent(item, index)}
 					</SwiperSlide>

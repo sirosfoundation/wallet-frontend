@@ -139,6 +139,15 @@ export type ParsedCredential = {
 		validFrom?: Date,
 		signed?: Date,
 	}
+	/**
+	 * IETF Token Status List reference, wherever the format keeps it.
+	 */
+	statusReference?: StatusListReference,
 	signedClaims: CredentialClaims,
 	warnings?: Array<MetadataWarning>;
+};
+
+export type StatusListReference = {
+	uri: string;
+	idx: number;
 };

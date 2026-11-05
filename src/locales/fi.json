@@ -100,9 +100,6 @@
 		"description": "Todistus vastaanotettiin, mutta jotkin vahvistustarkistukset eivät läpäisseet. Tarkista alla olevat tiedot ennen päätöksentekoa.",
 		"title": "Todistusvaroitukset"
 	},
-	"language": {
-		"label": "Kieli"
-	},
 	"labelSecurityKeyPopup": {
 		"confirm": "Vahvista",
 		"description": "Anna jokaiselle turva-avaimelle tunniste, jotta sen tunnistaminen lompakon asetuksissa on helpompaa.",
@@ -111,6 +108,9 @@
 		"placeholder": "Anna tunniste",
 		"skip": "Ohita",
 		"title": "Nimeä turva-avaimesi"
+	},
+	"language": {
+		"label": "Kieli"
 	},
 	"layout": {
 		"messageAllowPermission": "Saadaksesi reaaliaikaiset päivitykset <strong>todistuksista, salli ilmoitukset ja lataa tämä sivu uudelleen</strong>.",
@@ -251,6 +251,14 @@
 			"CONNECTION_LOST": {
 				"description": "Yhteys keskeytyi. Yritä uudelleen.",
 				"title": "Yhteys katkesi"
+			},
+			"CREDENTIAL_EXPIRED": {
+				"description": "Tähän pyyntöön sopivat todistukset ovat vanhentuneet, eikä niitä voi jakaa.",
+				"title": "Todistus vanhentunut"
+			},
+			"CREDENTIAL_REVOKED_OR_SUSPENDED": {
+				"description": "Myöntäjä on peruuttanut tai keskeyttänyt tähän pyyntöön sopivat todistukset, eikä niitä voi jakaa.",
+				"title": "Todistus ei ole voimassa"
 			},
 			"FLOW_ERROR": {
 				"description": "Todistusprosessin aikana tapahtui virhe. Yritä uudelleen.",
@@ -427,7 +435,33 @@
 		"slideButtonTitleDisable": "Ei {{direction}} todistusta saatavilla",
 		"slideButtonTitleEnable": "Napsauta siirtyäksesi {{direction}} todistukseen",
 		"slideNext": "seuraava",
-		"slidePrevious": "edellinen"
+		"slidePrevious": "edellinen",
+		"status": {
+			"batchExhausted": {
+				"description": "Tämä todistus on käytetty loppuun, ja se on päivitettävä ennen kuin sitä voi käyttää uudelleen.",
+				"label": "Käytetty loppuun",
+				"short": "Käyttökertoja ei ole jäljellä.",
+				"title": "Todistus käytetty loppuun"
+			},
+			"expired": {
+				"description": "Tämä todistus on vanhentunut. Jotta voit jatkaa sen käyttöä, se on päivitettävä.",
+				"label": "Vanhentunut",
+				"short": "Vaatii päivityksen.",
+				"title": "Todistus vanhentunut"
+			},
+			"invalid": {
+				"description": "Myöntäjä on peruuttanut tämän todistuksen, joten sitä ei voi enää käyttää. Ota yhteyttä myöntäjään, jos uskot tämän olevan virhe.",
+				"label": "Peruutettu",
+				"short": "Myöntäjä on peruuttanut.",
+				"title": "Todistus peruutettu"
+			},
+			"suspended": {
+				"description": "Myöntäjä on keskeyttänyt tämän todistuksen väliaikaisesti. Sitä ei voi käyttää juuri nyt, mutta se voi tulla taas käyttöön. Ota yhteyttä myöntäjään saadaksesi lisätietoja.",
+				"label": "Keskeytetty",
+				"short": "Tilapäisesti poissa käytöstä.",
+				"title": "Todistus keskeytetty"
+			}
+		}
 	},
 	"pageHistory": {
 		"description": "Näytä todistusten lähetyshistoria, milloin ja mille todentajille lähetit",
@@ -726,6 +760,11 @@
 	"syncPopup": {
 		"description": "Näyttää siltä, että olet <strong>muokannut lompakkoasi toisessa istunnossa</strong>. Käytä <strong>passkeytäsi</strong> synkronoidaksesi lompakon.",
 		"title": "Synkronoi lompakko"
+	},
+	"takeOverTabPopup": {
+		"description": "Lompakko on jo auki toisessa välilehdessä tässä selaimessa. Siirtyminen tähän välilehteen kirjaa sinut ulos toisesta välilehdestä.",
+		"takeOver": "Käytä tässä",
+		"title": "Lompakko on käytössä toisessa välilehdessä"
 	},
 	"tenantSelector": {
 		"closePopup": "Sulje ikkuna",

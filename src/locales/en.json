@@ -100,10 +100,7 @@
 		"description": "The credential was received but some verification checks did not pass. Review the details below before deciding whether to accept it.",
 		"title": "Credential Warnings"
 	},
-	"language": {
-		"label": "Language"
-	},
-		"labelSecurityKeyPopup": {
+	"labelSecurityKeyPopup": {
 		"confirm": "Confirm",
 		"description": "Give each security key a label to make it easier to recognize it in the wallet settings.",
 		"error": "Could not label the security key. Try again.",
@@ -111,6 +108,9 @@
 		"placeholder": "Enter label",
 		"skip": "Skip",
 		"title": "Label your security key"
+	},
+	"language": {
+		"label": "Language"
 	},
 	"layout": {
 		"messageAllowPermission": "To receive real-time updates of <strong>Credentials, allow notifications permission and reload this page</strong>.",
@@ -251,6 +251,14 @@
 			"CONNECTION_LOST": {
 				"description": "The connection was interrupted. Please try again.",
 				"title": "Connection Lost"
+			},
+			"CREDENTIAL_EXPIRED": {
+				"description": "The credentials that match this request have expired and cannot be shared.",
+				"title": "Credential Expired"
+			},
+			"CREDENTIAL_REVOKED_OR_SUSPENDED": {
+				"description": "The credentials that match this request have been revoked or suspended by their issuer and cannot be shared.",
+				"title": "Credential Not Valid"
 			},
 			"FLOW_ERROR": {
 				"description": "An error occurred during the credential flow. Please try again.",
@@ -427,7 +435,33 @@
 		"slideButtonTitleDisable": "No {{direction}} credential available",
 		"slideButtonTitleEnable": "Click to move to the {{direction}} credential",
 		"slideNext": "next",
-		"slidePrevious": "previous"
+		"slidePrevious": "previous",
+		"status": {
+			"batchExhausted": {
+				"description": "This credential is depleted and needs to be refreshed before it can be used again.",
+				"label": "Depleted",
+				"short": "No uses remaining.",
+				"title": "Credential depleted"
+			},
+			"expired": {
+				"description": "This credential has expired. To continue using it, it needs to be refreshed.",
+				"label": "Expired",
+				"short": "Needs refresh.",
+				"title": "Credential expired"
+			},
+			"invalid": {
+				"description": "The issuer has revoked this credential, so it can no longer be used. Contact the issuer if you think this is a mistake.",
+				"label": "Revoked",
+				"short": "Revoked by the issuer.",
+				"title": "Credential revoked"
+			},
+			"suspended": {
+				"description": "The issuer has temporarily suspended this credential. It can't be used for now, but it may become usable again. Contact the issuer for more information.",
+				"label": "Suspended",
+				"short": "Temporarily unavailable.",
+				"title": "Credential suspended"
+			}
+		}
 	},
 	"pageHistory": {
 		"description": "View history of credential transmissions, detailing when and to which verifiers you sent",
@@ -726,6 +760,11 @@
 	"syncPopup": {
 		"description": "Looks like you've <strong>modified your wallet in another session</strong>. Use your <strong>passkey</strong> to sync your wallet.",
 		"title": "Synchronize Wallet"
+	},
+	"takeOverTabPopup": {
+		"description": "The wallet is already open in another tab in this browser. Switching to this tab will log you out of that tab.",
+		"takeOver": "Take Over",
+		"title": "The wallet is active in another tab"
 	},
 	"tenantSelector": {
 		"closePopup": "Close popup",

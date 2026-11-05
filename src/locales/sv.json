@@ -100,9 +100,6 @@
 		"description": "Intyget mottogs men vissa verifieringskontroller godkändes inte. Granska detaljerna nedan innan du bestämmer dig.",
 		"title": "Intygsvarningar"
 	},
-	"language": {
-		"label": "Språk"
-	},
 	"labelSecurityKeyPopup": {
 		"confirm": "Bekräfta",
 		"description": "Ge varje säkerhetsnyckel en etikett för att göra det lättare att känna igen den i plånbokens inställningar.",
@@ -111,6 +108,9 @@
 		"placeholder": "Ange etikett",
 		"skip": "Hoppa över",
 		"title": "Märk din säkerhetsnyckel"
+	},
+	"language": {
+		"label": "Språk"
 	},
 	"layout": {
 		"messageAllowPermission": "För att ta emot realtidsuppdateringar av <strong>intyg, tillåt aviseringar och ladda om den här sidan</strong>.",
@@ -251,6 +251,14 @@
 			"CONNECTION_LOST": {
 				"description": "Anslutningen avbröts. Försök igen.",
 				"title": "Anslutningen bröts"
+			},
+			"CREDENTIAL_EXPIRED": {
+				"description": "De intyg som matchar denna förfrågan har gått ut och kan inte delas.",
+				"title": "Intyget har gått ut"
+			},
+			"CREDENTIAL_REVOKED_OR_SUSPENDED": {
+				"description": "De intyg som matchar denna förfrågan har återkallats eller spärrats av utfärdaren och kan inte delas.",
+				"title": "Intyget är inte giltigt"
 			},
 			"FLOW_ERROR": {
 				"description": "Ett fel inträffade under intygsflödet. Försök igen.",
@@ -427,7 +435,33 @@
 		"slideButtonTitleDisable": "Inget {{direction}} intyg tillgängligt",
 		"slideButtonTitleEnable": "Klicka för att gå till {{direction}} intyg",
 		"slideNext": "nästa",
-		"slidePrevious": "föregående"
+		"slidePrevious": "föregående",
+		"status": {
+			"batchExhausted": {
+				"description": "Detta intyg är förbrukat och behöver förnyas innan det kan användas igen.",
+				"label": "Förbrukat",
+				"short": "Inga användningar kvar.",
+				"title": "Intyget är förbrukat"
+			},
+			"expired": {
+				"description": "Detta intyg har gått ut. För att kunna fortsätta använda det behöver det förnyas.",
+				"label": "Har gått ut",
+				"short": "Behöver förnyas.",
+				"title": "Intyget har gått ut"
+			},
+			"invalid": {
+				"description": "Utfärdaren har återkallat detta intyg, så det kan inte längre användas. Kontakta utfärdaren om du tror att det är ett misstag.",
+				"label": "Återkallat",
+				"short": "Återkallat av utfärdaren.",
+				"title": "Intyget har återkallats"
+			},
+			"suspended": {
+				"description": "Utfärdaren har tillfälligt spärrat detta intyg. Det kan inte användas just nu, men det kan bli användbart igen. Kontakta utfärdaren för mer information.",
+				"label": "Spärrat",
+				"short": "Tillfälligt otillgängligt.",
+				"title": "Intyget är spärrat"
+			}
+		}
 	},
 	"pageHistory": {
 		"description": "Visa historik över intygssändningar, inklusive när och till vilka verifierare du skickade",
@@ -726,6 +760,11 @@
 	"syncPopup": {
 		"description": "Det verkar som att du har <strong>ändrat din plånbok i en annan session</strong>. Använd din <strong>passkey</strong> för att synkronisera din plånbok.",
 		"title": "Synkronisera plånbok"
+	},
+	"takeOverTabPopup": {
+		"description": "Plånboken är redan öppen i en annan flik i den här webbläsaren. Om du byter till den här fliken loggas du ut i den andra.",
+		"takeOver": "Använd här",
+		"title": "Plånboken är aktiv i en annan flik"
 	},
 	"tenantSelector": {
 		"closePopup": "Stäng popup",
