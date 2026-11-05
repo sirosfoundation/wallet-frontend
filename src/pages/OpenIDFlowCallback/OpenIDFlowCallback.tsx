@@ -6,7 +6,7 @@ import { OIDFlowError } from '@/lib/openid-flow/errors';
 import { translateOIDFlowError } from '@/lib/openid-flow/utils/translateOIDFlowError';
 import { OIDFlowCallbackURL, OIDFlowProgressEvent } from '@/lib/openid-flow/types/OIDFlowTypes';
 import useErrorDialog from '@/hooks/useErrorDialog';
-import useOID4VCIFlow from '@/hooks/useOID4VCIFlow';
+import useOID4VCIFlow, { OID4VCI_FLOW_LOCK } from '@/hooks/useOID4VCIFlow';
 import OpenID4VPContext from '@/context/OpenID4VPContext';
 import useOID4VPFlow, { type OID4VPErrorActions } from '@/hooks/useOID4VPFlow';
 import { useTxCodeInput } from '@/context/TxCodeInputContext';
@@ -18,6 +18,7 @@ import { parseOIDFlowCallbackUrl } from '@/lib/openid-flow/utils/oidFlowCallback
 import IssuanceWarningPopup from '@/components/Popups/IssuanceWarningPopup';
 import { DCAPISession } from '@/lib/openid-flow/platforms/dc-api';
 import { sanitizeRedirectUrl } from '@/lib/utils/sanitizeRedirectUrl';
+import { withLockOrSteal } from '@/lib/utils/lock';
 import { ConformantCredentials, PresentCredentialsFlow, usePresentCredentialsFlow } from '@/components/flows/PresentCredentialsFlow';
 import { DcqlQuery } from 'dcql';
 import { OID4VPVerifierInfo } from '@/lib/openid-flow/types/OID4VPTypes';
@@ -28,6 +29,9 @@ type OpenIDFlowCallbackProps = {
 }
 
 type OpenIDFlowCallbackHandler = React.FC<OpenIDFlowCallbackProps>;
+
+// The user is waiting, so a background refresh only gets this long to finish.
+const FLOW_LOCK_TIMEOUT = 5_000;
 
 /**
  * OpenIDFlowCallback - Transient page that processes OID4VCI/OID4VP callback URLs.
@@ -297,22 +301,24 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 
 		(async () => {
 			try {
-				switch (callbackUrl.type) {
-					case 'credential_offer':
-						await processCredentialOffer(callbackUrl.url);
-						break;
-					case 'authorization_code':
-						await processAuthorizationCode(callbackUrl.url);
-						break;
-					case 'reissue':
-						await processReissue(callbackUrl.batchId);
-						break;
-					default:
-						throw new OIDFlowError({
-							code: 'UNSUPPORTED_CALLBACK',
-							message: 'Unsupported callback type',
-						});
-				}
+				await withLockOrSteal(OID4VCI_FLOW_LOCK, async () => {
+					switch (callbackUrl.type) {
+						case 'credential_offer':
+							await processCredentialOffer(callbackUrl.url);
+							break;
+						case 'authorization_code':
+							await processAuthorizationCode(callbackUrl.url);
+							break;
+						case 'reissue':
+							await processReissue(callbackUrl.batchId);
+							break;
+						default:
+							throw new OIDFlowError({
+								code: 'UNSUPPORTED_CALLBACK',
+								message: 'Unsupported callback type',
+							});
+					}
+				}, { timeout: FLOW_LOCK_TIMEOUT });
 
 				navigateHome();
 			} catch (error) {

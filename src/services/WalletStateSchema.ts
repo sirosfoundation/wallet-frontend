@@ -1,4 +1,4 @@
-import { FOLD_EVENT_HISTORY_AFTER_SECONDS } from "@/config";
+import { FOLD_EVENT_HISTORY_AFTER_SECONDS, PRESERVE_PRESENTATION_HISTORY } from "@/config";
 import { compareBy, last, splitWhen } from '@/lib/utils';
 
 import * as SchemaV1 from "./WalletStateSchemaVersion1";
@@ -309,6 +309,63 @@ export async function addSetExtensionEvent(
 	};
 	await validateEventHistoryContinuity(newContainer);
 	return newContainer;
+}
+
+/**
+ * Add the events that delete a batch: its credentials, their keypairs, its
+ * refresh entry, and its presentations unless the batch is being replaced or
+ * history is preserved.
+ */
+export async function addDeleteBatchEvents(
+	container: WalletStateContainer,
+	batchId: number,
+	options?: { replacedBy?: number },
+): Promise<WalletStateContainer> {
+	// Folded from the container itself, so it includes events added earlier in the same update.
+	const state = foldState(container);
+
+	const deletedCredentials = state.credentials.filter((credential) => credential.batchId === batchId);
+	const deletedCredentialIds = new Set(deletedCredentials.map((credential) => credential.credentialId));
+	for (const credential of deletedCredentials) {
+		container = await addDeleteCredentialEvent(container, credential.credentialId);
+	}
+
+	// A replacement may reuse the old key, so keep keypairs still in use.
+	const keptKids = new Set(
+		state.credentials
+			.filter((credential) => !deletedCredentialIds.has(credential.credentialId))
+			.map((credential) => credential.kid),
+	);
+	const deletedKids = new Set(
+		deletedCredentials
+			.map((credential) => credential.kid)
+			.filter((kid) => kid && !keptKids.has(kid)),
+	);
+	for (const kid of deletedKids) {
+		container = await addDeleteKeypairEvent(container, kid);
+	}
+
+	const refreshEntries = state.extensions?.[WalletStateExtension.OID4VCI_REFRESH];
+	if (refreshEntries && Object.prototype.hasOwnProperty.call(refreshEntries, String(batchId))) {
+		container = await addSetExtensionEvent(
+			container,
+			WalletStateExtension.OID4VCI_REFRESH,
+			String(batchId),
+			null,
+		);
+	}
+
+	// A replaced batch keeps its history, which stays in the main History page.
+	if (options?.replacedBy === undefined && !PRESERVE_PRESENTATION_HISTORY) {
+		const affectedPresentations = state.presentations.filter((presentation) =>
+			presentation.usedCredentialIds.some((id) => deletedCredentialIds.has(id))
+		);
+		for (const presentation of affectedPresentations) {
+			container = await addDeletePresentationEvent(container, presentation.presentationId);
+		}
+	}
+
+	return container;
 }
 
 

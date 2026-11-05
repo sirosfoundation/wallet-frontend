@@ -1,11 +1,10 @@
 import { FC, useEffect, useState } from 'react'
 import { CredentialImageStatusOverlay } from './CredentialImageStatusOverlay';
-import ExpiredRibbon from './ExpiredRibbon';
-import UsagesRibbon from "./UsagesRibbon";
+// import ExpiredRibbon from './ExpiredRibbon';
+// import UsagesRibbon from "./UsagesRibbon";
 import { logger } from '@/logger';
 import DefaultCred from "../../assets/images/cred.png";
 import { CredentialCardSkeleton } from '../Skeletons';
-import { TokenStatus } from '@sirosfoundation/token-status-list';
 
 export type CredentialImageProps = {
 	vcEntity: any;
@@ -67,11 +66,6 @@ const CredentialImage: FC<CredentialImageProps> = ({
 		return () => { isMounted = false };
 	}, [vcEntity, filter, onLoad]);
 
-	const hasStatus = (
-		vcEntity.isBatchExhausted ||
-		vcEntity.isExpired ||
-		TokenStatus.isBlocked(vcEntity.status)
-	);
 
 	return (
 		<>
@@ -84,13 +78,13 @@ const CredentialImage: FC<CredentialImageProps> = ({
 							className={`w-full h-full object-cover object-top ${className ?? ''}`}
 							onClick={onClick}
 						/>
-						{vcEntity.isBatchExhausted && showRibbon &&
+						{/* {vcEntity.isBatchExhausted && showRibbon &&
 							<ExpiredRibbon vcEntity={vcEntity} borderColor={borderColor} />
 						}
 						{vcEntity.isBatchExhausted !== true && showRibbon &&
 							<UsagesRibbon vcEntityInstances={vcEntityInstances} borderColor={borderColor} />
-						}
-						{hasStatus && showOverlay && (
+						} */}
+						{showOverlay && (
 							<CredentialImageStatusOverlay vcEntity={vcEntity} />
 						)}
 					</div>

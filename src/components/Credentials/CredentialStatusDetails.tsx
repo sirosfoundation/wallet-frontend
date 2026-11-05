@@ -1,6 +1,7 @@
 import { FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ExtendedVcEntity } from '@/context/CredentialsContext';
+import { useOpenIdReissuaNotice } from '@/hooks/useOpenIdReissueNotice';
 import { getCredentialStatuses } from './credential-status';
 import Button from '../Buttons/Button';
 import { useNavigate } from 'react-router';
@@ -13,11 +14,13 @@ export type CredentialStatusDetailsProps = {
 export const CredentialStatusDetails: FC<CredentialStatusDetailsProps> = ({
 	vcEntity,
 }) => {
+	const { getNotice } = useOpenIdReissuaNotice();
 	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const { buildPath } = useTenant();
 
-	const statuses = getCredentialStatuses(vcEntity);
+	const notice = getNotice(vcEntity.batchId);
+	const statuses = getCredentialStatuses(vcEntity, notice);
 	if (!statuses.length) return null;
 
 	const handleReissue = () => {

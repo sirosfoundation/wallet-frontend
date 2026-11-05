@@ -16,6 +16,9 @@ import { WalletStateExtension } from '@/services/WalletStateSchema';
 import { generateRandomIdentifier } from '@/lib/utils/generateRandomIdentifier';
 import { parseOID4VCIRefreshEntry, serializeOID4VCIRefreshEntry } from '@/services/extensions/oid4vci-refresh';
 
+// Held by every OID4VCI flow, so a background refresh never overlaps a page flow.
+export const OID4VCI_FLOW_LOCK = 'oid4vci-flow';
+
 export interface UseOID4VCIFlowOptions {
 	/**
 	 * Called when flow progress updates
@@ -509,23 +512,19 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 				}
 			}
 
-			const [, privateData, commit] = await keystore.addCredentials(credentialsToStore, extensions);
+			const [, privateData, commit] = await keystore.addCredentials(
+				credentialsToStore,
+				extensions,
+				{ replacesBatchId },
+			);
 
 			assertNotAborted();
 			await api.updatePrivateData(privateData);
 			await commit();
 
-			// Only after the new batch is stored, so a failure here keeps both rather than neither.
-			if (replacesBatchId !== undefined) {
-				const [, replacedPrivateData, commitReplaced] = await keystore.deleteCredentialsByBatchId(
-					replacesBatchId,
-					{ replacedBy: batchId },
-				);
-				await api.updatePrivateData(replacedPrivateData);
-				await commitReplaced();
+			if (!replacesBatchId) {
+				notify('newCredential');
 			}
-
-			notify('newCredential');
 
 			// OID4VCI §11: once credentials are stored, send credential_accepted.
 			dispatchCredentialNotifications(transport, credentials, flowId);

@@ -13,7 +13,7 @@ import * as keystore from "./keystore";
 import type { AsymmetricEncryptedContainer, AsymmetricEncryptedContainerKeys, EncryptedContainer, OpenedContainer, PrivateData, UnlockSuccess, WebauthnPrfEncryptionKeyInfo, WebauthnPrfSaltInfo, WrappedKeyInfo } from "./keystore";
 import { MDoc } from "@auth0/mdl";
 import { WalletStateUtils } from "./WalletStateUtils";
-import { addAlterSettingsEvent, addDeleteCredentialEvent, addDeleteCredentialIssuanceSessionEvent, addDeleteKeypairEvent, addDeletePresentationEvent, addNewCredentialEvent, addNewKeypairEvent, addNewPresentationEvent, addSaveCredentialIssuanceSessionEvent, addSetExtensionEvent, CurrentSchema, foldOldEventsIntoBaseState, foldState, mergeEventHistories, WalletStateExtension } from "./WalletStateSchema";
+import { addAlterSettingsEvent, addDeleteBatchEvents, addDeleteCredentialIssuanceSessionEvent, addNewCredentialEvent, addNewKeypairEvent, addNewPresentationEvent, addSaveCredentialIssuanceSessionEvent, addSetExtensionEvent, CurrentSchema, foldOldEventsIntoBaseState, foldState, mergeEventHistories } from "./WalletStateSchema";
 import { UserId } from "@/api/types";
 import { getItem } from "@/indexedDB";
 import { UnsupportedSchemaVersionError, WalletStateContainerGeneric } from "./WalletStateSchemaCommon";
@@ -146,6 +146,7 @@ export interface LocalStorageKeystore {
 	addCredentials(
 		credentials: { data: string, format: string, kid: string, batchId: number, credentialIssuerIdentifier: string, credentialConfigurationId: string, instanceId: number, credentialId?: number }[],
 		extensions?: { namespace: string, key: string, value: string }[],
+		options?: { replacesBatchId?: number },
 	): Promise<[
 		{},
 		AsymmetricEncryptedContainer,
@@ -835,6 +836,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 	const addCredentials = useCallback(async (
 		credentials: { data: string, format: string, kid: string, batchId: number, credentialIssuerIdentifier: string, credentialConfigurationId: string, instanceId: number, credentialId?: number, }[],
 		extensions: { namespace: string, key: string, value: string }[] = [],
+		options?: { replacesBatchId?: number },
 	): Promise<[
 		{},
 		AsymmetricEncryptedContainer,
@@ -849,6 +851,14 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 
 		for (const { namespace, key, value } of extensions) {
 			walletStateContainer = await addSetExtensionEvent(walletStateContainer, namespace, key, value);
+		}
+
+		if (options?.replacesBatchId !== undefined) {
+			walletStateContainer = await addDeleteBatchEvents(
+				walletStateContainer,
+				options.replacesBatchId,
+				{ replacedBy: credentials[0].batchId },
+			);
 		}
 
 		return editPrivateData(async (originalContainer) => {
@@ -873,44 +883,14 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 	]> => {
 		let [walletStateContainer, ,] = await openPrivateData();
 		walletStateContainer = await foldOldEventsIntoBaseState(walletStateContainer);
-
-		const credentialsToBeDeleted = calculatedWalletState.credentials.filter((cred) => cred.batchId === batchId);
-		const deletedCredentialIds = new Set(credentialsToBeDeleted.map((cred) => cred.credentialId));
-		for (const cred of credentialsToBeDeleted) {
-			walletStateContainer = await addDeleteCredentialEvent(walletStateContainer, cred.credentialId);
-			// delete keypair
-			const kid = calculatedWalletState.credentials.filter((c) => c.credentialId === cred.credentialId).map((c) => c.kid)[0];
-			if (kid) {
-				walletStateContainer = await addDeleteKeypairEvent(walletStateContainer, kid);
-			}
-		}
-
-		const refreshEntries = calculatedWalletState.extensions?.[WalletStateExtension.OID4VCI_REFRESH];
-		if (refreshEntries && Object.prototype.hasOwnProperty.call(refreshEntries, String(batchId))) {
-			walletStateContainer = await addSetExtensionEvent(
-				walletStateContainer,
-				WalletStateExtension.OID4VCI_REFRESH,
-				String(batchId),
-				null,
-			);
-		}
-
-		// A replaced batch keeps its history, which stays in the main History page.
-		if (options?.replacedBy === undefined && !config.PRESERVE_PRESENTATION_HISTORY) {
-			const affectedPresentations = calculatedWalletState.presentations.filter((p) =>
-				p.usedCredentialIds.some((id) => deletedCredentialIds.has(id))
-			);
-			for (const presentation of affectedPresentations) {
-				walletStateContainer = await addDeletePresentationEvent(walletStateContainer, presentation.presentationId);
-			}
-		}
+		walletStateContainer = await addDeleteBatchEvents(walletStateContainer, batchId, options);
 
 		return editPrivateData(async (originalContainer) => {
 			const { newContainer } = await keystore.updateWalletState(originalContainer, walletStateContainer);
 			return [{}, newContainer];
 		});
 
-	}, [editPrivateData, openPrivateData, calculatedWalletState]);
+	}, [editPrivateData, openPrivateData]);
 
 
 	const addPresentations = useCallback(async (presentations: { transactionId: number, data: string, usedCredentialIds: number[], audience: string, }[]): Promise<[

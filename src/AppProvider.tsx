@@ -20,7 +20,7 @@ import { WalletCompanionProvider } from './context/WalletCompanionContext';
 import { WscdManagerClientContextProvider } from './context/WscdManagerClientContextProvider';
 import { TokenStatusListsContextProvider } from './context/TokenStatusListsContextProvider';
 import { ActiveTabProvider } from './hocs/ActiveTabProvider';
-
+import { OpenIdReissuanceContextProvider } from './context/OpenIdReissuanceContextProvider';
 
 type RootProviderProps = {
 	children: ReactNode;
@@ -42,9 +42,11 @@ const AppProvider: React.FC<RootProviderProps> = ({ children }) => {
 													<OpenID4VPContextProvider>
 														<TxCodeInputProvider>
 															<NotificationProvider>
-																<WalletCompanionProvider>
-																	{children}
-																</WalletCompanionProvider>
+																<OpenIdReissuanceContextProvider>
+																	<WalletCompanionProvider>
+																		{children}
+																	</WalletCompanionProvider>
+																</OpenIdReissuanceContextProvider>
 															</NotificationProvider>
 														</TxCodeInputProvider>
 													</OpenID4VPContextProvider>
