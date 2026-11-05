@@ -60,6 +60,9 @@ export type CommitCallback = () => Promise<void>;
 
 export const SESSION_USER_HANDLE_KEY = 'userHandle';
 export const SESSION_MAIN_KEY_KEY = 'mainKey';
+/**
+ * @deprecated Replaced by ActiveTabLock.
+ */
 export const SESSION_TAB_ID_KEY = 'tabId';
 
 export interface LocalStorageKeystore {
@@ -197,7 +200,13 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 	const [userHandleB64u, setUserHandleB64u, clearUserHandleB64u] = useSessionStorage<string | null>(SESSION_USER_HANDLE_KEY, null);
 
 	// A unique id for each logged in tab
+	/**
+	 * @deprecated Replaced by ActiveTabLock.
+	 */
 	const [globalTabId, setGlobalTabId, clearGlobalTabId] = useLocalStorage<string | null>("globalTabId", null);
+	/**
+	 * @deprecated Replaced by ActiveTabLock.
+	 */
 	const [tabId, setTabId, clearTabId] = useSessionStorage<string | null>(SESSION_TAB_ID_KEY, null);
 
 	const [mainKey, setMainKeyStorage, clearMainKey] = useSessionStorage<BufferSource | null>(SESSION_MAIN_KEY_KEY, null);
@@ -341,6 +350,9 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		[closeSessionTabLocal, privateData, userHandleB64u, globalUserHandleB64u, setCachedUsers],
 	);
 
+	/**
+	 * @deprecated Replaced by ActiveTabLock.
+	 */
 	useEffect(
 		() => {
 			if (tabId && globalTabId && (tabId !== globalTabId)) {
@@ -499,6 +511,9 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 
 			setUserHandleB64u(userHandleB64u);
 
+			/**
+			 * @deprecated Replaced by ActiveTabLock.
+			 */
 			const newTabId = tabId ?? WalletStateUtils.getRandomUint32().toString();
 			setTabId(newTabId);
 			setGlobalTabId(newTabId);

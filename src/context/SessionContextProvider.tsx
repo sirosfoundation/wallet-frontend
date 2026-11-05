@@ -44,7 +44,13 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	} | null>(null);
 
 	// A unique id for each logged in tab
+	/**
+	 * @deprecated Replaced by ActiveTabLock.
+	 */
 	const [globalTabId] = useLocalStorage<string | null>("globalTabId", null);
+	/**
+	 * @deprecated Replaced by ActiveTabLock.
+	 */
 	const [tabId] = useSessionStorage<string | null>(SESSION_TAB_ID_KEY, null);
 
 	const loginIsOnlineRef = useRef<boolean | null>(null);
@@ -158,6 +164,9 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 		authTokens
 	]);
 
+	/**
+	 * @deprecated Replaced by ActiveTabLock.
+	 */
 	useEffect(() => {
 		if (api && keystore && api.isLoggedIn() === true && keystore.isOpen() === false && ((tabId && globalTabId && tabId !== globalTabId) || (!tabId && globalTabId))) {
 			clearSession();
