@@ -59,9 +59,15 @@ export interface UseOID4VCIFlowReturn {
 		replacesBatchId?: number,
 	) => Promise<OID4VCIFlowResult>;
 	/**
-	 * Renew a credential batch with its stored refresh token.
+	 * Renew a credential batch with its stored refresh token, without user
+	 * interaction.
 	 */
-	requestReissuance: (batchId: number) => Promise<OID4VCIFlowResult>;
+	refreshCredential: (batchId: number) => Promise<OID4VCIFlowResult>;
+	/**
+	 * Reissue a credential batch through a new authorization at the issuer,
+	 * which redirects the user to log in.
+	 */
+	reissueCredential: (batchId: number) => Promise<OID4VCIFlowResult>;
 	/**
 	 * Current transport type being used
 	 */
@@ -548,7 +554,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 	/**
 	 * Renew a credential batch with its stored refresh token.
 	 */
-	const requestReissuance = useCallback(async (
+	const refreshCredential = useCallback(async (
 		batchId: number,
 	): Promise<OID4VCIFlowResult> => {
 		setIsLoading(true);
@@ -560,35 +566,19 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			}
 
 			const walletState = keystore.getCalculatedWalletState();
-			const credential = walletState?.credentials.find((c) => c.batchId === batchId);
-			if (!credential) {
-				throw new Error('Credential batch not found');
-			}
-
 			const entry = parseOID4VCIRefreshEntry(
-				walletState.extensions?.[WalletStateExtension.OID4VCI_REFRESH]?.[String(batchId)],
+				walletState?.extensions?.[WalletStateExtension.OID4VCI_REFRESH]?.[String(batchId)],
 			);
 
-			const reauthorize = async () => {
-				if (!credential.credentialIssuerIdentifier || !credential.credentialConfigurationId) {
-					throw new OIDFlowError({
-						code: 'REISSUANCE_NOT_POSSIBLE',
-						message: 'Credential has no issuer or configuration to reissue from',
-					});
-				}
-
-				const offerUrl = new URL('openid-credential-offer://');
-				offerUrl.searchParams.set('credential_offer', JSON.stringify({
-					credential_issuer: credential.credentialIssuerIdentifier,
-					credential_configuration_ids: [credential.credentialConfigurationId],
-					grants: { authorization_code: {} },
-				}));
-
-				return await handleCredentialOffer(offerUrl, batchId);
-			};
-
+			// A hardware-bound token (dpopKid) can't be used from here yet.
 			if (!entry || entry.dpopKid !== undefined) {
-				return await reauthorize();
+				return {
+					success: false,
+					error: {
+						code: 'REFRESH_NOT_POSSIBLE',
+						message: 'No usable refresh token for this credential',
+					},
+				};
 			}
 
 			let dpopKeyId: string | undefined;
@@ -626,13 +616,12 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 
 			// The backend reports any token endpoint rejection as TOKEN_ERROR (expired, revoked, ...).
 			if (result.error?.code === 'TOKEN_ERROR') {
-				logger.info('Refresh token rejected, falling back to a new authorization');
 				oidFlowClientAuthMaterialManager.clear();
-				return await reauthorize();
+				return result;
 			}
 
 			if (!result.success && result.error) {
-				throw new Error(result.error.message);
+				throw new OIDFlowError(result.error);
 			}
 
 			// if no new refresh token is issued, the old one stays valid.
@@ -652,21 +641,51 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			return {
 				success: false,
 				error: {
-					code: err instanceof OIDFlowError ? err.code : 'REISSUANCE_ERROR',
+					code: err instanceof OIDFlowError ? err.code : 'REFRESH_ERROR',
 					message: error.message,
 				},
 			};
 		} finally {
 			setIsLoading(false);
 		}
-	}, [transportType, transport, keystore, onProgress, onError, assertNotAborted, oidFlowClientAuthMaterialManager, handleCredentialOffer]);
+	}, [transportType, transport, keystore, onProgress, onError, assertNotAborted, oidFlowClientAuthMaterialManager]);
+
+	/**
+	 * Reissue a credential batch with a new authorization code flow.
+	 */
+	const reissueCredential = useCallback(async (
+		batchId: number,
+	): Promise<OID4VCIFlowResult> => {
+		const credential = keystore.getCalculatedWalletState()?.credentials
+			.find((c) => c.batchId === batchId);
+
+		if (!credential?.credentialIssuerIdentifier || !credential.credentialConfigurationId) {
+			const error = new OIDFlowError({
+				code: 'REISSUANCE_NOT_POSSIBLE',
+				message: 'Credential has no issuer or configuration to reissue from',
+			});
+			setError(error);
+			onError?.(error);
+			return { success: false, error: { code: error.code, message: error.message } };
+		}
+
+		const offerUrl = new URL('openid-credential-offer://');
+		offerUrl.searchParams.set('credential_offer', JSON.stringify({
+			credential_issuer: credential.credentialIssuerIdentifier,
+			credential_configuration_ids: [credential.credentialConfigurationId],
+			grants: { authorization_code: {} },
+		}));
+
+		return await handleCredentialOffer(offerUrl, batchId);
+	}, [keystore, handleCredentialOffer, onError]);
 
 	return {
 		handleCredentialOffer,
 		handleAuthorizationResponse,
 		requestWithPreAuthorization,
 		handleReceivedCredentials,
-		requestReissuance,
+		refreshCredential,
+		reissueCredential,
 		transportType,
 		isLoading,
 		error,

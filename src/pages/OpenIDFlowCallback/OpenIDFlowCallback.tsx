@@ -147,7 +147,8 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		requestWithPreAuthorization,
 		handleAuthorizationResponse,
 		handleReceivedCredentials,
-		requestReissuance,
+		refreshCredential,
+		reissueCredential,
 	} = useOID4VCIFlow({
 		onError: handleError,
 		onProgress: handleProgress,
@@ -244,26 +245,33 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		// Also clears the router state, so a reload does not renew again.
 		cleanupUrl();
 
-		const result = await requestReissuance(batchId);
+		const refreshed = await refreshCredential(batchId);
 
-		if (result.success && result.credentials?.length) {
+		if (refreshed.success && refreshed.credentials?.length) {
 			await handleReceivedCredentials(
-				result.credentials,
-				result.credentialIssuerIdentifier,
-				result.selectedCredentialConfigurationId,
-				result.flowId,
+				refreshed.credentials,
+				refreshed.credentialIssuerIdentifier,
+				refreshed.selectedCredentialConfigurationId,
+				refreshed.flowId,
 				{
-					dpopJwk: result.dpopJwk,
-					dpopKeyId: result.dpopKeyId,
-					refreshToken: result.refreshToken,
+					dpopJwk: refreshed.dpopJwk,
+					dpopKeyId: refreshed.dpopKeyId,
+					refreshToken: refreshed.refreshToken,
 				},
 				batchId,
 			);
+			return;
 		}
 
-		// No usable refresh token: the issuer has to authorize again.
-		if (result.authorizationUrl) {
-			window.location.href = sanitizeRedirectUrl(result.authorizationUrl);
+		const code = refreshed.error?.code;
+		if (code !== 'REFRESH_NOT_POSSIBLE' && code !== 'TOKEN_ERROR') {
+			return;
+		}
+
+		const reissued = await reissueCredential(batchId);
+
+		if (reissued.authorizationUrl) {
+			window.location.href = sanitizeRedirectUrl(reissued.authorizationUrl);
 		}
 	};
 
