@@ -37,9 +37,9 @@ const START_TIMEOUT = 500;
  * Makes sure only one tab uses the wallet at a time.
  */
 export class ActiveTabLock {
-	#onTakenOver: OnTakenOver;
-	#onHandedOver: OnHandedOver;
-	#channel = new BroadcastChannel(LOCK_NAME);
+	readonly #onTakenOver: OnTakenOver;
+	readonly #onHandedOver: OnHandedOver;
+	readonly #channel = new BroadcastChannel(LOCK_NAME);
 	#snapshot: ActiveTabSnapshot = { state: 'pending' };
 	#listeners = new Set<() => void>();
 	#release?: () => void;
