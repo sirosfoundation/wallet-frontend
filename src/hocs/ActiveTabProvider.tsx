@@ -3,7 +3,7 @@ import Spinner from '@/components/Shared/Spinner';
 import {
 	ActiveTabLock,
 	type HandOverSession,
-} from '@/lib/active-tab/ActiveTabLock';
+} from '@/lib/active-tab';
 import { logger } from '@/logger';
 import {
 	FC,
