@@ -895,40 +895,11 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 			);
 		}
 
-		// delete presentations that reference any of the deleted credentials
-		// (unless the deployment has opted to preserve history via config)
-		const affectedPresentations = calculatedWalletState.presentations.filter((p) =>
-			p.usedCredentialIds.some((id) => deletedCredentialIds.has(id))
-		);
-
-		if (options?.replacedBy !== undefined) {
-			// Read from the container: the replacing batch may be newer than calculatedWalletState.
-			const replacingCredentials = foldState(walletStateContainer).credentials
-				.filter((c) => c.batchId === options.replacedBy)
-				.sort((a, b) => a.instanceId - b.instanceId);
-			if (replacingCredentials.length === 0) {
-				throw new Error(`Replacing credential batch ${options.replacedBy} not found`);
-			}
-
-			const replacingIdByInstance = new Map(replacingCredentials.map((c) => [c.instanceId, c.credentialId]));
-			const replacingId = (oldId: number) => {
-				const instanceId = credentialsToBeDeleted.find((c) => c.credentialId === oldId).instanceId;
-				return replacingIdByInstance.get(instanceId) ?? replacingCredentials[0].credentialId;
-			};
-
-			// There is no update event, so each presentation is replaced by a copy.
-			for (const presentation of affectedPresentations) {
-				walletStateContainer = await addDeletePresentationEvent(walletStateContainer, presentation.presentationId);
-				walletStateContainer = await addNewPresentationEvent(
-					walletStateContainer,
-					presentation.transactionId,
-					presentation.data,
-					presentation.usedCredentialIds.map((id) => deletedCredentialIds.has(id) ? replacingId(id) : id),
-					presentation.presentationTimestampSeconds,
-					presentation.audience,
-				);
-			}
-		} else if (!config.PRESERVE_PRESENTATION_HISTORY) {
+		// A replaced batch keeps its history, which stays in the main History page.
+		if (options?.replacedBy === undefined && !config.PRESERVE_PRESENTATION_HISTORY) {
+			const affectedPresentations = calculatedWalletState.presentations.filter((p) =>
+				p.usedCredentialIds.some((id) => deletedCredentialIds.has(id))
+			);
 			for (const presentation of affectedPresentations) {
 				walletStateContainer = await addDeletePresentationEvent(walletStateContainer, presentation.presentationId);
 			}
