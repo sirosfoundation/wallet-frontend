@@ -3,7 +3,7 @@ import Spinner from '@/components/Shared/Spinner';
 import { SESSION_STATE_KEY } from '@/api';
 import { ActiveTabLock, type HandOverSession } from '@/lib/active-tab';
 import { AuthTokens } from '@/lib/auth';
-import { SESSION_TENANT_KEY } from '@/lib/tenant';
+import { getTenantFromUrlPath, SESSION_TENANT_KEY } from '@/lib/tenant';
 import { logger } from '@/logger';
 import {
 	SESSION_MAIN_KEY_KEY,
@@ -53,6 +53,12 @@ export const ActiveTabProvider: FC<PropsWithChildren> = ({ children }) => {
 	const onHandedOver = useCallback((session: HandOverSession) => {
 		// The other tab was logged out; keep this tab's own session.
 		if (!(SESSION_STATE_KEY in session)) {
+			return;
+		}
+
+		// Never adopt a session from a different tenant
+		const ownTenant = getTenantFromUrlPath();
+		if (ownTenant !== session[SESSION_TENANT_KEY]) {
 			return;
 		}
 
