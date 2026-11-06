@@ -46,6 +46,7 @@ export class ActiveTabLock {
 	// Set only while this tab waits for a hand-over it asked for.
 	#receiveHandOver?: (message: ActiveTabMessage) => void;
 	#disposed = false;
+	#takingOver?: Promise<void>;
 
 	constructor({
 		onTakenOver,
@@ -90,11 +91,50 @@ export class ActiveTabLock {
 		})();
 	}
 
+	takeOver(): Promise<void> {
+		if (this.#takingOver instanceof Promise) {
+			return this.#waitOrSteal(this.#takingOver);
+		}
+
+		const takingOver = (async () => {
+			try {
+				await this.#takeOver();
+			} finally {
+				if (this.#takingOver === takingOver) {
+					this.#takingOver = undefined;
+				}
+			}
+		})();
+
+		this.#takingOver = takingOver;
+		return takingOver;
+	}
+
+	/**
+	 * Wait for a take-over that is already running, and steal the lock if it
+	 * has not made this tab active in time.
+	 */
+	async #waitOrSteal(takingOver: Promise<void>): Promise<void> {
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		await Promise.race([
+			Promise.allSettled([takingOver]),
+			new Promise<void>((resolve) => {
+				timer = setTimeout(resolve, TAKE_OVER_TIMEOUT);
+			}),
+		]);
+		clearTimeout(timer);
+
+		if (this.#snapshot.state !== 'active') {
+			logger.warn('The take-over did not finish in time; taking over anyway');
+			await this.#request({ steal: true });
+		}
+	}
+
 	/**
 	 * Ask the active tab to hand over its session, and take the lock anyway if
 	 * it does not answer in time.
 	 */
-	async takeOver(): Promise<void> {
+	async #takeOver(): Promise<void> {
 		if (this.#snapshot.state === 'active') {
 			return;
 		}
