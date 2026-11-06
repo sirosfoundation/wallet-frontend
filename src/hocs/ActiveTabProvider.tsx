@@ -57,7 +57,7 @@ export const ActiveTabProvider: FC<PropsWithChildren> = ({ children }) => {
 		}
 
 		// Never adopt a session from a different tenant
-		const ownTenant = getTenantFromUrlPath();
+		const ownTenant = getTenantFromUrlPath() ?? 'default';
 		if (ownTenant !== session[SESSION_TENANT_KEY]) {
 			return;
 		}
