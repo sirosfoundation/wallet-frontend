@@ -12,6 +12,8 @@ type AuthTokensOptions = {
 type AuthTokensManifest = typeof AuthTokens.MANIFEST;
 
 export class AuthTokens {
+	static readonly #storagePrefix = 'authToken';
+
 	readonly #tenantId: string;
 	readonly #authServerClient: AuthServerClient;
 
@@ -26,7 +28,7 @@ export class AuthTokens {
 	readonly #tokens = new Map<string, AccessTokenInterface>();
 
 	readonly #tokenStorageBackend: Storage;
-	readonly #tokenStoragePrefix = 'authToken';
+	readonly #tokenStoragePrefix = AuthTokens.#storagePrefix;
 	readonly #tokenStorage = {
 		get: (tokenId: string): string | undefined => {
 			return this.#tokenStorageBackend.getItem(`${this.#tokenStoragePrefix}:${tokenId}`) ?? undefined;
@@ -75,6 +77,19 @@ export class AuthTokens {
 		const session = new AuthTokens(options);
 		session.#loadTokensFromStorage();
 		return session;
+	}
+
+	/**
+	 * Remove every stored token from the given storage, including tokens no
+	 * instance has loaded.
+	 */
+	static clearStorage(storage: Storage): void {
+		const keys = Array.from({ length: storage.length }, (_, index) => storage.key(index));
+		for (const key of keys) {
+			if (key?.startsWith(`${AuthTokens.#storagePrefix}:`)) {
+				storage.removeItem(key);
+			}
+		}
 	}
 
 	/**
@@ -277,7 +292,7 @@ export class AuthTokens {
 	 * It does not notify listeners of token rejections.
 	 */
 	async clear(): Promise<void> {
-		for (const name of this.#tokens.keys()) {
+		for (const name in AuthTokens.MANIFEST) {
 			this.#tokenStorage.clear(name);
 		}
 		this.#tokenRejectionTimes.clear();
