@@ -1,7 +1,14 @@
 import { WalletState, WalletStateCredential } from "@/services/WalletStateSchemaVersion3";
 import { compareBy } from '@/lib/utils';
-import { ExtendedVcEntity } from "@/context/CredentialsContext";
+import { ExtendedVcEntity, Instance } from "@/context/CredentialsContext";
 import { TokenStatus } from "@sirosfoundation/token-status-list";
+
+/**
+ * Whether the instance can still be presented: unused and not revoked or suspended.
+ */
+export function isUsableInstance(instance: Pick<Instance, 'sigCount' | 'status'>): boolean {
+	return instance.sigCount === 0 && !TokenStatus.isBlocked(instance.status);
+}
 
 export async function getLeastUsedCredentialInstance(
 	batchId: number,

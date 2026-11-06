@@ -13,6 +13,7 @@ import { createDeferred } from '@/lib/utils/createDeferred';
 import { useTokenStatusLists } from '@/hooks/useTokenStatusLists';
 import { deriveTokenBatchStatus, TokenEntity, TokenId } from '@sirosfoundation/token-status-list';
 import { getTokenStatusListEntity } from '@/lib/verifiable-credentials';
+import { isUsableInstance } from '@/lib/services/CredentialBatchHelper';
 
 type WalletStateCredential = CurrentSchema.WalletStateCredential;
 
@@ -93,6 +94,7 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 				return {
 					...vc,
 					instances,
+					usableInstanceCount: instances.filter(isUsableInstance).length,
 					status: deriveTokenBatchStatus(instances.map(i => ({
 						status: i.status,
 						spent: i.sigCount > 0,
@@ -256,6 +258,8 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 						isExpired: result.success === false && result.error === CredentialVerificationError.ExpiredCredential,
 						isBatchExhausted: instances.length > 1 && instances.every((i) => i.sigCount > 0),
 						sigCount: instances.reduce((acc, curr) => acc + curr.sigCount, 0),
+						// Statuses aren't known yet; vcEntityListWithDeps recounts with them.
+						usableInstanceCount: instances.filter(isUsableInstance).length,
 					};
 				})
 		);

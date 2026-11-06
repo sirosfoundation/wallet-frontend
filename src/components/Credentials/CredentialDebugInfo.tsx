@@ -6,13 +6,14 @@ const statusLabel = (status?: TokenStatus) =>
 	status === undefined ? 'unchecked' : TokenStatus.label(status);
 
 export const CredentialDebugInfo: FC<{ vcEntity: ExtendedVcEntity }> = ({ vcEntity }) => {
-	const { batchId, format, instances, status, isExpired, isBatchExhausted } = vcEntity;
+	const { batchId, format, instances, status, isExpired, isBatchExhausted, usableInstanceCount } = vcEntity;
 	const usedCount = instances.filter((i) => i.sigCount > 0).length;
 
 	const summary: [string, string][] = [
 		['Batch', String(batchId)],
 		['Format', format || '-'],
-		['Instances', `${instances.length} (${usedCount} used)`],
+		['Instances', `${instances.length} (${usedCount} signed)`],
+		['Usable instances', String(usableInstanceCount)],
 		['Batch status', statusLabel(status)],
 		['Expired', String(isExpired)],
 		['Exhausted', String(isBatchExhausted)],

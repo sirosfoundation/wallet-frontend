@@ -57,7 +57,7 @@ const CredentialLayout = ({ children, title = null, displayCredentialInfo = null
 
 	useEffect(() => {
 		if (vcEntity) {
-			setZeroSigCount(vcEntity.instances.filter(instance => instance.sigCount === 0).length || 0);
+			setZeroSigCount(vcEntity.usableInstanceCount ?? 0);
 			setSigTotal(vcEntity.instances.length);
 		}
 	}, [vcEntity]);

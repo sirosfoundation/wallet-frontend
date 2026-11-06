@@ -2,6 +2,7 @@ import { TokenStatus } from '@sirosfoundation/token-status-list';
 import type { ExtendedVcEntity } from '@/context/CredentialsContext';
 import type{ OID4VCIRefreshEntry } from '@/services/extensions/oid4vci-refresh';
 import { requirementsForCredential } from '@/lib/wscd-manager/utils';
+import { isUsableInstance } from '@/lib/services/CredentialBatchHelper';
 import { ReissueBlocker } from './types';
 import { ReissueNotice } from './resources';
 
@@ -35,11 +36,7 @@ function isRunningLow(credential: ExtendedVcEntity): boolean {
 	const instances = credential.instances;
 	if (instances.length < 2) return false;
 
-	const usableInstances = instances.filter(
-		(i) =>
-			i.sigCount === 0 &&
-			(i.status === undefined || !TokenStatus.isBlocked(i.status)),
-	);
+	const usableInstances = instances.filter(isUsableInstance);
 
 	return usableInstances.length < 2;
 }
