@@ -23,7 +23,7 @@
 	},
 	"dependencies": {
 		"@auth0/mdl": "^2.3.0",
-		"@sd-jwt/core": "^0.10.0",
+		"@sd-jwt/core": "^0.20.0",
 		"@sd-jwt/sd-jwt-vc": "^0.13.0",
 		"@sirosfoundation/browser-log": "^1.0.0",
 		"@sirosfoundation/http-client": "workspace:*",
