@@ -26,7 +26,8 @@ import { useOIDFlowSignHandler } from './useOIDFlowSignHandler';
 import { DCAPIRequest, DCAPISession } from '@/lib/openid-flow/platforms/dc-api';
 import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
 import { BackendApi } from '@/api';
-import { parseClientIdScheme, KeyMaterial } from 'wallet-common';
+import { parseClientIdScheme } from 'wallet-common';
+import type { KeyMaterial } from '@sirosfoundation/authzen-client';
 import { logger } from '@/logger';
 import { ConformantCredentials } from '@/components/flows/PresentCredentialsFlow';
 

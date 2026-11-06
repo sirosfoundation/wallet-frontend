@@ -4,7 +4,7 @@
 
 import type { DcqlQuery } from 'dcql';
 import type { TrustEvaluation } from './TrustTypes';
-import { TrustStatus } from 'wallet-common';
+import { TrustStatus } from '@sirosfoundation/authzen-client';
 
 // Note: These types are defined locally to avoid coupling to wallet-common exports
 // which may vary between versions. The transport layer handles conversion.

@@ -3,7 +3,7 @@ import { OpenidCredentialIssuerMetadataSchema } from "../schemas";
 import type { HttpClient } from "../interfaces";
 import { MetadataWarning } from "../types";
 import { CredentialParsingError } from "../error";
-import type { IAuthZENClient } from "../authzen/AuthZENClient";
+import type { IAuthZENClient } from "@sirosfoundation/authzen-client";
 
 export type GetIssuerMetadataOptions = {
 	httpClient: HttpClient;

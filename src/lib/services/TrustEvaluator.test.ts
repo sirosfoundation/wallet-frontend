@@ -1,28 +1,33 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import * as walletCommon from 'wallet-common';
+import type { HttpClient } from '@sirosfoundation/http-client';
+import { TrustStatus } from '@sirosfoundation/authzen-client';
 import { createVerifierTrustEvaluator } from './TrustEvaluator';
 
-describe('createVerifierTrustEvaluator', () => {
-	const evaluateVerifier = vi.fn();
+const { evaluateVerifier } = vi.hoisted(() => ({ evaluateVerifier: vi.fn() }));
 
+vi.mock('@sirosfoundation/authzen-client', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@sirosfoundation/authzen-client')>()),
+	AuthZENClient: vi.fn(function () {
+		return { evaluateVerifier };
+	}),
+}));
+
+describe('createVerifierTrustEvaluator', () => {
 	beforeEach(() => {
 		evaluateVerifier.mockReset();
-		vi.spyOn(walletCommon, 'AuthZENClient').mockReturnValue({
-			evaluateVerifier,
-		} as ReturnType<typeof walletCommon.AuthZENClient>);
 	});
 
 	it('passes clientIdScheme.identifier to evaluateVerifier', async () => {
 		evaluateVerifier.mockResolvedValue({
 			ok: true,
 			value: {
-				status: walletCommon.TrustStatus.TRUSTED,
+				status: TrustStatus.TRUSTED,
 				metadata: {},
 			},
 		});
 
 		const evaluateTrust = createVerifierTrustEvaluator({
-			httpClient: vi.fn() as unknown as walletCommon.HttpClient,
+			httpClient: {} as HttpClient,
 			backendUrl: 'https://wallet-backend.example.com',
 			getAuthToken: () => 'token',
 			tenantId: 'default',

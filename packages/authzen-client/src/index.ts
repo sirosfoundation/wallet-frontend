@@ -7,9 +7,9 @@
  *
  * @example
  * ```typescript
- * import { AuthZENClient, TrustStatus } from 'wallet-common';
+ * import { AuthZENClient, TrustStatus } from '@sirosfoundation/authzen-client';
  *
- * const client = AuthZENClient({
+ * const client = new AuthZENClient({
  *   httpClient: defaultHttpClient,
  *   baseUrl: 'https://wallet-backend.example.com',
  *   getAuthToken: () => authService.getToken(),
@@ -38,19 +38,19 @@ export type {
 	AuthZENResolveRequest,
 	AuthZENError,
 	TrustInfo,
+	IAuthZENClient,
+	AuthZENClientConfig,
+	KeyMaterial,
+	EvaluateVerifierOptions,
+	EvaluateIssuerOptions,
 } from './types';
 
 export {
 	AuthZENErrorCode,
 	TrustStatus,
-} from './types';
+} from './resources';
 
 export {
 	// Client
 	AuthZENClient,
-	type IAuthZENClient,
-	type AuthZENClientConfig,
-	type KeyMaterial,
-	type EvaluateVerifierOptions,
-	type EvaluateIssuerOptions,
 } from './AuthZENClient';
