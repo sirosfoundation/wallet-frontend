@@ -39,6 +39,13 @@ export interface IOIDFlowTransport {
 	 */
 	isConnected(): boolean;
 
+	/**
+	 * Release what the transport holds for the flow in progress, because the wallet aborted or
+	 * cancelled it locally (for example a response-encryption key and what it decrypted).
+	 * Optional: only a transport that keeps per-flow secrets needs it.
+	 */
+	releaseFlow?(): void;
+
 	// ===== OID4VCI (Credential Issuance) =====
 
 	/**
