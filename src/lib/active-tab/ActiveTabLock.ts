@@ -27,6 +27,11 @@ type ActiveTabMessage =
 	| { type: typeof TAKE_OVER_MESSAGE }
 	| { type: typeof HANDED_OVER_MESSAGE; session?: HandOverSession };
 
+type TakeOverAttempt = {
+	promise: Promise<void>;
+	controller: AbortController;
+};
+
 const LOCK_NAME = 'wallet-active-tab';
 const TAKE_OVER_MESSAGE = 'take-over';
 const HANDED_OVER_MESSAGE = 'handed-over';
@@ -46,7 +51,7 @@ export class ActiveTabLock {
 	// Set only while this tab waits for a hand-over it asked for.
 	#receiveHandOver?: (message: ActiveTabMessage) => void;
 	#disposed = false;
-	#takingOver?: Promise<void>;
+	#takingOver?: TakeOverAttempt;
 
 	constructor({
 		onTakenOver,
@@ -92,69 +97,88 @@ export class ActiveTabLock {
 	}
 
 	takeOver(): Promise<void> {
-		if (this.#takingOver instanceof Promise) {
+		if (this.#takingOver) {
 			return this.#waitOrSteal(this.#takingOver);
 		}
 
-		const takingOver = (async () => {
+		return this.#startTakeOver((signal) => this.#takeOver(signal));
+	}
+
+	#startTakeOver(run: (signal: AbortSignal) => Promise<void>): Promise<void> {
+		const controller = new AbortController();
+		const promise = (async () => {
 			try {
-				await this.#takeOver();
+				await run(controller.signal);
 			} finally {
-				if (this.#takingOver === takingOver) {
+				if (this.#takingOver?.promise === promise) {
 					this.#takingOver = undefined;
 				}
 			}
 		})();
 
-		this.#takingOver = takingOver;
-		return takingOver;
+		this.#takingOver = { promise, controller };
+		return promise;
 	}
 
 	/**
 	 * Wait for a take-over that is already running, and steal the lock if it
 	 * has not made this tab active in time.
 	 */
-	async #waitOrSteal(takingOver: Promise<void>): Promise<void> {
+	async #waitOrSteal(attempt: TakeOverAttempt): Promise<void> {
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		await Promise.race([
-			Promise.allSettled([takingOver]),
+			Promise.allSettled([attempt.promise]),
 			new Promise<void>((resolve) => {
 				timer = setTimeout(resolve, TAKE_OVER_TIMEOUT);
 			}),
 		]);
 		clearTimeout(timer);
 
-		if (this.#snapshot.state !== 'active') {
-			logger.warn('The take-over did not finish in time; taking over anyway');
-			await this.#request({ steal: true });
+		if (this.#snapshot.state === 'active') {
+			return;
 		}
+
+		// It settled without the lock, or another call already replaced it.
+		if (this.#takingOver !== attempt) {
+			return this.takeOver();
+		}
+
+		// Cancel first, so the old attempt cannot take the lock this one steals.
+		attempt.controller.abort();
+		await this.#startTakeOver(async (signal) => {
+			logger.warn('The take-over did not finish in time; taking over anyway');
+			await this.#request({ steal: true }, signal);
+		});
 	}
 
 	/**
 	 * Ask the active tab to hand over its session, and take the lock anyway if
 	 * it does not answer in time.
 	 */
-	async #takeOver(): Promise<void> {
+	async #takeOver(signal: AbortSignal): Promise<void> {
 		if (this.#snapshot.state === 'active') {
 			return;
 		}
 
 		// No active tab at all, so there is nothing to hand over.
-		if (await this.#request({ ifAvailable: true })) {
+		if ((await this.#request({ ifAvailable: true }, signal)) || signal.aborted) {
 			return;
 		}
 
-		const handedOver = this.#waitForHandOver();
+		const handedOver = this.#waitForHandOver(signal);
 		this.#channel.postMessage({
 			type: TAKE_OVER_MESSAGE,
 		} satisfies ActiveTabMessage);
 		const message = await handedOver;
+		if (signal.aborted) {
+			return;
+		}
 
 		if (!message) {
 			logger.warn(
 				'The active tab did not hand over in time; taking over anyway',
 			);
-			await this.#request({ steal: true });
+			await this.#request({ steal: true }, signal);
 			return;
 		}
 
@@ -162,7 +186,22 @@ export class ActiveTabLock {
 		if (message.type === HANDED_OVER_MESSAGE && message.session) {
 			this.#onHandedOver(message.session);
 		}
-		await this.#request({ signal: AbortSignal.timeout(TAKE_OVER_TIMEOUT) });
+
+		try {
+			await this.#request(
+				{
+					signal: AbortSignal.any([
+						signal,
+						AbortSignal.timeout(TAKE_OVER_TIMEOUT),
+					]),
+				},
+				signal,
+			);
+		} catch (error) {
+			if (!signal.aborted) {
+				throw error;
+			}
+		}
 	}
 
 	/**
@@ -182,6 +221,7 @@ export class ActiveTabLock {
 
 	dispose(): void {
 		this.#disposed = true;
+		this.#takingOver?.controller.abort();
 		this.#channel.removeEventListener('message', this.#handleMessage);
 		this.#channel.close();
 		this.#release?.();
@@ -191,14 +231,20 @@ export class ActiveTabLock {
 
 	/**
 	 * Resolves once the lock request is answered: true if this tab now holds
-	 * the lock. The lock is then held until #release is called.
+	 * the lock. The lock is then held until #release is called. A lock granted
+	 * after `attempt` is aborted is released right away.
 	 */
-	#request(options: LockOptions): Promise<boolean> {
+	#request(options: LockOptions, attempt?: AbortSignal): Promise<boolean> {
 		return new Promise(async (granted, notGranted) => {
 			let held = false;
 
 			try {
 				await navigator.locks.request(LOCK_NAME, options, (lock) => {
+					if (attempt?.aborted) {
+						granted(false);
+						return;
+					}
+
 					if (!lock || this.#disposed) {
 						this.#setState('inactive');
 						granted(false);
@@ -257,16 +303,19 @@ export class ActiveTabLock {
 
 	/**
 	 * Resolves with the active tab's hand-over message, or null if none
-	 * arrives in time.
+	 * arrives in time or `signal` is aborted.
 	 */
-	#waitForHandOver(): Promise<ActiveTabMessage | null> {
+	#waitForHandOver(signal: AbortSignal): Promise<ActiveTabMessage | null> {
 		return new Promise((resolve) => {
 			const done = (message: ActiveTabMessage | null) => {
 				clearTimeout(timer);
-				this.#receiveHandOver = undefined;
+				if (this.#receiveHandOver === done) {
+					this.#receiveHandOver = undefined;
+				}
 				resolve(message);
 			};
 			const timer = setTimeout(() => done(null), TAKE_OVER_TIMEOUT);
+			signal.addEventListener('abort', () => done(null), { once: true });
 			this.#receiveHandOver = done;
 		});
 	}

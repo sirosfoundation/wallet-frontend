@@ -336,6 +336,20 @@ describe('ActiveTabLock', () => {
 			expect(lock.getSnapshot().state).toBe('active');
 		});
 
+		it('does not steal its own lock when take-over is called twice', async () => {
+			holdLockForever();
+			const { lock, onTakenOver } = startPassiveTab();
+			vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+
+			const first = lock.takeOver();
+			const second = lock.takeOver();
+			await vi.advanceTimersByTimeAsync(10_000);
+			await Promise.all([first, second]);
+
+			expect(onTakenOver).not.toHaveBeenCalled();
+			expect(lock.getSnapshot().state).toBe('active');
+		});
+
 		it('lets the previous tab take back over', async () => {
 			const first = await startActiveTab({ onTakenOver: vi.fn<OnTakenOver>(() => ({ userHandle: 'a' })) });
 			const second = startPassiveTab({ onTakenOver: vi.fn<OnTakenOver>(() => ({ userHandle: 'b' })) });
