@@ -236,6 +236,18 @@ describe('AuthTokens', () => {
 			expect(storage.getItem(`${STORAGE_PREFIX}:backend`)).toBeNull();
 			expect(auth.backendTokenExists()).toBe(false);
 		});
+
+		it('removes all stored tokens but keeps unrelated keys', async () => {
+			storage.setItem(`${STORAGE_PREFIX}:backend`, makeJwt());
+			storage.setItem(`${STORAGE_PREFIX}:legacy`, makeJwt());
+			storage.setItem('unrelated', 'keep');
+
+			await makeAuthTokens().clear();
+
+			expect(storage.getItem(`${STORAGE_PREFIX}:backend`)).toBeNull();
+			expect(storage.getItem(`${STORAGE_PREFIX}:legacy`)).toBeNull();
+			expect(storage.getItem('unrelated')).toBe('keep');
+		});
 	});
 
 	describe('registerTokenRejection', () => {
