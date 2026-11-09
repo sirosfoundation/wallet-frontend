@@ -682,6 +682,21 @@
 		"nicknamePlaceholder": "Nome da credencial",
 		"passkeyCreated": "A sua chave de acesso foi criada."
 	},
+		"secondSecurityKey": {
+		"alreadyRegistered": "Esta chave de segurança já está registada. Utilize outra.",
+		"authOnceMore": "Autentique-se com a sua chave de segurança mais uma vez.",
+		"cancelled": "A configuração da chave de segurança foi cancelada. Tente novamente ou ignore.",
+		"confirm": "Confirmar",
+		"description": "Isto dará uma cópia de segurança e garantirá que pode aceder à sua conta da carteira.",
+		"failed": "Algo correu mal. Tente novamente ou ignore.",
+		"title": "Configure uma segunda chave de segurança (recomendado)",
+		"yes": "Sim",
+		"skip": "Ignorar",
+		"labelTitle": "Rotule a sua chave de segurança",
+		"labelDescription": "Dê um rótulo à sua chave de segurança para facilitar o reconhecimento nas definições da carteira.",
+		"labelPlaceholder": "Introduza o rótulo",
+		"labelInputAriaLabel": "Campo de entrada para o apelido da chave de segurança"
+	},
 	"selectCredentialPopup": {
 		"allClaimsRequested": "O verificador solicitou todas as declarações da credencial.",
 		"baseTitle": "Enviar Credenciais",

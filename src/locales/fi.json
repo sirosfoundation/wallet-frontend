@@ -682,6 +682,21 @@
 		"nicknamePlaceholder": "Todistuksen lempinimi",
 		"passkeyCreated": "Passkey on luotu."
 	},
+	"secondSecurityKey": {
+		"alreadyRegistered": "Tämä turva-avain on jo rekisteröity. Käytä toista.",
+		"authOnceMore": "Todennathan turva-avaimellasi vielä kerran.",
+		"cancelled": "Turva-avaimen asetus peruutettiin. Yritä uudelleen tai ohita.",
+		"confirm": "Vahvista",
+		"description": "Tämä antaa sinulle varmuuskopion ja varmistaa, että voit käyttää lompakkotiliäsi.",
+		"failed": "Jokin meni pieleen. Yritä uudelleen tai ohita.",
+		"title": "Määritä toinen suoja-avain (suositellaan)",
+		"yes": "Kyllä",
+		"skip": "Ohita",
+		"labelTitle": "Anna turva-avaimellesi tunniste",
+		"labelDescription": "Anna turva-avaimellesi tunniste, jotta sen tunnistaminen lompakon asetuksissa on helpompaa.",
+		"labelPlaceholder": "Anna tunniste",
+		"labelInputAriaLabel": "Syöttökenttä turva-avaimen lempinimelle"
+	},
 	"selectCredentialPopup": {
 		"allClaimsRequested": "Todentaja on pyytänyt kaikki todistuksen attribuutit.",
 		"baseTitle": "Lähetä todistuksia",

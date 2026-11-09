@@ -7,6 +7,7 @@ export function usePrfRetry() {
 
 	const promptForPrfRetry = useCallback((): Promise<boolean> => {
 		setNeedPrfRetry(true);
+		setPrfRetryAccepted(false);
 		return new Promise<boolean>((resolve) => setResolvePrfRetryPrompt(() => resolve)).finally(() => {
 			setNeedPrfRetry(false);
 			setPrfRetryAccepted(true);

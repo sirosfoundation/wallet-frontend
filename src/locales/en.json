@@ -682,6 +682,21 @@
 		"nicknamePlaceholder": "Credential nickname",
 		"passkeyCreated": "Your passkey has been created."
 	},
+	"secondSecurityKey": {
+		"alreadyRegistered": "This security key is already registered. Please use a different one.",
+		"authOnceMore": "Please authenticate with your security key once more.",
+		"cancelled": "The security key setup was cancelled. Try again or skip.",
+		"confirm": "Confirm",
+		"description": "This will give you a backup and make sure you can access your wallet account.",
+		"failed": "Something went wrong. Try again or skip.",
+		"title": "Configure a second security key (recommended)",
+		"yes": "Yes",
+		"skip": "Skip",
+		"labelTitle": "Label your security key",
+		"labelDescription": "Give your security key a label to make it easier to recognize it in the wallet settings.",
+		"labelPlaceholder": "Enter label",
+		"labelInputAriaLabel": "Input for security key nickname"
+	},
 	"selectCredentialPopup": {
 		"allClaimsRequested": "The verifier has requested all claims of the credential.",
 		"baseTitle": "Send Credentials",
