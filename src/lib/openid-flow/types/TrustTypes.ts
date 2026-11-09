@@ -13,6 +13,7 @@
  */
 
 import { IssuerTrustEvaluator, VerifierTrustEvaluator } from '@/lib/services/TrustEvaluator';
+import type { DIDResolver } from 'wallet-common';
 
 /**
  * Trust evaluation status from the backend PDP.
@@ -46,4 +47,5 @@ export interface TrustEvaluation {
 export interface TrustEvaluators {
 	evaluateIssuerTrust: IssuerTrustEvaluator;
 	evaluateVerifierTrust: VerifierTrustEvaluator;
+	resolveDid?: DIDResolver;
 }

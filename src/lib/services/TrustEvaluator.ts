@@ -3,7 +3,7 @@
  *
  * This module bridges the wallet-common AuthZEN client with the
  * wallet trust evaluation interfaces, enabling trust evaluation for:
- * - Verifiers (OpenID4VP): did:web, https, x509_san_dns schemes
+ * - Verifiers (OpenID4VP): did:jwk, did:web, https, x509_san_dns schemes
  * - Issuers (OpenID4VCI): credential issuer trust evaluation
  *
  * All trust decisions are delegated to the wallet backend's AuthZEN proxy,
@@ -19,6 +19,7 @@ import {
 	DIDDocument,
 	DIDResolver,
 	ClientIdScheme,
+	resolveDidJwk,
 } from 'wallet-common';
 import type { HttpClient } from 'wallet-common';
 import { logger } from '@/logger';
@@ -373,6 +374,13 @@ export function createDIDResolver(config: TrustEvaluatorConfig): DIDResolver {
 	const authzenClient = AuthZENClient(clientConfig);
 
 	return async (did: string): Promise<DIDResolutionResult> => {
+		// did:jwk encodes the key in the identifier itself, so it resolves offline and there is
+		// nothing for the backend to look up. DIIP v5 requires supporting it alongside did:web.
+		if (did.startsWith('did:jwk:')) {
+			logger.debug('Resolving did:jwk locally:', did);
+			return resolveDidJwk(did);
+		}
+
 		logger.debug('Resolving DID via AuthZEN backend:', did);
 
 		const result = await authzenClient.resolve(did);

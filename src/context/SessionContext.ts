@@ -16,15 +16,24 @@ export type SessionContextValue = {
 	authTokens: AuthTokens,
 };
 
+const missingSessionContext = (property: string) => () => {
+	throw new Error(`SessionContext.Provider is missing (${property})`);
+};
+
+const requiredContextObject = <T extends object>(property: string): T =>
+	new Proxy({} as T, {
+		get: () => missingSessionContext(property),
+	});
+
 const SessionContext: React.Context<SessionContextValue> = createContext({
-	api: undefined,
+	api: requiredContextObject<BackendApi>('api'),
 	isLoggedIn: false,
-	keystore: undefined,
+	keystore: requiredContextObject<LocalStorageKeystore>('keystore'),
 	obliviousKeyConfig: null,
 	logout: async () => { },
 	consumeSessionCleared: () => false,
-	oidFlowClientAuthMaterialManager: undefined,
-	authTokens: undefined,
+	oidFlowClientAuthMaterialManager: requiredContextObject<OIDFlowClientAuthStore>('oidFlowClientAuthMaterialManager'),
+	authTokens: requiredContextObject<AuthTokens>('authTokens'),
 });
 
 export default SessionContext;
