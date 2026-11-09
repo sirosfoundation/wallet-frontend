@@ -15,7 +15,7 @@ import { dataUriResolver } from "../resolvers/dataUriResolver";
 import { friendlyNameResolver } from "../resolvers/friendlyNameResolver";
 import { renderingResolver } from "../resolvers/renderingResolver";
 import { fromBase64, fromBase64Url } from "../utils";
-import type { IAuthZENClient } from "../authzen/AuthZENClient";
+import type { IAuthZENClient } from "@sirosfoundation/authzen-client";
 
 export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient, authzenClient?: IAuthZENClient }): CredentialParser {
 	const encoder = new TextEncoder();

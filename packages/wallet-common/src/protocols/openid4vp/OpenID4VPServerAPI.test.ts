@@ -7,7 +7,7 @@ import { Jwt, SDJwt } from "@sd-jwt/core";
 import { OpenID4VPServerAPI, parseClientIdScheme } from "./OpenID4VPServerAPI";
 import { OpenID4VPResponseMode, TrustEvaluationResult } from "./types";
 import { VerifiableCredentialFormat } from "../../types";
-import { TrustStatus } from "../../authzen/types";
+import { TrustStatus } from "@sirosfoundation/authzen-client";
 
 // Mock trust evaluator for tests - always returns trusted
 const mockEvaluateTrust = async (): Promise<TrustEvaluationResult> => ({
