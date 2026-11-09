@@ -116,31 +116,31 @@ The provider creates one instance and keeps its dependencies up to date:
 ```tsx
 // src/providers/HttpClientProvider.tsx
 export function HttpClientProvider({ children }: PropsWithChildren) {
-	const { isOnline } = useContext(StatusContext);
-	const { obliviousKeyConfig } = useContext(SessionContext);
+  const { isOnline } = useContext(StatusContext);
+  const { obliviousKeyConfig } = useContext(SessionContext);
 
-	const transport = useMemo(
-		() =>
-			obliviousKeyConfig
-				? createOhttpTransport(OHTTP_RELAY, obliviousKeyConfig)
-				: axiosHttpTransport,
-		[obliviousKeyConfig],
-	);
+  const transport = useMemo(
+    () =>
+      obliviousKeyConfig
+        ? createOhttpTransport(OHTTP_RELAY, obliviousKeyConfig)
+        : axiosHttpTransport,
+    [obliviousKeyConfig],
+  );
 
-	const [client] = useState(
-		() => new HttpClient({ isOnline, transport, logger, indexedDB }),
-	);
+  const [client] = useState(
+    () => new HttpClient({ isOnline, transport, logger, indexedDB }),
+  );
 
-	useEffect(() => {
-		client.setIsOnline(isOnline);
-		client.setTransport(transport);
-	}, [client, isOnline, transport]);
+  useEffect(() => {
+    client.setIsOnline(isOnline);
+    client.setTransport(transport);
+  }, [client, isOnline, transport]);
 
-	return (
-		<HttpClientContext.Provider value={client}>
-			{children}
-		</HttpClientContext.Provider>
-	);
+  return (
+    <HttpClientContext.Provider value={client}>
+      {children}
+    </HttpClientContext.Provider>
+  );
 }
 ```
 
@@ -149,9 +149,9 @@ The hook only reads the instance from context:
 ```typescript
 // src/hooks/useHttpClient.ts
 export function useHttpClient(): HttpClient {
-	const client = useContext(HttpClientContext);
-	if (!client) throw new Error('Missing HttpClientProvider');
-	return client;
+  const client = useContext(HttpClientContext);
+  if (!client) throw new Error('Missing HttpClientProvider');
+  return client;
 }
 ```
 
@@ -176,9 +176,9 @@ get it.
 import { isValidTenantId } from '@/lib/tenant';
 
 export function TenantForm() {
-	const [tenantId, setTenantId] = useState('');
-	const isValid = isValidTenantId(tenantId);
-	// ...
+  const [tenantId, setTenantId] = useState('');
+  const isValid = isValidTenantId(tenantId);
+  // ...
 }
 ```
 
@@ -213,17 +213,17 @@ C. This applies for standalone functions as well as classes.
 
 ```typescript
 export async function acceptOffer(offerUri: string) {
-	const offer = parseOffer(offerUri);
-	// ...
-	const issurr = await fetchIssuerMetadata(offer.issuer);
+  const offer = parseOffer(offerUri);
+  // ...
+  const issurr = await fetchIssuerMetadata(offer.issuer);
 }
 
 function parseOffer(offerUri: string): Offer {
-	// ...
+  // ...
 }
 
 async function fetchIssuerMetadata(issuer: OfferIssuer): IssuerMetadata {
-	// ...
+  // ...
 }
 ```
 
@@ -234,16 +234,16 @@ line. Each block should do one step, so the function reads top to bottom.
 
 ```typescript
 async function acceptOffer(offerUri: string) {
-	const offer = parseOffer(offerUri);
-	const issuer = await fetchIssuerMetadata(offer.issuer);
+  const offer = parseOffer(offerUri);
+  const issuer = await fetchIssuerMetadata(offer.issuer);
 
-	const token = await requestToken(issuer, offer.grant);
+  const token = await requestToken(issuer, offer.grant);
 
-	const proof = await createProof(issuer, token.nonce);
-	const credential = await requestCredential(issuer, token, proof);
+  const proof = await createProof(issuer, token.nonce);
+  const credential = await requestCredential(issuer, token, proof);
 
-	await storeCredential(credential);
-	return credential;
+  await storeCredential(credential);
+  return credential;
 }
 ```
 
@@ -385,9 +385,9 @@ by mocking hook modules:
 
 ```tsx
 render(
-	<HttpClientContext.Provider value={fakeClient}>
-		<TenantForm />
-	</HttpClientContext.Provider>,
+  <HttpClientContext.Provider value={fakeClient}>
+    <TenantForm />
+  </HttpClientContext.Provider>,
 );
 ```
 
