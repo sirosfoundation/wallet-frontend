@@ -56,6 +56,13 @@ export enum KeystoreEvent {
 	CloseSessionTabLocal = 'keystore.closeSessionTabLocal',
 }
 
+export type CloseSessionTabLocalDetail = {
+	/**
+	 * Should the server session be logged out as well
+	 */
+	serverLogout: boolean;
+};
+
 export type CommitCallback = () => Promise<void>;
 export interface LocalStorageKeystore {
 	isOpen(): boolean,
@@ -272,8 +279,17 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 	}, [writePrivateDataOnIdb, setPrivateData]);
 
 	const closeSessionTabLocal = useCallback(
-		async (): Promise<void> => {
-			eventTarget.dispatchEvent(new CustomEvent(KeystoreEvent.CloseSessionTabLocal));
+		async ({ serverLogout = true }: Partial<CloseSessionTabLocalDetail> = {}): Promise<void> => {
+			eventTarget.dispatchEvent(
+				new CustomEvent<CloseSessionTabLocalDetail>(
+					KeystoreEvent.CloseSessionTabLocal,
+					{
+						detail: {
+							serverLogout,
+						},
+					},
+				),
+			);
 			clearSessionStorage();
 		},
 		[clearSessionStorage, eventTarget],
@@ -340,7 +356,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		() => {
 			if (tabId && globalTabId && (tabId !== globalTabId)) {
 				// When user logs in in any tab, log out in all other tabs
-				closeSessionTabLocal();
+				closeSessionTabLocal({ serverLogout: false });
 			}
 		},
 		[closeSessionTabLocal, tabId, globalTabId],
@@ -548,7 +564,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 					queryParams.delete('sync');
 					queryParams.append('user', userHandleB64u);
 					const loginStatePath = buildTenantRoutePath(getTenantFromUrlPath() ?? undefined, 'login-state');
-					closeSessionTabLocal();
+					closeSessionTabLocal({ serverLogout: false });
 					navigate(`${loginStatePath}?${queryParams.toString()}`, { replace: true });
 				}
 			})();

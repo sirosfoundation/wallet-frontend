@@ -60,7 +60,7 @@ export interface BackendApi {
 
 	getSession(): SessionState,
 	isLoggedIn(): boolean,
-	clearSession(): void,
+	clearSession(options?: { serverLogout?: boolean }): void,
 
 	authTokens: AuthTokens,
 
@@ -161,11 +161,13 @@ export function useApi({
 	const clearSessionStorage = useClearStorages(clearSessionState);
 
 	// Define clearSession early so it can be used by token refresh config
-	const clearSession = useCallback((): void => {
-		authServer.logout(tenantId ?? 'default').catch((e) => logger.error('Failed to clear server session', e));
+	const clearSession = useCallback(({ serverLogout = true }: { serverLogout?: boolean } = {}): void => {
+		if (serverLogout) {
+			authServer.logout(tenantId ?? 'default').catch((e) => logger.error('Failed to clear server session', e));
+			removePrivateDataEtag();
+		}
 		clearSessionStorage();
 		authTokens.clear();
-		removePrivateDataEtag();
 		clearStoredTenant(); // Clear tenant on logout
 		clearOIDCState('registration'); // Clear OIDC gate tokens on logout
 		clearOIDCState('login');
