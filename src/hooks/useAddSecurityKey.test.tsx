@@ -38,7 +38,7 @@ const newPrivateData = {
 };
 
 const setup = () => {
-	const post = vi.fn((path: string): Promise<any> => 
+	const post = vi.fn((path: string): Promise<any> =>
 		Promise.resolve(path.endsWith('register-begin') ? beginResponse : finishResponse)
 	);
 	const api = {
@@ -160,7 +160,7 @@ describe('useAddSecurityKey', () => {
 		expect(result.current.isActive).toBe(false);
 	});
 
-	 it('cancels an in-progress registration', async () => {
+	it('cancels an in-progress registration', async () => {
 		const { result, keystore, begin, finish } = setup();
 		await begin();
 		act(() => result.current.cancel());

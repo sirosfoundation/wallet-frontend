@@ -109,8 +109,8 @@ export function useAddSecurityKey() {
 
 		} catch (e) {
 			if (e?.cause?.errorId === 'canceled') {
-        return false;
-    	}
+				return false;
+			}
 			logger.error('Failed to finish registration', e);
 			setError('failed');
 			if (e?.cause === 'x-private-data-etag') {
