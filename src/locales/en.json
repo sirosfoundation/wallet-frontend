@@ -117,6 +117,18 @@
 		"messageOffline": "You are currently <strong>offline. Some features may not be available.</strong>",
 		"messageResetPermission": "Something <strong>not working properly with the notifications</strong>, please <reloadButton>reload this page</reloadButton>."
 	},
+	"getReady": {
+		"title": "Get ready!",
+		"back": "Back to sign up",
+		"steps": {
+			"getKey": { "title": "Get your security key", "text": "You will need it to create and log in to your account." },
+			"pin": { "title": "Make sure it has a PIN", "text": "If your security key doesn't have a PIN you will be asked to create one." },
+			"secondKey": { "title": "Grab a second security key (recommended)", "text": "You will be asked if you want to configure a second security key. This ensures you can access your wallet if you misplace your first key." }
+		},
+		"noKey": "Don't have a security key? <u>Try another way</u>.",
+		"about": {"title": "About Security Keys", "text": "Security keys provide private, hardware-based protection, requiring just a physical touch or NFC tap to grant access.", "compatible": "SIROS ID works with security keys from Yubico, Google, and more. <u>View compatible security keys</u>", "imgAlt": "YubiKey 5C: a black USB-C security key with a round gold touch sensor."},
+		"tip": "<b>Tip:</b> If your security key doesn't support NFC, insert it now."
+	},
 	"loginSignup": {
 		"acceptPolicies": "I accept the <policyLinks/>.",
 		"alreadyHaveAccountQuestion": "Already have a wallet account? ",
