@@ -1,11 +1,11 @@
 export { RESPONSE_ENCS, RESPONSE_KEY_ALGS } from './algorithms';
-export { ClientHeldEncryptionKeys } from './ClientHeldKeys';
+export { ClientHeldEncryptionKeys } from './ClientHeldEncryptionKeys';
 export type {
 	CredentialResponseEncryptionRequest,
 	DecryptControlFields,
 	DecryptedCredentialResponse,
 	GeneratedResponseKey,
-} from './ClientHeldKeys';
-export { LEGACY_SECRET_MEMBERS, carriesLegacySecretMember } from './legacySecretMembers';
-export { buildJarmResponse, verifierJwkThumbprint } from './ResponseJwe';
-export type { VerifierResponseEncryption } from './ResponseJwe';
+} from './ClientHeldEncryptionKeys';
+export { LEGACY_SECRET_MEMBERS, carriesLegacySecretMember } from './legacy-secret-members';
+export { buildJarmResponse, verifierJwkThumbprint } from './response-jwe';
+export type { VerifierResponseEncryption } from './response-jwe';

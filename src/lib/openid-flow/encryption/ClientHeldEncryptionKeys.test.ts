@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { CompactEncrypt, exportJWK, generateKeyPair, importJWK } from 'jose';
 import type { JWK } from 'jose';
 import { ClientHeldEncryptionError, LEGACY_SECRET_MEMBER } from '../errors';
-import { LEGACY_SECRET_MEMBERS } from './legacySecretMembers';
+import { LEGACY_SECRET_MEMBERS } from './legacy-secret-members';
 import { RESPONSE_ENCS, RESPONSE_KEY_ALGS } from './algorithms';
-import { ClientHeldEncryptionKeys } from './ClientHeldKeys';
+import { ClientHeldEncryptionKeys } from './ClientHeldEncryptionKeys';
 
 /** What an issuer does: encrypt a Credential Response to the wallet's public JWK. */
 async function issuerEncrypt(jwk: JWK, alg: string, enc: string, body: unknown): Promise<string> {

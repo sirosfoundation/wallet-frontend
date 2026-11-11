@@ -39,7 +39,7 @@ import { logger } from '@/logger';
 import { TrustEvaluators, TrustStatus } from '../types';
 import { DcqlQuery } from 'dcql';
 import { ClientHeldEncryptionError, LEGACY_SECRET_MEMBER, OIDFlowError } from '../errors';
-import { ZKP_REQ_REFUSED, requestsZkpReq, zkpReqRefusal } from '../utils/zkpReqPolicy';
+import { ZKP_REQ_REFUSED, requestsZkpReq, zkpReqRefusal } from '../utils/zkp-req-policy';
 
 /**
  * Pending request waiting for a response

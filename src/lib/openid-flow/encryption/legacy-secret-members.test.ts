@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { LEGACY_SECRET_MEMBERS, carriesLegacySecretMember } from './legacySecretMembers';
+import { LEGACY_SECRET_MEMBERS, carriesLegacySecretMember } from './legacy-secret-members';
 
 describe('LEGACY_SECRET_MEMBERS', () => {
 	it('is exactly the five names the Kotlin SDK refuses (siros-sdk-kotlin #337)', () => {

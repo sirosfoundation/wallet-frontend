@@ -13,7 +13,7 @@ import { compactDecrypt, exportJWK, generateKeyPair } from 'jose';
 import type { JWK, KeyLike } from 'jose';
 import { ClientHeldEncryptionError, LEGACY_SECRET_MEMBER } from '../errors';
 import { isSupportedAlg, isSupportedEnc } from './algorithms';
-import { carriesLegacySecretMember } from './legacySecretMembers';
+import { carriesLegacySecretMember } from './legacy-secret-members';
 
 /** Credentials per response the engine accepts as a count (go-wallet-backend contract F.5). */
 const MAX_CREDENTIAL_COUNT = 256;
@@ -60,32 +60,6 @@ interface FlowKey {
 }
 
 /**
- * Each OID4VCI 1.0 section 8.3 `credentials` entry is an object with a `credential` field: the INNER value is
- * what the wallet stores (a string, or the JSON of an object credential such as `ldp_vc`). Anything else is refused.
- */
-function credentialsOf(body: Record<string, unknown>): string[] {
-	if (body.credentials === undefined) {
-		return [];
-	}
-	if (!Array.isArray(body.credentials)) {
-		throw new ClientHeldEncryptionError('The decrypted credential response has no credentials list');
-	}
-	return body.credentials.map((entry) => {
-		if (!entry || typeof entry !== 'object' || Array.isArray(entry) || !('credential' in entry)) {
-			throw new ClientHeldEncryptionError('The decrypted credential response has an entry without a credential');
-		}
-		const inner = (entry as { credential: unknown }).credential;
-		if (typeof inner === 'string' && inner !== '') {
-			return inner;
-		}
-		if (inner && typeof inner === 'object' && !Array.isArray(inner)) {
-			return JSON.stringify(inner);
-		}
-		throw new ClientHeldEncryptionError('The decrypted credential response has an unusable credential');
-	});
-}
-
-/**
  * Per-flow response-encryption keys, in memory only.
  *
  * A fresh key pair is made for every `generate_proof` request (a c_nonce retry sends a new
@@ -93,15 +67,41 @@ function credentialsOf(body: Record<string, unknown>): string[] {
  * private key is non-extractable where the runtime honours that (WebCrypto in a browser).
  */
 export class ClientHeldEncryptionKeys {
-	private readonly keys = new Map<string, FlowKey>();
+	readonly #keys = new Map<string, FlowKey>();
 	/**
 	 * The generation a flow's key is being (or was) made for. drop()/clear() and a newer
 	 * generate() invalidate it, so a key whose generation was still pending when the flow
 	 * ended (or was superseded) is never stored or returned, and a request's own cleanup
 	 * cannot remove a newer request's key.
 	 */
-	private readonly generations = new Map<string, number>();
-	private generationCounter = 0;
+	readonly #generations = new Map<string, number>();
+	#generationCounter = 0;
+
+	/**
+	 * Each OID4VCI 1.0 section 8.3 `credentials` entry is an object with a `credential` field: the INNER value is
+	 * what the wallet stores (a string, or the JSON of an object credential such as `ldp_vc`). Anything else is refused.
+	 */
+	static #credentialsOf(body: Record<string, unknown>): string[] {
+		if (body.credentials === undefined) {
+			return [];
+		}
+		if (!Array.isArray(body.credentials)) {
+			throw new ClientHeldEncryptionError('The decrypted credential response has no credentials list');
+		}
+		return body.credentials.map((entry) => {
+			if (!entry || typeof entry !== 'object' || Array.isArray(entry) || !('credential' in entry)) {
+				throw new ClientHeldEncryptionError('The decrypted credential response has an entry without a credential');
+			}
+			const inner = (entry as { credential: unknown }).credential;
+			if (typeof inner === 'string' && inner !== '') {
+				return inner;
+			}
+			if (inner && typeof inner === 'object' && !Array.isArray(inner)) {
+				return JSON.stringify(inner);
+			}
+			throw new ClientHeldEncryptionError('The decrypted credential response has an unusable credential');
+		});
+	}
 
 	/**
 	 * Generate the key for a flow and return its public JWK with the owning generation, or
@@ -114,9 +114,9 @@ export class ClientHeldEncryptionKeys {
 		request: CredentialResponseEncryptionRequest,
 	): Promise<GeneratedResponseKey | undefined> {
 		const required = request.required === true;
-		this.keys.delete(flowId);
-		const generation = ++this.generationCounter;
-		this.generations.set(flowId, generation);
+		this.#keys.delete(flowId);
+		const generation = ++this.#generationCounter;
+		this.#generations.set(flowId, generation);
 
 		if (!isSupportedAlg(request.alg) || !isSupportedEnc(request.enc)) {
 			if (required) {
@@ -132,11 +132,11 @@ export class ClientHeldEncryptionKeys {
 				extractable: false,
 			});
 			const jwk = await exportJWK(publicKey);
-			if (this.generations.get(flowId) !== generation) {
+			if (this.#generations.get(flowId) !== generation) {
 				// The flow ended, or another request took over, while the key was made.
 				throw new ClientHeldEncryptionError('The flow ended while the response encryption key was being generated');
 			}
-			this.keys.set(flowId, { privateKey, alg: request.alg, enc: request.enc });
+			this.#keys.set(flowId, { privateKey, alg: request.alg, enc: request.enc });
 			return {
 				jwk: { kty: jwk.kty, crv: jwk.crv, x: jwk.x, y: jwk.y, use: 'enc', alg: request.alg },
 				generation,
@@ -153,7 +153,7 @@ export class ClientHeldEncryptionKeys {
 	}
 
 	has(flowId: string): boolean {
-		return this.keys.has(flowId);
+		return this.#keys.has(flowId);
 	}
 
 	/**
@@ -161,7 +161,7 @@ export class ClientHeldEncryptionKeys {
 	 * flow was dropped, or the key was never stored. A key must not be advertised unless it is owned.
 	 */
 	owns(flowId: string, generation: number): boolean {
-		return this.generations.get(flowId) === generation && this.keys.has(flowId);
+		return this.#generations.get(flowId) === generation && this.#keys.has(flowId);
 	}
 
 	/**
@@ -171,7 +171,7 @@ export class ClientHeldEncryptionKeys {
 	 * LEGACY_SECRET_MEMBER before anything else is checked, and nothing is kept.
 	 */
 	async decrypt(flowId: string, jwe: string): Promise<DecryptControlFields> {
-		const entry = this.keys.get(flowId);
+		const entry = this.#keys.get(flowId);
 		if (!entry) {
 			throw new ClientHeldEncryptionError('No response encryption key for this flow');
 		}
@@ -205,7 +205,7 @@ export class ClientHeldEncryptionKeys {
 			);
 		}
 
-		const credentials = credentialsOf(body);
+		const credentials = ClientHeldEncryptionKeys.#credentialsOf(body);
 		const transactionId =
 			typeof body.transaction_id === 'string' && body.transaction_id !== '' ? body.transaction_id : undefined;
 
@@ -239,13 +239,13 @@ export class ClientHeldEncryptionKeys {
 
 	/** What the flow's latest decrypted response carried, or `undefined` before any decrypt. */
 	response(flowId: string): DecryptedCredentialResponse | undefined {
-		return this.keys.get(flowId)?.response;
+		return this.#keys.get(flowId)?.response;
 	}
 
 	/** Drop whatever the flow holds (its key and decrypted response, and any generation still pending). */
 	drop(flowId: string): void {
-		this.keys.delete(flowId);
-		this.generations.delete(flowId);
+		this.#keys.delete(flowId);
+		this.#generations.delete(flowId);
 	}
 
 	/**
@@ -253,13 +253,13 @@ export class ClientHeldEncryptionKeys {
 	 * generated a key must not remove a newer request's key.
 	 */
 	dropGeneration(flowId: string, generation: number): void {
-		if (this.generations.get(flowId) === generation) {
+		if (this.#generations.get(flowId) === generation) {
 			this.drop(flowId);
 		}
 	}
 
 	clear(): void {
-		this.keys.clear();
-		this.generations.clear();
+		this.#keys.clear();
+		this.#generations.clear();
 	}
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { OID4VPVerifiedRequest } from '../types/OID4VPTypes';
-import { requestsZkpReq, zkpReqRefusal } from './zkpReqPolicy';
+import { requestsZkpReq, zkpReqRefusal } from './zkp-req-policy';
 
 const signedEncrypted: OID4VPVerifiedRequest = {
 	clientId: 'x509_san_dns:verifier.example.com',

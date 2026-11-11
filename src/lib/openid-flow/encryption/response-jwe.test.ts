@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { compactDecrypt, exportJWK, generateKeyPair } from 'jose';
 import type { JWK } from 'jose';
 import { ClientHeldEncryptionError } from '../errors';
-import { buildJarmResponse, verifierJwkThumbprint } from './ResponseJwe';
+import { buildJarmResponse, verifierJwkThumbprint } from './response-jwe';
 
 async function verifier(alg = 'ECDH-ES', kid = 'v-1') {
 	const { publicKey, privateKey } = await generateKeyPair('ECDH-ES', { crv: 'P-256', extractable: true });
