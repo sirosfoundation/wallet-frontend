@@ -195,3 +195,9 @@ export const BRANDING = {
 	LOGO_LIGHT: config.branding?.logo_light || '/logo_light.svg',
 	LOGO_DARK: config.branding?.logo_dark || '/logo_dark.svg',
 }
+
+/**
+ * The in-browser engine (siros-wallet-core engine-adapter-wasm): OpenID4VCI
+ * and OpenID4VP run in the page instead of on the remote engine. Opt-in.
+ */
+export const WASM_ENGINE_ENABLED = config.wasm_engine_enabled === 'true';

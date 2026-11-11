@@ -114,6 +114,12 @@ export interface IWscdSignOperations {
 	 * Generate a device response for mDoc with proximity-based authentication.
 	 */
 	generateDeviceResponseWithProximity(request: GenerateDeviceResponseWithProximityRequest): Promise<Uint8Array>;
+	/**
+	 * Signs raw bytes with the key identified by its canonical thumbprint (kid).
+	 * Returns the raw JOSE signature (ES256: r || s). For signing inputs built
+	 * elsewhere, e.g. the JWT proofs the in-browser engine assembles.
+	 */
+	signRaw(kid: string, data: Uint8Array): Promise<Uint8Array>;
 }
 
 /**

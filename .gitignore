@@ -47,7 +47,8 @@
 !/tsconfig.json
 !/vite.config.ts
 !/vitest.config.ts
-
+# The in-browser engine package (generated: utils/build-wasm-engine.sh)
+src/lib/openid-flow/wasm/pkg/
 # ==========================================================
 # Ignorelist: these files and directories should be excluded
 *.env

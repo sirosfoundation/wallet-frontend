@@ -1,5 +1,8 @@
 {
 	"extends": [
 		"react-app"
+	],
+	"ignorePatterns": [
+		"src/lib/openid-flow/wasm/pkg/"
 	]
 }

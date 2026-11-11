@@ -151,6 +151,32 @@ export class WscdManagerClient implements IWscdManagerClient {
 		);
 	}
 
+	/**
+	 * Signs raw bytes with a key, typically one generateKeypairs just made.
+	 *
+	 * Unlike the other operations, this does not re-seed the host first. The
+	 * key generation persisted the new container through the exporter, but the
+	 * importer reads the keystore's React state, which only reflects it after a
+	 * re-render: re-seeding right away would import the container from before
+	 * the key existed and drop it ("key not found"). So the host signs with its
+	 * current state, and is re-seeded only if it does not know the key (a fresh
+	 * page, or a key generated in an earlier session).
+	 */
+	public async signRaw(kid: string, data: Uint8Array): Promise<Uint8Array> {
+		await this.#ready;
+
+		return this.#lock.runExclusive(async () => {
+			const host = await this.#selectHost(requirementsForCredential(kid));
+			try {
+				return await host.sign(kid, data);
+			} catch (err) {
+				logger.debug(`Raw sign with '${host.id}' needs the stored container: ${err}`);
+			}
+			await this.#seedHostContainer(host);
+			return host.sign(kid, data);
+		});
+	}
+
 	public async generateKeypairs(count: number): Promise<Keypair[]> {
 		await this.#ready;
 

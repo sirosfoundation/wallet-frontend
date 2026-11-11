@@ -9,10 +9,12 @@
  * before enabling WebSocket transport.
  */
 
-import React, { createContext, useContext, useMemo, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useMemo, useEffect, useState, useCallback,useRef } from 'react';
 import type { IOIDFlowTransport } from '@/lib/openid-flow/types/IOIDFlowTransport';
 import { nullOIDFlowTransport } from '@/lib/openid-flow/types/IOIDFlowTransport';
 import { OIDFlowWebSocketTransport } from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
+import { OIDFlowWasmTransport } from '@/lib/openid-flow/transports/OIDFlowWasmTransport';
+import { createRegisteredClientIdLookup } from '@/lib/openid-flow/wasm/wasmPorts';
 import type { SignRequestHandler, MatchRequestHandler } from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
 import {
 	Capabilities,
@@ -25,6 +27,7 @@ import {
 	DIRECT_TRANSPORT_ALLOWED,
 	TRANSPORT_PREFERENCE,
 	BACKEND_URL,
+	WASM_ENGINE_ENABLED,
 } from '@/config';
 import type { OIDFlowActiveTransportType, OIDFlowTransportType } from '@/lib/openid-flow/types/OIDFlowTypes';
 import { logger } from '@/logger';
@@ -34,6 +37,7 @@ import { useHttpClient } from '@/hooks/useHttpClient';
 import SessionContext from './SessionContext';
 import { getTenantFromUrlPath } from '@/lib/tenant';
 import { OIDFlowError } from '@/lib/openid-flow/errors';
+import { useWscdManagerClient } from '@/hooks/useWscdManagerClient';
 
 // Re-export sign and match types with WS prefix for clarity
 export type {
@@ -139,10 +143,13 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		//    authenticates it. Without this, a page load (e.g. the credential
 		//    offer callback) reports ready before the token resolves, and the
 		//    flow starts with no transport at all.
-		const wsPossible = WEBSOCKET_TRANSPORT_ALLOWED && wsCapabilityAvailable && !!WS_URL;
+		//    The in-browser engine does not wait for it: it asks for a fresh
+		//    token on every request it makes.
+		const wsPossible = !WASM_ENGINE_ENABLED && WEBSOCKET_TRANSPORT_ALLOWED && wsCapabilityAvailable && !!WS_URL;
 		if (wsPossible && !authTokenSettled) return false;
-		// 4. If WebSocket is expected, wait for it to connect or fail
-		const wsExpected = wsPossible && !!authToken;
+		// 4. If WebSocket (or the in-browser engine) is expected, wait for it to
+		//    connect or fail
+		const wsExpected = WASM_ENGINE_ENABLED || (wsPossible && !!authToken);
 		if (wsExpected && !isConnected && !lastError) return false;
 		return true;
 	}, [capabilitiesLoaded, pendingTransports, wsCapabilityAvailable, authToken, authTokenSettled, isConnected, lastError]);
@@ -170,6 +177,11 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 
 	// Fetch engine capabilities on mount
 	useEffect(() => {
+		// The in-browser engine has no remote engine to ask.
+		if (WASM_ENGINE_ENABLED) {
+			setCapabilitiesLoaded(true);
+			return;
+		}
 		let cancelled = false;
 
 		async function fetchCapabilities() {
@@ -207,8 +219,9 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 			});
 		}
 
-		// Only add websocket if config allows AND engine has capability
-		if (WEBSOCKET_TRANSPORT_ALLOWED && WS_URL && wsCapabilityAvailable) {
+		// Only add websocket if config allows AND engine has capability. The
+		// in-browser engine takes the same slot (the hooks treat it alike).
+		if (WASM_ENGINE_ENABLED || (WEBSOCKET_TRANSPORT_ALLOWED && WS_URL && wsCapabilityAvailable)) {
 			available.push('websocket');
 		}
 
@@ -227,8 +240,72 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		});
 	}, []);
 
+		// The in-browser engine (WASM_ENGINE_ENABLED): issuance and presentation
+	// run in the page. Created once per session and tenant, and not gated on
+	// the token lookup above: it asks for a fresh token on every request, so a
+	// token request that fails once (a 401 while the session is still being
+	// restored, on a page opened from an offer link) does not leave the wallet
+	// without a transport, and a token refresh does not rebuild it (and fail a
+	// flow in progress).
+	const wscd = useWscdManagerClient();
+	const wscdRef = useRef(wscd);
+	wscdRef.current = wscd;
+
+	useEffect(() => {
+		if (!WASM_ENGINE_ENABLED) return;
+
+		let cancelled = false;
+		const getAuthToken = async () => (await authTokens.ensureBackendToken()).raw;
+		const transport = new OIDFlowWasmTransport({
+			backendUrl: BACKEND_URL,
+			tenantId,
+			getAuthToken,
+			trustEvaluators: {
+				evaluateIssuerTrust: createIssuerTrustEvaluator({ httpClient, backendUrl: BACKEND_URL, getAuthToken, tenantId }),
+				evaluateVerifierTrust: createVerifierTrustEvaluator({ httpClient, backendUrl: BACKEND_URL, getAuthToken, tenantId }),
+			},
+			getWscd: () => wscdRef.current,
+			getRegisteredClientId: createRegisteredClientIdLookup({ backendUrl: BACKEND_URL, tenantId, getAuthToken }),
+		});
+		setWsTransport(transport);
+		setPendingTransports(prev => new Set(prev).add('websocket'));
+
+		(async () => {
+			try {
+				await transport.connect();
+				if (cancelled) return;
+				setIsConnected(true);
+				setLastError(null);
+			} catch (error) {
+				if (cancelled) return;
+				logger.error('In-browser engine failed to start:', error);
+				setIsConnected(false);
+				setLastError(error instanceof Error ? error : new Error('In-browser engine failed to start'));
+			} finally {
+				if (!cancelled) {
+					setPendingTransports(prev => {
+						const next = new Set(prev);
+						next.delete('websocket');
+						return next;
+					});
+				}
+			}
+		})();
+
+		return () => {
+			cancelled = true;
+			transport.disconnect();
+			setPendingTransports(prev => {
+				const next = new Set(prev);
+				next.delete('websocket');
+				return next;
+			});
+		};
+	}, [tenantId, authTokens, httpClient]);
+
 	// Create and manage WebSocket transport (only if capability is available)
 	useEffect(() => {
+		if (WASM_ENGINE_ENABLED) return;
 		if (!capabilitiesLoaded) return;
 		if (!WEBSOCKET_TRANSPORT_ALLOWED || !wsCapabilityAvailable || !WS_URL || !authToken) {
 			setWsTransport(null);
