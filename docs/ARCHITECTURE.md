@@ -249,7 +249,7 @@ async function acceptOffer(offerUri: string) {
 
 ### 3.5 Private methods
 
-TypeScript class methods that are private SHOULD be written like 
+TypeScript class methods that are private SHOULD be written like
 `#methodName()` instead of `private methodName()`, since the latter is only
 private during type checking, and not at runtime.
 
