@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { CompactEncrypt, compactDecrypt, exportJWK, generateKeyPair, importJWK } from 'jose';
 import type { JWK } from 'jose';
 import { OIDFlowWebSocketTransport } from '../transports/OIDFlowWebSocketTransport';
-import type { SignHandlerRequest, SignRequestHandler } from '../transports/OIDFlowWebSocketTransport';
+import type { SignHandlerRequest, SignRequestHandler, MatchResponse } from '../transports/OIDFlowWebSocketTransport';
 import type { OIDFlowSignRequest, OIDFlowSignResponse } from '@/hooks/useOIDFlowSignHandler';
 import { OIDFlowTransportWithRetry } from '../decorators/OIDFlowTransportWithRetry';
 import { LEGACY_SECRET_MEMBERS, verifierJwkThumbprint } from '../encryption';
@@ -1369,6 +1369,120 @@ describe('a flow started after a release is a new flow', () => {
 	});
 });
 
+describe('an operation still running when its flow is cancelled', () => {
+	const RELEASED = 'The flow was released locally';
+
+	it('answers an error for a pending signature, even after the engine ends the released flow', async () => {
+		const { transport, ws, signResponses } = await setup();
+		const signed = deferred<{ vpToken: string }>();
+		const handler = vi.fn(() => signed.promise);
+		transport.onSignRequest(handler);
+		const { flowPromise, flowId } = await startPresentation(ws, transport);
+
+		ws.simulateMessage({ type: 'sign_request', flow_id: flowId, message_id: 'm-sign', action: 'sign_presentation', params: { audience: 'v', nonce: 'n' } });
+		await vi.waitFor(() => expect(handler).toHaveBeenCalled());
+		transport.releaseFlow();
+		await expect(flowPromise).rejects.toThrow(RELEASED);
+		ws.simulateMessage({ type: 'flow_error', flow_id: flowId, error: { code: 'X', message: 'ended' } });
+		signed.resolve({ vpToken: 'late.vp.token' });
+
+		await vi.waitFor(() => expect(signResponses().some((r) => r.message_id === 'm-sign')).toBe(true));
+		const answer = signResponses().find((r) => r.message_id === 'm-sign')!;
+		expect(answer.error).toBe(RELEASED);
+		expect(JSON.stringify(answer)).not.toContain('late.vp.token');
+	});
+
+	it('answers an error for a pending signature when the engine ends the flow', async () => {
+		const { transport, ws, signResponses } = await setup();
+		const signed = deferred<{ vpToken: string }>();
+		const handler = vi.fn(() => signed.promise);
+		transport.onSignRequest(handler);
+		const { flowPromise, flowId } = await startPresentation(ws, transport);
+
+		ws.simulateMessage({ type: 'sign_request', flow_id: flowId, message_id: 'm-sign', action: 'sign_presentation', params: { audience: 'v', nonce: 'n' } });
+		await vi.waitFor(() => expect(handler).toHaveBeenCalled());
+		ws.simulateMessage({ type: 'flow_error', flow_id: flowId, error: { code: 'X', message: 'ended' } });
+		await expect(flowPromise).resolves.toMatchObject({ success: false });
+		signed.resolve({ vpToken: 'late.vp.token' });
+
+		await vi.waitFor(() => expect(signResponses().some((r) => r.message_id === 'm-sign')).toBe(true));
+		const answer = signResponses().find((r) => r.message_id === 'm-sign')!;
+		expect(answer.error).toBe(RELEASED);
+		expect(JSON.stringify(answer)).not.toContain('late.vp.token');
+	});
+
+	it('answers an error, not the matches, for a match still running at the release', async () => {
+		const { transport, ws } = await setup();
+		const matched = deferred<MatchResponse>();
+		const matcher = vi.fn(() => matched.promise);
+		transport.onMatchRequest(matcher);
+		const { flowPromise, flowId } = await startPresentation(ws, transport);
+
+		ws.simulateMessage({
+			type: 'match_request',
+			flow_id: flowId,
+			message_id: 'm-match',
+			dcql_query: { credentials: [{ id: 'pid', format: 'dc+sd-jwt', meta: { vct_values: ['urn:eudi:pid:1'] } }] },
+		});
+		await vi.waitFor(() => expect(matcher).toHaveBeenCalled());
+		transport.releaseFlow();
+		await expect(flowPromise).rejects.toThrow(RELEASED);
+		matched.resolve({ matches: [{ input_descriptor_id: 'pid', credential_id: 'wallet-cred-1', format: 'dc+sd-jwt' }] });
+
+		const answer = () => sent(ws).find((m) => m.type === 'match_response' && m.message_id === 'm-match');
+		await vi.waitFor(() => expect(answer()).toBeDefined());
+		expect(answer()!.error).toBe(RELEASED);
+		expect(JSON.stringify(answer())).not.toContain('wallet-cred-1');
+	});
+
+	it('answers "not trusted" for a trust evaluation still running at the release', async () => {
+		const trusted = deferred<{ trusted: boolean }>();
+		const evaluateIssuerTrust = vi.fn(() => trusted.promise);
+		const transport = new OIDFlowWebSocketTransport(
+			'wss://test.example.com/api/v2/wallet',
+			'token',
+			'default',
+			{ evaluateIssuerTrust, evaluateVerifierTrust: vi.fn() } as unknown as ConstructorParameters<typeof OIDFlowWebSocketTransport>[3],
+		);
+		await transport.connect();
+		const ws = sockets[0];
+		const { flowPromise, flowId } = await startIssuance(ws, transport);
+
+		ws.simulateMessage({
+			type: 'flow_progress',
+			flow_id: flowId,
+			step: 'evaluating_trust',
+			payload: {
+				trust_evaluation_required: true,
+				request: { subject_id: 'https://issuer.example.com', subject_type: 'credential_issuer' },
+			},
+		});
+		await vi.waitFor(() => expect(evaluateIssuerTrust).toHaveBeenCalled());
+		transport.releaseFlow();
+		await expect(flowPromise).rejects.toThrow(RELEASED);
+		trusted.resolve({ trusted: true });
+
+		const answer = () => sent(ws).find((m) => m.action === 'trust_result');
+		await vi.waitFor(() => expect(answer()).toBeDefined());
+		expect(answer()!.payload).toEqual({ trusted: false, reason: RELEASED });
+	});
+
+	it('no longer reports the progress of a released flow', async () => {
+		const { transport, ws } = await setup();
+		const progress = vi.fn();
+		transport.onProgress(progress);
+		const { flowPromise, flowId } = await startIssuance(ws, transport);
+
+		transport.releaseFlow();
+		await expect(flowPromise).rejects.toThrow(RELEASED);
+		ws.simulateMessage({ type: 'flow_progress', flow_id: flowId, step: 'metadata_fetched' });
+		ws.simulateMessage({ type: 'flow_progress', flow_id: 'other-flow', step: 'metadata_fetched' });
+
+		await vi.waitFor(() => expect(progress).toHaveBeenCalledWith(expect.objectContaining({ flowId: 'other-flow' })));
+		expect(progress).toHaveBeenCalledTimes(1);
+	});
+});
+
 describe('a refused request does not keep the key it generated', () => {
 	it('drops the key when no sign handler is registered', async () => {
 		const { ws, signResponses } = await setup();
@@ -1862,3 +1976,30 @@ describe('the wallet policy for a zkp_req presentation', () => {
 		});
 	});
 });
+
+/**
+ * A promise a test settles by hand, to hold an operation open.
+ */
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	const promise = new Promise<T>((r) => {
+		resolve = r;
+	});
+	return { promise, resolve };
+}
+
+/**
+ * Everything the wallet sent on a socket, parsed.
+ */
+function sent(ws: MockWebSocket): Array<Record<string, unknown>> {
+	return ws.sentMessages.map((m) => JSON.parse(m));
+}
+
+/**
+ * Start a presentation flow on a connected transport; resolves once the flow_start went out.
+ */
+async function startPresentation(ws: MockWebSocket, transport: OIDFlowWebSocketTransport) {
+	const flowPromise = transport.startOID4VPFlow({ requestUriRef: 'https://v.example/r', clientId: 'c' });
+	await vi.waitFor(() => expect(ws.sentMessages.length).toBeGreaterThan(1));
+	return { flowPromise, flowId: JSON.parse(ws.sentMessages[1]).flow_id as string };
+}

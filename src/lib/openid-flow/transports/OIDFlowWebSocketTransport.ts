@@ -75,8 +75,10 @@ interface ProofTypesSupported {
 /**
  * Sign request from server
  */
-/** At most this many locally released flows are remembered. */
-const MAX_RELEASED_FLOWS = 64;
+/**
+ * At most this many flows are tracked; the oldest is aborted and forgotten first.
+ */
+const MAX_TRACKED_FLOWS = 64;
 
 const RELEASED_FLOW_ERROR = 'The flow was released locally';
 
@@ -223,12 +225,11 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	 */
 	private decryptedIssuance = new WeakMap<ServerMessage, DecryptedCredentialResponse>();
 	/**
-	 * Flows the wallet released locally (aborted or cancelled). Later sign and decrypt requests for
-	 * them are refused, and a request still pending at the release answers an error, so a local
-	 * cancellation cannot be undone by the engine carrying on. Bounded; forgotten when the engine
-	 * ends the flow or the socket closes.
+	 * One abort controller per flow. Releasing a flow aborts it; every operation keeps the signal it
+	 * started with and checks it before answering the engine, so nothing can undo the release.
+	 * Bounded; forgotten when the engine ends the flow or the socket closes.
 	 */
-	private releasedFlows = new Set<string>();
+	#flowAborts = new Map<string, AbortController>();
 	/** Flows whose DCQL asks for a zkp_req presentation: their sign request is held to the same policy. */
 	private zkpReqFlows = new Set<string>();
 
@@ -356,7 +357,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		this.connectionPromise = null;
 		this.vpCredentialCache.clear();
 		this.responseKeys.clear();
-		this.releasedFlows.clear();
+		this.#abortAllFlows();
 		this.zkpReqFlows.clear();
 	}
 
@@ -415,13 +416,42 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		}
 		this.zkpReqFlows.delete(flowId);
 		this.responseKeys.drop(flowId);
-		if (this.releasedFlows.size >= MAX_RELEASED_FLOWS) {
-			const oldest = this.releasedFlows.values().next().value;
-			if (oldest !== undefined) {
-				this.releasedFlows.delete(oldest);
+		this.#flowController(flowId).abort();
+	}
+
+	/**
+	 * The flow's abort controller, created on first use. An operation takes its signal once, when it
+	 * starts, so that forgetting the controller later cannot un-cancel the operation.
+	 */
+	#flowController(flowId: string): AbortController {
+		let controller = this.#flowAborts.get(flowId);
+		if (!controller) {
+			if (this.#flowAborts.size >= MAX_TRACKED_FLOWS) {
+				const oldest = this.#flowAborts.keys().next().value;
+				if (oldest !== undefined) {
+					// Fail closed: a forgotten flow could no longer be released.
+					this.#endFlow(oldest);
+				}
 			}
+			controller = new AbortController();
+			this.#flowAborts.set(flowId, controller);
 		}
-		this.releasedFlows.add(flowId);
+		return controller;
+	}
+
+	/**
+	 * The flow is over: whatever still runs for it must not answer success, and it is forgotten.
+	 */
+	#endFlow(flowId: string): void {
+		this.#flowAborts.get(flowId)?.abort();
+		this.#flowAborts.delete(flowId);
+	}
+
+	#abortAllFlows(): void {
+		for (const controller of this.#flowAborts.values()) {
+			controller.abort();
+		}
+		this.#flowAborts.clear();
 	}
 
 	/**
@@ -896,6 +926,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 		// Handle progress events separately
 		if (type === 'progress' || type === 'flow_progress') {
+			const released = this.#flowAborts.get(flowId)?.signal.aborted ?? false;
 			const stage = (message.step as string) || (message.stage as string);
 			const payload = message.payload as Record<string, unknown> | undefined;
 
@@ -940,13 +971,15 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				}
 			}
 
-			this.emitProgress({
-				flowId,
-				stage,
-				progress: message.progress as number | undefined,
-				message: message.message as string | undefined,
-				payload: message.payload,
-			});
+			if (!released) {
+				this.emitProgress({
+					flowId,
+					stage,
+					progress: message.progress as number | undefined,
+					message: message.message as string | undefined,
+					payload: message.payload,
+				});
+			}
 			return;
 		}
 
@@ -998,7 +1031,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		}
 		if (type === 'flow_complete' || type === 'flow_error' || type === 'error') {
 			this.responseKeys.drop(flowId);
-			this.releasedFlows.delete(flowId);
+			this.#endFlow(flowId);
 			this.zkpReqFlows.delete(flowId);
 			if (this.currentFlowId === flowId) {
 				// The flow the wallet considers active is over, whether or not a request is waiting on it.
@@ -1060,6 +1093,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	 * Handle trust evaluation
 	 */
 	private async handleTrustEvaluationStep(flowId: string, payload: Record<string, unknown>): Promise<void> {
+		const signal = this.#flowController(flowId).signal;
 		const request = payload.request as {
 			subject_id: string;
 			subject_type: string;
@@ -1124,19 +1158,26 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 					throw new Error(`Unknown subject_type for trust evaluation: ${request.subject_type}`);
 			}
 
-			this.sendTrustResult(flowId, {
+			this.sendTrustResult(flowId, signal, {
 				trusted: result?.trusted ?? false,
 				framework: result?.metadata?.framework as string | undefined,
 				reason: result?.metadata?.reason as string | undefined,
 			});
 		} catch (error) {
 			logger.error('[WS Transport] Trust evaluation failed:', error);
-			this.sendTrustResult(flowId, { trusted: false, reason: error instanceof Error ? error.message : 'Unknown error' });
+			this.sendTrustResult(flowId, signal, { trusted: false, reason: error instanceof Error ? error.message : 'Unknown error' });
 		}
 	}
 
-	private sendTrustResult(flowId: string, result: { trusted: boolean; framework?: string; reason?: string }): void {
-			this.ws?.send(JSON.stringify({
+	private sendTrustResult(
+		flowId: string,
+		signal: AbortSignal,
+		result: { trusted: boolean; framework?: string; reason?: string },
+	): void {
+		if (signal.aborted) {
+			result = { trusted: false, reason: RELEASED_FLOW_ERROR };
+		}
+		this.ws?.send(JSON.stringify({
 			type: 'flow_action',
 			flow_id: flowId,
 			action: 'trust_result',
@@ -1192,9 +1233,11 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			},
 		};
 
+		const signal = this.#flowController(request.flowId).signal;
+
 		// A flow the wallet released locally gets no key, no signature and no decryption.
-		if (this.releasedFlows.has(request.flowId)) {
-			this.sendSignResponse(request.flowId, request.messageId, {}, RELEASED_FLOW_ERROR);
+		if (signal.aborted) {
+			this.sendSignResponse(request.flowId, request.messageId, signal, {}, RELEASED_FLOW_ERROR);
 			return;
 		}
 
@@ -1204,7 +1247,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			const refusal = zkpReqRefusal(request.params.verifiedRequest, request.params.responseEncryption ? 'present' : 'absent');
 			if (refusal) {
 				logger.warn('Refusing a zkp_req sign request that does not meet the wallet policy');
-				this.sendSignResponse(request.flowId, request.messageId, {}, refusal, 'SIGN_REFUSED');
+				this.sendSignResponse(request.flowId, request.messageId, signal, {}, refusal, 'SIGN_REFUSED');
 				return;
 			}
 		}
@@ -1212,7 +1255,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		// The issuer's response is decrypted here, with the key this wallet
 		// generated for the flow; no sign handler ever sees it.
 		if (request.action === 'decrypt_credential_response') {
-			await this.handleDecryptCredentialResponse(request);
+			await this.handleDecryptCredentialResponse(request, signal);
 			return;
 		}
 
@@ -1223,7 +1266,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			try {
 				responseKey = await this.responseKeys.generate(request.flowId, request.params.credentialResponseEncryption);
 			} catch (err) {
-				this.sendSignResponse(request.flowId, request.messageId, {}, err instanceof Error ? err.message : 'Response encryption failed');
+				this.sendSignResponse(request.flowId, request.messageId, signal, {}, err instanceof Error ? err.message : 'Response encryption failed');
 				return;
 			}
 		}
@@ -1238,6 +1281,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				this.sendSignResponse(
 					request.flowId,
 					request.messageId,
+					signal,
 					{},
 					'The verifier response encryption key is unusable',
 				);
@@ -1252,6 +1296,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			this.sendSignResponse(
 				request.flowId,
 				request.messageId,
+				signal,
 				{},
 				'The direct_post.jwt request carries no response encryption parameters',
 			);
@@ -1269,6 +1314,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			this.sendSignResponse(
 				request.flowId,
 				request.messageId,
+				signal,
 				responseKey ? { credentialResponseEncryptionJwk: responseKey.jwk } : {},
 			);
 			return;
@@ -1280,7 +1326,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				// The refused request must not keep the key it generated.
 				this.responseKeys.dropGeneration(request.flowId, responseKey.generation);
 			}
-			this.sendSignResponse(request.flowId, request.messageId, {}, 'No sign handler available');
+			this.sendSignResponse(request.flowId, request.messageId, signal, {}, 'No sign handler available');
 			return;
 		}
 
@@ -1306,6 +1352,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			this.sendSignResponse(
 				request.flowId,
 				request.messageId,
+				signal,
 				{},
 				lastError?.message || 'Sign operation failed'
 			);
@@ -1322,19 +1369,20 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				this.sendSignResponse(
 					request.flowId,
 					request.messageId,
+					signal,
 					{},
-					this.releasedFlows.has(request.flowId) ? RELEASED_FLOW_ERROR : SUPERSEDED_KEY_ERROR,
+					signal.aborted ? RELEASED_FLOW_ERROR : SUPERSEDED_KEY_ERROR,
 				);
 				return;
 			}
-			this.sendSignResponse(request.flowId, request.messageId, response);
+			this.sendSignResponse(request.flowId, request.messageId, signal, response);
 		} catch (err) {
 			if (responseKey) {
 				this.responseKeys.dropGeneration(request.flowId, responseKey.generation);
 			}
 			const reason = err instanceof ClientHeldEncryptionError ? err.message : 'Response encryption failed';
 			logger.warn('Client-held encryption failed:', reason);
-			this.sendSignResponse(request.flowId, request.messageId, {}, reason);
+			this.sendSignResponse(request.flowId, request.messageId, signal, {}, reason);
 		}
 	}
 
@@ -1375,19 +1423,19 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	 * credentials and response-level metadata locally, and tell the engine only
 	 * what it needs to poll a deferred credential.
 	 */
-	private async handleDecryptCredentialResponse(request: SignRequest): Promise<void> {
+	private async handleDecryptCredentialResponse(request: SignRequest, signal: AbortSignal): Promise<void> {
 		const { jwe } = request.params;
 		if (typeof jwe !== 'string' || jwe === '') {
-			this.sendSignResponse(request.flowId, request.messageId, {}, 'Missing jwe');
+			this.sendSignResponse(request.flowId, request.messageId, signal, {}, 'Missing jwe');
 			return;
 		}
 		try {
 			const control = await this.responseKeys.decrypt(request.flowId, jwe);
-			this.sendSignResponse(request.flowId, request.messageId, control);
+			this.sendSignResponse(request.flowId, request.messageId, signal, control);
 		} catch (err) {
 			const reason = err instanceof ClientHeldEncryptionError ? err.message : 'Could not decrypt the credential response';
 			logger.warn('Credential response decryption failed:', reason);
-			this.sendSignResponse(request.flowId, request.messageId, {}, reason);
+			this.sendSignResponse(request.flowId, request.messageId, signal, {}, reason);
 		}
 	}
 
@@ -1397,6 +1445,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	private sendSignResponse(
 		flowId: string,
 		messageId: string,
+		signal: AbortSignal,
 		response: SignResponse,
 		error?: string,
 		errorCode?: string,
@@ -1407,7 +1456,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		}
 
 		// An operation still pending when the flow was released never answers success.
-		if (!error && this.releasedFlows.has(flowId)) {
+		if (!error && signal.aborted) {
 			response = {};
 			error = RELEASED_FLOW_ERROR;
 		}
@@ -1456,16 +1505,17 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		const flowId = (message.flow_id as string) || (message.flowId as string) || '';
 		const messageId = (message.message_id as string) || (message.messageId as string) || '';
 		const dcqlQuery = message.dcql_query as DcqlQuery.Input | undefined;
+		const signal = this.#flowController(flowId).signal;
 
 		if (!dcqlQuery || typeof dcqlQuery !== 'object') {
 			logger.error('Malformed match request: missing required dcql_query');
-			this.sendMatchResponse(flowId, messageId, { matches: [] }, 'Missing required dcql_query');
+			this.sendMatchResponse(flowId, messageId, signal, { matches: [] }, 'Missing required dcql_query');
 			return;
 		}
 
 		// A flow the wallet released or refused gets no matching.
-		if (this.releasedFlows.has(flowId)) {
-			this.sendMatchResponse(flowId, messageId, { matches: [] }, RELEASED_FLOW_ERROR);
+		if (signal.aborted) {
+			this.sendMatchResponse(flowId, messageId, signal, { matches: [] }, RELEASED_FLOW_ERROR);
 			return;
 		}
 
@@ -1473,7 +1523,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		const refusal = this.zkpReqRefusalOf(flowId, dcqlQuery, message.verified_request);
 		if (refusal) {
 			logger.warn('Refusing a zkp_req match request that does not meet the wallet policy');
-			this.sendMatchResponse(flowId, messageId, { matches: [] }, refusal);
+			this.sendMatchResponse(flowId, messageId, signal, { matches: [] }, refusal);
 			return;
 		}
 
@@ -1485,7 +1535,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 
 		if (this.matchHandlers.size === 0) {
 			logger.error('No match handlers registered, cannot respond to match request');
-			this.sendMatchResponse(request.flowId, request.messageId, { matches: [] }, 'No match handler available');
+			this.sendMatchResponse(request.flowId, request.messageId, signal, { matches: [] }, 'No match handler available');
 			return;
 		}
 
@@ -1494,7 +1544,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		for (const handler of this.matchHandlers) {
 			try {
 				const response = await handler(request);
-				this.sendMatchResponse(request.flowId, request.messageId, response);
+				this.sendMatchResponse(request.flowId, request.messageId, signal, response);
 				return;
 			} catch (err) {
 				lastError = err instanceof Error ? err : new Error(String(err));
@@ -1506,6 +1556,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		this.sendMatchResponse(
 			request.flowId,
 			request.messageId,
+			signal,
 			{ matches: [] },
 			lastError?.message || 'Credential matching failed'
 		);
@@ -1517,12 +1568,19 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	private sendMatchResponse(
 		flowId: string,
 		messageId: string,
+		signal: AbortSignal,
 		response: MatchResponse,
 		error?: string
 	): void {
 		if (!this.isConnected()) {
 			logger.error('Cannot send match response: WebSocket not connected');
 			return;
+		}
+
+		// A match still running when the flow was released never answers its matches.
+		if (!error && signal.aborted) {
+			response = { matches: [] };
+			error = RELEASED_FLOW_ERROR;
 		}
 
 		const msg: Record<string, unknown> = {
@@ -1572,7 +1630,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		this.currentFlowId = null;
 		this.vpCredentialCache.clear();
 		this.responseKeys.clear();
-		this.releasedFlows.clear();
+		this.#abortAllFlows();
 		this.zkpReqFlows.clear();
 
 		// Don't reconnect if it was a clean close

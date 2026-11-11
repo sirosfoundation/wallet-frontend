@@ -130,6 +130,16 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 	const transportType = transportContext?.transportType ?? 'none';
 	const transport = transportContext?.transport;
 
+	// The latest transport, for the unmount cleanup below (which runs once).
+	const transportRef = useRef(transport);
+	transportRef.current = transport;
+
+	useEffect(() => {
+		return () => {
+			transportRef.current?.releaseFlow?.();
+		};
+	}, []);
+
 	const clearError = useCallback(() => {
 		setError(null);
 		transportContext?.clearError?.();
@@ -333,6 +343,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 			};
 		} catch (err) {
 			if (err instanceof OIDFlowError && err.code === 'USER_CANCELLED') {
+				transport?.releaseFlow?.();
 				return {
 					success: false,
 					error: {
@@ -367,6 +378,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		options,
 		waitForCredentials,
 		reportError,
+		transport,
 	]);
 
 	/**
