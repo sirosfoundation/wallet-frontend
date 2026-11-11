@@ -211,6 +211,20 @@ describe('OIDFlowTransportWithRetry.releaseFlow', () => {
 
 		expect(store.getActiveFlows()).toHaveLength(0);
 	});
+
+	it('forwards the release to the transport it wraps', () => {
+		const inner = innerTransport();
+
+		wrap(inner).releaseFlow();
+
+		expect(inner.releaseFlow).toHaveBeenCalledTimes(1);
+	});
+
+	it('is a no-op when the wrapped transport keeps nothing per flow', () => {
+		const inner = innerTransport({ releaseFlow: undefined });
+
+		expect(() => wrap(inner).releaseFlow()).not.toThrow();
+	});
 });
 
 describe('a released flow never starts a new flow id (real WebSocket transport underneath)', () => {

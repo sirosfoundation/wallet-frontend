@@ -7,6 +7,10 @@ export class MockWebSocket {
 	static OPEN = 1;
 	static CLOSING = 2;
 	static CLOSED = 3;
+	/**
+	 * When set, the next sockets fail to connect instead of opening. Reset by installMockWebSocket().
+	 */
+	static shouldFail = false;
 
 	readyState: number = MockWebSocket.CONNECTING;
 	url: string;
@@ -19,12 +23,20 @@ export class MockWebSocket {
 	constructor(url: string | URL = '') {
 		this.url = typeof url === 'string' ? url : url.toString();
 		setTimeout(() => {
+			if (MockWebSocket.shouldFail) {
+				this.readyState = MockWebSocket.CLOSED;
+				this.onerror?.(new Event('error'));
+				return;
+			}
 			this.readyState = MockWebSocket.OPEN;
 			this.onopen?.(new Event('open'));
 		}, 0);
 	}
 
 	send(data: string): void {
+		if (this.readyState !== MockWebSocket.OPEN) {
+			throw new Error('WebSocket not open');
+		}
 		this.sentMessages.push(data);
 	}
 
@@ -44,6 +56,7 @@ export const sockets: MockWebSocket[] = [];
 /** Replace the global WebSocket with the mock and forget earlier sockets; returns the restore function. */
 export function installMockWebSocket(): () => void {
 	sockets.length = 0;
+	MockWebSocket.shouldFail = false;
 	const original = globalThis.WebSocket;
 	// @ts-expect-error - mocking WebSocket
 	globalThis.WebSocket = class extends MockWebSocket {
