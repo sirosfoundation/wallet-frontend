@@ -1,6 +1,6 @@
 {
 	"name": "wallet-common",
-	"version": "0.1.0-beta.1",
+	"version": "0.1.0-beta.2",
 	"private": true,
 	"type": "module",
 	"exports": {
@@ -27,6 +27,7 @@
 		"@sd-jwt/sd-jwt-vc": "^0.13.0",
 		"@sirosfoundation/browser-log": "^1.0.0",
 		"@sirosfoundation/http-client": "workspace:*",
+		"@sirosfoundation/result": "workspace:*",
 		"asn1js": "^3.0.10",
 		"axios": "^1.20.0",
 		"buffer": "^6.0.3",

@@ -1,11 +1,10 @@
 import React, { useContext, useEffect } from 'react';
-import { useLocalStorageKeystore } from '../services/LocalStorageKeystore';
-import keystoreEvents from '../services/keystoreEvents';
 import CredentialsContext from '@/context/CredentialsContext';
 import { prepareCredentialsForNativeWrapper } from '@/lib/native-wrapper';
 import { logger } from '@/logger';
 import { OPENID4VCI_REDIRECT_URI } from '@/config';
 import { NativeWrapper } from '@/lib/native-wrapper/types';
+import SessionContext from '@/context/SessionContext';
 
 declare global {
 	interface Window {
@@ -16,7 +15,7 @@ declare global {
 export const NativeWrapperProvider = ({
 	children,
 }: React.PropsWithChildren) => {
-	const keystore = useLocalStorageKeystore(keystoreEvents);
+	const { keystore } = useContext(SessionContext);
 	const { vcEntityList } = useContext(CredentialsContext);
 
 	useEffect(() => {

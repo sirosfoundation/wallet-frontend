@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate } from 'react-router';
-import { Err, Ok, Result } from 'ts-results';
 import * as jose from 'jose';
-
+import { ok, err, type Result } from '@sirosfoundation/result';
 import * as config from "../config";
 import { useClearStorages, useLocalStorage, useSessionStorage } from "../hooks/useStorage";
 import { fromBase64Url, jsonStringifyTaggedBinary, toBase64Url } from '@/lib/utils';
@@ -20,6 +19,7 @@ import { getItem } from "@/indexedDB";
 import { UnsupportedSchemaVersionError, WalletStateContainerGeneric } from "./WalletStateSchemaCommon";
 import { ExportedWscdContainer, WscdContainer } from "@/lib/wscd-manager";
 import { useErrorBoundary } from "react-error-boundary";
+import { buildTenantRoutePath, getTenantFromUrlPath } from "@/lib/tenant";
 
 type WalletState = CurrentSchema.WalletState;
 type WalletStateCredential = CurrentSchema.WalletStateCredential;
@@ -532,14 +532,28 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 		if (mainKey && privateData && calculatedWalletState === null) {
 			(async () => {
 				try {
-					const [, , newCalculatedWalletState] = await openPrivateData();
+					const [pd, mk] = await assertKeystoreOpen();
+					const [, , newCalculatedWalletState] = await keystore.openPrivateData(mk, pd);
 					setCalculatedWalletState(newCalculatedWalletState);
 				} catch (err) {
 					logger.error("Failed to initialize wallet state after unlock", err);
+					if (!(err instanceof jose.errors.JWEDecryptionFailed)) {
+						showBoundary(err);
+						return;
+					}
+
+					// Another tab re-keyed the stored data, so this tab's session key is stale.
+					const queryParams = new URLSearchParams(window.location.search);
+					queryParams.delete('user');
+					queryParams.delete('sync');
+					queryParams.append('user', userHandleB64u);
+					const loginStatePath = buildTenantRoutePath(getTenantFromUrlPath() ?? undefined, 'login-state');
+					closeSessionTabLocal();
+					navigate(`${loginStatePath}?${queryParams.toString()}`, { replace: true });
 				}
 			})();
 		}
-	}, [mainKey, privateData, calculatedWalletState, openPrivateData]);
+	}, [mainKey, privateData, calculatedWalletState, assertKeystoreOpen, showBoundary, userHandleB64u, closeSessionTabLocal, navigate]);
 
 	const init = useCallback(async (
 		mainKey: CryptoKey,
@@ -938,7 +952,7 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 
 	const syncWithRemoteData = useCallback(async (remotePrivateDataRaw: Uint8Array): Promise<Result<keystore.AsymmetricEncryptedContainer, 'keystoreNotOpen' | 'mergeFailed' | 'unsupportedVersion'> > => {
 		if (!privateData || !mainKey) {
-			return Err('keystoreNotOpen');
+			return err('keystoreNotOpen');
 		}
 
 		try {
@@ -961,14 +975,14 @@ export function useLocalStorageKeystore(eventTarget: EventTarget): LocalStorageK
 			const foldedState = foldState(mergedContainer as CurrentSchema.WalletStateContainer);
 			setCalculatedWalletState(foldedState);
 
-			return Ok(newPrivateDataEncryptedContainer);
+			return ok(newPrivateDataEncryptedContainer);
 		} catch (error) {
 			if (error instanceof UnsupportedSchemaVersionError) {
 				console.error("Remote data has a schema version this wallet does not support", error);
-				return Err('unsupportedVersion');
+				return err('unsupportedVersion');
 			}
 			console.error("Failed to sync with remote data", error);
-			return Err('mergeFailed');
+			return err('mergeFailed');
 		}
 	}, [privateData, mainKey, assertKeystoreOpen, writePrivateDataOnIdb, userHandleB64u, setPrivateData, setMainKey, setCalculatedWalletState]);
 

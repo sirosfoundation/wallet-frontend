@@ -1,4 +1,4 @@
-import { err, GenericStore, ok, Result } from "../../core";
+import { GenericStore } from "../../core";
 import { generateRandomIdentifier } from "../../utils/util";
 import { MsoMdocParser } from "../../credential-parsers/MsoMdocParser";
 import { SDJWTVCParser } from "../../credential-parsers/SDJWTVCParser";
@@ -18,6 +18,7 @@ import { CredentialEngineOptions, CredentialIssuerMetadata, IacasResponse, OpenI
 import { DcqlPresentationResult } from 'dcql';
 import { exportJWK, generateKeyPair, importPKCS8, SignJWT, compactDecrypt, CompactDecryptResult, importJWK } from "jose";
 import { serializeDcqlQuery } from "../../utils/serializeDcqlQuery";
+import { err, ok, type Result } from "@sirosfoundation/result";
 
 export const OpenID4VPClientErrors = {
 	MissingRPStateForKid: "missing_rpstate_for_kid",

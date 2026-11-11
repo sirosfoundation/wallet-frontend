@@ -58,7 +58,13 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient, 
 
 		try {
 			if (credentialIssuer?.credentialIssuerIdentifier) {
-				const { metadata } = await getIssuerMetadata(args.httpClient, credentialIssuer.credentialIssuerIdentifier, [], true, args.authzenClient);
+				const { metadata } = await getIssuerMetadata({
+					httpClient: args.httpClient,
+					issuer: credentialIssuer.credentialIssuerIdentifier,
+					warnings: [],
+					useCache: true,
+					authzenClient: args.authzenClient,
+				});
 				issuerMetadata = metadata ?? null;
 
 				const issuerClaimsArray = credentialIssuer?.credentialConfigurationId
