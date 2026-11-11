@@ -686,6 +686,7 @@ export function useApi({
 							oidcIdToken,
 						);
 						await authTokens.forceRefreshBackendToken();
+
 						// Seed the private-data etag after signup.
 						// We want to do this here to ensure the private-data etag is set
 						// immediately after signup, avoiding potential race conditions.
