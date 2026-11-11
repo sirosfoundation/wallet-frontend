@@ -247,7 +247,13 @@ async function acceptOffer(offerUri: string) {
 }
 ```
 
-### 3.5 Readability over cleverness
+### 3.5 Private methods
+
+TypeScript class methods that are private SHOULD be written like 
+`#methodName()` instead of `private methodName()`, since the latter is only
+private during type checking, and not at runtime.
+
+### 3.6 Readability over cleverness
 
 Code SHOULD be written to be easy to read, not to be short or clever. Prefer
 clear names, early returns, and plain `if` statements over nested ternaries,
