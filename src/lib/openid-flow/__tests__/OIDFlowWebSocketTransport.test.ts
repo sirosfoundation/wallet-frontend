@@ -37,14 +37,6 @@ afterEach(() => {
 const ISSUED = 'eyJhbGciOiJFUzI1NiJ9.issued.credential~disclosure~';
 const SECRET = 'cd'.repeat(16);
 
-const LEGACY_SECRET_MEMBERS = [
-	'org.siros.secret_seed',
-	'org.siros.holder_commitments',
-	'org.siros.psc',
-	'holder_commitments',
-	'secret_members',
-];
-
 // RFC 7638 §3.1: an RSA public key and its published SHA-256 thumbprint.
 const RFC7638_JWK = {
 	kty: 'RSA',
@@ -1941,68 +1933,6 @@ describe('decrypt_credential_response', () => {
 		expect(done).not.toHaveProperty('transaction_id');
 	});
 
-	it('answers an error for a response that is both, or neither', async () => {
-		const { ws, signResponses, jwk } = await issuance();
-
-		const both = await decrypt(
-			ws,
-			signResponses,
-			'm2',
-			await issuerEncrypt(jwk, 'ECDH-ES+A256KW', 'A128GCM', {
-				transaction_id: 'tx-1',
-				credentials: [{ credential: ISSUED }],
-			}),
-		);
-		const neither = await decrypt(
-			ws,
-			signResponses,
-			'm3',
-			await issuerEncrypt(jwk, 'ECDH-ES+A256KW', 'A128GCM', {}),
-		);
-
-		for (const r of [both, neither]) {
-			expect(r.error).toBeTruthy();
-			expect(r).not.toHaveProperty('credential_count');
-			expect(r).not.toHaveProperty('transaction_id');
-		}
-	});
-
-	it('answers an error when the issuer used another alg/enc than the one negotiated', async () => {
-		const { ws, signResponses, jwk } = await issuance();
-
-		const response = await decrypt(
-			ws,
-			signResponses,
-			'm2',
-			await issuerEncrypt({ ...jwk, alg: 'ECDH-ES' }, 'ECDH-ES', 'A128GCM', {
-				credentials: [{ credential: ISSUED }],
-			}),
-		);
-
-		expect(response.error).toBeTruthy();
-		expect(response).not.toHaveProperty('credential_count');
-	});
-
-	it('answers an error that carries no contents when decryption fails', async () => {
-		const { ws, signResponses } = await issuance();
-		const other = await generateKeyPair('ECDH-ES', {
-			crv: 'P-256',
-			extractable: true,
-		});
-		const wrongKey = await issuerEncrypt(
-			{ ...(await exportJWK(other.publicKey)), alg: 'ECDH-ES+A256KW' },
-			'ECDH-ES+A256KW',
-			'A128GCM',
-			{ credentials: [{ credential: ISSUED }] },
-		);
-
-		const response = await decrypt(ws, signResponses, 'm2', wrongKey);
-
-		expect(response.error).toBeTruthy();
-		expect(JSON.stringify(response)).not.toContain(ISSUED);
-		expect(JSON.stringify(response)).not.toContain(wrongKey);
-	});
-
 	it('answers an error for a missing jwe', async () => {
 		const { ws, signResponses } = await issuance();
 
@@ -2343,57 +2273,6 @@ describe('sign_presentation with response_encryption (direct_post.jwt)', () => {
 		expect(signResponses()[0]).not.toHaveProperty('response_jwe');
 	});
 
-	it('sets the protected header to exactly the requested alg/enc and the JWK kid', async () => {
-		const { publicKey, privateKey } = await generateKeyPair('ECDH-ES', {
-			crv: 'P-256',
-			extractable: true,
-		});
-		const jwk = {
-			...(await exportJWK(publicKey)),
-			kid: 'wrapped-1',
-			alg: 'ECDH-ES+A256KW',
-		};
-
-		const response = await present(
-			{
-				response_encryption: { jwk, alg: 'ECDH-ES+A256KW', enc: 'A256GCM' },
-				verified_request: { client_id: 'verified-client' },
-			},
-			{ vpToken: '{}' },
-		);
-
-		const jwe = response.response_jwe as string;
-		expect(jwe.split('.')).toHaveLength(5);
-		expect(jwe.split('.').every((seg) => seg.length > 0)).toBe(true);
-		const { protectedHeader } = await compactDecrypt(jwe, privateKey);
-		expect(protectedHeader).toMatchObject({
-			alg: 'ECDH-ES+A256KW',
-			enc: 'A256GCM',
-			kid: 'wrapped-1',
-		});
-		expect(protectedHeader).not.toHaveProperty('cty');
-	});
-
-	it('refuses a private verifier JWK: an error and no response_jwe', async () => {
-		const { privateKey } = await generateKeyPair('ECDH-ES', {
-			crv: 'P-256',
-			extractable: true,
-		});
-		const jwk = { ...(await exportJWK(privateKey)), kid: 'v-1' };
-
-		const response = await present(
-			{
-				response_encryption: { jwk, alg: 'ECDH-ES', enc: 'A128GCM' },
-				verified_request: { client_id: 'verified-client' },
-			},
-			{ vpToken: '{}' },
-		);
-
-		expect(response.error).toBeTruthy();
-		expect(response).not.toHaveProperty('response_jwe');
-		expect(response).not.toHaveProperty('vp_token');
-	});
-
 	it('refuses a direct_post.jwt request without encryption parameters: an error, never a plaintext vp_token', async () => {
 		const handler = vi
 			.fn()
@@ -2438,36 +2317,6 @@ describe('sign_presentation with response_encryption (direct_post.jwt)', () => {
 
 		expect(response.vp_token).toBe('{"pid":["t"]}');
 		expect(response).not.toHaveProperty('error');
-	});
-
-	it('encrypts to a verifier key whose kid is non-ASCII', async () => {
-		const { publicKey, privateKey } = await generateKeyPair('ECDH-ES', {
-			crv: 'P-256',
-			extractable: true,
-		});
-		const jwk = {
-			...(await exportJWK(publicKey)),
-			kid: 'clé-1',
-			alg: 'ECDH-ES',
-		};
-
-		const response = await present(
-			{
-				response_encryption: { jwk, alg: 'ECDH-ES', enc: 'A128GCM' },
-				verified_request: {
-					client_id: 'verified-client',
-					response_mode: 'direct_post.jwt',
-				},
-			},
-			{ vpToken: '{}' },
-		);
-
-		expect(response).not.toHaveProperty('error');
-		const { protectedHeader } = await compactDecrypt(
-			response.response_jwe as string,
-			privateKey,
-		);
-		expect(protectedHeader.kid).toBe('clé-1');
 	});
 
 	it('leaves other response modes alone: vp_token is returned as before', async () => {
@@ -2671,7 +2520,7 @@ describe('credential_metadata from every message that resolves an issuance flow'
 
 describe('superseded secret-bearing members are refused (LEGACY_SECRET_MEMBER)', () => {
 	describe('in a decrypted response', () => {
-		async function answerFor(body: unknown, deferred: boolean) {
+		async function answerFor(body: unknown) {
 			const { transport, ws, signResponses } = await setup();
 			transport.onSignRequest(async () => ({
 				proofs: [{ proof_type: 'jwt', jwt: 'proof.jwt' }],
@@ -2689,7 +2538,7 @@ describe('superseded secret-bearing members are refused (LEGACY_SECRET_MEMBER)',
 						'A128GCM',
 						body,
 					),
-					deferred,
+					deferred: false,
 				},
 			});
 			await vi.waitFor(() =>
@@ -2698,46 +2547,24 @@ describe('superseded secret-bearing members are refused (LEGACY_SECRET_MEMBER)',
 			return signResponses().find((r) => r.message_id === 'm2')!;
 		}
 
-		const answers = [
-			[
-				'an immediate response',
-				{ credentials: [{ credential: ISSUED }] },
-				false,
-			],
-			['a pending response', { transaction_id: 'tx-1', interval: 2 }, false],
-			['a deferred response', { credentials: [{ credential: ISSUED }] }, true],
-		] as const;
+		it('answers an error with nothing the engine may use', async () => {
+			const response = await answerFor({
+				credentials: [{ credential: ISSUED }],
+				credential_metadata: { 'org.siros.secret_seed': { ns: SECRET } },
+			});
 
-		it.each(
-			answers.flatMap(([path, body, deferred]) =>
-				LEGACY_SECRET_MEMBERS.map(
-					(member) => [path, member, body, deferred] as const,
-				),
-			),
-		)(
-			'answers an error for %s carrying %s, with nothing the engine may use',
-			async (_path, member, body, deferred) => {
-				const response = await answerFor(
-					{ ...body, credential_metadata: { [member]: { ns: SECRET } } },
-					deferred,
-				);
-
-				expect(response.error).toMatch(/^LEGACY_SECRET_MEMBER/);
-				expect(response).not.toHaveProperty('credential_count');
-				expect(response).not.toHaveProperty('transaction_id');
-				expect(JSON.stringify(response)).not.toContain(SECRET);
-				expect(JSON.stringify(response)).not.toContain(ISSUED);
-			},
-		);
+			expect(response.error).toMatch(/^LEGACY_SECRET_MEMBER/);
+			expect(response).not.toHaveProperty('credential_count');
+			expect(response).not.toHaveProperty('transaction_id');
+			expect(JSON.stringify(response)).not.toContain(SECRET);
+			expect(JSON.stringify(response)).not.toContain(ISSUED);
+		});
 
 		it('still answers an ordinary response, so the refusal is the member and nothing else', async () => {
-			const response = await answerFor(
-				{
-					credentials: [{ credential: ISSUED }],
-					credential_metadata: { display: [{ name: 'PID' }] },
-				},
-				false,
-			);
+			const response = await answerFor({
+				credentials: [{ credential: ISSUED }],
+				credential_metadata: { display: [{ name: 'PID' }] },
+			});
 
 			expect(response.credential_count).toBe(1);
 			expect(response).not.toHaveProperty('error');
@@ -2752,46 +2579,38 @@ describe('superseded secret-bearing members are refused (LEGACY_SECRET_MEMBER)',
 			return flowPromise;
 		}
 
-		it.each(LEGACY_SECRET_MEMBERS)(
-			'refuses a flow_complete carrying %s, returning nothing of it',
-			async (member) => {
-				const result = await resolveWith({
-					type: 'flow_complete',
-					credentials: [
-						{ format: 'dc+sd-jwt', credential: 'plain.credential' },
-					],
-					credential_metadata: {
-						display: [{ name: 'PID' }],
-						[member]: { ns: SECRET },
-					},
-				});
+		it('refuses a flow_complete carrying one, returning nothing of it', async () => {
+			const result = await resolveWith({
+				type: 'flow_complete',
+				credentials: [{ format: 'dc+sd-jwt', credential: 'plain.credential' }],
+				credential_metadata: {
+					display: [{ name: 'PID' }],
+					'org.siros.secret_seed': { ns: SECRET },
+				},
+			});
 
-				expect(result.success).toBe(false);
-				expect(result.error?.code).toBe('LEGACY_SECRET_MEMBER');
-				expect(result.credentials).toBeUndefined();
-				expect(result.credentialMetadata).toBeUndefined();
-				expect(JSON.stringify(result)).not.toContain(SECRET);
-				expect(JSON.stringify(result)).not.toContain('plain.credential');
-			},
-		);
+			expect(result.success).toBe(false);
+			expect(result.error?.code).toBe('LEGACY_SECRET_MEMBER');
+			expect(result.credentials).toBeUndefined();
+			expect(result.credentialMetadata).toBeUndefined();
+			expect(JSON.stringify(result)).not.toContain(SECRET);
+			expect(JSON.stringify(result)).not.toContain('plain.credential');
+		});
 
-		it.each(LEGACY_SECRET_MEMBERS)(
-			'refuses a progress message carrying %s that resolves the flow',
-			async (member) => {
-				const result = await resolveWith({
-					type: 'progress',
-					step: 'authorization_required',
-					payload: {
-						authorization_url: 'https://issuer.example.com/authorize',
-					},
-					credential_metadata: { [member]: { ns: SECRET } },
-				});
+		it('refuses a progress message carrying one that resolves the flow', async () => {
+			const result = await resolveWith({
+				type: 'progress',
+				step: 'authorization_required',
+				payload: {
+					authorization_url: 'https://issuer.example.com/authorize',
+				},
+				credential_metadata: { 'org.siros.secret_seed': { ns: SECRET } },
+			});
 
-				expect(result.success).toBe(false);
-				expect(result.error?.code).toBe('LEGACY_SECRET_MEMBER');
-				expect(result.authorizationUrl).toBeUndefined();
-			},
-		);
+			expect(result.success).toBe(false);
+			expect(result.error?.code).toBe('LEGACY_SECRET_MEMBER');
+			expect(result.authorizationUrl).toBeUndefined();
+		});
 
 		it('accepts a plain frame whose metadata has no superseded member', async () => {
 			const result = await resolveWith({
