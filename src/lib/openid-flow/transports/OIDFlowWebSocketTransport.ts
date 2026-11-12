@@ -77,8 +77,12 @@ export interface SignRequest {
 			credentialQueryId?: string;
 			disclosedClaims?: string[];
 			credentialRaw?: string;
+			/** The raw transaction data entries this credential's presentation binds. */
+			transactionData?: string[];
 		}>;
 		responseUri?: string;
+		/** The Digital Credentials API caller's origin (instead of responseUri). */
+		origin?: string;
 		verifierJwkThumbprint?: string;
 		htm?: string;
 		htu?: string;

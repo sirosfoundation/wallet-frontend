@@ -19,7 +19,7 @@ import type {
 	EngineKeyValue,
 	WasmEngineConfig,
 } from './WasmEngine';
-
+import { parseClientIdScheme, type ClientIdScheme } from 'wallet-common';
 export interface ProxyFetchOptions {
 	/** The wallet backend, e.g. BACKEND_URL. */
 	backendUrl: string;
@@ -182,23 +182,24 @@ export function parseKeyMaterial(bytes: number[] | undefined): { type: 'jwk' | '
 	return undefined;
 }
 
-type VerifierScheme = 'x509_san_dns' | 'did' | 'https' | 'pre-registered';
-
 /**
  * The verifier evaluator's client_id scheme, from the engine's scheme name
  * (context.client_id_scheme): the same mapping the WebSocket transport makes
  * for the backend's trust questions, with the DID alias named as the
- * evaluator knows it.
+ * evaluator knows it. Any other client_id (a Digital Credentials API origin,
+ * a redirect URI) goes through the wallet's own parser, as the DC API path
+ * does.
  */
-function verifierScheme(clientId: string, context: Record<string, unknown> | undefined): { scheme: VerifierScheme; clientId: string; identifier: string } {
+function verifierScheme(clientId: string, context: Record<string, unknown> | undefined): ClientIdScheme {
 	const name = typeof context?.client_id_scheme === 'string' ? context.client_id_scheme : 'x509_san_dns';
 	if (name === 'decentralized_identifier') {
 		return { scheme: 'did', clientId, identifier: clientId.replace(/^decentralized_identifier:/, '') };
 	}
-	const identifier = name === 'x509_san_dns' && clientId.startsWith('x509_san_dns:')
-		? clientId.slice('x509_san_dns:'.length)
-		: clientId;
-	return { scheme: name as VerifierScheme, clientId, identifier };
+	if (name === 'x509_san_dns') {
+		const identifier = clientId.startsWith('x509_san_dns:') ? clientId.slice('x509_san_dns:'.length) : clientId;
+		return { scheme: 'x509_san_dns', clientId, identifier };
+	}
+	return parseClientIdScheme(clientId);
 }
 
 /**
@@ -219,7 +220,8 @@ export function createTrustPdp(trust: TrustEvaluators): WasmEngineConfig['pdp'] 
 				const result = kind === 'credential-verifier'
 					? await trust.evaluateVerifierTrust({
 						clientIdScheme: verifierScheme(request.subject, request.context),
-						keyMaterial: keyMaterial ?? { type: 'kid', key: '' },
+						// No inline key material: the evaluator resolves it (a DID, an origin).
+						keyMaterial: keyMaterial ?? { type: 'resolution', key: [] },
 						responseUri: typeof request.context?.response_uri === 'string' ? request.context.response_uri : undefined,
 					})
 					: await trust.evaluateIssuerTrust({

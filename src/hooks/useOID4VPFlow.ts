@@ -447,6 +447,35 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 	): Promise<OID4VPFlowResult> => {
 		setIsLoading(true);
 		try {
+			// The in-browser engine checks the request, asks about trust and
+			// builds the response; the wallet still matches and selects.
+			const engine = transportType === 'websocket' ? dcApiEngine(transport) : null;
+			if (engine) {
+				const result = await engine.startDCAPIPresentation({
+					request: request.engineParams(),
+					origin: verifiedOrigin,
+				});
+				if (!result.success) {
+					throw new OIDFlowError({
+						code: result.error?.code ?? 'FLOW_ERROR',
+						message: result.error?.message ?? 'The presentation request was refused',
+						...(result.error?.details ? { details: result.error.details } : {}),
+					});
+				}
+				const dcqlQuery = result.dcqlQuery as DcqlQuery;
+				const credentials = (await waitForCredentials())
+					.filter(vc => selectedCredentialIDs.length === 0 || selectedCredentialIDs.includes(String(vc.batchId)));
+				const matchResult = matchCredentials(credentials, dcqlQuery);
+				if (matchResult.matches.length === 0) {
+					// Ends the engine's flow; the page answers the channel itself.
+					await engine.reportNoMatchingCredentials();
+					throw noMatchError(matchResult);
+				}
+				return {
+					...result,
+					conformantCredentials: buildConformantCredentialsMap(matchResult.matches, dcqlQuery),
+				};
+			}
 			const clientIdForTrust = request.clientId ?? verifiedOrigin;
 			const clientIdScheme = parseClientIdScheme(clientIdForTrust);
 
@@ -517,7 +546,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		} finally {
 			setIsLoading(false);
 		}
-	}, [waitForCredentials, reportError, transportContext?.trustEvaluators]);
+	}, [waitForCredentials, reportError, transportContext?.trustEvaluators, transportType, transport]);
 
 	/**
 	 * Send DC API response - sign, record history, send via session
@@ -569,7 +598,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		} finally {
 			setIsLoading(false);
 		}
-	}, [signPresentation, keystore, api, reportError]);
+		}, [signPresentation, keystore, api, reportError, transportType, transport]);
 
 	return {
 		handleAuthorizationRequest,
@@ -585,6 +614,19 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 }
 
 export default useOID4VPFlow;
+
+/** The in-browser engine's transport, which also runs DC API presentations. */
+interface DCAPIEngineTransport {
+	startDCAPIPresentation(params: { request: Record<string, unknown>; origin: string }): Promise<OID4VPFlowResult>;
+	startOID4VPFlow(params: { selectedCredentials: OID4VPSelectedCredential[] }): Promise<OID4VPFlowResult>;
+	reportNoMatchingCredentials(): Promise<OID4VPFlowResult | null>;
+}
+
+function dcApiEngine(transport: unknown): DCAPIEngineTransport | null {
+	return transport && typeof (transport as Partial<DCAPIEngineTransport>).startDCAPIPresentation === 'function'
+		? transport as DCAPIEngineTransport
+		: null;
+}
 
 function noMatchError({ code, no_match_reason, missing_types }: CredentialsMatchedResult): OIDFlowError {
 	return new OIDFlowError({

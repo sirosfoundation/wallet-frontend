@@ -18,8 +18,8 @@
  *   host.match     -> the app's credential selection (see below)
  *   host.consent   -> yes, for exactly what the user selected
  *   host.vp        -> the app's sign handler (sign_presentation), built from the
- *                     user's selection kept here, never from the engine's ask alone
- *   onNotification -> wmp.flow.progress / complete / error
+ *                     user's selection kept here, never from the engine's ask alone;
+ *                     each credential carries the transaction data entries it binds
  *
  * How the app's calls map onto one engine flow:
  *   startOID4VCIFlow({credentialOfferUri|credentialOffer, redirectUri})
@@ -47,16 +47,31 @@
  *   A match ask nobody answers (the user left the screen) is answered with
  *   nothing after STEP_TIMEOUT_MS, so the verifier is not left waiting.
  *
- * Not supported here: a pre-authorized offer that needs a transaction code,
- * deferred issuance, presentations with transaction data, the Digital
- * Credentials API. Each answers with a clear error.
+ * Deferred issuance: the engine polls the issuer itself (the `deferred`
+ * progress names its interval and attempt budget); the step's wait grows to
+ * cover that polling, and the call resolves with the credential when it
+ * arrives.
+ *
+ * Transaction data: the match resolves the app's call with the entries
+ * decoded for the consent popup (transactionData); the vp ask hands each
+ * credential the raw entries that name its query, and the signer binds
+ * their hashes (OID4VP 1.0 §8.4). An entry bound to no presented
+ * credential, or one the signer cannot honour, is refused to the verifier
+ * as invalid_transaction_data.
+ *
+ * Digital Credentials API: startDCAPIPresentation({request, origin}) runs
+ * the same flow on the DC API request (the signed request object or its
+ * plain parameters) and the browser's origin; the selection and signing go
+ * as above (the signer gets the origin instead of a response URI), and the
+ * completion carries dcApiResponse, which the wallet returns through the DC
+ * API channel as it is.
  */
 
 import { OIDFlowWebSocketTransport } from './OIDFlowWebSocketTransport';
 import type { SignRequest, SignRequestHandler, SignResponse } from './OIDFlowWebSocketTransport';
 import type { OIDFlowProgressEvent, OIDFlowRequest, OIDFlowResponse } from '../types/OIDFlowTypes';
-import type { CredentialNotificationEvent, OID4VCIFlowParams, OID4VCIFlowResult } from '../types/OID4VCITypes';
 import type { OID4VPFlowParams, OID4VPFlowResult, OID4VPSelectedCredential, OID4VPVerifierInfo } from '../types/OID4VPTypes';
+import type { CredentialNotificationEvent, OID4VCIFlowParams, OID4VCIFlowResult, OID4VCITxCode } from '../types/OID4VCITypes';
 import type { DcqlQuery } from 'dcql';
 import type { TrustEvaluators } from '../types';
 import type { IWscdManagerClient } from '@/lib/wscd-manager';
@@ -81,6 +96,11 @@ import {
 } from '../wasm/WasmEngine';
 import { createProxyFetch, createStorageKv, createTrustPdp } from '../wasm/wasmPorts';
 import { logger } from '@/logger';
+import {
+	describeTransactionData,
+	transactionDataCredentialIds,
+	transactionDataForQuery,
+} from '../utils/transactionData';
 
 /** How long one step (start to redirect, or resume to credential) may take. */
 const STEP_TIMEOUT_MS = 3 * 60_000;
@@ -97,6 +117,9 @@ const ENGINE_STASH_KEY = (flowId: string) => `oid4vci:auth-code:${flowId}`;
 const PENDING_MAX_AGE_MS = 60 * 60 * 1000;
 /** How long reportNoMatchingCredentials waits for the engine to end the flow. */
 const NO_MATCH_TIMEOUT_MS = 10_000;
+
+/** The longest the wait for a deferred credential may grow to. */
+const DEFERRED_MAX_WAIT_MS = 15 * 60_000;
 
 export interface OIDFlowWasmTransportOptions {
 	backendUrl: string;
@@ -142,6 +165,12 @@ interface VciFlow {
 	/** The credential format (the engine's completion does not carry it). */
 	format?: string;
 	transactionId?: string;
+	/** The offer's pre-authorized code and its tx_code description. */
+	preAuthorizedCode?: string;
+	txCodeConfig?: OID4VCITxCode;
+	/** The engine's open tx_code ask; null declines it. */
+	txCodeAnswer?: (code: string | null) => void;
+	txCodeTimer?: ReturnType<typeof setTimeout>;
 	waiter: {
 		resolve: (r: OID4VCIFlowResult) => void;
 		timer: ReturnType<typeof setTimeout>;
@@ -177,6 +206,8 @@ interface VpFlow {
 	redirectUri?: string;
 	/** The match was answered with nothing because nothing matched. */
 	noMatch?: boolean;
+	/** The request's raw transaction data entries (base64url JSON). */
+	transactionData: string[];
 	ended: boolean;
 }
 
@@ -269,8 +300,7 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 			return this.startIssuance(params);
 		}
 		if (params.preAuthorizedCode) {
-			return errorResult('TX_CODE_UNSUPPORTED',
-				'Offers that need a transaction code are not supported by the in-browser engine');
+			return this.answerTxCode(params.preAuthorizedCode, params.txCodeInput);
 		}
 		return errorResult('INVALID_PARAMS', 'No credential offer or authorization code to continue with');
 	}
@@ -358,6 +388,11 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 		flow.credentialIssuer = offer.credential_issuer as string;
 		flow.configurationIds = configurationIds;
 		flow.format = format;
+		const preAuthorized = preAuthorizedGrant(offer);
+		if (preAuthorized) {
+			flow.preAuthorizedCode = preAuthorized.code;
+			flow.txCodeConfig = preAuthorized.txCode;
+		}
 		const result = this.waitForStep(flow);
 
 		// Resolves when the flow completes, or once the authorization is opened
@@ -417,15 +452,25 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 		return flow;
 	}
 
-	private waitForStep(flow: VciFlow): Promise<OID4VCIFlowResult> {
+	private waitForStep(flow: VciFlow, timeoutMs = STEP_TIMEOUT_MS): Promise<OID4VCIFlowResult> {
 		return new Promise((resolve) => {
-			const timer = setTimeout(() => {
-				flow.waiter = null;
-				this.endFlow(flow);
-				resolve(errorResult('TIMEOUT', 'The issuance took too long'));
-			}, STEP_TIMEOUT_MS);
-			flow.waiter = { resolve, timer };
+			flow.waiter = { resolve, timer: this.stepTimer(flow, resolve, timeoutMs) };
 		});
+	}
+
+	private stepTimer(flow: VciFlow, resolve: (r: OID4VCIFlowResult) => void, timeoutMs: number): ReturnType<typeof setTimeout> {
+		return setTimeout(() => {
+			flow.waiter = null;
+			this.endFlow(flow);
+			resolve(errorResult('TIMEOUT', 'The issuance took too long'));
+		}, timeoutMs);
+	}
+
+	/** Restarts the pending call's timeout (the engine is polling a deferred credential). */
+	private extendStep(flow: VciFlow, timeoutMs: number): void {
+		if (!flow.waiter) return;
+		clearTimeout(flow.waiter.timer);
+		flow.waiter.timer = this.stepTimer(flow, flow.waiter.resolve, timeoutMs);
 	}
 
 	private settle(flow: VciFlow, result: OID4VCIFlowResult): void {
@@ -438,7 +483,39 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 
 	private endFlow(flow: VciFlow): void {
 		flow.ended = true;
+		this.respondTxCode(flow, null);
 		this.vciFlows.delete(flow.flowId);
+	}
+
+	/**
+	 * The user's transaction code answers the engine's open tx_code ask; the
+	 * call resolves when the flow completes. No code (the prompt was
+	 * cancelled) declines the ask.
+	 */
+	private async answerTxCode(preAuthorizedCode: string, txCode: string | undefined): Promise<OID4VCIFlowResult> {
+		const flow = Array.from(this.vciFlows.values())
+			.find((f) => !f.ended && f.txCodeAnswer && f.preAuthorizedCode === preAuthorizedCode);
+		if (!flow) {
+			return errorResult('NO_TX_CODE_REQUEST', 'No issuance is waiting for a transaction code');
+		}
+		if (!txCode) {
+			this.endFlow(flow);
+			return errorResult('TX_CODE_DECLINED', 'No transaction code was given');
+		}
+		const result = this.waitForStep(flow);
+		this.respondTxCode(flow, txCode);
+		return result;
+	}
+
+	/** Answers the engine's tx_code ask once; false when none is open. */
+	private respondTxCode(flow: VciFlow, code: string | null): boolean {
+		const respond = flow.txCodeAnswer;
+		if (!respond) return false;
+		flow.txCodeAnswer = undefined;
+		clearTimeout(flow.txCodeTimer);
+		flow.txCodeTimer = undefined;
+		respond(code);
+		return true;
 	}
 
 	private failFlow(flow: VciFlow, err: unknown): void {
@@ -470,9 +547,27 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 		const live = Array.from(this.vciFlows.values()).filter((f) => !f.ended);
 		return live.length === 1 ? live[0] : undefined;
 	}
-    	// ===== The presentation flow =====
+    // ===== The presentation flow =====
+	/**
+	 * A Digital Credentials API request: the request (DCAPIRequest.engineParams)
+	 * and the origin the DC API channel verified. Resolves like startOID4VPFlow;
+	 * after the selection, the result carries dcApiResponse.
+	 */
+	async startDCAPIPresentation(params: { request: Record<string, unknown>; origin: string }): Promise<OID4VPFlowResult> {
+		if (!params.origin) return vpError('INVALID_PARAMS', 'A DC API presentation needs the caller\'s origin');
+		return this.runPresentation({ ...params.request, origin: params.origin });
+	}
 
-	private async startPresentation(requestUri: string, clientId: string | undefined): Promise<OID4VPFlowResult> {
+	private startPresentation(requestUri: string, clientId: string | undefined): Promise<OID4VPFlowResult> {
+		// The URL form, so the engine compares the outer client_id with the
+		// request object's (RFC 9101 §5.2).
+		const query = new URLSearchParams();
+		if (clientId) query.set('client_id', clientId);
+		query.set('request_uri', requestUri);
+		return this.runPresentation(`openid4vp://?${query.toString()}`);
+	}
+	/** Starts an oid4vp engine flow on the given request (a URL, or the DC API params). */
+	private async runPresentation(request: string | Record<string, unknown>): Promise<OID4VPFlowResult> {
 		let engine: WasmEngine;
 		let sessionId: string;
 		try {
@@ -486,22 +581,18 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 		const previous = this.currentVpFlow();
 		if (previous) this.answerMatch(previous, { selections: [] });
 
-		const flow: VpFlow = { flowId: `vp-${crypto.randomUUID()}`, waiter: null, choices: new Map(), ended: false };
+		const flow: VpFlow = { flowId: `vp-${crypto.randomUUID()}`, waiter: null, choices: new Map(), transactionData: [], ended: false };
 		this.vpFlows.set(flow.flowId, flow);
 		this.currentVpFlowId = flow.flowId;
 		const result = this.waitForVp(flow);
 
-		// The URL form, so the engine compares the outer client_id with the
-		// request object's (RFC 9101 §5.2). The call resolves only when the flow
-		// ends; the steps come from the host callbacks and the notifications.
-		const query = new URLSearchParams();
-		if (clientId) query.set('client_id', clientId);
-		query.set('request_uri', requestUri);
+		// The call resolves only when the flow ends; the steps come from the
+		// host callbacks and the notifications.
 		wmpCall(engine, 'wmp.flow.start', {
 			wmp: meta(sessionId),
 			flow_id: flow.flowId,
 			flow_type: 'oid4vp',
-			params: `openid4vp://?${query.toString()}`,
+			params: request,
 		}).catch((err) => this.failVpFlow(flow, err));
 
 		return result;
@@ -615,9 +706,14 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 			case 'wmp.flow.complete': {
 				const r = (params.result ?? {}) as Record<string, unknown>;
 				const redirect = typeof r.redirect_uri === 'string' && r.redirect_uri ? { redirect_uri: r.redirect_uri } : undefined;
+				const dcApiResponse = dcApiPayload(r.dc_api_response);
 				let result: OID4VPFlowResult;
 				if (r.presented === true) {
-					result = { success: true, ...(flow.redirectUri ? { redirectUri: flow.redirectUri } : {}) };
+					result = {
+						success: true,
+						...(flow.redirectUri ? { redirectUri: flow.redirectUri } : {}),
+						...(dcApiResponse ? { dcApiResponse } : {}),
+					};
 				} else if (flow.noMatch || r.matched === false) {
 					result = vpError('NO_MATCHING_CREDENTIALS', 'No matching credentials', redirect);
 				} else if (r.declined === true) {
@@ -628,6 +724,8 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 				} else {
 					result = vpError('PRESENTATION_FAILED', 'The presentation ended without a response');
 				}
+				// A refusal on the DC API channel is an error response the wallet returns too.
+				if (!result.success && dcApiResponse) result.dcApiResponse = dcApiResponse;
 				this.endVpFlow(flow);
 				this.settleVp(flow, result);
 				break;
@@ -654,12 +752,16 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 		const flow = this.vpFlows.get(p.flow_id);
 		if (!flow || flow.ended) return Promise.resolve({ selections: [] });
 
+		let transactionData: ReturnType<typeof describeTransactionData> = [];
 		if (p.transaction_data?.length) {
-			// Not bound into the presentation by the sign handler: never present without it.
-			this.endVpFlow(flow);
-			this.settleVp(flow, vpError('TRANSACTION_DATA_UNSUPPORTED',
-				'Requests with transaction data are not supported by the in-browser engine'));
-			return Promise.resolve({ selections: [] });
+			try {
+				transactionData = describeTransactionData(p.transaction_data);
+			} catch (err) {
+				this.endVpFlow(flow);
+				this.settleVp(flow, vpError('TRANSACTION_DATA_INVALID', reason(err)));
+				return Promise.resolve({ selections: [] });
+			}
+			flow.transactionData = [...p.transaction_data];
 		}
 		if (!p.dcql_query) {
 			this.endVpFlow(flow);
@@ -677,6 +779,7 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 				success: true,
 				dcqlQuery: p.dcql_query as unknown as DcqlQuery.Input,
 				verifierInfo: toVerifierInfo(p.verifier, p.dcql_query),
+				...(transactionData.length ? { transactionData } : {}),
 			});
 		});
 	}
@@ -698,10 +801,17 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 		const flow = this.vpFlows.get(p.flow_id);
 		if (!flow || flow.ended || !flow.selectionHandle) throw new Error('no consent for this presentation');
 		if (p.selection_handle !== flow.selectionHandle) throw new Error('the selection handle is missing or unknown');
-		if (p.transaction_data?.length) {
+		if (!p.selections?.length) throw new Error('no credential to present');
+		// The entries the user approved are the request's; the ask must not add any.
+		const asked = p.transaction_data ?? [];
+		if (asked.length !== flow.transactionData.length || asked.some((raw, i) => raw !== flow.transactionData[i])) {
+			throw new Error('the transaction data differs from the request');
+		}
+		const presentedQueries = new Set(p.selections.map((s) => s.credential_query_id));
+		if (flow.transactionData.some((raw) => !transactionDataCredentialIds(raw).some((id) => presentedQueries.has(id)))) {
+			// An entry no presented credential can carry cannot be honoured.
 			return { vp_token: '', refusal: { code: 'UNSUPPORTED_TRANSACTION_DATA' } };
 		}
-		if (!p.selections?.length) throw new Error('no credential to present');
 
 		const seen = new Set<string>();
 		const credentialsToInclude = p.selections.map((s) => {
@@ -710,26 +820,40 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 				throw new Error(`credential query ${s.credential_query_id} was not selected`);
 			}
 			seen.add(s.credential_query_id);
+			const transactionData = transactionDataForQuery(flow.transactionData, choice.credentialQueryId);
 			return {
 				credentialId: choice.credentialId,
 				credentialQueryId: choice.credentialQueryId,
 				disclosedClaims: choice.disclosedClaims,
 				credentialRaw: choice.credentialRaw,
+				...(transactionData.length ? { transactionData } : {}),
 			};
 		});
 
-		const response = await this.callSignHandler({
-			flowId: flow.flowId,
-			messageId: `vp-${crypto.randomUUID()}`,
-			action: 'sign_presentation',
-			params: {
-				audience: p.audience,
-				nonce: p.nonce,
-				responseUri: p.response_uri || undefined,
-				verifierJwkThumbprint: p.verifier_jwk_thumbprint || undefined,
-				credentialsToInclude,
-			},
-		});
+		let response: SignResponse;
+		try {
+			response = await this.callSignHandler({
+				flowId: flow.flowId,
+				messageId: `vp-${crypto.randomUUID()}`,
+				action: 'sign_presentation',
+				params: {
+					audience: p.audience,
+					nonce: p.nonce,
+					responseUri: p.response_uri || undefined,
+					// The DC API channel: the mdoc handover and the KB-JWT bind the origin.
+					origin: p.response_uri ? undefined : p.origin || undefined,
+					verifierJwkThumbprint: p.verifier_jwk_thumbprint || undefined,
+					credentialsToInclude,
+				},
+			});
+		} catch (err) {
+			// An entry the signer cannot bind (an mdoc, a hash algorithm it lacks):
+			// the engine tells the verifier invalid_transaction_data.
+			if ((err as { code?: unknown })?.code === 'UNSUPPORTED_TRANSACTION_DATA') {
+				return { vp_token: '', refusal: { code: 'UNSUPPORTED_TRANSACTION_DATA' } };
+			}
+			throw err;
+		}
 		// The DCQL vp_token object as JSON text: the engine passes it through.
 		if (!response.vpToken) throw new Error('the sign handler returned no vp_token');
 		return { vp_token: response.vpToken };
@@ -941,9 +1065,14 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 					flow.onAuthorization?.();
 				}
 				break;
-			case 'deferred':
+			case 'deferred': {
 				if (typeof payload.transaction_id === 'string') flow.transactionId = payload.transaction_id;
+				// The engine now polls: wait for its whole budget, plus a margin.
+				const interval = typeof payload.interval === 'number' && payload.interval > 0 ? payload.interval : 5;
+				const attempts = typeof payload.max_attempts === 'number' && payload.max_attempts > 0 ? payload.max_attempts : 60;
+				this.extendStep(flow, Math.min(DEFERRED_MAX_WAIT_MS, interval * attempts * 1000 + STEP_TIMEOUT_MS));
 				break;
+			}
 		}
 		// The verifier, PKCE verifier and tokens stay out of the app's progress events.
 		this.emitWasmProgress({ flowId: flow.flowId, stage: step, payload: publicProgress(step, payload) });
@@ -952,8 +1081,9 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 	private handleComplete(flow: VciFlow, r: Record<string, unknown>): void {
 		this.endFlow(flow);
 		if (r.deferred === true) {
-			this.settle(flow, errorResult('DEFERRED_UNSUPPORTED',
-				'The issuer deferred the credential; deferred issuance is not supported by the in-browser engine'));
+			// The engine's polling ended without the credential.
+			this.settle(flow, errorResult('DEFERRED_NOT_READY',
+				'The issuer has not issued the credential yet; try the offer again later'));
 			return;
 		}
 		const credential = typeof r.credential === 'string' ? r.credential : '';
@@ -1004,14 +1134,25 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 		return { signature: Array.from(signature) };
 	}
 
-	private async hostTxCode(p: { flow_id: string }): Promise<string> {
+	/**
+	 * The engine needs the offer's transaction code (it asks with the token
+	 * step's id, so the flow is the single live one). The app's call resolves
+	 * here so it can prompt; the ask stays open until the code comes back.
+	 */
+	private hostTxCode(p: { flow_id: string }): Promise<string> {
 		const flow = this.flowFor(p.flow_id);
-		if (flow) {
-			this.endFlow(flow);
-			this.settle(flow, errorResult('TX_CODE_UNSUPPORTED',
-				'Offers that need a transaction code are not supported by the in-browser engine'));
-		}
-		throw new Error('transaction codes are not supported');
+		if (!flow || flow.ended) return Promise.reject(new Error('no issuance flow for this transaction code'));
+		return new Promise<string>((resolve, reject) => {
+			flow.txCodeAnswer = (code) => (code === null ? reject(new Error('transaction code declined')) : resolve(code));
+			flow.txCodeTimer = setTimeout(() => {
+				logger.warn('[wasm] no transaction code in time; declining the offer');
+				this.respondTxCode(flow, null);
+			}, STEP_TIMEOUT_MS);
+			const result = this.baseResult(flow);
+			result.preAuthorizedCode = flow.preAuthorizedCode ?? flow.flowId;
+			result.txCode = flow.txCodeConfig ?? {};
+			this.settle(flow, result);
+		});
 	}
 
 	/** The engine opens the authorization: hand the URL to the app, which navigates. */
@@ -1145,6 +1286,26 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 	}
 }
 
+const PRE_AUTHORIZED_GRANT = 'urn:ietf:params:oauth:grant-type:pre-authorized_code';
+
+/** The offer's pre-authorized code and tx_code description (OID4VCI 1.0 §4.1.1). */
+export function preAuthorizedGrant(offer: Record<string, unknown>): { code: string; txCode?: OID4VCITxCode } | undefined {
+	const grant = (offer.grants as Record<string, unknown> | undefined)?.[PRE_AUTHORIZED_GRANT] as
+		{ 'pre-authorized_code'?: unknown; tx_code?: { input_mode?: unknown; length?: unknown; description?: unknown } } | undefined;
+	const code = grant?.['pre-authorized_code'];
+	if (typeof code !== 'string' || !code) return undefined;
+	const tx = grant?.tx_code;
+	if (!tx || typeof tx !== 'object') return { code };
+	return {
+		code,
+		txCode: {
+			...(typeof tx.input_mode === 'string' ? { inputMode: tx.input_mode } : {}),
+			...(typeof tx.length === 'number' ? { length: tx.length } : {}),
+			...(typeof tx.description === 'string' ? { description: tx.description } : {}),
+		},
+	};
+}
+
 /** The PDP over plain requests (the adapter may hand nested JSON as Maps). */
 function plainPdp(pdp: WasmEngineConfig['pdp']): WasmEngineConfig['pdp'] {
 	return { evaluate: (request) => pdp.evaluate(toPlain(request)) };
@@ -1174,6 +1335,25 @@ export function toVerifierInfo(v: EngineVerifierInfo, dcqlQuery?: Record<string,
 		trustedStatus: v.trusted === true ? 'trusted' : 'untrusted',
 		...(typeof purpose === 'string' ? { purpose } : {}),
 	};
+}
+
+/**
+ * The engine's DC API response as the channel returns it. The engine hands an
+ * unencrypted vp_token over as the DCQL object's JSON text; the DC API
+ * response carries the object (OpenID4VP 1.0 §8.4).
+ */
+function dcApiPayload(value: unknown): Record<string, unknown> | undefined {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+	const payload = { ...(value as Record<string, unknown>) };
+	if (typeof payload.vp_token === 'string') {
+		try {
+			const parsed = JSON.parse(payload.vp_token);
+			if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) payload.vp_token = parsed;
+		} catch {
+			// a single token, not the DCQL object: left as it is
+		}
+	}
+	return payload;
 }
 
 /** An opaque handle tying the vp ask to the selection it was answered with. */

@@ -82,6 +82,13 @@ export interface OID4VPFlowResult {
 	/** Response for cross-device flow */
 	responseData?: unknown;
 
+	/**
+	 * The Digital Credentials API response the engine built (`vp_token`, an
+	 * encrypted `response`, or an `error`): the wallet returns it through
+	 * the DC API channel as it is.
+	 */
+	dcApiResponse?: Record<string, unknown>;
+
 	// ===== Error =====
 
 	/** Error information if success is false */

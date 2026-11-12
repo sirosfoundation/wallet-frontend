@@ -482,6 +482,18 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				throw new OIDFlowError(result.error);
 			}
 
+			// Transaction data (the in-browser engine passes it on): the user approves it first.
+			if (result.transactionData?.length) {
+				const consented = await showTransactionDataConsentPopup({
+					title: 'Transaction Data',
+					attestations: result.transactionData.map((td) => td.data),
+				});
+				if (!consented) {
+					session.sendErrorAndClose('user_cancelled');
+					return;
+				}
+			}
+
 			const credSelectResult = await handleCredentialSelection(
 				result.verifierInfo,
 				result.dcqlQuery,

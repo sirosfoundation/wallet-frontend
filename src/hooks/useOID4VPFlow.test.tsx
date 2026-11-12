@@ -11,6 +11,12 @@ const mocks = vi.hoisted(() => ({
 	matchCredentials: vi.fn(),
 	reportNoMatchingCredentials: vi.fn(),
 	transport: { transportType: 'websocket' as string },
+	/** The in-browser engine's DC API entry points, present when enabled. */
+	engine: { enabled: false, startDCAPIPresentation: vi.fn(), startOID4VPFlow: vi.fn() },
+	session: {
+		keystore: { addPresentations: vi.fn(async (_presentations: Array<{ audience: string }>) => [null, { pd: 1 }, async () => {}]) },
+		api: { updatePrivateData: vi.fn(async () => {}) },
+	},
 }));
 
 vi.mock('@/lib/services/CredentialMatchingService', () => ({
@@ -20,20 +26,30 @@ vi.mock('@/lib/services/CredentialMatchingService', () => ({
 vi.mock('@/context/OIDFlowTransportContext', () => ({
 	useOIDFlowTransportSafe: () => ({
 		transportType: mocks.transport.transportType,
-		transport: { reportNoMatchingCredentials: mocks.reportNoMatchingCredentials },
+		transport: {
+			reportNoMatchingCredentials: mocks.reportNoMatchingCredentials,
+			...(mocks.engine.enabled ? {
+				startDCAPIPresentation: mocks.engine.startDCAPIPresentation,
+				startOID4VPFlow: mocks.engine.startOID4VPFlow,
+			} : {}),
+		},
 		trustEvaluators: { evaluateVerifierTrust: async () => ({ trusted: true, name: 'Test Verifier' }) },
 	}),
 }));
 
 vi.mock('@/context/SessionContext', async () => {
 	const { createContext } = await vi.importActual<typeof import('react')>('react');
-	return { default: createContext({ keystore: {}, api: {} }) };
+	return { default: createContext(mocks.session) };
 });
 
 vi.mock('@/context/CredentialsContext', async () => {
 	const { createContext } = await vi.importActual<typeof import('react')>('react');
 	return { default: createContext({ vcEntityList: [] }) };
 });
+
+vi.mock('@/lib/verifiable-credentials', () => ({
+	applySelectiveDisclosure: async (raw: string) => raw,
+}));
 
 vi.mock('./useOIDFlowSignHandler', () => ({
 	useOIDFlowSignHandler: () => ({ signPresentation: vi.fn() }),
@@ -87,6 +103,7 @@ async function selectCredentials() {
 
 describe('useOID4VPFlow / no matching credentials', () => {
 	beforeEach(() => {
+		mocks.engine.enabled = false;
 		mocks.transport.transportType = 'websocket';
 		mocks.matchCredentials.mockReset();
 		mocks.reportNoMatchingCredentials.mockReset();
@@ -194,5 +211,108 @@ describe('useOID4VPFlow / no matching credentials', () => {
 		expect(flowResult.success).toBe(true);
 		expect(onError).not.toHaveBeenCalled();
 		expect(mocks.reportNoMatchingCredentials).not.toHaveBeenCalled();
+	});
+});
+
+describe('useOID4VPFlow / DC API on the in-browser engine', () => {
+	const ORIGIN = 'https://verifier.example.com';
+	const request = { engineParams: () => ({ nonce: 'n-1', dcql_query: dcqlQuery, response_mode: 'dc_api' }) } as unknown as DCAPIRequest;
+	const selected = [{
+		batchId: 1, credentialQueryId: 'pid', walletCredentialRef: '7', credentialRaw: 'eyJ.cred~', holderKeyKid: 'k', disclosedClaims: ['age'],
+	}];
+	const session = () => ({ verifiedOrigin: ORIGIN, sendEngineResponse: vi.fn(), sendErrorAndClose: vi.fn() });
+
+	beforeEach(() => {
+		mocks.transport.transportType = 'websocket';
+		mocks.engine.enabled = true;
+		mocks.engine.startDCAPIPresentation.mockReset();
+		mocks.engine.startOID4VPFlow.mockReset();
+		mocks.matchCredentials.mockReset();
+		mocks.reportNoMatchingCredentials.mockReset().mockResolvedValue(null);
+		mocks.session.keystore.addPresentations.mockClear();
+	});
+
+	it('hands the request and the verified origin to the engine, then matches locally', async () => {
+		mocks.engine.startDCAPIPresentation.mockResolvedValue({ success: true, dcqlQuery, verifierInfo });
+		mocks.matchCredentials.mockReturnValue({ matches: [{ input_descriptor_id: 'pid', credential_id: '1', format: 'dc+sd-jwt' }] });
+		const { result } = renderFlow();
+
+		let flowResult: OID4VPFlowResult | undefined;
+		await act(async () => {
+			flowResult = await result.current.handleDCAPIRequest(request, [], ORIGIN);
+		});
+
+		expect(mocks.engine.startDCAPIPresentation).toHaveBeenCalledWith({
+			request: { nonce: 'n-1', dcql_query: dcqlQuery, response_mode: 'dc_api' },
+			origin: ORIGIN,
+		});
+		expect(flowResult).toMatchObject({ success: true, verifierInfo });
+		expect(flowResult!.conformantCredentials).toBeDefined();
+	});
+
+	it('ends the engine flow when nothing matches', async () => {
+		mocks.engine.startDCAPIPresentation.mockResolvedValue({ success: true, dcqlQuery, verifierInfo });
+		mocks.matchCredentials.mockReturnValue(noMatch);
+		const { result } = renderFlow();
+
+		let flowResult: OID4VPFlowResult | undefined;
+		await act(async () => {
+			flowResult = await result.current.handleDCAPIRequest(request, [], ORIGIN);
+		});
+
+		expect(flowResult!.success).toBe(false);
+		expect(mocks.reportNoMatchingCredentials).toHaveBeenCalledTimes(1);
+	});
+
+	it('reports the engine\'s refusal (e.g. an untrusted verifier)', async () => {
+		mocks.engine.startDCAPIPresentation.mockResolvedValue({ success: false, error: { code: 'UNTRUSTED_VERIFIER', message: 'no' } });
+		const { result } = renderFlow();
+
+		let flowResult: OID4VPFlowResult | undefined;
+		await act(async () => {
+			flowResult = await result.current.handleDCAPIRequest(request, [], ORIGIN);
+		});
+
+		expect(flowResult!.error?.code).toBe('UNTRUSTED_VERIFIER');
+		expect(mocks.matchCredentials).not.toHaveBeenCalled();
+	});
+
+	it('returns the response the engine built through the DC API channel, and records the presentation', async () => {
+		const dcApiResponse = { vp_token: { pid: ['t'] } };
+		mocks.engine.startOID4VPFlow.mockResolvedValue({ success: true, dcApiResponse });
+		const s = session();
+		const { result } = renderFlow();
+
+		let sent: OID4VPFlowResult | undefined;
+		await act(async () => {
+			sent = await result.current.sendDCAPIResponse(s as any, selected);
+		});
+
+		expect(sent).toEqual({ success: true });
+		expect(mocks.engine.startOID4VPFlow).toHaveBeenCalledWith({ selectedCredentials: selected });
+		expect(s.sendEngineResponse).toHaveBeenCalledWith(dcApiResponse);
+		expect(mocks.session.keystore.addPresentations).toHaveBeenCalledTimes(1);
+		expect(mocks.session.keystore.addPresentations.mock.calls[0]?.[0][0]).toMatchObject({ audience: `origin:${ORIGIN}` });
+	});
+
+	it('returns the engine\'s error response, or access_denied when it built none', async () => {
+		const refusal = { error: 'access_denied', error_description: 'The wallet did not fulfil the request' };
+		mocks.engine.startOID4VPFlow.mockResolvedValueOnce({ success: false, error: { code: 'PRESENTATION_DECLINED', message: 'x' }, dcApiResponse: refusal });
+		const first = session();
+		const { result } = renderFlow();
+		let sent: OID4VPFlowResult | undefined;
+		await act(async () => {
+			sent = await result.current.sendDCAPIResponse(first as any, selected);
+		});
+		expect(sent!.success).toBe(false);
+		expect(first.sendEngineResponse).toHaveBeenCalledWith(refusal);
+		expect(mocks.session.keystore.addPresentations).not.toHaveBeenCalled();
+
+		mocks.engine.startOID4VPFlow.mockResolvedValueOnce({ success: false, error: { code: 'TIMEOUT', message: 'x' } });
+		const second = session();
+		await act(async () => {
+			await result.current.sendDCAPIResponse(second as any, selected);
+		});
+		expect(second.sendErrorAndClose).toHaveBeenCalledWith('access_denied');
 	});
 });

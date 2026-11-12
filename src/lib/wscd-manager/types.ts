@@ -203,7 +203,8 @@ export type SignSdJwtPresentationRequest = {
 	verifiableCredential: string,
 	transactionDataResponseParams?: {
 		transaction_data_hashes: string[],
-		transaction_data_hashes_alg: string[]
+		/** A string per OID4VP 1.0; omitted for the sha-256 default. */
+		transaction_data_hashes_alg?: string | string[]
 	}
 };
 
@@ -216,7 +217,8 @@ export type SignVcdm2PresentationRequest = {
 	verifiableCredentials: unknown[],
 	transactionDataResponseParams?: {
 		transaction_data_hashes: string[],
-		transaction_data_hashes_alg: string[]
+		/** A string per OID4VP 1.0; omitted for the sha-256 default. */
+		transaction_data_hashes_alg?: string | string[]
 	}
 };
 

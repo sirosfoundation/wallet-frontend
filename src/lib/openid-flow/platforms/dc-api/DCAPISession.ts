@@ -74,7 +74,15 @@ export class DCAPISession {
 		this.mode.send({ requestId: this.requestId, payload });
 		this.close();
 	}
-
+	/**
+	 * Returns a response the in-browser engine built (its `dc_api_response`:
+	 * the vp_token, the encrypted response, or an error) and closes.
+	 */
+	public sendEngineResponse(payload: Record<string, unknown>): void {
+		this.mode.send({ requestId: this.requestId, payload });
+		this.close();
+	}
+	
 	public sendErrorAndClose(error: 'user_cancelled' | 'access_denied'): void {
 		this.mode.send({ requestId: this.requestId, payload: { error } });
 		this.close();
