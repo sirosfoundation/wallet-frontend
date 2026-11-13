@@ -58,7 +58,7 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 	const oidFlowClientAuthMaterialManager = useOIDFlowClientAuthStore();
 
 	// Use a ref to hold a stable reference to the clearSession function
-	const clearSessionRef = useRef<() => void>(null);
+	const clearSessionRef = useRef<() => Promise<void>>(null);
 
 	// Memoize clearSession using useCallback
 	const clearSession = useCallback(async () => {
@@ -66,7 +66,7 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 		sessionClearedRef.current = true;
 		oidFlowClientAuthMaterialManager.clear();
 		logger.debug('[Session Context] Clear Session');
-		api.clearSession();
+		await api.clearSession();
 	}, [api, oidFlowClientAuthMaterialManager]);
 
 	// Update the ref whenever clearSession changes
