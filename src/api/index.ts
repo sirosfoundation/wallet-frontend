@@ -162,7 +162,6 @@ export function useApi({
 
 	// Define clearSession early so it can be used by token refresh config
 	const clearSession = useCallback(async (): Promise<void> => {
-		// Server logout needs the auth tokens, so it must finish before they are cleared
 		try {
 			await authServer.logout(tenantId ?? 'default');
 		} catch (e) {
