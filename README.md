@@ -152,6 +152,11 @@ git add -A
 
 Once the development server is running, you can access the app by visiting http://localhost:3000 in your web browser. The app provides various pages and components that you can interact with. Explore the features and enjoy using the Wallet Frontend!
 
+## Architecture
+
+Guidelines for code structure and architecture can be found in
+[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+
 ## `.gitignore` strategy
 
 This repo uses a **allowlist (opt-in) `.gitignore`**: by default nothing at the
