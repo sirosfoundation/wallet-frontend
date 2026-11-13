@@ -139,7 +139,7 @@ function renderTransport(
 	const authTokens = { ensureBackendToken };
 	let setIsLoggedIn!: (value: boolean) => void;
 
-	const wrapper = ({ children }: { children: React.ReactNode }) => {
+	const Wrapper = ({ children }: { children: React.ReactNode }) => {
 		const [isLoggedIn, setState] = React.useState(loggedIn);
 		setIsLoggedIn = setState;
 		const session = React.useMemo(() => ({ authTokens, isLoggedIn }) as any, [isLoggedIn]);
@@ -150,7 +150,7 @@ function renderTransport(
 		);
 	};
 
-	const rendered = renderHook(() => useOIDFlowTransport(), { wrapper });
+	const rendered = renderHook(() => useOIDFlowTransport(), { wrapper: Wrapper });
 
 	return {
 		...rendered,
