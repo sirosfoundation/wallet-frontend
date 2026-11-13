@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import axios from 'axios';
 import { AuthServerClient } from './AuthServerClient';
 
@@ -233,6 +233,9 @@ describe('AuthServerClient', () => {
 	});
 
 	describe('logout', () => {
+		beforeEach(() => vi.useFakeTimers());
+		afterEach(() => vi.useRealTimers());
+
 		it('deletes the session with credentials and tenant headers', async () => {
 			request.mockResolvedValue(okData({}));
 
@@ -249,6 +252,34 @@ describe('AuthServerClient', () => {
 					}),
 				}),
 			);
+			expect(request.mock.calls[0][0]?.signal?.aborted).toBe(false);
+			expect(vi.getTimerCount()).toBe(0);
+		});
+
+		it('cancels a stalled request when the logout deadline expires', async () => {
+			request.mockImplementation(({ signal }) => new Promise((_, reject) => {
+				signal!.addEventListener!('abort', () => reject(new Error('Request aborted')));
+			}));
+			const logout = client.logout('acme');
+			const rejected = expect(logout).rejects.toThrow('Request aborted');
+			const signal = request.mock.calls[0][0]?.signal;
+
+			await vi.advanceTimersByTimeAsync(4999);
+			expect(signal?.aborted).toBe(false);
+			await vi.advanceTimersByTimeAsync(1);
+
+			await rejected;
+			expect(signal?.aborted).toBe(true);
+			expect(vi.getTimerCount()).toBe(0);
+		});
+
+		it('clears the deadline when logout fails before it expires', async () => {
+			request.mockRejectedValue(new Error('Network error'));
+
+			await expect(client.logout('acme')).rejects.toThrow('Network error');
+
+			expect(request.mock.calls[0][0]?.signal?.aborted).toBe(false);
+			expect(vi.getTimerCount()).toBe(0);
 		});
 	});
 });
