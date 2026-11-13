@@ -66,7 +66,7 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 		sessionClearedRef.current = true;
 		oidFlowClientAuthMaterialManager.clear();
 		logger.debug('[Session Context] Clear Session');
-		await api.clearSession();
+		void api.clearSession();
 	}, [api, oidFlowClientAuthMaterialManager]);
 
 	// Update the ref whenever clearSession changes
