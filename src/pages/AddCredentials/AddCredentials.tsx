@@ -75,7 +75,7 @@ const AddCredentials = () => {
 
 	useEffect(() => {
 		if (vcEntityList === null) {
-			getData();
+			void getData();
 		}
 	}, [vcEntityList, getData]);
 
