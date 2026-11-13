@@ -1,4 +1,4 @@
-import React, { useContext, useState, ChangeEventHandler } from 'react';
+import React, { useCallback, useContext, useState, ChangeEventHandler } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import { Trans, useTranslation } from 'react-i18next';
 import { Wallet } from 'lucide-react';
@@ -23,6 +23,7 @@ import TenantSelector from '@/components/TenantSelector/TenantSelector';
 import PolicyLinks from '@/components/Shared/PolicyLinks';
 import PasskeyInfoPopup from '@/components/Popups/PasskeyInfoPopup';
 import LabelSecurityKeyPrompt from '@/pages/Signup/LabelSecurityKeyPrompt';
+import SecondSecurityKeyPopup from '@/components/Popups/SecondSecurityKeyPopup';
 
 const FormInputRow = ({
 	IconComponent,
@@ -91,18 +92,27 @@ const Signup = () => {
 	const [inProgress, setInProgress] = useState(false);
 	const [error, setError] = useState<React.ReactNode>('');
 	const [retrySignupFrom, setRetrySignupFrom] = useState<SignupRetryParams | null>(null);
+	const [secondKeyInline, setSecondKeyInline] = useState(false);
 
 	const inviteCode = new URLSearchParams(location.search).get('invite') || undefined;
 
 	const session = api.getSession();
 	let showLabelSecurityKey: boolean;
+	let showSecondSecurityKey: boolean;
 
 	if (session) {
 		showLabelSecurityKey = session.showLabelSecurityKey;
+		showSecondSecurityKey = session.showSecondSecurityKey;
 	} else {
 		showLabelSecurityKey = false;
+		showSecondSecurityKey = false;
 	}
-	useRedirectWhenLoggedIn(false, showLabelSecurityKey);
+	useRedirectWhenLoggedIn(false, showLabelSecurityKey || showSecondSecurityKey);
+
+	const onSecondSecurityKeyDone = useCallback(() =>
+		api.updateShowSecondSecurityKey(false),
+		[api],
+	);
 
 	const onSignup = async (hints: string[]) => {
 		const result = await api.signupWebauthn(
@@ -230,62 +240,67 @@ const Signup = () => {
 				<TenantSelector currentTenantId={urlTenantId || 'default'} isAuthenticated={false} button={<Button variant="link" linkClassName="text-sm" />} />
 			</>}
 		>
-			<OIDCGateBoundary gate={gate} purpose="registration" username={name} error={error}>
-				<form className="mb-4" onSubmit={onSubmit}>
-					{inProgress || retrySignupFrom ? (
-						<PasskeyProgress
-							inProgress={inProgress}
-							needPrfRetry={prf.needPrfRetry}
-							prfRetryAccepted={prf.prfRetryAccepted}
-							onPrfAnswer={(accept) => prf.resolvePrfRetryPrompt?.(accept)}
-							onCancel={onCancel}
-							authOnceMoreMessage={t('registerPasskey.authOnceMore')}
-							showTryAgain={!!retrySignupFrom}
-						/>
-					) : (
-						<>
-							<FormInputRow label={t('loginSignup.choosePasskeyUsername')} name="name" IconComponent={Wallet}>
-									<FormInputField
-										ariaLabel="Passkey name"
-										name="name"
-										onChange={(event) => setName(event.target.value)}
-										placeholder={t('loginSignup.enterPasskeyName')}
-										value={name}
-										required
-									/>
-									<div className={`flex flex-row flex-nowrap text-lm-gray-500 text-sm italic ${nameByteLimitReached ? 'text-lm-red' : ''} ${nameByteLimitApproaching ? 'h-auto mt-1' : 'h-0 mt-0'} transition-all`}>
-										<div
-											className={`text-lm-red dark:text-dm-red grow ${nameByteLimitReached ? 'opacity-100' : 'opacity-0 select-none'} transition-opacity`}
-											aria-hidden={!nameByteLimitReached}
-										>
-											{t('loginSignup.reachedLengthLimit')}
+			{!secondKeyInline && (
+				<OIDCGateBoundary gate={gate} purpose="registration" username={name} error={error}>
+					<form className="mb-4" onSubmit={onSubmit}>
+						{inProgress || retrySignupFrom ? (
+							<PasskeyProgress
+								inProgress={inProgress}
+								needPrfRetry={prf.needPrfRetry}
+								prfRetryAccepted={prf.prfRetryAccepted}
+								onPrfAnswer={(accept) => prf.resolvePrfRetryPrompt?.(accept)}
+								onCancel={onCancel}
+								authOnceMoreMessage={t('registerPasskey.authOnceMore')}
+								showTryAgain={!!retrySignupFrom}
+							/>
+						) : (
+							<>
+								<FormInputRow label={t('loginSignup.choosePasskeyUsername')} name="name" IconComponent={Wallet}>
+										<FormInputField
+											ariaLabel="Passkey name"
+											name="name"
+											onChange={(event) => setName(event.target.value)}
+											placeholder={t('loginSignup.enterPasskeyName')}
+											value={name}
+											required
+										/>
+										<div className={`flex flex-row flex-nowrap text-lm-gray-500 text-sm italic ${nameByteLimitReached ? 'text-lm-red' : ''} ${nameByteLimitApproaching ? 'h-auto mt-1' : 'h-0 mt-0'} transition-all`}>
+											<div
+												className={`text-lm-red dark:text-dm-red grow ${nameByteLimitReached ? 'opacity-100' : 'opacity-0 select-none'} transition-opacity`}
+												aria-hidden={!nameByteLimitReached}
+											>
+												{t('loginSignup.reachedLengthLimit')}
+											</div>
+											<div
+												className={`text-right ${nameByteLimitApproaching ? 'opacity-100' : 'opacity-0 select-none'} transition-opacity`}
+												aria-hidden={!nameByteLimitApproaching}
+											>
+												{nameByteLength + `/64`}
+											</div>
 										</div>
-										<div
-											className={`text-right ${nameByteLimitApproaching ? 'opacity-100' : 'opacity-0 select-none'} transition-opacity`}
-											aria-hidden={!nameByteLimitApproaching}
-										>
-											{nameByteLength + `/64`}
-										</div>
-									</div>
-								</FormInputRow>
-								{hasPolicyLinks && (
-									<label className="mb-4 text-sm relative block pl-6">
-										<input className="absolute top-1 left-0 w-4 h-4 accent-primary cursor-pointer" type="checkbox" required />
-										<span>
-											<Trans
-												i18nKey="loginSignup.acceptPolicies"
-												components={{ policyLinks: <PolicyLinks /> }}
-											/>
-										</span>
-									</label>
-								)}
-								<PasskeyButtons mode="signup" isSubmitting={inProgress} />
-								{error && <div className="text-lm-red dark:text-dm-red text-sm mt-2">{error}</div>}
-						</>
-					)}
-				</form>
-			</OIDCGateBoundary>
+									</FormInputRow>
+									{hasPolicyLinks && (
+										<label className="mb-4 text-sm relative block pl-6">
+											<input className="absolute top-1 left-0 w-4 h-4 accent-primary cursor-pointer" type="checkbox" required />
+											<span>
+												<Trans
+													i18nKey="loginSignup.acceptPolicies"
+													components={{ policyLinks: <PolicyLinks /> }}
+												/>
+											</span>
+										</label>
+									)}
+									<PasskeyButtons mode="signup" isSubmitting={inProgress} />
+									{error && <div className="text-lm-red dark:text-dm-red text-sm mt-2">{error}</div>}
+							</>
+						)}
+					</form>
+				</OIDCGateBoundary>
+			)}
 			<LabelSecurityKeyPrompt />
+			{showSecondSecurityKey && (
+				<SecondSecurityKeyPopup onDone={onSecondSecurityKeyDone} onInlineChange={setSecondKeyInline}/>
+				)}
 		</AuthLayout>
 	);
 };

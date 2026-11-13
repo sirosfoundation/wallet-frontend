@@ -89,7 +89,8 @@ const LabelSecurityKeyPopup = ({ isOpen, onClose, webauthnCredentialId }: Props)
 					</Button>
 					<Button
 						id="skip-label-security-key"
-						type="button" variant="outline"
+						type="button"
+						variant="outline"
 						additionalClassName="w-full"
 						onClick={onClose}
 						disabled={submitting}

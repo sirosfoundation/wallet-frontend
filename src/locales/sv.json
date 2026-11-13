@@ -686,6 +686,21 @@
 		"nicknamePlaceholder": "Intygets smeknamn",
 		"passkeyCreated": "Din passkey har skapats."
 	},
+	"secondSecurityKey": {
+		"alreadyRegistered": "Denna säkerhetsnyckel är redan registrerad. Vänligen använd en annan.",
+		"authOnceMore": "Autentisera med din säkerhetsnyckel en gång till.",
+		"cancelled": "Inställningen av säkerhetsnyckeln avbröts. Försök igen eller hoppa över.",
+		"confirm": "Bekräfta",
+		"description": "Detta ger dig en säkerhetskopia och säkerställer att du kan komma åt ditt plånbokskonto.",
+		"failed": "Något gick fel. Försök igen eller hoppa över.",
+		"title": "Konfigurera en andra säkerhetsnyckel (rekommenderas)",
+		"yes": "Ja",
+		"skip": "Hoppa över",
+		"labelTitle": "Märk din säkerhetsnyckel",
+		"labelDescription": "Ge din säkerhetsnyckel en etikett för att göra det lättare att känna igen den i plånbokens inställningar.",
+		"labelPlaceholder": "Ange etikett",
+		"labelInputAriaLabel": "Inmatning för säkerhetsnyckelns smeknamn"
+	},
 	"selectCredentialPopup": {
 		"allClaimsRequested": "Verifieraren har begärt alla attribut i intyget.",
 		"baseTitle": "Skicka intyg",
