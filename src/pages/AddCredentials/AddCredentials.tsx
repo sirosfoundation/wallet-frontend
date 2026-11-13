@@ -19,6 +19,37 @@ import type { OpenidCredentialIssuerMetadata } from 'wallet-common';
 
 type CredentialConfiguration = ReturnType<typeof buildCredentialConfiguration>;
 
+const addIssuerIfMissing = (
+	currentArray: OpenidCredentialIssuerMetadata[],
+	metadata: OpenidCredentialIssuerMetadata
+) => {
+	const issuerExists = currentArray.some((issuerMetadata) =>
+		issuerMetadata.credential_issuer === metadata.credential_issuer
+	);
+
+	if (!issuerExists) {
+		return [...currentArray, metadata];
+	}
+	return currentArray;
+};
+
+const addCredentialConfigurationIfMissing = (
+	currentArray: CredentialConfiguration[],
+	credentialConfiguration: CredentialConfiguration,
+	key: string,
+	credentialIssuer: string
+) => {
+	const credentialConfigurationExists = currentArray.some(({ credentialConfigurationId, credentialIssuerIdentifier }) =>
+		credentialConfigurationId === key &&
+		credentialIssuerIdentifier === credentialIssuer
+	);
+
+	if (!credentialConfigurationExists) {
+		return [...currentArray, credentialConfiguration];
+	}
+	return currentArray;
+};
+
 const AddCredentials = () => {
 	const { isOnline } = useContext(StatusContext);
 	const { api, isLoggedIn } = useContext(SessionContext);
@@ -100,29 +131,13 @@ const AddCredentials = () => {
 						const configs = metadata.credential_configurations_supported;
 
 						// add issuer
-						setIssuers((currentArray) => {
-							const issuerExists = currentArray.some((issuerMetadata) =>
-								issuerMetadata.credential_issuer === metadata.credential_issuer
-							);
+						setIssuers((currentArray) => addIssuerIfMissing(currentArray, metadata));
 
-							if (!issuerExists) {
-								return [...currentArray, metadata];
-							}
-							return currentArray;
-						});
-
-						Object.keys(configs).forEach((key) => {
+						for (const key of Object.keys(configs)) {
 							const credentialConfiguration = buildCredentialConfiguration(key, configs[key], metadata, filterItemByLang);
-							setCredentialConfigurations((currentArray) => {
-								const credentialConfigurationExists = currentArray.some(({ credentialConfigurationId, credentialIssuerIdentifier }) =>
-									credentialConfigurationId === key && credentialIssuerIdentifier === metadata.credential_issuer
-								);
-								if (!credentialConfigurationExists) {
-									return [...currentArray, credentialConfiguration];
-								}
-								return currentArray;
-							});
-						});
+							setCredentialConfigurations((currentArray) =>
+								addCredentialConfigurationIfMissing(currentArray, credentialConfiguration, key, metadata.credential_issuer));
+						};
 					}
 					catch (err) {
 						logger.error(err);
@@ -135,7 +150,7 @@ const AddCredentials = () => {
 
 		if (filterItemByLang && isLoggedIn) {
 			logger.debug("Fetching issuers...");
-			fetchIssuers();
+			void fetchIssuers();
 		}
 	}, [api, isOnline, filterItemByLang, getCredentialIssuerMetadata, isLoggedIn]);
 
