@@ -53,7 +53,7 @@ function deferred<T>() {
 }
 
 function renderTransport(ensureBackendToken: () => Promise<{ raw: string }>) {
-	const session = { authTokens: { ensureBackendToken } } as any;
+	const session = { authTokens: { ensureBackendToken }, isLoggedIn: true } as any;
 	const wrapper = ({ children }: { children: React.ReactNode }) => (
 		<SessionContext.Provider value={session}>
 			<OIDFlowTransportProvider>{children}</OIDFlowTransportProvider>

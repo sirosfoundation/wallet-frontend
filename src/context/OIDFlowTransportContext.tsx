@@ -91,7 +91,7 @@ interface OIDFlowTransportProviderProps {
 export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> = ({
 	children,
 }) => {
-	const { authTokens } = useContext(SessionContext);
+	const { authTokens, isLoggedIn } = useContext(SessionContext);
 	const httpClient = useHttpClient();
 
 	// Tenant ID for multi-tenant routing (from URL path, more robust than sessionStorage)
@@ -104,6 +104,12 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 	// has, a null authToken means "not known yet", not "no WebSocket".
 	const [authTokenSettled, setAuthTokenSettled] = useState(false);
 	useEffect(() => {
+		if (!isLoggedIn) {
+			setAuthToken(null);
+			setAuthTokenSettled(true);
+			return;
+		}
+
 		let active = true;
 		setAuthTokenSettled(false);
 		(async () => {
@@ -117,7 +123,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 			}
 		})();
 		return () => { active = false; };
-	}, [authTokens]);
+	}, [authTokens, isLoggedIn]);
 
 	const [isConnected, setIsConnected] = useState(false);
 	const [wsTransport, setWsTransport] = useState<OIDFlowWebSocketTransport | null>(null);
