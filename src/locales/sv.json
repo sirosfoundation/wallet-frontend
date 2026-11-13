@@ -100,9 +100,6 @@
 		"description": "Intyget mottogs men vissa verifieringskontroller godkändes inte. Granska detaljerna nedan innan du bestämmer dig.",
 		"title": "Intygsvarningar"
 	},
-	"language": {
-		"label": "Språk"
-	},
 	"labelSecurityKeyPopup": {
 		"confirm": "Bekräfta",
 		"description": "Ge varje säkerhetsnyckel en etikett för att göra det lättare att känna igen den i plånbokens inställningar.",
@@ -111,6 +108,9 @@
 		"placeholder": "Ange etikett",
 		"skip": "Hoppa över",
 		"title": "Märk din säkerhetsnyckel"
+	},
+	"language": {
+		"label": "Språk"
 	},
 	"layout": {
 		"messageAllowPermission": "För att ta emot realtidsuppdateringar av <strong>intyg, tillåt aviseringar och ladda om den här sidan</strong>.",
@@ -726,6 +726,11 @@
 	"syncPopup": {
 		"description": "Det verkar som att du har <strong>ändrat din plånbok i en annan session</strong>. Använd din <strong>passkey</strong> för att synkronisera din plånbok.",
 		"title": "Synkronisera plånbok"
+	},
+	"takeOverTabPopup": {
+		"description": "Plånboken är redan öppen i en annan flik i den här webbläsaren. Om du byter till den här fliken loggas du ut i den andra.",
+		"takeOver": "Använd här",
+		"title": "Plånboken är aktiv i en annan flik"
 	},
 	"tenantSelector": {
 		"closePopup": "Stäng popup",

@@ -24,6 +24,7 @@ import {
 	type OIDFlowState,
 } from '../OIDFlowStateStore';
 import { logger } from '@/logger';
+import { OIDFlowError } from '../errors';
 
 /**
  * Retry event for progress tracking
@@ -78,6 +79,8 @@ export class OIDFlowTransportWithRetry implements IOIDFlowTransport {
 	private stateManager: OIDFlowStateStore;
 	private onRetry?: OIDFlowRetryCallback;
 	private onRecoverable?: OIDFlowRecoveryCallback;
+	/** Bumped by releaseFlow(): an operation that began under an earlier value is cancelled. */
+	private releaseGeneration = 0;
 
 	constructor(transport: IOIDFlowTransport, options: OIDFlowTransportWithRetryOptions = {}) {
 		this.transport = transport;
@@ -102,6 +105,15 @@ export class OIDFlowTransportWithRetry implements IOIDFlowTransport {
 
 	isConnected(): boolean {
 		return this.transport.isConnected();
+	}
+
+	/**
+	 * The wallet released the flow in progress locally. Every operation still running here is
+	 * cancelled (see executeWithRetry): none retries, reconnects or starts a new flow afterwards.
+	 */
+	releaseFlow(): void {
+		this.releaseGeneration++;
+		this.transport.releaseFlow?.();
 	}
 
 	// ===== OID4VCI Flow with Retry =====
@@ -247,6 +259,16 @@ export class OIDFlowTransportWithRetry implements IOIDFlowTransport {
 		const flowId = crypto.randomUUID();
 		let state = this.stateManager.create(flowId, protocol, entryUri, { checkpoint });
 
+		// A release cancels this operation: checked at the top of every attempt (so after a backoff),
+		// after a reconnect, and after the operation returns. A released flow never retries and never
+		// starts a new flow id.
+		const generation = this.releaseGeneration;
+		const released = (): boolean => this.releaseGeneration !== generation;
+		const cancelReleased = (): never => {
+			this.stateManager.cancel(flowId);
+			throw new OIDFlowError({ code: 'FLOW_RELEASED', message: 'The flow was released locally' });
+		};
+
 		// When auto-retry is disabled (e.g. single-use params), cap retries at 0.
 		const effectiveMaxRetries = allowAutoRetry ? this.config.maxRetries : 0;
 
@@ -254,6 +276,7 @@ export class OIDFlowTransportWithRetry implements IOIDFlowTransport {
 		let lastError: OIDFlowRecoverableError | undefined;
 
 		while (attemptNumber <= effectiveMaxRetries) {
+			if (released()) cancelReleased();
 			attemptNumber++;
 
 			// On retries, ensure the underlying transport is connected before
@@ -264,6 +287,10 @@ export class OIDFlowTransportWithRetry implements IOIDFlowTransport {
 				try {
 					await this.transport.connect();
 				} catch (connectError) {
+					// A reconnect that fails after the release is a cancellation, not a recoverable error:
+					// no recovery state is kept and onRecoverable never fires for the cancelled flow.
+					if (released()) cancelReleased();
+
 					const errorMessage = connectError instanceof Error ? connectError.message : 'Reconnection failed';
 					const recoverableError = this.classifyError(undefined, errorMessage);
 					state = this.stateManager.recordError(flowId, recoverableError) ?? state;
@@ -274,6 +301,7 @@ export class OIDFlowTransportWithRetry implements IOIDFlowTransport {
 					}
 					throw connectError;
 				}
+				if (released()) cancelReleased();
 			}
 
 			try {
@@ -282,6 +310,7 @@ export class OIDFlowTransportWithRetry implements IOIDFlowTransport {
 
 				// Execute the operation
 				const result = await operation();
+				if (released()) cancelReleased();
 
 				// Check if result indicates an error
 				const flowError = this.extractError(result);
@@ -316,6 +345,9 @@ export class OIDFlowTransportWithRetry implements IOIDFlowTransport {
 
 				return result;
 			} catch (error) {
+				// A released flow is not retried, whatever the error was.
+				if (released()) cancelReleased();
+
 				// Handle thrown errors
 				const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 				const recoverableError = this.classifyError(undefined, errorMessage);
