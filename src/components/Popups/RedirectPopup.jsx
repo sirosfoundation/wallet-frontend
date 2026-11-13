@@ -4,7 +4,7 @@ import Button from '../Buttons/Button';
 import PopupLayout from './PopupLayout';
 import { ExternalLink } from 'lucide-react';
 
-const RedirectPopup = ({ loading, onClose, handleContinue, popupTitle, popupMessage }) => {
+const RedirectPopup = ({ loading = undefined, onClose, handleContinue, popupTitle, popupMessage }) => {
 	const { t } = useTranslation();
 
 	return (
