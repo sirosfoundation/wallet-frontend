@@ -484,6 +484,9 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				redirect_uri: params.redirectUri,
 				auth_code: params.authorizationCode,
 				code_verifier: params.codeVerifier,
+				state: params.state,
+				iss: params.authorizationResponseIssuer,
+				authorization_context: params.authorizationContext,
 			});
 
 			return this.mapOID4VCIResponse(response);
@@ -532,6 +535,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 					code: params.authorizationCode,
 					code_verifier: params.codeVerifier,
 					state: params.state,
+					iss: params.authorizationResponseIssuer,
 				},
 			});
 
@@ -636,6 +640,9 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		}
 		if (payload?.state) {
 			result.issuerState = payload.state as string;
+		}
+		if (payload?.authorization_context) {
+			result.authorizationContext = payload.authorization_context as string;
 		}
 
 		// Credential offer (for storage and resumption after redirect)
