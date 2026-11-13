@@ -17,6 +17,7 @@
 !/config/
 !/crates/
 !/docs/
+!/e2e/
 !/nginx/
 !/packages/
 !/patches/
@@ -41,6 +42,7 @@
 !/package.json
 !/pnpm-lock.yaml
 !/pnpm-workspace.yaml
+!/playwright.config.ts
 !/README.md
 !/setup-vitest.ts
 !/tests.Dockerfile

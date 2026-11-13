@@ -18,6 +18,8 @@ import { ErrorDialogContextProvider } from './context/ErrorDialogContextProvider
 import { TxCodeInputProvider } from './context/TxCodeInputContext';
 import { WalletCompanionProvider } from './context/WalletCompanionContext';
 import { WscdManagerClientContextProvider } from './context/WscdManagerClientContextProvider';
+import { ActiveTabProvider } from './hocs/ActiveTabProvider';
+
 
 type RootProviderProps = {
 	children: ReactNode;
@@ -28,27 +30,29 @@ const AppProvider: React.FC<RootProviderProps> = ({ children }) => {
 		<I18nextProvider i18n={i18n}>
 			<ErrorDialogContextProvider>
 				<StatusContextProvider>
-					<SessionContextProvider>
-						<CredentialsContextProvider>
-							<WscdManagerClientContextProvider>
-								<OIDFlowTransportProvider>
-									<WebSocketSignHandlerProvider>
-										<OpenID4VPContextProvider>
-											<TxCodeInputProvider>
-												<NotificationProvider>
-													<WalletCompanionProvider>
-														<AppSettingsProvider>
-															{children}
-														</AppSettingsProvider>
-													</WalletCompanionProvider>
-												</NotificationProvider>
-											</TxCodeInputProvider>
-										</OpenID4VPContextProvider>
-									</WebSocketSignHandlerProvider>
-								</OIDFlowTransportProvider>
-							</WscdManagerClientContextProvider>
-						</CredentialsContextProvider>
-					</SessionContextProvider>
+					<AppSettingsProvider>
+						<ActiveTabProvider>
+							<SessionContextProvider>
+								<CredentialsContextProvider>
+									<WscdManagerClientContextProvider>
+										<OIDFlowTransportProvider>
+											<WebSocketSignHandlerProvider>
+												<OpenID4VPContextProvider>
+													<TxCodeInputProvider>
+														<NotificationProvider>
+															<WalletCompanionProvider>
+																{children}
+															</WalletCompanionProvider>
+														</NotificationProvider>
+													</TxCodeInputProvider>
+												</OpenID4VPContextProvider>
+											</WebSocketSignHandlerProvider>
+										</OIDFlowTransportProvider>
+									</WscdManagerClientContextProvider>
+								</CredentialsContextProvider>
+							</SessionContextProvider>
+						</ActiveTabProvider>
+					</AppSettingsProvider>
 				</StatusContextProvider>
 			</ErrorDialogContextProvider>
 		</I18nextProvider>

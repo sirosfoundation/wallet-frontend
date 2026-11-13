@@ -100,9 +100,6 @@
 		"description": "Todistus vastaanotettiin, mutta jotkin vahvistustarkistukset eivät läpäisseet. Tarkista alla olevat tiedot ennen päätöksentekoa.",
 		"title": "Todistusvaroitukset"
 	},
-	"language": {
-		"label": "Kieli"
-	},
 	"labelSecurityKeyPopup": {
 		"confirm": "Vahvista",
 		"description": "Anna jokaiselle turva-avaimelle tunniste, jotta sen tunnistaminen lompakon asetuksissa on helpompaa.",
@@ -111,6 +108,9 @@
 		"placeholder": "Anna tunniste",
 		"skip": "Ohita",
 		"title": "Nimeä turva-avaimesi"
+	},
+	"language": {
+		"label": "Kieli"
 	},
 	"layout": {
 		"messageAllowPermission": "Saadaksesi reaaliaikaiset päivitykset <strong>todistuksista, salli ilmoitukset ja lataa tämä sivu uudelleen</strong>.",
@@ -726,6 +726,11 @@
 	"syncPopup": {
 		"description": "Näyttää siltä, että olet <strong>muokannut lompakkoasi toisessa istunnossa</strong>. Käytä <strong>passkeytäsi</strong> synkronoidaksesi lompakon.",
 		"title": "Synkronoi lompakko"
+	},
+	"takeOverTabPopup": {
+		"description": "Lompakko on jo auki toisessa välilehdessä tässä selaimessa. Siirtyminen tähän välilehteen kirjaa sinut ulos toisesta välilehdestä.",
+		"takeOver": "Käytä tässä",
+		"title": "Lompakko on käytössä toisessa välilehdessä"
 	},
 	"tenantSelector": {
 		"closePopup": "Sulje ikkuna",
