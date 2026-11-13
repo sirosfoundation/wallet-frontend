@@ -45,23 +45,6 @@ vi.mock('@/lib/openid-flow/transports/OIDFlowWebSocketTransport', () => ({
 	},
 }));
 
-function deferred<T>() {
-	let resolve!: (value: T) => void;
-	let reject!: (reason: unknown) => void;
-	const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
-	return { promise, resolve, reject };
-}
-
-function renderTransport(ensureBackendToken: () => Promise<{ raw: string }>) {
-	const session = { authTokens: { ensureBackendToken }, isLoggedIn: true } as any;
-	const wrapper = ({ children }: { children: React.ReactNode }) => (
-		<SessionContext.Provider value={session}>
-			<OIDFlowTransportProvider>{children}</OIDFlowTransportProvider>
-		</SessionContext.Provider>
-	);
-	return renderHook(() => useOIDFlowTransport(), { wrapper });
-}
-
 describe('OIDFlowTransportProvider transportReady', () => {
 	beforeEach(() => {
 		connect.mockClear();
@@ -99,4 +82,80 @@ describe('OIDFlowTransportProvider transportReady', () => {
 		await waitFor(() => expect(result.current.transportReady).toBe(true));
 		expect(connect).not.toHaveBeenCalled();
 	});
+
+	it('does not request a backend token while logged out', async () => {
+		const ensureBackendToken = vi.fn(async () => ({ raw: 'backend-token' }));
+		const { result } = renderTransport(ensureBackendToken, { loggedIn: false });
+
+		await waitFor(() => expect(result.current.transportReady).toBe(true));
+		expect(ensureBackendToken).not.toHaveBeenCalled();
+		expect(connect).not.toHaveBeenCalled();
+	});
+
+	// AuthTokens is the same instance before and after login, so logging in
+	// must be enough on its own to trigger token resolution.
+	it('resolves the backend token once the user logs in', async () => {
+		const ensureBackendToken = vi.fn(async () => ({ raw: 'backend-token' }));
+		const { result, setLoggedIn } = renderTransport(ensureBackendToken, { loggedIn: false });
+
+		await waitFor(() => expect(result.current.transportReady).toBe(true));
+		expect(ensureBackendToken).not.toHaveBeenCalled();
+
+		await setLoggedIn(true);
+
+		await waitFor(() => expect(result.current.transportType).toBe('websocket'));
+		expect(ensureBackendToken).toHaveBeenCalledTimes(1);
+		expect(connect).toHaveBeenCalled();
+	});
+
+	it('ignores a backend token that resolves after logout', async () => {
+		const token = deferred<{ raw: string }>();
+		const { result, setLoggedIn } = renderTransport(() => token.promise);
+
+		await act(async () => { await Promise.resolve(); });
+		expect(result.current.transportReady).toBe(false);
+
+		await setLoggedIn(false);
+		await act(async () => { token.resolve({ raw: 'backend-token' }); });
+
+		await waitFor(() => expect(result.current.transportReady).toBe(true));
+		expect(connect).not.toHaveBeenCalled();
+		expect(result.current.transportType).not.toBe('websocket');
+	});
 });
+
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	let reject!: (reason: unknown) => void;
+	const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+	return { promise, resolve, reject };
+}
+
+function renderTransport(
+	ensureBackendToken: () => Promise<{ raw: string }>,
+	{ loggedIn = true }: { loggedIn?: boolean } = {},
+) {
+	// One instance for the whole render, like the memoized AuthTokens in SessionContextProvider.
+	const authTokens = { ensureBackendToken };
+	let setIsLoggedIn!: (value: boolean) => void;
+
+	const wrapper = ({ children }: { children: React.ReactNode }) => {
+		const [isLoggedIn, setState] = React.useState(loggedIn);
+		setIsLoggedIn = setState;
+		const session = React.useMemo(() => ({ authTokens, isLoggedIn }) as any, [isLoggedIn]);
+		return (
+			<SessionContext.Provider value={session}>
+				<OIDFlowTransportProvider>{children}</OIDFlowTransportProvider>
+			</SessionContext.Provider>
+		);
+	};
+
+	const rendered = renderHook(() => useOIDFlowTransport(), { wrapper });
+
+	return {
+		...rendered,
+		setLoggedIn: async (value: boolean) => {
+			await act(async () => { setIsLoggedIn(value); });
+		},
+	};
+}
