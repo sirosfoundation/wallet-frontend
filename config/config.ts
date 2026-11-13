@@ -33,6 +33,8 @@ export const ClientEnvConfigSchema = z.object({
 	WALLET_ENGINE_URL: z.string().optional(),
 	ALLOWED_TRANSPORTS: z.string().optional(),
 	WASM_ENGINE_ENABLED: z.string().optional(),
+	WMP_ENABLED: z.string().optional(),
+	WMP_URL: z.string().optional(),
 	TRANSPORT_PREFERENCE: z.string().optional(),
 	DID_KEY_VERSION: z.string().optional(),
 	LOG_LEVEL: z.string().optional(),

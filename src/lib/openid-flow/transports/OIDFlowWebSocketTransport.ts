@@ -1320,7 +1320,7 @@ function parseLogo(logo: unknown): string | undefined {
  * representation. Handles the backend's snake_case `trusted_status` field
  * as well as the legacy `trusted` boolean.
  */
-function mapVerifierInfo(raw: Record<string, unknown>): OID4VPVerifierInfo {
+export function mapVerifierInfo(raw: Record<string, unknown>): OID4VPVerifierInfo {
 	return {
 		name: raw.name as string | undefined,
 		purpose: raw.purpose as string | undefined,

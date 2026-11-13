@@ -152,8 +152,12 @@ export interface OID4VCIFlowResult {
 		notification_id?: string;
 	}>;
 
-	/** Flow ID from the backend (needed for credential notification) */
-	flowId?: string;
+	/**
+	 * Response-level `credential_metadata` of the Credential Response
+	 * (openid/OpenID4VCI#721). Over WMP: the display members of a plain response,
+	 * or the whole object of an encrypted response the wallet decrypted itself.
+	 */
+	credentialMetadata?: Record<string, unknown>;
 
 	// ===== Deferred issuance =====
 

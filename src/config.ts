@@ -186,6 +186,24 @@ export const TRANSPORT_PREFERENCE: OIDFlowTransportType[] =
 		.map((t: string) => t.trim())
 		.filter((t: string) => ['websocket', 'direct'].includes(t)) as OIDFlowTransportType[];
 
+/**
+ * WMP (Wallet Messaging Protocol): issuance and presentation run on the remote
+ * engine over WMP (HTTP+SSE, the engine's WMP bridge) instead of its WebSocket
+ * wire. WMP_URL defaults to the engine's rpc endpoint: ENGINE_URL + /api/v2/wallet/rpc.
+ */
+export const WMP_ENABLED = config.wmp_enabled === 'true';
+export const WMP_URL = config.wmp_url || (ENGINE_URL
+	? (() => {
+		try {
+			const url = new URL('/api/v2/wallet/rpc', ENGINE_URL);
+			if (url.protocol === 'ws:') url.protocol = 'http:';
+			if (url.protocol === 'wss:') url.protocol = 'https:';
+			return url.toString();
+		} catch {
+			return undefined;
+		}
+	})()
+	: undefined);		
 /** Derived convenience checks */
 
 export const HTTP_PROXY_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('http_proxy');

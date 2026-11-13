@@ -9,10 +9,11 @@
  * before enabling WebSocket transport.
  */
 
-import React, { createContext, useContext, useMemo, useEffect, useState, useCallback,useRef } from 'react';
+import React, { createContext, useContext, useMemo, useEffect, useState, useCallback, useRef } from 'react';
 import type { IOIDFlowTransport } from '@/lib/openid-flow/types/IOIDFlowTransport';
 import { nullOIDFlowTransport } from '@/lib/openid-flow/types/IOIDFlowTransport';
 import { OIDFlowWebSocketTransport } from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
+import { OIDFlowWmpTransport } from '@/lib/openid-flow/transports/OIDFlowWmpTransport';
 import { OIDFlowWasmTransport } from '@/lib/openid-flow/transports/OIDFlowWasmTransport';
 import { createRegisteredClientIdLookup } from '@/lib/openid-flow/wasm/wasmPorts';
 import type { SignRequestHandler, MatchRequestHandler } from '@/lib/openid-flow/transports/OIDFlowWebSocketTransport';
@@ -22,6 +23,8 @@ import {
 } from '@/lib/services/CapabilitiesService';
 import {
 	WS_URL,
+	WMP_ENABLED,
+	WMP_URL,
 	HTTP_PROXY_TRANSPORT_ALLOWED,
 	WEBSOCKET_TRANSPORT_ALLOWED,
 	DIRECT_TRANSPORT_ALLOWED,
@@ -182,6 +185,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 			setCapabilitiesLoaded(true);
 			return;
 		}
+
 		let cancelled = false;
 
 		async function fetchCapabilities() {
@@ -240,7 +244,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		});
 	}, []);
 
-		// The in-browser engine (WASM_ENGINE_ENABLED): issuance and presentation
+	// The in-browser engine (WASM_ENGINE_ENABLED): issuance and presentation
 	// run in the page. Created once per session and tenant, and not gated on
 	// the token lookup above: it asks for a fresh token on every request, so a
 	// token request that fails once (a 401 while the session is still being
@@ -314,7 +318,11 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		}
 
 		let cancelled = false;
-		const ws = new OIDFlowWebSocketTransport(WS_URL, authToken, tenantId, trustEvaluators);
+		// With WMP enabled, the flows run on the remote engine over WMP (its WMP
+		// bridge) instead of the WebSocket wire; the transport takes the same slot.
+		const ws = WMP_ENABLED && WMP_URL
+			? new OIDFlowWmpTransport(WMP_URL, WS_URL, authToken, tenantId, trustEvaluators)
+			: new OIDFlowWebSocketTransport(WS_URL, authToken, tenantId, trustEvaluators);
 		setWsTransport(ws);
 
 		// Mark this transport as pending connection

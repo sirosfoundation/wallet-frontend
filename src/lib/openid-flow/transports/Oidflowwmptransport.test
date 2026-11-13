@@ -1,0 +1,402 @@
+// @vitest-environment node
+/**
+ * OIDFlowWmpTransport: issuance over WMP against a scripted fake engine
+ * (HTTP+SSE JSON-RPC, as go-wallet-backend #163 serves it).
+ */
+
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { CompactEncrypt, compactDecrypt, exportJWK, generateKeyPair, importJWK, type JWK } from 'jose';
+import { OIDFlowWmpTransport } from '../transports/OIDFlowWmpTransport';
+
+const RPC = 'https://engine.test/api/v2/wallet/rpc';
+type Msg = { jsonrpc: '2.0'; id?: string | number; method?: string; params?: any; result?: any; error?: any };
+
+/** A fake WMP server: answers POSTs and pushes events on one SSE stream. */
+class FakeEngine {
+	private controller: ReadableStreamDefaultController<Uint8Array> | null = null;
+	private nextEventId = 1;
+	posts: Msg[] = [];
+	headers: Record<string, string>[] = [];
+	onPost: (m: Msg) => Promise<unknown> | unknown = () => ({});
+
+	push(msg: Msg): void {
+		const frame = `id: ${this.nextEventId++}\nevent: wmp\ndata: ${JSON.stringify(msg)}\n\n`;
+		this.controller?.enqueue(new TextEncoder().encode(frame));
+	}
+
+	fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+		const url = String(input);
+		const headers = (init?.headers ?? {}) as Record<string, string>;
+		this.headers.push(headers);
+		if (init?.method === 'GET' && url === `${RPC}/events`) {
+			const stream = new ReadableStream<Uint8Array>({ start: (c) => { this.controller = c; } });
+			return new Response(stream, { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
+		}
+		const msg = JSON.parse(String(init?.body)) as Msg;
+		this.posts.push(msg);
+		const result = await this.onPost(msg);
+		if (msg.id === undefined || !msg.method) return new Response('', { status: 202 });
+		return new Response(JSON.stringify({ jsonrpc: '2.0', id: msg.id, result }), { status: 200 });
+	};
+}
+
+const tick = (ms = 5) => new Promise((r) => setTimeout(r, ms));
+
+describe('OIDFlowWmpTransport (issuance)', () => {
+	let engine: FakeEngine;
+	let transport: OIDFlowWmpTransport;
+
+	beforeEach(() => {
+		engine = new FakeEngine();
+		vi.stubGlobal('fetch', engine.fetch);
+		transport = new OIDFlowWmpTransport(RPC, 'wss://engine.test/api/v2/wallet', 'token-123');
+		transport.onSignRequest(async (req) => {
+			if (req.action === 'generate_proof') {
+				return { proofs: [{ proof_type: 'jwt', jwt: `proof-for-${req.params.nonce}` }] };
+			}
+			return { dpopKeyId: 'k1', dpopProof: 'dpop' };
+		});
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it('runs a pre-authorized issuance with an encrypted credential response', async () => {
+		let flowId = '';
+		let proofJwk: JWK | undefined;
+
+		engine.onPost = async (m) => {
+			switch (m.method) {
+				case 'wmp.session.create':
+					return {
+						wmp: { version: '0.1', session_id: 'ses-1' },
+						capabilities: { oid4vci: {}, flows: {} },
+						resumption_token: 'rt-1',
+					};
+				case 'wmp.flow.start':
+					flowId = m.params.flow_id;
+					setTimeout(() => {
+						engine.push({ jsonrpc: '2.0', method: 'wmp.flow.progress', params: { flow_id: flowId, step: 'parsing_offer',
+							payload: { offer: { credential_issuer: 'https://issuer.test', credential_configuration_ids: ['nym_auth_mdoc'] } } } });
+						engine.push({ jsonrpc: '2.0', method: 'wmp.flow.progress', params: { flow_id: flowId, step: 'awaiting_offer_acceptance',
+							payload: { credentials: [{ index: 0, format: 'mso_mdoc' }] } } });
+					}, 0);
+					return { wmp: { version: '0.1', session_id: 'ses-1' }, flow_id: flowId, flow_type: 'oid4vci' };
+				case 'wmp.flow.action':
+					expect(m.params.action).toBe('accept_offer');
+					expect(m.params.params).toEqual({ selected_indices: [0], consent: true });
+					setTimeout(() => engine.push({ jsonrpc: '2.0', id: 'srv-1', method: 'wmp.flow.start', params: {
+						flow_type: 'sign', flow_id: `${flowId}-sign-1`,
+						params: { action: 'generate_proof', parent_flow_id: flowId, nonce: 'n1', audience: 'https://issuer.test',
+							proof_type: 'jwt', credential_response_encryption: { alg: 'ECDH-ES', enc: 'A256GCM', required: true } },
+					} }), 0);
+					return { status: 'accepted' };
+				case 'wmp.flow.complete': {
+					const child = m.params.flow_id as string;
+					if (child.endsWith('-sign-1')) {
+						expect(m.params.result.proofs).toEqual([{ proof_type: 'jwt', jwt: 'proof-for-n1' }]);
+						proofJwk = m.params.result.credential_response_encryption_jwk;
+						expect(proofJwk).toMatchObject({ kty: 'EC', crv: 'P-256', use: 'enc', alg: 'ECDH-ES' });
+						expect((proofJwk as any).d).toBeUndefined(); // only the public key leaves the wallet
+						const jwe = await new CompactEncrypt(new TextEncoder().encode(JSON.stringify({
+							credentials: [{ credential: 'MDOC-BYTES' }],
+							notification_id: 'nid-1',
+							credential_metadata: { display: [], 'org.siros.secret_seed': { 'org.siros.nym_auth': 'SEED' } },
+						})))
+							.setProtectedHeader({ alg: 'ECDH-ES', enc: 'A256GCM' })
+							.encrypt(await importJWK(proofJwk!, 'ECDH-ES'));
+						setTimeout(() => engine.push({ jsonrpc: '2.0', id: 'srv-2', method: 'wmp.flow.start', params: {
+							flow_type: 'sign', flow_id: `${flowId}-sign-2`,
+							params: { action: 'decrypt_credential_response', parent_flow_id: flowId, jwe, deferred: false },
+						} }), 0);
+					} else if (child.endsWith('-sign-2')) {
+						// Control members only: the engine never gets the credential.
+						expect(m.params.result).toEqual({ credential_count: 1 });
+						setTimeout(() => engine.push({ jsonrpc: '2.0', method: 'wmp.flow.complete', params: {
+							flow_id: flowId, result: { credentials: [{ format: 'mso_mdoc' }], credential_response_encrypted: true },
+						} }), 0);
+					}
+					return undefined;
+				}
+			}
+			return {};
+		};
+
+		const result = await transport.startOID4VCIFlow({ credentialOfferUri: 'https://issuer.test/offer/1', redirectUri: 'https://wallet.test/cb' });
+
+		expect(result.success).toBe(true);
+		expect(result.flowId).toBe(flowId);
+		expect(result.credentialIssuerIdentifier).toBe('https://issuer.test');
+		expect(result.selectedCredentialConfigurationId).toBe('nym_auth_mdoc');
+		expect(result.credentials).toEqual([{ format: 'mso_mdoc', vct: undefined, credential: 'MDOC-BYTES', notification_id: 'nid-1' }]);
+		expect(result.credentialMetadata).toMatchObject({ 'org.siros.secret_seed': { 'org.siros.nym_auth': 'SEED' } });
+
+		// The flow start carried the offer and redirect URI; the stream was opened with the bearer token.
+		const start = engine.posts.find((p) => p.method === 'wmp.flow.start')!;
+		expect(start.params).toMatchObject({ flow_type: 'oid4vci', params: { credential_offer_uri: 'https://issuer.test/offer/1', redirect_uri: 'https://wallet.test/cb' } });
+		expect(engine.headers.some((h) => h.Authorization === 'Bearer token-123' && h.Accept === 'text/event-stream')).toBe(true);
+		// Each sub-flow start was acknowledged with a JSON-RPC response.
+		expect(engine.posts.filter((p) => p.id === 'srv-1' || p.id === 'srv-2').map((p) => p.result?.flow_type)).toEqual(['sign', 'sign']);
+	});
+
+	it('hands the app the tx code request and continues the same flow with provide_tx_code', async () => {
+		let flowId = '';
+		engine.onPost = (m) => {
+			if (m.method === 'wmp.session.create') return { wmp: { version: '0.1', session_id: 'ses-2' }, capabilities: { oid4vci: {} } };
+			if (m.method === 'wmp.flow.start') {
+				flowId = m.params.flow_id;
+				setTimeout(() => engine.push({ jsonrpc: '2.0', method: 'wmp.flow.progress', params: { flow_id: flowId, step: 'awaiting_tx_code',
+					payload: { tx_code_description: 'PIN from the letter', tx_code: { input_mode: 'numeric', length: 6 } } } }), 0);
+				return { flow_id: flowId, flow_type: 'oid4vci' };
+			}
+			if (m.method === 'wmp.flow.action') {
+				expect(m.params).toMatchObject({ flow_id: flowId, action: 'provide_tx_code', params: { tx_code: '123456' } });
+				setTimeout(() => engine.push({ jsonrpc: '2.0', method: 'wmp.flow.complete', params: { flow_id: flowId,
+					result: { credentials: [{ format: 'dc+sd-jwt', vct: 'urn:x', credential: 'SDJWT' }] } } }), 0);
+				return { status: 'accepted' };
+			}
+			return {};
+		};
+
+		const first = await transport.startOID4VCIFlow({ credentialOffer: '{"credential_issuer":"https://i"}' });
+		expect(first.success).toBe(true);
+		expect(first.preAuthorizedCode).toBeTruthy();
+		expect(first.txCode).toEqual({ inputMode: 'numeric', length: 6, description: 'PIN from the letter' });
+
+		const second = await transport.startOID4VCIFlow({ preAuthorizedCode: first.preAuthorizedCode!, txCodeInput: '123456' });
+		expect(second.credentials).toEqual([{ format: 'dc+sd-jwt', vct: 'urn:x', credential: 'SDJWT', notification_id: undefined }]);
+	});
+
+	it('returns the authorization URL and PKCE verifier, and ends that flow', async () => {
+		let flowId = '';
+		engine.onPost = (m) => {
+			if (m.method === 'wmp.session.create') return { wmp: { version: '0.1', session_id: 'ses-3' }, capabilities: { oid4vci: {} } };
+			if (m.method === 'wmp.flow.start') {
+				flowId = m.params.flow_id;
+				setTimeout(() => engine.push({ jsonrpc: '2.0', method: 'wmp.flow.progress', params: { flow_id: flowId, step: 'authorization_pending',
+					payload: { authorization_url: 'https://as.test/authorize?x=1', code_verifier: 'cv', state: 'st',
+						credential_offer: { credential_issuer: 'https://i', credential_configuration_ids: ['pid'] } } } }), 0);
+				return { flow_id: flowId, flow_type: 'oid4vci' };
+			}
+			return {};
+		};
+
+		const r = await transport.startOID4VCIFlow({ credentialOfferUri: 'https://i/offer' });
+		expect(r).toMatchObject({ success: true, authorizationRequired: true, authorizationUrl: 'https://as.test/authorize?x=1',
+			codeVerifier: 'cv', issuerState: 'st', credentialIssuerIdentifier: 'https://i', selectedCredentialConfigurationId: 'pid' });
+		await tick();
+		expect(engine.posts.some((p) => p.method === 'wmp.flow.cancel' && p.params.flow_id === flowId)).toBe(true);
+	});
+
+	it('does not cancel a resumed flow when the engine reports the authorization step without a URL', async () => {
+		let flowId = '';
+		engine.onPost = (m) => {
+			if (m.method === 'wmp.session.create') return { wmp: { version: '0.1', session_id: 'ses-5' }, capabilities: { oid4vci: {} } };
+			if (m.method === 'wmp.flow.start') {
+				flowId = m.params.flow_id;
+				expect(m.params.params).toMatchObject({ auth_code: 'code-1', code_verifier: 'cv', redirect_uri: 'https://wallet.test/cb' });
+				setTimeout(() => {
+					// What resumeWithAuthCode sends first: the step, with a message and no URL.
+					engine.push({ jsonrpc: '2.0', method: 'wmp.flow.progress', params: { flow_id: flowId, step: 'authorization_pending',
+						payload: { message: 'Resuming flow with authorization code' } } });
+					engine.push({ jsonrpc: '2.0', method: 'wmp.flow.complete', params: { flow_id: flowId,
+						result: { credentials: [{ format: 'mso_mdoc', credential: 'MDOC' }] } } });
+				}, 0);
+				return { flow_id: flowId, flow_type: 'oid4vci' };
+			}
+			return {};
+		};
+
+		const r = await transport.startOID4VCIFlow({
+			credentialOffer: '{"credential_issuer":"https://i"}', authorizationCode: 'code-1', codeVerifier: 'cv', redirectUri: 'https://wallet.test/cb',
+		});
+		expect(r.success).toBe(true);
+		expect(r.authorizationUrl).toBeUndefined();
+		expect(r.credentials).toEqual([{ format: 'mso_mdoc', vct: undefined, credential: 'MDOC', notification_id: undefined }]);
+		expect(engine.posts.some((p) => p.method === 'wmp.flow.cancel')).toBe(false);
+	});
+
+	it('connects by opening the WMP session, without a WebSocket', async () => {
+		engine.onPost = (m) => m.method === 'wmp.session.create'
+			? { wmp: { version: '0.1', session_id: 'ses-6' }, capabilities: { oid4vci: {} } }
+			: {};
+		expect(transport.isConnected()).toBe(false);
+		await transport.connect();
+		expect(transport.isConnected()).toBe(true);
+		expect(engine.posts.map((p) => p.method)).toEqual(['wmp.session.create']);
+	});
+
+	it('maps wmp.flow.error to a failed result', async () => {
+		engine.onPost = (m) => {
+			if (m.method === 'wmp.session.create') return { wmp: { version: '0.1', session_id: 'ses-4' }, capabilities: { oid4vci: {} } };
+			if (m.method === 'wmp.flow.start') {
+				const id = m.params.flow_id;
+				setTimeout(() => engine.push({ jsonrpc: '2.0', method: 'wmp.flow.error', params: { flow_id: id, code: -31006,
+					message: 'issuer not trusted', data: { reason: 'untrusted_issuer' } } }), 0);
+				return { flow_id: id, flow_type: 'oid4vci' };
+			}
+			return {};
+		};
+		const r = await transport.startOID4VCIFlow({ credentialOfferUri: 'https://i/offer' });
+		expect(r).toEqual({ success: false, error: { code: 'UNTRUSTED_ISSUER', message: 'issuer not trusted' } });
+	});
+});
+
+describe('OIDFlowWmpTransport (presentation)', () => {
+	let engine: FakeEngine;
+	let transport: OIDFlowWmpTransport;
+	let signed: any[];
+
+	const dcql = { credentials: [{ id: 'pid', format: 'dc+sd-jwt', claims: [{ path: ['age_over_18'] }] }] };
+	const selected = [{
+		batchId: 1, credentialQueryId: 'pid', walletCredentialRef: '42', credentialRaw: 'SDJWT-RAW', holderKeyKid: 'kid-1',
+		disclosedClaims: ['age_over_18'],
+	}];
+
+	/** Drives the engine side: start -> awaiting_consent; consent -> sign_presentation with signParams. */
+	function scriptPresentation(signParams: (flowId: string, handle: string) => Record<string, unknown>, onSignResult: (flowId: string, m: Msg) => void) {
+		let flowId = '';
+		engine.onPost = (m) => {
+			if (m.method === 'wmp.session.create') return { wmp: { version: '0.1', session_id: 'ses-vp' }, capabilities: { oid4vp: {} } };
+			if (m.method === 'wmp.flow.start') {
+				flowId = m.params.flow_id;
+				expect(m.params).toMatchObject({ flow_type: 'oid4vp', params: { request_uri_ref: 'https://verifier.test/req/1', client_id: 'x509_san_dns:verifier.test' } });
+				setTimeout(() => engine.push({ jsonrpc: '2.0', method: 'wmp.flow.progress', params: { flow_id: flowId, step: 'awaiting_consent',
+					payload: { dcql_query: dcql, verifier_info: { name: 'Verifier', trusted_status: 'trusted' } } } }), 0);
+				return { flow_id: flowId, flow_type: 'oid4vp' };
+			}
+			if (m.method === 'wmp.flow.action') {
+				const p = m.params.params;
+				if (p.consent === false) {
+					setTimeout(() => engine.push({ jsonrpc: '2.0', method: 'wmp.flow.error', params: { flow_id: flowId, code: -31006,
+						message: 'User declined the request', data: { redirect_uri: 'https://verifier.test/denied' } } }), 0);
+					return { status: 'accepted' };
+				}
+				const handle = p.selections[0].selection_handle;
+				setTimeout(() => engine.push({ jsonrpc: '2.0', id: 'srv-vp', method: 'wmp.flow.start', params: {
+					flow_type: 'sign', flow_id: `${flowId}-sign`, params: { action: 'sign_presentation', parent_flow_id: flowId, ...signParams(flowId, handle) } } }), 0);
+				return { status: 'accepted' };
+			}
+			if (m.method === 'wmp.flow.complete' || m.method === 'wmp.flow.error') {
+				onSignResult(flowId, m);
+				return undefined;
+			}
+			return {};
+		};
+	}
+
+	beforeEach(() => {
+		engine = new FakeEngine();
+		vi.stubGlobal('fetch', engine.fetch);
+		transport = new OIDFlowWmpTransport(RPC, 'wss://engine.test/api/v2/wallet', 'token-123');
+		signed = [];
+		transport.onSignRequest(async (req) => {
+			signed.push(req);
+			return { vpToken: JSON.stringify({ pid: ['SDJWT-PRESENTATION'] }) };
+		});
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it('consents with query ids and a handle only, and signs from the stored selection', async () => {
+		scriptPresentation(
+			(_id, handle) => ({ nonce: 'n-1', audience: 'x509_san_dns:verifier.test', response_uri: 'https://verifier.test/cb',
+				credentials_to_include: [{ credential_query_id: 'pid' }], selection_handle: handle }),
+			(flowId, m) => {
+				expect(m.method).toBe('wmp.flow.complete');
+				expect(m.params.result).toEqual({ vp_token: { pid: ['SDJWT-PRESENTATION'] } });
+				setTimeout(() => engine.push({ jsonrpc: '2.0', method: 'wmp.flow.complete', params: { flow_id: flowId, result: { redirect_uri: 'https://verifier.test/done' } } }), 0);
+			},
+		);
+
+		const first = await transport.startOID4VPFlow({ requestUriRef: 'https://verifier.test/req/1', clientId: 'x509_san_dns:verifier.test' });
+		expect(first.success).toBe(true);
+		expect(first.dcqlQuery).toEqual(dcql);
+		expect(first.verifierInfo?.name).toBe('Verifier');
+
+		const second = await transport.startOID4VPFlow({ selectedCredentials: selected });
+		expect(second).toEqual({ success: true, redirectUri: 'https://verifier.test/done' });
+
+		// The consent is the closed shape of 3.2.3.1: no credential id, no claims.
+		const consent = engine.posts.find((p) => p.method === 'wmp.flow.action')!.params.params;
+		expect(Object.keys(consent).sort()).toEqual(['consent', 'selections']);
+		expect(consent.selections).toHaveLength(1);
+		expect(Object.keys(consent.selections[0]).sort()).toEqual(['query_id', 'selection_handle']);
+		expect(consent.selections[0].query_id).toBe('pid');
+		expect(consent.selections[0].selection_handle).toMatch(/^[A-Za-z0-9_-]{22,}$/);
+		expect(JSON.stringify(consent)).not.toMatch(/age_over_18|SDJWT-RAW|"42"/);
+
+		// The sign handler got the stored credential and claims, not anything from the engine.
+		expect(signed).toHaveLength(1);
+		expect(signed[0].params).toMatchObject({ audience: 'x509_san_dns:verifier.test', nonce: 'n-1', responseUri: 'https://verifier.test/cb' });
+		expect(signed[0].params.credentialsToInclude).toEqual([
+			{ credentialId: '42', credentialQueryId: 'pid', disclosedClaims: ['age_over_18'], credentialRaw: 'SDJWT-RAW' },
+		]);
+	});
+
+	it('refuses a sign request for a query the user did not consent to, or with a wrong handle', async () => {
+		for (const bad of [
+			(handle: string) => ({ credentials_to_include: [{ credential_query_id: 'pid' }, { credential_query_id: 'address' }], selection_handle: handle }),
+			(_handle: string) => ({ credentials_to_include: [{ credential_query_id: 'pid' }], selection_handle: 'A'.repeat(32) }),
+		]) {
+			const runEngine = new FakeEngine();
+			const runSigned: typeof signed = [];
+			engine = runEngine;
+			signed = runSigned;
+			vi.stubGlobal('fetch', runEngine.fetch);
+			transport = new OIDFlowWmpTransport(RPC, 'wss://engine.test/api/v2/wallet', 'token-123');
+			transport.onSignRequest(async (req) => { runSigned.push(req); return { vpToken: 'x' }; });
+
+			let outcome: Msg | undefined;
+			scriptPresentation(
+				(_id, handle) => ({ nonce: 'n', audience: 'a', ...bad(handle) }),
+				(flowId, m) => {
+					outcome = m;
+					setTimeout(() => runEngine.push({ jsonrpc: '2.0', method: 'wmp.flow.error', params: { flow_id: flowId, code: -31006, message: 'sign sub-flow failed' } }), 0);
+				},
+			);
+			await transport.startOID4VPFlow({ requestUriRef: 'https://verifier.test/req/1', clientId: 'x509_san_dns:verifier.test' });
+			const r = await transport.startOID4VPFlow({ selectedCredentials: selected });
+
+			expect(outcome?.method).toBe('wmp.flow.error');
+			expect(outcome?.params.data).toBeUndefined(); // a failure, not a "rejected" decline
+			expect(signed).toHaveLength(0);               // nothing was signed
+			expect(r.success).toBe(false);
+		}
+	});
+
+	it('reports no matching credentials as a decline and returns the redirect', async () => {
+		scriptPresentation(() => ({}), () => {});
+		await transport.startOID4VPFlow({ requestUriRef: 'https://verifier.test/req/1', clientId: 'x509_san_dns:verifier.test' });
+
+		const r = await transport.reportNoMatchingCredentials();
+		expect(engine.posts.find((p) => p.method === 'wmp.flow.action')!.params.params).toEqual({ consent: false });
+		expect(r).toEqual({ success: false, error: { code: 'NO_MATCHING_CREDENTIALS', message: 'User declined the request',
+			details: { redirect_uri: 'https://verifier.test/denied' } } });
+	});
+
+	it('encrypts the response itself for direct_post.jwt', async () => {
+		const verifierKeys = await generateKeyPair('ECDH-ES', { crv: 'P-256', extractable: true });
+		const verifierJwk = { ...(await exportJWK(verifierKeys.publicKey)), kid: 'verifier-enc-1' };
+		let jwe = '';
+		scriptPresentation(
+			(_id, handle) => ({ nonce: 'n-2', audience: 'x509_san_dns:verifier.test', response_uri: 'https://verifier.test/cb', state: 'st-9',
+				credentials_to_include: [{ credential_query_id: 'pid' }], selection_handle: handle,
+				response_encryption: { jwk: verifierJwk, alg: 'ECDH-ES', enc: 'A128GCM' } }),
+			(flowId, m) => {
+				expect(Object.keys(m.params.result)).toEqual(['response_jwe']);
+				jwe = m.params.result.response_jwe;
+				setTimeout(() => engine.push({ jsonrpc: '2.0', method: 'wmp.flow.complete', params: { flow_id: flowId, result: {} } }), 0);
+			},
+		);
+		await transport.startOID4VPFlow({ requestUriRef: 'https://verifier.test/req/1', clientId: 'x509_san_dns:verifier.test' });
+		await transport.startOID4VPFlow({ selectedCredentials: selected });
+
+		const { plaintext, protectedHeader } = await compactDecrypt(jwe, verifierKeys.privateKey);
+		expect(protectedHeader).toMatchObject({ alg: 'ECDH-ES', enc: 'A128GCM', kid: 'verifier-enc-1' });
+		expect(JSON.parse(new TextDecoder().decode(plaintext))).toEqual({ vp_token: { pid: ['SDJWT-PRESENTATION'] }, state: 'st-9' });
+	});
+});
