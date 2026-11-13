@@ -26,6 +26,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../api', () => ({ useApi: () => ({ ...mocks.api }) }));
 vi.mock('../services/LocalStorageKeystore', () => ({
+	SESSION_TAB_ID_KEY: 'tabId',
 	useLocalStorageKeystore: () => mocks.keystore,
 	KeystoreEvent: { CloseSessionTabLocal: 'keystore.closeSessionTabLocal' },
 }));
