@@ -281,6 +281,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 			});
 
 			const credentials = await waitForCredentials();
+			const usableCredentials = credentials.filter((c) => !c.isBatchExhausted);
 
 			// TODO: Remove preMatchedCredentials once http_proxy flow fully migrated to use
 			// matchCredentials in the hook instead of backend matching in wallet-common
@@ -289,12 +290,23 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 			if (preMatchedCredentials) {
 				conformantCredentialsMap = new Map(preMatchedCredentials);
 			} else if (dcqlQuery) {
-				const matchResult = matchCredentials(credentials, dcqlQuery);
+				const matchResult = matchCredentials(usableCredentials, dcqlQuery);
 
 				if (matchResult.matches.length === 0) {
+					// Rematch against all credentials only to tell "used up" apart from "never had it".
+					const exhaustedOnly =
+						usableCredentials.length < credentials.length &&
+						matchCredentials(credentials, dcqlQuery).matches.length > 0;
+
 					noMatchPendingRef.current = true;
-					throw noMatchError(matchResult);
+					throw exhaustedOnly
+						? new OIDFlowError({
+								code: 'BATCH_EXHAUSTED',
+								message: 'All matching credentials have been used up',
+							})
+						: noMatchError(matchResult);
 				}
+
 
 				conformantCredentialsMap = new Map(buildConformantCredentialsMap(
 					matchResult.matches,

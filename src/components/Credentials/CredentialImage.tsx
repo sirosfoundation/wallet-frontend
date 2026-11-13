@@ -1,11 +1,26 @@
-import { useEffect, useState } from 'react'
+import { FC, useEffect, useState } from 'react'
+import { CredentialImageStatusOverlay } from './CredentialImageStatusOverlay';
 import ExpiredRibbon from './ExpiredRibbon';
 import UsagesRibbon from "./UsagesRibbon";
 import { logger } from '@/logger';
 import DefaultCred from "../../assets/images/cred.png";
 import { CredentialCardSkeleton } from '../Skeletons';
+import { TokenStatus } from '@sirosfoundation/token-status-list';
 
-const CredentialImage = ({
+export type CredentialImageProps = {
+	vcEntity: any;
+	className?: string;
+	onClick?: () => void;
+	showRibbon?: boolean;
+	showOverlay?: boolean;
+	vcEntityInstances?: any[] | null;
+	filter?: any | null;
+	onLoad?: () => void;
+	borderColor?: string;
+	fixedRatio?: boolean;
+};
+
+const CredentialImage: FC<CredentialImageProps> = ({
 	vcEntity,
 	className,
 	onClick = undefined,
@@ -14,6 +29,7 @@ const CredentialImage = ({
 	filter = null,
 	onLoad = undefined,
 	borderColor = undefined,
+	showOverlay = true,
 	fixedRatio = true
 }) => {
 	const [imageSrc, setImageSrc] = useState(undefined);
@@ -51,6 +67,12 @@ const CredentialImage = ({
 		return () => { isMounted = false };
 	}, [vcEntity, filter, onLoad]);
 
+	const hasStatus = (
+		vcEntity.isBatchExhausted ||
+		vcEntity.isExpired ||
+		TokenStatus.isBlocked(vcEntity.status)
+	);
+
 	return (
 		<>
 			{vcEntity && imageSrc ? (
@@ -59,15 +81,18 @@ const CredentialImage = ({
 						<img
 							src={imageSrc}
 							alt="Credential"
-							className={`w-full h-full w-full h-full object-cover object-top ${className ?? ''}`}
+							className={`w-full h-full object-cover object-top ${className ?? ''}`}
 							onClick={onClick}
 						/>
-						{showRibbon &&
+						{vcEntity.isBatchExhausted && showRibbon &&
 							<ExpiredRibbon vcEntity={vcEntity} borderColor={borderColor} />
 						}
-						{showRibbon &&
+						{vcEntity.isBatchExhausted !== true && showRibbon &&
 							<UsagesRibbon vcEntityInstances={vcEntityInstances} borderColor={borderColor} />
 						}
+						{hasStatus && showOverlay && (
+							<CredentialImageStatusOverlay vcEntity={vcEntity} />
+						)}
 					</div>
 				</>
 			) : (

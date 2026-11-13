@@ -4,6 +4,7 @@ import { MetadataWarning, TypeMetadataResult, VerifiableCredentialFormat } from 
 import { JwtVcJsonHeaderSchema, JwtVcJsonPayloadSchema } from "../schemas/JwtVcJsonPayloadSchema";
 import { CustomCredentialSvg } from "../functions/CustomCredentialSvg";
 import { getIssuerMetadata } from "../utils/getIssuerMetadata";
+import { extractStatusListReference } from "../utils/statusListReference";
 import { convertOpenid4vciToSdjwtvcClaims } from "../functions/convertOpenid4vciToSdjwtvcClaims";
 import { dataUriResolver } from "../resolvers/dataUriResolver";
 import { friendlyNameResolver } from "../resolvers/friendlyNameResolver";
@@ -170,6 +171,7 @@ export function JWTVCJSONParser(args: { context: Context, httpClient: HttpClient
 					validityInfo: {
 						...extractValidityInfo(validatedPayload),
 					},
+					statusReference: extractStatusListReference(validatedPayload.status),
 					warnings: warnings.length > 0 ? warnings : undefined,
 				},
 			};

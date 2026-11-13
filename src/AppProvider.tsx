@@ -18,6 +18,7 @@ import { ErrorDialogContextProvider } from './context/ErrorDialogContextProvider
 import { TxCodeInputProvider } from './context/TxCodeInputContext';
 import { WalletCompanionProvider } from './context/WalletCompanionContext';
 import { WscdManagerClientContextProvider } from './context/WscdManagerClientContextProvider';
+import { TokenStatusListsContextProvider } from './context/TokenStatusListsContextProvider';
 import { ActiveTabProvider } from './hocs/ActiveTabProvider';
 
 
@@ -33,23 +34,25 @@ const AppProvider: React.FC<RootProviderProps> = ({ children }) => {
 					<AppSettingsProvider>
 						<ActiveTabProvider>
 							<SessionContextProvider>
-								<CredentialsContextProvider>
-									<WscdManagerClientContextProvider>
-										<OIDFlowTransportProvider>
-											<WebSocketSignHandlerProvider>
-												<OpenID4VPContextProvider>
-													<TxCodeInputProvider>
-														<NotificationProvider>
-															<WalletCompanionProvider>
-																{children}
-															</WalletCompanionProvider>
-														</NotificationProvider>
-													</TxCodeInputProvider>
-												</OpenID4VPContextProvider>
-											</WebSocketSignHandlerProvider>
-										</OIDFlowTransportProvider>
-									</WscdManagerClientContextProvider>
-								</CredentialsContextProvider>
+								<TokenStatusListsContextProvider>
+									<CredentialsContextProvider>
+										<WscdManagerClientContextProvider>
+											<OIDFlowTransportProvider>
+												<WebSocketSignHandlerProvider>
+													<OpenID4VPContextProvider>
+														<TxCodeInputProvider>
+															<NotificationProvider>
+																<WalletCompanionProvider>
+																	{children}
+																</WalletCompanionProvider>
+															</NotificationProvider>
+														</TxCodeInputProvider>
+													</OpenID4VPContextProvider>
+												</WebSocketSignHandlerProvider>
+											</OIDFlowTransportProvider>
+										</WscdManagerClientContextProvider>
+									</CredentialsContextProvider>
+								</TokenStatusListsContextProvider>
 							</SessionContextProvider>
 						</ActiveTabProvider>
 					</AppSettingsProvider>

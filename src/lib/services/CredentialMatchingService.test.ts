@@ -3,6 +3,7 @@ import * as cbor from "cbor-x";
 import { matchCredentials, shapeCredential } from "./CredentialMatchingService";
 import { ExtendedVcEntity } from "@/context/CredentialsContext";
 import { toBase64Url } from '@/lib/utils';
+import { TokenStatus } from '@sirosfoundation/token-status-list';
 
 /**
  * `shapeCredential` (mso_mdoc branch) must handle both stored-credential
@@ -249,5 +250,94 @@ describe('matchCredentials — missing_types', () => {
 
 		expect(result.matches).toHaveLength(0);
 		expect(result.missing_types).toBeUndefined();
+	});
+});
+
+describe('matchCredentials: status', () => {
+	const query = {
+		credentials: [
+			{
+				id: 'pid',
+				format: 'dc+sd-jwt',
+				meta: { vct_values: ['urn:eudi:pid:1'] },
+			},
+		],
+	} as never;
+
+	const pid = (batchId: number, extra: Partial<ExtendedVcEntity> = {}) =>
+		({
+			...entity('dc+sd-jwt', { vct: 'urn:eudi:pid:1' }),
+			batchId,
+			...extra,
+		}) as ExtendedVcEntity;
+
+	it('does not offer an expired credential', () => {
+		const result = matchCredentials([pid(1, { isExpired: true })], query);
+
+		expect(result.matches).toHaveLength(0);
+		expect(result.code).toBe('CREDENTIAL_EXPIRED');
+	});
+
+	it.each([
+		['revoked', TokenStatus.INVALID],
+		['suspended', TokenStatus.SUSPENDED],
+		['rejected', TokenStatus.REJECTED],
+	])('does not offer a %s credential', (_, status) => {
+		const result = matchCredentials([pid(1, { status })], query);
+
+		expect(result.matches).toHaveLength(0);
+		expect(result.code).toBe('CREDENTIAL_REVOKED_OR_SUSPENDED');
+	});
+
+	it.each([
+		['valid', TokenStatus.VALID],
+		['unknown', TokenStatus.UNKNOWN],
+		['pending', TokenStatus.PENDING],
+		['unchecked', undefined],
+	])('offers a %s credential', (_, status) => {
+		expect(matchCredentials([pid(1, { status })], query).matches).toHaveLength(
+			1,
+		);
+	});
+
+	it('offers only the usable credential when unusable ones have the same type', () => {
+		const { matches, code } = matchCredentials(
+			[
+				pid(1, { isExpired: true }),
+				pid(2, { status: TokenStatus.INVALID }),
+				pid(3),
+			],
+			query,
+		);
+
+		expect(code).toBeUndefined();
+		expect(matches.map((m) => m.credential_id)).toEqual(['3']);
+	});
+
+	it('reports expiry when one credential is expired and another revoked', () => {
+		const result = matchCredentials(
+			[pid(1, { isExpired: true }), pid(2, { status: TokenStatus.INVALID })],
+			query,
+		);
+
+		expect(result.code).toBe('CREDENTIAL_EXPIRED');
+	});
+
+	it('reports revocation for a credential that is both expired and revoked', () => {
+		const result = matchCredentials(
+			[pid(1, { isExpired: true, status: TokenStatus.INVALID })],
+			query,
+		);
+
+		expect(result.code).toBe('CREDENTIAL_REVOKED_OR_SUSPENDED');
+	});
+
+	it('does not blame expiry when the expired credential would not have matched either', () => {
+		const ehic = {
+			...entity('dc+sd-jwt', { vct: 'urn:eudi:ehic:1' }),
+			isExpired: true,
+		} as ExtendedVcEntity;
+
+		expect(matchCredentials([ehic], query).code).not.toBe('CREDENTIAL_EXPIRED');
 	});
 });

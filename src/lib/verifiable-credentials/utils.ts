@@ -1,8 +1,16 @@
-import { VerifiableCredentialFormat } from 'wallet-common';
+import {
+	cborToPlain,
+	decodeEnvelopedVcdm2,
+	extractStatusListReference,
+	VerifiableCredentialFormat,
+} from 'wallet-common';
 import * as jose from 'jose';
 import { fromBase64Url } from '@/lib/utils';
 import { cborDecode } from '@auth0/mdl/lib/cbor';
 import { COSEKeyToJWK } from 'cose-kit';
+import { TokenEntity } from '@sirosfoundation/token-status-list';
+import { IssuerSigned } from '@owf/mdoc';
+import { extractIssuerSignedB64 } from './formats/mdoc';
 
 export async function deriveHolderKidFromCredential(
 	credential: string,
@@ -18,7 +26,7 @@ export async function deriveHolderKidFromCredential(
 			}
 			try {
 				const decoded = JSON.parse(
-					new TextDecoder().decode(fromBase64Url(payload))
+					new TextDecoder().decode(fromBase64Url(payload)),
 				);
 				const cnf = decoded.cnf as { jwk?: jose.JWK } | undefined;
 				if (cnf?.jwk) {
@@ -51,7 +59,8 @@ export async function deriveHolderKidFromCredential(
 			} else {
 				msoBinary = new Uint8Array(
 					msoBinaryRaw.buffer,
-					msoBinaryRaw.byteOffset || 0, msoBinaryRaw.byteLength || msoBinaryRaw.length
+					msoBinaryRaw.byteOffset || 0,
+					msoBinaryRaw.byteLength || msoBinaryRaw.length,
 				);
 			}
 			if (msoBinary && msoBinary.length > 0) {
@@ -71,5 +80,48 @@ export async function deriveHolderKidFromCredential(
 				}
 			}
 		}
+	}
+}
+
+/**
+ * Get token status list entity from credential.
+ */
+export function getTokenStatusListEntity(data: string, format: string) {
+	function toTokenEntity(
+		status: unknown,
+		iat: number | undefined,
+	): TokenEntity | undefined {
+		const ref = extractStatusListReference(status);
+		return (
+			ref && { ...ref, iat: iat !== undefined ? Math.floor(iat) : undefined }
+		);
+	}
+
+	try {
+		switch (format) {
+			case VerifiableCredentialFormat.MSO_MDOC: {
+				const mso = IssuerSigned.fromEncodedForOid4Vci(
+					extractIssuerSignedB64(data),
+				).issuerAuth.mobileSecurityObject;
+
+				return toTokenEntity(
+					cborToPlain(mso.status),
+					mso.validityInfo.signed.getTime() / 1000,
+				);
+			}
+			case VerifiableCredentialFormat.VCDM2_JOSE: {
+				const payload = decodeEnvelopedVcdm2(data)?.payload;
+				return toTokenEntity(payload?.status, payload?.iat);
+			}
+			case VerifiableCredentialFormat.LDP_VC:
+				return undefined;
+			default: {
+				// SD-JWT variants and jwt_vc_json keep status in the issuer-signed JWT.
+				const payload = jose.decodeJwt(data.split('~')[0]);
+				return toTokenEntity(payload.status, payload.iat);
+			}
+		}
+	} catch {
+		return undefined;
 	}
 }
