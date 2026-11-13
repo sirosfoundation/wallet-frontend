@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import axios from 'axios';
 import { AuthTokens } from '@/lib/auth';
 import { AuthServerClient } from '@/lib/auth/auth-server/AuthServerClient';
+import { useSessionStorage } from '@/hooks/useStorage';
+import { createDeferred } from '@/lib/utils/createDeferred';
 import { useApi } from './index';
 
 vi.mock('react-router', () => ({ useNavigate: () => vi.fn() }));
@@ -13,7 +15,7 @@ vi.mock('../services/keystore', () => ({}));
 vi.mock('./LocalAuthentication', () => ({ loginWebAuthnBeginOffline: vi.fn() }));
 vi.mock('../logger', () => ({ logger: { error: vi.fn() } }));
 
-describe('clearSession logout deadline', () => {
+describe('clearSession', () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
 		sessionStorage.setItem('sessionState', JSON.stringify({ uuid: 'u-1' }));
@@ -27,6 +29,45 @@ describe('clearSession logout deadline', () => {
 		sessionStorage.clear();
 		localStorage.clear();
 	});
+
+	it.each(['success', 'failure'] as const)(
+		'clears registered storage before listeners unmount during pending logout (%s)',
+		async (outcome) => {
+			const deferred = createDeferred<void>();
+			vi.spyOn(AuthServerClient.prototype, 'logout').mockReturnValue(deferred.promise);
+			const clear = vi.fn();
+			const authTokens = { clear } as unknown as AuthTokens;
+			const { result } = renderHook(() => useApi({ isOnline: true, authTokens }));
+			sessionStorage.setItem('isMessageOfflineVisible', JSON.stringify(true));
+			const listener = renderHook(() =>
+				result.current.useClearOnClearSession(useSessionStorage('isMessageOfflineVisible', false)),
+			);
+			expect(listener.result.current[0]).toBe(true);
+
+			let logout: Promise<void>;
+			act(() => {
+				logout = result.current.clearSession();
+			});
+
+			expect(sessionStorage.getItem('isMessageOfflineVisible')).toBeNull();
+			expect(listener.result.current[0]).toBe(false);
+			expect(clear).not.toHaveBeenCalled();
+			listener.unmount();
+
+			await act(async () => {
+				if (outcome === 'success') {
+					deferred.resolve();
+				} else {
+					deferred.reject(new Error('Logout failed'));
+				}
+				await logout;
+			});
+
+			expect(clear).toHaveBeenCalledOnce();
+			expect(sessionStorage.getItem('sessionState')).toBeNull();
+			expect(sessionStorage.getItem('isMessageOfflineVisible')).toBeNull();
+		},
+	);
 
 	it('clears local session state and tokens after cancelling a stalled logout', async () => {
 		const request = vi.spyOn(axios, 'request').mockImplementation(({ signal }) => new Promise((_, reject) => {

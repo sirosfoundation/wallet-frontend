@@ -162,6 +162,7 @@ export function useApi({
 
 	// Define clearSession early so it can be used by token refresh config
 	const clearSession = useCallback(async (): Promise<void> => {
+		events.dispatchEvent(new CustomEvent<ClearSessionEvent>(CLEAR_SESSION_EVENT));
 		try {
 			await authServer.logout(tenantId ?? 'default');
 		} catch (e) {
@@ -173,7 +174,6 @@ export function useApi({
 		clearStoredTenant(); // Clear tenant on logout
 		clearOIDCState('registration'); // Clear OIDC gate tokens on logout
 		clearOIDCState('login');
-		events.dispatchEvent(new CustomEvent<ClearSessionEvent>(CLEAR_SESSION_EVENT));
 	}, [authServer, authTokens, clearSessionStorage, removePrivateDataEtag, tenantId]);
 
 	// Stable ref for clearSession to avoid stale closures in token refresh
