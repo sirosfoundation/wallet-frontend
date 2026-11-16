@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { Trans, useTranslation } from 'react-i18next';
+import { useTranslation, Trans } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { Camera } from 'lucide-react';
 import { logger } from '@/logger';
@@ -7,24 +7,58 @@ import { SCAN_PHYSICAL_ID_ENABLED } from '@/config';
 import { useTenant } from '@/context/TenantContext';
 import StatusContext from '@/context/StatusContext';
 import SessionContext from '@/context/SessionContext';
-import RedirectPopup from '../../components/Popups/RedirectPopup';
-import { H1, H3 } from '../../components/Shared/Heading';
-import PageDescription from '../../components/Shared/PageDescription';
-import QueryableList from '../../components/QueryableList/QueryableList';
+import RedirectPopup from '@/components/Popups/RedirectPopup';
+import { H1, H3 } from '@/components/Shared/Heading';
+import PageDescription from '@/components/Shared/PageDescription';
+import QueryableList from '@/components/QueryableList/QueryableList';
 import CredentialsContext from '@/context/CredentialsContext';
 import useFilterItemByLang from '@/hooks/useFilterItemByLang';
 import { buildCredentialConfiguration } from '@/components/QueryableList/CredentialsDisplayUtils';
 import { useOpenID4VCIHelper } from '@/lib/services/OpenID4VCIHelper';
+import type { OpenidCredentialIssuerMetadata } from 'wallet-common';
+
+type CredentialConfiguration = ReturnType<typeof buildCredentialConfiguration>;
+
+const addIssuerIfMissing = (
+	currentArray: OpenidCredentialIssuerMetadata[],
+	metadata: OpenidCredentialIssuerMetadata
+) => {
+	const issuerExists = currentArray.some((issuerMetadata) =>
+		issuerMetadata.credential_issuer === metadata.credential_issuer
+	);
+
+	if (!issuerExists) {
+		return [...currentArray, metadata];
+	}
+	return currentArray;
+};
+
+const addCredentialConfigurationIfMissing = (
+	currentArray: CredentialConfiguration[],
+	credentialConfiguration: CredentialConfiguration,
+	key: string,
+	credentialIssuer: string
+) => {
+	const credentialConfigurationExists = currentArray.some(({ credentialConfigurationId, credentialIssuerIdentifier }) =>
+		credentialConfigurationId === key &&
+		credentialIssuerIdentifier === credentialIssuer
+	);
+
+	if (!credentialConfigurationExists) {
+		return [...currentArray, credentialConfiguration];
+	}
+	return currentArray;
+};
 
 const AddCredentials = () => {
 	const { isOnline } = useContext(StatusContext);
 	const { api, isLoggedIn } = useContext(SessionContext);
-	const [issuers, setIssuers] = useState([]);
-	const [recent, setRecent] = useState([]);
-	const [credentialConfigurations, setCredentialConfigurations] = useState([]);
-	const [showRedirectPopup, setShowRedirectPopup] = useState(false);
+	const [issuers, setIssuers] = useState<OpenidCredentialIssuerMetadata[]>([]);
+	const [recent, setRecent] = useState<string[]>([]);
+	const [credentialConfigurations, setCredentialConfigurations] = useState<CredentialConfiguration[]>([]);
+	const [showRedirectPopup, setShowRedirectPopup] = useState<boolean>(false);
 
-	const [selectedCredentialConfiguration, setSelectedCredentialConfiguration] = useState(null);
+	const [selectedCredentialConfiguration, setSelectedCredentialConfiguration] = useState<CredentialConfiguration | null>(null);
 	const { vcEntityList, getData } = useContext(CredentialsContext);
 	const { getCredentialIssuerMetadata } = useOpenID4VCIHelper();
 
@@ -39,21 +73,18 @@ const AddCredentials = () => {
 	const { t } = useTranslation();
 	const filterItemByLang = useFilterItemByLang();
 
-
 	useEffect(() => {
 		if (vcEntityList === null) {
-			getData();
+			void getData();
 		}
 	}, [vcEntityList, getData]);
 
 	useEffect(() => {
-		const fetchRecentCredConfigs = async () => {
-			vcEntityList.forEach(async (vcEntity, key) => {
+		if (vcEntityList) {
+			vcEntityList.forEach((vcEntity) => {
 				const identifierField = JSON.stringify([vcEntity.credentialConfigurationId, vcEntity.credentialIssuerIdentifier]);
 				setRecent((currentArray) => {
-					const recentRecordExists = currentArray.some((rec) =>
-						rec === identifierField
-					);
+					const recentRecordExists = currentArray.includes(identifierField);
 
 					if (!recentRecordExists) {
 						return [...currentArray, identifierField];
@@ -61,41 +92,37 @@ const AddCredentials = () => {
 					return currentArray;
 				});
 
-			})
-		};
-
-		if (vcEntityList) {
-			fetchRecentCredConfigs();
+			});
 		}
 	}, [vcEntityList]);
 
-	const getSelectedIssuer = () => {
+	const getSelectedIssuer = (): OpenidCredentialIssuerMetadata | null => {
 		if (selectedCredentialConfiguration) {
 			const { credentialIssuerIdentifier } = selectedCredentialConfiguration;
-			return issuers.filter((issuer) => issuer.credential_issuer === credentialIssuerIdentifier)[0];
+			return issuers.find((issuer) => issuer.credential_issuer === credentialIssuerIdentifier);
 		}
 		return null;
-	}
+	};
 
 	const getSelectedIssuerDisplay = () => {
 		const selectedIssuer = getSelectedIssuer();
 
 		if (selectedIssuer) {
-			const selectedDisplayBasedOnLang = filterItemByLang(selectedIssuer.display, 'locale')
+			const selectedDisplayBasedOnLang = filterItemByLang(selectedIssuer.display, 'locale');
 			if (selectedDisplayBasedOnLang) {
 				const { name, description } = selectedDisplayBasedOnLang;
 				return { name, description };
 			}
 		}
 		return null;
-	}
+	};
 
 	useEffect(() => {
 		const fetchIssuers = async () => {
 			try {
 				const response = await api.getExternalEntity('/issuer/all', undefined, true);
-				let fetchedIssuers = response.data;
-				fetchedIssuers.map(async (issuer) => {
+				const fetchedIssuers = response.data;
+				fetchedIssuers.forEach(async (issuer) => {
 					try {
 						if (!issuer.visible) {
 							return;
@@ -104,54 +131,40 @@ const AddCredentials = () => {
 						const configs = metadata.credential_configurations_supported;
 
 						// add issuer
-						setIssuers((currentArray) => {
-							const issuerExists = currentArray.some((issuerMetadata) =>
-								issuerMetadata.credential_issuer === metadata.credential_issuer
-							);
+						setIssuers((currentArray) => addIssuerIfMissing(currentArray, metadata));
 
-							if (!issuerExists) {
-								return [...currentArray, metadata];
-							}
-							return currentArray;
-						});
-
-						Object.keys(configs).forEach((key) => {
+						for (const key of Object.keys(configs)) {
 							const credentialConfiguration = buildCredentialConfiguration(key, configs[key], metadata, filterItemByLang);
-							setCredentialConfigurations((currentArray) => {
-								const credentialConfigurationExists = currentArray.some(({ credentialConfigurationId, credentialIssuerIdentifier, credentialConfiguration }) =>
-									credentialConfigurationId === key && credentialIssuerIdentifier === metadata.credential_issuer
-								);
-								if (!credentialConfigurationExists) {
-									return [...currentArray, credentialConfiguration];
-								}
-								return currentArray;
-							})
-						});
+							setCredentialConfigurations((currentArray) =>
+								addCredentialConfigurationIfMissing(currentArray, credentialConfiguration, key, metadata.credential_issuer));
+						};
 					}
 					catch (err) {
 						logger.error(err);
-						return null;
 					}
-				})
+				});
 			} catch (error) {
 				logger.error('Error fetching issuers:', error);
 			}
 		};
 
 		if (filterItemByLang && isLoggedIn) {
-			logger.debug("Fetching issuers...")
-			fetchIssuers();
+			logger.debug("Fetching issuers...");
+			void fetchIssuers();
 		}
 	}, [api, isOnline, filterItemByLang, getCredentialIssuerMetadata, isLoggedIn]);
 
-	const handleCredentialConfigurationClick = async (credentialConfigurationIdWithCredentialIssuerIdentifier) => {
+	const handleCredentialConfigurationClick = (credentialConfigurationIdWithCredentialIssuerIdentifier: string) => {
 		const [credentialConfigurationId, credentialIssuerIdentifier] = JSON.parse(credentialConfigurationIdWithCredentialIssuerIdentifier);
-		const clickedCredentialConfiguration = credentialConfigurations.find((conf) => conf.credentialConfigurationId === credentialConfigurationId && conf.credentialIssuerIdentifier === credentialIssuerIdentifier);
+		const clickedCredentialConfiguration = credentialConfigurations.find((conf) =>
+			conf.credentialConfigurationId === credentialConfigurationId &&
+			conf.credentialIssuerIdentifier === credentialIssuerIdentifier
+		);
 		if (clickedCredentialConfiguration) {
 			setSelectedCredentialConfiguration(clickedCredentialConfiguration);
 			setShowRedirectPopup(true);
 		}
-	}
+	};
 
 	const handleCancel = () => {
 		setShowRedirectPopup(false);
@@ -177,11 +190,13 @@ const AddCredentials = () => {
 			const credentialOfferString = JSON.stringify(credentialOffer);
 			const path = buildPath(`cb?credential_offer=${encodeURIComponent(credentialOfferString)}`);
 
-			navigate(path);
+			void navigate(path);
 		}
 
 		setShowRedirectPopup(false);
 	};
+
+	const selectedIssuerDisplay = getSelectedIssuerDisplay();
 
 	return (
 		<>
@@ -203,32 +218,30 @@ const AddCredentials = () => {
 					</button>
 				</div>
 
-				{credentialConfigurations && recent && (
-					<QueryableList
-						isOnline={isOnline}
-						list={credentialConfigurations}
-						recent={recent}
-						queryField='credentialConfigurationDisplayName'
-						translationPrefix='pageAddCredentials'
-						identifierField='identifierField'
-						onClick={handleCredentialConfigurationClick}
-					/>
-				)}
+				<QueryableList
+					isOnline={isOnline}
+					list={credentialConfigurations}
+					recent={recent}
+					queryField='credentialConfigurationDisplayName'
+					translationPrefix='pageAddCredentials'
+					identifierField='identifierField'
+					onClick={handleCredentialConfigurationClick}
+				/>
 			</div>
 
 			{showRedirectPopup && selectedCredentialConfiguration && (
 				<RedirectPopup
 					onClose={handleCancel}
 					handleContinue={handleContinue}
-					popupTitle={`${t('pageAddCredentials.popup.title')} ${selectedCredentialConfiguration?.credentialConfigurationDisplayName}`}
+					popupTitle={`${t('pageAddCredentials.popup.title')} ${selectedCredentialConfiguration.credentialConfigurationDisplayName}`}
 					popupMessage={
 						<Trans
 							i18nKey="pageAddCredentials.popup.message"
 							values={{
-								issuerName: getSelectedIssuerDisplay()?.name ?? selectedCredentialConfiguration?.credentialIssuerIdentifier ?? "Unknown",
-								issuerDescription: getSelectedIssuerDisplay()?.description ? `(${getSelectedIssuerDisplay()?.description})` : "",
-								credentialName: selectedCredentialConfiguration?.credentialDisplay.name ?? "Unknown",
-								credentialDescription: selectedCredentialConfiguration?.credentialDisplay?.description ? `(${selectedCredentialConfiguration?.credentialDisplay?.description})` : "",
+								issuerName: selectedIssuerDisplay?.name ?? selectedCredentialConfiguration.credentialIssuerIdentifier ?? "Unknown",
+								issuerDescription: selectedIssuerDisplay?.description ? `(${selectedIssuerDisplay?.description})` : "",
+								credentialName: selectedCredentialConfiguration.credentialDisplay.name ?? "Unknown",
+								credentialDescription: selectedCredentialConfiguration.credentialDisplay.description ? `(${selectedCredentialConfiguration.credentialDisplay.description})` : "",
 							}}
 							components={{ strong: <strong />, italic: <i /> }}
 						/>
