@@ -1,11 +1,29 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { OIDFlowWasmTransport, PENDING_AUTHORIZATION_KEY, issuerMetadataUrl } from '../transports/OIDFlowWasmTransport';
 import { createWasmEngine, toPlain, type WasmEngine, type WasmEngineConfig } from '../wasm/WasmEngine';
+
 import { createProxyFetch, createRegisteredClientIdLookup, createStorageKv, createTrustPdp, parseKeyMaterial } from '../wasm/wasmPorts';
 import type { TrustEvaluators } from '../types';
 import type { IWscdManagerClient } from '@/lib/wscd-manager';
 
 // vi.mock is hoisted above the imports.
+
+const enginePkg = vi.hoisted(() => ({
+	init: vi.fn(async () => ({})),
+	created: [] as unknown[],
+}));
+
+vi.mock('@sirosfoundation/siros-wallet-core', () => ({
+	default: enginePkg.init,
+	WasmEngine: class {
+		constructor(config: unknown) { enginePkg.created.push(config); }
+		request = vi.fn();
+	},
+}));
+
+vi.mock('@sirosfoundation/siros-wallet-core/engine_adapter_wasm_bg.wasm?url', () => ({
+	default: '/assets/engine_adapter_wasm_bg.wasm',
+}));
 
 vi.mock('@/logger', () => ({
 	logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -924,9 +942,16 @@ describe('wasmPorts', () => {
 });
 
 describe('WasmEngine', () => {
-	// The generated package is not in git; a build without it must still load,
-	// and the engine must say why it cannot start.
-	it('fails to start with a clear error when the engine package is not built', async () => {
-		await expect(createWasmEngine({} as WasmEngineConfig)).rejects.toThrow(/not part of this build/);
+	// The engine comes from the npm package: its JS module, and its .wasm as a
+	// bundled asset URL. Booting compiles the .wasm once per page.
+	it('boots the npm package once, with the bundled .wasm, and builds engines over the config', async () => {
+		const config = { host: {} } as unknown as WasmEngineConfig;
+		const first = await createWasmEngine(config);
+		const second = await createWasmEngine(config);
+
+		expect(enginePkg.init).toHaveBeenCalledTimes(1);
+		expect(enginePkg.init).toHaveBeenCalledWith({ module_or_path: '/assets/engine_adapter_wasm_bg.wasm' });
+		expect(enginePkg.created).toEqual([config, config]);
+		expect(first).not.toBe(second);
 	});
 });

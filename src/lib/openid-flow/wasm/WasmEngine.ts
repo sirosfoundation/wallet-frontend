@@ -11,11 +11,11 @@
  * creates engines. The callbacks themselves live in wasmPorts.ts (fetch, pdp,
  * kv) and in OIDFlowWasmTransport (the host).
  *
- * The module is the wasm-pack output in ./pkg, which is not in git: it is
- * built from siros-wallet-core with utils/build-wasm-engine.sh. It is loaded
- * on demand (its own chunk, fetched only when the engine starts), and a build
- * without it still compiles: the engine then fails to start with a clear
- * error, and only when WASM_ENGINE_ENABLED is set.
+ * The module is the npm package @sirosfoundation/siros-wallet-core (the
+ * wasm-pack build of siros-wallet-core's engine-adapter-wasm, published by its
+ * release workflow). It is loaded on demand: its own chunk, and the .wasm
+ * fetched only when the engine starts, so a wallet without
+ * WASM_ENGINE_ENABLED never downloads it.
  */
 import { logger } from '@/logger';
 
@@ -25,14 +25,12 @@ export interface WasmEngine {
 	free?(): void;
 }
 
-/** The generated package's exports this file uses. */
+/** The package's exports this file uses. */
 interface EnginePackage {
-	default: () => Promise<unknown>;
+	default: (init: { module_or_path: string }) => Promise<unknown>;
 	WasmEngine: new (config: WasmEngineConfig) => WasmEngine;
 }
 
-const PACKAGE_PATH = './pkg/engine_adapter_wasm.js';
-const packageLoaders = import.meta.glob<EnginePackage>('./pkg/engine_adapter_wasm.js');
 
 /** One HTTP request the engine wants to make (headers are flat [name, value, ...]). */
 export interface EngineHttpRequest {
@@ -222,15 +220,14 @@ let boot: Promise<EnginePackage> | null = null;
 /** Loads the package and compiles the .wasm, once per page. */
 export function bootWasmEngine(): Promise<EnginePackage> {
 	if (!boot) {
-		const load = packageLoaders[PACKAGE_PATH];
-		if (!load) {
-			return Promise.reject(new Error(
-				'The in-browser engine is not part of this build (src/lib/openid-flow/wasm/pkg is missing; see utils/build-wasm-engine.sh)'));
-		}
-		boot = load()
-			.then(async (pkg) => {
-				await pkg.default();
-				return pkg;
+		boot = Promise.all([
+			import('@sirosfoundation/siros-wallet-core'),
+			import('@sirosfoundation/siros-wallet-core/engine_adapter_wasm_bg.wasm?url'),
+		])
+			.then(async ([pkg, wasm]) => {
+				const enginePackage = pkg as unknown as EnginePackage;
+				await enginePackage.default({ module_or_path: wasm.default });
+				return enginePackage;
 			})
 			.catch((err: unknown) => {
 				boot = null; // allow a retry after a failed load
