@@ -1411,6 +1411,9 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				audience: request.params.verifiedRequest?.clientId ?? '',
 				state: request.params.state,
 				encryption: request.params.responseEncryption,
+				credentialQueryIds: (request.params.credentialsToInclude ?? [])
+					.map((credential) => credential.credentialQueryId)
+					.filter((id): id is string => typeof id === 'string' && id !== ''),
 			});
 			return { responseJwe };
 		}

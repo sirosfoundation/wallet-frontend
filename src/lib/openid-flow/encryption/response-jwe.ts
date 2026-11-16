@@ -29,18 +29,24 @@ export async function verifierJwkThumbprint(jwk: JWK): Promise<string> {
 
 /**
  * Build the `direct_post.jwt` (JARM) response: the claims as a compact JWE to the verifier's
- * key. `vpToken` is the string the sign handler produced; valid JSON is parsed, so a DCQL
- * response is the `{ "<credential_query_id>": [...] }` object (what the engine used to do).
- * The plaintext is plain JSON claims, so no `cty` is set (RFC 7519 5.2).
+ * key. `vpToken` is the string the sign handler produced. OpenID4VP 1.0 §8.1 requires
+ * `vp_token` to be a JSON object with one member per Credential Query — the key the
+ * query's `id`, the value an array of its presentations — so a bare (newline-separated)
+ * token string is restructured into that object under `credentialQueryIds`, exactly as
+ * the engine's own non-encrypted path does (go-wallet-backend's buildDCQLVPToken, which
+ * direct_post.jwt bypasses by relaying this JWE verbatim). An already-object response
+ * passes through. The plaintext is plain JSON claims, so no `cty` is set (RFC 7519 5.2).
  */
 export async function buildJarmResponse(params: {
 	vpToken: string;
 	audience: string;
 	state?: string;
 	encryption: VerifierResponseEncryption;
+	/** The DCQL Credential Query ids of the included credentials, in request order. */
+	credentialQueryIds?: string[];
 	now?: () => number;
 }): Promise<string> {
-	const { vpToken, audience, state, encryption } = params;
+	const { vpToken, audience, state, encryption, credentialQueryIds } = params;
 	if (!encryption?.jwk || !isSupportedEnc(encryption.enc) || typeof encryption.alg !== 'string' || encryption.alg === '') {
 		throw new ClientHeldEncryptionError('The verifier response encryption parameters are unusable');
 	}
@@ -54,9 +60,26 @@ export async function buildJarmResponse(params: {
 
 	let vpTokenValue: unknown = vpToken;
 	try {
-		vpTokenValue = JSON.parse(vpToken);
+		const parsed: unknown = JSON.parse(vpToken);
+		vpTokenValue = parsed !== null && typeof parsed === 'object' ? parsed : vpToken;
 	} catch {
-		// Not JSON: the token string itself.
+		// Not a JSON object: the (newline-separated) token string itself.
+	}
+	if (typeof vpTokenValue === 'string') {
+		const ids = (credentialQueryIds ?? []).filter((id) => id !== '');
+		const tokens = vpTokenValue.split('\n');
+		if (tokens.length !== ids.length) {
+			throw new ClientHeldEncryptionError(
+				`DCQL vp_token has ${tokens.length} tokens but ${ids.length} credentials selected`,
+			);
+		}
+		// A repeated query id (`multiple: true`) collects its presentations in order,
+		// mirroring the engine's own restructure.
+		const byQueryId: Record<string, string[]> = {};
+		ids.forEach((id, index) => {
+			(byQueryId[id] ??= []).push(tokens[index]);
+		});
+		vpTokenValue = byQueryId;
 	}
 
 	const iat = Math.floor((params.now ?? Date.now)() / 1000);

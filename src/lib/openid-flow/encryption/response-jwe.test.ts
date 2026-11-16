@@ -49,19 +49,66 @@ describe('buildJarmResponse', () => {
 		expect(protectedHeader).not.toHaveProperty('typ');
 	});
 
-	it('uses a non-JSON vp_token as the string it is and omits an absent state', async () => {
+	it('wraps a bare vp_token string into the §8.1 object under its credential query id', async () => {
 		const { jwk, privateKey } = await verifier();
 
 		const jwe = await buildJarmResponse({
 			vpToken: 'plain.token~string',
 			audience: 'verifier',
+			state: 'st-2',
 			encryption: { jwk, alg: 'ECDH-ES', enc: 'A256GCM' },
+			credentialQueryIds: ['eudi_pid'],
 		});
 
 		const { plaintext } = await compactDecrypt(jwe, privateKey);
 		const claims = JSON.parse(new TextDecoder().decode(plaintext));
-		expect(claims.vp_token).toBe('plain.token~string');
+		expect(claims.vp_token).toEqual({ eudi_pid: ['plain.token~string'] });
+		expect(claims.state).toBe('st-2');
+	});
+
+	it('restructures newline-separated tokens across their credential query ids in order, without an absent state', async () => {
+		const { jwk, privateKey } = await verifier();
+
+		const jwe = await buildJarmResponse({
+			vpToken: 'token-one~kb\ntoken-two~kb',
+			audience: 'verifier',
+			encryption: { jwk, alg: 'ECDH-ES', enc: 'A128GCM' },
+			credentialQueryIds: ['eudi_pid', 'ehic'],
+		});
+
+		const { plaintext } = await compactDecrypt(jwe, privateKey);
+		const claims = JSON.parse(new TextDecoder().decode(plaintext));
+		expect(claims.vp_token).toEqual({ eudi_pid: ['token-one~kb'], ehic: ['token-two~kb'] });
 		expect(claims).not.toHaveProperty('state');
+	});
+
+	it('collects a repeated credential query id (multiple: true) in order', async () => {
+		const { jwk, privateKey } = await verifier();
+
+		const jwe = await buildJarmResponse({
+			vpToken: 'first~kb\nsecond~kb',
+			audience: 'verifier',
+			encryption: { jwk, alg: 'ECDH-ES', enc: 'A128GCM' },
+			credentialQueryIds: ['photo_id', 'photo_id'],
+		});
+
+		const { plaintext } = await compactDecrypt(jwe, privateKey);
+		const claims = JSON.parse(new TextDecoder().decode(plaintext));
+		expect(claims.vp_token).toEqual({ photo_id: ['first~kb', 'second~kb'] });
+	});
+
+	it('refuses a bare vp_token without credential query ids, or a token/credential count mismatch', async () => {
+		const { jwk } = await verifier();
+		const ok = {
+			vpToken: 'plain.token~string',
+			audience: 'verifier',
+			encryption: { jwk, alg: 'ECDH-ES', enc: 'A128GCM' },
+		};
+
+		await expect(buildJarmResponse({ ...ok })).rejects.toBeInstanceOf(ClientHeldEncryptionError);
+		await expect(
+			buildJarmResponse({ ...ok, vpToken: 'a~kb\nb~kb', credentialQueryIds: ['only-one'] }),
+		).rejects.toBeInstanceOf(ClientHeldEncryptionError);
 	});
 
 	it('wraps the key for a key-wrap algorithm', async () => {
