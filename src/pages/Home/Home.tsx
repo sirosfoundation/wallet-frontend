@@ -6,17 +6,17 @@ import { useTranslation } from 'react-i18next';
 
 // Contexts
 import CredentialsContext from '@/context/CredentialsContext';
-import AppSettingsContext from "@/context/AppSettingsContext";
+import AppSettingsContext from '@/context/AppSettingsContext';
 import { useTenant } from '@/context/TenantContext';
 
 // Hooks
-import useScreenType from '../../hooks/useScreenType';
+import useScreenType from '@/hooks/useScreenType';
 
 // Components
-import { H1 } from '../../components/Shared/Heading';
-import AddCredentialCard from '../../components/Credentials/AddCredentialCard';
-import HistoryList from '../../components/History/HistoryList';
-import Slider from '../../components/Shared/Slider';
+import { H1 } from '@/components/Shared/Heading';
+import AddCredentialCard from '@/components/Credentials/AddCredentialCard';
+import HistoryList from '@/components/History/HistoryList';
+import Slider from '@/components/Shared/Slider';
 import { CredentialCardSkeleton } from '@/components/Skeletons';
 import CredentialGridCard from '@/components/Credentials/CredentialGridCard';
 import CredentialSlideCard from '@/components/Credentials/CredentialSlideCard';
@@ -38,11 +38,11 @@ const Home = () => {
 	const { t } = useTranslation();
 
 	const handleAddCredential = () => {
-		navigate(buildPath('add'));
+		void navigate(buildPath('add'));
 	};
 
 	const handleImageClick = (vcEntity) => {
-		navigate(buildPath(`credential/${vcEntity.batchId}`));
+		void navigate(buildPath(`credential/${vcEntity.batchId}`));
 	};
 
 	const setView = (v) => {
@@ -53,9 +53,9 @@ const Home = () => {
 		<>
 			<div className="w-full">
 				<div className="px-6 sm:px-12">
-					<div className='flex items-center justify-between gap-3'>
+					<div className="flex items-center justify-between gap-3">
 						<H1 heading={t('common.navItemCredentials')} />
-						{screenType !== "desktop" && vcEntityList?.length > 1 && (
+						{screenType !== 'desktop' && vcEntityList?.length > 1 && (
 							<ViewSelect value={mobileVcHomeView} onChange={(v) => setView(v)} />
 						)}
 					</div>
@@ -63,12 +63,12 @@ const Home = () => {
 					{(pendingTransactions?.length > 0) && (
 						<PendingTransactionsBanner
 							pendingTransactions={pendingTransactions}
-							onView={() => navigate(buildPath('pending'))}
+							onView={() => void navigate(buildPath('pending'))}
 						/>
 					)}
 				</div>
 				{vcEntityList ? (
-					<div className=''>
+					<div className="">
 						{vcEntityList.length === 0 ? (
 							<div className="py-4 md:py-2 overflow-x-hidden">
 								<div className={`${screenType !== 'desktop' ? 'xm:px-6 px-8 sm:px-20' : 'px-12 grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 md:gap-5 lg:gap-10 lg:grid-cols-2 xl:grid-cols-3'} `}>
@@ -80,7 +80,7 @@ const Home = () => {
 								{screenType !== 'desktop' ? (
 									<>
 										{(mobileVcHomeView === 'horizontal-slider') ? (
-											<div className='py-4 overflow-hidden'>
+											<div className="py-4 overflow-hidden">
 												<Slider
 													items={vcEntityList}
 													renderSlideContent={(vcEntity, index) => (
@@ -94,10 +94,10 @@ const Home = () => {
 													)}
 													initialSlide={currentSlide}
 													onSlideChange={(currentIndex) => setCurrentSlide(currentIndex + 1)}
-													className='w-full px-8 xm:px-6 sm:px-20'
+													className="w-full px-8 xm:px-6 sm:px-20"
 												/>
 												{vcEntityList[currentSlide - 1] && (
-													<div className='px-6'>
+													<div className="px-6">
 														<HistoryList
 															batchId={vcEntityList[currentSlide - 1].batchId}
 															title="Recent History"
@@ -107,7 +107,7 @@ const Home = () => {
 												)}
 											</div>
 										) : mobileVcHomeView === 'vertical-slider' ? (
-											<div className='py-2 px-6 xm:px-4 sm:px-4'>
+											<div className="py-2 px-6 xm:px-4 sm:px-4">
 												<VerticalSlider
 													items={vcEntityList}
 													initialIndex={currentSlide - 1}
@@ -126,7 +126,7 @@ const Home = () => {
 										) : mobileVcHomeView === 'list' && (
 											<>
 												<div className="xm:px-6 sm:px-20 grid gap-4 grid-cols-1 py-4 px-6">
-													{vcEntityList && vcEntityList.map((vcEntity) => (
+													{vcEntityList.map((vcEntity) => (
 														<CredentialGridCard
 															key={vcEntity.batchId}
 															vcEntity={vcEntity}
@@ -141,7 +141,7 @@ const Home = () => {
 									</>
 								) : (
 									<div className="px-6 sm:px-12 py-2 grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 md:gap-5 lg:gap-10 lg:grid-cols-2 xl:grid-cols-3">
-										{vcEntityList && vcEntityList.map((vcEntity) => (
+										{vcEntityList.map((vcEntity) => (
 											<CredentialGridCard
 												key={vcEntity.batchId}
 												vcEntity={vcEntity}
@@ -164,9 +164,9 @@ const Home = () => {
 						</div>
 					</div>
 				)}
-			</div >
+			</div>
 		</>
 	);
-}
+};
 
 export default Home;
