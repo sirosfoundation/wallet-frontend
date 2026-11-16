@@ -28,6 +28,45 @@ export async function verifierJwkThumbprint(jwk: JWK): Promise<string> {
 }
 
 /**
+ * Restructure a sign handler's `vp_token` into the OpenID4VP 1.0 §8.1 object
+ * form: a JSON object with one member per Credential Query — the key the
+ * query's `id`, the value an array of that query's presentations. A handler
+ * that already returned a JSON object passes through as is; anything else is
+ * newline-separated tokens, exactly one per included credential (the count
+ * must match), a repeated query id collecting in order — mirroring the
+ * engine's own builder (go-wallet-backend's `buildDCQLVPToken`), which the
+ * client-held encryption paths bypass.
+ */
+export function restructureDcqlVpToken(
+	vpToken: string,
+	credentialQueryIds: string[],
+): Record<string, string[]> {
+	// A JSON-quoted single token parses to the token string itself.
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(vpToken);
+	} catch {
+		parsed = undefined;
+	}
+	if (parsed !== null && parsed !== undefined && typeof parsed === 'object' && !Array.isArray(parsed)) {
+		return parsed as Record<string, string[]>;
+	}
+	const raw = typeof parsed === 'string' ? parsed : vpToken;
+	const ids = credentialQueryIds.filter((id) => id !== '');
+	const tokens = raw.split('\n');
+	if (tokens.length !== ids.length) {
+		throw new ClientHeldEncryptionError(
+			`DCQL vp_token has ${tokens.length} tokens but ${ids.length} credentials selected`,
+		);
+	}
+	const byQueryId: Record<string, string[]> = {};
+	ids.forEach((id, index) => {
+		(byQueryId[id] ??= []).push(tokens[index]);
+	});
+	return byQueryId;
+}
+
+/**
  * Build the `direct_post.jwt` (JARM) response: the claims as a compact JWE to the verifier's
  * key. `vpToken` is the string the sign handler produced. OpenID4VP 1.0 §8.1 requires
  * `vp_token` to be a JSON object with one member per Credential Query — the key the
@@ -58,29 +97,7 @@ export async function buildJarmResponse(params: {
 		throw new ClientHeldEncryptionError('The verifier response encryption key must be a public key');
 	}
 
-	let vpTokenValue: unknown = vpToken;
-	try {
-		const parsed: unknown = JSON.parse(vpToken);
-		vpTokenValue = parsed !== null && typeof parsed === 'object' ? parsed : vpToken;
-	} catch {
-		// Not a JSON object: the (newline-separated) token string itself.
-	}
-	if (typeof vpTokenValue === 'string') {
-		const ids = (credentialQueryIds ?? []).filter((id) => id !== '');
-		const tokens = vpTokenValue.split('\n');
-		if (tokens.length !== ids.length) {
-			throw new ClientHeldEncryptionError(
-				`DCQL vp_token has ${tokens.length} tokens but ${ids.length} credentials selected`,
-			);
-		}
-		// A repeated query id (`multiple: true`) collects its presentations in order,
-		// mirroring the engine's own restructure.
-		const byQueryId: Record<string, string[]> = {};
-		ids.forEach((id, index) => {
-			(byQueryId[id] ??= []).push(tokens[index]);
-		});
-		vpTokenValue = byQueryId;
-	}
+	const vpTokenValue = restructureDcqlVpToken(vpToken, credentialQueryIds ?? []);
 
 	const iat = Math.floor((params.now ?? Date.now)() / 1000);
 	const claims: Record<string, unknown> = {

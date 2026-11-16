@@ -22,6 +22,7 @@ import { DcqlQuery } from 'dcql';
 import { getLeastUsedCredentialInstance } from '@/lib/services/CredentialBatchHelper';
 import { applySelectiveDisclosure } from '@/lib/verifiable-credentials';
 import { OIDFlowError } from '@/lib/openid-flow/errors';
+import { restructureDcqlVpToken } from '@/lib/openid-flow/encryption';
 import { useOIDFlowSignHandler } from './useOIDFlowSignHandler';
 import { DCAPIRequest, DCAPISession } from '@/lib/openid-flow/platforms/dc-api';
 import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
@@ -566,7 +567,16 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				throw new OIDFlowError({ code: 'SIGNING_FAILED', message: 'Failed to generate VP token' });
 			}
 
-			await session.sendResponse(JSON.parse(signResponse.vpToken));
+			// OpenID4VP 1.0 §8.1: the response's vp_token is a JSON object keyed by
+			// the DCQL Credential Query id — a bare (or JSON-quoted) token string
+			// from the sign handler is restructured here, the same way the JARM
+			// path (buildJarmResponse) does.
+			await session.sendResponse(restructureDcqlVpToken(
+				signResponse.vpToken,
+				selectedCredentials
+					.map((c) => c.credentialQueryId)
+					.filter((id): id is string => typeof id === 'string'),
+			));
 			return { success: true };
 		} catch (err) {
 			const error = err instanceof OIDFlowError

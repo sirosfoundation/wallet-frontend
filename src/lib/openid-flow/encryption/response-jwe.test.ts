@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { compactDecrypt, exportJWK, generateKeyPair } from 'jose';
 import type { JWK } from 'jose';
 import { ClientHeldEncryptionError } from '../errors';
-import { buildJarmResponse, verifierJwkThumbprint } from './response-jwe';
+import { buildJarmResponse, restructureDcqlVpToken, verifierJwkThumbprint } from './response-jwe';
 
 async function verifier(alg = 'ECDH-ES', kid = 'v-1') {
 	const { publicKey, privateKey } = await generateKeyPair('ECDH-ES', { crv: 'P-256', extractable: true });
@@ -109,6 +109,28 @@ describe('buildJarmResponse', () => {
 		await expect(
 			buildJarmResponse({ ...ok, vpToken: 'a~kb\nb~kb', credentialQueryIds: ['only-one'] }),
 		).rejects.toBeInstanceOf(ClientHeldEncryptionError);
+	});
+
+	it('wraps a JSON-quoted vp_token string (the DC-API companion caller\'s shape) into the §8.1 object', async () => {
+		const { jwk, privateKey } = await verifier();
+		const token = 'eyJhbGciOiJFUzI1NiJ9.kb-jwt.EC-signature';
+
+		const jwe = await buildJarmResponse({
+			vpToken: JSON.stringify(token),
+			audience: 'verifier',
+			state: 'st-3',
+			encryption: { jwk, alg: 'ECDH-ES', enc: 'A128GCM' },
+			credentialQueryIds: ['eudi_pid'],
+		});
+
+		const { plaintext } = await compactDecrypt(jwe, privateKey);
+		const claims = JSON.parse(new TextDecoder().decode(plaintext));
+		expect(claims.vp_token).toEqual({ eudi_pid: [token] });
+	});
+
+	it('restructureDcqlVpToken passes an object through and refuses a count mismatch', () => {
+		expect(restructureDcqlVpToken('{"eudi_pid": ["t"]}', ['eudi_pid'])).toEqual({ eudi_pid: ['t'] });
+		expect(() => restructureDcqlVpToken('a\nb', ['one'])).toThrow(ClientHeldEncryptionError);
 	});
 
 	it('wraps the key for a key-wrap algorithm', async () => {

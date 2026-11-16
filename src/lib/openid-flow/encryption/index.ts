@@ -7,5 +7,5 @@ export type {
 	GeneratedResponseKey,
 } from './ClientHeldEncryptionKeys';
 export { LEGACY_SECRET_MEMBERS, carriesLegacySecretMember } from './legacy-secret-members';
-export { buildJarmResponse, verifierJwkThumbprint } from './response-jwe';
+export { buildJarmResponse, restructureDcqlVpToken, verifierJwkThumbprint } from './response-jwe';
 export type { VerifierResponseEncryption } from './response-jwe';
