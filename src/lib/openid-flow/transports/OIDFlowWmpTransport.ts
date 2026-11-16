@@ -36,14 +36,13 @@
 import { CompactEncrypt, compactDecrypt, exportJWK, generateKeyPair, importJWK, type JWK, type KeyLike } from 'jose';
 import type { DcqlQuery } from 'dcql';
 import { OIDFlowWebSocketTransport, mapVerifierInfo } from './OIDFlowWebSocketTransport';
-import type { SignRequest, SignRequestHandler, SignResponse } from './OIDFlowWebSocketTransport';
 import type { OIDFlowProgressEvent } from '../types/OIDFlowTypes';
 import type { CredentialNotificationEvent, OID4VCIFlowParams, OID4VCIFlowResult } from '../types/OID4VCITypes';
 import type { OID4VPFlowParams, OID4VPFlowResult } from '../types/OID4VPTypes';
 import type { TrustEvaluators } from '../types';
 import { WmpClient, WmpRpcError } from '../wmp/WmpClient';
 import { logger } from '@/logger';
-
+import type { SignHandlerAction, SignHandlerRequest, SignRequest, SignRequestHandler, SignResponse } from './OIDFlowWebSocketTransport';
 /** How long one step of the flow may take before startOID4VCIFlow gives up. */
 const STEP_TIMEOUT_MS = 120_000;
 
@@ -940,11 +939,11 @@ export class OIDFlowWmpTransport extends OIDFlowWebSocketTransport {
 		return { credential_count: creds.length };
 	}
 
-	private toSignRequest(childId: string, flowId: string, action: string, raw: Record<string, unknown>): SignRequest {
+	private toSignRequest(childId: string, flowId: string, action: string, raw: Record<string, unknown>): SignHandlerRequest {
 		return {
 			flowId,
 			messageId: childId,
-			action: action as SignRequest['action'],
+			action: action as SignHandlerAction,
 			params: {
 				audience: raw.audience as string | undefined,
 				issuer: raw.issuer as string | undefined,

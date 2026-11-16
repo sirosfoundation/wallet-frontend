@@ -5,7 +5,7 @@ import * as config from '../config';
 import { logger } from '../logger';
 import { fromBase64Url, jsonParseTaggedBinary, jsonStringifyTaggedBinary, toBase64Url, transformTaggedResponse } from '@/lib/utils';
 import { EncryptedContainer, makeAssertionPrfExtensionInputs, parsePrivateData, serializePrivateData } from '../services/keystore';
-import { CachedUser, LocalStorageKeystore } from '../services/LocalStorageKeystore';
+import { CachedUser, SESSION_USER_HANDLE_KEY, LocalStorageKeystore } from '../services/LocalStorageKeystore';
 import { UserId, Verifier } from './types';
 import { useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router';
@@ -49,6 +49,7 @@ type SignupWebauthnRetryParams = { beginData: any, credential: PublicKeyCredenti
 export type ClearSessionEvent = {};
 export const CLEAR_SESSION_EVENT = 'clearSession';
 export type ApiEventType = typeof CLEAR_SESSION_EVENT;
+export const SESSION_STATE_KEY = 'sessionState';
 const events: EventTarget = new EventTarget();
 
 
@@ -133,9 +134,9 @@ export function useApi({
 	const isOnline = useMemo(() => isOnlineProp === null ? true : isOnlineProp, [isOnlineProp]);
 	const authServer = useAuthServerClient();
 	const tenantId = getTenantFromUrlPath() ?? 'default';
-	const [userHandle,] = useSessionStorage<string | null>("userHandle", null);
+	const [userHandle,] = useSessionStorage<string | null>(SESSION_USER_HANDLE_KEY, null);
 	const [cachedUsers] = useLocalStorage<CachedUser[] | null>("cachedUsers", null);
-	const [sessionState, setSessionState, clearSessionState] = useSessionStorage<SessionState | null>("sessionState", null);
+	const [sessionState, setSessionState, clearSessionState] = useSessionStorage<SessionState | null>(SESSION_STATE_KEY, null);
 
 	/**
 	 * Synchronization tag for the encrypted private data. To prevent data loss,

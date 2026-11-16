@@ -18,7 +18,7 @@
 import { BASE_PATH } from "@/config";
 import { type CachedUser } from "@/services/LocalStorageKeystore";
 
-const TENANT_STORAGE_KEY = 'wallet_tenant_id';
+export const SESSION_TENANT_KEY = 'wallet_tenant_id';
 
 /**
  * URL path prefix for custom (non-default) tenants.
@@ -31,7 +31,7 @@ export const TENANT_PATH_PREFIX = 'id';
  * Returns undefined if no tenant is stored (single-tenant or not yet logged in).
  */
 export function getStoredTenant(): string | undefined {
-	const tenant = sessionStorage.getItem(TENANT_STORAGE_KEY);
+	const tenant = sessionStorage.getItem(SESSION_TENANT_KEY);
 	return tenant || undefined;
 }
 
@@ -40,7 +40,7 @@ export function getStoredTenant(): string | undefined {
  * Called after successful login when the backend returns the tenant.
  */
 export function setStoredTenant(tenantId: string): void {
-	sessionStorage.setItem(TENANT_STORAGE_KEY, tenantId);
+	sessionStorage.setItem(SESSION_TENANT_KEY, tenantId);
 }
 
 /**
@@ -48,7 +48,7 @@ export function setStoredTenant(tenantId: string): void {
  * Called on logout.
  */
 export function clearStoredTenant(): void {
-	sessionStorage.removeItem(TENANT_STORAGE_KEY);
+	sessionStorage.removeItem(SESSION_TENANT_KEY);
 }
 
 // Note: buildTenantApiPath was removed. Registration and login now use global endpoints
