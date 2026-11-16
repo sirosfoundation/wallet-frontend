@@ -4,7 +4,7 @@ import i18n from '@/i18n';
 import CredentialImage from './CredentialImage';
 import { useCredentialName } from '@/hooks/useCredentialName';
 
-const CredentialSlideCard = ({ vcEntity, isActive, latestCredentials, onClick, fixedRatio }) => {
+const CredentialSlideCard = ({ vcEntity, isActive, latestCredentials, onClick, fixedRatio = undefined }) => {
 	const { t } = useTranslation();
 
 	const credentialName = useCredentialName(
