@@ -82,7 +82,7 @@ export class DCAPISession {
 		this.mode.send({ requestId: this.requestId, payload });
 		this.close();
 	}
-	
+
 	public sendErrorAndClose(error: 'user_cancelled' | 'access_denied'): void {
 		this.mode.send({ requestId: this.requestId, payload: { error } });
 		this.close();

@@ -203,7 +203,7 @@ export const WMP_URL = config.wmp_url || (ENGINE_URL
 			return undefined;
 		}
 	})()
-	: undefined);		
+	: undefined);
 /** Derived convenience checks */
 
 export const HTTP_PROXY_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('http_proxy');

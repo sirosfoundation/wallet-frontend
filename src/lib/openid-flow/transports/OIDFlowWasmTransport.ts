@@ -365,7 +365,7 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 		throw new Error(`Generic requests are not supported by the in-browser engine (${flowRequest.type})`);
 	}
 
-    	// ===== The flow =====
+	// ===== The flow =====
 
 	private async startIssuance(params: OID4VCIFlowParams): Promise<OID4VCIFlowResult> {
 		if (!params.redirectUri) {
@@ -557,7 +557,7 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 		const live = Array.from(this.vciFlows.values()).filter((f) => !f.ended);
 		return live.length === 1 ? live[0] : undefined;
 	}
-    // ===== The presentation flow =====
+	// ===== The presentation flow =====
 	/**
 	 * A Digital Credentials API request: the request (DCAPIRequest.engineParams)
 	 * and the origin the DC API channel verified. Resolves like startOID4VPFlow;
@@ -869,7 +869,7 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 		return { vp_token: response.vpToken };
 	}
 
-    	// ===== The offer and the client =====
+	// ===== The offer and the client =====
 
 	private engineKv(): EngineKeyValue {
 		if (!this.kvStore) this.kvStore = createStorageKv(this.wasmStorage);
@@ -1115,7 +1115,7 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 		});
 	}
 
-    	// ===== Host callbacks =====
+	// ===== Host callbacks =====
 
 	/** A fresh WSCD key for the next proof; its kid rides the sign ask. */
 	private async hostSigningKey(p: EngineSigningKeyParams): Promise<{ jwk: Record<string, unknown> }> {
