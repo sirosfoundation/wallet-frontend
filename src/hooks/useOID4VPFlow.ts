@@ -22,6 +22,7 @@ import { DcqlQuery } from 'dcql';
 import { getLeastUsedCredentialInstance } from '@/lib/services/CredentialBatchHelper';
 import { applySelectiveDisclosure } from '@/lib/verifiable-credentials';
 import { OIDFlowError } from '@/lib/openid-flow/errors';
+import { frontedRpDisplay } from '@/lib/openid-flow/platforms/dc-api/verifierInfoDisplay';
 import { useOIDFlowSignHandler } from './useOIDFlowSignHandler';
 import { DCAPIRequest, DCAPISession } from '@/lib/openid-flow/platforms/dc-api';
 import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
@@ -499,13 +500,25 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				request.dcqlQuery
 			);
 
+			// The 472-2 §6.3.2.2 verifier_info members: an intermediary-signed
+			// request carries the fronted RP's identity (the registrar dataset's
+			// srvDescription, the NTR identifier). When present, the consent
+			// screen shows the fronted party's name — not the raw x509_hash
+			// client_id the trust evaluation names. A verifier-signed request
+			// omits the members and the trust result's name is the display
+			// name, exactly as before.
+			const fronted = frontedRpDisplay(
+				request.verifierInfoMembers,
+				navigator.language || 'en',
+			);
+
 			return {
 				success: true,
 				conformantCredentials,
 				dcqlQuery: request.dcqlQuery,
 				verifierInfo: {
-					name: trustResult?.name ?? verifiedOrigin,
-					purpose: String(request.dcqlQuery.credential_sets?.[0]?.purpose ?? ''),
+					name: fronted?.name ?? trustResult?.name ?? verifiedOrigin,
+					purpose: fronted?.purpose ?? String(request.dcqlQuery.credential_sets?.[0]?.purpose ?? ''),
 					domain: clientIdScheme.identifier,
 					trustStatus: trustResult?.status,
 					trusted: trustResult?.trusted ?? false,
