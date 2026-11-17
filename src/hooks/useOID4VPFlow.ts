@@ -471,16 +471,29 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				logger.debug('Unsigned request, proceeding with resolution-based trust evaluation');
 			}
 
-			const trustResult = await transportContext?.trustEvaluators.evaluateVerifierTrust({
-				clientIdScheme,
-				keyMaterial,
-			});
+			// The DC-API callback page may open before the WebSocket transport
+			// context is established (the QR link routes here directly). Without
+			// a context the optional chain returns undefined, and
+			// !undefined?.trusted is always true — the "untrusted verifier"
+			// refusal fires unconditionally before the engine's own server-side
+			// evaluation (which handles this correctly) is ever consulted.
+			// Skip the client-side check when there is no context; the
+			// engine's evaluation makes the actual trust decision.
+			const trustResult = transportContext
+				? await transportContext.trustEvaluators.evaluateVerifierTrust({
+					clientIdScheme,
+					keyMaterial,
+				})
+				: undefined;
 
-			if (!trustResult?.trusted) {
+			if (trustResult && !trustResult?.trusted) {
 				throw new OIDFlowError({
 					code: 'UNTRUSTED_VERIFIER',
 					message: trustResult?.status ?? 'Verifier is not trusted',
 				});
+			}
+			if (!transportContext) {
+				logger.debug('No transport context on the DC-API path; deferring verifier trust to the engine');
 			}
 
 			// We should filter the credentials based on the selectedCredentialIDs
@@ -530,7 +543,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		} finally {
 			setIsLoading(false);
 		}
-	}, [waitForCredentials, reportError, transportContext?.trustEvaluators]);
+	}, [waitForCredentials, reportError, transportContext]);
 
 	/**
 	 * Send DC API response - sign, record history, send via session
