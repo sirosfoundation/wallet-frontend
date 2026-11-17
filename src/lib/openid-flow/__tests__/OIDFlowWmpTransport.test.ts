@@ -241,6 +241,35 @@ describe('OIDFlowWmpTransport (issuance)', () => {
 		const r = await transport.startOID4VCIFlow({ credentialOfferUri: 'https://i/offer' });
 		expect(r).toEqual({ success: false, error: { code: 'UNTRUSTED_ISSUER', message: 'issuer not trusted' } });
 	});
+	// An offer that names one credential: the engine selects it itself and sends
+	// no awaiting_offer_acceptance. The result must still carry the offer's
+	// configuration id, or the stored credential has no display (card image).
+	it('takes the configuration id from a single-credential offer the engine selected itself', async () => {
+		let flowId = '';
+		engine.onPost = (m) => {
+			if (m.method === 'wmp.session.create') {
+				return { wmp: { version: '0.1', session_id: 'ses-1' }, capabilities: { oid4vci: {} }, resumption_token: 'rt-1' };
+			}
+			if (m.method === 'wmp.flow.start') {
+				flowId = m.params.flow_id;
+				setTimeout(() => {
+					engine.push({ jsonrpc: '2.0', method: 'wmp.flow.progress', params: { flow_id: flowId, step: 'parsing_offer',
+						payload: { offer: { credential_issuer: 'https://issuer.test', credential_configuration_ids: ['pid_mdoc_offer'] } } } });
+					engine.push({ jsonrpc: '2.0', method: 'wmp.flow.complete', params: {
+						flow_id: flowId, result: { credentials: [{ format: 'mso_mdoc', credential: 'MDOC' }] } } });
+				}, 0);
+				return { wmp: { version: '0.1', session_id: 'ses-1' }, flow_id: flowId, flow_type: 'oid4vci' };
+			}
+			return {};
+		};
+
+		const result = await transport.startOID4VCIFlow({ credentialOfferUri: 'https://issuer.test/offer/2', redirectUri: 'https://wallet.test/cb' });
+
+		expect(result.success).toBe(true);
+		expect(result.credentialIssuerIdentifier).toBe('https://issuer.test');
+		expect(result.selectedCredentialConfigurationId).toBe('pid_mdoc_offer');
+		expect(engine.posts.some((m) => m.params?.action === 'accept_offer')).toBe(false);
+	});
 });
 
 describe('OIDFlowWmpTransport (presentation)', () => {

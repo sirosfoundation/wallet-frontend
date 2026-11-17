@@ -68,7 +68,7 @@
  */
 
 import { OIDFlowWebSocketTransport } from './OIDFlowWebSocketTransport';
-import type { SignRequest, SignRequestHandler, SignResponse } from './OIDFlowWebSocketTransport';
+import type { SignHandlerRequest, SignRequestHandler, SignResponse } from './OIDFlowWebSocketTransport';
 import type { OIDFlowProgressEvent, OIDFlowRequest, OIDFlowResponse } from '../types/OIDFlowTypes';
 import type { OID4VPFlowParams, OID4VPFlowResult, OID4VPSelectedCredential, OID4VPVerifierInfo } from '../types/OID4VPTypes';
 import type { CredentialNotificationEvent, OID4VCIFlowParams, OID4VCIFlowResult, OID4VCITxCode } from '../types/OID4VCITypes';
@@ -97,29 +97,39 @@ import {
 import { createProxyFetch, createStorageKv, createTrustPdp } from '../wasm/wasmPorts';
 import { logger } from '@/logger';
 import {
+	ENGINE_AUTHORIZATION_ANNOUNCE_TIMEOUT_MS,
+	ENGINE_NO_MATCH_TIMEOUT_MS,
+	ENGINE_PENDING_FLOW_MAX_AGE_MS,
+	ENGINE_STEP_TIMEOUT_MS,
+	OPENID4VCI_DEFERRED_MAX_WAIT_MS,
+} from '@/config';
+import {
 	describeTransactionData,
 	transactionDataCredentialIds,
 	transactionDataForQuery,
 } from '../utils/transactionData';
 
+const STEP_TIMEOUT_MS = ENGINE_STEP_TIMEOUT_MS ?? 3 * 60_000;
+const PENDING_MAX_AGE_MS = ENGINE_PENDING_FLOW_MAX_AGE_MS ?? 60 * 60 * 1000;
+const DEFERRED_MAX_WAIT_MS = OPENID4VCI_DEFERRED_MAX_WAIT_MS ?? 15 * 60_000;
+
 /** How long one step (start to redirect, or resume to credential) may take. */
-const STEP_TIMEOUT_MS = 3 * 60_000;
 /** The flow id across the redirect: same tab, so sessionStorage. */
 export const PENDING_AUTHORIZATION_KEY = 'wasm_oid4vci_pending_authorization';
-/**
- * How long openAuthorization waits for the authorization_required notification
- * (the engine delivers notifications asynchronously, so it may arrive after the call).
- */
-const AUTHORIZATION_ANNOUNCE_TIMEOUT_MS = 2_000;
+
 /** The engine's authorization stash in its kv (engine-core oid4vci stash_key). */
 const ENGINE_STASH_KEY = (flowId: string) => `oid4vci:auth-code:${flowId}`;
 /** A pending authorization older than this is not resumed. */
-const PENDING_MAX_AGE_MS = 60 * 60 * 1000;
-/** How long reportNoMatchingCredentials waits for the engine to end the flow. */
-const NO_MATCH_TIMEOUT_MS = 10_000;
+/** How long reportNoMatchingCredentials waits for the engine to end the flow (ENGINE_NO_MATCH_TIMEOUT_IN_SECONDS). */
+const NO_MATCH_TIMEOUT_MS = ENGINE_NO_MATCH_TIMEOUT_MS ?? 10_000;
+/**
+ * How long openAuthorization waits for the authorization_required notification
+ * (the engine delivers notifications asynchronously, so it may arrive after the call;
+ * ENGINE_AUTHORIZATION_ANNOUNCE_TIMEOUT_IN_SECONDS).
+ */
+const AUTHORIZATION_ANNOUNCE_TIMEOUT_MS = ENGINE_AUTHORIZATION_ANNOUNCE_TIMEOUT_MS ?? 2_000;
 
 /** The longest the wait for a deferred credential may grow to. */
-const DEFERRED_MAX_WAIT_MS = 15 * 60_000;
 
 export interface OIDFlowWasmTransportOptions {
 	backendUrl: string;
@@ -1259,7 +1269,7 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 		return { wia: response.clientAttestation, pop: response.clientAttestationPoP };
 	}
 
-	private async callSignHandler(request: SignRequest): Promise<SignResponse> {
+	private async callSignHandler(request: SignHandlerRequest): Promise<SignResponse> {
 		const [handler] = Array.from(this.wasmSignHandlers);
 		if (!handler) throw new Error('no sign handler registered');
 		return handler(request);

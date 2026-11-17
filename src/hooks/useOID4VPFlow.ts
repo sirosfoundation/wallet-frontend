@@ -573,6 +573,27 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		try {
 			// DC API audience format per OpenID4VP spec
 			const audience = `origin:${session.verifiedOrigin}`;
+			// The in-browser engine signs through the same handler and builds the
+			// response (encrypted for dc_api.jwt); the wallet returns it.
+			const engine = transportType === 'websocket' ? dcApiEngine(transport) : null;
+			if (engine) {
+				const result = await engine.startOID4VPFlow({ selectedCredentials });
+				if (result.success && keystore) {
+					await recordPresentationHistory(keystore, api, selectedCredentials, audience);
+				}
+				if (result.dcApiResponse) {
+					session.sendEngineResponse(result.dcApiResponse);
+				} else if (!result.success) {
+					session.sendErrorAndClose('access_denied');
+				}
+				if (!result.success) {
+					throw new OIDFlowError({
+						code: result.error?.code ?? 'RESPONSE_ERROR',
+						message: result.error?.message ?? 'The presentation failed',
+					});
+				}
+				return { success: true };
+			}
 
 			const signResponse = await signPresentation({
 				audience,

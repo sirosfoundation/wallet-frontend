@@ -10,6 +10,7 @@
  *          flow survives the redirect's page reload (same tab, cleared with it).
  */
 import { logger } from '@/logger';
+import { ENGINE_PENDING_FLOW_MAX_AGE_MS } from '@/config';
 import type { TrustEvaluators } from '../types';
 import type {
 	EngineEvaluationRequest,
@@ -240,9 +241,9 @@ export function createTrustPdp(trust: TrustEvaluators): WasmEngineConfig['pdp'] 
 }
 
 const KV_PREFIX = 'wasm-engine:';
-/** Stash entries older than this are dropped (an abandoned authorization). */
-const KV_MAX_AGE_MS = 60 * 60 * 1000;
 
+/** Stash entries older than this are dropped (an abandoned authorization; ENGINE_PENDING_FLOW_MAX_AGE_IN_SECONDS). */
+const KV_MAX_AGE_MS = ENGINE_PENDING_FLOW_MAX_AGE_MS ?? 60 * 60 * 1000;
 /**
  * The engine's flow stash (the authorization-code stash: the PKCE verifier,
  * state and offer, read back after the redirect). sessionStorage by default:

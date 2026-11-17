@@ -219,3 +219,40 @@ export const BRANDING = {
  * and OpenID4VP run in the page instead of on the remote engine. Opt-in.
  */
 export const WASM_ENGINE_ENABLED = config.wasm_engine_enabled === 'true';
+
+
+/**
+ * A whole number of seconds from the runtime config, in milliseconds; or
+ * undefined when unset, not a number, or not positive (the caller's default
+ * then applies).
+ */
+export function secondsSettingToMs(value: string | undefined): number | undefined {
+	if (!value || !/^\d+$/.test(value.trim())) return undefined;
+	const seconds = parseInt(value, 10);
+	return seconds > 0 ? seconds * 1000 : undefined;
+}
+
+/**
+ * Timing settings of the engine transports (in-browser and WMP). Unset, each
+ * transport keeps its own default.
+ * - ENGINE_STEP_TIMEOUT_IN_SECONDS: how long one step of a flow may take
+ *   (waiting for the PIN, the user's consent, or a slow issuer or verifier).
+ *   Defaults: 180 (in-browser engine), 120 (WMP).
+ * - ENGINE_PENDING_FLOW_MAX_AGE_IN_SECONDS: how long an issuance waiting on the
+ *   issuer's login can still be resumed after the redirect. Default: 3600.
+ * - OPENID4VCI_DEFERRED_MAX_WAIT_IN_SECONDS: the longest the wallet waits for a
+ *   deferred credential. Default: 900.
+ * - ENGINE_AUTHORIZATION_ANNOUNCE_TIMEOUT_IN_SECONDS (in-browser engine): when
+ *   the engine asks the page to open the issuer's login, how long the page
+ *   waits for the engine's authorization_required notification, which the
+ *   engine sends asynchronously and may deliver just after the ask. An
+ *   in-page delay, normally milliseconds. Default: 2.
+ * - ENGINE_NO_MATCH_TIMEOUT_IN_SECONDS: when the wallet holds no credential
+ *   matching a presentation request and declines it, how long the page waits
+ *   for the engine to end the flow before giving up on it. Default: 10.
+ */
+export const ENGINE_STEP_TIMEOUT_MS = secondsSettingToMs(config.engine_step_timeout_in_seconds);
+export const ENGINE_PENDING_FLOW_MAX_AGE_MS = secondsSettingToMs(config.engine_pending_flow_max_age_in_seconds);
+export const OPENID4VCI_DEFERRED_MAX_WAIT_MS = secondsSettingToMs(config.openid4vci_deferred_max_wait_in_seconds);
+export const ENGINE_AUTHORIZATION_ANNOUNCE_TIMEOUT_MS = secondsSettingToMs(config.engine_authorization_announce_timeout_in_seconds);
+export const ENGINE_NO_MATCH_TIMEOUT_MS = secondsSettingToMs(config.engine_no_match_timeout_in_seconds);

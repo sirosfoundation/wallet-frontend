@@ -1,11 +1,29 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { OIDFlowWasmTransport, PENDING_AUTHORIZATION_KEY, issuerMetadataUrl } from '../transports/OIDFlowWasmTransport';
 import { createWasmEngine, toPlain, type WasmEngine, type WasmEngineConfig } from '../wasm/WasmEngine';
+
 import { createProxyFetch, createRegisteredClientIdLookup, createStorageKv, createTrustPdp, parseKeyMaterial } from '../wasm/wasmPorts';
 import type { TrustEvaluators } from '../types';
 import type { IWscdManagerClient } from '@/lib/wscd-manager';
 
 // vi.mock is hoisted above the imports.
+
+const enginePkg = vi.hoisted(() => ({
+	init: vi.fn(async () => ({})),
+	created: [] as unknown[],
+}));
+
+vi.mock('@sirosfoundation/siros-wallet-core', () => ({
+	default: enginePkg.init,
+	WasmEngine: class {
+		constructor(config: unknown) { enginePkg.created.push(config); }
+		request = vi.fn();
+	},
+}));
+
+vi.mock('@sirosfoundation/siros-wallet-core/engine_adapter_wasm_bg.wasm?url', () => ({
+	default: '/assets/engine_adapter_wasm_bg.wasm',
+}));
 
 vi.mock('@/logger', () => ({
 	logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -322,18 +340,122 @@ describe('OIDFlowWasmTransport: authorization-code issuance', () => {
 			.resolves.toMatchObject({ success: false, error: { code: 'OFFER_UNAVAILABLE' } });
 	});
 
-	it('refuses offers that need a transaction code', async () => {
+	describe('pre-authorized offers', () => {
+		const PRE_AUTH = 'urn:ietf:params:oauth:grant-type:pre-authorized_code';
+		const offerWith = (txCode?: Record<string, unknown>) => JSON.stringify({
+			credential_issuer: 'https://issuer.example',
+			credential_configuration_ids: ['pid'],
+			grants: { [PRE_AUTH]: { 'pre-authorized_code': 'pac-1', ...(txCode ? { tx_code: txCode } : {}) } },
+		});
+		/** The engine's pre-authorized flow: the tx_code ask (when any), then the credential. */
+		function preAuthEngine(askTxCode: boolean, seen: { code?: unknown } = {}) {
+			const engine = fakeEngine({
+				'wmp.flow.start': async (p, c) => {
+					if (askTxCode) {
+						// The engine asks with the token step's id, not the flow's.
+						seen.code = await c.host.txCode!(asMap({ flow_id: 'oid4vci-token' })).catch((e: Error) => `rejected: ${e.message}`);
+						if (String(seen.code).startsWith('rejected')) return {};
+					}
+					engine.notify('wmp.flow.complete', { flow_id: p.flow_id, result: { credential: 'eyJ.pre', deferred: false } });
+					return {};
+				},
+			});
+			return engine;
+		}
+
+		it('resolves at the tx_code ask with the PIN description, then issues with the code the user typed', async () => {
+			const seen: { code?: unknown } = {};
+			const t = transport(preAuthEngine(true, seen), storage);
+			const first = await t.startOID4VCIFlow({
+				credentialOffer: offerWith({ input_mode: 'numeric', length: 6, description: 'The PIN from the letter' }),
+				redirectUri: REDIRECT,
+			});
+			expect(first).toMatchObject({
+				success: true,
+				preAuthorizedCode: 'pac-1',
+				txCode: { inputMode: 'numeric', length: 6, description: 'The PIN from the letter' },
+			});
+			expect(first.credentials).toBeUndefined();
+
+			const second = await t.startOID4VCIFlow({ preAuthorizedCode: 'pac-1', txCodeInput: '123456' });
+			expect(seen.code).toBe('123456');
+			expect(second).toMatchObject({
+				success: true,
+				credentials: [{ credential: 'eyJ.pre', format: 'mso_mdoc' }],
+				credentialIssuerIdentifier: 'https://issuer.example',
+			});
+		});
+
+		it('issues straight away when the offer needs no transaction code', async () => {
+			const r = await transport(preAuthEngine(false), storage).startOID4VCIFlow({ credentialOffer: offerWith(), redirectUri: REDIRECT });
+			expect(r).toMatchObject({ success: true, credentials: [{ credential: 'eyJ.pre' }] });
+			expect(r.txCode).toBeUndefined();
+		});
+
+		it('declines the ask when the prompt is cancelled', async () => {
+			const seen: { code?: unknown } = {};
+			const t = transport(preAuthEngine(true, seen), storage);
+			await t.startOID4VCIFlow({ credentialOffer: offerWith({ length: 4 }), redirectUri: REDIRECT });
+			const r = await t.startOID4VCIFlow({ preAuthorizedCode: 'pac-1' });
+			expect(r).toMatchObject({ success: false, error: { code: 'TX_CODE_DECLINED' } });
+			expect(seen.code).toMatch(/^rejected/);
+		});
+
+		it('declines an ask nobody answers, so the flow does not hang', async () => {
+			vi.useFakeTimers();
+			const seen: { code?: unknown } = {};
+			const t = transport(preAuthEngine(true, seen), storage);
+			const first = t.startOID4VCIFlow({ credentialOffer: offerWith({ length: 4 }), redirectUri: REDIRECT });
+			await vi.advanceTimersByTimeAsync(0);
+			await expect(first).resolves.toMatchObject({ success: true, preAuthorizedCode: 'pac-1' });
+			await vi.advanceTimersByTimeAsync(3 * 60_000 + 1);
+			expect(seen.code).toMatch(/^rejected/);
+			vi.useRealTimers();
+		});
+
+		it('refuses a code when no issuance is waiting for one', async () => {
+			const r = await transport(fakeEngine({}), storage).startOID4VCIFlow({ preAuthorizedCode: 'pac-1', txCodeInput: '1' });
+			expect(r).toMatchObject({ success: false, error: { code: 'NO_TX_CODE_REQUEST' } });
+		});
+	});
+
+	it('waits through the engine\'s deferred polling and returns the credential when it arrives', async () => {
+		vi.useFakeTimers();
+		storage.setItem(PENDING_AUTHORIZATION_KEY, JSON.stringify({ flowId: 'vci-1', state: 's', format: 'dc+sd-jwt', savedAt: Date.now() }));
 		const engine = fakeEngine({
-			'wmp.flow.start': async (p, c) => {
-				await c.host.txCode!(asMap({ flow_id: 'oid4vci-token' }));
+			'wmp.flow.action': async (p) => {
+				engine.notify('wmp.flow.progress', { flow_id: p.flow_id, step: 'deferred',
+					payload: { transaction_id: 'tx-9', interval: 5, max_attempts: 60 } });
+				// The issuer is ready after four minutes: past the usual 3-minute step.
+				await new Promise((r) => setTimeout(r, 4 * 60_000));
+				engine.notify('wmp.flow.progress', { flow_id: p.flow_id, step: 'deferred_credential_received', payload: { has_credential: true } });
+				engine.notify('wmp.flow.complete', { flow_id: p.flow_id, result: { credential: 'eyJ.late', deferred: false } });
 				return {};
 			},
 		});
-		const r = await transport(engine, storage).startOID4VCIFlow({ credentialOffer: OFFER_JSON, redirectUri: REDIRECT });
-		expect(r).toMatchObject({ success: false, error: { code: 'TX_CODE_UNSUPPORTED' } });
+		const result = transport(engine, storage).startOID4VCIFlow({ authorizationCode: 'c' });
+		await vi.advanceTimersByTimeAsync(4 * 60_000 + 1);
+		await expect(result).resolves.toMatchObject({ success: true, credentials: [{ credential: 'eyJ.late', format: 'dc+sd-jwt' }] });
+		vi.useRealTimers();
 	});
 
-	it('refuses deferred issuance', async () => {
+	it('still times out when deferred polling outlasts the engine\'s budget', async () => {
+		vi.useFakeTimers();
+		storage.setItem(PENDING_AUTHORIZATION_KEY, JSON.stringify({ flowId: 'vci-1', state: 's', savedAt: Date.now() }));
+		const engine = fakeEngine({
+			'wmp.flow.action': async (p) => {
+				engine.notify('wmp.flow.progress', { flow_id: p.flow_id, step: 'deferred', payload: { interval: 1, max_attempts: 10 } });
+				return new Promise(() => {}); // never completes
+			},
+		});
+		const result = transport(engine, storage).startOID4VCIFlow({ authorizationCode: 'c' });
+		// The budget (10 s) plus the step margin (3 min).
+		await vi.advanceTimersByTimeAsync(10_000 + 3 * 60_000 + 1);
+		await expect(result).resolves.toMatchObject({ success: false, error: { code: 'TIMEOUT' } });
+		vi.useRealTimers();
+	});
+
+	it('reports a deferred credential that never arrived', async () => {
 		storage.setItem(PENDING_AUTHORIZATION_KEY, JSON.stringify({ flowId: 'vci-1', state: 's', savedAt: Date.now() }));
 		const engine = fakeEngine({
 			'wmp.flow.action': async (p) => {
@@ -342,7 +464,7 @@ describe('OIDFlowWasmTransport: authorization-code issuance', () => {
 			},
 		});
 		const r = await transport(engine, storage).startOID4VCIFlow({ authorizationCode: 'c' });
-		expect(r).toMatchObject({ success: false, error: { code: 'DEFERRED_UNSUPPORTED' } });
+		expect(r).toMatchObject({ success: false, error: { code: 'DEFERRED_NOT_READY' } });
 	});
 
 	it('refuses to sign a proof when the engine never asked for its key', async () => {
@@ -551,14 +673,70 @@ describe('OIDFlowWasmTransport: presentation', () => {
 		expect(answers).toEqual([{ selections: [] }]);
 	});
 
-	it('refuses requests with transaction data before the user selects anything', async () => {
-		let answered: unknown;
-		const { engine } = presentingEngine(async (p, c) => {
-			answered = await c.host.match!(matchAsk(p.flow_id, { transaction_data: ['eyJ0eXBlIjoicGF5bWVudCJ9'] }));
+	describe('transaction data', () => {
+		const b64 = (o: unknown) => btoa(JSON.stringify(o)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+		const PAYMENT = b64({ type: 'payment', credential_ids: ['pid'], amount: '10 EUR' });
+		const ORPHAN = b64({ type: 'payment', credential_ids: ['mdl'], amount: '5 EUR' });
+
+		/** One presentation: the request carries `requestData`, the engine's vp ask `vpData`. */
+		async function run(requestData: string[], vpData?: string[], sign = vi.fn(async () => ({ vpToken: '{"pid":["t"]}' }))) {
+			const built = presentingEngine(async (p, c, seen) => {
+				const match: any = await c.host.match!(matchAsk(p.flow_id, { transaction_data: requestData }));
+				seen.vp = await c.host.vp!(asMap({
+					flow_id: p.flow_id, audience: VP_CLIENT_ID, nonce: 'n', response_uri: 'https://verifier.example/post',
+					selections: [asMap({ credential_query_id: 'pid', credential_id: '42', disclosed_claims: ['age_over_18'] })],
+					transaction_data: vpData ?? requestData, selection_handle: match.handle,
+				})).catch((e: Error) => `threw: ${e.message}`);
+				built.engine.notify('wmp.flow.complete', { flow_id: p.flow_id, result: { presented: true } });
+			});
+			const t = transport(built.engine, storage);
+			t.onSignRequest(sign);
+			const first = await t.startOID4VPFlow({ requestUriRef: VP_REQUEST_URI, clientId: VP_CLIENT_ID });
+			await t.startOID4VPFlow({ selectedCredentials: SELECTED });
+			return { first, seen: built.seen, sign };
+		}
+
+		it('shows the entries for consent and hands each credential the entries that name it', async () => {
+			const { first, seen, sign } = await run([PAYMENT]);
+			expect(first).toMatchObject({
+				success: true,
+				transactionData: [{ type: 'payment', data: { heading: 'payment', text: 'amount: 10 EUR' } }],
+			});
+			expect(seen.vp).toEqual({ vp_token: '{"pid":["t"]}' });
+			expect(sign).toHaveBeenCalledWith(expect.objectContaining({
+				params: expect.objectContaining({
+					credentialsToInclude: [expect.objectContaining({ credentialQueryId: 'pid', transactionData: [PAYMENT] })],
+				}),
+			}));
 		});
-		const r = await transport(engine, storage).startOID4VPFlow({ requestUriRef: VP_REQUEST_URI, clientId: VP_CLIENT_ID });
-		expect(r).toMatchObject({ success: false, error: { code: 'TRANSACTION_DATA_UNSUPPORTED' } });
-		expect(answered).toEqual({ selections: [] });
+
+		it('refuses to the verifier an entry no presented credential can carry', async () => {
+			const { seen, sign } = await run([PAYMENT, ORPHAN]);
+			expect(seen.vp).toEqual({ vp_token: '', refusal: { code: 'UNSUPPORTED_TRANSACTION_DATA' } });
+			expect(sign).not.toHaveBeenCalled();
+		});
+
+		it('refuses a vp ask whose transaction data is not what the user approved', async () => {
+			const { seen, sign } = await run([PAYMENT], [ORPHAN]);
+			expect(seen.vp).toMatch(/differs from the request/);
+			expect(sign).not.toHaveBeenCalled();
+		});
+
+		it('refuses to the verifier when the signer cannot bind the entries', async () => {
+			const refusing = vi.fn(async () => { throw Object.assign(new Error('mdoc'), { code: 'UNSUPPORTED_TRANSACTION_DATA' }); });
+			const { seen } = await run([PAYMENT], undefined, refusing);
+			expect(seen.vp).toEqual({ vp_token: '', refusal: { code: 'UNSUPPORTED_TRANSACTION_DATA' } });
+		});
+
+		it('ends the presentation on an entry it cannot read, before the user selects anything', async () => {
+			let answered: unknown;
+			const { engine } = presentingEngine(async (p, c) => {
+				answered = await c.host.match!(matchAsk(p.flow_id, { transaction_data: ['not-json'] }));
+			});
+			const r = await transport(engine, storage).startOID4VPFlow({ requestUriRef: VP_REQUEST_URI, clientId: VP_CLIENT_ID });
+			expect(r).toMatchObject({ success: false, error: { code: 'TRANSACTION_DATA_INVALID' } });
+			expect(answered).toEqual({ selections: [] });
+		});
 	});
 
 	it('reports the engine refusal reason (e.g. an untrusted verifier)', async () => {
@@ -567,6 +745,65 @@ describe('OIDFlowWasmTransport: presentation', () => {
 		});
 		const r = await transport(engine, storage).startOID4VPFlow({ requestUriRef: VP_REQUEST_URI, clientId: VP_CLIENT_ID });
 		expect(r).toMatchObject({ success: false, error: { code: 'UNTRUSTED_VERIFIER', details: { verifier: VP_CLIENT_ID } } });
+	});
+
+	describe('Digital Credentials API', () => {
+		const ORIGIN = 'https://shop.example';
+		const DC_REQUEST = { nonce: 'n-1', dcql_query: { credentials: [{ id: 'pid', format: 'dc+sd-jwt' }] }, response_mode: 'dc_api' };
+
+		/** A DC API presentation: the engine completes with the given result after the vp ask. */
+		function dcEngine(complete: Record<string, unknown>) {
+			const built = presentingEngine(async (p, c, seen) => {
+				const match: any = await c.host.match!(matchAsk(p.flow_id));
+				seen.vp = await c.host.vp!(asMap({
+					flow_id: p.flow_id, audience: `origin:${ORIGIN}`, nonce: 'n-1', response_uri: '', origin: ORIGIN,
+					selections: [asMap({ credential_query_id: 'pid', credential_id: '42', disclosed_claims: ['age_over_18'] })],
+					transaction_data: [], selection_handle: match.handle,
+				}));
+				built.engine.notify('wmp.flow.complete', { flow_id: p.flow_id, result: complete });
+			});
+			return built;
+		}
+
+		it('starts on the DC API request with the origin, signs for the origin, and returns the engine\'s response', async () => {
+			const { engine } = dcEngine({ presented: true, dc_api_response: { vp_token: '{"pid":["kb"]}' } });
+			const t = transport(engine, storage);
+			const sign = vi.fn(async () => ({ vpToken: '{"pid":["kb"]}' }));
+			t.onSignRequest(sign);
+
+			const first = await t.startDCAPIPresentation({ request: DC_REQUEST, origin: ORIGIN });
+			expect(first).toMatchObject({ success: true, verifierInfo: { name: 'Shop' } });
+			expect(engine.calls.find((c) => c.method === 'wmp.flow.start')!.params.params).toEqual({ ...DC_REQUEST, origin: ORIGIN });
+
+			const second = await t.startOID4VPFlow({ selectedCredentials: SELECTED });
+			// The DCQL object, not its JSON text, goes back through the channel.
+			expect(second).toEqual({ success: true, dcApiResponse: { vp_token: { pid: ['kb'] } } });
+			expect(sign).toHaveBeenCalledWith(expect.objectContaining({
+				params: expect.objectContaining({ origin: ORIGIN, responseUri: undefined, audience: `origin:${ORIGIN}` }),
+			}));
+		});
+
+		it('passes an encrypted response and a refusal through as they are', async () => {
+			const encrypted = dcEngine({ presented: true, dc_api_response: { response: 'eyJhbGciOi.jwe' } });
+			const t1 = transport(encrypted.engine, storage);
+			t1.onSignRequest(async () => ({ vpToken: '{}' }));
+			await t1.startDCAPIPresentation({ request: DC_REQUEST, origin: ORIGIN });
+			expect(await t1.startOID4VPFlow({ selectedCredentials: SELECTED }))
+				.toEqual({ success: true, dcApiResponse: { response: 'eyJhbGciOi.jwe' } });
+
+			const refusal = { error: 'invalid_transaction_data', error_description: 'The wallet did not fulfil the request' };
+			const refused = dcEngine({ declined: true, dc_api_response: refusal });
+			const t2 = transport(refused.engine, storage);
+			t2.onSignRequest(async () => ({ vpToken: '{}' }));
+			await t2.startDCAPIPresentation({ request: DC_REQUEST, origin: ORIGIN });
+			expect(await t2.startOID4VPFlow({ selectedCredentials: SELECTED }))
+				.toMatchObject({ success: false, error: { code: 'PRESENTATION_DECLINED' }, dcApiResponse: refusal });
+		});
+
+		it('needs the caller\'s origin', async () => {
+			const r = await transport(fakeEngine({}), storage).startDCAPIPresentation({ request: DC_REQUEST, origin: '' });
+			expect(r).toMatchObject({ success: false, error: { code: 'INVALID_PARAMS' } });
+		});
 	});
 
 	it('refuses a selection when no presentation is waiting for one', async () => {
@@ -625,7 +862,16 @@ describe('wasmPorts', () => {
 		});
 		expect(evaluators.evaluateVerifierTrust).toHaveBeenLastCalledWith(expect.objectContaining({
 			clientIdScheme: { scheme: 'did', clientId: 'decentralized_identifier:did:web:v.example', identifier: 'did:web:v.example' },
-			keyMaterial: { type: 'kid', key: '' },
+			keyMaterial: { type: 'resolution', key: [] },
+		}));
+		// A Digital Credentials API origin: the wallet's own client_id parser.
+		await pdp.evaluate({
+			subject: 'https://shop.example', key_material: [], resource_type: 'credential-verifier',
+			context: { client_id_scheme: 'redirect_uri' },
+		});
+		expect(evaluators.evaluateVerifierTrust).toHaveBeenLastCalledWith(expect.objectContaining({
+			clientIdScheme: expect.objectContaining({ scheme: 'https', clientId: 'https://shop.example' }),
+			keyMaterial: { type: 'resolution', key: [] },
 		}));
 
 		await expect(pdp.evaluate({ subject: 'd', key_material: [], resource_type: 'did-document' }))
@@ -696,9 +942,16 @@ describe('wasmPorts', () => {
 });
 
 describe('WasmEngine', () => {
-	// The generated package is not in git; a build without it must still load,
-	// and the engine must say why it cannot start.
-	it('fails to start with a clear error when the engine package is not built', async () => {
-		await expect(createWasmEngine({} as WasmEngineConfig)).rejects.toThrow(/not part of this build/);
+	// The engine comes from the npm package: its JS module, and its .wasm as a
+	// bundled asset URL. Booting compiles the .wasm once per page.
+	it('boots the npm package once, with the bundled .wasm, and builds engines over the config', async () => {
+		const config = { host: {} } as unknown as WasmEngineConfig;
+		const first = await createWasmEngine(config);
+		const second = await createWasmEngine(config);
+
+		expect(enginePkg.init).toHaveBeenCalledTimes(1);
+		expect(enginePkg.init).toHaveBeenCalledWith({ module_or_path: '/assets/engine_adapter_wasm_bg.wasm' });
+		expect(enginePkg.created).toEqual([config, config]);
+		expect(first).not.toBe(second);
 	});
 });

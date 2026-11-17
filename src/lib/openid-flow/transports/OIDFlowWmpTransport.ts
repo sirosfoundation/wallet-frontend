@@ -43,9 +43,11 @@ import type { TrustEvaluators } from '../types';
 import { WmpClient, WmpRpcError } from '../wmp/WmpClient';
 import { logger } from '@/logger';
 import type { SignHandlerAction, SignHandlerRequest, SignRequest, SignRequestHandler, SignResponse } from './OIDFlowWebSocketTransport';
-/** How long one step of the flow may take before startOID4VCIFlow gives up. */
-const STEP_TIMEOUT_MS = 120_000;
-
+import { ENGINE_NO_MATCH_TIMEOUT_MS, ENGINE_STEP_TIMEOUT_MS } from '@/config';
+/** How long one step of the flow may take before startOID4VCIFlow gives up (ENGINE_STEP_TIMEOUT_IN_SECONDS). */
+const STEP_TIMEOUT_MS = ENGINE_STEP_TIMEOUT_MS ?? 120_000;
+/** How long reportNoMatchingCredentials waits for the engine to end the flow (ENGINE_NO_MATCH_TIMEOUT_IN_SECONDS). */
+const NO_MATCH_TIMEOUT_MS = ENGINE_NO_MATCH_TIMEOUT_MS ?? 10_000;
 /** WMP Core error code of a structured flow error. */
 const ERR_FLOW_ERROR = -31006;
 
@@ -95,8 +97,7 @@ interface VpFlow {
 	ended: boolean;
 }
 
-/** How long reportNoMatchingCredentials waits for the engine to end the flow. */
-const NO_MATCH_TIMEOUT_MS = 10_000;
+
 
 export class OIDFlowWmpTransport extends OIDFlowWebSocketTransport {
 	private readonly wmp: WmpClient;
@@ -961,7 +962,7 @@ export class OIDFlowWmpTransport extends OIDFlowWebSocketTransport {
 		};
 	}
 
-	private async callSignHandlers(request: SignRequest): Promise<SignResponse> {
+	private async callSignHandlers(request: SignHandlerRequest): Promise<SignResponse> {
 		if (this.wmpSignHandlers.size === 0) throw new Error('No sign handler available');
 		let lastError: Error | null = null;
 		for (const handler of Array.from(this.wmpSignHandlers)) {
