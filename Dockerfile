@@ -30,7 +30,7 @@ COPY . .
 RUN --mount=type=secret,id=wallet_frontend_envfile,dst=/home/node/app/.env,required=false NODE_OPTIONS=--max-old-space-size=2048 pnpm build
 
 
-FROM nginx:1.31.0-alpine3.23 AS deploy
+FROM nginx:1.31.2-alpine3.23 AS deploy
 
 # Alpine mirrors don't keep old versions of packages around for so long.
 # If pinned dependencies fail to install, check if they still exist.

@@ -5,7 +5,7 @@ import * as config from '../config';
 import { logger } from '../logger';
 import { fromBase64Url, jsonParseTaggedBinary, jsonStringifyTaggedBinary, toBase64Url, transformTaggedResponse } from '@/lib/utils';
 import { EncryptedContainer, makeAssertionPrfExtensionInputs, parsePrivateData, serializePrivateData } from '../services/keystore';
-import { CachedUser, LocalStorageKeystore } from '../services/LocalStorageKeystore';
+import { CachedUser, SESSION_USER_HANDLE_KEY, LocalStorageKeystore } from '../services/LocalStorageKeystore';
 import { UserId, Verifier } from './types';
 import { useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router';
@@ -49,6 +49,7 @@ type SignupWebauthnRetryParams = { beginData: any, credential: PublicKeyCredenti
 export type ClearSessionEvent = {};
 export const CLEAR_SESSION_EVENT = 'clearSession';
 export type ApiEventType = typeof CLEAR_SESSION_EVENT;
+export const SESSION_STATE_KEY = 'sessionState';
 const events: EventTarget = new EventTarget();
 
 
@@ -60,7 +61,7 @@ export interface BackendApi {
 
 	getSession(): SessionState,
 	isLoggedIn(): boolean,
-	clearSession(): void,
+	clearSession(): Promise<void>,
 
 	authTokens: AuthTokens,
 
@@ -133,9 +134,9 @@ export function useApi({
 	const isOnline = useMemo(() => isOnlineProp === null ? true : isOnlineProp, [isOnlineProp]);
 	const authServer = useAuthServerClient();
 	const tenantId = getTenantFromUrlPath() ?? 'default';
-	const [userHandle,] = useSessionStorage<string | null>("userHandle", null);
+	const [userHandle,] = useSessionStorage<string | null>(SESSION_USER_HANDLE_KEY, null);
 	const [cachedUsers] = useLocalStorage<CachedUser[] | null>("cachedUsers", null);
-	const [sessionState, setSessionState, clearSessionState] = useSessionStorage<SessionState | null>("sessionState", null);
+	const [sessionState, setSessionState, clearSessionState] = useSessionStorage<SessionState | null>(SESSION_STATE_KEY, null);
 
 	/**
 	 * Synchronization tag for the encrypted private data. To prevent data loss,
@@ -155,25 +156,29 @@ export function useApi({
 	}, []);
 
 	const authedRequest = useTokenRequest(authTokens, 'backend', getPrivateDataEtag);
-	const anonRequest   = useTokenRequest(authTokens, 'anonymous');
+	const anonRequest = useTokenRequest(authTokens, 'anonymous');
 
 	const navigate = useNavigate();
 	const clearSessionStorage = useClearStorages(clearSessionState);
 
 	// Define clearSession early so it can be used by token refresh config
-	const clearSession = useCallback((): void => {
-		authServer.logout(tenantId ?? 'default').catch((e) => logger.error('Failed to clear server session', e));
+	const clearSession = useCallback(async (): Promise<void> => {
+		events.dispatchEvent(new CustomEvent<ClearSessionEvent>(CLEAR_SESSION_EVENT));
+		try {
+			await authServer.logout(tenantId ?? 'default');
+		} catch (e) {
+			logger.error('Failed to clear server session', e);
+		}
 		clearSessionStorage();
 		authTokens.clear();
 		removePrivateDataEtag();
 		clearStoredTenant(); // Clear tenant on logout
 		clearOIDCState('registration'); // Clear OIDC gate tokens on logout
 		clearOIDCState('login');
-		events.dispatchEvent(new CustomEvent<ClearSessionEvent>(CLEAR_SESSION_EVENT));
 	}, [authServer, authTokens, clearSessionStorage, removePrivateDataEtag, tenantId]);
 
 	// Stable ref for clearSession to avoid stale closures in token refresh
-	const clearSessionRef = useRef<() => void>(clearSession);
+	const clearSessionRef = useRef<() => Promise<void>>(clearSession);
 
 	useEffect(() => {
 		clearSessionRef.current = clearSession;
@@ -536,6 +541,7 @@ export function useApi({
 					loginTenantId,
 					oidcIdToken,
 				);
+				await authTokens.forceRefreshBackendToken();
 				const privateDataResp = updatePrivateDataEtag(
 					await authedRequest.get('/user/session/private-data'),
 				);
@@ -616,7 +622,7 @@ export function useApi({
 			}
 			return err('passkeyLoginFailedServerError');
 		}
-	}, [authServer, authedRequest, updatePrivateDataEtag, updatePrivateData, setSession, isOnline]);
+	}, [authServer, authTokens, authedRequest, updatePrivateDataEtag, updatePrivateData, setSession, isOnline]);
 
 	const signupWebauthn = useCallback(async (
 		name: string,
@@ -683,6 +689,7 @@ export function useApi({
 							storedTenant,
 							oidcIdToken,
 						);
+						await authTokens.forceRefreshBackendToken();
 
 						// Seed the private-data etag after signup.
 						// We want to do this here to ensure the private-data etag is set
@@ -752,7 +759,7 @@ export function useApi({
 			if (errorMsg === 'invite_invalid') return err('inviteInvalid');
 			return err('passkeySignupFinishFailedServerError');
 		}
-	}, [authServer, authedRequest, setSession, updatePrivateDataEtag]);
+	}, [authServer, authTokens, authedRequest, setSession, updatePrivateDataEtag]);
 
 	const addEventListener = useCallback((type: ApiEventType, listener: EventListener, options?: boolean | AddEventListenerOptions): void => {
 		events.addEventListener(type, listener, options);

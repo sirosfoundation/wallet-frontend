@@ -134,19 +134,21 @@ async function resolveSdHash(rawCredential: string): Promise<string> {
  * A nested object means "descend into this group".
  */
 function claimPathsToFrame(claimPaths: string[]): Record<string, unknown> {
-	const frame: Record<string, unknown> = {};
+	// No prototype, so a `__proto__` segment can't reach Object.prototype.
+	const frame: Record<string, unknown> = Object.create(null);
 
 	for (const path of claimPaths) {
 		const segments = path.split('.');
 		let node: Record<string, unknown> = frame;
 
 		for (let i = 0; i < segments.length; i++) {
-			const isLeaf = i === segments.length - 1;
-			if (isLeaf) {
-				node[segments[i]] = true;
+			const key = segments[i];
+			if (i === segments.length - 1) {
+				// An existing group already discloses this claim.
+				if (typeof node[key] !== 'object') node[key] = true;
 			} else {
-				node[segments[i]] = node[segments[i]] || {};
-				node = node[segments[i]] as Record<string, unknown>;
+				if (typeof node[key] !== 'object') node[key] = Object.create(null);
+				node = node[key] as Record<string, unknown>;
 			}
 		}
 	}

@@ -154,7 +154,16 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 
 	const processCredentialOffer = async (url: URL) => {
 		const offer = await handleCredentialOffer(url);
-		logger.debug('Received credential offer:', offer);
+		// Selected status fields only: the result can carry decrypted credential metadata
+		// (a delivered seed) and the credentials themselves, which must never be logged.
+		logger.debug('Received credential offer:', {
+			success: offer.success,
+			credentialCount: offer.credentials?.length ?? 0,
+			authorizationRequired: Boolean(offer.authorizationUrl),
+			preAuthorized: Boolean(offer.preAuthorizedCode),
+			txCodeRequired: Boolean(offer.txCode),
+			errorCode: offer.error?.code,
+		});
 
 		cleanupUrl();
 
@@ -207,10 +216,19 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	const processAuthorizationCode = async (url: URL) => {
 		const code = url.searchParams.get('code');
 		const state = url.searchParams.get('state');
+		const issValues = url.searchParams.getAll('iss');
 
 		cleanupUrl();
 
-		const result = await handleAuthorizationResponse(code, state);
+		// RFC 9207: never pick one of several iss values, even identical ones.
+		if (issValues.length > 1) {
+			throw new OIDFlowError({
+				code: 'DUPLICATE_ISS',
+				message: 'Authorization response contains more than one iss parameter',
+			});
+		}
+
+		const result = await handleAuthorizationResponse(code, state, issValues[0]);
 
 		if (result.success && result.credentials?.length) {
 			await handleReceivedCredentials(
@@ -445,7 +463,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 		const sendResult = await sendAuthorizationResponse(
 			credSelectResult.selectedCredentials,
 		);
-		logger.debug('Authorization response sent:', sendResult);
+		logger.debug('Authorization response sent:', { success: sendResult.success });
 
 		const redirectUri = 'redirectUri' in sendResult
 			? sendResult.redirectUri
@@ -502,7 +520,7 @@ const OpenID4VPFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 				session,
 				credSelectResult.selectedCredentials
 			);
-			logger.debug('DC API response sent:', sendResult);
+			logger.debug('DC API response sent:', { success: sendResult.success });
 
 			if (sendResult.success) {
 				await displayCompletedScreen({

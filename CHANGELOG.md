@@ -1,5 +1,80 @@
 # wallet-frontend
 
+## 0.7.0
+
+### Minor Changes
+
+- Support multi-configuration OID4VCI issuance by [@smncd](https://github.com/smncd) in [#469](https://github.com/sirosfoundation/wallet-frontend/pull/469)
+- Tab lock (only allow one active tab per browser) by [@smncd](https://github.com/smncd) in [#437](https://github.com/sirosfoundation/wallet-frontend/pull/437)
+- Hold the OID4VCI response-encryption key and build the OID4VP direct_post.jwt response in the wallet, so the engine relays ciphertext only by [@leifj](https://github.com/leifj) in [#394](https://github.com/sirosfoundation/wallet-frontend/pull/394)
+- added a global error page for the website and updated the language files to include the text from the page by [@lov1saconde](https://github.com/lov1saconde) in [#315](https://github.com/sirosfoundation/wallet-frontend/pull/315)
+- Implement Wallet State Schema V4 by [@smncd](https://github.com/smncd) in [#398](https://github.com/sirosfoundation/wallet-frontend/pull/398)
+- Merge wallet-common package into wallet-frontend by [@smncd](https://github.com/smncd) in [#325](https://github.com/sirosfoundation/wallet-frontend/pull/325)
+- Integrate SIROS WSCD manager wasm. For now only in softkey mode by [@smncd](https://github.com/smncd) in [#290](https://github.com/sirosfoundation/wallet-frontend/pull/290)
+- Issue, verify and present W3C VCDM 2.0 credentials by [@jessevanmuijden](https://github.com/jessevanmuijden) in [#284](https://github.com/sirosfoundation/wallet-frontend/pull/284)
+- fixed the scroll after deleting a credential. by [@lov1saconde](https://github.com/lov1saconde) in [#375](https://github.com/sirosfoundation/wallet-frontend/pull/375)
+- implemented a Label Your Security Key Popup. by [@lov1saconde](https://github.com/lov1saconde) in [#411](https://github.com/sirosfoundation/wallet-frontend/pull/411)
+- Standalone `HttpClient` package by [@smncd](https://github.com/smncd) in [#337](https://github.com/sirosfoundation/wallet-frontend/pull/337)
+- added arm64 build of container images by [@Thomas-The-Locomotive](https://github.com/Thomas-The-Locomotive) in [#391](https://github.com/sirosfoundation/wallet-frontend/pull/391)
+- configuration option for the facetec-api URL by [@lov1saconde](https://github.com/lov1saconde) in [#380](https://github.com/sirosfoundation/wallet-frontend/pull/380)
+- Send OID4VCI `credential_accepted` notifications to the issuer after credentials are stored by [@leifj](https://github.com/leifj) in [#184](https://github.com/sirosfoundation/wallet-frontend/pull/184)
+
+### Patch Changes
+
+- converted AddCredential from JavaScript to TypeScript by [@lov1saconde](https://github.com/lov1saconde) in [#453](https://github.com/sirosfoundation/wallet-frontend/pull/453)
+- converted NotFound from javascript to typescript. by [@lov1saconde](https://github.com/lov1saconde) in [#459](https://github.com/sirosfoundation/wallet-frontend/pull/459)
+- split auth tokens into backend, anonymous and registry by [@smncd](https://github.com/smncd) in [#432](https://github.com/sirosfoundation/wallet-frontend/pull/432)
+- Fix a crash in SD-JWT selective disclosure when a verifier asks for both a claim and one of its children by [@smncd](https://github.com/smncd) in [#466](https://github.com/sirosfoundation/wallet-frontend/pull/466)
+- Await server logout before clearing authentication tokens to prevent a race during session cleanup. by [@copilot-swe-agent](https://github.com/apps/copilot-swe-agent) in [#451](https://github.com/sirosfoundation/wallet-frontend/pull/451)
+- Accept, store and return engine authorization context by [@smncd](https://github.com/smncd) in [#456](https://github.com/sirosfoundation/wallet-frontend/pull/456)
+- Move `Result`, `err()` and `ok()` into new `@sirosfoundation/result` package by [@smncd](https://github.com/smncd) in [#421](https://github.com/sirosfoundation/wallet-frontend/pull/421)
+- Converted the History Pages to TypeScript by [@lov1saconde](https://github.com/lov1saconde) in [#455](https://github.com/sirosfoundation/wallet-frontend/pull/455)
+- Force-refresh backend token on login/signup and clear all stored tokens on logout by [@smncd](https://github.com/smncd) in [#443](https://github.com/sirosfoundation/wallet-frontend/pull/443)
+- respect `isLoggedin` in OpenID flow transport token request by [@smncd](https://github.com/smncd) in [#452](https://github.com/sirosfoundation/wallet-frontend/pull/452)
+- Fix slow `/v1/resolve` API calls blocking the wallet UI from rendering by [@smncd](https://github.com/smncd) in [#376](https://github.com/sirosfoundation/wallet-frontend/pull/376)
+- Patch dependencies that called eval, since we don't allow that in our CSP by [@smncd](https://github.com/smncd) in [#348](https://github.com/sirosfoundation/wallet-frontend/pull/348)
+- Wait for the backend token before reporting the OID flow transport ready, so a credential offer opened on page load no longer fails with "No transport available" by [@jessevanmuijden](https://github.com/jessevanmuijden) in [#321](https://github.com/sirosfoundation/wallet-frontend/pull/321)
+- fixing the problem of the issuer list disappearing after a page timeout by [@lov1saconde](https://github.com/lov1saconde) in [#383](https://github.com/sirosfoundation/wallet-frontend/pull/383)
+- Avoid writing to IndexedDB if no user handle is present by [@smncd](https://github.com/smncd) in [#333](https://github.com/sirosfoundation/wallet-frontend/pull/333)
+- Allow WASM execution in CSP header by [@smncd](https://github.com/smncd) in [#336](https://github.com/sirosfoundation/wallet-frontend/pull/336)
+- use ` credentialIssuer?.credentialIssuerIdentifier` rather than `iss` as source for issuer metadata fetching by [@smncd](https://github.com/smncd) in [#418](https://github.com/sirosfoundation/wallet-frontend/pull/418)
+- Fix blank screen on a sync fail, handle the error and redirect to /login-state by [@smncd](https://github.com/smncd) in [#407](https://github.com/sirosfoundation/wallet-frontend/pull/407)
+- scope the anonymous token to `wallet-registry` rather than `wallet-backend` by [@leifj](https://github.com/leifj) in [#197](https://github.com/sirosfoundation/wallet-frontend/pull/197)
+- Render claim value as image if value is data uri by [@smncd](https://github.com/smncd) in [#372](https://github.com/sirosfoundation/wallet-frontend/pull/372)
+- Report a request the wallet cannot satisfy instead of abandoning the presentation. by [@leifj](https://github.com/leifj) in [#303](https://github.com/sirosfoundation/wallet-frontend/pull/303)
+- Render a portrait claim as an image in the credential detail view, matching the presentation UI by [@jessevanmuijden](https://github.com/jessevanmuijden) in [#414](https://github.com/sirosfoundation/wallet-frontend/pull/414)
+- Fix crash during issuing (auth code flow) due to the credential engine not being initialised by [@smncd](https://github.com/smncd) in [#396](https://github.com/sirosfoundation/wallet-frontend/pull/396)
+- Fix caching behaviour leaving users running old version of wallet, even when new ones are deployed by [@smncd](https://github.com/smncd) in [#351](https://github.com/sirosfoundation/wallet-frontend/pull/351)
+- Scan Physical ID sits above the search bar on Add Credentials, as its own section rather than inside the credential list by [@jessevanmuijden](https://github.com/jessevanmuijden) in [#415](https://github.com/sirosfoundation/wallet-frontend/pull/415)
+- made /login and /signup into separate components and created and AuthLayout that can be used by both pages by [@lov1saconde](https://github.com/lov1saconde) in [#367](https://github.com/sirosfoundation/wallet-frontend/pull/367)
+- Set tailwind source by [@smncd](https://github.com/smncd) in [#377](https://github.com/sirosfoundation/wallet-frontend/pull/377)
+- Remove unused `verifyRequestUriAndCerts()` function by [@smncd](https://github.com/smncd) in [#364](https://github.com/sirosfoundation/wallet-frontend/pull/364)
+- Convert the CBOR decoded value into a plain JSON-compatible structure during mDoc parsing by [@smncd](https://github.com/smncd) in [#343](https://github.com/sirosfoundation/wallet-frontend/pull/343)
+- Updated dependencies [[`c88d039`](https://github.com/sirosfoundation/wallet-frontend/commit/c88d0391dedf0e2de1c0e90643c15e079e644928), [`bd6d5b8`](https://github.com/sirosfoundation/wallet-frontend/commit/bd6d5b871742f0b91c8e47e9c3fd32b8798fd460), [`6fa70bc`](https://github.com/sirosfoundation/wallet-frontend/commit/6fa70bc6f0ae0a518e44868539c881fcccc1840a), [`d5592cd`](https://github.com/sirosfoundation/wallet-frontend/commit/d5592cdaae055e9569fb0fe8fbc9517c8566ad39), [`85e1d4d`](https://github.com/sirosfoundation/wallet-frontend/commit/85e1d4d9b55612f40cc40066eb72ec6a28903807), [`39b2bd2`](https://github.com/sirosfoundation/wallet-frontend/commit/39b2bd24b08702353c7149d812c613e0a8e0df65)]:
+  - @sirosfoundation/result@0.1.0
+  - wallet-common@0.1.0
+  - @sirosfoundation/http-client@0.1.0
+
+## 0.7.0-beta.5
+
+### Minor Changes
+
+- Implement Wallet State Schema V4 by [@smncd](https://github.com/smncd) in [#398](https://github.com/sirosfoundation/wallet-frontend/pull/398)
+- implemented a Label Your Security Key Popup. by [@lov1saconde](https://github.com/lov1saconde) in [#411](https://github.com/sirosfoundation/wallet-frontend/pull/411)
+- added arm64 build of container images by [@Thomas-The-Locomotive](https://github.com/Thomas-The-Locomotive) in [#391](https://github.com/sirosfoundation/wallet-frontend/pull/391)
+- Send OID4VCI `credential_accepted` notifications to the issuer after credentials are stored by [@leifj](https://github.com/leifj) in [#184](https://github.com/sirosfoundation/wallet-frontend/pull/184)
+
+### Patch Changes
+
+- use ` credentialIssuer?.credentialIssuerIdentifier` rather than `iss` as source for issuer metadata fetching by [@smncd](https://github.com/smncd) in [#418](https://github.com/sirosfoundation/wallet-frontend/pull/418)
+- Fix blank screen on a sync fail, handle the error and redirect to /login-state by [@smncd](https://github.com/smncd) in [#407](https://github.com/sirosfoundation/wallet-frontend/pull/407)
+- scope the anonymous token to `wallet-registry` rather than `wallet-backend` by [@leifj](https://github.com/leifj) in [#197](https://github.com/sirosfoundation/wallet-frontend/pull/197)
+- Report a request the wallet cannot satisfy instead of abandoning the presentation. by [@leifj](https://github.com/leifj) in [#303](https://github.com/sirosfoundation/wallet-frontend/pull/303)
+- Render a portrait claim as an image in the credential detail view, matching the presentation UI by [@jessevanmuijden](https://github.com/jessevanmuijden) in [#414](https://github.com/sirosfoundation/wallet-frontend/pull/414)
+- Scan Physical ID sits above the search bar on Add Credentials, as its own section rather than inside the credential list by [@jessevanmuijden](https://github.com/jessevanmuijden) in [#415](https://github.com/sirosfoundation/wallet-frontend/pull/415)
+- Updated dependencies [[`6fa70bc`](https://github.com/sirosfoundation/wallet-frontend/commit/6fa70bc6f0ae0a518e44868539c881fcccc1840a)]:
+  - wallet-common@0.1.0-beta.2
+
 ## 0.7.0-beta.4
 
 ### Patch Changes

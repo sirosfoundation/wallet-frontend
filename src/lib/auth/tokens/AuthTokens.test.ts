@@ -87,13 +87,29 @@ describe('AuthTokens', () => {
 			expect(token.aud).toBe('wallet-backend');
 		});
 
-		it('requests an anonymous token for wallet-registry with anonymous=true and tac=rl', async () => {
+		it('requests an anonymous token for wallet-backend', async () => {
+			client.requestAccessToken.mockResolvedValue(
+				tokenResponse(makeJwt({ aud: 'wallet-backend', tac: 'rl' })),
+			);
+			const auth = makeAuthTokens();
+
+			await auth.ensureAnonymousToken();
+
+			expect(client.requestAccessToken).toHaveBeenCalledWith(
+				'wallet-backend',
+				'default',
+				'rl',
+				true,
+			);
+		});
+
+		it('requests a registry token for wallet-registry with anonymous=true and tac=rl', async () => {
 			client.requestAccessToken.mockResolvedValue(
 				tokenResponse(makeJwt({ aud: 'wallet-registry', tac: 'rl' })),
 			);
 			const auth = makeAuthTokens();
 
-			await auth.ensureAnonymousToken();
+			await auth.ensureRegistryToken();
 
 			expect(client.requestAccessToken).toHaveBeenCalledWith(
 				'wallet-registry',
@@ -219,6 +235,18 @@ describe('AuthTokens', () => {
 
 			expect(storage.getItem(`${STORAGE_PREFIX}:backend`)).toBeNull();
 			expect(auth.backendTokenExists()).toBe(false);
+		});
+
+		it('removes all stored tokens but keeps unrelated keys', async () => {
+			storage.setItem(`${STORAGE_PREFIX}:backend`, makeJwt());
+			storage.setItem(`${STORAGE_PREFIX}:legacy`, makeJwt());
+			storage.setItem('unrelated', 'keep');
+
+			await makeAuthTokens().clear();
+
+			expect(storage.getItem(`${STORAGE_PREFIX}:backend`)).toBeNull();
+			expect(storage.getItem(`${STORAGE_PREFIX}:legacy`)).toBeNull();
+			expect(storage.getItem('unrelated')).toBe('keep');
 		});
 	});
 

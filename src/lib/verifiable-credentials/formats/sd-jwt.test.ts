@@ -102,6 +102,25 @@ describe('applySelectiveDisclosure', () => {
 			expect.any(Function),
 		);
 	});
+
+	it('merges a claim with its child when the parent comes first', async () => {
+		const frame = await presentedFrame(['address', 'address.country']);
+
+		expect(frame).toEqual({ address: { country: true } });
+	});
+
+	it('merges a claim with its child when the child comes first', async () => {
+		const frame = await presentedFrame(['address.country', 'address']);
+
+		expect(frame).toEqual({ address: { country: true } });
+	});
+
+	it('does not pollute Object.prototype through a __proto__ segment', async () => {
+		const frame = await presentedFrame(['__proto__.polluted']);
+
+		expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+		expect(Object.keys(frame)).toEqual(['__proto__']);
+	});
 });
 
 function buildSdJwt(): string {
@@ -109,4 +128,16 @@ function buildSdJwt(): string {
 		new TextEncoder().encode(JSON.stringify({ alg: 'ES256', x5c: ['MIIBfakeCert'] })),
 	);
 	return `${header}.eyJzdWIiOiJ0ZXN0In0.signature`;
+}
+
+/**
+ * Runs applySelectiveDisclosure and returns the frame it passed to present().
+ */
+async function presentedFrame(claims: string[]): Promise<Record<string, unknown>> {
+	const present = vi.fn().mockResolvedValue('presented-sd-jwt');
+	mockFromEncode.mockResolvedValue({ present });
+
+	await applySelectiveDisclosure('header.payload.sig~disclosure1~', claims);
+
+	return present.mock.calls[0][0];
 }
