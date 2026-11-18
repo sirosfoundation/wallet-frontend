@@ -27,7 +27,7 @@
  */
 
 import { HttpClient } from '../interfaces';
-import { Result, ok, err } from '../core/Result';
+import { Result, ok, err } from '@sirosfoundation/result';
 import {
 	AuthZENEvaluationRequest,
 	AuthZENEvaluationResponse,

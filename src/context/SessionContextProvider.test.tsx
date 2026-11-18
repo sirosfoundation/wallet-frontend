@@ -57,6 +57,7 @@ vi.mock('../api', () => ({ useApi: () => apiStub }));
 vi.mock('../services/LocalStorageKeystore', () => ({
 	useLocalStorageKeystore: () => keystoreStub,
 	KeystoreEvent: { CloseSessionTabLocal: 'CloseSessionTabLocal' },
+	SESSION_TAB_ID_KEY: 'tabId',
 }));
 vi.mock('../services/keystoreEvents', () => ({
 	default: { addEventListener: vi.fn(), removeEventListener: vi.fn() },

@@ -99,4 +99,33 @@ describe('AddCredentials scan-physical-id entry point', () => {
 		const widget = document.querySelector('[data-widget="scan-physical-id"]');
 		expect(widget).toHaveClass('hidden');
 	});
+
+	// wallet-frontend#307: the entry point is the page's own, not one of the
+	// issuers' credential configurations, so it sits above the search bar and
+	// both lists instead of between Recent and All.
+	it('renders the section above the search bar', () => {
+		window.nativeWrapper = { startScanPhysicalId: vi.fn() };
+		render(<AddCredentials />);
+
+		const widget = document.querySelector('[data-widget="scan-physical-id"]');
+		const search = screen.getByPlaceholderText('Search credential...');
+
+		const widgetIsFirst =
+			widget.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING;
+		expect(Boolean(widgetIsFirst)).toBe(true);
+	});
+
+	it('keeps the section visible while a search query is active', () => {
+		// It used to be passed into QueryableList, which hid it on any query.
+		// Above the search bar it is not part of what the query filters.
+		window.nativeWrapper = { startScanPhysicalId: vi.fn() };
+		render(<AddCredentials />);
+
+		fireEvent.change(screen.getByPlaceholderText('Search credential...'), {
+			target: { value: 'passport' },
+		});
+
+		expect(document.querySelector('[data-widget="scan-physical-id"]')).not.toHaveClass('hidden');
+		expect(screen.getByText('Digital ID (scanned passport)')).toBeInTheDocument();
+	});
 });

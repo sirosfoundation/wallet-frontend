@@ -10,6 +10,7 @@ import type { DcqlQuery } from 'dcql';
 const mocks = vi.hoisted(() => ({
 	matchCredentials: vi.fn(),
 	reportNoMatchingCredentials: vi.fn(),
+	releaseFlow: vi.fn(),
 	transport: { transportType: 'websocket' as string },
 }));
 
@@ -20,7 +21,7 @@ vi.mock('@/lib/services/CredentialMatchingService', () => ({
 vi.mock('@/context/OIDFlowTransportContext', () => ({
 	useOIDFlowTransportSafe: () => ({
 		transportType: mocks.transport.transportType,
-		transport: { reportNoMatchingCredentials: mocks.reportNoMatchingCredentials },
+		transport: { reportNoMatchingCredentials: mocks.reportNoMatchingCredentials, releaseFlow: mocks.releaseFlow },
 		trustEvaluators: { evaluateVerifierTrust: async () => ({ trusted: true, name: 'Test Verifier' }) },
 	}),
 }));
@@ -63,11 +64,11 @@ const engineNoMatch = {
 
 function renderFlow() {
 	const onError = vi.fn<(error: Error, actions?: OID4VPErrorActions) => void>();
-	const { result } = renderHook(() => useOID4VPFlow({
+	const { result, unmount } = renderHook(() => useOID4VPFlow({
 		onError,
 		onCredentialSelection: vi.fn().mockResolvedValue(new Map()),
 	}));
-	return { result, onError };
+	return { result, onError, unmount };
 }
 
 /**
@@ -194,5 +195,39 @@ describe('useOID4VPFlow / no matching credentials', () => {
 		expect(flowResult.success).toBe(true);
 		expect(onError).not.toHaveBeenCalled();
 		expect(mocks.reportNoMatchingCredentials).not.toHaveBeenCalled();
+	});
+});
+
+describe('useOID4VPFlow / cancelling releases the flow', () => {
+	beforeEach(() => {
+		mocks.transport.transportType = 'websocket';
+		mocks.matchCredentials.mockReset();
+		mocks.releaseFlow.mockReset();
+	});
+
+	it('releases the flow when the user cancels the selection', async () => {
+		mocks.matchCredentials.mockReturnValue({
+			matches: [{ input_descriptor_id: 'pid', credential_id: '1', format: 'dc+sd-jwt' }],
+		});
+		const { result } = renderHook(() => useOID4VPFlow({
+			onCredentialSelection: vi.fn().mockRejectedValue(new OIDFlowError({ code: 'USER_CANCELLED', message: 'User cancelled' })),
+		}));
+
+		let flowResult: OID4VPFlowResult | undefined;
+		await act(async () => {
+			flowResult = await result.current.handleCredentialSelection(verifierInfo, dcqlQuery);
+		});
+
+		expect(flowResult!.error?.code).toBe('USER_CANCELLED');
+		expect(mocks.releaseFlow).toHaveBeenCalledTimes(1);
+	});
+
+	it('releases the flow on unmount', () => {
+		const { unmount } = renderFlow();
+		expect(mocks.releaseFlow).not.toHaveBeenCalled();
+
+		unmount();
+
+		expect(mocks.releaseFlow).toHaveBeenCalledTimes(1);
 	});
 });

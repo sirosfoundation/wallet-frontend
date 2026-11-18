@@ -68,6 +68,12 @@ export interface OID4VCIFlowParams {
 	/** PKCE code verifier */
 	codeVerifier?: string;
 
+	/** RFC 9207 `iss` from the authorization response, exactly as received */
+	authorizationResponseIssuer?: string;
+
+	/** Opaque backend-signed context saved before the redirect */
+	authorizationContext?: string;
+
 	// ===== Resumption context (for same-tab redirect flow) =====
 
 	/** Issuer identifier for resumption */
@@ -138,6 +144,9 @@ export interface OID4VCIFlowResult {
 	/** Issuer state (for authorization flow) */
 	issuerState?: string;
 
+	/** Opaque backend-signed context, required to resume after a same-tab redirect */
+	authorizationContext?: string;
+
 	// ===== Pre-authorized flow =====
 
 	/** Pre-authorized code */
@@ -162,6 +171,14 @@ export interface OID4VCIFlowResult {
 		/** OID4VCI §11 notification identifier for lifecycle events */
 		notification_id?: string;
 	}>;
+
+	/**
+	 * The response-level `credential_metadata` of the issuer's Credential Response.
+	 * For an encrypted response it is the object this wallet decrypted (the engine
+	 * never sees it) and may carry a delivered secret, so it is never logged. For a
+	 * plain response it is limited to the display-only `display` and `claims`.
+	 */
+	credentialMetadata?: Record<string, unknown>;
 
 	/** Flow ID from the backend (needed for credential notification) */
 	flowId?: string;

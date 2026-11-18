@@ -1,5 +1,11 @@
 # wallet-common
 
+## 0.1.0-beta.2
+
+### Patch Changes
+
+- use ` credentialIssuer?.credentialIssuerIdentifier` rather than `iss` as source for issuer metadata fetching by [@smncd](https://github.com/smncd) in [#418](https://github.com/sirosfoundation/wallet-frontend/pull/418)
+
 ## 0.1.0-beta.1
 
 ### Patch Changes
