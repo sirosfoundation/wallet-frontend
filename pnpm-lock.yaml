@@ -58,8 +58,8 @@ importers:
         specifier: ^3.0.10
         version: 3.0.10
       axios:
-        specifier: ^1.20.0
-        version: 1.20.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
+        specifier: ^1.21.1
+        version: 1.21.1(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
       cbor-x:
         specifier: 1.6.4
         version: 1.6.4(patch_hash=5dd1073cc30388a0a34fca92d7f5da906a96613928a9f7c06340303fea8838e5)
@@ -275,8 +275,8 @@ importers:
         specifier: 1.0.0
         version: 1.0.0
       axios:
-        specifier: ^1.20.0
-        version: 1.20.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
+        specifier: ^1.21.1
+        version: 1.21.1(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
     devDependencies:
       typescript:
         specifier: ^5.9.3
@@ -318,8 +318,8 @@ importers:
         specifier: ^3.0.10
         version: 3.0.10
       axios:
-        specifier: ^1.20.0
-        version: 1.20.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
+        specifier: ^1.21.1
+        version: 1.21.1(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
       buffer:
         specifier: ^6.0.3
         version: 6.0.3
@@ -2570,8 +2570,8 @@ packages:
     resolution: {integrity: sha512-UzGt8zg7Ny8djbYMhxl2zuEevVa7r2gJjYY5Lwr1xM7+XU2nd6CkIWFTVcCIbAP63vSz71NaVyyuSk9lHKcy0A==}
     engines: {node: '>=4'}
 
-  axios@1.20.0:
-    resolution: {integrity: sha512-r8aOh8j9cGKpgQAqpzrUHnSIc6a59Y3Xf/cv8sy1DrHCkZHzQGEuoq1tARk6qSyDdtQGSDgpb9kFlruzPvrgwg==}
+  axios@1.21.1:
+    resolution: {integrity: sha512-6eI5Q/Y4u/Um9dDlsRoq5pY2rxnUTv+L4PpLitnbk/i4jb3MxLZ5CsN5Ih3IysbeRYK4pR+P7qfMsOQl9fwwFQ==}
 
   axobject-query@4.1.0:
     resolution: {integrity: sha512-qIj0G9wZbMGNLjLmg1PT6v2mE9AH2zlnADJD/2tC6E00hgmhUOfEB6greHPAfLRSufHqROIUTkw6E+M3lH0PTQ==}
@@ -3253,8 +3253,8 @@ packages:
   focus-outline-manager@1.0.2:
     resolution: {integrity: sha512-bHWEmjLsTjGP9gVs7P3Hyl+oY5NlMW8aTSPdTJ+X2GKt6glDctt9fUCLbRV+d/l8NDC40+FxMjp9WlTQXaQALw==}
 
-  follow-redirects@1.16.0:
-    resolution: {integrity: sha512-y5rN/uOsadFT/JfYwhxRS5R7Qce+g3zG97+JrtFZlC9klX/W5hD7iiLzScI4nZqUS7DNUdhPgw4xI8W2LuXlUw==}
+  follow-redirects@1.16.3:
+    resolution: {integrity: sha512-toOSoqN6d51Wjf1aOFJYcoVv1aND9rj/CwjLU0Vz40oDuSpWDayCeKe4JpL5NL0WdFvoOOCI3BRo69HahjbR1A==}
     engines: {node: '>=4.0'}
     peerDependencies:
       debug: '*'
@@ -7331,7 +7331,7 @@ snapshots:
       obug: 3.0.0
       std-env: 4.3.0
       tinyrainbow: 3.2.0
-      vitest: 5.1.0(@types/node@22.20.4)(@vitest/coverage-v8@5.1.0)(happy-dom@21.0.4)(jsdom@28.1.0(@noble/hashes@1.8.0)(supports-color@10.2.2))(vite@6.4.5(@types/node@22.20.4)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.39.0)(yaml@2.9.1))
+      vitest: 5.1.0(@types/node@20.19.43)(@vitest/coverage-v8@5.1.0)(happy-dom@21.0.4)(jsdom@28.1.0(@noble/hashes@1.8.0)(supports-color@10.2.2))(vite@6.4.5(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.39.0)(yaml@2.9.1))
 
   '@vitest/istanbul-lib-coverage@2.1.0': {}
 
@@ -7526,9 +7526,9 @@ snapshots:
 
   axe-core@4.13.0: {}
 
-  axios@1.20.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2):
+  axios@1.21.1(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2):
     dependencies:
-      follow-redirects: 1.16.0(debug@4.4.3(supports-color@10.2.2))
+      follow-redirects: 1.16.3(debug@4.4.3(supports-color@10.2.2))
       form-data: 4.0.6
       https-proxy-agent: 5.0.1(supports-color@10.2.2)
       proxy-from-env: 2.1.0
@@ -8415,7 +8415,7 @@ snapshots:
 
   focus-outline-manager@1.0.2: {}
 
-  follow-redirects@1.16.0(debug@4.4.3(supports-color@10.2.2)):
+  follow-redirects@1.16.3(debug@4.4.3(supports-color@10.2.2)):
     optionalDependencies:
       debug: 4.4.3(supports-color@10.2.2)
 

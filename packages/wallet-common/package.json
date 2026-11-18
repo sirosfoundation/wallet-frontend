@@ -29,7 +29,7 @@
 		"@sirosfoundation/http-client": "workspace:*",
 		"@sirosfoundation/result": "workspace:*",
 		"asn1js": "^3.0.10",
-		"axios": "^1.20.0",
+		"axios": "^1.21.1",
 		"buffer": "^6.0.3",
 		"cose-kit": "^1.7.1",
 		"dcql": "^3.0.1",
