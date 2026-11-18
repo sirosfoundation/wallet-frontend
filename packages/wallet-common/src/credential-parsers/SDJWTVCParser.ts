@@ -9,6 +9,7 @@ import { getSdJwtVcMetadata } from "../utils/getSdJwtVcMetadata";
 import { CustomCredentialSvg } from "../functions/CustomCredentialSvg";
 import { z } from 'zod';
 import { getIssuerMetadata } from "../utils/getIssuerMetadata";
+import { extractStatusListReference } from "../utils/statusListReference";
 import { TypeMetadata as TypeMetadataSchema } from "../schemas/SdJwtVcTypeMetadataSchema";
 import { convertOpenid4vciToSdjwtvcClaims } from "../functions/convertOpenid4vciToSdjwtvcClaims";
 import { dataUriResolver } from "../resolvers/dataUriResolver";
@@ -222,6 +223,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient, 
 					validityInfo: {
 						...extractValidityInfo(validatedParsedClaims)
 					},
+					statusReference: extractStatusListReference(validatedParsedClaims.status),
 					warnings: getSdJwtMetadataResult.warnings
 				}
 			}

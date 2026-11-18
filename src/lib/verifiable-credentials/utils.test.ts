@@ -4,7 +4,7 @@ import { COSEKeyToJWK } from 'cose-kit';
 import { cborEncode, DataItem } from '@auth0/mdl/lib/cbor';
 import { VerifiableCredentialFormat } from 'wallet-common';
 import { fromBase64Url, toBase64Url } from '@/lib/utils';
-import { deriveHolderKidFromCredential } from './utils';
+import { deriveHolderKidFromCredential, getTokenStatusListEntity } from './utils';
 
 describe('deriveHolderKidFromCredential', () => {
 	describe('JWT-based formats', () => {
@@ -95,10 +95,56 @@ describe('deriveHolderKidFromCredential', () => {
 	});
 });
 
-function buildJwtCredential(payloadObj: Record<string, unknown>): string {
+describe('getTokenStatusListEntity', () => {
+	const status = { status_list: { uri: 'https://issuer.example/lists/1', idx: 7 } };
+	const expected = { uri: 'https://issuer.example/lists/1', idx: 7, iat: 1_700_000_000 };
+
+	it('reads status and iat from the issuer JWT of an SD-JWT', () => {
+		const credential = `${buildJwtCredential({ status, iat: 1_700_000_000 })}~disclosure~`;
+
+		expect(getTokenStatusListEntity(credential, VerifiableCredentialFormat.DC_SDJWT)).toEqual(expected);
+	});
+
+	it('reads a plain JWT credential, also when the format is unknown', () => {
+		const credential = buildJwtCredential({ status, iat: 1_700_000_000 });
+
+		expect(getTokenStatusListEntity(credential, VerifiableCredentialFormat.JWT_VC_JSON)).toEqual(expected);
+		expect(getTokenStatusListEntity(credential, '')).toEqual(expected);
+	});
+
+	it('reads an enveloped VCDM 2.0 credential', () => {
+		const credential = buildJwtCredential({ status, iat: 1_700_000_000 }, 'vc+jwt');
+
+		expect(getTokenStatusListEntity(credential, VerifiableCredentialFormat.VCDM2_JOSE)).toEqual(expected);
+	});
+
+	it('floors a fractional iat and leaves a missing one undefined', () => {
+		const fractional = buildJwtCredential({ status, iat: 1_700_000_000.9 });
+		const missing = buildJwtCredential({ status });
+
+		expect(getTokenStatusListEntity(fractional, VerifiableCredentialFormat.DC_SDJWT)?.iat).toBe(1_700_000_000);
+		expect(getTokenStatusListEntity(missing, VerifiableCredentialFormat.DC_SDJWT)?.iat).toBeUndefined();
+	});
+
+	it('returns undefined without a status list reference', () => {
+		const credential = buildJwtCredential({ iat: 1_700_000_000 });
+
+		expect(getTokenStatusListEntity(credential, VerifiableCredentialFormat.DC_SDJWT)).toBeUndefined();
+	});
+
+	it('returns undefined for ldp_vc and for data it cannot decode', () => {
+		const credential = buildJwtCredential({ status });
+
+		expect(getTokenStatusListEntity(credential, VerifiableCredentialFormat.LDP_VC)).toBeUndefined();
+		expect(getTokenStatusListEntity('not-a-credential', VerifiableCredentialFormat.DC_SDJWT)).toBeUndefined();
+		expect(getTokenStatusListEntity('not-a-credential', VerifiableCredentialFormat.MSO_MDOC)).toBeUndefined();
+	});
+});
+
+function buildJwtCredential(payloadObj: Record<string, unknown>, typ = 'JWT'): string {
 	const enc = (obj: unknown) =>
 		toBase64Url(new TextEncoder().encode(JSON.stringify(obj)));
-	return `${enc({ alg: 'ES256', typ: 'JWT' })}.${enc(payloadObj)}.signature`;
+	return `${enc({ alg: 'ES256', typ })}.${enc(payloadObj)}.signature`;
 }
 
 async function generateEcKeyMaterial(): Promise<{

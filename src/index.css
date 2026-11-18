@@ -29,9 +29,11 @@
 	--color-dm-red-dark-hover: hsl(3 100% 48%);
 
 	--color-lm-orange: hsl(35 100% 50%);
+	--color-lm-orange-light: hsl(35 100% 95%);
 	--color-lm-orange-bg: hsl(35 100% 50%);
 
 	--color-dm-orange: hsl(36 100% 52%);
+	--color-dm-orange-light: hsl(36 100% 60%);
 	--color-dm-orange-bg: hsl(36 100% 52%);
 
 	--color-lm-yellow: hsl(48 100% 50%);

@@ -14,6 +14,7 @@ import { ExtendedVcEntity } from '@/context/CredentialsContext';
 import { DcqlQuery, DcqlCredential, DcqlQueryResult } from 'dcql';
 import { logger } from '@/logger';
 import { isVcdm2Credential, toTypeArray } from 'wallet-common';
+import { TokenStatus } from '@sirosfoundation/token-status-list';
 import {
 	decodeStoredMdoc,
 	mdocNameSpacesToClaims,
@@ -31,15 +32,42 @@ export interface CredentialMatch {
 export interface CredentialsMatchedResult {
 	matches: CredentialMatch[];
 	no_match_reason?: string;
-	code?: 'NO_MATCHING_CREDENTIALS' | 'INSUFFICIENT_CREDENTIALS';
+	code?:
+		| 'NO_MATCHING_CREDENTIALS'
+		| 'INSUFFICIENT_CREDENTIALS'
+		| 'CREDENTIAL_EXPIRED'
+		| 'CREDENTIAL_REVOKED_OR_SUSPENDED';
 	/** Types requested by query entries that nothing in the wallet satisfied. */
 	missing_types?: string[];
 }
 
 /**
  * Match local credentials against a DCQL query using the dcql library.
+ * Expired, revoked and suspended credentials are never offered for presentation.
  */
 export function matchCredentials(
+	credentials: ExtendedVcEntity[],
+	dcqlQuery: DcqlQuery.Input
+): CredentialsMatchedResult {
+	const notRevoked = credentials.filter((credential) => !TokenStatus.isBlocked(credential.status));
+	const usable = notRevoked.filter((credential) => !credential.isExpired);
+	const result = runMatch(usable, dcqlQuery);
+	if (result.matches.length > 0 || usable.length === credentials.length) {
+		return result;
+	}
+
+	// Say why when only unusable credentials would have satisfied the request.
+	if (notRevoked.length > usable.length && runMatch(notRevoked, dcqlQuery).matches.length > 0) {
+		return { matches: [], code: 'CREDENTIAL_EXPIRED', no_match_reason: 'Only expired credentials match the request' };
+	}
+	if (credentials.length > notRevoked.length && runMatch(credentials, dcqlQuery).matches.length > 0) {
+		return { matches: [], code: 'CREDENTIAL_REVOKED_OR_SUSPENDED', no_match_reason: 'Only revoked or suspended credentials match the request' };
+	}
+
+	return result;
+}
+
+function runMatch(
 	credentials: ExtendedVcEntity[],
 	dcqlQuery: DcqlQuery.Input
 ): CredentialsMatchedResult {

@@ -1,5 +1,6 @@
 // src/indexedDB.ts
 import localforage from 'localforage';
+import type { CachedTokenStatusList, ITokenStatusListStorage } from '@sirosfoundation/token-status-list';
 import { getTenantScopedBasePath } from './lib/tenant';
 import { logger } from './logger';
 // import { UserId } from './api/types';
@@ -25,6 +26,10 @@ const stores = {
 	requestCache: localforage.createInstance({
 		name: 'AppDataSource',
 		storeName: 'requestCache',
+	}),
+	tokenStatusLists: localforage.createInstance({
+		name: 'AppDataSource',
+		storeName: 'tokenStatusLists',
 	}),
 };
 
@@ -228,4 +233,24 @@ export async function removeItem(storeName: string, key: any, forceMappedStoreNa
 	} catch (err) {
 		logger.error('Error removing item', err);
 	}
+}
+
+export const tokenStatusListStorage: ITokenStatusListStorage = {
+	get: async (uri) =>
+		(await stores.tokenStatusLists.getItem<CachedTokenStatusList>(uri)) ?? undefined,
+	set: async (uri, list) => {
+		await stores.tokenStatusLists.setItem(uri, list);
+	},
+	delete: (uri) => stores.tokenStatusLists.removeItem(uri),
+	async getAll() {
+		const lists: CachedTokenStatusList[] = [];
+		await stores.tokenStatusLists.iterate<CachedTokenStatusList, void>((list) => {
+			lists.push(list);
+		});
+		return lists;
+	},
+};
+
+export async function clearTokenStatusLists(): Promise<void> {
+	await stores.tokenStatusLists.clear();
 }
