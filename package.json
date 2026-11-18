@@ -11,7 +11,7 @@
     "@hpke/core": "^1.9.0",
     "@hpke/dhkem-x25519": "^1.8.0",
     "@owf/mdoc": "^0.8.1",
-    "@sd-jwt/core": "^0.10.0",
+    "@sd-jwt/core": "^0.25.0",
     "@sirosfoundation/browser-log": "1.0.0",
     "@sirosfoundation/http-client": "workspace:*",
     "@sirosfoundation/result": "workspace:*",

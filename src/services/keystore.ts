@@ -9,7 +9,7 @@ import * as didUtil from "@cef-ebsi/key-did-resolver/dist/util.js";
 import * as config from '../config';
 import type { DidKeyVersion } from '../config';
 import { byteArrayEquals, filterObject, jsonParseTaggedBinary, jsonStringifyTaggedBinary, toBase64Url } from '@/lib/utils';
-import { SDJwt } from "@sd-jwt/core";
+import { SdJwt } from "@sd-jwt/core";
 import { cborEncode, cborDecode, DataItem, getCborEncodeDecodeOptions, setCborEncodeDecodeOptions } from "@auth0/mdl/lib/cbor";
 import { DeviceResponse, MDoc } from "@auth0/mdl";
 import { SupportedAlgs } from "@auth0/mdl/lib/mdoc/model/types";
@@ -1040,7 +1040,7 @@ export async function signJwtPresentation([privateData, mainKey, calculatedState
 		return new Uint8Array(digest);
 	}
 
-	const inputJwt = await SDJwt.fromEncode(verifiableCredentials[0], hasher);
+	const inputJwt = await SdJwt.fromEncode(verifiableCredentials[0], hasher);
 	const { cnf } = inputJwt.jwt.payload as { cnf?: { jwk?: JWK } };
 
 	if (!cnf?.jwk) {
