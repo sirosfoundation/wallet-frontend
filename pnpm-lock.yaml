@@ -303,8 +303,8 @@ importers:
         specifier: ^0.25.0
         version: 0.25.0
       '@sd-jwt/sd-jwt-vc':
-        specifier: ^0.13.0
-        version: 0.13.0
+        specifier: ^0.25.0
+        version: 0.25.0
       '@sirosfoundation/browser-log':
         specifier: ^1.0.0
         version: 1.0.0
@@ -1990,44 +1990,14 @@ packages:
   '@rushstack/eslint-patch@1.16.1':
     resolution: {integrity: sha512-TvZbIpeKqGQQ7X0zSCvPH9riMSFQFSggnfBjFZ1mEoILW+UuXCKwOoPcgjMwiUtRqFZ8jWhPJc4um14vC6I4ag==}
 
-  '@sd-jwt/core@0.13.0':
-    resolution: {integrity: sha512-DbPuOM3gK2IRLEqpo4i30gWDfMfQg3R5wq6TELl9F49BT7bpowwU9qf7ySs0lP0PZ9ncpjg+r/5RJzHwExdwrQ==}
-    engines: {node: '>=18'}
-
   '@sd-jwt/core@0.25.0':
     resolution: {integrity: sha512-DIOHz0vTKYcyqWphHTt6OGSbIWen95gAFTktHD+sw+7oeCg6ImQGewDlu9K4DXC2LKT/lFDfYJ0JoL3INMUOwQ==}
 
-  '@sd-jwt/decode@0.13.0':
-    resolution: {integrity: sha512-QtUdoPNHRnHiYSP7OdoXHw/q6G0T9ATPtxG2KiHmgIXJUIdmEdCleeKoQ9ncNrLzhrJnSVSwh76cGD3Toen63Q==}
-    engines: {node: '>=18'}
-    deprecated: 'Merged into @sd-jwt/core (>= 0.20.0). Security: GHSA-f9j6-8p6x-r9j6.'
-
-  '@sd-jwt/jwt-status-list@0.13.0':
-    resolution: {integrity: sha512-s7Fale+9XXgMAX3FbK93Xgqubg61EQwZYMEi/fXbm7+iT89Guf/JjHHm2ZdfJf22IjDHVWgQA4faSp25h/hcUg==}
-    engines: {node: '>=18'}
-    deprecated: Package moved to @owf/token-status-list, please use this instead
-
-  '@sd-jwt/present@0.13.0':
-    resolution: {integrity: sha512-4cRtls10LX8xx3ExFdLfN8p0pdFead53L9fZyXQO4x1PetNDGY891kNlFHPr3pDXbtJS3/gOhWKaGwY+2xqeaQ==}
-    engines: {node: '>=18'}
-    deprecated: Package got merged into @sd-jwt/core, please use this instead
-
-  '@sd-jwt/sd-jwt-vc@0.13.0':
-    resolution: {integrity: sha512-wbHDsDBFMJNb0AdOf7243FbFTAshHdTa/Ia8xgejRpf+SiZF9uLhBDFRSC/9Eoq7kWQ0hJ/jNTfdYscpKcYIEg==}
-    engines: {node: '>=18'}
+  '@sd-jwt/sd-jwt-vc@0.25.0':
+    resolution: {integrity: sha512-G8fYYAWCRG6ex2BAwDhbdtNTfjRZXzrU99MwDY329jpW2WY+xVWc5V6UTWD3kEuPbASbDc55o6mIYXPx+kknnQ==}
 
   '@sd-jwt/types@0.10.0':
     resolution: {integrity: sha512-/UOSel/n16qi5xt/hiX3ob4y/ke+yLn+iuVZDfYUvxKTOs/g0VXRo2/RQ5Fp5Coa8SxSms0uW9kb5pv2YdY8yw==}
-    engines: {node: '>=18'}
-    deprecated: Package got merged into @sd-jwt/core, please use this instead
-
-  '@sd-jwt/types@0.13.0':
-    resolution: {integrity: sha512-W3o1SBfnKsVMo2bBf1Arncy5q79OmyLGY5t34RFWP70+TgxFVSrN+inifzKOauH/fsjiDaU0bCyREDMsRZLkQA==}
-    engines: {node: '>=18'}
-    deprecated: Package got merged into @sd-jwt/core, please use this instead
-
-  '@sd-jwt/utils@0.13.0':
-    resolution: {integrity: sha512-5T7gT0V5qUGJgmtiqLHqqSD/8EpYkzG4oeXDgSnOdQwXtaQPuHciQkS7o8zYygdqXy18wTlWgY/1JwwjDSFOGg==}
     engines: {node: '>=18'}
     deprecated: Package got merged into @sd-jwt/core, please use this instead
 
@@ -2441,14 +2411,6 @@ packages:
     resolution: {integrity: sha512-RZNwNclF7+MS/8bDg70amg32dyeZGZxiDuQmZxKLAlQjr3jGyLx+4Kkk58UO7D2QdgFIQCovuSuZESne6RG6XQ==}
     engines: {node: '>= 6.0.0'}
 
-  ajv-formats@3.0.1:
-    resolution: {integrity: sha512-8iUql50EUR+uUcdRQ3HDqa6EVyo3docL8g5WJ3FNcWmu62IbkGUue/pEyLBW8VGKKucTPgqeks4fIU1DA4yowQ==}
-    peerDependencies:
-      ajv: ^8.0.0
-    peerDependenciesMeta:
-      ajv:
-        optional: true
-
   ajv@6.15.0:
     resolution: {integrity: sha512-fgFx7Hfoq60ytK2c7DhnF8jIvzYgOMxfugjLOSMHjLIPgenqa7S7oaagATUq99mV6IYvN2tRmC0wnTYX6iPbMw==}
 
@@ -2607,10 +2569,6 @@ packages:
 
   base64-js@1.5.1:
     resolution: {integrity: sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==}
-
-  base64url@3.0.1:
-    resolution: {integrity: sha512-ir1UPr3dkwexU7FdV8qBBbNDRUhMmIekYMFZfi+C/sLNnRESKPl23nB9b2pltqfOQNnGzsDdId90AEtG5tCx4A==}
-    engines: {node: '>=6.0.0'}
 
   baseline-browser-mapping@2.11.24:
     resolution: {integrity: sha512-hYrgxie335U08WqICoGqKRzV1HFXv6zdxwJE4ekCb80CM9a0SVVsN4QPwT67RraRo+9h8IATk6uxHJw7QSkdOg==}
@@ -3620,9 +3578,6 @@ packages:
   jose@5.10.0:
     resolution: {integrity: sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg==}
 
-  js-base64@3.9.4:
-    resolution: {integrity: sha512-PtOMXpEGuP0RRiRXsjzHzl44dMHxSu2CPvAhinupR1tBa88me+1DPqsobl7eupn5UukjLkln1ZnAOAOXOrYG0Q==}
-
   js-tokens@10.0.0:
     resolution: {integrity: sha512-lM/UBzQmfJRo9ABXbPWemivdCW8V2G8FHaHdypQaIy523snUjog0W71ayWXTjiR+ixeMyVHN2XcpnTd/liPg/Q==}
 
@@ -4007,9 +3962,6 @@ packages:
 
   package-manager-detector@1.9.0:
     resolution: {integrity: sha512-zAMfbta9nPA8AKkA4WdmNAT8R8s6Dk0/xwPsqNnRidMFcLo1YkLuPDTgs2f64XdzS8vbLNnoJ+uUIkgbz7oRHA==}
-
-  pako@2.2.0:
-    resolution: {integrity: sha512-zJq6RP/5q+TO2OpFV3FHzlPnFjmkb7Nc99a5SNjJE+uu/PkpChs+NIZSSzbBoD+6kjiISXjfYdwj1ZRQ81dz/w==}
 
   pako@3.0.3:
     resolution: {integrity: sha512-tmrebBBYI5FOw8QICGwJNqE8fotC8R+gwcxOvoFNv+GKehOI6Lc6YBolNcQNnC4v96l1wt7rh102ifD4kVeZAQ==}
@@ -6823,50 +6775,18 @@ snapshots:
 
   '@rushstack/eslint-patch@1.16.1': {}
 
-  '@sd-jwt/core@0.13.0':
-    dependencies:
-      '@sd-jwt/decode': 0.13.0
-      '@sd-jwt/present': 0.13.0
-      '@sd-jwt/types': 0.13.0
-      '@sd-jwt/utils': 0.13.0
-
   '@sd-jwt/core@0.25.0':
     dependencies:
       '@owf/identity-common': 0.8.0
 
-  '@sd-jwt/decode@0.13.0':
+  '@sd-jwt/sd-jwt-vc@0.25.0':
     dependencies:
-      '@sd-jwt/types': 0.13.0
-      '@sd-jwt/utils': 0.13.0
-
-  '@sd-jwt/jwt-status-list@0.13.0':
-    dependencies:
-      '@sd-jwt/types': 0.13.0
-      base64url: 3.0.1
-      pako: 2.2.0
-
-  '@sd-jwt/present@0.13.0':
-    dependencies:
-      '@sd-jwt/decode': 0.13.0
-      '@sd-jwt/types': 0.13.0
-      '@sd-jwt/utils': 0.13.0
-
-  '@sd-jwt/sd-jwt-vc@0.13.0':
-    dependencies:
-      '@sd-jwt/core': 0.13.0
-      '@sd-jwt/jwt-status-list': 0.13.0
-      '@sd-jwt/utils': 0.13.0
-      ajv: 8.20.0
-      ajv-formats: 3.0.1(ajv@8.20.0)
+      '@owf/identity-common': 0.8.0
+      '@owf/token-status-list': 0.8.0
+      '@sd-jwt/core': 0.25.0
+      zod: 4.6.7(patch_hash=08dadec209f17e9051c802cbd79715b63ebb5f935d1a3a61ecaafad3360bd0bc)
 
   '@sd-jwt/types@0.10.0': {}
-
-  '@sd-jwt/types@0.13.0': {}
-
-  '@sd-jwt/utils@0.13.0':
-    dependencies:
-      '@sd-jwt/types': 0.13.0
-      js-base64: 3.9.4
 
   '@sirosfoundation/browser-log@1.0.0': {}
 
@@ -7254,7 +7174,7 @@ snapshots:
       obug: 3.0.0
       std-env: 4.3.0
       tinyrainbow: 3.2.0
-      vitest: 5.1.0(@types/node@22.20.4)(@vitest/coverage-v8@5.1.0)(happy-dom@21.0.4)(jsdom@31.0.1(@noble/hashes@1.8.0))(vite@6.4.5(@types/node@22.20.4)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.39.0)(yaml@2.9.1))
+      vitest: 5.1.0(@types/node@20.19.43)(@vitest/coverage-v8@5.1.0)(happy-dom@21.0.4)(jsdom@31.0.1(@noble/hashes@1.8.0))(vite@6.4.5(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.39.0)(yaml@2.9.1))
 
   '@vitest/istanbul-lib-coverage@2.1.0': {}
 
@@ -7298,10 +7218,6 @@ snapshots:
       debug: 4.4.3(supports-color@10.2.2)
     transitivePeerDependencies:
       - supports-color
-
-  ajv-formats@3.0.1(ajv@8.20.0):
-    optionalDependencies:
-      ajv: 8.20.0
 
   ajv@6.15.0:
     dependencies:
@@ -7519,8 +7435,6 @@ snapshots:
   balanced-match@4.0.4: {}
 
   base64-js@1.5.1: {}
-
-  base64url@3.0.1: {}
 
   baseline-browser-mapping@2.11.24: {}
 
@@ -8724,8 +8638,6 @@ snapshots:
 
   jose@5.10.0: {}
 
-  js-base64@3.9.4: {}
-
   js-tokens@10.0.0: {}
 
   js-tokens@4.0.0: {}
@@ -9091,8 +9003,6 @@ snapshots:
   package-json-from-dist@1.0.1: {}
 
   package-manager-detector@1.9.0: {}
-
-  pako@2.2.0: {}
 
   pako@3.0.3: {}
 
