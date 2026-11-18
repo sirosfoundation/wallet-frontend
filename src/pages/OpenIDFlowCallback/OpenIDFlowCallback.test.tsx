@@ -90,6 +90,38 @@ describe('OpenIDFlowCallback: logging a completed offer', () => {
 	});
 });
 
+describe('OpenIDFlowCallback: authorization response iss', () => {
+	beforeEach(() => {
+		flow.handleAuthorizationResponse.mockReset();
+		flow.handleAuthorizationResponse.mockResolvedValue({ success: true });
+	});
+
+	it('forwards a single iss exactly as received', async () => {
+		window.history.pushState({}, '', '/cb?code=abc&state=xyz&iss=https%3A%2F%2Fas.example.com%2F');
+
+		render(<OpenIDFlowCallback />);
+
+		await waitFor(() => expect(flow.handleAuthorizationResponse).toHaveBeenCalledWith('abc', 'xyz', 'https://as.example.com/'));
+	});
+
+	it('forwards no iss when the callback has none', async () => {
+		window.history.pushState({}, '', '/cb?code=abc&state=xyz');
+
+		render(<OpenIDFlowCallback />);
+
+		await waitFor(() => expect(flow.handleAuthorizationResponse).toHaveBeenCalledWith('abc', 'xyz', undefined));
+	});
+
+	it('rejects duplicate iss parameters, even identical ones', async () => {
+		window.history.pushState({}, '', '/cb?code=abc&state=xyz&iss=https%3A%2F%2Fas.example.com&iss=https%3A%2F%2Fas.example.com');
+
+		render(<OpenIDFlowCallback />);
+
+		await waitFor(() => expect(log.error).toHaveBeenCalledWith('Error in OID4VCI flow:', expect.anything()));
+		expect(flow.handleAuthorizationResponse).not.toHaveBeenCalled();
+	});
+});
+
 describe('OpenIDFlowCallback: no whole result or response is ever handed to the logger', () => {
 	it('passes no flow result variable to a logger call', () => {
 		const source = readFileSync(resolve(process.cwd(), 'src/pages/OpenIDFlowCallback/OpenIDFlowCallback.tsx'), 'utf8');

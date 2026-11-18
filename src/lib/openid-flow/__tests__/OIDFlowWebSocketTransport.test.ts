@@ -221,6 +221,8 @@ describe('OIDFlowWebSocketTransport', () => {
 			const flowPromise = transport.startOID4VCIFlow({
 				authorizationCode: 'auth-code-123',
 				codeVerifier: 'verifier-abc',
+				state: 'state-xyz',
+				authorizationResponseIssuer: 'https://as.example.com',
 			});
 
 			await vi.waitFor(() => {
@@ -232,6 +234,8 @@ describe('OIDFlowWebSocketTransport', () => {
 			expect(sentMessage.action).toBe('authorization_complete');
 			expect(sentMessage.payload.code).toBe('auth-code-123');
 			expect(sentMessage.payload.code_verifier).toBe('verifier-abc');
+			expect(sentMessage.payload.state).toBe('state-xyz');
+			expect(sentMessage.payload.iss).toBe('https://as.example.com');
 
 			// Respond with credential
 			sockets[0].simulateMessage({
@@ -242,6 +246,67 @@ describe('OIDFlowWebSocketTransport', () => {
 
 			const result = await flowPromise;
 			expect(result.success).toBe(true);
+		});
+
+		it('should resume a same-tab redirect with state, iss and authorization_context', async () => {
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+
+			const flowPromise = transport.startOID4VCIFlow({
+				credentialOffer: '{"credential_issuer":"https://issuer.example.com"}',
+				authorizationCode: 'auth-code-123',
+				codeVerifier: 'verifier-abc',
+				state: 'state-xyz',
+				authorizationResponseIssuer: 'https://as.example.com',
+				authorizationContext: 'signed.context.jwt',
+				redirectUri: 'https://wallet.example.com/cb',
+			});
+
+			await vi.waitFor(() => {
+				expect(sockets[0].sentMessages.length).toBeGreaterThan(1);
+			});
+
+			const sentMessage = JSON.parse(sockets[0].sentMessages[1]);
+			expect(sentMessage.type).toBe('flow_start');
+			expect(sentMessage.auth_code).toBe('auth-code-123');
+			expect(sentMessage.state).toBe('state-xyz');
+			expect(sentMessage.iss).toBe('https://as.example.com');
+			expect(sentMessage.authorization_context).toBe('signed.context.jwt');
+
+			sockets[0].simulateMessage({
+				flow_id: sentMessage.flow_id,
+				type: 'flow_complete',
+				credential: 'eyJ...',
+			});
+
+			const result = await flowPromise;
+			expect(result.success).toBe(true);
+		});
+
+		it('should omit iss on resume when the callback had none', async () => {
+			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
+			await transport.connect();
+
+			const flowPromise = transport.startOID4VCIFlow({
+				credentialOffer: '{"credential_issuer":"https://issuer.example.com"}',
+				authorizationCode: 'auth-code-123',
+				state: 'state-xyz',
+				authorizationContext: 'signed.context.jwt',
+			});
+
+			await vi.waitFor(() => {
+				expect(sockets[0].sentMessages.length).toBeGreaterThan(1);
+			});
+
+			const sentMessage = JSON.parse(sockets[0].sentMessages[1]);
+			expect(sentMessage).not.toHaveProperty('iss');
+
+			sockets[0].simulateMessage({
+				flow_id: sentMessage.flow_id,
+				type: 'flow_complete',
+				credential: 'eyJ...',
+			});
+			await flowPromise;
 		});
 
 		it('should handle error responses by returning success: false', async () => {

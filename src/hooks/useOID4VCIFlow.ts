@@ -36,7 +36,7 @@ export interface UseOID4VCIFlowReturn {
 	/**
 	 * Continue flow with authorization code (after redirect)
 	 */
-	handleAuthorizationResponse: (authCode: string, state?: string) => Promise<OID4VCIFlowResult>;
+	handleAuthorizationResponse: (authCode: string, state?: string, iss?: string) => Promise<OID4VCIFlowResult>;
 	/**
 	 * Continue flow with pre-authorized code and optional TX code
 	 */
@@ -191,7 +191,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 
 					assertNotAborted();
 
-					if (result.authorizationUrl && result.codeVerifier) {
+					if (result.authorizationUrl && result.authorizationContext) {
 						// Persist the flow's client-held key (+ its WIA) so the
 						// post-redirect token leg reuses it: the issuer binds the
 						// WIA to the issuance session, so PAR and token must carry
@@ -203,6 +203,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 							flowId: result.transactionId,
 							codeVerifier: result.codeVerifier,
 							state: result.issuerState,
+							authorizationContext: result.authorizationContext,
 							credentialOffer: result.credentialOffer
 								? JSON.stringify(result.credentialOffer)
 								: undefined,
@@ -261,7 +262,8 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 	 */
 	const handleAuthorizationResponse = useCallback(async (
 		authCode: string,
-		state?: string
+		state?: string,
+		iss?: string,
 	): Promise<OID4VCIFlowResult> => {
 		setIsLoading(true);
 		setError(null);
@@ -290,6 +292,9 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 						credentialOffer: storedFlow?.credentialOffer,
 						authorizationCode: authCode,
 						codeVerifier: storedFlow?.codeVerifier,
+						state,
+						authorizationResponseIssuer: iss,
+						authorizationContext: storedFlow?.authorizationContext,
 						redirectUri: OPENID4VCI_REDIRECT_URI,
 					});
 
@@ -537,6 +542,7 @@ export interface PendingOID4VCIFlow {
 	flowId?: string;
 	codeVerifier?: string;
 	state?: string;
+	authorizationContext?: string;
 	credentialOffer?: string;
 	clientAuthKey?: SerializedClientAuthMaterial;
 	timestamp: number;
@@ -560,8 +566,8 @@ function loadAndClearPendingFlow(): PendingOID4VCIFlow | null {
 
 	try {
 		const flow = JSON.parse(stored) as PendingOID4VCIFlow;
-		// Expire after 10 minutes
-		if (Date.now() - flow.timestamp > 10 * 60 * 1000) {
+		// Matches the backend's authorization_context lifetime
+		if (Date.now() - flow.timestamp > 5 * 60 * 1000) {
 			return null;
 		}
 		return flow;

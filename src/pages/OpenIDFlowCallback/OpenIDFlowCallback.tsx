@@ -216,10 +216,19 @@ const OpenID4VCIFlow: OpenIDFlowCallbackHandler = ({ callbackUrl }) => {
 	const processAuthorizationCode = async (url: URL) => {
 		const code = url.searchParams.get('code');
 		const state = url.searchParams.get('state');
+		const issValues = url.searchParams.getAll('iss');
 
 		cleanupUrl();
 
-		const result = await handleAuthorizationResponse(code, state);
+		// RFC 9207: never pick one of several iss values, even identical ones.
+		if (issValues.length > 1) {
+			throw new OIDFlowError({
+				code: 'DUPLICATE_ISS',
+				message: 'Authorization response contains more than one iss parameter',
+			});
+		}
+
+		const result = await handleAuthorizationResponse(code, state, issValues[0]);
 
 		if (result.success && result.credentials?.length) {
 			await handleReceivedCredentials(

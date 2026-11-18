@@ -57,6 +57,12 @@ export interface OID4VCIFlowParams {
 	/** PKCE code verifier */
 	codeVerifier?: string;
 
+	/** RFC 9207 `iss` from the authorization response, exactly as received */
+	authorizationResponseIssuer?: string;
+
+	/** Opaque backend-signed context saved before the redirect */
+	authorizationContext?: string;
+
 	// ===== Resumption context (for same-tab redirect flow) =====
 
 	/** Issuer identifier for resumption */
@@ -126,6 +132,9 @@ export interface OID4VCIFlowResult {
 
 	/** Issuer state (for authorization flow) */
 	issuerState?: string;
+
+	/** Opaque backend-signed context, required to resume after a same-tab redirect */
+	authorizationContext?: string;
 
 	// ===== Pre-authorized flow =====
 
