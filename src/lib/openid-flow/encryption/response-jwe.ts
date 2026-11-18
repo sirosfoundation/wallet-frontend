@@ -28,7 +28,7 @@ export async function verifierJwkThumbprint(jwk: JWK): Promise<string> {
 }
 
 /**
- * Restructure a sign handler's `vp_token` into the OpenID4VP 1.0 §8.1 object
+ * Restructure a sign handler's `vp_token` into the OpenID4VP 1.0 §8.3.1 object
  * form: a JSON object with one member per Credential Query — the key the
  * query's `id`, the value an array of that query's presentations. A handler
  * that already returned a JSON object passes through as is; anything else is
@@ -68,7 +68,7 @@ export function restructureDcqlVpToken(
 
 /**
  * Build the `direct_post.jwt` (JARM) response: the claims as a compact JWE to the verifier's
- * key. `vpToken` is the string the sign handler produced. OpenID4VP 1.0 §8.1 requires
+ * key. `vpToken` is the string the sign handler produced. OpenID4VP 1.0 §8.3.1 requires
  * `vp_token` to be a JSON object with one member per Credential Query — the key the
  * query's `id`, the value an array of its presentations — so a bare (newline-separated)
  * token string is restructured into that object under `credentialQueryIds`, exactly as
