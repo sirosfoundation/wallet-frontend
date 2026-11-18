@@ -1584,6 +1584,17 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			const control = await this.responseKeys.decrypt(request.flowId, jwe, request.params.credentialConfigurationId);
 			this.sendSignResponse(request.flowId, request.messageId, signal, control);
 		} catch (err) {
+			// A flow released while decrypting reports the release.
+			if (signal.aborted) {
+				this.sendSignResponse(
+					request.flowId,
+					request.messageId,
+					signal,
+					{},
+					RELEASED_FLOW_ERROR,
+				);
+				return;
+			}
 			const reason = err instanceof ClientHeldEncryptionError ? err.message : 'Could not decrypt the credential response';
 			logger.warn('Credential response decryption failed:', reason);
 			this.sendSignResponse(request.flowId, request.messageId, signal, {}, reason);
