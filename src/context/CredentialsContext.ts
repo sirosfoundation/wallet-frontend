@@ -16,8 +16,18 @@ export type Instance = {
 	sigCount: number;
 }
 
+/**
+ * Why a credential cannot currently be used, or `null` when it can.
+ *
+ * These are the outcomes of the DIIP v5 validity and revocation algorithm: the `validFrom` /
+ * `validUntil` window, and the issuer's Token Status List.
+ */
+export type CredentialStatus = 'expired' | 'notYetValid' | 'revoked' | 'suspended' | null;
+
 export type ExtendedVcEntity = WalletStateCredential & {
 	parsedCredential: ParsedCredential;
+	credentialStatus: CredentialStatus;
+	/** @deprecated prefer `credentialStatus`; kept so existing call sites keep working. */
 	isExpired: boolean;
 	instances: Instance[];
 	sigCount: number; // calculate usage by parsing all presentation history

@@ -1,6 +1,14 @@
 import { type ClientMetaConfig } from '../config';
 import type { OIDFlowTransportType } from '@/lib/openid-flow/types/OIDFlowTypes';
-export type DidKeyVersion = "p256-pub" | "jwk_jcs-pub";
+import { DEFAULT_INTEROP_PROFILE, isInteropProfile, type InteropProfile } from '@/lib/interopProfile';
+/**
+ * How holder key pairs are turned into a DID.
+ *
+ * `jwk` produces a `did:jwk`, which DIIP v5 requires as the identifier of Holders. The two
+ * `did:key` variants predate it and stay supported so wallets that already hold credentials
+ * bound to a `did:key` keep working.
+ */
+export type DidKeyVersion = "jwk" | "p256-pub" | "jwk_jcs-pub";
 export type LogLevel = "error" | "info" | "warn" | "debug";
 
 type Config = ClientMetaConfig & Record<string, string | undefined>;
@@ -29,7 +37,19 @@ export const MODE = import.meta.env.MODE as 'development' | 'production' || 'pro
 export const APP_VERSION = import.meta.env.VITE_APP_VERSION;
 export const BASE_PATH = config.base_path || '/';
 export const BACKEND_URL = config.wallet_backend_url;
+// Which `did:key` flavour a HAIP wallet mints. Ignored under the DIIP profile, which requires
+// did:jwk specifically - see INTEROP_PROFILE and lib/interopProfile.ts.
 export const DID_KEY_VERSION: DidKeyVersion = config.did_key_version as DidKeyVersion;
+
+/**
+ * Interoperability profile this wallet presents itself as.
+ *
+ * Defaults to HAIP: adding DIIP support should not change the proof shape every existing SIROS
+ * issuer already accepts, so a DIIP deployment opts in with `INTEROP_PROFILE=diip`. An
+ * unrecognised value falls back to the default rather than failing the wallet to start.
+ */
+export const INTEROP_PROFILE: InteropProfile =
+	isInteropProfile(config.interop_profile) ? config.interop_profile : DEFAULT_INTEROP_PROFILE;
 export const LOG_LEVEL: LogLevel = (config.log_level as LogLevel) || 'info';
 
 /**

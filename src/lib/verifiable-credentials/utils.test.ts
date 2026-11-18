@@ -147,3 +147,40 @@ function buildMdocCredential(
 	]);
 	return cborToBase64Url(new Map<string, unknown>([['documents', [document]]]));
 }
+
+describe('deriveHolderKidFromCredential holder binding', () => {
+	const sdJwtWithCnf = (cnf: Record<string, unknown>) => {
+		const b64u = (o: unknown) =>
+			toBase64Url(new TextEncoder().encode(JSON.stringify(o)).buffer as ArrayBuffer);
+		return `${b64u({ alg: 'ES256', typ: 'vc+sd-jwt' })}.${b64u({ vct: 'test', cnf })}.stub~`;
+	};
+
+	// A DIIP v5 issuer binds the holder by kid. Returning undefined here would store the
+	// credential with no holder key named, and that empty value is what travels to the engine
+	// as holderKeyKid when the credential is presented.
+	it('returns the DID URL a cnf.kid names', async () => {
+		const kid = await deriveHolderKidFromCredential(
+			sdJwtWithCnf({ kid: 'did:jwk:eyJrdHkiOiJFQyJ9#0' }),
+			VerifiableCredentialFormat.VC_SDJWT,
+		);
+		expect(kid).toBe('did:jwk:eyJrdHkiOiJFQyJ9#0');
+	});
+
+	it('still thumbprints a cnf.jwk', async () => {
+		const jwk = {
+			kty: 'EC', crv: 'P-256',
+			x: 'acbIQiuMs3i8_uszEjJ2tpTtRM4EU3yz91PH6CdH2V0',
+			y: '_KcyLj9vWMptnmKtm46GqDz8wf74I5LKgrl2GzH3nSE',
+		};
+		const kid = await deriveHolderKidFromCredential(
+			sdJwtWithCnf({ jwk }), VerifiableCredentialFormat.VC_SDJWT,
+		);
+		expect(kid).toBe(await jose.calculateJwkThumbprint(jwk as jose.JWK, 'sha256'));
+	});
+
+	it('returns undefined for a credential with no holder binding', async () => {
+		expect(await deriveHolderKidFromCredential(
+			sdJwtWithCnf({}), VerifiableCredentialFormat.VC_SDJWT,
+		)).toBeUndefined();
+	});
+});
