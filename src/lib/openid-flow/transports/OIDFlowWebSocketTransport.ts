@@ -61,6 +61,19 @@ interface ServerMessage {
 	[key: string]: unknown;
 }
 
+/**
+ * One result of a `flow_complete`, as the engine sent it.
+ */
+type CompletionEntry = Record<string, unknown>;
+
+type IssuedCredential = NonNullable<OID4VCIFlowResult['credentials']>[number];
+
+interface ConfigurationRefusal {
+	credential_configuration_id: string;
+	code: string;
+	error: string;
+}
+
 interface ProofTypeConfig {
 	key_attestations_required?: Record<string, unknown> | null;
 	proof_signing_alg_values_supported: string[];
@@ -118,6 +131,10 @@ export interface SignRequest {
 		jwe?: string;
 		/** decrypt_credential_response: whether this answers a deferred-credential poll. */
 		deferred?: boolean;
+		/**
+		 * Which configuration a key or JWE is for; older engines omit it.
+		 */
+		credentialConfigurationId?: string;
 		/** sign_presentation (direct_post.jwt only): the verifier's key and algorithms, resolved by the engine. */
 		responseEncryption?: VerifierResponseEncryption;
 		/** sign_presentation: the verifier request's `state`, when it had one. */
@@ -220,10 +237,10 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	/** Client-held OID4VCI response-encryption keys and what they decrypted, per flow. */
 	private responseKeys = new ClientHeldEncryptionKeys();
 	/**
-	 * What this wallet decrypted for a completed issuance, keyed by the completion message itself:
-	 * a WeakMap, so no member of an engine frame can ever impersonate it.
+	 * Keyed by completed entry, so no engine value can pose as decrypted.
+	 * Presence alone marks an entry as encrypted, even with no metadata.
 	 */
-	private decryptedIssuance = new WeakMap<ServerMessage, DecryptedCredentialResponse>();
+	#decryptedMetadata = new WeakMap<object, Record<string, unknown> | undefined>();
 	/**
 	 * One abort controller per flow. Releasing a flow aborts it; every operation keeps the signal it
 	 * started with and checks it before answering the engine, so nothing can undo the release.
@@ -381,6 +398,28 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			action: 'decline',
 			timestamp: new Date().toISOString(),
 			payload: { reason },
+		}));
+	}
+
+	/**
+	 * An empty answer is still sent: the engine refuses it at once
+	 * instead of waiting out its timeout.
+	 */
+	#selectAllCredentialConfigurations(flowId: string, availableCredentials: unknown): void {
+		const credentialConfigurationIds = Array.isArray(availableCredentials)
+			? availableCredentials
+				.map((available) => (available as { id?: unknown } | null)?.id)
+				.filter((id): id is string => typeof id === 'string' && id !== '')
+			: [];
+		if (credentialConfigurationIds.length === 0) {
+			logger.warn('The engine asked for a credential selection without offering any configuration');
+		}
+		this.ws?.send(JSON.stringify({
+			type: 'flow_action',
+			flow_id: flowId,
+			action: 'select_credential',
+			timestamp: new Date().toISOString(),
+			payload: { credential_configuration_ids: credentialConfigurationIds },
 		}));
 	}
 
@@ -593,12 +632,21 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			};
 		}
 
-		// A response whose own credential_metadata (a plain frame, whatever message carried it) has a
-		// superseded secret-bearing member is refused, never ignored: nothing of it is returned or kept.
-		// An encrypted completion has no frame metadata left (completeEncryptedIssuance strips it), and
-		// what this wallet decrypted was checked when it was decrypted.
-		if (carriesLegacySecretMember(response.credential_metadata)) {
-			logger.warn('Refusing a credential response that carries a superseded secret member');
+		// A superseded secret member is refused, never ignored. Decrypted
+		// metadata was checked at decrypt, and its frame copy is stripped.
+		const resultMetadata = Array.isArray(response.credentials)
+			? (response.credentials as Array<Record<string, unknown> | null>).map(
+					(entry) => entry?.credential_metadata,
+				)
+			: [];
+		if (
+			[response.credential_metadata, ...resultMetadata].some(
+				carriesLegacySecretMember,
+			)
+		) {
+			logger.warn(
+				'Refusing a credential response that carries a superseded secret member',
+			);
 			return {
 				success: false,
 				error: {
@@ -607,6 +655,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				},
 			};
 		}
+
 
 		// Map server response to OID4VCIFlowResult
 		const result: OID4VCIFlowResult = {
@@ -679,17 +728,16 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		if (response?.format) {
 			result.format = response.format as string;
 		}
-		// Handle credentials array from server
-		if (response?.credentials && Array.isArray(response.credentials)) {
-			result.credentials = (response.credentials as Array<{format: string; credential: string; vct?: string; notification_id?: string}>);
+
+		if (Array.isArray(response.credentials)) {
+			result.credentials = this.#mapCredentials(response);
 		}
-		// Response-level credential_metadata. For an encrypted response it is the object this
-		// wallet decrypted. From any message that resolves the flow, a frame's own value is
-		// limited to display and claims, so no other extension arrives that way.
-		const decrypted = this.decryptedIssuance.get(response);
-		const credentialMetadata = decrypted ? decrypted.credentialMetadata : displayMetadataOnly(response.credential_metadata);
+		const credentialMetadata = legacyCredentialMetadataOf(response, result.credentials);
 		if (credentialMetadata) {
 			result.credentialMetadata = credentialMetadata;
+		}
+		if (Array.isArray(response.failures)) {
+			result.failures = mapFailures(response.failures as Array<Record<string, unknown>>);
 		}
 
 		// Flow ID (needed for credential notification)
@@ -704,6 +752,36 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		}
 
 		return result;
+	}
+
+	#mapCredentials(response: ServerMessage): IssuedCredential[] {
+		const entries = response.credentials as CompletionEntry[];
+		// Shared metadata only fits when one configuration was issued.
+		const shared = isSingleConfiguration(entries)
+			? displayMetadataOnly(response.credential_metadata)
+			: undefined;
+		return entries.map((entry) => {
+			const metadata = this.#metadataOf(entry, shared);
+			return {
+				format: entry.format as string | undefined,
+				credential: entry.credential as string,
+				vct: entry.vct as string | undefined,
+				notificationId: entry.notification_id as string | undefined,
+				credentialConfigurationId: entry.credential_configuration_id as string | undefined,
+				...(metadata ? { credentialMetadata: metadata } : {}),
+			};
+		});
+	}
+
+	#metadataOf(
+		entry: CompletionEntry,
+		shared: Record<string, unknown> | undefined,
+	): Record<string, unknown> | undefined {
+		if (this.#decryptedMetadata.has(entry)) {
+			return this.#decryptedMetadata.get(entry);
+		}
+		// The engine is only trusted with display and claims.
+		return displayMetadataOnly(entry.credential_metadata) ?? shared;
 	}
 
 	// ===== OID4VP Flow =====
@@ -958,6 +1036,11 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				}
 			}
 
+			// No picker for the engine's user_selects policy yet: pick all.
+			if (stage === 'awaiting_selection' && !released) {
+				this.#selectAllCredentialConfigurations(flowId, payload?.available_credentials);
+			}
+
 			if (stage === 'credential_selection') {
 				// A zkp_req request that does not meet the wallet's policy is refused before any selection
 				// UI: the engine is told to decline (it answers the verifier access_denied), and the result
@@ -1017,24 +1100,10 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			return;
 		}
 
-		// An issuance the engine relayed as ciphertext: put the credentials this
-		// wallet decrypted back into the completion, then drop the flow's key.
+		// The engine only saw ciphertext: fill in what this wallet decrypted.
 		let resolved = message;
 		if (type === 'flow_complete') {
-			if (message.credential_response_encrypted === true) {
-				// An issuance the engine relayed as ciphertext: put the credentials this wallet
-				// decrypted back into the completion.
-				resolved = this.completeEncryptedIssuance(message, flowId);
-			} else if (this.responseKeys.has(flowId)) {
-				// A response-encryption key was offered for this flow, so a plain completion is
-				// an error, never silently accepted plaintext.
-				logger.warn('Issuance completed in plaintext although response encryption was offered');
-				resolved = flowErrorMessage(
-					flowId,
-					'CREDENTIAL_RESPONSE_NOT_ENCRYPTED',
-					'The credential response was not encrypted although encryption was offered',
-				);
-			}
+			resolved = this.#completeIssuance(message, flowId);
 		}
 		if (type === 'flow_complete' || type === 'flow_error' || type === 'error') {
 			this.responseKeys.drop(flowId);
@@ -1068,32 +1137,109 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	}
 
 	/**
-	 * The engine's `flow_complete` for an encrypted issuance carries no credential
-	 * values. Fill entry i from the i-th decrypted credential; a count mismatch,
-	 * or no decrypt at all, turns the completion into an error.
+	 * Configurations are matched one by one, so one that can't be
+	 * matched is reported in `failures` and the rest are still kept.
 	 */
-	private completeEncryptedIssuance(message: ServerMessage, flowId: string): ServerMessage {
-		const decrypted = this.responseKeys.response(flowId);
-		const entries = message.credentials;
-		if (!decrypted || !Array.isArray(entries) || entries.length !== decrypted.credentials.length) {
-			logger.warn('Encrypted issuance completed without matching decrypted credentials');
-			return flowErrorMessage(
-				flowId,
-				'CREDENTIAL_DECRYPTION_FAILED',
-				'The issued credentials could not be matched to the decrypted response',
-			);
+	#completeIssuance(message: ServerMessage, flowId: string): ServerMessage {
+		const flowEncrypted = message.credential_response_encrypted === true;
+		if (!Array.isArray(message.credentials)) {
+			return flowEncrypted ? decryptionFailedMessage(flowId) : message;
 		}
-		const credentials = (entries as Array<Record<string, unknown>>).map((entry, i) => ({
-			...entry,
-			credential: decrypted.credentials[i],
-			...(decrypted.notificationId ? { notification_id: decrypted.notificationId } : {}),
-		}));
-		// The frame's own credential_metadata is dropped for an encrypted response; the
-		// decrypted object travels on a side channel the frame cannot reach.
-		const { credential_metadata: _frameMetadata, ...rest } = message;
-		const completed: ServerMessage = { ...rest, credentials };
-		this.decryptedIssuance.set(completed, decrypted);
-		return completed;
+
+		const entries = message.credentials as CompletionEntry[];
+		const isEncrypted = encryptionFlagOf(message, entries);
+		const groups = groupByConfiguration(entries);
+
+		const anyEncrypted = flowEncrypted || entries.some(isEncrypted);
+		const anyOffered = [...groups.keys()].some((id) =>
+			this.responseKeys.offered(flowId, id),
+		);
+		if (!anyEncrypted && !anyOffered) {
+			return message;
+		}
+
+		const credentials: CompletionEntry[] = [];
+		const refused: ConfigurationRefusal[] = [];
+		for (const [id, group] of groups) {
+			const refusal = this.#refusalOf(flowId, id, group, isEncrypted);
+			const decrypted = this.responseKeys.response(flowId, id);
+			if (refusal) {
+				refused.push(refusal);
+			} else if (!group.some(isEncrypted)) {
+				credentials.push(...group);
+			} else if (decrypted) {
+				credentials.push(...this.#fillDecrypted(group, decrypted));
+			}
+		}
+
+		return completedMessage(message, flowId, credentials, refused);
+	}
+
+	/**
+	 * A configuration offered a key must answer encrypted, and every
+	 * result must match its decrypted response.
+	 */
+	#refusalOf(
+		flowId: string,
+		credentialConfigurationId: string,
+		group: CompletionEntry[],
+		isEncrypted: (entry: CompletionEntry) => boolean,
+	): ConfigurationRefusal | undefined {
+		const encryptedCount = group.filter(isEncrypted).length;
+		if (encryptedCount === 0) {
+			if (!this.responseKeys.offered(flowId, credentialConfigurationId)) {
+				return undefined;
+			}
+			logger.warn(
+				'Issuance completed in plaintext although response encryption was offered',
+			);
+			return {
+				credential_configuration_id: credentialConfigurationId,
+				code: 'CREDENTIAL_RESPONSE_NOT_ENCRYPTED',
+				error:
+					'The credential response was not encrypted although encryption was offered',
+			};
+		}
+
+		const decrypted = this.responseKeys.response(
+			flowId,
+			credentialConfigurationId,
+		);
+		if (
+			encryptedCount !== group.length ||
+			!decrypted ||
+			decrypted.credentials.length !== group.length
+		) {
+			logger.warn(
+				'Encrypted issuance completed without matching decrypted credentials',
+			);
+			return {
+				credential_configuration_id: credentialConfigurationId,
+				code: 'CREDENTIAL_DECRYPTION_FAILED',
+				error:
+					'The issued credentials could not be matched to the decrypted response',
+			};
+		}
+
+		return undefined;
+	}
+
+	#fillDecrypted(
+		group: CompletionEntry[],
+		decrypted: DecryptedCredentialResponse,
+	): CompletionEntry[] {
+		return group.map((entry, i) => {
+			const { credential_metadata: _frameMetadata, ...rest } = entry;
+			const completed: CompletionEntry = {
+				...rest,
+				credential: decrypted.credentials[i],
+				...(decrypted.notificationId
+					? { notification_id: decrypted.notificationId }
+					: {}),
+			};
+			this.#decryptedMetadata.set(completed, decrypted.credentialMetadata);
+			return completed;
+		});
 	}
 
 	/**
@@ -1222,6 +1368,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				credentialResponseEncryption: rawParams.credential_response_encryption as SignRequest['params']['credentialResponseEncryption'],
 				jwe: rawParams.jwe as string | undefined,
 				deferred: rawParams.deferred as boolean | undefined,
+				credentialConfigurationId: rawParams.credential_configuration_id as string | undefined,
 				responseEncryption: rawParams.response_encryption as SignRequest['params']['responseEncryption'],
 				state: rawParams.state as string | undefined,
 				verifiedRequest: mapVerifiedRequest(rawParams.verified_request),
@@ -1271,7 +1418,11 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		let responseKey: GeneratedResponseKey | undefined;
 		if (request.action === 'generate_proof' && request.params.credentialResponseEncryption) {
 			try {
-				responseKey = await this.responseKeys.generate(request.flowId, request.params.credentialResponseEncryption);
+				responseKey = await this.responseKeys.generate(
+					request.flowId,
+					request.params.credentialResponseEncryption,
+					request.params.credentialConfigurationId,
+				);
 			} catch (err) {
 				this.sendSignResponse(request.flowId, request.messageId, signal, {}, err instanceof Error ? err.message : 'Response encryption failed');
 				return;
@@ -1437,7 +1588,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			return;
 		}
 		try {
-			const control = await this.responseKeys.decrypt(request.flowId, jwe);
+			const control = await this.responseKeys.decrypt(request.flowId, jwe, request.params.credentialConfigurationId);
 			this.sendSignResponse(request.flowId, request.messageId, signal, control);
 		} catch (err) {
 			const reason = err instanceof ClientHeldEncryptionError ? err.message : 'Could not decrypt the credential response';
@@ -1835,6 +1986,111 @@ function displayMetadataOnly(raw: unknown): Record<string, unknown> | undefined 
 /** A synthetic `flow_error` frame, for a completion the wallet itself refuses. */
 function flowErrorMessage(flowId: string, code: string, message: string): ServerMessage {
 	return { type: 'flow_error', flow_id: flowId, error: { code, message } };
+}
+
+function decryptionFailedMessage(flowId: string): ServerMessage {
+	return flowErrorMessage(
+		flowId,
+		'CREDENTIAL_DECRYPTION_FAILED',
+		'The issued credentials could not be matched to the decrypted response',
+	);
+}
+
+/**
+ * `''` for older engines that send no configuration id.
+ */
+function credentialConfigurationIdOf(entry: Record<string, unknown>): string {
+	return typeof entry.credential_configuration_id === 'string'
+		? entry.credential_configuration_id
+		: '';
+}
+/**
+ * Older engines only flag the whole completion as encrypted.
+ */
+function encryptionFlagOf(
+	message: ServerMessage,
+	entries: CompletionEntry[],
+): (entry: CompletionEntry) => boolean {
+	const flowEncrypted = message.credential_response_encrypted === true;
+	const perResultFlags = entries.some(
+		(entry) => entry.credential_response_encrypted === true,
+	);
+	return (entry) =>
+		perResultFlags
+			? entry.credential_response_encrypted === true
+			: flowEncrypted;
+}
+
+function groupByConfiguration(
+	entries: CompletionEntry[],
+): Map<string, CompletionEntry[]> {
+	const groups = new Map<string, CompletionEntry[]>();
+	for (const entry of entries) {
+		const id = credentialConfigurationIdOf(entry);
+		groups.set(id, [...(groups.get(id) ?? []), entry]);
+	}
+	return groups;
+}
+
+/**
+ * With nothing left the whole issuance failed; otherwise the refused
+ * configurations join the engine's own `failures`.
+ */
+function completedMessage(
+	message: ServerMessage,
+	flowId: string,
+	credentials: CompletionEntry[],
+	refused: ConfigurationRefusal[],
+): ServerMessage {
+	if (credentials.length === 0) {
+		const [first] = refused;
+		return first
+			? flowErrorMessage(flowId, first.code, first.error)
+			: decryptionFailedMessage(flowId);
+	}
+	const {
+		credential_metadata: _frameMetadata,
+		failures: engineFailures,
+		...rest
+	} = message;
+	const failures = [
+		...(Array.isArray(engineFailures) ? engineFailures : []),
+		...refused.map(({ credential_configuration_id, error }) => ({
+			credential_configuration_id,
+			error,
+		})),
+	];
+	return { ...rest, credentials, ...(failures.length > 0 ? { failures } : {}) };
+}
+
+function isSingleConfiguration(entries: CompletionEntry[]): boolean {
+	return new Set(entries.map(credentialConfigurationIdOf)).size <= 1;
+}
+
+/**
+ * Kept for older callers; several configurations have no single one.
+ */
+function legacyCredentialMetadataOf(
+	response: ServerMessage,
+	credentials: IssuedCredential[] | undefined,
+): Record<string, unknown> | undefined {
+	if (!credentials) {
+		return displayMetadataOnly(response.credential_metadata);
+	}
+	return isSingleConfiguration(response.credentials as CompletionEntry[])
+		? credentials[0]?.credentialMetadata
+		: undefined;
+}
+
+function mapFailures(
+	raw: Array<Record<string, unknown>>,
+): NonNullable<OID4VCIFlowResult['failures']> {
+	return raw
+		.filter((failure) => typeof failure.credential_configuration_id === 'string')
+		.map((failure) => ({
+			credentialConfigurationId: failure.credential_configuration_id as string,
+			error: typeof failure.error === 'string' ? failure.error : 'Unknown error',
+		}));
 }
 
 /** A presentation whose verified response mode is direct_post.jwt but that carries no response_encryption. */

@@ -484,3 +484,78 @@ describe('credential_metadata across responses', () => {
 		});
 	});
 });
+
+describe('ClientHeldEncryptionKeys with several credential configurations', () => {
+	it('keeps each configuration’s decrypted response when the next configuration gets its key', async () => {
+		const keys = new ClientHeldEncryptionKeys();
+		const pid = await keys.generate('flow-1', { alg: 'ECDH-ES', enc: 'A256GCM' }, 'pid');
+		await keys.decrypt('flow-1', await issuerEncrypt(pid!.jwk, 'ECDH-ES', 'A256GCM', {
+			credentials: [{ credential: 'pid-1' }],
+			notification_id: 'n-pid',
+		}), 'pid');
+		const mdl = await keys.generate('flow-1', { alg: 'ECDH-ES', enc: 'A256GCM' }, 'mdl');
+		await keys.decrypt('flow-1', await issuerEncrypt(mdl!.jwk, 'ECDH-ES', 'A256GCM', {
+			credentials: [{ credential: 'mdl-1' }],
+		}), 'mdl');
+
+		expect(keys.response('flow-1', 'pid')).toEqual({ credentials: ['pid-1'], notificationId: 'n-pid' });
+		expect(keys.response('flow-1', 'mdl')?.credentials).toEqual(['mdl-1']);
+	});
+
+	it('refuses a JWE for another configuration than the key was made for, keeping nothing', async () => {
+		const keys = new ClientHeldEncryptionKeys();
+		const pid = await keys.generate('flow-1', { alg: 'ECDH-ES', enc: 'A256GCM' }, 'pid');
+		const jwe = await issuerEncrypt(pid!.jwk, 'ECDH-ES', 'A256GCM', { credentials: [{ credential: ISSUED }] });
+
+		await expect(keys.decrypt('flow-1', jwe, 'mdl')).rejects.toBeInstanceOf(ClientHeldEncryptionError);
+		await expect(keys.decrypt('flow-1', jwe)).rejects.toBeInstanceOf(ClientHeldEncryptionError);
+		expect(keys.response('flow-1', 'pid')).toBeUndefined();
+		expect(keys.response('flow-1', 'mdl')).toBeUndefined();
+		expect(keys.response('flow-1')).toBeUndefined();
+	});
+
+	it('drops only the regenerated configuration’s response on a new key for it', async () => {
+		const keys = new ClientHeldEncryptionKeys();
+		const pid = await keys.generate('flow-1', { alg: 'ECDH-ES', enc: 'A256GCM' }, 'pid');
+		await keys.decrypt('flow-1', await issuerEncrypt(pid!.jwk, 'ECDH-ES', 'A256GCM', {
+			credentials: [{ credential: 'pid-1' }],
+		}), 'pid');
+		const mdl = await keys.generate('flow-1', { alg: 'ECDH-ES', enc: 'A256GCM' }, 'mdl');
+		await keys.decrypt('flow-1', await issuerEncrypt(mdl!.jwk, 'ECDH-ES', 'A256GCM', {
+			credentials: [{ credential: 'mdl-1' }],
+		}), 'mdl');
+
+		await keys.generate('flow-1', { alg: 'ECDH-ES', enc: 'A256GCM' }, 'mdl');
+
+		expect(keys.response('flow-1', 'pid')?.credentials).toEqual(['pid-1']);
+		expect(keys.response('flow-1', 'mdl')).toBeUndefined();
+	});
+
+	it('keeps the other configurations’ responses when a failed request drops its own key', async () => {
+		const keys = new ClientHeldEncryptionKeys();
+		const pid = await keys.generate('flow-1', { alg: 'ECDH-ES', enc: 'A256GCM' }, 'pid');
+		await keys.decrypt('flow-1', await issuerEncrypt(pid!.jwk, 'ECDH-ES', 'A256GCM', {
+			credentials: [{ credential: 'pid-1' }],
+		}), 'pid');
+		const mdl = await keys.generate('flow-1', { alg: 'ECDH-ES', enc: 'A256GCM' }, 'mdl');
+
+		keys.dropGeneration('flow-1', mdl!.generation);
+
+		expect(keys.has('flow-1')).toBe(false);
+		expect(keys.response('flow-1', 'pid')?.credentials).toEqual(['pid-1']);
+	});
+
+	it('remembers which configurations were offered a key until the flow is dropped', async () => {
+		const keys = new ClientHeldEncryptionKeys();
+		await keys.generate('flow-1', { alg: 'ECDH-ES', enc: 'A256GCM' }, 'pid');
+		await keys.generate('flow-1', { alg: 'RSA-OAEP', enc: 'A256GCM' }, 'mdl');
+
+		expect(keys.offered('flow-1', 'pid')).toBe(true);
+		expect(keys.offered('flow-1', 'mdl')).toBe(false);
+		expect(keys.offered('flow-1')).toBe(false);
+
+		keys.drop('flow-1');
+
+		expect(keys.offered('flow-1', 'pid')).toBe(false);
+	});
+});

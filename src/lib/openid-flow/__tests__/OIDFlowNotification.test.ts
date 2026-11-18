@@ -21,7 +21,7 @@ import { dispatchCredentialNotifications } from '../utils/credentialNotification
 describe('dispatchCredentialNotifications', () => {
 	it('is a no-op when transport is null', () => {
 		expect(() => {
-			dispatchCredentialNotifications(null, [{ format: 'vc+sd-jwt', credential: 'eyJ...', notification_id: 'n1' }], 'flow-1');
+			dispatchCredentialNotifications(null, [{ format: 'vc+sd-jwt', credential: 'eyJ...', notificationId: 'n1' }], 'flow-1');
 		}).not.toThrow();
 	});
 
@@ -33,13 +33,13 @@ describe('dispatchCredentialNotifications', () => {
 
 	it('is a no-op when flowId is undefined', () => {
 		const transport = { sendCredentialNotification: vi.fn() } as any;
-		dispatchCredentialNotifications(transport, [{ format: 'vc+sd-jwt', credential: 'eyJ...', notification_id: 'n1' }], undefined);
+		dispatchCredentialNotifications(transport, [{ format: 'vc+sd-jwt', credential: 'eyJ...', notificationId: 'n1' }], undefined);
 		expect(transport.sendCredentialNotification).not.toHaveBeenCalled();
 	});
 
 	it('is a no-op when flowId is empty string', () => {
 		const transport = { sendCredentialNotification: vi.fn() } as any;
-		dispatchCredentialNotifications(transport, [{ format: 'vc+sd-jwt', credential: 'eyJ...', notification_id: 'n1' }], '');
+		dispatchCredentialNotifications(transport, [{ format: 'vc+sd-jwt', credential: 'eyJ...', notificationId: 'n1' }], '');
 		expect(transport.sendCredentialNotification).not.toHaveBeenCalled();
 	});
 
@@ -55,7 +55,7 @@ describe('dispatchCredentialNotifications', () => {
 		expect(transport.sendCredentialNotification).not.toHaveBeenCalled();
 	});
 
-	it('skips credentials without notification_id', () => {
+	it('skips credentials without notificationId', () => {
 		const transport = { sendCredentialNotification: vi.fn() } as any;
 		dispatchCredentialNotifications(
 			transport,
@@ -65,14 +65,14 @@ describe('dispatchCredentialNotifications', () => {
 		expect(transport.sendCredentialNotification).not.toHaveBeenCalled();
 	});
 
-	it('sends a single notification for a batch sharing one notification_id', () => {
+	it('sends a single notification for a batch sharing one notificationId', () => {
 		const transport = { sendCredentialNotification: vi.fn() } as any;
 		dispatchCredentialNotifications(
 			transport,
 			[
-				{ format: 'vc+sd-jwt', credential: 'eyJ1', notification_id: 'notif-1' },
-				{ format: 'vc+sd-jwt', credential: 'eyJ2', notification_id: 'notif-1' },
-				{ format: 'vc+sd-jwt', credential: 'eyJ3', notification_id: 'notif-1' },
+				{ format: 'vc+sd-jwt', credential: 'eyJ1', notificationId: 'notif-1' },
+				{ format: 'vc+sd-jwt', credential: 'eyJ2', notificationId: 'notif-1' },
+				{ format: 'vc+sd-jwt', credential: 'eyJ3', notificationId: 'notif-1' },
 			],
 			'flow-42',
 		);

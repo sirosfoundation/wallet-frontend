@@ -55,8 +55,10 @@ interface FlowKey {
 	/** The negotiated pair: the issuer's JWE must use exactly this. */
 	alg: string;
 	enc: string;
-	/** The latest decrypted response of this flow. */
-	response?: DecryptedCredentialResponse;
+	/**
+	 * Guards against decrypting another configuration's response.
+	 */
+	credentialConfigurationId: string;
 }
 
 /**
@@ -65,9 +67,22 @@ interface FlowKey {
  * A fresh key pair is made for every `generate_proof` request (a c_nonce retry sends a new
  * request and so gets a new key); the previous key of the flow is dropped at once. The
  * private key is non-extractable where the runtime honours that (WebCrypto in a browser).
+ *
+ * Responses are kept per configuration, as a flow issues several in
+ * turn and all are needed at completion. Older engines send no
+ * configuration id; that counts as one configuration, `''`.
  */
 export class ClientHeldEncryptionKeys {
 	readonly #keys = new Map<string, FlowKey>();
+	/**
+	 * Per flow: the latest decrypted response of each credential configuration.
+	 */
+	readonly #responses = new Map<string, Map<string, DecryptedCredentialResponse>>();
+	/**
+	 * Kept after the key is replaced, so a plaintext answer for a
+	 * configuration that was offered a key is still refused.
+	 */
+	readonly #offered = new Map<string, Set<string>>();
 	/**
 	 * The generation a flow's key is being (or was) made for. drop()/clear() and a newer
 	 * generate() invalidate it, so a key whose generation was still pending when the flow
@@ -104,17 +119,20 @@ export class ClientHeldEncryptionKeys {
 	}
 
 	/**
-	 * Generate the key for a flow and return its public JWK with the owning generation, or
-	 * `undefined` when the request cannot be served and was not `required`. Throws when it
-	 * cannot be served and `required` is set. The flow's previous key and decrypted response
-	 * are removed first, whether or not this request can be served.
+	 * A new key means a new issuer answer for this configuration, so its
+	 * old response must not be matched. Other configurations' responses
+	 * are still needed at flow completion.
 	 */
 	async generate(
 		flowId: string,
 		request: CredentialResponseEncryptionRequest,
+		credentialConfigurationId: string = '',
 	): Promise<GeneratedResponseKey | undefined> {
 		const required = request.required === true;
+
 		this.#keys.delete(flowId);
+		this.#responses.get(flowId)?.delete(credentialConfigurationId);
+
 		const generation = ++this.#generationCounter;
 		this.#generations.set(flowId, generation);
 
@@ -136,7 +154,20 @@ export class ClientHeldEncryptionKeys {
 				// The flow ended, or another request took over, while the key was made.
 				throw new ClientHeldEncryptionError('The flow ended while the response encryption key was being generated');
 			}
-			this.#keys.set(flowId, { privateKey, alg: request.alg, enc: request.enc });
+
+			this.#keys.set(
+				flowId,
+				{
+					privateKey,
+					alg: request.alg,
+					enc: request.enc,
+					credentialConfigurationId,
+				});
+
+			const offered = this.#offered.get(flowId) ?? new Set<string>();
+			offered.add(credentialConfigurationId);
+			this.#offered.set(flowId, offered);
+
 			return {
 				jwk: { kty: jwk.kty, crv: jwk.crv, x: jwk.x, y: jwk.y, use: 'enc', alg: request.alg },
 				generation,
@@ -157,6 +188,14 @@ export class ClientHeldEncryptionKeys {
 	}
 
 	/**
+	 * Whether a key was ever stored for `credentialConfigurationId` in this flow.
+	 * Its issuer must then answer encrypted: a plain answer for it is refused.
+	 */
+	offered(flowId: string, credentialConfigurationId = ''): boolean {
+		return this.#offered.get(flowId)?.has(credentialConfigurationId) ?? false;
+	}
+
+	/**
 	 * Whether `generation` still owns the flow's key: false once a newer request replaced it, the
 	 * flow was dropped, or the key was never stored. A key must not be advertised unless it is owned.
 	 */
@@ -170,11 +209,16 @@ export class ClientHeldEncryptionKeys {
 	 * whose `credential_metadata` carries a superseded secret-bearing member is refused with
 	 * LEGACY_SECRET_MEMBER before anything else is checked, and nothing is kept.
 	 */
-	async decrypt(flowId: string, jwe: string): Promise<DecryptControlFields> {
+	async decrypt(flowId: string, jwe: string, credentialConfigurationId = ''): Promise<DecryptControlFields> {
 		const entry = this.#keys.get(flowId);
 		if (!entry) {
 			throw new ClientHeldEncryptionError('No response encryption key for this flow');
 		}
+
+		if (entry.credentialConfigurationId !== credentialConfigurationId) {
+			throw new ClientHeldEncryptionError('The response encryption key belongs to another credential configuration');
+		}
+
 		let plaintext: Uint8Array;
 		try {
 			({ plaintext } = await compactDecrypt(jwe, entry.privateKey, {
@@ -222,12 +266,14 @@ export class ClientHeldEncryptionKeys {
 				? (body.credential_metadata as Record<string, unknown>)
 				: undefined;
 		// This response only: nothing is carried over from an earlier one.
-		entry.response = {
+		const responses = this.#responses.get(flowId) ?? new Map<string, DecryptedCredentialResponse>();
+		responses.set(credentialConfigurationId, {
 			credentials,
 			credentialMetadata: metadata,
 			notificationId:
 				typeof body.notification_id === 'string' && body.notification_id !== '' ? body.notification_id : undefined,
-		};
+		});
+		this.#responses.set(flowId, responses);
 
 		if (transactionId !== undefined) {
 			return typeof body.interval === 'number' && Number.isFinite(body.interval)
@@ -237,29 +283,38 @@ export class ClientHeldEncryptionKeys {
 		return { credentialCount: credentials.length };
 	}
 
-	/** What the flow's latest decrypted response carried, or `undefined` before any decrypt. */
-	response(flowId: string): DecryptedCredentialResponse | undefined {
-		return this.#keys.get(flowId)?.response;
-	}
-
-	/** Drop whatever the flow holds (its key and decrypted response, and any generation still pending). */
-	drop(flowId: string): void {
-		this.#keys.delete(flowId);
-		this.#generations.delete(flowId);
+	/**
+	 * The latest decrypted response of this configuration, if any.
+	 */
+	response(flowId: string, credentialConfigurationId = ''): DecryptedCredentialResponse | undefined {
+		return this.#responses.get(flowId)?.get(credentialConfigurationId);
 	}
 
 	/**
-	 * Drop the flow's key only if `generation` still owns it: a request that failed after it
-	 * generated a key must not remove a newer request's key.
+	 * Drop everything the flow holds, including a pending generation.
+	 */
+	drop(flowId: string): void {
+		this.#keys.delete(flowId);
+		this.#generations.delete(flowId);
+		this.#responses.delete(flowId);
+		this.#offered.delete(flowId);
+	}
+
+	/**
+	 * Only the failed request's key goes: a newer request may own the
+	 * key by now, and other configurations' responses are still needed.
 	 */
 	dropGeneration(flowId: string, generation: number): void {
 		if (this.#generations.get(flowId) === generation) {
-			this.drop(flowId);
+			this.#keys.delete(flowId);
+			this.#generations.delete(flowId);
 		}
 	}
 
 	clear(): void {
 		this.#keys.clear();
 		this.#generations.clear();
+		this.#responses.clear();
+		this.#offered.clear();
 	}
 }
