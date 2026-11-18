@@ -1645,7 +1645,7 @@ describe('OIDFlowWebSocketTransport', () => {
 			warnSpy.mockRestore();
 		});
 
-		it('should include notification_id in mapped credentials', async () => {
+		it('should include notificationId in mapped credentials', async () => {
 			const transport = new OIDFlowWebSocketTransport(wsUrl, authToken);
 			await transport.connect();
 
@@ -1673,8 +1673,8 @@ describe('OIDFlowWebSocketTransport', () => {
 			const result = await flowPromise;
 			expect(result.success).toBe(true);
 			expect(result.credentials).toHaveLength(2);
-			expect(result.credentials![0].notification_id).toBe('notif-xyz');
-			expect(result.credentials![1].notification_id).toBeUndefined();
+			expect(result.credentials![0].notificationId).toBe('notif-xyz');
+			expect(result.credentials![1].notificationId).toBeUndefined();
 			expect(result.flowId).toBeDefined();
 		});
 	});
@@ -2097,13 +2097,15 @@ describe('flow_complete of an encrypted issuance', () => {
 				format: 'dc+sd-jwt',
 				vct: 'urn:a',
 				credential: 'first',
-				notification_id: 'n-1',
+				notificationId: 'n-1',
+				credentialMetadata: { 'org.example.extension': { ns: SECRET } },
 			},
 			{
 				format: 'dc+sd-jwt',
 				vct: 'urn:b',
 				credential: 'second',
-				notification_id: 'n-1',
+				notificationId: 'n-1',
+				credentialMetadata: { 'org.example.extension': { ns: SECRET } },
 			},
 		]);
 		expect(result.credentialMetadata).toEqual({
@@ -2204,6 +2206,213 @@ describe('flow_complete of an encrypted issuance', () => {
 		expect(responses2()[0].error).toBe(
 			'No response encryption key for this flow',
 		);
+	});
+});
+
+describe('flow_complete of a multi-configuration issuance', () => {
+	it('fills each configuration’s results from its own decrypted response', async () => {
+		const { transport, ws, signResponses } = await setup();
+		transport.onSignRequest(async () => ({ proofs: [{ proof_type: 'jwt', jwt: 'proof.jwt' }] }));
+		const { flowPromise, flowId } = await startIssuance(ws, transport);
+		await issueEncrypted(ws, signResponses, flowId, 'pid', {
+			credentials: [{ credential: 'pid-1' }, { credential: 'pid-2' }],
+			notification_id: 'n-pid',
+			credential_metadata: { display: [{ name: 'PID' }] },
+		});
+		await issueEncrypted(ws, signResponses, flowId, 'mdl', {
+			credentials: [{ credential: 'mdl-1' }],
+			notification_id: 'n-mdl',
+		});
+
+		ws.simulateMessage({
+			type: 'flow_complete',
+			flow_id: flowId,
+			credentials: [
+				{ format: 'dc+sd-jwt', credential_configuration_id: 'pid', credential_response_encrypted: true },
+				{ format: 'dc+sd-jwt', credential_configuration_id: 'pid', credential_response_encrypted: true },
+				{ format: 'mso_mdoc', credential_configuration_id: 'mdl', credential_response_encrypted: true },
+			],
+			credential_response_encrypted: true,
+		});
+
+		const result = await flowPromise;
+		expect(result.success).toBe(true);
+		expect(result.credentials?.map((c) => [c.credentialConfigurationId, c.credential, c.notificationId])).toEqual([
+			['pid', 'pid-1', 'n-pid'],
+			['pid', 'pid-2', 'n-pid'],
+			['mdl', 'mdl-1', 'n-mdl'],
+		]);
+		expect(result.credentials?.[0].credentialMetadata).toEqual({ display: [{ name: 'PID' }] });
+		expect(result.credentials?.[2].credentialMetadata).toBeUndefined();
+		expect(result.credentialMetadata).toBeUndefined();
+		expect(result.failures).toBeUndefined();
+	});
+
+	it('keeps a plain configuration that was offered no key next to an encrypted one', async () => {
+		const { transport, ws, signResponses } = await setup();
+		transport.onSignRequest(async () => ({ proofs: [{ proof_type: 'jwt', jwt: 'proof.jwt' }] }));
+		const { flowPromise, flowId } = await startIssuance(ws, transport);
+		await issueEncrypted(ws, signResponses, flowId, 'pid', { credentials: [{ credential: 'pid-1' }] });
+
+		ws.simulateMessage({
+			type: 'flow_complete',
+			flow_id: flowId,
+			credentials: [
+				{ format: 'dc+sd-jwt', credential_configuration_id: 'pid', credential_response_encrypted: true },
+				{
+					format: 'mso_mdoc',
+					credential_configuration_id: 'mdl',
+					credential: 'mdl-plain',
+					credential_metadata: { display: [{ name: 'mDL' }], 'org.example.extension': {} },
+				},
+			],
+			credential_response_encrypted: true,
+		});
+
+		const result = await flowPromise;
+		expect(result.success).toBe(true);
+		expect(result.credentials?.map((c) => c.credential)).toEqual(['pid-1', 'mdl-plain']);
+		expect(result.credentials?.[1].credentialMetadata).toEqual({ display: [{ name: 'mDL' }] });
+	});
+
+	it('drops only a configuration it cannot match, reporting it next to the engine’s failures', async () => {
+		const { transport, ws, signResponses } = await setup();
+		transport.onSignRequest(async () => ({ proofs: [{ proof_type: 'jwt', jwt: 'proof.jwt' }] }));
+		const { flowPromise, flowId } = await startIssuance(ws, transport);
+		await issueEncrypted(ws, signResponses, flowId, 'pid', { credentials: [{ credential: 'pid-1' }] });
+		await issueEncrypted(ws, signResponses, flowId, 'mdl', { credentials: [{ credential: 'mdl-1' }] });
+
+		ws.simulateMessage({
+			type: 'flow_complete',
+			flow_id: flowId,
+			credentials: [
+				{ format: 'dc+sd-jwt', credential_configuration_id: 'pid', credential_response_encrypted: true },
+				{ format: 'mso_mdoc', credential_configuration_id: 'mdl', credential_response_encrypted: true },
+				{ format: 'mso_mdoc', credential_configuration_id: 'mdl', credential_response_encrypted: true },
+			],
+			failures: [{ credential_configuration_id: 'eucc', error: 'issuer refused' }],
+			credential_response_encrypted: true,
+		});
+
+		const result = await flowPromise;
+		expect(result.success).toBe(true);
+		expect(result.credentials?.map((c) => c.credential)).toEqual(['pid-1']);
+		expect(result.failures).toEqual([
+			{ credentialConfigurationId: 'eucc', error: 'issuer refused' },
+			{
+				credentialConfigurationId: 'mdl',
+				error: 'The issued credentials could not be matched to the decrypted response',
+			},
+		]);
+	});
+
+	it('refuses the plaintext of a configuration that was offered a key, keeping the rest', async () => {
+		const { transport, ws, signResponses } = await setup();
+		transport.onSignRequest(async () => ({ proofs: [{ proof_type: 'jwt', jwt: 'proof.jwt' }] }));
+		const { flowPromise, flowId } = await startIssuance(ws, transport);
+		await issueEncrypted(ws, signResponses, flowId, 'pid', { credentials: [{ credential: 'pid-1' }] });
+		await generateProof(ws, signResponses, flowId, 'mdl-proof', undefined, undefined, {
+			credential_configuration_id: 'mdl',
+		});
+
+		ws.simulateMessage({
+			type: 'flow_complete',
+			flow_id: flowId,
+			credentials: [
+				{ format: 'dc+sd-jwt', credential_configuration_id: 'pid', credential_response_encrypted: true },
+				{ format: 'mso_mdoc', credential_configuration_id: 'mdl', credential: 'mdl-plain' },
+			],
+			credential_response_encrypted: true,
+		});
+
+		const result = await flowPromise;
+		expect(result.success).toBe(true);
+		expect(result.credentials?.map((c) => c.credential)).toEqual(['pid-1']);
+		expect(result.failures?.map((f) => f.credentialConfigurationId)).toEqual(['mdl']);
+		expect(JSON.stringify(result)).not.toContain('mdl-plain');
+	});
+
+	it('is an error when no configuration can be kept', async () => {
+		const { transport, ws, signResponses } = await setup();
+		transport.onSignRequest(async () => ({ proofs: [{ proof_type: 'jwt', jwt: 'proof.jwt' }] }));
+		const { flowPromise, flowId } = await startIssuance(ws, transport);
+		await issueEncrypted(ws, signResponses, flowId, 'pid', { credentials: [{ credential: 'pid-1' }] });
+
+		ws.simulateMessage({
+			type: 'flow_complete',
+			flow_id: flowId,
+			credentials: [
+				{ format: 'mso_mdoc', credential_configuration_id: 'mdl', credential_response_encrypted: true },
+			],
+			credential_response_encrypted: true,
+		});
+
+		const result = await flowPromise;
+		expect(result.success).toBe(false);
+		expect(result.error?.code).toBe('CREDENTIAL_DECRYPTION_FAILED');
+		expect(result.credentials).toBeUndefined();
+	});
+
+	it('refuses to decrypt a JWE for another configuration than the key was made for', async () => {
+		const { transport, ws, signResponses } = await setup();
+		transport.onSignRequest(async () => ({ proofs: [{ proof_type: 'jwt', jwt: 'proof.jwt' }] }));
+		const { flowId } = await startIssuance(ws, transport);
+		const proof = await generateProof(ws, signResponses, flowId, 'pid-proof', undefined, undefined, {
+			credential_configuration_id: 'pid',
+		});
+
+		const answer = await requestDecryption(
+			ws,
+			signResponses,
+			flowId,
+			'mdl-decrypt',
+			proof.credential_response_encryption_jwk as JWK,
+			undefined,
+			{ credential_configuration_id: 'mdl' },
+		);
+
+		expect(answer.error).toBe('The response encryption key belongs to another credential configuration');
+		expect(answer).not.toHaveProperty('credential_count');
+	});
+});
+
+describe('the engine’s user_selects credential selection', () => {
+	it('answers with every configuration the engine listed', async () => {
+		const { transport, ws } = await setup();
+		const { flowId } = await startIssuance(ws, transport);
+
+		ws.simulateMessage({
+			type: 'flow_progress',
+			flow_id: flowId,
+			step: 'awaiting_selection',
+			payload: {
+				available_credentials: [
+					{ id: 'pid', format: 'dc+sd-jwt' },
+					{ id: 'mdl', format: 'mso_mdoc' },
+				],
+			},
+		});
+
+		await vi.waitFor(() => expect(selectionAnswers(ws)).toHaveLength(1));
+		expect(selectionAnswers(ws)[0]).toMatchObject({
+			flow_id: flowId,
+			payload: { credential_configuration_ids: ['pid', 'mdl'] },
+		});
+	});
+
+	it('answers an ask that lists nothing with an empty selection, which the engine refuses', async () => {
+		const { transport, ws } = await setup();
+		const { flowId } = await startIssuance(ws, transport);
+
+		ws.simulateMessage({
+			type: 'flow_progress',
+			flow_id: flowId,
+			step: 'awaiting_selection',
+			payload: { available_credentials: [{ format: 'dc+sd-jwt' }] },
+		});
+
+		await vi.waitFor(() => expect(selectionAnswers(ws)).toHaveLength(1));
+		expect(selectionAnswers(ws)[0].payload).toEqual({ credential_configuration_ids: [] });
 	});
 });
 
@@ -3951,6 +4160,7 @@ async function requestDecryption(
 	messageId: string,
 	jwk: JWK,
 	body: unknown = { credentials: [{ credential: ISSUED }] },
+	extraParams: Record<string, unknown> = {},
 ) {
 	ws.simulateMessage({
 		type: 'sign_request',
@@ -3960,12 +4170,43 @@ async function requestDecryption(
 		params: {
 			jwe: await issuerEncrypt(jwk, 'ECDH-ES+A256KW', 'A128GCM', body),
 			deferred: false,
+			...extraParams,
 		},
 	});
 	await vi.waitFor(() =>
 		expect(signResponses().some((r) => r.message_id === messageId)).toBe(true),
 	);
 	return signResponses().find((r) => r.message_id === messageId)!;
+}
+
+/**
+ * One configuration's encrypted issuance: its key, then its decrypt.
+ */
+async function issueEncrypted(
+	ws: MockWebSocket,
+	signResponses: () => Array<Record<string, unknown>>,
+	flowId: string,
+	credentialConfigurationId: string,
+	body: unknown,
+) {
+	const params = { credential_configuration_id: credentialConfigurationId };
+	const proof = await generateProof(ws, signResponses, flowId, `${credentialConfigurationId}-proof`, undefined, undefined, params);
+	const answer = await requestDecryption(
+		ws,
+		signResponses,
+		flowId,
+		`${credentialConfigurationId}-decrypt`,
+		proof.credential_response_encryption_jwk as JWK,
+		body,
+		params,
+	);
+	expect(answer.error).toBeUndefined();
+}
+
+function selectionAnswers(ws: MockWebSocket): Array<Record<string, unknown>> {
+	return ws.sentMessages
+		.map((m) => JSON.parse(m) as Record<string, unknown>)
+		.filter((m) => m.type === 'flow_action' && m.action === 'select_credential');
 }
 
 /** Deliver a sign_presentation request to a transport whose sign handler returns `vpToken`. */
@@ -3997,6 +4238,7 @@ async function generateProof(
 	proofTypes: Record<string, unknown> | null = {
 		jwt: { proof_signing_alg_values_supported: ['ES256'] },
 	},
+	extraParams: Record<string, unknown> = {},
 ) {
 	ws.simulateMessage({
 		type: 'sign_request',
@@ -4009,6 +4251,7 @@ async function generateProof(
 			proof_type: 'jwt',
 			...(proofTypes ? { proof_types_supported: proofTypes } : {}),
 			...(encryption ? { credential_response_encryption: encryption } : {}),
+			...extraParams,
 		},
 	});
 	await vi.waitFor(() =>
