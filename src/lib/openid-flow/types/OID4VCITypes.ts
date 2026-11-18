@@ -149,16 +149,29 @@ export interface OID4VCIFlowResult {
 		credential: string;
 		vct?: string;
 		/** OID4VCI §11 notification identifier for lifecycle events */
-		notification_id?: string;
+		notificationId?: string;
+		/** The credential configuration this credential was issued under. */
+		credentialConfigurationId?: string;
+		/**
+		 * The response-level `credential_metadata` of the Credential Response
+		 * this credential came in. For an encrypted response it is the object
+		 * this wallet decrypted, for a plain response it is limited to
+		 * the display-only `display` and `claims`.
+		 */
+		credentialMetadata?: Record<string, unknown>;
 	}>;
 
 	/**
-	 * The response-level `credential_metadata` of the issuer's Credential Response.
-	 * For an encrypted response it is the object this wallet decrypted (the engine
-	 * never sees it) and may carry a delivered secret, so it is never logged. For a
-	 * plain response it is limited to the display-only `display` and `claims`.
+	 * The credential metadata of a completion that issued a single credential configuration.
+	 * Undefined when several were issued: use each credential's `credentialMetadata`.
 	 */
 	credentialMetadata?: Record<string, unknown>;
+
+	/** Credential configurations of the selected set that did not issue. */
+	failures?: Array<{
+		credentialConfigurationId: string;
+		error: string;
+	}>;
 
 	/** Flow ID from the backend (needed for credential notification) */
 	flowId?: string;

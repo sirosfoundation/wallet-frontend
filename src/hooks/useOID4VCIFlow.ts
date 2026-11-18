@@ -1,6 +1,7 @@
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useOIDFlowTransportSafe } from '@/context/OIDFlowTransportContext';
 import { CredentialOfferSchema, VerifiableCredentialFormat } from 'wallet-common';
+import type { ParsingEngineI } from 'wallet-common';
 import type { OID4VCIFlowResult } from '@/lib/openid-flow/types/OID4VCITypes';
 import type { OIDFlowActiveTransportType, OIDFlowProgressEvent } from '@/lib/openid-flow/types/OIDFlowTypes';
 import { DISPLAY_ISSUANCE_WARNINGS, OPENID4VCI_REDIRECT_URI } from '@/config';
@@ -424,63 +425,28 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		setError(null);
 
 		const credentialIssuer = credentialIssuerIdentifier ?? '';
-		const credentialConfigId = credentialConfigurationId ?? '';
 
 		try {
 			if (!credentials || credentials.length === 0) throw new Error('No credentials to store');
 
-			const formats = credentials.map(c =>
-				c.format ? c.format as VerifiableCredentialFormat : inferFormatFromCredential(c.credential)
-			);
-
-			const batchFormat = formats[0];
-			const batchId = Date.now();
-
-			if (formats.some(f => f !== batchFormat)) {
-				throw new Error('Mixed credential formats in a single batch are not supported');
-			}
-
-			const credentialsToStore = await Promise.all(credentials.map(async (c, idx) => {
-				let kid = '';
-
-				// Derive kid from credential based on format
-				if (
-					batchFormat === VerifiableCredentialFormat.VC_SDJWT ||
-					batchFormat === VerifiableCredentialFormat.DC_SDJWT ||
-					batchFormat === VerifiableCredentialFormat.MSO_MDOC
-				) {
-					kid = await deriveHolderKidFromCredential(c.credential, batchFormat) ?? '';
-				}
-
-				return {
-					data: c.credential,
-					format: batchFormat,
-					kid: kid,
-					batchId,
-					credentialIssuerIdentifier: credentialIssuer,
-					credentialConfigurationId: credentialConfigId,
-					instanceId: idx,
-				};
-			}));
-
-			// We assume that all credentials in the batch are the same,
-			// so parsing one is sufficient for validation and metadata extraction.
+			const batches = groupByConfiguration(credentials, credentialConfigurationId ?? '');
 			const { credentialParsingEngine } = await credentialEngine;
-			const parseResult = await credentialParsingEngine.parse({
-				rawCredential: credentialsToStore[0].data,
-				credentialIssuer: {
-					credentialIssuerIdentifier: credentialsToStore[0].credentialIssuerIdentifier,
-					credentialConfigurationId: credentialsToStore[0].credentialConfigurationId,
-				},
-			});
+			const batchIdBase = Date.now();
+			const prepared = await Promise.all([...batches].map(([id, batch], index) =>
+				prepareBatch(batch, {
+					batchId: batchIdBase + index,
+					credentialIssuer,
+					credentialConfigurationId: id,
+					parsingEngine: credentialParsingEngine,
+				}),
+			));
 
-			if (parseResult.success === false) {
-					throw new Error(`Credential parsing failed: ${parseResult.error}`);
-			}
+			const credentialsToStore = prepared.flatMap(b => b.credentialsToStore);
+			const warnings = prepared.flatMap(b => b.warnings);
 
-			if (parseResult.value.warnings?.length > 0) {
+			if (warnings.length > 0) {
 				if (DISPLAY_ISSUANCE_WARNINGS && onIssuanceWarnings) {
-					const consent = await onIssuanceWarnings(parseResult.value.warnings);
+					const consent = await onIssuanceWarnings(warnings);
 					if (!consent) throw new Error('User declined to store credential due to warnings');
 				}
 			}
@@ -568,6 +534,77 @@ function loadAndClearPendingFlow(): PendingOID4VCIFlow | null {
 	} catch {
 		return null;
 	}
+}
+
+type IssuedCredential = NonNullable<OID4VCIFlowResult['credentials']>[number];
+
+/**
+ * A batch holds one kind of credential, so each configuration gets its own.
+ */
+function groupByConfiguration(
+	credentials: IssuedCredential[],
+	fallbackId: string,
+): Map<string, IssuedCredential[]> {
+	const batches = new Map<string, IssuedCredential[]>();
+	for (const c of credentials) {
+		const id = c.credentialConfigurationId ?? fallbackId;
+		batches.set(id, [...(batches.get(id) ?? []), c]);
+	}
+	return batches;
+}
+
+/**
+ * All credentials of a batch are alike, so parsing one validates it.
+ */
+async function prepareBatch(
+	batch: IssuedCredential[],
+	{ batchId, credentialIssuer, credentialConfigurationId, parsingEngine }: {
+		batchId: number;
+		credentialIssuer: string;
+		credentialConfigurationId: string;
+		parsingEngine: ParsingEngineI;
+	},
+) {
+	const formats = batch.map(c =>
+		c.format ? c.format as VerifiableCredentialFormat : inferFormatFromCredential(c.credential)
+	);
+	const format = formats[0];
+	if (formats.some(f => f !== format)) {
+		throw new Error('Mixed credential formats in a single batch are not supported');
+	}
+
+	const credentialsToStore = await Promise.all(batch.map(async (c, idx) => {
+		let kid = '';
+		if (
+			format === VerifiableCredentialFormat.VC_SDJWT ||
+			format === VerifiableCredentialFormat.DC_SDJWT ||
+			format === VerifiableCredentialFormat.MSO_MDOC
+		) {
+			kid = await deriveHolderKidFromCredential(c.credential, format) ?? '';
+		}
+		return {
+			data: c.credential,
+			format,
+			kid,
+			batchId,
+			credentialIssuerIdentifier: credentialIssuer,
+			credentialConfigurationId,
+			instanceId: idx,
+		};
+	}));
+
+	const parseResult = await parsingEngine.parse({
+		rawCredential: credentialsToStore[0].data,
+		credentialIssuer: {
+			credentialIssuerIdentifier: credentialIssuer,
+			credentialConfigurationId,
+		},
+	});
+	if (parseResult.success === false) {
+		throw new Error(`Credential parsing failed: ${parseResult.error}`);
+	}
+
+	return { credentialsToStore, warnings: parseResult.value.warnings ?? [] };
 }
 
 /**
