@@ -14,7 +14,7 @@
 
 import { TrustStatus as TrustStatusEnum } from 'wallet-common';
 import { ClientHeldEncryptionKeys, buildJarmResponse, carriesLegacySecretMember, verifierJwkThumbprint } from '../encryption';
-import { frontedRpDisplay, type VerifierInfoElement } from '../platforms/dc-api/verifierInfoDisplay';
+import { frontedRpDisplay, type VerifierInfoElement } from '../utils/fronted-relying-party';
 import type {
 	CredentialResponseEncryptionRequest,
 	DecryptedCredentialResponse,

@@ -9,18 +9,32 @@
  * caller falls back to whatever it used before.
  */
 
-/** One `verifier_info` element from the request JWT payload. */
-export interface VerifierInfoElement {
-	format: string;
-	data?: unknown;
-}
+import { z } from 'zod';
 
-interface RegistrarDataset {
-	srvDescription?: Array<{ lang: string; content: string }>;
-	purpose?: Array<{ lang: string; content: string }>;
-	policyURI?: string;
-	identifier?: Array<{ type: string; identifier: string }>;
-}
+/** One `verifier_info` element from the request JWT payload. */
+export const VerifierInfoElementSchema = z.object({
+	format: z.string(),
+	data: z.unknown().optional(),
+});
+
+export type VerifierInfoElement = z.infer<typeof VerifierInfoElementSchema>;
+
+const LocalizedStringSchema = z.object({
+	lang: z.string(),
+	content: z.string(),
+});
+
+const IdentifierSchema = z.object({
+	type: z.string(),
+	identifier: z.string(),
+});
+
+const RegistrarDatasetSchema = z.object({
+	srvDescription: z.array(LocalizedStringSchema).optional(),
+	purpose: z.array(LocalizedStringSchema).optional(),
+	policyURI: z.string().optional(),
+	identifier: z.array(IdentifierSchema).optional(),
+});
 
 /**
  * The fronted RP's display identity from the `verifier_info` members, or
@@ -33,12 +47,16 @@ export function frontedRpDisplay(
 ): { name: string; purpose?: string; policyURI?: string; identifier?: string } | null {
 	if (!members?.length) return null;
 	const dataset = members.find((m) => m.format === 'registrar_dataset');
-	if (!dataset?.data || typeof dataset.data !== 'object') return null;
-	const ds = dataset.data as RegistrarDataset;
+	if (!dataset?.data) return null;
+	const parsed = RegistrarDatasetSchema.safeParse(dataset.data);
+	if (!parsed.success) return null;
+	// zod's partial inference on optional-array members yields optional
+	// element fields; the schema's own validation guarantees the shape.
+	const ds = parsed.data as { srvDescription?: Array<{ lang: string; content: string }>; purpose?: Array<{ lang: string; content: string }>; policyURI?: string; identifier?: Array<{ type: string; identifier: string }> };
 
 	// srvDescription: the member whose lang matches the requested language,
 	// then English, then the first entry — the MultiLangString form.
-	const localized = <T extends { lang: string }>(entries: T[] | undefined): T | undefined => {
+	const localized = (entries: Array<{ lang: string; content: string }> | undefined) => {
 		if (!entries?.length) return undefined;
 		const lower = language.toLowerCase();
 		return entries.find((e) => e.lang.toLowerCase().startsWith(lower.split('-')[0]))

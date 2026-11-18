@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { frontedRpDisplay, type VerifierInfoElement } from './verifierInfoDisplay';
+import { frontedRpDisplay, type VerifierInfoElement } from './fronted-relying-party';
 
 const dataset = (overrides: Partial<{
 	srvDescription: Array<{ lang: string; content: string }>;

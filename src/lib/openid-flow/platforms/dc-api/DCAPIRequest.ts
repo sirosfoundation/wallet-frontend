@@ -17,7 +17,7 @@ import {
 } from './resources';
 import { logger } from '@/logger';
 import { getPublicKeyFromB64Cert } from '@/lib/utils/pki';
-import type { VerifierInfoElement } from './verifierInfoDisplay';
+import type { VerifierInfoElement } from '../../utils/fronted-relying-party';
 
 const SUPPORTED_ALGS = new Set([
 	'ES256',
