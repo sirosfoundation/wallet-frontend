@@ -9,6 +9,7 @@
 
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useOIDFlowTransportSafe } from '@/context/OIDFlowTransportContext';
+import { useTrustEvaluators } from '@/context/TrustEvaluatorContext';
 import SessionContext from '@/context/SessionContext';
 import CredentialsContext, { ExtendedVcEntity } from '@/context/CredentialsContext';
 import { matchCredentials, type CredentialsMatchedResult } from '@/lib/services/CredentialMatchingService';
@@ -121,6 +122,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 	const { onProgress, onError } = options;
 
 	const transportContext = useOIDFlowTransportSafe();
+	const trustEvaluators = useTrustEvaluators();
 	const { keystore, api } = useContext(SessionContext);
 	const { vcEntityList } = useContext(CredentialsContext);
 	const { signPresentation } = useOIDFlowSignHandler();
@@ -471,16 +473,13 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				logger.debug('Unsigned request, proceeding with resolution-based trust evaluation');
 			}
 
-			// The DC-API callback page may open before the WebSocket transport
-			// context is established (the QR link routes here directly). Without
-			// a context the optional chain returns undefined, and
-			// !undefined?.trusted is always true — the "untrusted verifier"
-			// refusal fires unconditionally before the engine's own server-side
-			// evaluation (which handles this correctly) is ever consulted.
-			// Skip the client-side check when there is no context; the
-			// engine's evaluation makes the actual trust decision.
-			const trustResult = transportContext
-				? await transportContext.trustEvaluators.evaluateVerifierTrust({
+			// The trust evaluators sit in their own context — independent of the
+			// WebSocket transport — so the DC-API callback page (which may open
+			// before a transport connects) evaluates trust the same way the main
+			// app does. The evaluators call the backend's AuthZEN endpoint
+			// directly; they never needed the transport.
+			const trustResult = trustEvaluators
+				? await trustEvaluators.evaluateVerifierTrust({
 					clientIdScheme,
 					keyMaterial,
 				})
@@ -492,8 +491,8 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 					message: trustResult?.status ?? 'Verifier is not trusted',
 				});
 			}
-			if (!transportContext) {
-				logger.debug('No transport context on the DC-API path; deferring verifier trust to the engine');
+			if (!trustEvaluators) {
+				logger.debug('No trust evaluator context; deferring verifier trust to the engine');
 			}
 
 			// We should filter the credentials based on the selectedCredentialIDs
@@ -543,7 +542,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		} finally {
 			setIsLoading(false);
 		}
-	}, [waitForCredentials, reportError, transportContext]);
+	}, [waitForCredentials, reportError, trustEvaluators]);
 
 	/**
 	 * Send DC API response - sign, record history, send via session
