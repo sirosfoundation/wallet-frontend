@@ -9,6 +9,7 @@
 
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useOIDFlowTransportSafe } from '@/context/OIDFlowTransportContext';
+import { useTrustEvaluators } from '@/context/TrustEvaluatorContext';
 import SessionContext from '@/context/SessionContext';
 import CredentialsContext, { ExtendedVcEntity } from '@/context/CredentialsContext';
 import { matchCredentials, type CredentialsMatchedResult } from '@/lib/services/CredentialMatchingService';
@@ -22,6 +23,7 @@ import { DcqlQuery } from 'dcql';
 import { getLeastUsedCredentialInstance } from '@/lib/services/CredentialBatchHelper';
 import { applySelectiveDisclosure } from '@/lib/verifiable-credentials';
 import { OIDFlowError } from '@/lib/openid-flow/errors';
+import { restructureDcqlVpToken } from '@/lib/openid-flow/encryption';
 import { useOIDFlowSignHandler } from './useOIDFlowSignHandler';
 import { DCAPIRequest, DCAPISession } from '@/lib/openid-flow/platforms/dc-api';
 import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
@@ -120,6 +122,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 	const { onProgress, onError } = options;
 
 	const transportContext = useOIDFlowTransportSafe();
+	const trustEvaluators = useTrustEvaluators();
 	const { keystore, api } = useContext(SessionContext);
 	const { vcEntityList } = useContext(CredentialsContext);
 	const { signPresentation } = useOIDFlowSignHandler();
@@ -470,16 +473,26 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				logger.debug('Unsigned request, proceeding with resolution-based trust evaluation');
 			}
 
-			const trustResult = await transportContext?.trustEvaluators.evaluateVerifierTrust({
-				clientIdScheme,
-				keyMaterial,
-			});
+			// The trust evaluators sit in their own context — independent of the
+			// WebSocket transport — so the DC-API callback page (which may open
+			// before a transport connects) evaluates trust the same way the main
+			// app does. The evaluators call the backend's AuthZEN endpoint
+			// directly; they never needed the transport.
+			const trustResult = trustEvaluators
+				? await trustEvaluators.evaluateVerifierTrust({
+					clientIdScheme,
+					keyMaterial,
+				})
+				: undefined;
 
-			if (!trustResult?.trusted) {
+			if (trustResult && !trustResult?.trusted) {
 				throw new OIDFlowError({
 					code: 'UNTRUSTED_VERIFIER',
 					message: trustResult?.status ?? 'Verifier is not trusted',
 				});
+			}
+			if (!trustEvaluators) {
+				logger.debug('No trust evaluator context; deferring verifier trust to the engine');
 			}
 
 			// We should filter the credentials based on the selectedCredentialIDs
@@ -529,7 +542,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		} finally {
 			setIsLoading(false);
 		}
-	}, [waitForCredentials, reportError, transportContext?.trustEvaluators]);
+	}, [waitForCredentials, reportError, trustEvaluators]);
 
 	/**
 	 * Send DC API response - sign, record history, send via session
@@ -566,7 +579,16 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				throw new OIDFlowError({ code: 'SIGNING_FAILED', message: 'Failed to generate VP token' });
 			}
 
-			await session.sendResponse(JSON.parse(signResponse.vpToken));
+			// OpenID4VP 1.0 §8.1: the response's vp_token is a JSON object keyed by
+			// the DCQL Credential Query id — a bare (or JSON-quoted) token string
+			// from the sign handler is restructured here, the same way the JARM
+			// path (buildJarmResponse) does.
+			await session.sendResponse(restructureDcqlVpToken(
+				signResponse.vpToken,
+				selectedCredentials
+					.map((c) => c.credentialQueryId)
+					.filter((id): id is string => typeof id === 'string'),
+			));
 			return { success: true };
 		} catch (err) {
 			const error = err instanceof OIDFlowError
