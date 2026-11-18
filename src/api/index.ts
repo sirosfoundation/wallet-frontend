@@ -61,7 +61,7 @@ export interface BackendApi {
 
 	getSession(): SessionState,
 	isLoggedIn(): boolean,
-	clearSession(): void,
+	clearSession(): Promise<void>,
 
 	authTokens: AuthTokens,
 
@@ -162,19 +162,23 @@ export function useApi({
 	const clearSessionStorage = useClearStorages(clearSessionState);
 
 	// Define clearSession early so it can be used by token refresh config
-	const clearSession = useCallback((): void => {
-		authServer.logout(tenantId ?? 'default').catch((e) => logger.error('Failed to clear server session', e));
+	const clearSession = useCallback(async (): Promise<void> => {
+		events.dispatchEvent(new CustomEvent<ClearSessionEvent>(CLEAR_SESSION_EVENT));
+		try {
+			await authServer.logout(tenantId ?? 'default');
+		} catch (e) {
+			logger.error('Failed to clear server session', e);
+		}
 		clearSessionStorage();
 		authTokens.clear();
 		removePrivateDataEtag();
 		clearStoredTenant(); // Clear tenant on logout
 		clearOIDCState('registration'); // Clear OIDC gate tokens on logout
 		clearOIDCState('login');
-		events.dispatchEvent(new CustomEvent<ClearSessionEvent>(CLEAR_SESSION_EVENT));
 	}, [authServer, authTokens, clearSessionStorage, removePrivateDataEtag, tenantId]);
 
 	// Stable ref for clearSession to avoid stale closures in token refresh
-	const clearSessionRef = useRef<() => void>(clearSession);
+	const clearSessionRef = useRef<() => Promise<void>>(clearSession);
 
 	useEffect(() => {
 		clearSessionRef.current = clearSession;

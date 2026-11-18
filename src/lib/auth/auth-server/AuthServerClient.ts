@@ -215,10 +215,16 @@ export class AuthServerClient {
 	}
 
 	async logout(tenantId: string): Promise<void> {
-		await this.#delete(this.#endpointSession, {
-			'X-Token-Mode': 'session',
-			'X-Tenant-ID': tenantId,
-		});
+		const controller = new AbortController();
+		const timeout = setTimeout(() => controller.abort(), 5000);
+		try {
+			await this.#delete(this.#endpointSession, {
+				'X-Token-Mode': 'session',
+				'X-Tenant-ID': tenantId,
+			}, controller.signal);
+		} finally {
+			clearTimeout(timeout);
+		}
 	}
 
 	async #post(
@@ -232,8 +238,9 @@ export class AuthServerClient {
 	async #delete(
 		path: string,
 		headers: Record<string, string> = {},
+		signal?: AbortSignal,
 	): Promise<AxiosResponse> {
-		return this.#request('DELETE', path, headers);
+		return this.#request('DELETE', path, headers, undefined, signal);
 	}
 
 	async #request(
@@ -241,6 +248,7 @@ export class AuthServerClient {
 		path: string,
 		headers: Record<string, string>,
 		body?: object,
+		signal?: AbortSignal,
 	): Promise<AxiosResponse> {
 		return axios.request({
 			method,
@@ -248,6 +256,7 @@ export class AuthServerClient {
 			headers: { 'Content-Type': 'application/json', ...headers },
 			withCredentials: true,
 			data: body,
+			signal,
 			transformRequest: (data) => jsonStringifyTaggedBinary(data),
 			transformResponse: transformTaggedResponse,
 		});
