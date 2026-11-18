@@ -58,6 +58,17 @@ export const SignedDCApiRequestSchema = BaseDCApiRequestSchema.extend({
 	rawJwt: z.string().min(1),
 	expectedOrigins: z.array(z.string(), { required_error: 'Missing expected_origins in signed request' }).min(1, 'expected_origins cannot be empty'),
 	clientMetadata: ClientMetadataSchema.optional(),
+	/**
+	 * ETSI TS 119 472-2 §6.3.2.2 `verifier_info` members: the registrar
+	 * dataset and the registration certificate the fronted relying party's
+	 * identity lives in. An intermediary-signed request carries these in the
+	 * JWT payload; a verifier-signed request omits them. Optional — wallets
+	 * that don't read them behave exactly as before.
+	 */
+	verifierInfo: z.array(z.object({
+		format: z.string(),
+		data: z.unknown().optional(),
+	})).optional(),
 }).strict();
 
 export type UnsignedDCAPIRequest = z.infer<typeof UnsignedDCApiRequestSchema>;
