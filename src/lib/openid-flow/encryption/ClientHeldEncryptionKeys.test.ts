@@ -310,6 +310,38 @@ describe('ClientHeldEncryptionKeys.decrypt', () => {
 		keys.clear();
 		expect(keys.has('flow-2')).toBe(false);
 	});
+
+	it.each([
+		['drop()', (keys: ClientHeldEncryptionKeys) => keys.drop('flow-1')],
+		['clear()', (keys: ClientHeldEncryptionKeys) => keys.clear()],
+		[
+			'a new key for the same configuration',
+			(keys: ClientHeldEncryptionKeys) =>
+				keys.generate('flow-1', { alg: 'ECDH-ES', enc: 'A256GCM' }, 'pid'),
+		],
+	])(
+		'keeps nothing when %s runs while a response is being decrypted',
+		async (_name, interrupt) => {
+			const keys = new ClientHeldEncryptionKeys();
+			const pid = await keys.generate(
+				'flow-1',
+				{ alg: 'ECDH-ES', enc: 'A256GCM' },
+				'pid',
+			);
+			const jwe = await issuerEncrypt(pid!.jwk, 'ECDH-ES', 'A256GCM', {
+				credentials: [{ credential: ISSUED }],
+				credential_metadata: extensionMetadata,
+			});
+
+			const pending = keys.decrypt('flow-1', jwe, 'pid');
+			const interrupted = interrupt(keys);
+
+			await expect(pending).rejects.toBeInstanceOf(ClientHeldEncryptionError);
+			await interrupted;
+			expect(keys.response('flow-1', 'pid')).toBeUndefined();
+		},
+	);
+
 });
 
 describe('credentials entries (OID4VCI 1.0 section 8.3)', () => {

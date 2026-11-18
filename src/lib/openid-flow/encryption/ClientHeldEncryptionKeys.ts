@@ -265,6 +265,13 @@ export class ClientHeldEncryptionKeys {
 			body.credential_metadata && typeof body.credential_metadata === 'object' && !Array.isArray(body.credential_metadata)
 				? (body.credential_metadata as Record<string, unknown>)
 				: undefined;
+		// drop(), clear() or a new generate() ran while decrypting:
+		// storing now would bring back what they removed.
+		if (this.#keys.get(flowId) !== entry) {
+			throw new ClientHeldEncryptionError(
+				'The response encryption key was released or superseded during decryption'
+			);
+		}
 		// This response only: nothing is carried over from an earlier one.
 		const responses = this.#responses.get(flowId) ?? new Map<string, DecryptedCredentialResponse>();
 		responses.set(credentialConfigurationId, {
