@@ -1,4 +1,4 @@
-import { SDJwt } from "@sd-jwt/core";
+import { SdJwt } from "@sd-jwt/core";
 import type { HasherAndAlg } from "@sd-jwt/types";
 import { CredentialParsingError } from "../error";
 import { Context, CredentialParser, HttpClient } from "../interfaces";
@@ -88,7 +88,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient, 
 
 			const { parsedClaims, parsedHeaders, parsedPayload, err } = await (async () => {
 				try {
-					const parsedSdJwt = await SDJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher);
+					const parsedSdJwt = await SdJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher);
 					const claims = await parsedSdJwt.getClaims(hasherAndAlgorithm.hasher);
 					const headers = await parsedSdJwt.jwt?.header;
 					const payload = await parsedSdJwt.jwt?.payload;

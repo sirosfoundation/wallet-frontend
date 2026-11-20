@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach, vi, type Mock } from 'vitest';
 import * as jose from 'jose';
-import { SDJwt } from '@sd-jwt/core';
+import { SdJwt } from '@sd-jwt/core';
 import { validateChain } from '../../utils/pki';
 import { logger } from '@/logger';
 import {
@@ -20,7 +20,7 @@ vi.mock('@/logger', () => ({
 }));
 
 vi.mock('@sd-jwt/core', () => ({
-	SDJwt: { fromEncode: vi.fn() },
+	SdJwt: { fromEncode: vi.fn() },
 }));
 
 // Keep jose's real base64url so header parsing works, but stub the crypto calls.
@@ -32,7 +32,7 @@ vi.mock('jose', async (importOriginal) => {
 const mockValidateChain = validateChain as Mock;
 const mockImportX509 = jose.importX509 as Mock;
 const mockJwtVerify = jose.jwtVerify as Mock;
-const mockFromEncode = SDJwt.fromEncode as unknown as Mock;
+const mockFromEncode = SdJwt.fromEncode as unknown as Mock;
 const mockLoggerError = logger.error as Mock;
 
 describe('verifySdJwtBasedOnTrustAnchors', () => {

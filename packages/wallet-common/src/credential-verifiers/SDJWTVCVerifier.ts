@@ -1,4 +1,4 @@
-import { SDJwt } from "@sd-jwt/core";
+import { SdJwt } from "@sd-jwt/core";
 import type { HasherAndAlg } from "@sd-jwt/types";
 import { Context, CredentialVerifier, PublicKeyResolverEngineI, HttpClient } from "../interfaces";
 import { CredentialVerificationError } from "../error";
@@ -35,8 +35,8 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 
 	const parse = async (rawCredential: string) => {
 		try {
-			const credential = await SDJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher);
-			const parsedSdJwtWithPrettyClaims = await (await SDJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher)).getClaims<ParsedSdJwtVcWithPrettyClaims>(hasherAndAlgorithm.hasher);
+			const credential = await SdJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher);
+			const parsedSdJwtWithPrettyClaims = await (await SdJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher)).getClaims<ParsedSdJwtVcWithPrettyClaims>(hasherAndAlgorithm.hasher);
 			return { credential, parsedSdJwtWithPrettyClaims };
 		}
 		catch (err) {
@@ -85,7 +85,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 	const verifyIssuerSignature = async (rawCredential: string): Promise<CustomResult<{}, CredentialVerificationError>> => {
 		const parsedSdJwt = await (async () => {
 			try {
-				return (await SDJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher)).jwt;
+				return (await SdJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher)).jwt;
 			}
 			catch (err) {
 				if (err instanceof Error) {
