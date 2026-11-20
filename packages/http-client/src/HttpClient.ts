@@ -83,7 +83,7 @@ export class HttpClient {
 		headers?: Record<string, string>,
 		options?: HttpClientRequestOptions,
 	): Promise<HttpResponse> {
-		const { useCache = false, wantRaw = false, binary } = options || {};
+		const { useCache = false, wantRaw = false, binary, timeout } = options || {};
 		const isBinary = binary ?? isBinaryUrl(url);
 		const now = Math.floor(Date.now() / 1000);
 
@@ -118,6 +118,7 @@ export class HttpClient {
 			url,
 			body,
 			headers,
+			timeout,
 			useCache,
 			wantRaw,
 			isBinary,
@@ -133,6 +134,7 @@ export class HttpClient {
 		url: string,
 		body: string | object | undefined,
 		headers: Record<string, string> | undefined,
+		timeout: number | undefined,
 		useCache: boolean,
 		wantRaw: boolean,
 		isBinary: boolean,
@@ -154,6 +156,7 @@ export class HttpClient {
 				url,
 				body,
 				headers: mergedHeaders,
+				timeout,
 			});
 
 			const contentType = responseHeaders['content-type'] as string | undefined;
