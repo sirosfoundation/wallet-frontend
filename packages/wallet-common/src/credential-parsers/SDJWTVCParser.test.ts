@@ -1,8 +1,8 @@
-import { assert, describe, it } from "vitest";
+import { assert, describe, it, vi } from "vitest";
 import { SDJWTVCParser } from "./SDJWTVCParser";
-import { Context, HttpClient } from "../interfaces";
+import { Context, HttpClient, HttpResponse } from "../interfaces";
 import { defaultHttpClient } from "../defaultHttpClient";
-import path from "path";
+import path from "node:path";
 import { convertDataUriToImage } from '../functions/convertDataUriToImage';
 import { CredentialParsingError } from "../error";
 
@@ -21,10 +21,15 @@ const context: Context = {
 	trustedCertificates: [],
 };
 
+const fakeHttpClient = vi.mockObject({
+	get: async () => { return {} as HttpResponse },
+	post: async () => { return {} as HttpResponse },
+}) satisfies HttpClient;
+
 describe("The SDJWTVCParser", () => {
 
 	it("should parse an vc+sd-jwt credential", async () => {
-		const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
+		const parser = SDJWTVCParser({ httpClient: fakeHttpClient, context });
 
 		const parsedCredential = await parser.parse({ rawCredential });
 		console.log('!!!', parsedCredential)
@@ -33,40 +38,40 @@ describe("The SDJWTVCParser", () => {
 	})
 
 	it("should detect expired vc+sd-jwt credential", async () => {
-		const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
+		const parser = SDJWTVCParser({ httpClient: fakeHttpClient, context });
 		const parsedCredential = await parser.parse({ rawCredential: expiredCredential });
 		assert(parsedCredential.success);
 	})
 
 
 	it("should parse SDJWT with KB+JWT", async () => {
-		const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
+		const parser = SDJWTVCParser({ httpClient: fakeHttpClient, context });
 		const parsedCredential = await parser.parse({ rawCredential: rawPresentation });
 		assert(parsedCredential.success);
 	})
 
 	it("should handle the case of invalid format", async () => {
-		const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
+		const parser = SDJWTVCParser({ httpClient: fakeHttpClient, context });
 		const parsedCredential = await parser.parse({ rawCredential: msoMdocIssuerSigned });
 		assert(parsedCredential.success === false);
 	})
 
 	it("should parse credential succesfully", async () => {
-		const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
+		const parser = SDJWTVCParser({ httpClient: fakeHttpClient, context });
 		const parsedCredential = await parser.parse({ rawCredential });
 		assert(parsedCredential.success === true);
 		assert(parsedCredential.value.signedClaims);
 	})
 
 	it("should parse animo credential succesfully", async () => {
-		const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
+		const parser = SDJWTVCParser({ httpClient: fakeHttpClient, context });
 		const parsedCredential = await parser.parse({ rawCredential: rawCredentialAnimo });
 		assert(parsedCredential.success === true);
 		assert(parsedCredential.value.signedClaims);
 	})
 
 	it("should parse credential without metadata succesfully", async () => {
-		const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
+		const parser = SDJWTVCParser({ httpClient: fakeHttpClient, context });
 		const parsedCredential = await parser.parse({ rawCredential: rawCredentialWithoutMetadata });
 
 		if (parsedCredential.success) {
@@ -84,7 +89,7 @@ describe("The SDJWTVCParser", () => {
 	})
 
 	it("should fail if rawCredential is not a string", async () => {
-		const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
+		const parser = SDJWTVCParser({ httpClient: fakeHttpClient, context });
 
 		const result = await parser.parse({ rawCredential: { some: "object" } as any }); // deliberately incorrect
 		assert(result.success === false);
@@ -92,7 +97,7 @@ describe("The SDJWTVCParser", () => {
 	});
 
 	it("should fail if try to parse", async () => {
-		const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
+		const parser = SDJWTVCParser({ httpClient: fakeHttpClient, context });
 
 		// Give it completely invalid string that will break base64 parsing
 		const result = await parser.parse({ rawCredential: "!!!not-a-jwt!!!" });
@@ -103,7 +108,7 @@ describe("The SDJWTVCParser", () => {
 
 	it("should fail if JWT typ is not supported", async () => {
 
-		const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
+		const parser = SDJWTVCParser({ httpClient: fakeHttpClient, context });
 
 		const result = await parser.parse({ rawCredential: "eyJ0eXAiOiJzZCtqd3QiLCJhbGciOiJFUzI1NiJ9.eyJpZCI6IjEyMzQiLCJfc2QiOlsiM3Zrdmtvc0hnYkxLTFRmS2RkcjVRRkxEUkZQMXktcy03T2hVU1hRa0RPayIsIllxOVJCVWJVZEV2U0JRSG94VUt4ZUo3aUh6Uzh6dGdyQ3RoRUZabEF4ZDQiLCJ5VmFGT05pQ3VGX002S0hMaEhlZV9udmtpU09HWENoUkpPaHFZN0Y4RUY4Il0sIl9zZF9hbGciOiJTSEEtMjU2In0.onjWOmZ5biJFnpnWgbxge1qYlvQs-QT_piVI3mV5tw8kvbq3dCIxZP3dxhY3Rk95MxR_37AWYV3ObyM7Te8G0w~WyIyMDIyNzlhN2RjMzIwMzk2IiwiZmlyc3RuYW1lIiwiSm9obiJd~WyI5MjUxYmQzNDQwZTAxMGM3IiwibGFzdG5hbWUiLCJEb2UiXQ~WyIwN2ZhYzIyZWZkN2QzM2Q0Iiwic3NuIiwiMTIzLTQ1LTY3ODkiXQ~" });
 		assert(result.success === false);
@@ -112,7 +117,7 @@ describe("The SDJWTVCParser", () => {
 
 	it("should fail with iss", async () => {
 
-		const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
+		const parser = SDJWTVCParser({ httpClient: fakeHttpClient, context });
 
 		const result = await parser.parse({ rawCredential: "eyJ0eXAiOiJ2YytzZC1qd3QiLCJhbGciOiJFUzI1NiJ9.eyJpZCI6IjEyMzQiLCJpc3MiOiJodHRwOi8vd2FsbGV0LWVudGVycHJpc2UtdmlkLWlzc3VlcjE6ODAwMyIsIl9zZCI6WyJMMWtxT1Nocm9kSW5XUEhjc3F2Y3RzZEszeEx0dGRZakoteWpQM01BUUhrIiwiVHBhcVRrSmtSTDNUbHdHc1NGSG5fNUp6LUZUdm8zdmlsUXdmOGYzTWRYdyIsImhDcG5jOUZVdGxpa2ZJTHRjX2phYkcwRFpyQWVUVnFHWlRmRGNOOGJYRGMiXSwiX3NkX2FsZyI6InNoYS0yNTYifQ.AcXYVFuVaXKqkco1a_Opp9-qTsQVdVgBm-Bzg3S_taahTK2Msiu7_zGnzcVFq9tuvTrfJDMbJg6DtoKVqTxsmA~WyJmNWQ3ZTI5NDcwNmNkNGNjIiwiZmlyc3RuYW1lIiwiSm9obiJd~WyI3YjRlOTUwMjIzZTUzMGJiIiwibGFzdG5hbWUiLCJEb2UiXQ~WyJjODc1MTlhNDg4YmQ1MDEwIiwic3NuIiwiMTIzLTQ1LTY3ODkiXQ~" });
 		assert(result.success === false);
@@ -125,11 +130,12 @@ describe("The SDJWTVCParser", () => {
 				if (url.includes(".well-known/openid-credential-issuer")) {
 					return {
 						status: 400,
-					};
+					} as HttpResponse;
 				}
 				// fallback to real http call for everything else
 				return defaultHttpClient.get(url);
-			}
+			},
+			post: async () => ({}) as HttpResponse
 		};
 
 		const parser = SDJWTVCParser({ httpClient: malformedHttpClient, context });
@@ -149,11 +155,12 @@ describe("The SDJWTVCParser", () => {
 							// Malformed on purpose: missing `credential_configurations_supported`
 							invalid_field: true
 						}
-					};
+					} as HttpResponse;
 				}
 				// fallback to real http call for everything else
 				return defaultHttpClient.get(url);
-			}
+			},
+			post: async () => ({}) as HttpResponse,
 		};
 
 		const parser = SDJWTVCParser({ httpClient: malformedHttpClient, context });
