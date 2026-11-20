@@ -6,8 +6,12 @@ import { OIDFlowTransportProvider, useOIDFlowTransport } from './OIDFlowTranspor
 
 // vi.mock factories are hoisted above the imports, so what they share with
 // the tests has to be hoisted too.
-const { connect, httpClient } = vi.hoisted(() => ({
+const { connect, wasmConnect, wmpConnect, wmpCreated, flags, httpClient } = vi.hoisted(() => ({
 	connect: vi.fn(async () => {}),
+	wasmConnect: vi.fn(async () => {}),
+	wmpConnect: vi.fn(async () => {}),
+	wmpCreated: [] as unknown[][],
+	flags: { wasm: false, wmp: false },
 	// Stable across renders, like the real hook: a new object each time would
 	// rebuild trustEvaluators and re-run the WebSocket effect forever.
 	httpClient: {},
@@ -21,6 +25,9 @@ vi.mock('@/config', async (importOriginal) => ({
 	DIRECT_TRANSPORT_ALLOWED: false,
 	TRANSPORT_PREFERENCE: ['websocket'],
 	BACKEND_URL: 'https://wallet.example.org',
+	get WASM_ENGINE_ENABLED() { return flags.wasm; },
+	get WMP_ENABLED() { return flags.wmp; },
+	WMP_URL: 'https://wallet.example.org/api/v2/wallet/rpc',
 }));
 
 vi.mock('@/lib/services/CapabilitiesService', () => ({
@@ -30,6 +37,38 @@ vi.mock('@/lib/services/CapabilitiesService', () => ({
 
 vi.mock('@/hooks/useHttpClient', () => ({
 	useHttpClient: () => httpClient,
+}));
+
+vi.mock('@/hooks/useWscdManagerClient', () => ({
+	useWscdManagerClient: () => null,
+}));
+
+// A stand-in for the in-browser engine, keeping its generated package out of the import graph.
+vi.mock('@/lib/openid-flow/transports/OIDFlowWasmTransport', () => ({
+	OIDFlowWasmTransport: class {
+		connect = wasmConnect;
+		disconnect = vi.fn(async () => {});
+		updateAuthToken = vi.fn();
+		resetReconnectAttempts = vi.fn();
+		onError = vi.fn(() => () => {});
+		isConnected = vi.fn(() => true);
+		onSignRequest = vi.fn(() => () => {});
+		onMatchRequest = vi.fn(() => () => {});
+	},
+}));
+
+vi.mock('@/lib/openid-flow/transports/OIDFlowWmpTransport', () => ({
+	OIDFlowWmpTransport: class {
+		constructor(...args: unknown[]) { wmpCreated.push(args); }
+		connect = wmpConnect;
+		disconnect = vi.fn();
+		onError = vi.fn(() => () => {});
+		isConnected = vi.fn(() => true);
+		updateAuthToken = vi.fn();
+		resetReconnectAttempts = vi.fn();
+		onSignRequest = vi.fn(() => () => {});
+		onMatchRequest = vi.fn(() => () => {});
+	},
 }));
 
 vi.mock('@/lib/openid-flow/transports/OIDFlowWebSocketTransport', () => ({
@@ -48,6 +87,11 @@ vi.mock('@/lib/openid-flow/transports/OIDFlowWebSocketTransport', () => ({
 describe('OIDFlowTransportProvider transportReady', () => {
 	beforeEach(() => {
 		connect.mockClear();
+		wasmConnect.mockClear();
+		wmpConnect.mockClear();
+		wmpCreated.length = 0;
+		flags.wasm = false;
+		flags.wmp = false;
 	});
 
 	// A page load such as the credential offer callback starts its flow as
@@ -80,6 +124,61 @@ describe('OIDFlowTransportProvider transportReady', () => {
 		await act(async () => { token.reject(new Error('not logged in')); });
 
 		await waitFor(() => expect(result.current.transportReady).toBe(true));
+		expect(connect).not.toHaveBeenCalled();
+	});
+
+	// The in-browser engine asks for a token on each request. A first token
+	// request that fails (a 401 while the session is still being restored, on
+	// a page opened from an offer link) must not leave the wallet without a
+	// transport: the context asks for that token only once.
+	it('starts the in-browser engine even when the first token request fails', async () => {
+		flags.wasm = true;
+		const { result } = renderTransport(() => Promise.reject(new Error('401')));
+
+		await waitFor(() => expect(result.current.transportReady).toBe(true));
+		expect(wasmConnect).toHaveBeenCalled();
+		expect(connect).not.toHaveBeenCalled();
+		expect(result.current.transportType).toBe('websocket');
+	});
+
+	it('waits for the in-browser engine to start before reporting ready', async () => {
+		flags.wasm = true;
+		const started = deferred<void>();
+		wasmConnect.mockImplementationOnce(() => started.promise);
+		const { result } = renderTransport(async () => ({ raw: 'backend-token' }));
+
+		await act(async () => { await Promise.resolve(); });
+		expect(result.current.transportReady).toBe(false);
+
+		await act(async () => { started.resolve(); });
+		await waitFor(() => expect(result.current.transportReady).toBe(true));
+		expect(result.current.transportType).toBe('websocket');
+	});
+
+	it('runs the flows on the remote engine over WMP when WMP is enabled', async () => {
+		flags.wmp = true;
+		const { result } = renderTransport(async () => ({ raw: 'backend-token' }));
+
+		await waitFor(() => expect(result.current.transportReady).toBe(true));
+		expect(wmpCreated).toHaveLength(1);
+		expect(wmpCreated[0].slice(0, 3)).toEqual([
+			'https://wallet.example.org/api/v2/wallet/rpc',
+			'wss://wallet.example.org/api/v2/wallet',
+			'backend-token',
+		]);
+		expect(wmpConnect).toHaveBeenCalled();
+		expect(connect).not.toHaveBeenCalled();
+		expect(result.current.transportType).toBe('websocket');
+	});
+
+	it('prefers the in-browser engine when both it and WMP are enabled', async () => {
+		flags.wasm = true;
+		flags.wmp = true;
+		const { result } = renderTransport(async () => ({ raw: 'backend-token' }));
+
+		await waitFor(() => expect(result.current.transportReady).toBe(true));
+		expect(wasmConnect).toHaveBeenCalled();
+		expect(wmpCreated).toHaveLength(0);
 		expect(connect).not.toHaveBeenCalled();
 	});
 

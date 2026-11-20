@@ -114,6 +114,12 @@ export interface IWscdSignOperations {
 	 * Generate a device response for mDoc with proximity-based authentication.
 	 */
 	generateDeviceResponseWithProximity(request: GenerateDeviceResponseWithProximityRequest): Promise<Uint8Array>;
+	/**
+	 * Signs raw bytes with the key identified by its canonical thumbprint (kid).
+	 * Returns the raw JOSE signature (ES256: r || s). For signing inputs built
+	 * elsewhere, e.g. the JWT proofs the in-browser engine assembles.
+	 */
+	signRaw(kid: string, data: Uint8Array): Promise<Uint8Array>;
 }
 
 /**
@@ -197,7 +203,8 @@ export type SignSdJwtPresentationRequest = {
 	verifiableCredential: string,
 	transactionDataResponseParams?: {
 		transaction_data_hashes: string[],
-		transaction_data_hashes_alg: string[]
+		/** A string per OID4VP 1.0; omitted for the sha-256 default. */
+		transaction_data_hashes_alg?: string | string[]
 	}
 };
 
@@ -210,7 +217,8 @@ export type SignVcdm2PresentationRequest = {
 	verifiableCredentials: unknown[],
 	transactionDataResponseParams?: {
 		transaction_data_hashes: string[],
-		transaction_data_hashes_alg: string[]
+		/** A string per OID4VP 1.0; omitted for the sha-256 default. */
+		transaction_data_hashes_alg?: string | string[]
 	}
 };
 

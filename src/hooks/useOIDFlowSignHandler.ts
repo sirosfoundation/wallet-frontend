@@ -12,7 +12,7 @@ import { buildDPoPProof } from '@/lib/utils/dpop';
 import { useHttpClient } from './useHttpClient';
 import { useWscdManagerClient } from './useWscdManagerClient';
 import { IWscdManagerClient } from '@/lib/wscd-manager';
-
+import { transactionDataResponseParams, UnsupportedTransactionDataError } from '@/lib/openid-flow/utils/transactionData';
 interface ProofTypeConfig {
 	key_attestations_required?: Record<string, unknown> | null;
 	proof_signing_alg_values_supported: string[];
@@ -38,6 +38,8 @@ export type OIDFlowSignOptions = {
 		credentialQueryId?: string;
 		disclosedClaims?: string[];
 		credentialRaw?: string;
+		/** The raw transaction data entries this credential's presentation binds (OID4VP §8.4). */
+		transactionData?: string[];
 	}>;
 	verifierJwkThumbprint?: string;
 	htm?: string;
@@ -121,6 +123,9 @@ export function useOIDFlowSignHandler() {
 				{
 					credentialRaw: c.credentialRaw,
 					disclosedClaims: c.disclosedClaims,
+					transactionDataResponseParams: c.transactionData?.length
+						? await transactionDataResponseParams(c.transactionData)
+						: undefined,
 				},
 				{
 					nonce,
@@ -282,12 +287,14 @@ export function useOIDFlowSignHandler() {
 
 	return { handleSignRequest, signPresentation, generateProof };
 }
+type TransactionDataResponseParams = Awaited<ReturnType<typeof transactionDataResponseParams>>;
 
 async function createVpToken(
 	wscd: IWscdManagerClient,
 	credentialData: {
 		credentialRaw: string;
 		disclosedClaims?: string[];
+		transactionDataResponseParams?: TransactionDataResponseParams;
 	},
 	params: {
 		nonce: string;
@@ -297,7 +304,7 @@ async function createVpToken(
 		verifierJwkThumbprint?: string;
 	}
 ) {
-	const { credentialRaw, disclosedClaims } = credentialData;
+	const { credentialRaw, disclosedClaims, transactionDataResponseParams } = credentialData;
 	const { nonce, audience, responseUri, origin, verifierJwkThumbprint } = params;
 
 	switch (detectCredentialFormat(credentialRaw)) {
@@ -313,9 +320,14 @@ async function createVpToken(
 					{
 						nonce,
 						audience,
+						transactionDataResponseParams,
 					}
 				);
 			case VerifiableCredentialFormat.MSO_MDOC:
+				if (transactionDataResponseParams) {
+					// The mdoc device response has no place for the hashes here.
+					throw new UnsupportedTransactionDataError('transaction data cannot be bound to an mdoc presentation');
+				}
 				return await createVpTokenFromMdoc(
 					wscd,
 					{
@@ -344,7 +356,7 @@ async function createVpToken(
 				return await createVpTokenFromVcdm2(
 					wscd,
 					{ credentialRaw },
-					{ nonce, audience }
+					{ nonce, audience, transactionDataResponseParams },
 				);
 			default:
 				throw new Error('Unsupported credential format for presentation signing');
@@ -360,16 +372,18 @@ async function createVpTokenFromSdJwt(
 	params: {
 		nonce: string;
 		audience: string;
+		transactionDataResponseParams?: TransactionDataResponseParams;
 	}
 ): Promise<string> {
 	const { credentialRaw, disclosedClaims } = credentialData;
-	const { nonce, audience } = params;
+	const { nonce, audience, transactionDataResponseParams } = params;
 
 	const credential = await applySelectiveDisclosure(credentialRaw, disclosedClaims);
 	const vpjwt = await wscd.signSdJwtPresentation({
 		audience,
 		nonce,
 		verifiableCredential: credential,
+		transactionDataResponseParams,
 	});
 	return vpjwt;
 }
@@ -391,10 +405,11 @@ async function createVpTokenFromVcdm2(
 	params: {
 		nonce: string;
 		audience: string;
+		transactionDataResponseParams?: TransactionDataResponseParams;
 	}
 ): Promise<string> {
 	const { credentialRaw } = credentialData;
-	const { nonce, audience } = params;
+	const { nonce, audience, transactionDataResponseParams } = params;
 
 	// A Data Integrity credential is stored as JSON text but must be
 	// presented as an object, so that it embeds in the presentation rather
@@ -407,10 +422,12 @@ async function createVpTokenFromVcdm2(
 		nonce,
 		audience,
 		verifiableCredentials: [credential],
+		transactionDataResponseParams,
 	});
 
 	return vpjwt;
 }
+
 
 async function createVpTokenFromMdoc(
 	wscd: IWscdManagerClient,

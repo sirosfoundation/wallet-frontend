@@ -78,6 +78,34 @@ describe('DCAPIRequest', () => {
 		});
 	});
 
+	describe('engineParams (the in-browser engine\'s input)', () => {
+		it('gives the plain parameters of an unsigned request', () => {
+			const url = new URL('https://wallet.example.com/dc');
+			url.searchParams.set('nonce', 'test-nonce');
+			url.searchParams.set('dcql_query', JSON.stringify(validDcqlQuery));
+
+			expect(new DCAPIRequest(url).engineParams()).toEqual({
+				nonce: 'test-nonce',
+				dcql_query: validDcqlQuery,
+				response_mode: 'dc_api',
+			});
+		});
+
+		it('gives the signed request object as received', async () => {
+			const { jwt } = await createSignedJwt({
+				nonce: 'test-nonce',
+				dcql_query: validDcqlQuery,
+				client_id: 'https://verifier.example.com',
+				expected_origins: ['https://verifier.example.com'],
+				response_mode: 'dc_api',
+			});
+			const url = new URL('https://wallet.example.com/dc');
+			url.searchParams.set('request', jwt);
+
+			expect(new DCAPIRequest(url).engineParams()).toEqual({ request: jwt });
+		});
+	});
+
 	describe('signed request parsing', () => {
 		it('parses valid signed JWT request', async () => {
 			const { jwt } = await createSignedJwt({
