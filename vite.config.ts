@@ -44,6 +44,8 @@ export default defineConfig(async ({ mode, command }) => {
 				manifest: false, // Vite will use `public/manifest.json` automatically
 				injectManifest: {
 					globPatterns: ['**/*.{js,css,html,ico,jpg,jpeg,png,svg,webp,woff,woff2,wasm}'],
+					// The in-browser engine is opt-in; it is cached on first use instead (see service-worker.js).
+					globIgnores: ['**/engine_adapter_wasm_bg*.wasm'],
 					maximumFileSizeToCacheInBytes: env.GENERATE_SOURCEMAP === 'true' ? 16 * 1024 * 1024 : 8 * 1024 * 1024,
 					additionalManifestEntries: [
 						{ url: './manifest.json', revision: env.BRANDING_HASH },
