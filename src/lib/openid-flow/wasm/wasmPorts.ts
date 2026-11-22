@@ -21,6 +21,12 @@ import type {
 	WasmEngineConfig,
 } from './WasmEngine';
 import { parseClientIdScheme, type ClientIdScheme } from 'wallet-common';
+
+
+/** The host of a URL, for logs; never the path or query. */
+function hostOf(url: string): string {
+	try { return new URL(url).host; } catch { return '(invalid url)'; }
+}
 export interface ProxyFetchOptions {
 	/** The wallet backend, e.g. BACKEND_URL. */
 	backendUrl: string;
@@ -134,6 +140,8 @@ export function createProxyFetch(options: ProxyFetchOptions): WasmEngineConfig['
 					: typeof data === 'string' ? data : JSON.stringify(data);
 				if (parsed.status >= 400) {
 					logger.warn('[wasm-engine] upstream answered', parsed.status, request.url, text.slice(0, 300));
+					// Status and host only: paths, queries and bodies can carry codes and tokens.
+					logger.warn('[wasm-engine] upstream answered', parsed.status, hostOf(request.url));
 				}
 				return {
 					status: parsed.status,

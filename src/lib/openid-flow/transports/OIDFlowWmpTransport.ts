@@ -391,7 +391,7 @@ export class OIDFlowWmpTransport extends OIDFlowWebSocketTransport {
 
 		if (flowId && this.notificationParents.has(flowId)) {
 			if (method === 'wmp.flow.complete' || method === 'wmp.flow.error') {
-				logger.debug('[WMP] credential notification', { outcome: method, data: method === 'wmp.flow.error' ? params.data : undefined });
+				logger.debug('[WMP] credential notification', { outcome: method, code: method === 'wmp.flow.error' ? (params.data as { code?: unknown } | undefined)?.code : undefined });
 				this.notificationParents.delete(flowId);
 			}
 			return;
@@ -540,7 +540,7 @@ export class OIDFlowWmpTransport extends OIDFlowWebSocketTransport {
 
 		if (Array.isArray(r.redacted_members) && r.redacted_members.length) {
 			// A replayed completion (3.1.4.2): the secret members are not recoverable.
-			logger.warn('[WMP] completion was replayed; withheld members are not recoverable', r.redacted_members);
+			logger.warn('[WMP] completion was replayed; withheld members are not recoverable', { count: r.redacted_members.length });
 		}
 
 		this.endFlow(flow);

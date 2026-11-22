@@ -249,7 +249,8 @@ export async function wmpCall<T = any>(engine: WasmEngine, method: string, param
 		return (await engine.request(method, params)) as T;
 	} catch (err) {
 		const e = err as WmpEngineError;
-		logger.warn('[wasm-engine]', method, e?.code, e?.message, e?.data?.reason ?? '');
+		// Code and reason only: engine messages can quote URLs and request content.
+		logger.warn('[wasm-engine]', method, e?.code, e?.data?.reason ?? '');
 		throw err;
 	}
 }

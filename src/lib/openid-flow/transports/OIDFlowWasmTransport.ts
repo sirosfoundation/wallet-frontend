@@ -949,9 +949,9 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 		try {
 			const clientId = await this.wasmOpts.getRegisteredClientId(credentialIssuer);
 			if (clientId) {
-				logger.debug('[wasm] client_id for', credentialIssuer, 'is', clientId, '(the issuer record)');
+				logger.debug('[wasm] client_id taken from the issuer record');
 			} else {
-				logger.warn('[wasm] no issuer record with a clientId for', credentialIssuer, '; the client_id is the redirect_uri');
+				logger.warn('[wasm] no issuer record with a clientId; the client_id is the redirect_uri');
 			}
 			return clientId;
 		} catch (err) {
