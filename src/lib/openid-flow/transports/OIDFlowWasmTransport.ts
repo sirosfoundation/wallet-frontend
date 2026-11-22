@@ -96,6 +96,7 @@ import {
 } from '../wasm/WasmEngine';
 import { createProxyFetch, createStorageKv, createTrustPdp } from '../wasm/wasmPorts';
 import { logger } from '@/logger';
+import { publicProgressPayload } from '../utils/progressRedaction';
 import {
 	ENGINE_AUTHORIZATION_ANNOUNCE_TIMEOUT_MS,
 	ENGINE_NO_MATCH_TIMEOUT_MS,
@@ -710,7 +711,7 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 				this.emitWasmProgress({
 					flowId: flow.flowId,
 					stage: String(params.step ?? ''),
-					payload: (params.payload ?? {}) as Record<string, unknown>,
+					payload: publicProgressPayload((params.payload ?? {}) as Record<string, unknown>),
 				});
 				break;
 			case 'wmp.flow.complete': {
@@ -1085,7 +1086,7 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 			}
 		}
 		// The verifier, PKCE verifier and tokens stay out of the app's progress events.
-		this.emitWasmProgress({ flowId: flow.flowId, stage: step, payload: publicProgress(step, payload) });
+		this.emitWasmProgress({ flowId: flow.flowId, stage: step, payload: publicProgressPayload(payload) });
 	}
 
 	private handleComplete(flow: VciFlow, r: Record<string, unknown>): void {
@@ -1391,13 +1392,6 @@ export function issuerMetadataUrl(credentialIssuer: string): string {
 	const url = new URL(credentialIssuer);
 	const path = url.pathname.replace(/\/+$/, '');
 	return `${url.origin}/.well-known/openid-credential-issuer${path}`;
-}
-
-/** Progress payloads without secrets (the PKCE verifier, the state). */
-function publicProgress(step: string, payload: Record<string, unknown>): Record<string, unknown> {
-	if (step !== 'authorization_required') return payload;
-	const { code_verifier: _v, state: _s, ...rest } = payload;
-	return rest;
 }
 
 async function accessTokenHash(accessToken: string): Promise<string> {

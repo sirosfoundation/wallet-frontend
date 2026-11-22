@@ -44,6 +44,7 @@ import { WmpClient, WmpRpcError } from '../wmp/WmpClient';
 import { logger } from '@/logger';
 import type { SignHandlerAction, SignHandlerRequest, SignRequest, SignRequestHandler, SignResponse } from './OIDFlowWebSocketTransport';
 import { ENGINE_NO_MATCH_TIMEOUT_MS, ENGINE_STEP_TIMEOUT_MS } from '@/config';
+import { publicProgressPayload } from '../utils/progressRedaction';
 /** How long one step of the flow may take before startOID4VCIFlow gives up (ENGINE_STEP_TIMEOUT_IN_SECONDS). */
 const STEP_TIMEOUT_MS = ENGINE_STEP_TIMEOUT_MS ?? 120_000;
 /** How long reportNoMatchingCredentials waits for the engine to end the flow (ENGINE_NO_MATCH_TIMEOUT_IN_SECONDS). */
@@ -427,8 +428,7 @@ export class OIDFlowWmpTransport extends OIDFlowWebSocketTransport {
 	}
 
 	private handleProgress(flow: VciFlow, step: string, payload: Record<string, unknown>): void {
-		this.emitWmpProgress({ flowId: flow.flowId, stage: step, payload });
-
+		this.emitWmpProgress({ flowId: flow.flowId, stage: step, payload: publicProgressPayload(payload) });
 		switch (step) {
 			case 'parsing_offer': {
 				const offer = payload.offer as { credential_issuer?: string; credential_configuration_ids?: string[] } | undefined;
@@ -744,7 +744,7 @@ export class OIDFlowWmpTransport extends OIDFlowWebSocketTransport {
 			case 'wmp.flow.progress': {
 				const step = params.step as string;
 				const payload = (params.payload ?? {}) as Record<string, unknown>;
-				this.emitWmpProgress({ flowId: flow.flowId, stage: step, payload });
+				this.emitWmpProgress({ flowId: flow.flowId, stage: step, payload: publicProgressPayload(payload) });
 				if (step === 'evaluating_trust' && payload.trust_evaluation_required) {
 					this.answerTrustEvaluation(flow.flowId, payload).catch((e) => logger.error('[WMP] trust evaluation failed', e));
 				} else if (step === 'awaiting_consent') {
