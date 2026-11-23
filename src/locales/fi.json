@@ -117,6 +117,18 @@
 		"messageOffline": "Olet tällä hetkellä <strong>offline. Jotkin toiminnot eivät ehkä ole käytettävissä.</strong>",
 		"messageResetPermission": "Jokin <strong>ei toimi oikein ilmoitusten kanssa</strong>, <reloadButton>lataa tämä sivu uudelleen</reloadButton>."
 	},
+	"getReady": {
+		"title": "Valmistaudu!",
+		"back": "Takaisin rekisteröitymiseen",
+		"steps": {
+			"getKey": { "title": "Hanki turva-avaimesi", "text": "Tarvitset sitä luodaksesi ja kirjautuaksesi tilillesi." },
+			"pin": { "title": "Varmista, että siinä on PIN-koodi", "text": "Jos turva-avaimessasi ei ole PIN-koodia, sinua pyydetään luomaan sellainen." },
+			"secondKey": { "title": "Hanki toinen turva-avain (suositeltavaa)", "text": "Sinulta kysytään, haluatko määrittää toisen turva-avaimen. Tämä varmistaa, että pääset lompakkoosi, jos kadotat ensimmäisen avaimen." }
+		},
+		"noKey": "Eikö sinulla ole suoja-avainta? <u>Kokeile toista tapaa</u>.",
+		"about": {"title": "Tietoa turva-avaimista", "text": "Turva-avaimet tarjoavat yksityistä, laitteistopohjaista suojaa, ja pääsyn myöntämiseen tarvitaan vain fyysinen kosketus tai NFC-napautus.", "compatible": "SIROS ID toimii Yubicon, Googlen ja muiden turva-avainten kanssa. <u>Katso yhteensopivat turva-avaimet</u>", "imgAlt": "YubiKey 5C: musta USB-C-turva-avain, jossa on pyöreä kultainen kosketusanturi."},
+		"tip": "<b>Vinkki:</b> Jos turva-avaimesi ei tue NFC:tä, aseta se nyt."
+	},
 	"loginSignup": {
 		"acceptPolicies": "Hyväksyn <policyLinks/>.",
 		"alreadyHaveAccountQuestion": "Onko sinulla jo lompakkotili? ",
