@@ -158,10 +158,10 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		if (wsPossible && !authTokenSettled) return false;
 		// 4. If WebSocket (or the in-browser engine) is expected, wait for it to
 		//    connect or fail
-		const wsExpected = WASM_ENGINE_ENABLED || (wsPossible && !!authToken);
+		const wsExpected = (WASM_ENGINE_ENABLED && isLoggedIn) || (wsPossible && !!authToken);
 		if (wsExpected && !isConnected && !lastError) return false;
 		return true;
-	}, [capabilitiesLoaded, pendingTransports, wsCapabilityAvailable, authToken, authTokenSettled, isConnected, lastError]);
+		}, [capabilitiesLoaded, pendingTransports, wsCapabilityAvailable, authToken, authTokenSettled, isConnected, lastError, isLoggedIn]);
 
 	const trustEvaluators = useMemo((): TrustEvaluators => {
 		const evaluateIssuerTrust = createIssuerTrustEvaluator({
@@ -251,18 +251,24 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 	}, []);
 
 	// The in-browser engine (WASM_ENGINE_ENABLED): issuance and presentation
-	// run in the page. Created once per session and tenant, and not gated on
-	// the token lookup above: it asks for a fresh token on every request, so a
-	// token request that fails once (a 401 while the session is still being
-	// restored, on a page opened from an offer link) does not leave the wallet
-	// without a transport, and a token refresh does not rebuild it (and fail a
-	// flow in progress).
+	// run in the page. Created once per login and tenant, and torn down on
+	// logout, so no engine session, flow or key outlives the user's session.
+	// Not gated on the token lookup above: it asks for a fresh token on every
+	// request, so a token request that fails once (a 401 while the session is
+	// still being restored, on a page opened from an offer link) does not leave
+	// the wallet without a transport, and a token refresh does not rebuild it
+	// (and fail a flow in progress).
 	const wscd = useWscdManagerClient();
 	const wscdRef = useRef(wscd);
 	wscdRef.current = wscd;
 
 	useEffect(() => {
 		if (!WASM_ENGINE_ENABLED) return;
+		if (!isLoggedIn) {
+			setWsTransport(null);
+			setIsConnected(false);
+			return;
+		}
 
 		let cancelled = false;
 		const getAuthToken = async () => (await authTokens.ensureBackendToken()).raw;
@@ -311,7 +317,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 				return next;
 			});
 		};
-	}, [tenantId, authTokens, httpClient]);
+	}, [tenantId, authTokens, httpClient, isLoggedIn]);
 
 	// Create and manage WebSocket transport (only if capability is available)
 	useEffect(() => {

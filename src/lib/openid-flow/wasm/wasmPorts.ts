@@ -286,6 +286,24 @@ export function createStorageKv(storage: Storage = window.sessionStorage, now: (
 	};
 }
 
+/** Where the in-browser engine keeps an authorization across the issuer redirect. */
+export const PENDING_AUTHORIZATION_KEY = 'wasm_oid4vci_pending_authorization';
+
+/**
+ * Removes what the in-browser engine keeps in the tab's storage (its flow
+ * state and a pending authorization), so none of it carries over to the next
+ * user of this tab. Called on logout.
+ */
+export function clearWasmEngineStorage(storage: Storage = window.sessionStorage): void {
+	const keys: string[] = [];
+	for (let i = 0; i < storage.length; i++) {
+		const key = storage.key(i);
+		if (key?.startsWith(KV_PREFIX)) keys.push(key);
+	}
+	keys.forEach((key) => storage.removeItem(key));
+	storage.removeItem(PENDING_AUTHORIZATION_KEY);
+}
+
 export interface ClientIdLookupOptions {
 	backendUrl: string;
 	tenantId: string;

@@ -94,7 +94,7 @@ import {
 	type WasmEngine,
 	type WasmEngineConfig,
 } from '../wasm/WasmEngine';
-import { createProxyFetch, createStorageKv, createTrustPdp } from '../wasm/wasmPorts';
+import { PENDING_AUTHORIZATION_KEY, createProxyFetch, createStorageKv, createTrustPdp } from '../wasm/wasmPorts';
 import { logger } from '@/logger';
 import { publicProgressPayload } from '../utils/progressRedaction';
 import { ReleasedFlows } from '../utils/releasedFlows';
@@ -116,8 +116,9 @@ const PENDING_MAX_AGE_MS = ENGINE_PENDING_FLOW_MAX_AGE_MS ?? 60 * 60 * 1000;
 const DEFERRED_MAX_WAIT_MS = OPENID4VCI_DEFERRED_MAX_WAIT_MS ?? 15 * 60_000;
 
 /** How long one step (start to redirect, or resume to credential) may take. */
-/** The flow id across the redirect: same tab, so sessionStorage. */
-export const PENDING_AUTHORIZATION_KEY = 'wasm_oid4vci_pending_authorization';
+// The flow id across the redirect (same tab, so sessionStorage). Defined with
+// the storage ports, so logout can clear it without loading this module.
+export { PENDING_AUTHORIZATION_KEY };
 
 /** The engine's authorization stash in its kv (engine-core oid4vci stash_key). */
 const ENGINE_STASH_KEY = (flowId: string) => `oid4vci:auth-code:${flowId}`;

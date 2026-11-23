@@ -6,9 +6,10 @@ import { OIDFlowTransportProvider, useOIDFlowTransport } from './OIDFlowTranspor
 
 // vi.mock factories are hoisted above the imports, so what they share with
 // the tests has to be hoisted too.
-const { connect, wasmConnect, wmpConnect, wmpCreated, flags, httpClient } = vi.hoisted(() => ({
+const { connect, wasmConnect, wasmDisconnect, wmpConnect, wmpCreated, flags, httpClient } = vi.hoisted(() => ({
 	connect: vi.fn(async () => {}),
 	wasmConnect: vi.fn(async () => {}),
+	wasmDisconnect: vi.fn(async () => {}),
 	wmpConnect: vi.fn(async () => {}),
 	wmpCreated: [] as unknown[][],
 	flags: { wasm: false, wmp: false },
@@ -47,7 +48,7 @@ vi.mock('@/hooks/useWscdManagerClient', () => ({
 vi.mock('@/lib/openid-flow/transports/OIDFlowWasmTransport', () => ({
 	OIDFlowWasmTransport: class {
 		connect = wasmConnect;
-		disconnect = vi.fn(async () => {});
+		disconnect = wasmDisconnect;
 		updateAuthToken = vi.fn();
 		resetReconnectAttempts = vi.fn();
 		onError = vi.fn(() => () => {});
@@ -88,6 +89,7 @@ describe('OIDFlowTransportProvider transportReady', () => {
 	beforeEach(() => {
 		connect.mockClear();
 		wasmConnect.mockClear();
+		wasmDisconnect.mockClear();
 		wmpConnect.mockClear();
 		wmpCreated.length = 0;
 		flags.wasm = false;
@@ -180,6 +182,30 @@ describe('OIDFlowTransportProvider transportReady', () => {
 		expect(wasmConnect).toHaveBeenCalled();
 		expect(wmpCreated).toHaveLength(0);
 		expect(connect).not.toHaveBeenCalled();
+	});
+
+	it('does not start the in-browser engine while logged out', async () => {
+		flags.wasm = true;
+		const { result } = renderTransport(async () => ({ raw: 'backend-token' }), { loggedIn: false });
+
+		await waitFor(() => expect(result.current.transportReady).toBe(true));
+		expect(wasmConnect).not.toHaveBeenCalled();
+		expect(result.current.transportType).not.toBe('websocket');
+	});
+
+	it('starts the in-browser engine on login and tears it down on logout', async () => {
+		flags.wasm = true;
+		const { result, setLoggedIn } = renderTransport(async () => ({ raw: 'backend-token' }), { loggedIn: false });
+		await waitFor(() => expect(result.current.transportReady).toBe(true));
+
+		await setLoggedIn(true);
+		await waitFor(() => expect(result.current.transportType).toBe('websocket'));
+		expect(wasmConnect).toHaveBeenCalledTimes(1);
+
+		await setLoggedIn(false);
+		await waitFor(() => expect(wasmDisconnect).toHaveBeenCalledTimes(1));
+		await waitFor(() => expect(result.current.transportType).not.toBe('websocket'));
+		expect(result.current.isConnected).toBe(false);
 	});
 
 	it('does not request a backend token while logged out', async () => {

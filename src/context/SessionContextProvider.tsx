@@ -15,6 +15,7 @@ import { useAuthServerClient } from '@/hooks/useAuthServerClient';
 import { getTenantFromUrlPath } from '@/lib/tenant';
 import { AuthTokens } from '@/lib/auth';
 import { SessionRecoveryPopup } from '@/components/Popups/SessionRecoveryPopup';
+import { clearWasmEngineStorage } from '@/lib/openid-flow/wasm/wasmPorts';
 
 export const SessionContextProvider = ({ children }: React.PropsWithChildren) => {
 	const { isOnline } = useContext(StatusContext);
@@ -71,6 +72,7 @@ export const SessionContextProvider = ({ children }: React.PropsWithChildren) =>
 		window.history.replaceState({}, '', `${window.location.pathname}`);
 		sessionClearedRef.current = true;
 		oidFlowClientAuthMaterialManager.clear();
+		clearWasmEngineStorage();
 		logger.debug('[Session Context] Clear Session');
 		api.clearSession();
 	}, [api, oidFlowClientAuthMaterialManager]);

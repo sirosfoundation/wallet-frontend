@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { OIDFlowWasmTransport, PENDING_AUTHORIZATION_KEY, issuerMetadataUrl } from '../transports/OIDFlowWasmTransport';
 import { createWasmEngine, toPlain, type WasmEngine, type WasmEngineConfig } from '../wasm/WasmEngine';
 
-import { createProxyFetch, createRegisteredClientIdLookup, createStorageKv, createTrustPdp, parseKeyMaterial } from '../wasm/wasmPorts';
+import { clearWasmEngineStorage, createProxyFetch, createRegisteredClientIdLookup, createStorageKv, createTrustPdp, parseKeyMaterial } from '../wasm/wasmPorts';
 import type { TrustEvaluators } from '../types';
 import type { IWscdManagerClient } from '@/lib/wscd-manager';
 
@@ -923,6 +923,22 @@ describe('wasmPorts', () => {
 		await kv.put('c', 'x');
 		await kv.del('c');
 		await expect(kv.get('c')).resolves.toBeNull();
+	});
+
+	it('logout clears the engine\'s stored flow state and pending authorization, and nothing else', async () => {
+		const storage = new MemoryStorage();
+		const kv = createStorageKv(storage);
+		await kv.put('flow-1', 'state');
+		await kv.put('flow-2', 'state');
+		storage.setItem(PENDING_AUTHORIZATION_KEY, '{"flowId":"vci-1"}');
+		storage.setItem('unrelated', 'keep');
+
+		clearWasmEngineStorage(storage);
+
+		await expect(kv.get('flow-1')).resolves.toBeNull();
+		await expect(kv.get('flow-2')).resolves.toBeNull();
+		expect(storage.getItem(PENDING_AUTHORIZATION_KEY)).toBeNull();
+		expect(storage.getItem('unrelated')).toBe('keep');
 	});
 
 	it('the proxy fetch maps the envelope and caps the advertised batch size', async () => {
