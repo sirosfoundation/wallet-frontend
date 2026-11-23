@@ -1,3 +1,141 @@
+import { HttpClient } from '@sirosfoundation/http-client';
+import { Result } from '@sirosfoundation/result';
+import { AuthZENErrorCode, TrustStatus } from './resources';
+
+/**
+ * Configuration for the AuthZEN client.
+ */
+export interface AuthZENClientConfig {
+	/**
+	 * HTTP client for making requests.
+	 */
+	httpClient: HttpClient;
+
+	/**
+	 * Base URL of the wallet backend (e.g., 'https://wallet-backend.example.com').
+	 */
+	baseUrl: string;
+
+	/**
+	 * Function to retrieve the current auth token (JWT).
+	 */
+	getAuthToken: () => string | Promise<string>;
+
+	/**
+	 * Tenant ID for the X-Tenant-ID header.
+	 */
+	tenantId: string;
+
+	/**
+	 * Request timeout in milliseconds (default: 30000).
+	 */
+	timeout?: number;
+
+	/**
+	 * TTL for cached resolve responses in milliseconds (default: 300000 = 5 min).
+	 * Set to 0 to disable caching.
+	 */
+	resolveCacheTtl?: number;
+}
+
+/**
+ * Key material for trust evaluation.
+ */
+export interface KeyMaterial {
+	/**
+	 * Type of key material.
+	 */
+	type: 'jwk' | 'x5c' | 'x509_san_dns' | 'kid' | 'resolution';
+
+	/**
+	 * Key data. For JWK, this is the JWK object.
+	 * For x5c, this is an array of base64-encoded certificates.
+	 * For kid, this is the key ID string (requires resolution).
+	 * For resolution, this is an empty array (resolution-only request).
+	 */
+	key: unknown | unknown[];
+}
+
+/**
+ * Options for evaluating a verifier.
+ */
+export interface EvaluateVerifierOptions {
+	/**
+	 * The client_id of the verifier (may include scheme prefix).
+	 */
+	clientId: string;
+
+	/**
+	 * Key material extracted from the request JWT.
+	 */
+	keyMaterial: KeyMaterial;
+
+	/**
+	 * Additional context for policy evaluation.
+	 */
+	context?: Record<string, unknown>;
+}
+
+/**
+ * Options for evaluating an issuer.
+ */
+export interface EvaluateIssuerOptions {
+	/**
+	 * The issuer identifier (typically the `iss` claim).
+	 */
+	issuerId: string;
+
+	/**
+	 * Key material from the issuer metadata or credential JWT.
+	 */
+	keyMaterial: KeyMaterial;
+
+	/**
+	 * Additional context for policy evaluation.
+	 */
+	context?: Record<string, unknown>;
+}
+
+/**
+ * AuthZEN client interface.
+ */
+export interface IAuthZENClient {
+	/**
+	 * Send a raw AuthZEN evaluation request.
+	 */
+	evaluate(
+		request: AuthZENEvaluationRequest,
+	): Promise<Result<AuthZENEvaluationResponse, AuthZENError>>;
+
+	/**
+	 * Resolve metadata for a subject (DID document, entity config, etc.).
+	 *
+	 * @param subjectId - The subject identifier (DID, URL, etc.)
+	 * @param options - Optional subject_type and resource_type hints
+	 */
+	resolve(
+		subjectId: string,
+		options?: {
+			subjectType?: string;
+			resourceType?: string;
+			useCache?: boolean;
+		},
+	): Promise<Result<AuthZENEvaluationResponse, AuthZENError>>;
+
+	/**
+	 * Evaluate a verifier's trust status.
+	 */
+	evaluateVerifier(
+		options: EvaluateVerifierOptions,
+	): Promise<Result<TrustInfo, AuthZENError>>;
+
+	/**
+	 * Evaluate an issuer's trust status.
+	 */
+	evaluateIssuer(
+		options: EvaluateIssuerOptions,
+	): Promise<Result<TrustInfo, AuthZENError>>;
+}
 /**
  * AuthZEN types for trust evaluation.
  *
@@ -13,15 +151,15 @@
 export interface AuthZENSubject {
 	/**
 	 * Type of the subject. Per the AuthZEN Trust Registry Profile, this should
-	 * always be "key" for trust evaluation requests.
+	 * always be 'key' for trust evaluation requests.
 	 */
 	type: 'key' | string;
 
 	/**
 	 * Identifier of the subject. This is typically:
-	 * - A DID (e.g., "did:web:example.com")
-	 * - An HTTPS URL for OIDF entities (e.g., "https://issuer.example.com")
-	 * - A client_id value (e.g., "x509_san_dns:verifier.example.com")
+	 * - A DID (e.g., 'did:web:example.com')
+	 * - An HTTPS URL for OIDF entities (e.g., 'https://issuer.example.com')
+	 * - A client_id value (e.g., 'x509_san_dns:verifier.example.com')
 	 */
 	id: string;
 }
@@ -32,11 +170,11 @@ export interface AuthZENSubject {
 export interface AuthZENResource {
 	/**
 	 * Type of key material:
-	 * - "jwk": JSON Web Key
-	 * - "x5c": X.509 certificate chain (base64-encoded DER)
-	 * - "x509_san_dns": X.509 with SAN DNS name validation
-	 * - "resolution": Resolution-only request (no key validation)
-	 * - "credential_issuer": Issuer metadata resolution via OpenID4VCI well-known
+	 * - 'jwk': JSON Web Key
+	 * - 'x5c': X.509 certificate chain (base64-encoded DER)
+	 * - 'x509_san_dns': X.509 with SAN DNS name validation
+	 * - 'resolution': Resolution-only request (no key validation)
+	 * - 'credential_issuer': Issuer metadata resolution via OpenID4VCI well-known
 	 */
 	type: 'jwk' | 'x5c' | 'x509_san_dns' | 'resolution' | 'credential_issuer' | string;
 
@@ -59,11 +197,11 @@ export interface AuthZENResource {
 export interface AuthZENAction {
 	/**
 	 * Name of the action/role:
-	 * - "credential-issuer": Credential issuer validation
-	 * - "credential-verifier": Verifier/RP validation
-	 * - "wallet-provider": Wallet provider attestation
-	 * - "pid-provider": PID provider validation
-	 * - "mdl-issuer": mDL issuer validation
+	 * - 'credential-issuer': Credential issuer validation
+	 * - 'credential-verifier': Verifier/RP validation
+	 * - 'wallet-provider': Wallet provider attestation
+	 * - 'pid-provider': PID provider validation
+	 * - 'mdl-issuer': mDL issuer validation
 	 *
 	 * When empty/undefined, indicates a resolution-only request.
 	 */
@@ -157,39 +295,18 @@ export interface AuthZENResolveRequest {
 	subject_id: string;
 
 	/**
-	 * Subject type hint (e.g. "key", "url"). Defaults to "key" on the backend.
+	 * Subject type hint (e.g. 'key', 'url'). Defaults to 'key' on the backend.
 	 */
 	subject_type?: string;
 
 	/**
-	 * Resource type for the resolution (e.g. "credential_issuer", "openid_provider").
+	 * Resource type for the resolution (e.g. 'credential_issuer', 'openid_provider').
 	 * Determines which well-known metadata endpoint to query for URL subjects.
 	 */
 	resource_type?: string;
 }
 
-/**
- * Error codes that can be returned by the AuthZEN proxy.
- */
-export enum AuthZENErrorCode {
-	/** Request was malformed or missing required fields */
-	INVALID_REQUEST = 'invalid_request',
 
-	/** Authentication failed (invalid/missing JWT) */
-	UNAUTHORIZED = 'unauthorized',
-
-	/** Query was not authorized by policy */
-	FORBIDDEN = 'forbidden',
-
-	/** Trust evaluation is not configured */
-	NOT_CONFIGURED = 'not_configured',
-
-	/** PDP request failed */
-	PDP_ERROR = 'pdp_error',
-
-	/** Network or timeout error */
-	NETWORK_ERROR = 'network_error',
-}
 
 /**
  * Error response from the AuthZEN proxy.
@@ -204,23 +321,6 @@ export interface AuthZENError {
 	 * Human-readable error description.
 	 */
 	details?: string;
-}
-
-/**
- * Trust status for display purposes.
- */
-export enum TrustStatus {
-	/** Entity is trusted per policy */
-	TRUSTED = 'trusted',
-
-	/** Entity is not trusted */
-	UNTRUSTED = 'untrusted',
-
-	/** Trust evaluation is pending/in-progress */
-	PENDING = 'pending',
-
-	/** Trust could not be evaluated (error) */
-	UNKNOWN = 'unknown',
 }
 
 /**

@@ -12,7 +12,7 @@
  * - Better error handling with flow state
  */
 
-import { TrustStatus as TrustStatusEnum } from 'wallet-common';
+import { TrustStatus as TrustStatusEnum } from '@sirosfoundation/authzen-client';
 import { ClientHeldEncryptionKeys, buildJarmResponse, carriesLegacySecretMember, verifierJwkThumbprint } from '../encryption';
 import type {
 	CredentialResponseEncryptionRequest,

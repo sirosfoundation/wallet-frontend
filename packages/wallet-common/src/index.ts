@@ -37,5 +37,3 @@ export * from './protocols';
 export * from './types';
 
 export * from './error';
-
-export * from './authzen';

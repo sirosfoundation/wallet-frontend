@@ -11,17 +11,19 @@
  */
 
 import {
-	AuthZENClient,
-	AuthZENClientConfig,
-	TrustStatus,
-	KeyMaterial,
 	DIDResolutionResult,
 	DIDDocument,
 	DIDResolver,
 	ClientIdScheme,
 } from 'wallet-common';
-import type { HttpClient } from 'wallet-common';
 import { logger } from '@/logger';
+import type { HttpClient } from '@sirosfoundation/http-client';
+import {
+	AuthZENClient,
+	TrustStatus,
+	type AuthZENClientConfig,
+	type KeyMaterial,
+} from '@sirosfoundation/authzen-client';
 
 /**
  * Configuration for creating a trust evaluator.
@@ -151,7 +153,7 @@ export function createVerifierTrustEvaluator(config: TrustEvaluatorConfig): Veri
 		timeout: config.timeout,
 	};
 
-	const authzenClient = AuthZENClient(clientConfig);
+	const authzenClient = new AuthZENClient(clientConfig);
 
 	return async (params: VerifierTrustEvaluationParams): Promise<VerifierTrustResult> => {
 		const { clientIdScheme, keyMaterial, requestUri, responseUri } = params;
@@ -296,7 +298,7 @@ export function createIssuerTrustEvaluator(config: TrustEvaluatorConfig): Issuer
 		timeout: config.timeout,
 	};
 
-	const authzenClient = AuthZENClient(clientConfig);
+	const authzenClient = new AuthZENClient(clientConfig);
 
 	return async (params: IssuerTrustEvaluationParams): Promise<IssuerTrustResult> => {
 		const { issuerId, keyMaterial, context } = params;
@@ -370,7 +372,7 @@ export function createDIDResolver(config: TrustEvaluatorConfig): DIDResolver {
 		timeout: config.timeout,
 	};
 
-	const authzenClient = AuthZENClient(clientConfig);
+	const authzenClient = new AuthZENClient(clientConfig);
 
 	return async (did: string): Promise<DIDResolutionResult> => {
 		logger.debug('Resolving DID via AuthZEN backend:', did);

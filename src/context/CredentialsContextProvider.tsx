@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useContext, useRef, useEffect, useMemo } from 'react';
 import SessionContext from './SessionContext';
 import { initializeCredentialEngine } from "../lib/initializeCredentialEngine";
-import { AuthZENClient, AuthZENClientConfig, CredentialVerificationError, ParsedCredential } from "wallet-common";
+import { CredentialVerificationError, ParsedCredential } from "wallet-common";
+import { AuthZENClient, AuthZENClientConfig } from "@sirosfoundation/authzen-client";
 import CredentialsContext, { ExtendedVcEntity, Instance } from "./CredentialsContext";
 import { useOpenID4VCIHelper } from "@/lib/services/OpenID4VCIHelper";
 import { CurrentSchema } from '@/services/WalletStateSchema';
@@ -45,7 +46,7 @@ export const CredentialsContextProvider = ({ children }: React.PropsWithChildren
 			getAuthToken: async () => (await authTokens.ensureAnonymousToken()).raw,
 			tenantId: getTenantFromUrlPath() ?? 'default',
 		};
-		return AuthZENClient(clientConfig);
+		return new AuthZENClient(clientConfig);
 	}, [authTokens, httpClient]);
 
 	useEffect(() => {

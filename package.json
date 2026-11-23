@@ -12,6 +12,7 @@
     "@hpke/dhkem-x25519": "^1.8.1",
     "@owf/mdoc": "^0.10.0",
     "@sd-jwt/core": "^0.25.0",
+    "@sirosfoundation/authzen-client": "workspace:*",
     "@sirosfoundation/browser-log": "1.0.0",
     "@sirosfoundation/http-client": "workspace:*",
     "@sirosfoundation/result": "workspace:*",
