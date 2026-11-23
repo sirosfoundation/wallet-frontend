@@ -28,19 +28,64 @@ export async function verifierJwkThumbprint(jwk: JWK): Promise<string> {
 }
 
 /**
+ * Restructure a sign handler's `vp_token` into the OpenID4VP 1.0 §8.1 object
+ * form: a JSON object with one member per Credential Query — the key the
+ * query's `id`, the value an array of that query's presentations. A handler
+ * that already returned a JSON object passes through as is; anything else is
+ * newline-separated tokens, exactly one per included credential (the count
+ * must match), a repeated query id collecting in order — mirroring the
+ * engine's own builder (go-wallet-backend's `buildDCQLVPToken`), which the
+ * client-held encryption paths bypass.
+ */
+export function restructureDcqlVpToken(
+	vpToken: string,
+	credentialQueryIds: string[],
+): Record<string, string[]> {
+	// A JSON-quoted single token parses to the token string itself.
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(vpToken);
+	} catch {
+		parsed = undefined;
+	}
+	if (parsed !== null && parsed !== undefined && typeof parsed === 'object' && !Array.isArray(parsed)) {
+		return parsed as Record<string, string[]>;
+	}
+	const raw = typeof parsed === 'string' ? parsed : vpToken;
+	const ids = credentialQueryIds.filter((id) => id !== '');
+	const tokens = raw.split('\n');
+	if (tokens.length !== ids.length) {
+		throw new ClientHeldEncryptionError(
+			`DCQL vp_token has ${tokens.length} tokens but ${ids.length} credentials selected`,
+		);
+	}
+	const byQueryId: Record<string, string[]> = {};
+	ids.forEach((id, index) => {
+		(byQueryId[id] ??= []).push(tokens[index]);
+	});
+	return byQueryId;
+}
+
+/**
  * Build the `direct_post.jwt` (JARM) response: the claims as a compact JWE to the verifier's
- * key. `vpToken` is the string the sign handler produced; valid JSON is parsed, so a DCQL
- * response is the `{ "<credential_query_id>": [...] }` object (what the engine used to do).
- * The plaintext is plain JSON claims, so no `cty` is set (RFC 7519 5.2).
+ * key. `vpToken` is the string the sign handler produced. OpenID4VP 1.0 §8.1 requires
+ * `vp_token` to be a JSON object with one member per Credential Query — the key the
+ * query's `id`, the value an array of its presentations — so a bare (newline-separated)
+ * token string is restructured into that object under `credentialQueryIds`, exactly as
+ * the engine's own non-encrypted path does (go-wallet-backend's buildDCQLVPToken, which
+ * direct_post.jwt bypasses by relaying this JWE verbatim). An already-object response
+ * passes through. The plaintext is plain JSON claims, so no `cty` is set (RFC 7519 5.2).
  */
 export async function buildJarmResponse(params: {
 	vpToken: string;
 	audience: string;
 	state?: string;
 	encryption: VerifierResponseEncryption;
+	/** The DCQL Credential Query ids of the included credentials, in request order. */
+	credentialQueryIds?: string[];
 	now?: () => number;
 }): Promise<string> {
-	const { vpToken, audience, state, encryption } = params;
+	const { vpToken, audience, state, encryption, credentialQueryIds } = params;
 	if (!encryption?.jwk || !isSupportedEnc(encryption.enc) || typeof encryption.alg !== 'string' || encryption.alg === '') {
 		throw new ClientHeldEncryptionError('The verifier response encryption parameters are unusable');
 	}
@@ -52,12 +97,7 @@ export async function buildJarmResponse(params: {
 		throw new ClientHeldEncryptionError('The verifier response encryption key must be a public key');
 	}
 
-	let vpTokenValue: unknown = vpToken;
-	try {
-		vpTokenValue = JSON.parse(vpToken);
-	} catch {
-		// Not JSON: the token string itself.
-	}
+	const vpTokenValue = restructureDcqlVpToken(vpToken, credentialQueryIds ?? []);
 
 	const iat = Math.floor((params.now ?? Date.now)() / 1000);
 	const claims: Record<string, unknown> = {
