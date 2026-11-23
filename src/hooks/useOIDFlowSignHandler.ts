@@ -156,27 +156,39 @@ export function useOIDFlowSignHandler() {
 
 		// Select proof type
 		logger.debug(`[WS Sign Handler] Selecting proof type from precedence: ${OPENID4VCI_PROOF_TYPE_PRECEDENCE}`);
-		const proofType = OPENID4VCI_PROOF_TYPE_PRECEDENCE
+		let proofType = OPENID4VCI_PROOF_TYPE_PRECEDENCE
 			.split(',')
 			.find(type => proofTypesSupported[type]) as 'jwt' | 'attestation' | undefined;
 
 		if (proofType === 'attestation') {
-			const keypairs = await wscd.generateKeypairs(count);
+			try {
+				const keypairs = await wscd.generateKeypairs(count);
 
-			const response = await api.post('/wallet-provider/key-attestation/generate', {
-				jwks: keypairs.map(kp => kp.publicKey),
-				openid4vci: { nonce },
-			});
+				const response = await api.post('/wallet-provider/key-attestation/generate', {
+					jwks: keypairs.map(kp => kp.publicKey),
+					openid4vci: { nonce },
+				});
 
-			const keyAttestation = response.data?.key_attestation;
-			if (!keyAttestation || typeof keyAttestation !== 'string') {
-				throw new Error('Failed to get key attestation from wallet backend');
+				const keyAttestation = response.data?.key_attestation;
+				if (!keyAttestation || typeof keyAttestation !== 'string') {
+					throw new Error('Failed to get key attestation from wallet backend');
+				}
+
+				const proofs: ProofObject[] = [{ proof_type: 'attestation', attestation: keyAttestation }];
+
+				logger.debug(`[WS Sign Handler] Generated attestation proof for ${count} key(s)`);
+				return { proofs };
+			} catch (err) {
+				// An attestation proof is Tier 3 (best-effort) per config.ts's
+				// WIA_ENABLED docs: it should never block issuance. Fall back to a
+				// jwt proof when the issuer accepts one, instead of failing the
+				// whole sign request.
+				if (!proofTypesSupported['jwt']) {
+					throw err;
+				}
+				logger.warn('[WS Sign Handler] attestation proof failed; falling back to a jwt proof', err);
+				proofType = 'jwt';
 			}
-
-			const proofs: ProofObject[] = [{ proof_type: 'attestation', attestation: keyAttestation }];
-
-			logger.debug(`[WS Sign Handler] Generated attestation proof for ${count} key(s)`);
-			return { proofs };
 		}
 
 		if (proofType === 'jwt') {
