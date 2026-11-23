@@ -158,7 +158,10 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		if (wsPossible && !authTokenSettled) return false;
 		// 4. If WebSocket (or the in-browser engine) is expected, wait for it to
 		//    connect or fail
-		const wsExpected = (WASM_ENGINE_ENABLED && isLoggedIn) || (wsPossible && !!authToken);
+		// WMP, like the in-browser engine, fetches its own token, so it is
+		// expected whenever the user is logged in.
+		const wmpMode = WMP_ENABLED && !!WMP_URL;
+		const wsExpected = (WASM_ENGINE_ENABLED && isLoggedIn) || (wsPossible && (wmpMode ? isLoggedIn : !!authToken));
 		if (wsExpected && !isConnected && !lastError) return false;
 		return true;
 		}, [capabilitiesLoaded, pendingTransports, wsCapabilityAvailable, authToken, authTokenSettled, isConnected, lastError, isLoggedIn]);
@@ -319,9 +322,91 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		};
 	}, [tenantId, authTokens, httpClient, isLoggedIn]);
 
+	// The remote engine over WMP (WMP_ENABLED): the flows run on the backend's
+	// WMP bridge instead of the WebSocket wire, in the same transport slot.
+	// Created once per login and tenant, like the in-browser engine: its client
+	// asks for a fresh token on every request and refreshes it after a 401, so
+	// a token refresh neither rebuilds the transport nor ends a flow in progress.
+	useEffect(() => {
+		if (WASM_ENGINE_ENABLED || !WMP_ENABLED || !WMP_URL) return;
+		if (!capabilitiesLoaded) return;
+		if (!isLoggedIn || !WEBSOCKET_TRANSPORT_ALLOWED || !wsCapabilityAvailable || !WS_URL) {
+			setWsTransport(null);
+			setIsConnected(false);
+			return;
+		}
+
+		let cancelled = false;
+		const getAuthToken = async () => (await authTokens.ensureBackendToken()).raw;
+		const wmp = new OIDFlowWmpTransport(WMP_URL, WS_URL, '', tenantId, {
+			evaluateIssuerTrust: createIssuerTrustEvaluator({ httpClient, backendUrl: BACKEND_URL, getAuthToken, tenantId }),
+			evaluateVerifierTrust: createVerifierTrustEvaluator({ httpClient, backendUrl: BACKEND_URL, getAuthToken, tenantId }),
+		}, {
+			getAuthToken,
+			onAuthRejected: () => authTokens.registerBackendTokenRejection(),
+		});
+		setWsTransport(wmp);
+		setPendingTransports(prev => new Set(prev).add('websocket'));
+
+		const connectTimeout = setTimeout(() => {
+			if (cancelled) return;
+			cancelled = true;
+			logger.warn('WMP connection timed out');
+			wmp.disconnect();
+			setIsConnected(false);
+			setLastError(new Error('WMP connection timed out'));
+			setPendingTransports(prev => {
+				const next = new Set(prev);
+				next.delete('websocket');
+				return next;
+			});
+		}, TRANSPORT_CONNECT_TIMEOUT);
+
+		(async () => {
+			try {
+				await wmp.connect();
+				if (cancelled) return;
+				setIsConnected(true);
+				setLastError(null);
+			} catch (error) {
+				if (cancelled) return;
+				logger.error('WMP connection failed:', error);
+				setIsConnected(false);
+				setLastError(error instanceof Error ? error : new Error('WMP connection failed'));
+			} finally {
+				if (!cancelled) {
+					clearTimeout(connectTimeout);
+					setPendingTransports(prev => {
+						const next = new Set(prev);
+						next.delete('websocket');
+						return next;
+					});
+				}
+			}
+		})();
+
+		const unsubscribeError = wmp.onError((error) => {
+			logger.error('WMP error:', error);
+			setIsConnected(false);
+			setLastError(error);
+		});
+
+		return () => {
+			cancelled = true;
+			clearTimeout(connectTimeout);
+			unsubscribeError();
+			wmp.disconnect();
+			setPendingTransports(prev => {
+				const next = new Set(prev);
+				next.delete('websocket');
+				return next;
+			});
+		};
+	}, [isLoggedIn, tenantId, capabilitiesLoaded, wsCapabilityAvailable, authTokens, httpClient]);
+
 	// Create and manage WebSocket transport (only if capability is available)
 	useEffect(() => {
-		if (WASM_ENGINE_ENABLED) return;
+		if (WASM_ENGINE_ENABLED || (WMP_ENABLED && WMP_URL)) return;
 		if (!capabilitiesLoaded) return;
 		if (!WEBSOCKET_TRANSPORT_ALLOWED || !wsCapabilityAvailable || !WS_URL || !authToken) {
 			setWsTransport(null);
@@ -330,11 +415,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		}
 
 		let cancelled = false;
-		// With WMP enabled, the flows run on the remote engine over WMP (its WMP
-		// bridge) instead of the WebSocket wire; the transport takes the same slot.
-		const ws = WMP_ENABLED && WMP_URL
-			? new OIDFlowWmpTransport(WMP_URL, WS_URL, authToken, tenantId, trustEvaluators)
-			: new OIDFlowWebSocketTransport(WS_URL, authToken, tenantId, trustEvaluators);
+		const ws = new OIDFlowWebSocketTransport(WS_URL, authToken, tenantId, trustEvaluators);
 		setWsTransport(ws);
 
 		// Mark this transport as pending connection

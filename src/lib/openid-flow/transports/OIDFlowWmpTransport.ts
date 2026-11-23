@@ -40,7 +40,7 @@ import type { OIDFlowProgressEvent } from '../types/OIDFlowTypes';
 import type { CredentialNotificationEvent, OID4VCIFlowParams, OID4VCIFlowResult } from '../types/OID4VCITypes';
 import type { OID4VPFlowParams, OID4VPFlowResult } from '../types/OID4VPTypes';
 import type { TrustEvaluators } from '../types';
-import { WmpClient, WmpRpcError } from '../wmp/WmpClient';
+import { WmpClient, WmpRpcError, type WmpTokenProvider } from '../wmp/WmpClient';
 import { logger } from '@/logger';
 import type { SignHandlerAction, SignHandlerRequest, SignRequest, SignRequestHandler, SignResponse } from './OIDFlowWebSocketTransport';
 import { ENGINE_NO_MATCH_TIMEOUT_MS, ENGINE_STEP_TIMEOUT_MS, WMP_REQUEST_TIMEOUT_MS } from '@/config';
@@ -99,6 +99,15 @@ interface VpFlow {
 	ended: boolean;
 }
 
+export interface WmpAuthOptions {
+	/**
+	 * A fresh backend token for each request. Without it, the transport uses
+	 * the token it was built with (and updateAuthToken()).
+	 */
+	getAuthToken?: WmpTokenProvider;
+	/** The backend refused the token: drop it, and say whether a fresh one may be tried. */
+	onAuthRejected?: () => boolean;
+}
 
 
 export class OIDFlowWmpTransport extends OIDFlowWebSocketTransport {
@@ -123,14 +132,24 @@ export class OIDFlowWmpTransport extends OIDFlowWebSocketTransport {
 	/** The flow started last, of either kind: what releaseFlow() ends. */
 	private lastStartedFlowId: string | null = null;
 	private readonly releasedFlows = new ReleasedFlows();
-	constructor(wmpUrl: string, wsUrl: string, authToken: string, tenantId: string = 'default', trustEvaluators?: TrustEvaluators) {
+	constructor(
+		wmpUrl: string,
+		wsUrl: string,
+		authToken: string,
+		tenantId: string = 'default',
+		trustEvaluators?: TrustEvaluators,
+		auth: WmpAuthOptions = {},
+	) {
 		super(wsUrl, authToken, tenantId, trustEvaluators);
 		this.wmpToken = authToken;
 		this.wmpTrust = trustEvaluators ?? ({
 			evaluateIssuerTrust: async () => ({ trusted: false }),
 			evaluateVerifierTrust: async () => ({ trusted: false }),
 		} as unknown as TrustEvaluators);
-		this.wmp = new WmpClient(wmpUrl, () => this.wmpToken, { requestTimeoutMs: WMP_REQUEST_TIMEOUT_MS });
+		this.wmp = new WmpClient(wmpUrl, auth.getAuthToken ?? (() => this.wmpToken), {
+			requestTimeoutMs: WMP_REQUEST_TIMEOUT_MS,
+			onUnauthorized: auth.onAuthRejected,
+		});
 		this.wmp.onNotification((method, params) => this.handleNotification(method, params));
 		this.wmp.setRequestHandler((method, params) => this.handleServerRequest(method, params));
 		this.wmp.onStreamLost((err) => this.failAllFlows(err));

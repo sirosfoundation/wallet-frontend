@@ -6,11 +6,12 @@ import { OIDFlowTransportProvider, useOIDFlowTransport } from './OIDFlowTranspor
 
 // vi.mock factories are hoisted above the imports, so what they share with
 // the tests has to be hoisted too.
-const { connect, wasmConnect, wasmDisconnect, wmpConnect, wmpCreated, flags, httpClient } = vi.hoisted(() => ({
+const { connect, wasmConnect, wasmDisconnect, wmpConnect, wmpDisconnect, wmpCreated, flags, httpClient } = vi.hoisted(() => ({
 	connect: vi.fn(async () => {}),
 	wasmConnect: vi.fn(async () => {}),
 	wasmDisconnect: vi.fn(async () => {}),
 	wmpConnect: vi.fn(async () => {}),
+	wmpDisconnect: vi.fn(async () => {}),
 	wmpCreated: [] as unknown[][],
 	flags: { wasm: false, wmp: false },
 	// Stable across renders, like the real hook: a new object each time would
@@ -62,7 +63,7 @@ vi.mock('@/lib/openid-flow/transports/OIDFlowWmpTransport', () => ({
 	OIDFlowWmpTransport: class {
 		constructor(...args: unknown[]) { wmpCreated.push(args); }
 		connect = wmpConnect;
-		disconnect = vi.fn();
+		disconnect = wmpDisconnect;
 		onError = vi.fn(() => () => {});
 		isConnected = vi.fn(() => true);
 		updateAuthToken = vi.fn();
@@ -91,6 +92,7 @@ describe('OIDFlowTransportProvider transportReady', () => {
 		wasmConnect.mockClear();
 		wasmDisconnect.mockClear();
 		wmpConnect.mockClear();
+		wmpDisconnect.mockClear();
 		wmpCreated.length = 0;
 		flags.wasm = false;
 		flags.wmp = false;
@@ -163,14 +165,46 @@ describe('OIDFlowTransportProvider transportReady', () => {
 
 		await waitFor(() => expect(result.current.transportReady).toBe(true));
 		expect(wmpCreated).toHaveLength(1);
-		expect(wmpCreated[0].slice(0, 3)).toEqual([
+		expect(wmpCreated[0].slice(0, 2)).toEqual([
 			'https://wallet.example.org/api/v2/wallet/rpc',
 			'wss://wallet.example.org/api/v2/wallet',
-			'backend-token',
 		]);
 		expect(wmpConnect).toHaveBeenCalled();
 		expect(connect).not.toHaveBeenCalled();
 		expect(result.current.transportType).toBe('websocket');
+	});
+
+		// A token refresh must not rebuild the WMP transport (that would close its
+	// session and end a flow in progress): it asks for a fresh token itself.
+	it('gives the WMP transport a token source instead of a fixed token', async () => {
+		flags.wmp = true;
+		let n = 0;
+		const { result, authTokens } = renderTransport(async () => ({ raw: `backend-token-${++n}` }));
+		await waitFor(() => expect(result.current.transportReady).toBe(true));
+
+		const auth = wmpCreated[0][5] as { getAuthToken: () => Promise<string>; onAuthRejected: () => boolean };
+		const first = await auth.getAuthToken();
+		const second = await auth.getAuthToken();
+		expect(second).not.toBe(first);
+
+		auth.onAuthRejected();
+		expect(authTokens.registerBackendTokenRejection).toHaveBeenCalledTimes(1);
+		expect(wmpCreated).toHaveLength(1);
+	});
+
+	it('builds the WMP transport on login and ends its session on logout', async () => {
+		flags.wmp = true;
+		const { result, setLoggedIn } = renderTransport(async () => ({ raw: 'backend-token' }), { loggedIn: false });
+		await waitFor(() => expect(result.current.transportReady).toBe(true));
+		expect(wmpCreated).toHaveLength(0);
+
+		await setLoggedIn(true);
+		await waitFor(() => expect(wmpConnect).toHaveBeenCalledTimes(1));
+		expect(wmpCreated).toHaveLength(1);
+
+		await setLoggedIn(false);
+		await waitFor(() => expect(wmpDisconnect).toHaveBeenCalledTimes(1));
+		expect(wmpCreated).toHaveLength(1);
 	});
 
 	it('prefers the in-browser engine when both it and WMP are enabled', async () => {
@@ -261,7 +295,7 @@ function renderTransport(
 	{ loggedIn = true }: { loggedIn?: boolean } = {},
 ) {
 	// One instance for the whole render, like the memoized AuthTokens in SessionContextProvider.
-	const authTokens = { ensureBackendToken };
+	const authTokens = { ensureBackendToken, registerBackendTokenRejection: vi.fn(() => true) };
 	let setIsLoggedIn!: (value: boolean) => void;
 
 	const Wrapper = ({ children }: { children: React.ReactNode }) => {
@@ -279,6 +313,7 @@ function renderTransport(
 
 	return {
 		...rendered,
+		authTokens,
 		setLoggedIn: async (value: boolean) => {
 			await act(async () => { setIsLoggedIn(value); });
 		},

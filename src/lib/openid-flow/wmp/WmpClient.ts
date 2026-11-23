@@ -59,8 +59,17 @@ export interface WmpClientOptions {
 	ttlSeconds?: number;
 	/** How long one POST may take before it is aborted. Default: 30 seconds. */
 	requestTimeoutMs?: number;
+	/**
+	 * Called when the backend answers 401: the caller drops the rejected token
+	 * and says whether a fresh one may be tried (false once it has given up).
+	 * The client then retries the request, or reopens the stream, once.
+	 */
+	onUnauthorized?: () => boolean | Promise<boolean>;
 	fetchImpl?: typeof fetch;
 }
+
+/** The bearer token for the next request; asked for on every request, so it can be refreshed. */
+export type WmpTokenProvider = () => string | Promise<string>;
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 
@@ -73,7 +82,8 @@ export class WmpClient {
 	private readonly ttlSeconds?: number;
 	private readonly requestTimeoutMs: number;
 	private readonly fetchImpl: typeof fetch;
-	private getToken: () => string;
+	private getToken: WmpTokenProvider;
+	private readonly onUnauthorized?: () => boolean | Promise<boolean>;
 
 	private sessionId: string | null = null;
 	private resumptionToken: string | null = null;
@@ -90,13 +100,14 @@ export class WmpClient {
 	private requestHandler: WmpRequestHandler | null = null;
 	private streamLostHandlers = new Set<(error: Error) => void>();
 
-	constructor(rpcUrl: string, getToken: () => string, options: WmpClientOptions = {}) {
+	constructor(rpcUrl: string, getToken: WmpTokenProvider, options: WmpClientOptions = {}) {
 		this.rpcUrl = rpcUrl.replace(/\/+$/, '');
 		this.eventsUrl = options.eventsUrl ?? `${this.rpcUrl}/events`;
 		this.ttlSeconds = options.ttlSeconds;
 		this.requestTimeoutMs = options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
 		this.fetchImpl = options.fetchImpl ?? ((input, init) => fetch(input, init));
 		this.getToken = getToken;
+		this.onUnauthorized = options.onUnauthorized;
 	}
 
 	// ===== State =====
@@ -236,10 +247,10 @@ export class WmpClient {
 		await this.post({ jsonrpc: '2.0', id, error: { code, message } });
 	}
 
-	private async post(message: WmpMessage): Promise<WmpMessage | null> {
+	private async post(message: WmpMessage, retried = false): Promise<WmpMessage | null> {
 		const headers: Record<string, string> = {
 			'Content-Type': 'application/json',
-			Authorization: `Bearer ${this.getToken()}`,
+			Authorization: `Bearer ${await this.getToken()}`,
 		};
 		if (this.sessionId) headers['Wmp-Session-Id'] = this.sessionId;
 
@@ -265,6 +276,10 @@ export class WmpClient {
 		} finally {
 			clearTimeout(timer);
 		}
+		if (res.status === 401 && !retried && (await this.mayRetryWithFreshToken())) {
+			// The token expired or was revoked: once more, with a fresh one.
+			return this.post(message, true);
+		}
 		if (!res.ok) {
 			// A JSON-RPC error may come with an HTTP error status.
 			try {
@@ -277,6 +292,15 @@ export class WmpClient {
 		}
 		if (!text.trim()) return null;
 		return JSON.parse(text) as WmpMessage;
+	}
+
+	private async mayRetryWithFreshToken(): Promise<boolean> {
+		if (!this.onUnauthorized) return false;
+		try {
+			return await this.onUnauthorized();
+		} catch {
+			return false;
+		}
 	}
 
 	// ===== Event stream =====
@@ -314,7 +338,7 @@ export class WmpClient {
 	private async readStream(abort: AbortController, onOpen: () => void): Promise<void> {
 		const headers: Record<string, string> = {
 			Accept: 'text/event-stream',
-			Authorization: `Bearer ${this.getToken()}`,
+			Authorization: `Bearer ${await this.getToken()}`,
 		};
 		if (this.sessionId) headers['Wmp-Session-Id'] = this.sessionId;
 		if (this.lastEventId) headers['Last-Event-ID'] = String(this.lastEventId);
@@ -370,6 +394,14 @@ export class WmpClient {
 		if (this.closed || abort.signal.aborted) return;
 
 		if (err instanceof WmpRpcError && (err.code === 401 || err.code === 403)) {
+			// The token expired while the stream was down: reopen it with a
+			// fresh one, within the reconnect budget. The caller's token manager
+			// caps the refreshes, so a token that keeps being refused ends here.
+			if (err.code === 401 && this.streamReconnects < MAX_STREAM_RECONNECTS && (await this.mayRetryWithFreshToken())) {
+				this.streamReconnects++;
+				this.scheduleReconnect(0);
+				return;
+			}
 			this.emitStreamLost(new Error('WMP event stream not authorized'));
 			return;
 		}
