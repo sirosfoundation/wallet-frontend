@@ -1,7 +1,6 @@
 import { assert, describe, it, vi } from "vitest";
 import { SDJWTVCParser } from "./SDJWTVCParser";
 import { Context, HttpClient, HttpResponse } from "../interfaces";
-import { defaultHttpClient } from "../defaultHttpClient";
 import path from "node:path";
 import { convertDataUriToImage } from '../functions/convertDataUriToImage';
 import { CredentialParsingError } from "../error";
@@ -133,7 +132,7 @@ describe("The SDJWTVCParser", () => {
 					} as HttpResponse;
 				}
 				// fallback to real http call for everything else
-				return defaultHttpClient.get(url);
+				return fakeHttpClient.get(url);
 			},
 			post: async () => ({}) as HttpResponse
 		};
@@ -158,7 +157,7 @@ describe("The SDJWTVCParser", () => {
 					} as HttpResponse;
 				}
 				// fallback to real http call for everything else
-				return defaultHttpClient.get(url);
+				return fakeHttpClient.get(url);
 			},
 			post: async () => ({}) as HttpResponse,
 		};
