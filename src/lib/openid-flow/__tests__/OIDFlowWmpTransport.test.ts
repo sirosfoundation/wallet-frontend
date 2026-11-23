@@ -227,6 +227,53 @@ describe('OIDFlowWmpTransport (issuance)', () => {
 		expect(engine.posts.map((p) => p.method)).toEqual(['wmp.session.create']);
 	});
 
+		it('releases the flow in progress: cancels it on the backend and refuses a late sign sub-flow', async () => {
+		let flowId = '';
+		const signed = vi.fn();
+		transport.onSignRequest(async () => { signed(); return {}; });
+		engine.onPost = (m) => {
+			if (m.method === 'wmp.session.create') return { wmp: { version: '0.1', session_id: 'ses-r' }, capabilities: { oid4vci: {} } };
+			if (m.method === 'wmp.flow.start') {
+				flowId = m.params.flow_id;
+				setTimeout(() => engine.push({ jsonrpc: '2.0', method: 'wmp.flow.progress', params: { flow_id: flowId, step: 'awaiting_tx_code',
+					payload: { tx_code: { input_mode: 'numeric', length: 6 } } } }), 0);
+				return { flow_id: flowId, flow_type: 'oid4vci' };
+			}
+			return {};
+		};
+
+		const first = await transport.startOID4VCIFlow({ credentialOffer: '{"credential_issuer":"https://i"}' });
+		expect(first.txCode).toBeTruthy();
+
+		transport.releaseFlow();
+		await tick();
+		expect(engine.posts).toContainEqual(expect.objectContaining({
+			method: 'wmp.flow.cancel', params: expect.objectContaining({ flow_id: flowId, reason: 'released' }),
+		}));
+
+		engine.push({ jsonrpc: '2.0', id: 'srv-late', method: 'wmp.flow.start', params: {
+			flow_type: 'sign', flow_id: `${flowId}-sign-late`,
+			params: { action: 'generate_proof', parent_flow_id: flowId, nonce: 'n', proof_type: 'jwt' },
+		} });
+		await tick(20);
+		expect(signed).not.toHaveBeenCalled();
+		expect(engine.posts).toContainEqual(expect.objectContaining({
+			method: 'wmp.flow.error', params: expect.objectContaining({ flow_id: `${flowId}-sign-late` }),
+		}));
+	});
+
+	it('answers a call still waiting on the released flow', async () => {
+		engine.onPost = (m) => {
+			if (m.method === 'wmp.session.create') return { wmp: { version: '0.1', session_id: 'ses-w' }, capabilities: { oid4vci: {} } };
+			if (m.method === 'wmp.flow.start') return { flow_id: m.params.flow_id, flow_type: 'oid4vci' };
+			return {};
+		};
+		const pending = transport.startOID4VCIFlow({ credentialOfferUri: 'https://i/offer' });
+		await tick(20);
+		transport.releaseFlow();
+		await expect(pending).rejects.toThrow('The flow was released locally');
+	});
+
 	it('maps wmp.flow.error to a failed result', async () => {
 		engine.onPost = (m) => {
 			if (m.method === 'wmp.session.create') return { wmp: { version: '0.1', session_id: 'ses-4' }, capabilities: { oid4vci: {} } };

@@ -67,7 +67,7 @@
  * API channel as it is.
  */
 
-import { OIDFlowWebSocketTransport } from './OIDFlowWebSocketTransport';
+import { OIDFlowWebSocketTransport, RELEASED_FLOW_ERROR } from './OIDFlowWebSocketTransport';
 import type { SignHandlerRequest, SignRequestHandler, SignResponse } from './OIDFlowWebSocketTransport';
 import type { OIDFlowProgressEvent, OIDFlowRequest, OIDFlowResponse } from '../types/OIDFlowTypes';
 import type { OID4VPFlowParams, OID4VPFlowResult, OID4VPSelectedCredential, OID4VPVerifierInfo } from '../types/OID4VPTypes';
@@ -97,6 +97,7 @@ import {
 import { createProxyFetch, createStorageKv, createTrustPdp } from '../wasm/wasmPorts';
 import { logger } from '@/logger';
 import { publicProgressPayload } from '../utils/progressRedaction';
+import { ReleasedFlows } from '../utils/releasedFlows';
 import {
 	ENGINE_AUTHORIZATION_ANNOUNCE_TIMEOUT_MS,
 	ENGINE_NO_MATCH_TIMEOUT_MS,
@@ -239,7 +240,9 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 	private readonly vpFlows = new Map<string, VpFlow>();
 	/** The presentation the next selection (or no-match report) answers. */
 	private currentVpFlowId: string | null = null;
-
+	/** The flow started last, of either kind: what releaseFlow() ends. */
+	private lastStartedFlowId: string | null = null;
+	private readonly releasedFlows = new ReleasedFlows();
 	constructor(opts: OIDFlowWasmTransportOptions) {
 		// The base class is only used for its handler registry and type: no
 		// WebSocket is ever opened.
@@ -248,15 +251,12 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 		this.wasmStorage = opts.storage ?? window.sessionStorage;
 	}
 
-	// ===== Registration (keep a copy: the base class keeps its own private) =====
+	// ===== Registration =====
+	// No WebSocket is opened in this mode, so handlers live only here.
 
 	override onSignRequest(handler: SignRequestHandler): () => void {
-		const off = super.onSignRequest(handler);
 		this.wasmSignHandlers.add(handler);
-		return () => {
-			off();
-			this.wasmSignHandlers.delete(handler);
-		};
+		return () => { this.wasmSignHandlers.delete(handler); };
 	}
 
 	override onProgress(callback: (event: OIDFlowProgressEvent) => void): () => void {
@@ -295,6 +295,43 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 				// the session dies with the page anyway
 			}
 		}
+	}
+
+		/**
+	 * The wallet cancelled the flow in progress (the page unmounted, or the
+	 * call failed): end it here and in the engine, answer the app's pending
+	 * call, and refuse any callback for it that arrives late.
+	 */
+	override releaseFlow(): void {
+		const flowId = this.lastStartedFlowId;
+		if (!flowId) return;
+		this.lastStartedFlowId = null;
+		this.releasedFlows.add(flowId);
+
+		const vci = this.vciFlows.get(flowId);
+		const vp = this.vpFlows.get(flowId);
+		if (vci && !vci.ended) {
+			this.endFlow(vci);
+			this.settle(vci, errorResult('RELEASED', RELEASED_FLOW_ERROR));
+		} else if (vp && !vp.ended) {
+			this.endVpFlow(vp);
+			this.settleVp(vp, vpError('RELEASED', RELEASED_FLOW_ERROR));
+		} else {
+			return;
+		}
+		this.cancelEngineFlow(flowId);
+	}
+
+	/** Best effort: the engine drops the flow's state now instead of at its own timeout. */
+	private cancelEngineFlow(flowId: string): void {
+		const engine = this.enginePromise;
+		const session = this.sessionPromise;
+		if (!engine || !session) return;
+		Promise.all([engine, session])
+			.then(([e, sessionId]) => wmpCall(e, 'wmp.flow.cancel', { wmp: meta(sessionId), flow_id: flowId, reason: 'released' }))
+			.catch(() => {
+				// the flow ends with the session anyway
+			});
 	}
 
 	override resetReconnectAttempts(): void {
@@ -460,6 +497,8 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 	private newFlow(flowId: string): VciFlow {
 		const flow: VciFlow = { flowId, configurationIds: [], waiter: null, ended: false };
 		this.vciFlows.set(flowId, flow);
+		this.lastStartedFlowId = flowId;
+		this.releasedFlows.delete(flowId);
 		return flow;
 	}
 
@@ -1120,6 +1159,7 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 
 	/** A fresh WSCD key for the next proof; its kid rides the sign ask. */
 	private async hostSigningKey(p: EngineSigningKeyParams): Promise<{ jwk: Record<string, unknown> }> {
+		if (this.releasedFlows.has(p.flow_id)) throw new Error(RELEASED_FLOW_ERROR);
 		if (p.key_id) {
 			// Renewal (re-signing with an existing key) is not started by this transport.
 			throw new Error('signing with an existing key is not supported');
@@ -1134,6 +1174,7 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 	}
 
 	private async hostSign(p: EngineSignParams): Promise<{ signature: number[] }> {
+		if (this.releasedFlows.has(p.flow_id)) throw new Error(RELEASED_FLOW_ERROR);
 		if (p.algorithm !== 'ES256') throw new Error(`unsupported signing algorithm ${p.algorithm}`);
 		const kid = p.key_id || this.flowFor(p.flow_id)?.lastKid;
 		if (!kid) {

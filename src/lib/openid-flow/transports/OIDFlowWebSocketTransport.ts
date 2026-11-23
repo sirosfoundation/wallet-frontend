@@ -80,7 +80,7 @@ interface ProofTypesSupported {
  */
 const MAX_TRACKED_FLOWS = 64;
 
-const RELEASED_FLOW_ERROR = 'The flow was released locally';
+export const RELEASED_FLOW_ERROR = 'The flow was released locally';
 
 const SUPERSEDED_KEY_ERROR = 'The response encryption key was superseded by a newer request';
 

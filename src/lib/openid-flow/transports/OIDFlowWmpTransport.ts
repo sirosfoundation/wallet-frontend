@@ -35,7 +35,7 @@
 
 import { CompactEncrypt, compactDecrypt, exportJWK, generateKeyPair, importJWK, type JWK, type KeyLike } from 'jose';
 import type { DcqlQuery } from 'dcql';
-import { OIDFlowWebSocketTransport, mapVerifierInfo } from './OIDFlowWebSocketTransport';
+import { OIDFlowWebSocketTransport, RELEASED_FLOW_ERROR, mapVerifierInfo } from './OIDFlowWebSocketTransport';
 import type { OIDFlowProgressEvent } from '../types/OIDFlowTypes';
 import type { CredentialNotificationEvent, OID4VCIFlowParams, OID4VCIFlowResult } from '../types/OID4VCITypes';
 import type { OID4VPFlowParams, OID4VPFlowResult } from '../types/OID4VPTypes';
@@ -45,6 +45,7 @@ import { logger } from '@/logger';
 import type { SignHandlerAction, SignHandlerRequest, SignRequest, SignRequestHandler, SignResponse } from './OIDFlowWebSocketTransport';
 import { ENGINE_NO_MATCH_TIMEOUT_MS, ENGINE_STEP_TIMEOUT_MS } from '@/config';
 import { publicProgressPayload } from '../utils/progressRedaction';
+import { ReleasedFlows } from '../utils/releasedFlows';
 /** How long one step of the flow may take before startOID4VCIFlow gives up (ENGINE_STEP_TIMEOUT_IN_SECONDS). */
 const STEP_TIMEOUT_MS = ENGINE_STEP_TIMEOUT_MS ?? 120_000;
 /** How long reportNoMatchingCredentials waits for the engine to end the flow (ENGINE_NO_MATCH_TIMEOUT_IN_SECONDS). */
@@ -119,7 +120,9 @@ export class OIDFlowWmpTransport extends OIDFlowWebSocketTransport {
 	private readonly vpFlows = new Map<string, VpFlow>();
 	/** The presentation flow the next select_credentials / decline applies to. */
 	private currentVpFlowId: string | null = null;
-
+	/** The flow started last, of either kind: what releaseFlow() ends. */
+	private lastStartedFlowId: string | null = null;
+	private readonly releasedFlows = new ReleasedFlows();
 	constructor(wmpUrl: string, wsUrl: string, authToken: string, tenantId: string = 'default', trustEvaluators?: TrustEvaluators) {
 		super(wsUrl, authToken, tenantId, trustEvaluators);
 		this.wmpToken = authToken;
@@ -133,33 +136,24 @@ export class OIDFlowWmpTransport extends OIDFlowWebSocketTransport {
 		this.wmp.onStreamLost((err) => this.failAllFlows(err));
 	}
 
-	// ===== Registration: keep a copy so WMP can reach the same callbacks =====
+	// ===== Registration =====
+	// The inherited WebSocket is never opened in WMP mode, so handlers live
+	// only here; registering them with the base class too would keep a
+	// second, unused copy of each.
 
 	override onSignRequest(handler: SignRequestHandler): () => void {
-		const off = super.onSignRequest(handler);
 		this.wmpSignHandlers.add(handler);
-		return () => {
-			off();
-			this.wmpSignHandlers.delete(handler);
-		};
+		return () => { this.wmpSignHandlers.delete(handler); };
 	}
 
 	override onProgress(callback: (event: OIDFlowProgressEvent) => void): () => void {
-		const off = super.onProgress(callback);
 		this.wmpProgressCallbacks.add(callback);
-		return () => {
-			off();
-			this.wmpProgressCallbacks.delete(callback);
-		};
+		return () => { this.wmpProgressCallbacks.delete(callback); };
 	}
 
 	override onError(callback: (error: Error) => void): () => void {
-		const off = super.onError(callback);
 		this.wmpErrorCallbacks.add(callback);
-		return () => {
-			off();
-			this.wmpErrorCallbacks.delete(callback);
-		};
+		return () => { this.wmpErrorCallbacks.delete(callback); };
 	}
 
 	override updateAuthToken(token: string, tenantId?: string): void {
@@ -178,6 +172,45 @@ export class OIDFlowWmpTransport extends OIDFlowWebSocketTransport {
 
 	override isConnected(): boolean {
 		return this.wmp.hasSession() && this.wmp.isStreaming();
+	}
+
+	/**
+	 * The wallet cancelled the flow in progress (the page unmounted, or the
+	 * call failed): end it here and on the backend, answer the app's pending
+	 * call, and refuse any sign sub-flow for it that arrives late.
+	 */
+	override releaseFlow(): void {
+		const flowId = this.lastStartedFlowId;
+		if (!flowId) return;
+		this.lastStartedFlowId = null;
+		this.releasedFlows.add(flowId);
+
+		const released = new Error(RELEASED_FLOW_ERROR);
+		const vci = this.vciFlows.get(flowId);
+		const vp = this.vpFlows.get(flowId);
+		if (vci && !vci.ended) {
+			this.rejectWaiter(vci, released);
+			this.endFlow(vci);
+		} else if (vp && !vp.ended) {
+			this.rejectWaiter(vp, released);
+			this.endVpFlow(vp);
+		} else {
+			return;
+		}
+		if (this.wmp.hasSession()) {
+			this.wmp.call('wmp.flow.cancel', { wmp: this.wmp.meta(), flow_id: flowId, reason: 'released' })
+				.catch(() => {
+					// the backend ends the flow at its own timeout
+				});
+		}
+	}
+
+	private rejectWaiter(flow: VciFlow | VpFlow, err: Error): void {
+		const w = flow.waiter;
+		flow.waiter = null;
+		if (!w) return;
+		clearTimeout(w.timer);
+		w.reject(err);
 	}
 
 	/** Ends the WMP session and fails any issuance still waiting (e.g. on logout). */
@@ -262,7 +295,7 @@ export class OIDFlowWmpTransport extends OIDFlowWebSocketTransport {
 		const flow: VciFlow = { flowId, waiter: null, offerConfigIds: [], decrypted: [], ended: false };
 		this.vciFlows.set(flowId, flow);
 		this.currentVciFlowId = flowId;
-
+		this.lastStartedFlowId = flowId;
 		const result = this.waitForStep(flow);
 		try {
 			await this.wmp.call('wmp.flow.start', {
@@ -667,7 +700,7 @@ export class OIDFlowWmpTransport extends OIDFlowWebSocketTransport {
 		const flow: VpFlow = { flowId, waiter: null, selections: new Map(), ended: false };
 		this.vpFlows.set(flowId, flow);
 		this.currentVpFlowId = flowId;
-
+		this.lastStartedFlowId = flowId;
 		const result = this.waitForVp(flow);
 		try {
 			await this.wmp.call('wmp.flow.start', {
@@ -855,6 +888,9 @@ export class OIDFlowWmpTransport extends OIDFlowWebSocketTransport {
 		const action = p.action as string;
 		const parentId = p.parent_flow_id as string;
 		try {
+			if (this.releasedFlows.has(parentId) || this.releasedFlows.has(this.authFlowOf(parentId))) {
+				throw new Error(RELEASED_FLOW_ERROR);
+			}
 			let result: Record<string, unknown>;
 			switch (action) {
 				case 'decrypt_credential_response':
@@ -896,7 +932,8 @@ export class OIDFlowWmpTransport extends OIDFlowWebSocketTransport {
 		if (cre?.alg && cre?.enc) {
 			const flow = this.vciFlows.get(parentId);
 			if (!flow) throw new Error('no issuance flow for the encryption key');
-			const { publicKey, privateKey } = await generateKeyPair('ECDH-ES', { crv: 'P-256', extractable: true });
+			// Only the public half is exported; the private key never leaves WebCrypto.
+			const { publicKey, privateKey } = await generateKeyPair('ECDH-ES', { crv: 'P-256', extractable: false });
 			flow.responseKey = { privateKey, alg: cre.alg, enc: cre.enc };
 			out.credential_response_encryption_jwk = { ...(await exportJWK(publicKey)), use: 'enc', alg: cre.alg };
 		}

@@ -412,6 +412,36 @@ describe('OIDFlowWasmTransport: authorization-code issuance', () => {
 			expect(seen.code).toMatch(/^rejected/);
 			vi.useRealTimers();
 		});
+		
+		it('releases the flow in progress: cancels it in the engine and refuses a late signature for it', async () => {
+			const engine = preAuthEngine(true);
+			const t = transport(engine, storage);
+			const first = await t.startOID4VCIFlow({ credentialOffer: offerWith({ length: 6 }), redirectUri: REDIRECT });
+			expect(first.txCode).toBeTruthy();
+			const flowId = engine.calls.find((c) => c.method === 'wmp.flow.start')!.params.flow_id;
+
+			t.releaseFlow();
+			await new Promise((r) => setTimeout(r, 0));
+			expect(engine.calls).toContainEqual(expect.objectContaining({
+				method: 'wmp.flow.cancel', params: expect.objectContaining({ flow_id: flowId, reason: 'released' }),
+			}));
+			// The ask was declined, so the code the user types next has nowhere to go.
+			const second = await t.startOID4VCIFlow({ preAuthorizedCode: 'pac-1', txCodeInput: '123456' });
+			expect(second).toMatchObject({ success: false, error: { code: 'NO_TX_CODE_REQUEST' } });
+
+			const host = engine.getConfig().host;
+			await expect(host.sign!(asMap({ flow_id: flowId, to_sign: [1], algorithm: 'ES256', key_id: 'kid-1' })))
+				.rejects.toThrow('The flow was released locally');
+		});
+
+		it('answers a call still waiting on the released flow', async () => {
+			const engine = fakeEngine({ 'wmp.flow.start': async () => ({}) });
+			const t = transport(engine, storage);
+			const pending = t.startOID4VCIFlow({ credentialOffer: offerWith(), redirectUri: REDIRECT });
+			await new Promise((r) => setTimeout(r, 20));
+			t.releaseFlow();
+			await expect(pending).resolves.toMatchObject({ success: false, error: { code: 'RELEASED' } });
+		});
 
 		it('refuses a code when no issuance is waiting for one', async () => {
 			const r = await transport(fakeEngine({}), storage).startOID4VCIFlow({ preAuthorizedCode: 'pac-1', txCodeInput: '1' });
