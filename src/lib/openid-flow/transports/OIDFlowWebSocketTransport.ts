@@ -116,8 +116,12 @@ export interface SignRequest {
 			credentialQueryId?: string;
 			disclosedClaims?: string[];
 			credentialRaw?: string;
+			/** The raw transaction data entries this credential's presentation binds. */
+			transactionData?: string[];
 		}>;
 		responseUri?: string;
+		/** The Digital Credentials API caller's origin (instead of responseUri). */
+		origin?: string;
 		verifierJwkThumbprint?: string;
 		htm?: string;
 		htu?: string;
@@ -2156,7 +2160,7 @@ function parseLogo(logo: unknown): string | undefined {
  * representation. Handles the backend's snake_case `trusted_status` field
  * as well as the legacy `trusted` boolean.
  */
-function mapVerifierInfo(raw: Record<string, unknown>): OID4VPVerifierInfo {
+export function mapVerifierInfo(raw: Record<string, unknown>): OID4VPVerifierInfo {
 	return {
 		name: raw.name as string | undefined,
 		purpose: raw.purpose as string | undefined,

@@ -70,6 +70,21 @@ export class DCAPIRequest {
 			: undefined;
 	}
 
+	/**
+	 * The request as the in-browser engine takes it: the signed request
+	 * object as received, or the plain parameters.
+	 */
+	engineParams(): Record<string, unknown> {
+		if (this.isSigned) {
+			return { request: (this.data as SignedDCAPIRequest).rawJwt };
+		}
+		return {
+			nonce: this.data.nonce,
+			dcql_query: this.data.dcqlQuery,
+			response_mode: this.data.responseMode,
+		};
+	}
+
 	public constructor(url: URL) {
 		const requestJwt = url.searchParams.get('request');
 

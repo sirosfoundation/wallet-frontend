@@ -722,3 +722,57 @@ describe('useOIDFlowSignHandler — VCDM 2.0 carried in an SD-JWT', () => {
 		expect(wscdMock.signVcdm2Presentation).not.toHaveBeenCalled();
 	});
 });
+
+
+describe('useOIDFlowSignHandler — transaction data', () => {
+	const entry = enc({ type: 'payment', credential_ids: ['q1'], amount: '10 EUR' });
+
+	beforeEach(() => {
+		wscdMock.signVcdm2Presentation.mockReset().mockResolvedValue('vcdm2-vp-token');
+		wscdMock.signSdJwtPresentation.mockReset().mockResolvedValue('sdjwt-vp-token');
+		wscdMock.generateDeviceResponse.mockReset();
+	});
+
+	it('binds the hashes of a credential\'s transaction data into its SD-JWT presentation', async () => {
+		const { result } = renderSignHandlerWithKeystore({});
+		const sdJwt = `${enc({ alg: 'ES256', typ: 'dc+sd-jwt' })}.${enc({ vct: 'x' })}.sig~`;
+
+		await result.current.signPresentation({
+			...baseParams,
+			credentialsToInclude: [{ credentialId: 'c1', credentialQueryId: 'q1', credentialRaw: sdJwt, transactionData: [entry] }],
+		});
+
+		const [{ transactionDataResponseParams }] = wscdMock.signSdJwtPresentation.mock.calls[0];
+		expect(transactionDataResponseParams).toEqual({
+			transaction_data_hashes: [expect.stringMatching(/^[A-Za-z0-9_-]{43}$/)],
+		});
+	});
+
+	it('binds them into a VCDM 2.0 presentation too, and leaves credentials without entries alone', async () => {
+		const { result } = renderSignHandlerWithKeystore({});
+
+		await result.current.signPresentation({
+			...baseParams,
+			credentialsToInclude: [
+				{ credentialId: 'c1', credentialQueryId: 'q1', credentialRaw: envelopedVcdm2, transactionData: [entry] },
+				{ credentialId: 'c2', credentialQueryId: 'q2', credentialRaw: ldpVcdm2 },
+			],
+		});
+
+		expect(wscdMock.signVcdm2Presentation.mock.calls[0][0].transactionDataResponseParams)
+			.toEqual({ transaction_data_hashes: [expect.any(String)] });
+		expect(wscdMock.signVcdm2Presentation.mock.calls[1][0].transactionDataResponseParams).toBeUndefined();
+	});
+
+	it('refuses transaction data on an mdoc presentation', async () => {
+		const { result } = renderSignHandlerWithKeystore({});
+		const mdoc = Buffer.from([0xa2, 0x6a, 0x00, 0x00]).toString('base64url');
+
+		await expect(result.current.signPresentation({
+			...baseParams,
+			responseUri: 'https://verifier.example/post',
+			credentialsToInclude: [{ credentialId: 'c1', credentialQueryId: 'q1', credentialRaw: mdoc, disclosedClaims: ['a'], transactionData: [entry] }],
+		})).rejects.toMatchObject({ code: 'UNSUPPORTED_TRANSACTION_DATA' });
+		expect(wscdMock.generateDeviceResponse).not.toHaveBeenCalled();
+	});
+});

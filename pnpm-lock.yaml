@@ -48,6 +48,9 @@ importers:
       '@sirosfoundation/result':
         specifier: workspace:*
         version: link:packages/result
+      '@sirosfoundation/siros-wallet-core':
+        specifier: ^0.2.19
+        version: 0.2.19
       '@sirosfoundation/wcc-types':
         specifier: 0.1.0-beta.1
         version: 0.1.0-beta.1
@@ -2227,6 +2230,9 @@ packages:
 
   '@sirosfoundation/browser-log@1.0.0':
     resolution: {integrity: sha512-zZQPq0GFjpkaczI6RWKQARokCNupS0jJVO/G+tEzS7H4zuYMSAeGKUmxEds0xdiSVYh6b277saqhyqSTR28aSg==}
+
+  '@sirosfoundation/siros-wallet-core@0.2.19':
+    resolution: {integrity: sha512-30KVezBqbuF5jFeYm6lUw3C0R9FEng1XF/b605PLMRMmDw7fm/MFpeerTi9xGHZKSTWMR9QNxLNq4+KWYRs5pg==}
 
   '@sirosfoundation/wcc-types@0.1.0-beta.1':
     resolution: {integrity: sha512-nmLval2+yG1/rJUpjiaZlJoykxuMSndq7tpTYmy2XMAEuC3/ANoboG4VyFh7stf7vHMdAObE+jRkxLSg8VARVw==}
@@ -7765,6 +7771,8 @@ snapshots:
   '@sd-jwt/types@0.10.0': {}
 
   '@sirosfoundation/browser-log@1.0.0': {}
+
+  '@sirosfoundation/siros-wallet-core@0.2.19': {}
 
   '@sirosfoundation/wcc-types@0.1.0-beta.1': {}
 

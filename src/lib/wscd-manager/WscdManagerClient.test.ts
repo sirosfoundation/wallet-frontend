@@ -262,3 +262,61 @@ describe('container callbacks', () => {
 		expect(host.exportContainer).not.toHaveBeenCalled();
 	});
 });
+
+
+describe('signRaw', () => {
+	/**
+	 * A softkey-like host with real state: importContainer replaces its keys,
+	 * generateKey adds one, sign refuses an unknown kid.
+	 */
+	function statefulHost() {
+		const keys = new Set<string>();
+		let next = 0;
+		return fakeHost({
+			importContainer: vi.fn(async (c: WscdContainer) => {
+				keys.clear();
+				c.keys.forEach((k) => keys.add(k.kid));
+			}),
+			generateKey: vi.fn(async () => {
+				const kid = `new-kid-${++next}`;
+				keys.add(kid);
+				return kid;
+			}),
+			sign: vi.fn(async (kid: string) => {
+				if (!keys.has(kid)) throw new Error(`key ${kid} not found`);
+				return new Uint8Array([7, 7]);
+			}),
+		});
+	}
+
+	it('signs with a just-generated key although the importer still returns the container from before it', async () => {
+		const host = statefulHost();
+		// The keystore's importer lags the exporter (React state): it keeps
+		// returning the container without the new key.
+		const { client } = makeClient([host]);
+
+		const [key] = await client.generateKeypairs(1);
+		const signature = await client.signRaw(key.kid, new Uint8Array([1]));
+
+		expect(signature).toEqual(new Uint8Array([7, 7]));
+		expect(host.sign).toHaveBeenCalledWith('new-kid-1', new Uint8Array([1]));
+	});
+
+	it('seeds the host from the stored container when it does not know the key', async () => {
+		const host = statefulHost();
+		const { client, importer } = makeClient([host]);
+
+		const signature = await client.signRaw(publicKeyKid, new Uint8Array([2]));
+
+		expect(signature).toEqual(new Uint8Array([7, 7]));
+		expect(importer).toHaveBeenCalledTimes(1);
+		expect(host.sign).toHaveBeenCalledTimes(2);
+	});
+
+	it('fails when the key is in neither the host nor the stored container', async () => {
+		const host = statefulHost();
+		const { client } = makeClient([host]);
+
+		await expect(client.signRaw('unknown-kid', new Uint8Array([3]))).rejects.toThrow(/not found/);
+	});
+});
