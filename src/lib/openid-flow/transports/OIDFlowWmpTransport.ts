@@ -43,7 +43,7 @@ import type { TrustEvaluators } from '../types';
 import { WmpClient, WmpRpcError } from '../wmp/WmpClient';
 import { logger } from '@/logger';
 import type { SignHandlerAction, SignHandlerRequest, SignRequest, SignRequestHandler, SignResponse } from './OIDFlowWebSocketTransport';
-import { ENGINE_NO_MATCH_TIMEOUT_MS, ENGINE_STEP_TIMEOUT_MS } from '@/config';
+import { ENGINE_NO_MATCH_TIMEOUT_MS, ENGINE_STEP_TIMEOUT_MS, WMP_REQUEST_TIMEOUT_MS } from '@/config';
 import { publicProgressPayload } from '../utils/progressRedaction';
 import { ReleasedFlows } from '../utils/releasedFlows';
 /** How long one step of the flow may take before startOID4VCIFlow gives up (ENGINE_STEP_TIMEOUT_IN_SECONDS). */
@@ -130,7 +130,7 @@ export class OIDFlowWmpTransport extends OIDFlowWebSocketTransport {
 			evaluateIssuerTrust: async () => ({ trusted: false }),
 			evaluateVerifierTrust: async () => ({ trusted: false }),
 		} as unknown as TrustEvaluators);
-		this.wmp = new WmpClient(wmpUrl, () => this.wmpToken);
+		this.wmp = new WmpClient(wmpUrl, () => this.wmpToken, { requestTimeoutMs: WMP_REQUEST_TIMEOUT_MS });
 		this.wmp.onNotification((method, params) => this.handleNotification(method, params));
 		this.wmp.setRequestHandler((method, params) => this.handleServerRequest(method, params));
 		this.wmp.onStreamLost((err) => this.failAllFlows(err));
@@ -844,6 +844,10 @@ export class OIDFlowWmpTransport extends OIDFlowWebSocketTransport {
 			throw new Error('transaction_data is not supported by this wallet');
 		}
 
+		// Checked before anything is presented: a verifier that asked for an
+		// encrypted response gets one, or no response at all.
+		const encryption = responseEncryptionOf(p);
+
 		const asked = (Array.isArray(p.credentials_to_include) ? p.credentials_to_include : []) as Array<{ credential_query_id?: string }>;
 		if (!asked.length) throw new Error('no credential query to answer');
 		const seen = new Set<string>();
@@ -879,9 +883,8 @@ export class OIDFlowWmpTransport extends OIDFlowWebSocketTransport {
 		}
 
 		// direct_post.jwt (7.7): the wallet encrypts the response to the verifier itself.
-		const enc = p.response_encryption as { jwk?: JWK; alg?: string; enc?: string } | undefined;
-		if (enc?.jwk && enc.alg && enc.enc) {
-			return { response_jwe: await encryptAuthorizationResponse(vpToken, p.state as string | undefined, enc as { jwk: JWK; alg: string; enc: string }) };
+		if (encryption) {
+			return { response_jwe: await encryptAuthorizationResponse(vpToken, p.state as string | undefined, encryption) };
 		}
 		return { vp_token: vpToken };
 	}
@@ -943,6 +946,10 @@ export class OIDFlowWmpTransport extends OIDFlowWebSocketTransport {
 	private async generateProof(childId: string, parentId: string, p: Record<string, unknown>): Promise<Record<string, unknown>> {
 		const out: Record<string, unknown> = {};
 		const cre = p.credential_response_encryption as { alg?: string; enc?: string; required?: boolean } | undefined;
+		if (cre?.required && !(cre.alg && cre.enc)) {
+			// The issuer requires an encrypted response: never let it go out in the clear.
+			throw new Error('the issuer requires an encrypted credential response, but no usable algorithms were given');
+		}
 		if (cre?.alg && cre?.enc) {
 			const flow = this.vciFlows.get(parentId);
 			if (!flow) throw new Error('no issuance flow for the encryption key');
@@ -1052,6 +1059,22 @@ function newSelectionHandle(): string {
 	let s = '';
 	bytes.forEach((b) => { s += String.fromCharCode(b); });
 	return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/**
+ * The verifier's encryption request for direct_post.jwt, or null when it asked
+ * for a plain response. Encryption is asked for by response_mode
+ * direct_post.jwt or by a response_encryption member; when it is asked for but
+ * unusable, this throws, so the response is never sent unencrypted instead.
+ */
+function responseEncryptionOf(p: Record<string, unknown>): { jwk: JWK; alg: string; enc: string } | null {
+	const enc = p.response_encryption as { jwk?: JWK; alg?: string; enc?: string } | undefined | null;
+	const asked = p.response_mode === 'direct_post.jwt' || (enc !== undefined && enc !== null);
+	if (!asked) return null;
+	if (!enc?.jwk || typeof enc.jwk !== 'object' || !enc.alg || !enc.enc) {
+		throw new Error('the verifier asked for an encrypted response, but no usable key or algorithms were given');
+	}
+	return { jwk: enc.jwk, alg: enc.alg, enc: enc.enc };
 }
 
 /** The JARM response of direct_post.jwt: {vp_token, state} encrypted to the verifier's key. */

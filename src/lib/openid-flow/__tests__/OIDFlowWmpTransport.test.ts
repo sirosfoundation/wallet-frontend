@@ -321,6 +321,32 @@ describe('OIDFlowWmpTransport (issuance)', () => {
 		expect(transport.isConnected()).toBe(true);
 	});
 
+	it('refuses a proof when the issuer requires an encrypted response but gave no usable algorithms', async () => {
+		let flowId = '';
+		const signed = vi.fn();
+		transport.onSignRequest(async () => { signed(); return {}; });
+		engine.onPost = (m) => {
+			if (m.method === 'wmp.session.create') return { wmp: { version: '0.1', session_id: 'ses-e' }, capabilities: { oid4vci: {} } };
+			if (m.method === 'wmp.flow.start') {
+				flowId = m.params.flow_id;
+				setTimeout(() => engine.push({ jsonrpc: '2.0', id: 'srv-e', method: 'wmp.flow.start', params: {
+					flow_type: 'sign', flow_id: `${flowId}-sign-e`,
+					params: { action: 'generate_proof', parent_flow_id: flowId, nonce: 'n', proof_type: 'jwt',
+						credential_response_encryption: { required: true } },
+				} }), 0);
+				return { flow_id: flowId, flow_type: 'oid4vci' };
+			}
+			return {};
+		};
+		transport.startOID4VCIFlow({ credentialOfferUri: 'https://i/offer' }).catch(() => {});
+		await tick(30);
+
+		expect(signed).not.toHaveBeenCalled();
+		expect(engine.posts).toContainEqual(expect.objectContaining({
+			method: 'wmp.flow.error', params: expect.objectContaining({ flow_id: `${flowId}-sign-e` }),
+		}));
+	});
+
 	it('maps wmp.flow.error to a failed result', async () => {
 		engine.onPost = (m) => {
 			if (m.method === 'wmp.session.create') return { wmp: { version: '0.1', session_id: 'ses-4' }, capabilities: { oid4vci: {} } };
@@ -499,6 +525,53 @@ describe('OIDFlowWmpTransport (presentation)', () => {
 		expect(engine.posts.find((p) => p.method === 'wmp.flow.action')!.params.params).toEqual({ consent: false });
 		expect(r).toEqual({ success: false, error: { code: 'NO_MATCHING_CREDENTIALS', message: 'User declined the request',
 			details: { redirect_uri: 'https://verifier.test/denied' } } });
+	});
+
+		it('refuses, without presenting anything, when the verifier asked for encryption but gave no usable key', async () => {
+		let failed: Msg | undefined;
+		scriptPresentation(
+			(_id, handle) => ({ nonce: 'n-3', audience: 'x509_san_dns:verifier.test', response_uri: 'https://verifier.test/cb',
+				credentials_to_include: [{ credential_query_id: 'pid' }], selection_handle: handle,
+				response_mode: 'direct_post.jwt', response_encryption: { alg: 'ECDH-ES', enc: 'A128GCM' } }),
+			(_flowId, m) => { failed = m; },
+		);
+		await transport.startOID4VPFlow({ requestUriRef: 'https://verifier.test/req/1', clientId: 'x509_san_dns:verifier.test' });
+		transport.startOID4VPFlow({ selectedCredentials: selected }).catch(() => {});
+		await tick(30);
+
+		expect(failed?.method).toBe('wmp.flow.error');
+		expect(signed).toHaveLength(0);
+		expect(JSON.stringify(engine.posts)).not.toContain('SDJWT-PRESENTATION');
+	});
+
+	it('refuses when direct_post.jwt was asked for with no encryption parameters at all', async () => {
+		let failed: Msg | undefined;
+		scriptPresentation(
+			(_id, handle) => ({ nonce: 'n-4', audience: 'x509_san_dns:verifier.test', response_uri: 'https://verifier.test/cb',
+				credentials_to_include: [{ credential_query_id: 'pid' }], selection_handle: handle, response_mode: 'direct_post.jwt' }),
+			(_flowId, m) => { failed = m; },
+		);
+		await transport.startOID4VPFlow({ requestUriRef: 'https://verifier.test/req/1', clientId: 'x509_san_dns:verifier.test' });
+		transport.startOID4VPFlow({ selectedCredentials: selected }).catch(() => {});
+		await tick(30);
+
+		expect(failed?.method).toBe('wmp.flow.error');
+		expect(signed).toHaveLength(0);
+	});
+
+	it('answers in the clear when the verifier asked for a plain direct_post response', async () => {
+		let result: Record<string, unknown> | undefined;
+		scriptPresentation(
+			(_id, handle) => ({ nonce: 'n-5', audience: 'x509_san_dns:verifier.test', response_uri: 'https://verifier.test/cb',
+				credentials_to_include: [{ credential_query_id: 'pid' }], selection_handle: handle, response_mode: 'direct_post' }),
+			(flowId, m) => {
+				result = m.params.result;
+				setTimeout(() => engine.push({ jsonrpc: '2.0', method: 'wmp.flow.complete', params: { flow_id: flowId, result: {} } }), 0);
+			},
+		);
+		await transport.startOID4VPFlow({ requestUriRef: 'https://verifier.test/req/1', clientId: 'x509_san_dns:verifier.test' });
+		await transport.startOID4VPFlow({ selectedCredentials: selected });
+		expect(result).toEqual({ vp_token: { pid: ['SDJWT-PRESENTATION'] } });
 	});
 
 	it('encrypts the response itself for direct_post.jwt', async () => {
