@@ -250,9 +250,14 @@ export function secondsSettingToMs(value: string | undefined): number | undefine
  * - ENGINE_NO_MATCH_TIMEOUT_IN_SECONDS: when the wallet holds no credential
  *   matching a presentation request and declines it, how long the page waits
  *   for the engine to end the flow before giving up on it. Default: 10.
+ * - WMP_REQUEST_TIMEOUT_IN_SECONDS (WMP): how long one request to the WMP
+ *   endpoint may take before the wallet gives up on it. The flow's own steps
+ *   arrive on the event stream, so a request only waits for its
+ *   acknowledgement. Default: 30.
  */
 export const ENGINE_STEP_TIMEOUT_MS = secondsSettingToMs(config.engine_step_timeout_in_seconds);
 export const ENGINE_PENDING_FLOW_MAX_AGE_MS = secondsSettingToMs(config.engine_pending_flow_max_age_in_seconds);
 export const OPENID4VCI_DEFERRED_MAX_WAIT_MS = secondsSettingToMs(config.openid4vci_deferred_max_wait_in_seconds);
 export const ENGINE_AUTHORIZATION_ANNOUNCE_TIMEOUT_MS = secondsSettingToMs(config.engine_authorization_announce_timeout_in_seconds);
 export const ENGINE_NO_MATCH_TIMEOUT_MS = secondsSettingToMs(config.engine_no_match_timeout_in_seconds);
+export const WMP_REQUEST_TIMEOUT_MS = secondsSettingToMs(config.wmp_request_timeout_in_seconds);

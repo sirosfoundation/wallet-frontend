@@ -40,6 +40,7 @@ export const ClientEnvConfigSchema = z.object({
 	OPENID4VCI_DEFERRED_MAX_WAIT_IN_SECONDS: z.string().optional(),
 	ENGINE_AUTHORIZATION_ANNOUNCE_TIMEOUT_IN_SECONDS: z.string().optional(),
 	ENGINE_NO_MATCH_TIMEOUT_IN_SECONDS: z.string().optional(),
+	WMP_REQUEST_TIMEOUT_IN_SECONDS: z.string().optional(),
 	TRANSPORT_PREFERENCE: z.string().optional(),
 	DID_KEY_VERSION: z.string().optional(),
 	LOG_LEVEL: z.string().optional(),

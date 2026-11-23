@@ -57,8 +57,12 @@ export interface WmpClientOptions {
 	eventsUrl?: string;
 	/** Session TTL requested at creation (seconds). The server caps it. */
 	ttlSeconds?: number;
+	/** How long one POST may take before it is aborted. Default: 30 seconds. */
+	requestTimeoutMs?: number;
 	fetchImpl?: typeof fetch;
 }
+
+const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 
 const MAX_STREAM_RECONNECTS = 5;
 const STREAM_RECONNECT_BASE_MS = 1000;
@@ -67,6 +71,7 @@ export class WmpClient {
 	private readonly rpcUrl: string;
 	private readonly eventsUrl: string;
 	private readonly ttlSeconds?: number;
+	private readonly requestTimeoutMs: number;
 	private readonly fetchImpl: typeof fetch;
 	private getToken: () => string;
 
@@ -89,6 +94,7 @@ export class WmpClient {
 		this.rpcUrl = rpcUrl.replace(/\/+$/, '');
 		this.eventsUrl = options.eventsUrl ?? `${this.rpcUrl}/events`;
 		this.ttlSeconds = options.ttlSeconds;
+		this.requestTimeoutMs = options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
 		this.fetchImpl = options.fetchImpl ?? ((input, init) => fetch(input, init));
 		this.getToken = getToken;
 	}
@@ -237,12 +243,28 @@ export class WmpClient {
 		};
 		if (this.sessionId) headers['Wmp-Session-Id'] = this.sessionId;
 
-		const res = await this.fetchImpl(this.rpcUrl, {
-			method: 'POST',
-			headers,
-			body: JSON.stringify(message),
-		});
-		const text = await res.text();
+		// A backend that accepts the connection but never answers would
+		// otherwise hold the call, and the flow waiting on it, indefinitely.
+		const abort = new AbortController();
+		const timer = setTimeout(() => abort.abort(), this.requestTimeoutMs);
+		let res: Response;
+		let text: string;
+		try {
+			res = await this.fetchImpl(this.rpcUrl, {
+				method: 'POST',
+				headers,
+				body: JSON.stringify(message),
+				signal: abort.signal,
+			});
+			text = await res.text();
+		} catch (e) {
+			if (abort.signal.aborted) {
+				throw new WmpRpcError(0, `WMP request timed out after ${Math.round(this.requestTimeoutMs / 1000)}s`);
+			}
+			throw e;
+		} finally {
+			clearTimeout(timer);
+		}
 		if (!res.ok) {
 			// A JSON-RPC error may come with an HTTP error status.
 			try {
