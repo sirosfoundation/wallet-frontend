@@ -163,11 +163,21 @@ export class OIDFlowWmpTransport extends OIDFlowWebSocketTransport {
 
 	// One engine session per user: a WebSocket session and a WMP session push
 	// each other out ("superseded"). In WMP mode the WMP session is the
-	// connection, and the inherited WebSocket is never opened. The inherited
-	// disconnect() is kept: it only concerns the WebSocket, so the context
-	// calling it (connect timeout, transport rebuild) does not end the WMP session.
+	// connection, and the inherited WebSocket is never opened.
 	override async connect(): Promise<void> {
 		await this.ensureSession();
+	}
+
+	/**
+	 * The context disconnects a transport it is done with: on logout, on a
+	 * token change (it builds a new transport with the new token) and on a
+	 * connect timeout. The WMP session ends with it, or its event stream and
+	 * the backend session outlive the transport. A later connect() opens a
+	 * new session.
+	 */
+	override async disconnect(): Promise<void> {
+		await super.disconnect();
+		await this.closeWmp();
 	}
 
 	override isConnected(): boolean {
@@ -217,6 +227,10 @@ export class OIDFlowWmpTransport extends OIDFlowWebSocketTransport {
 	async closeWmp(): Promise<void> {
 		this.failAllFlows(new Error('Transport disconnected'));
 		this.currentVciFlowId = null;
+		this.currentVpFlowId = null;
+		this.lastStartedFlowId = null;
+		// A session still opening would otherwise come up after the close.
+		await this.wmpOpening?.catch(() => {});
 		await this.wmp.close();
 	}
 

@@ -274,6 +274,53 @@ describe('OIDFlowWmpTransport (issuance)', () => {
 		await expect(pending).rejects.toThrow('The flow was released locally');
 	});
 
+		it('ends the WMP session on disconnect, failing the flow still waiting', async () => {
+		engine.onPost = (m) => {
+			if (m.method === 'wmp.session.create') return { wmp: { version: '0.1', session_id: 'ses-d' }, capabilities: { oid4vci: {} } };
+			if (m.method === 'wmp.flow.start') return { flow_id: m.params.flow_id, flow_type: 'oid4vci' };
+			return {};
+		};
+		const pending = transport.startOID4VCIFlow({ credentialOfferUri: 'https://i/offer' });
+		await tick(20);
+		expect(transport.isConnected()).toBe(true);
+
+		await transport.disconnect();
+		await expect(pending).rejects.toThrow('Transport disconnected');
+		expect(engine.posts.map((p) => p.method)).toContain('wmp.session.close');
+		expect(transport.isConnected()).toBe(false);
+	});
+
+	it('does not leave a session behind when disconnected while it is still opening', async () => {
+		let openSession: (v: unknown) => void = () => {};
+		engine.onPost = (m) => {
+			if (m.method === 'wmp.session.create') {
+				return new Promise((r) => { openSession = r; });
+			}
+			return {};
+		};
+		const connecting = transport.connect().catch(() => {});
+		await tick();
+		const disconnecting = transport.disconnect();
+		openSession({ wmp: { version: '0.1', session_id: 'ses-late' }, capabilities: {} });
+		await disconnecting;
+		await connecting;
+		expect(engine.posts.map((p) => p.method)).toContain('wmp.session.close');
+		expect(transport.isConnected()).toBe(false);
+	});
+
+	it('opens a new session when connected again after a disconnect', async () => {
+		let n = 0;
+		engine.onPost = (m) => {
+			if (m.method === 'wmp.session.create') return { wmp: { version: '0.1', session_id: `ses-${++n}` }, capabilities: {} };
+			return {};
+		};
+		await transport.connect();
+		await transport.disconnect();
+		await transport.connect();
+		expect(n).toBe(2);
+		expect(transport.isConnected()).toBe(true);
+	});
+
 	it('maps wmp.flow.error to a failed result', async () => {
 		engine.onPost = (m) => {
 			if (m.method === 'wmp.session.create') return { wmp: { version: '0.1', session_id: 'ses-4' }, capabilities: { oid4vci: {} } };
