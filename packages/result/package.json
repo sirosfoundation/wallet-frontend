@@ -1,7 +1,7 @@
 {
 	"name": "@sirosfoundation/result",
 	"description": "Rust style Result typing in TypeScript",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"private": true,
 	"exports": {
 		".": {
@@ -15,6 +15,6 @@
 	},
 	"devDependencies": {
 		"typescript": "^5.9.3",
-		"vitest": "^5.0.2"
+		"vitest": "^5.1.0"
 	}
 }

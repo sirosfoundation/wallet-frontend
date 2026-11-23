@@ -1,5 +1,20 @@
 # wallet-common
 
+## 0.1.2
+
+### Patch Changes
+
+- Fix tests timing out by [@smncd](https://github.com/smncd) in [#476](https://github.com/sirosfoundation/wallet-frontend/pull/476)
+
+## 0.1.1
+
+### Patch Changes
+
+- Upgrade dependencies by [@smncd](https://github.com/smncd) in [#471](https://github.com/sirosfoundation/wallet-frontend/pull/471)
+- Updated dependencies [[`a79b869`](https://github.com/sirosfoundation/wallet-frontend/commit/a79b869a50a76133b27ae90b8be8240c8bcdfefc)]:
+  - @sirosfoundation/http-client@0.1.1
+  - @sirosfoundation/result@0.1.1
+
 ## 0.1.0
 
 ### Minor Changes

@@ -3,7 +3,7 @@ import { MBOB_ACADEMIC_ENROLLMENT } from "../../testFixtures/realCredentials";
 import { decodeVcdm2SdJwt, isVcdm2Credential, toTypeArray } from "../../utils/vcdm2";
 import { assert, describe, expect, it } from "vitest";
 import Crypto from "node:crypto";
-import { Jwt, SDJwt } from "@sd-jwt/core";
+import { Jwt, SdJwt } from "@sd-jwt/core";
 import { OpenID4VPServerAPI, parseClientIdScheme } from "./OpenID4VPServerAPI";
 import { OpenID4VPResponseMode, TrustEvaluationResult } from "./types";
 import { VerifiableCredentialFormat } from "../../types";
@@ -54,8 +54,8 @@ const buildSdJwt = async (payload: Record<string, unknown>) => {
 	};
 	const jwt = new Jwt({ header: { alg: "EdDSA" }, payload });
 	await jwt.sign(signer);
-	const sdJwt = new SDJwt({ jwt, disclosures: [] });
-	return sdJwt.encodeSDJwt();
+	const sdJwt = new SdJwt({ jwt, disclosures: [] });
+	return sdJwt.encodeSdJwt();
 };
 
 describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {

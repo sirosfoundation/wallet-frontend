@@ -1,4 +1,4 @@
-import { SDJwt } from '@sd-jwt/core';
+import { SdJwt } from '@sd-jwt/core';
 import * as jose from 'jose';
 import { fromPemToPKIJSCertificate, toPem, validateChain, getPublicKeyFromB64Cert } from '../../utils/pki';
 import { logger } from '@/logger';
@@ -44,7 +44,7 @@ export async function applySelectiveDisclosure(rawCredential: string, requestedC
 		return rawCredential;
 	}
 
-	const sdJwt = await SDJwt.fromEncode(rawCredential, sha256Hasher);
+	const sdJwt = await SdJwt.fromEncode(rawCredential, sha256Hasher);
 	const presentationFrame = claimPathsToFrame(requestedClaims);
 	return sdJwt.present(presentationFrame, sha256Hasher);
 }

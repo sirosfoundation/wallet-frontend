@@ -123,7 +123,7 @@ export class DCAPIRequest {
 		});
 		if (!success) {
 			logger.error('Invalid DC API JWT request:', error);
-			throw new Error('Invalid DC API JWT request: ' + error.errors.map(e => e.message).join(', '));
+			throw new Error('Invalid DC API JWT request: ' + error.issues.map(e => e.message).join(', '));
 		}
 
 		return data;
@@ -151,7 +151,7 @@ export class DCAPIRequest {
 
 		if (!success) {
 			logger.error('Invalid DC API request parameters:', error);
-			throw new Error('Invalid DC API request parameters: ' + error.errors.map(e => e.message).join(', '));
+			throw new Error('Invalid DC API request parameters: ' + error.issues.map(e => e.message).join(', '));
 		}
 
 		return data;

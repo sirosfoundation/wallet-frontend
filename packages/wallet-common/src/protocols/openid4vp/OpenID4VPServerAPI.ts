@@ -1,4 +1,4 @@
-import { SDJwt } from "@sd-jwt/core";
+import { SdJwt } from "@sd-jwt/core";
 import { cborDecode, cborEncode } from "@auth0/mdl/lib/cbor";
 import { parse } from "@auth0/mdl";
 import { base64url, EncryptJWT, importJWK, importX509, jwtVerify, KeyLike, JWK } from "jose";
@@ -731,7 +731,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 					return subtle.digest(alg, bytes).then((buf) => new Uint8Array(buf));
 				};
 
-				const sdJwt = await SDJwt.fromEncode(credential.data, hasher);
+				const sdJwt = await SdJwt.fromEncode(credential.data, hasher);
 				const presentation = credential.data.split("~").length - 1 > 1
 					? await sdJwt.present(frame, hasher)
 					: credential.data;

@@ -1,4 +1,4 @@
-import { SDJwt } from "@sd-jwt/core";
+import { SdJwt } from "@sd-jwt/core";
 import type { HasherAndAlg } from "@sd-jwt/types";
 import { CredentialParsingError } from "../error";
 import { Context, CredentialParser, HttpClient } from "../interfaces";
@@ -64,7 +64,7 @@ export function VCDM2SdJwtParser(args: { context: Context, httpClient: HttpClien
 			// yields its full claim set rather than the digests.
 			let claims: Record<string, unknown>;
 			try {
-				const parsed = await SDJwt.fromEncode(rawCredential as string, hasherAndAlgorithm.hasher);
+				const parsed = await SdJwt.fromEncode(rawCredential as string, hasherAndAlgorithm.hasher);
 				claims = await parsed.getClaims(hasherAndAlgorithm.hasher) as Record<string, unknown>;
 			} catch {
 				return {
