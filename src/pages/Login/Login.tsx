@@ -46,8 +46,8 @@ const Login = () => {
 	const onLogin = useCallback(
 		async (hints: string[], cachedUser?: CachedUser) => {
 			const result = await api.loginWebauthn(keystore, prf.promptForPrfRetry, hints, cachedUser, urlTenantId, gate.idToken || undefined);
-			if (result.ok) return;
-			switch (result.val) {
+			if (result.ok === true) return;
+			switch (result.error) {
 				case 'loginKeystoreFailed':
 						setError(t('loginSignup.loginKeystoreFailed'));
 						break;
@@ -62,6 +62,14 @@ const Login = () => {
 
 					case 'passkeyLoginFailedServerError':
 						setError(t('loginSignup.passkeyLoginFailedServerError'));
+						break;
+
+					case 'userNotFound':
+						setError(t('loginSignup.userNotFound'));
+						break;
+
+					case 'passkeyNotAccepted':
+						setError(t('loginSignup.passkeyNotAccepted'));
 						break;
 
 					case 'oidcTokenExpired':
@@ -80,7 +88,8 @@ const Login = () => {
 						break;
 
 					default:
-						throw result;
+						setError(t('loginSignup.passkeyLoginFailedServerError'));
+						break;
 			}
 		},
 		// eslint-disable-next-line react-hooks/exhaustive-deps

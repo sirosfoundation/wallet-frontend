@@ -37,10 +37,10 @@ export const UserAuthPopup: FC<UserAuthPopupProps> = ({
 		async (cachedUser: CachedUser) => {
 			// Pass the tenantId from URL path to ensure proper tenant-scoped login
 			const result = await api.loginWebauthn(keystore, async () => false, [], cachedUser, effectiveTenantId);
-			if (result.ok) {
+			if (result.ok === true) {
 				onSuccess();
 			} else {
-				const err = result.val;
+				const err = result.error;
 
 				// Using a switch here so the t() argument can be a literal, to ease searching
 				switch (err) {
@@ -60,12 +60,29 @@ export const UserAuthPopup: FC<UserAuthPopupProps> = ({
 						setError(t('loginSignup.passkeyLoginFailedServerError'));
 						break;
 
+					case 'userNotFound':
+						setError(t('loginSignup.userNotFound'));
+						break;
+
+					case 'passkeyNotAccepted':
+						setError(t('loginSignup.passkeyNotAccepted'));
+						break;
+
+					case 'oidcTokenExpired':
+						setError(t('oidcGate.errorExpired'));
+						break;
+
+					case 'x-private-data-etag':
+						setError(t('loginSignup.privateDataConflict'));
+						break;
+
 					case 'unsupportedVersion':
 						setError(t('loginSignup.unsupportedVersion'));
 						break;
 
 					default:
-						throw result;
+						setError(t('loginSignup.passkeyLoginFailedServerError'));
+						break;
 				}
 			}
 		},
@@ -75,9 +92,12 @@ export const UserAuthPopup: FC<UserAuthPopupProps> = ({
 	const onLoginCachedUser = async (cachedUser: CachedUser) => {
 		setError('');
 		setIsSubmitting(true);
-		await onLogin(cachedUser);
-		setIsSubmitting(false);
-		checkForUpdates();
+		try {
+			await onLogin(cachedUser);
+		} finally {
+			setIsSubmitting(false);
+			checkForUpdates();
+		}
 	};
 
 	return (
