@@ -1,5 +1,11 @@
 # wallet-common
 
+## 0.1.2
+
+### Patch Changes
+
+- Fix tests timing out by [@smncd](https://github.com/smncd) in [#476](https://github.com/sirosfoundation/wallet-frontend/pull/476)
+
 ## 0.1.1
 
 ### Patch Changes

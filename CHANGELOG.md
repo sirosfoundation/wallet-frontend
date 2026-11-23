@@ -1,5 +1,13 @@
 # wallet-frontend
 
+## 0.7.2
+
+### Patch Changes
+
+- Fall back to a `jwt` proof when the attestation proof fails, so issuance no longer ends in "Credential issuance failed" where the issuer would have accepted `jwt` by [@jessevanmuijden](https://github.com/jessevanmuijden) in [#477](https://github.com/sirosfoundation/wallet-frontend/pull/477)
+- Updated dependencies [[`fede988`](https://github.com/sirosfoundation/wallet-frontend/commit/fede9884e9e605e3d329f30b6b78e6870c8dea47)]:
+  - wallet-common@0.1.2
+
 ## 0.7.1
 
 ### Patch Changes
