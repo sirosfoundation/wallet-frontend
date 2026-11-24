@@ -14,7 +14,7 @@ import { useOIDFlowTransportSafe } from '@/context/OIDFlowTransportContext';
 import SessionContext from '@/context/SessionContext';
 import { logger } from '@/logger';
 import { useOIDFlowSignHandler } from './useOIDFlowSignHandler';
-
+import { isEngineTransport } from '@/lib/openid-flow/types/OIDFlowTypes';
 /**
  * Hook that registers a sign handler with the WebSocket transport.
  * Should be used within both SessionContext and OIDFlowTransportContext.
@@ -29,7 +29,7 @@ export function useWebSocketSignHandler(): void {
 
 	// Register the sign handler when transport is websocket
 	useEffect(() => {
-		if (transportType !== 'websocket' || !registerSignHandler || !keystore) {
+		if (!isEngineTransport(transportType) || !registerSignHandler || !keystore) {
 			return;
 		}
 

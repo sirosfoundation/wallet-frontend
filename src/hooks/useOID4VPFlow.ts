@@ -17,7 +17,7 @@ import type {
 	OID4VPSelectedCredential,
 	OID4VPVerifierInfo,
 } from '@/lib/openid-flow/types/OID4VPTypes';
-import type { OIDFlowActiveTransportType, OIDFlowProgressEvent } from '@/lib/openid-flow/types/OIDFlowTypes';
+import { isEngineTransport, type OIDFlowActiveTransportType, type OIDFlowProgressEvent } from '@/lib/openid-flow/types/OIDFlowTypes';
 import { DcqlQuery } from 'dcql';
 import { getLeastUsedCredentialInstance } from '@/lib/services/CredentialBatchHelper';
 import { applySelectiveDisclosure } from '@/lib/verifiable-credentials';
@@ -180,7 +180,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		}
 		noMatchPendingRef.current = false;
 
-		if (transportType !== 'websocket' || !transport?.reportNoMatchingCredentials) {
+		if (!isEngineTransport(transportType) || !transport?.reportNoMatchingCredentials) {
 			return undefined;
 		}
 
@@ -208,7 +208,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 
 		try {
 			// WebSocket transport: delegate to backend
-			if (transportType === 'websocket' && transport) {
+			if (isEngineTransport(transportType) && transport) {
 				const unsubscribeProgress = onProgress
 					? transport.onProgress(onProgress)
 					: () => {};
@@ -392,7 +392,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 
 		try {
 			// WebSocket transport: continue flow on backend
-			if (transportType === 'websocket' && transport) {
+			if (isEngineTransport(transportType) && transport) {
 				const unsubscribeProgress = onProgress
 					? transport.onProgress(onProgress)
 					: () => {};
@@ -461,7 +461,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 		try {
 			// The in-browser engine checks the request, asks about trust and
 			// builds the response; the wallet still matches and selects.
-			const engine = transportType === 'websocket' ? dcApiEngine(transport) : null;
+			const engine = isEngineTransport(transportType) ? dcApiEngine(transport) : null;
 			if (engine) {
 				const result = await engine.startDCAPIPresentation({
 					request: request.engineParams(),
@@ -575,7 +575,7 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 			const audience = `origin:${session.verifiedOrigin}`;
 			// The in-browser engine signs through the same handler and builds the
 			// response (encrypted for dc_api.jwt); the wallet returns it.
-			const engine = transportType === 'websocket' ? dcApiEngine(transport) : null;
+			const engine = isEngineTransport(transportType) ? dcApiEngine(transport) : null;
 			if (engine) {
 				const result = await engine.startOID4VPFlow({ selectedCredentials });
 				if (result.success && keystore) {

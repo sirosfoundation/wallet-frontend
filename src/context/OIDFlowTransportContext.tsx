@@ -23,16 +23,15 @@ import {
 } from '@/lib/services/CapabilitiesService';
 import {
 	WS_URL,
-	WMP_ENABLED,
 	WMP_URL,
 	HTTP_PROXY_TRANSPORT_ALLOWED,
 	WEBSOCKET_TRANSPORT_ALLOWED,
 	DIRECT_TRANSPORT_ALLOWED,
 	TRANSPORT_PREFERENCE,
 	BACKEND_URL,
-	WASM_ENGINE_ENABLED,
+	ENGINE_TRANSPORT,
 } from '@/config';
-import type { OIDFlowActiveTransportType, OIDFlowTransportType } from '@/lib/openid-flow/types/OIDFlowTypes';
+import { isEngineTransport, type OIDFlowActiveTransportType, type OIDFlowTransportType } from '@/lib/openid-flow/types/OIDFlowTypes';
 import { logger } from '@/logger';
 import { createIssuerTrustEvaluator, createVerifierTrustEvaluator } from '@/lib/services/TrustEvaluator';
 import { TrustEvaluators } from '@/lib/openid-flow';
@@ -152,17 +151,15 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		//    authenticates it. Without this, a page load (e.g. the credential
 		//    offer callback) reports ready before the token resolves, and the
 		//    flow starts with no transport at all.
-		//    The in-browser engine does not wait for it: it asks for a fresh
-		//    token on every request it makes.
-		const wsPossible = !WASM_ENGINE_ENABLED && WEBSOCKET_TRANSPORT_ALLOWED && wsCapabilityAvailable && !!WS_URL;
+		//    The wallet core (core_local, core_remote) does not wait for it: it
+		//    asks for a fresh token on every request it makes.
+		const wsPossible = ENGINE_TRANSPORT === 'websocket' && wsCapabilityAvailable;
 		if (wsPossible && !authTokenSettled) return false;
-		// 4. If WebSocket (or the in-browser engine) is expected, wait for it to
-		//    connect or fail
-		// WMP, like the in-browser engine, fetches its own token, so it is
-		// expected whenever the user is logged in.
-		const wmpMode = WMP_ENABLED && !!WMP_URL;
-		const wsExpected = (WASM_ENGINE_ENABLED && isLoggedIn) || (wsPossible && (wmpMode ? isLoggedIn : !!authToken));
-		if (wsExpected && !isConnected && !lastError) return false;
+		// 4. If the engine transport is expected, wait for it to connect or fail.
+		//    The wallet core is expected whenever the user is logged in.
+		const coreExpected = (ENGINE_TRANSPORT === 'core_local' || ENGINE_TRANSPORT === 'core_remote') && isLoggedIn;
+		const engineExpected = coreExpected || (wsPossible && !!authToken);
+		if (engineExpected && !isConnected && !lastError) return false;
 		return true;
 		}, [capabilitiesLoaded, pendingTransports, wsCapabilityAvailable, authToken, authTokenSettled, isConnected, lastError, isLoggedIn]);
 
@@ -189,8 +186,8 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 
 	// Fetch engine capabilities on mount
 	useEffect(() => {
-		// The in-browser engine has no remote engine to ask.
-		if (WASM_ENGINE_ENABLED) {
+		// The wallet core in the browser has no remote engine to ask.
+		if (ENGINE_TRANSPORT === 'core_local') {
 			setCapabilitiesLoaded(true);
 			return;
 		}
@@ -232,12 +229,13 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 			});
 		}
 
-		// Only add websocket if config allows AND engine has capability. The
-		// in-browser engine takes the same slot (the hooks treat it alike).
-		if (WASM_ENGINE_ENABLED || (WEBSOCKET_TRANSPORT_ALLOWED && WS_URL && wsCapabilityAvailable)) {
+		// The engine transport TRANSPORT_PREFERENCE picked (see ENGINE_TRANSPORT);
+		// websocket also needs the engine's capability.
+		if (ENGINE_TRANSPORT === 'core_local' || ENGINE_TRANSPORT === 'core_remote') {
+			available.push(ENGINE_TRANSPORT);
+		} else if (ENGINE_TRANSPORT === 'websocket' && wsCapabilityAvailable) {
 			available.push('websocket');
 		}
-
 		if (DIRECT_TRANSPORT_ALLOWED) available.push('direct');
 
 		return available;
@@ -253,7 +251,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 		});
 	}, []);
 
-	// The in-browser engine (WASM_ENGINE_ENABLED): issuance and presentation
+	// The wallet core in the browser (core_local): issuance and presentation: issuance and presentation
 	// run in the page. Created once per login and tenant, and torn down on
 	// logout, so no engine session, flow or key outlives the user's session.
 	// Not gated on the token lookup above: it asks for a fresh token on every
@@ -266,7 +264,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 	wscdRef.current = wscd;
 
 	useEffect(() => {
-		if (!WASM_ENGINE_ENABLED) return;
+		if (ENGINE_TRANSPORT !== 'core_local') return;
 		if (!isLoggedIn) {
 			setWsTransport(null);
 			setIsConnected(false);
@@ -287,7 +285,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 			getRegisteredClientId: createRegisteredClientIdLookup({ backendUrl: BACKEND_URL, tenantId, getAuthToken }),
 		});
 		setWsTransport(transport);
-		setPendingTransports(prev => new Set(prev).add('websocket'));
+		setPendingTransports(prev => new Set(prev).add('core_local'));
 
 		(async () => {
 			try {
@@ -304,7 +302,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 				if (!cancelled) {
 					setPendingTransports(prev => {
 						const next = new Set(prev);
-						next.delete('websocket');
+						next.delete('core_local');
 						return next;
 					});
 				}
@@ -316,21 +314,21 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 			transport.disconnect();
 			setPendingTransports(prev => {
 				const next = new Set(prev);
-				next.delete('websocket');
+				next.delete('core_local');
 				return next;
 			});
 		};
 	}, [tenantId, authTokens, httpClient, isLoggedIn]);
 
-	// The remote engine over WMP (WMP_ENABLED): the flows run on the backend's
-	// WMP bridge instead of the WebSocket wire, in the same transport slot.
+	// The wallet core on the backend (core_remote): the flows run on its WMP
+	// bridge (HTTP+SSE at WMP_URL), in the same transport slot. It needs
+	// neither the WebSocket URL nor the WebSocket capability.
 	// Created once per login and tenant, like the in-browser engine: its client
 	// asks for a fresh token on every request and refreshes it after a 401, so
 	// a token refresh neither rebuilds the transport nor ends a flow in progress.
 	useEffect(() => {
-		if (WASM_ENGINE_ENABLED || !WMP_ENABLED || !WMP_URL) return;
-		if (!capabilitiesLoaded) return;
-		if (!isLoggedIn || !WEBSOCKET_TRANSPORT_ALLOWED || !wsCapabilityAvailable || !WS_URL) {
+		if (ENGINE_TRANSPORT !== 'core_remote' || !WMP_URL) return;
+		if (!isLoggedIn) {
 			setWsTransport(null);
 			setIsConnected(false);
 			return;
@@ -338,7 +336,8 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 
 		let cancelled = false;
 		const getAuthToken = async () => (await authTokens.ensureBackendToken()).raw;
-		const wmp = new OIDFlowWmpTransport(WMP_URL, WS_URL, '', tenantId, {
+		// The WebSocket URL is only the base class's; its socket is never opened.
+		const wmp = new OIDFlowWmpTransport(WMP_URL, WS_URL ?? '', '', tenantId, {
 			evaluateIssuerTrust: createIssuerTrustEvaluator({ httpClient, backendUrl: BACKEND_URL, getAuthToken, tenantId }),
 			evaluateVerifierTrust: createVerifierTrustEvaluator({ httpClient, backendUrl: BACKEND_URL, getAuthToken, tenantId }),
 		}, {
@@ -346,7 +345,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 			onAuthRejected: () => authTokens.registerBackendTokenRejection(),
 		});
 		setWsTransport(wmp);
-		setPendingTransports(prev => new Set(prev).add('websocket'));
+		setPendingTransports(prev => new Set(prev).add('core_remote'));
 
 		const connectTimeout = setTimeout(() => {
 			if (cancelled) return;
@@ -357,7 +356,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 			setLastError(new Error('WMP connection timed out'));
 			setPendingTransports(prev => {
 				const next = new Set(prev);
-				next.delete('websocket');
+				next.delete('core_remote');
 				return next;
 			});
 		}, TRANSPORT_CONNECT_TIMEOUT);
@@ -378,7 +377,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 					clearTimeout(connectTimeout);
 					setPendingTransports(prev => {
 						const next = new Set(prev);
-						next.delete('websocket');
+						next.delete('core_remote');
 						return next;
 					});
 				}
@@ -398,15 +397,15 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 			wmp.disconnect();
 			setPendingTransports(prev => {
 				const next = new Set(prev);
-				next.delete('websocket');
+				next.delete('core_remote');
 				return next;
 			});
 		};
-	}, [isLoggedIn, tenantId, capabilitiesLoaded, wsCapabilityAvailable, authTokens, httpClient]);
+	}, [isLoggedIn, tenantId, authTokens, httpClient]);
 
 	// Create and manage WebSocket transport (only if capability is available)
 	useEffect(() => {
-		if (WASM_ENGINE_ENABLED || (WMP_ENABLED && WMP_URL)) return;
+		if (ENGINE_TRANSPORT !== 'websocket') return;
 		if (!capabilitiesLoaded) return;
 		if (!WEBSOCKET_TRANSPORT_ALLOWED || !wsCapabilityAvailable || !WS_URL || !authToken) {
 			setWsTransport(null);
@@ -504,7 +503,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 	// Mobile WebViews can background the app during external redirects, causing
 	// WebSocket disconnects. Reconnect when page becomes visible or network returns.
 	useEffect(() => {
-		if (!wsTransport || !WEBSOCKET_TRANSPORT_ALLOWED || !authToken) return;
+		if (!wsTransport || !authToken) return;
 
 		let cancelled = false;
 
@@ -570,8 +569,11 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 
 			switch (pref) {
 				case 'websocket':
-					if (wsTransport && isConnected) {
-						return { transport: wsTransport, transportType: 'websocket' as const };
+				case 'core_local':
+				case 'core_remote':
+					// The engine slot holds the one transport ENGINE_TRANSPORT names.
+					if (pref === ENGINE_TRANSPORT && wsTransport && isConnected) {
+						return { transport: wsTransport, transportType: pref };
 					}
 					break;
 				case 'http_proxy':
@@ -592,7 +594,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 
 	// Reconnect function for WebSocket
 	const reconnect = useCallback(async () => {
-		if (wsTransport && WEBSOCKET_TRANSPORT_ALLOWED) {
+		if (wsTransport) {
 			try {
 				await wsTransport.connect();
 				setIsConnected(true);
@@ -629,7 +631,7 @@ export const OIDFlowTransportProvider: React.FC<OIDFlowTransportProviderProps> =
 	const value = useMemo(() => ({
 		transport,
 		transportType,
-		isConnected: transportType === 'websocket' ? isConnected : transportType === 'http_proxy',
+		isConnected: isEngineTransport(transportType) ? isConnected : transportType === 'http_proxy',
 		reconnect,
 		availableTransports,
 		lastError,

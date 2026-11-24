@@ -37,8 +37,16 @@ export type OIDFlowCallbackURL =
 /**
  * Transport type enumeration
  */
-export type OIDFlowTransportType = 'http_proxy' | 'websocket' | 'direct';
+export type OIDFlowTransportType = 'http_proxy' | 'websocket' | 'direct' | 'core_local' | 'core_remote';
 export type OIDFlowActiveTransportType = OIDFlowTransportType | 'none';
+
+/** The transports that run the flows on an engine (as opposed to http_proxy / direct). */
+export const ENGINE_TRANSPORT_TYPES: readonly OIDFlowTransportType[] = ['websocket', 'core_local', 'core_remote'];
+
+/** Whether the flows run on an engine: the WebSocket one, or the wallet core, local or remote. */
+export function isEngineTransport(type: OIDFlowActiveTransportType | undefined): boolean {
+	return !!type && (ENGINE_TRANSPORT_TYPES as readonly string[]).includes(type);
+}
 
 /**
  * Generic flow request that can be sent to any transport

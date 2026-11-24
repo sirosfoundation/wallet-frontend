@@ -2,7 +2,7 @@ import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useOIDFlowTransportSafe } from '@/context/OIDFlowTransportContext';
 import { CredentialOfferSchema, VerifiableCredentialFormat } from 'wallet-common';
 import type { OID4VCIFlowResult } from '@/lib/openid-flow/types/OID4VCITypes';
-import type { OIDFlowActiveTransportType, OIDFlowProgressEvent } from '@/lib/openid-flow/types/OIDFlowTypes';
+import { isEngineTransport, type OIDFlowActiveTransportType, type OIDFlowProgressEvent } from '@/lib/openid-flow/types/OIDFlowTypes';
 import { DISPLAY_ISSUANCE_WARNINGS, OPENID4VCI_REDIRECT_URI } from '@/config';
 import SessionContext from '@/context/SessionContext';
 import { notify } from '@/context/notifier';
@@ -161,8 +161,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 			// Validate inline offers before dispatching to any transport
 			validateCredentialOffer(credentialOfferUrl);
 
-			// WebSocket transport: delegate to backend
-			if (transportType === 'websocket' && transport) {
+			if (isEngineTransport(transportType) && transport) {
 				const credentialOfferUri = credentialOfferUrl.searchParams.get('credential_offer_uri') || undefined;
 				const credentialOffer = credentialOfferUrl.searchParams.get('credential_offer') || undefined;
 
@@ -267,8 +266,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		setError(null);
 
 		try {
-			// WebSocket transport: continue flow on backend
-			if (transportType === 'websocket' && transport) {
+			if (isEngineTransport(transportType) && transport) {
 				const unsubscribeProgress = onProgress
 					? transport.onProgress(onProgress)
 					: () => {};
@@ -351,8 +349,7 @@ export function useOID4VCIFlow(options: UseOID4VCIFlowOptions = {}): UseOID4VCIF
 		setError(null);
 
 		try {
-			// WebSocket transport
-			if (transportType === 'websocket' && transport) {
+			if (isEngineTransport(transportType) && transport) {
 				const unsubscribeProgress = onProgress
 					? transport.onProgress(onProgress)
 					: () => {};

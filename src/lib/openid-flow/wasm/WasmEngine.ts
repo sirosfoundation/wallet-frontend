@@ -14,8 +14,8 @@
  * The module is the npm package @sirosfoundation/siros-wallet-core (the
  * wasm-pack build of siros-wallet-core's engine-adapter-wasm, published by its
  * release workflow). It is loaded on demand: its own chunk, and the .wasm
- * fetched only when the engine starts, so a wallet without
- * WASM_ENGINE_ENABLED never downloads it.
+ * fetched only when the engine starts, so a wallet that does not run the
+ * core_local transport never downloads it.
  */
 import { logger } from '@/logger';
 

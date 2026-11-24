@@ -165,33 +165,42 @@ export const WIA_ENABLED: boolean = config.wia_enabled === 'true';
 // ===== Transport Configuration =====
 
 /**
- * Transport allow-list
- * Controls which transports are permitted
- * Default: websocket enabled for backwards compatibility
- * 'direct' disabled by default (requires ecosystem CORS support)
+ * The transports a deployment can allow:
+ * - websocket:   the remote engine over its WebSocket wire
+ * - core_local:  the wallet core (siros-wallet-core) in the browser; issuers
+ *                and verifiers are fetched straight from the page, so ones
+ *                without CORS headers cannot be reached
+ * - core_remote: the wallet core on the backend, over WMP (HTTP+SSE) at WMP_URL
+ * - direct:      not yet implemented
  */
-export const ALLOWED_TRANSPORTS: OIDFlowTransportType[] =
-	(config.allowed_transports || 'websocket')
+const KNOWN_TRANSPORTS: OIDFlowTransportType[] = ['websocket', 'core_local', 'core_remote', 'direct'];
+
+function transportList(value: string): OIDFlowTransportType[] {
+	return value
 		.split(',')
 		.map((t: string) => t.trim())
-		.filter((t: string) => ['websocket', 'direct'].includes(t)) as OIDFlowTransportType[];
+		.filter((t: string): t is OIDFlowTransportType => (KNOWN_TRANSPORTS as string[]).includes(t));
+}
+
+/**
+ * Transport allow-list
+ * Controls which transports are permitted
+ * Default: websocket enabled for backwards compatibility; core_local and
+ * core_remote are opt-in
+ * 'direct' disabled by default (requires ecosystem CORS support)
+ */
+export const ALLOWED_TRANSPORTS: OIDFlowTransportType[] = transportList(config.allowed_transports || 'websocket');
 
 /**
  * Transport preference order (first available wins)
- * Default prefers WebSocket over HTTP proxy over Direct
+ * Default prefers WebSocket over Direct
  */
-export const TRANSPORT_PREFERENCE: OIDFlowTransportType[] =
-	(config.transport_preference || 'websocket,direct')
-		.split(',')
-		.map((t: string) => t.trim())
-		.filter((t: string) => ['websocket', 'direct'].includes(t)) as OIDFlowTransportType[];
+export const TRANSPORT_PREFERENCE: OIDFlowTransportType[] = transportList(config.transport_preference || 'websocket,direct');
 
 /**
- * WMP (Wallet Messaging Protocol): issuance and presentation run on the remote
- * engine over WMP (HTTP+SSE, the engine's WMP bridge) instead of its WebSocket
- * wire. WMP_URL defaults to the engine's rpc endpoint: ENGINE_URL + /api/v2/wallet/rpc.
+ * The WMP endpoint of the core_remote transport (the engine's WMP bridge).
+ * Defaults to the engine's rpc endpoint: ENGINE_URL + /api/v2/wallet/rpc.
  */
-export const WMP_ENABLED = config.wmp_enabled === 'true';
 export const WMP_URL = config.wmp_url || (ENGINE_URL
 	? (() => {
 		try {
@@ -209,16 +218,36 @@ export const WMP_URL = config.wmp_url || (ENGINE_URL
 export const HTTP_PROXY_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('http_proxy');
 export const WEBSOCKET_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('websocket');
 export const DIRECT_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('direct');
+export const CORE_LOCAL_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('core_local');
+export const CORE_REMOTE_TRANSPORT_ALLOWED = ALLOWED_TRANSPORTS.includes('core_remote');
+
+export type EngineTransportType = 'core_local' | 'core_remote' | 'websocket';
+
+/**
+ * The engine the flows run on: the first of core_local, core_remote and
+ * websocket in the preference order that is allowed and has its endpoint, or
+ * null when none is.
+ */
+export function pickEngineTransport(
+	preference: OIDFlowTransportType[],
+	allowed: OIDFlowTransportType[],
+	endpoints: { wmpUrl?: string; wsUrl?: string },
+): EngineTransportType | null {
+	const usable = (t: OIDFlowTransportType): t is EngineTransportType =>
+		allowed.includes(t) && (
+			t === 'core_local'
+			|| (t === 'core_remote' && !!endpoints.wmpUrl)
+			|| (t === 'websocket' && !!endpoints.wsUrl)
+		);
+	return preference.find(usable) ?? null;
+}
+
+/** The engine transport this deployment runs; only this one is started. */
+export const ENGINE_TRANSPORT = pickEngineTransport(TRANSPORT_PREFERENCE, ALLOWED_TRANSPORTS, { wmpUrl: WMP_URL, wsUrl: WS_URL });
 export const BRANDING = {
 	LOGO_LIGHT: config.branding?.logo_light || '/logo_light.svg',
 	LOGO_DARK: config.branding?.logo_dark || '/logo_dark.svg',
 }
-
-/**
- * The in-browser engine (siros-wallet-core engine-adapter-wasm): OpenID4VCI
- * and OpenID4VP run in the page instead of on the remote engine. Opt-in.
- */
-export const WASM_ENGINE_ENABLED = config.wasm_engine_enabled === 'true';
 
 
 /**

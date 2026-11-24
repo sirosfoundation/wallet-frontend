@@ -3,6 +3,7 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import React from 'react';
 import SessionContext from './SessionContext';
 import { OIDFlowTransportProvider, useOIDFlowTransport } from './OIDFlowTransportContext';
+import { getEngineCapabilities } from '@/lib/services/CapabilitiesService';
 
 // vi.mock factories are hoisted above the imports, so what they share with
 // the tests has to be hoisted too.
@@ -25,11 +26,15 @@ vi.mock('@/config', async (importOriginal) => ({
 	HTTP_PROXY_TRANSPORT_ALLOWED: false,
 	WEBSOCKET_TRANSPORT_ALLOWED: true,
 	DIRECT_TRANSPORT_ALLOWED: false,
-	TRANSPORT_PREFERENCE: ['websocket'],
 	BACKEND_URL: 'https://wallet.example.org',
-	get WASM_ENGINE_ENABLED() { return flags.wasm; },
-	get WMP_ENABLED() { return flags.wmp; },
 	WMP_URL: 'https://wallet.example.org/api/v2/wallet/rpc',
+	// What ALLOWED_TRANSPORTS and TRANSPORT_PREFERENCE resolve to: flags.wasm
+	// stands for core_local allowed, flags.wmp for core_remote, in that order
+	// of preference, ahead of websocket.
+	get TRANSPORT_PREFERENCE() {
+		return [...(flags.wasm ? ['core_local'] : []), ...(flags.wmp ? ['core_remote'] : []), 'websocket'];
+	},
+	get ENGINE_TRANSPORT() { return flags.wasm ? 'core_local' : flags.wmp ? 'core_remote' : 'websocket'; },
 }));
 
 vi.mock('@/lib/services/CapabilitiesService', () => ({
@@ -135,14 +140,14 @@ describe('OIDFlowTransportProvider transportReady', () => {
 	// request that fails (a 401 while the session is still being restored, on
 	// a page opened from an offer link) must not leave the wallet without a
 	// transport: the context asks for that token only once.
-	it('starts the in-browser engine even when the first token request fails', async () => {
+	it('starts the wallet core in the browser (core_local) even when the first token request fails', async () => {
 		flags.wasm = true;
 		const { result } = renderTransport(() => Promise.reject(new Error('401')));
 
 		await waitFor(() => expect(result.current.transportReady).toBe(true));
 		expect(wasmConnect).toHaveBeenCalled();
 		expect(connect).not.toHaveBeenCalled();
-		expect(result.current.transportType).toBe('websocket');
+		expect(result.current.transportType).toBe('core_local');
 	});
 
 	it('waits for the in-browser engine to start before reporting ready', async () => {
@@ -156,10 +161,10 @@ describe('OIDFlowTransportProvider transportReady', () => {
 
 		await act(async () => { started.resolve(); });
 		await waitFor(() => expect(result.current.transportReady).toBe(true));
-		expect(result.current.transportType).toBe('websocket');
+		expect(result.current.transportType).toBe('core_local');
 	});
 
-	it('runs the flows on the remote engine over WMP when WMP is enabled', async () => {
+	it('runs the flows on the wallet core on the backend (core_remote) when it is the preferred transport', async () => {
 		flags.wmp = true;
 		const { result } = renderTransport(async () => ({ raw: 'backend-token' }));
 
@@ -171,10 +176,10 @@ describe('OIDFlowTransportProvider transportReady', () => {
 		]);
 		expect(wmpConnect).toHaveBeenCalled();
 		expect(connect).not.toHaveBeenCalled();
-		expect(result.current.transportType).toBe('websocket');
+		expect(result.current.transportType).toBe('core_remote');
 	});
 
-		// A token refresh must not rebuild the WMP transport (that would close its
+	// A token refresh must not rebuild the WMP transport (that would close its
 	// session and end a flow in progress): it asks for a fresh token itself.
 	it('gives the WMP transport a token source instead of a fixed token', async () => {
 		flags.wmp = true;
@@ -207,7 +212,19 @@ describe('OIDFlowTransportProvider transportReady', () => {
 		expect(wmpCreated).toHaveLength(1);
 	});
 
-	it('prefers the in-browser engine when both it and WMP are enabled', async () => {
+	// #11: the wallet core on the backend talks WMP, so it needs neither the
+	// WebSocket URL nor the engine's WebSocket capability.
+	it('runs core_remote when the engine does not offer the WebSocket capability', async () => {
+		flags.wmp = true;
+		vi.mocked(getEngineCapabilities).mockResolvedValueOnce([]);
+		const { result } = renderTransport(async () => ({ raw: 'backend-token' }));
+
+		await waitFor(() => expect(result.current.transportReady).toBe(true));
+		expect(wmpConnect).toHaveBeenCalled();
+		expect(result.current.transportType).toBe('core_remote');
+	});
+
+	it('runs core_local when it comes before core_remote in TRANSPORT_PREFERENCE', async () => {
 		flags.wasm = true;
 		flags.wmp = true;
 		const { result } = renderTransport(async () => ({ raw: 'backend-token' }));
@@ -224,7 +241,7 @@ describe('OIDFlowTransportProvider transportReady', () => {
 
 		await waitFor(() => expect(result.current.transportReady).toBe(true));
 		expect(wasmConnect).not.toHaveBeenCalled();
-		expect(result.current.transportType).not.toBe('websocket');
+		expect(result.current.transportType).not.toBe('core_local');
 	});
 
 	it('starts the in-browser engine on login and tears it down on logout', async () => {
@@ -233,12 +250,12 @@ describe('OIDFlowTransportProvider transportReady', () => {
 		await waitFor(() => expect(result.current.transportReady).toBe(true));
 
 		await setLoggedIn(true);
-		await waitFor(() => expect(result.current.transportType).toBe('websocket'));
+		await waitFor(() => expect(result.current.transportType).toBe('core_local'));
 		expect(wasmConnect).toHaveBeenCalledTimes(1);
 
 		await setLoggedIn(false);
 		await waitFor(() => expect(wasmDisconnect).toHaveBeenCalledTimes(1));
-		await waitFor(() => expect(result.current.transportType).not.toBe('websocket'));
+		await waitFor(() => expect(result.current.transportType).not.toBe('core_local'));
 		expect(result.current.isConnected).toBe(false);
 	});
 
