@@ -25,10 +25,45 @@ import {
 	generateMdocDeviceResponse,
 	prepareSdJwtPresentation,
 } from '../verifiable-credentials';
-import { base64url } from 'jose';
+import { base64url, type JWK } from 'jose';
 import { logger } from '@/logger';
 import { Mutex } from '../utils';
 import { prepareVcdm2Presentation } from '../verifiable-credentials/formats/vcdm2';
+
+class ProofKeyMismatchError extends Error {
+	constructor() {
+		super('the key proof names a different key than the one asked to sign it');
+	}
+}
+
+/**
+ * Checks that a JWS signing input is an OpenID4VCI key proof (§7.2.1.1, JWT
+ * proof type) and returns the public key its header names. Throws otherwise.
+ */
+function checkOpenid4vciProofJwt(signingInput: string): JWK {
+	const parts = signingInput.split('.');
+	if (parts.length !== 2) throw new Error('not a JWS signing input');
+	let header: Record<string, unknown>;
+	let payload: Record<string, unknown>;
+	try {
+		header = JSON.parse(new TextDecoder().decode(base64url.decode(parts[0])));
+		payload = JSON.parse(new TextDecoder().decode(base64url.decode(parts[1])));
+	} catch {
+		throw new Error('not a JWS signing input');
+	}
+	if (header?.typ !== 'openid4vci-proof+jwt') throw new Error('only an OpenID4VCI key proof can be signed');
+	if (header.alg !== 'ES256') throw new Error(`unsupported proof algorithm ${String(header.alg)}`);
+	const jwk = header.jwk as JWK | undefined;
+	if (!jwk || typeof jwk !== 'object' || 'd' in jwk) throw new Error('the key proof does not carry a public jwk');
+	if (typeof payload?.aud !== 'string' || !payload.aud) throw new Error('the key proof has no audience');
+	if (typeof payload.iat !== 'number') throw new Error('the key proof has no issue time');
+	if (payload.nonce !== undefined && typeof payload.nonce !== 'string') throw new Error('the key proof nonce is not a string');
+	return jwk;
+}
+
+function sameEcPublicKey(a: JWK, b: JWK): boolean {
+	return a.kty === 'EC' && a.kty === b.kty && a.crv === b.crv && a.x === b.x && a.y === b.y;
+}
 
 export class WscdManagerClient implements IWscdManagerClient {
 	#ready: Promise<void>;
@@ -152,7 +187,8 @@ export class WscdManagerClient implements IWscdManagerClient {
 	}
 
 	/**
-	 * Signs raw bytes with a key, typically one generateKeypairs just made.
+	 * Signs a key proof the in-browser engine assembled, typically with a key
+	 * generateKeypairs just made. See IWscdSignOperations.signOpenid4vciProofJwt.
 	 *
 	 * Unlike the other operations, this does not re-seed the host first. The
 	 * key generation persisted the new container through the exporter, but the
@@ -162,18 +198,29 @@ export class WscdManagerClient implements IWscdManagerClient {
 	 * current state, and is re-seeded only if it does not know the key (a fresh
 	 * page, or a key generated in an earlier session).
 	 */
-	public async signRaw(kid: string, data: Uint8Array): Promise<Uint8Array> {
+	public async signOpenid4vciProofJwt(kid: string, signingInput: string): Promise<Uint8Array> {
+		const headerJwk = checkOpenid4vciProofJwt(signingInput);
+		const data = new TextEncoder().encode(signingInput);
 		await this.#ready;
 
 		return this.#lock.runExclusive(async () => {
 			const host = await this.#selectHost(requirementsForCredential(kid));
+			const signWithKnownKey = async () => {
+				// The proof must name the key that signs it: otherwise a valid
+				// signature would vouch for a key the wallet does not hold.
+				if (!sameEcPublicKey(headerJwk, await host.exportPublicKey(kid))) {
+					throw new ProofKeyMismatchError();
+				}
+				return host.sign(kid, data);
+			};
 			try {
-				return await host.sign(kid, data);
+				return await signWithKnownKey();
 			} catch (err) {
-				logger.debug(`Raw sign with '${host.id}' needs the stored container: ${err}`);
+				if (err instanceof ProofKeyMismatchError) throw err;
+				logger.debug(`Proof signing with '${host.id}' needs the stored container: ${err}`);
 			}
 			await this.#seedHostContainer(host);
-			return host.sign(kid, data);
+			return signWithKnownKey();
 		});
 	}
 

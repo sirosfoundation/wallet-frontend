@@ -115,11 +115,17 @@ export interface IWscdSignOperations {
 	 */
 	generateDeviceResponseWithProximity(request: GenerateDeviceResponseWithProximityRequest): Promise<Uint8Array>;
 	/**
-	 * Signs raw bytes with the key identified by its canonical thumbprint (kid).
-	 * Returns the raw JOSE signature (ES256: r || s). For signing inputs built
-	 * elsewhere, e.g. the JWT proofs the in-browser engine assembles.
+	 * Signs an OpenID4VCI key proof (a JWT of type openid4vci-proof+jwt) that
+	 * was assembled elsewhere, e.g. by the in-browser engine, with the key
+	 * identified by its canonical thumbprint (kid). `signingInput` is the JWS
+	 * signing input, base64url(header) "." base64url(payload).
+	 *
+	 * Only a key proof is signed: ES256, typ openid4vci-proof+jwt, an audience
+	 * and an issue time, and the header's jwk must be the public half of the
+	 * signing key. Anything else is refused, so this cannot be used to sign
+	 * arbitrary data with a wallet key. Returns the raw JOSE signature (r || s).
 	 */
-	signRaw(kid: string, data: Uint8Array): Promise<Uint8Array>;
+	signOpenid4vciProofJwt(kid: string, signingInput: string): Promise<Uint8Array>;
 }
 
 /**

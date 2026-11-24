@@ -264,14 +264,26 @@ describe('container callbacks', () => {
 });
 
 
-describe('signRaw', () => {
+describe('signOpenid4vciProofJwt', () => {
+	const b64 = (value: unknown) => base64url.encode(JSON.stringify(value));
+
+	/** A JWS signing input; the defaults make a valid key proof for the fixture key. */
+	function proofInput(header: Record<string, unknown> = {}, payload: Record<string, unknown> = {}): string {
+		return `${b64({ typ: 'openid4vci-proof+jwt', alg: 'ES256', jwk: publicKeyJwk, ...header })}.${b64({
+			iss: 'https://issuer.example', aud: 'https://issuer.example', iat: 1_700_000_000, nonce: 'n-1', ...payload,
+		})}`;
+	}
+
 	/**
 	 * A softkey-like host with real state: importContainer replaces its keys,
-	 * generateKey adds one, sign refuses an unknown kid.
+	 * generateKey adds one, and sign and exportPublicKey refuse an unknown kid.
 	 */
 	function statefulHost() {
 		const keys = new Set<string>();
 		let next = 0;
+		const known = (kid: string) => {
+			if (!keys.has(kid)) throw new Error(`key ${kid} not found`);
+		};
 		return fakeHost({
 			importContainer: vi.fn(async (c: WscdContainer) => {
 				keys.clear();
@@ -282,41 +294,72 @@ describe('signRaw', () => {
 				keys.add(kid);
 				return kid;
 			}),
-			sign: vi.fn(async (kid: string) => {
-				if (!keys.has(kid)) throw new Error(`key ${kid} not found`);
-				return new Uint8Array([7, 7]);
-			}),
+			exportPublicKey: vi.fn(async (kid: string) => { known(kid); return publicKeyJwk; }),
+			sign: vi.fn(async (kid: string) => { known(kid); return new Uint8Array([7, 7]); }),
 		});
 	}
 
-	it('signs with a just-generated key although the importer still returns the container from before it', async () => {
+	it('signs a key proof with a just-generated key although the importer still returns the container from before it', async () => {
 		const host = statefulHost();
 		// The keystore's importer lags the exporter (React state): it keeps
 		// returning the container without the new key.
 		const { client } = makeClient([host]);
 
 		const [key] = await client.generateKeypairs(1);
-		const signature = await client.signRaw(key.kid, new Uint8Array([1]));
+		const input = proofInput();
+		const signature = await client.signOpenid4vciProofJwt(key.kid, input);
 
 		expect(signature).toEqual(new Uint8Array([7, 7]));
-		expect(host.sign).toHaveBeenCalledWith('new-kid-1', new Uint8Array([1]));
+		expect(host.sign).toHaveBeenCalledWith('new-kid-1', new TextEncoder().encode(input));
 	});
 
 	it('seeds the host from the stored container when it does not know the key', async () => {
 		const host = statefulHost();
 		const { client, importer } = makeClient([host]);
 
-		const signature = await client.signRaw(publicKeyKid, new Uint8Array([2]));
+		const signature = await client.signOpenid4vciProofJwt(publicKeyKid, proofInput());
 
 		expect(signature).toEqual(new Uint8Array([7, 7]));
 		expect(importer).toHaveBeenCalledTimes(1);
-		expect(host.sign).toHaveBeenCalledTimes(2);
+		expect(host.sign).toHaveBeenCalledTimes(1);
 	});
 
 	it('fails when the key is in neither the host nor the stored container', async () => {
 		const host = statefulHost();
 		const { client } = makeClient([host]);
 
-		await expect(client.signRaw('unknown-kid', new Uint8Array([3]))).rejects.toThrow(/not found/);
+		await expect(client.signOpenid4vciProofJwt('unknown-kid', proofInput())).rejects.toThrow(/not found/);
+		expect(host.sign).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		['a DPoP proof', proofInput({ typ: 'dpop+jwt' }), /only an OpenID4VCI key proof/],
+		['a plain JWT', proofInput({ typ: 'JWT' }), /only an OpenID4VCI key proof/],
+		['another algorithm', proofInput({ alg: 'ES384' }), /unsupported proof algorithm/],
+		['a proof without a key', proofInput({ jwk: undefined }), /does not carry a public jwk/],
+		['a proof carrying a private key', proofInput({ jwk: { ...publicKeyJwk, d: 'secret' } }), /does not carry a public jwk/],
+		['a proof without an audience', proofInput({}, { aud: undefined }), /no audience/],
+		['a proof without an issue time', proofInput({}, { iat: undefined }), /no issue time/],
+		['arbitrary bytes', 'not-a-jws', /not a JWS signing input/],
+		['a complete JWS', `${proofInput()}.c2ln`, /not a JWS signing input/],
+	])('refuses %s, without touching a key', async (_name, input, error) => {
+		const host = statefulHost();
+		const { client } = makeClient([host]);
+
+		await expect(client.signOpenid4vciProofJwt(publicKeyKid, input)).rejects.toThrow(error);
+		expect(host.sign).not.toHaveBeenCalled();
+	});
+
+	it('refuses a proof that names a different key than the one asked to sign it', async () => {
+		const host = statefulHost();
+		const { client, importer } = makeClient([host]);
+		await client.generateKeypairs(1);
+		importer.mockClear();
+
+		const otherKey = { ...publicKeyJwk, x: 'AAAA' + publicKeyJwk.x!.slice(4) };
+		await expect(client.signOpenid4vciProofJwt('new-kid-1', proofInput({ jwk: otherKey })))
+			.rejects.toThrow(/names a different key/);
+		expect(host.sign).not.toHaveBeenCalled();
+		expect(importer).not.toHaveBeenCalled();
 	});
 });

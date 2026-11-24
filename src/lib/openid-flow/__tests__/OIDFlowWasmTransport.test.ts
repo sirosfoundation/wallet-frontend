@@ -75,8 +75,9 @@ function fakeWscd() {
 	return {
 		generateKeypairs: vi.fn(async (n: number) =>
 			Array.from({ length: n }, (_, i) => ({ kid: `kid-${i + 1}`, publicKey: { kty: 'EC', crv: 'P-256', x: 'x', y: 'y' } }))),
-		signRaw: vi.fn(async () => new Uint8Array([1, 2, 3])),
-	} as unknown as IWscdManagerClient & { generateKeypairs: ReturnType<typeof vi.fn>; signRaw: ReturnType<typeof vi.fn> };
+		signOpenid4vciProofJwt: vi.fn(async () => new Uint8Array([1, 2, 3])),
+	} as unknown as IWscdManagerClient & { generateKeypairs: ReturnType<typeof vi.fn>; signOpenid4vciProofJwt: ReturnType<typeof vi.fn> };
+	
 }
 
 const trust: TrustEvaluators = {
@@ -270,7 +271,7 @@ describe('OIDFlowWasmTransport: authorization-code issuance', () => {
 		expect(action.params).toMatchObject({
 			flow_id: 'vci-1', action: 'authorization_complete', params: { code: 'code-1', state: 'st-1' },
 		});
-		expect(wscd.signRaw).toHaveBeenCalledWith('kid-1', new Uint8Array([104, 46, 112]));
+		expect(wscd.signOpenid4vciProofJwt).toHaveBeenCalledWith('kid-1', 'h.p');
 		expect(storage.getItem(PENDING_AUTHORIZATION_KEY)).toBeNull();
 	});
 
@@ -509,7 +510,7 @@ describe('OIDFlowWasmTransport: authorization-code issuance', () => {
 		const r = await transport(engine, storage, wscd).startOID4VCIFlow({ authorizationCode: 'c' });
 		expect(r.success).toBe(false);
 		expect(r.error?.message).toMatch(/no signing key/);
-		expect(wscd.signRaw).not.toHaveBeenCalled();
+		expect(wscd.signOpenid4vciProofJwt).not.toHaveBeenCalled();
 	});
 
 	it('forwards the credential notification on the issuance session', async () => {

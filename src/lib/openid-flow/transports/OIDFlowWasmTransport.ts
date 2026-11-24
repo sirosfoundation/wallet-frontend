@@ -1183,7 +1183,10 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 			// issuer cannot bind the credential: refuse rather than sign.
 			throw new Error('no signing key for this proof (the engine adapter must support signingKey)');
 		}
-		const signature = await this.requireWscd().signRaw(kid, Uint8Array.from(p.to_sign));
+		// The engine signs only key proofs through this callback; the WSCD
+		// checks the input is one, and that it names this key.
+		const signingInput = new TextDecoder().decode(Uint8Array.from(p.to_sign));
+		const signature = await this.requireWscd().signOpenid4vciProofJwt(kid, signingInput);
 		return { signature: Array.from(signature) };
 	}
 
