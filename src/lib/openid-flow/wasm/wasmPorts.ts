@@ -1,8 +1,9 @@
 /**
  * The engine's environment callbacks ("ports") for the in-browser engine:
  *
- * - fetch: the engine's HTTP, sent through the wallet backend's /proxy,
- *   since the browser cannot call most issuers directly (CORS).
+ * - fetch: the engine's HTTP, straight from the page to the issuer or
+ *   verifier: nothing goes through the wallet backend. Servers without CORS
+ *   headers cannot be reached this way, and need the remote engine.
  * - pdp:   the engine's trust question, answered by the wallet's issuer and
  *          verifier trust evaluators (the backend's /v1/evaluate AuthZEN
  *          proxy). Fail closed.
@@ -27,13 +28,7 @@ import { parseClientIdScheme, type ClientIdScheme } from 'wallet-common';
 function hostOf(url: string): string {
 	try { return new URL(url).host; } catch { return '(invalid url)'; }
 }
-export interface ProxyFetchOptions {
-	/** The wallet backend, e.g. BACKEND_URL. */
-	backendUrl: string;
-	/** A valid backend access token; called before every request (tokens are short-lived). */
-	getAuthToken: () => string | Promise<string>;
-	/** The tenant, sent as X-Tenant-ID. */
-	tenantId: string;
+export interface DirectFetchOptions {
 	/**
 	 * The largest batch the wallet asks for. The engine sends one key proof per
 	 * batch slot, taken from the issuer's batch_credential_issuance.batch_size,
@@ -41,13 +36,22 @@ export interface ProxyFetchOptions {
 	 * more than they accept. Default 1.
 	 */
 	maxBatchSize?: number;
+	/** Told the host the browser could not reach (most often: no CORS headers). */
+	onUnreachable?: (host: string) => void;
+	/** For tests. Defaults to the global fetch. */
+	fetchImpl?: typeof fetch;
 }
 
-/** The backend's /proxy answer for non-binary URLs. */
-interface ProxyResponse {
-	status: number;
-	headers?: Record<string, string>;
-	data?: unknown;
+/**
+ * The browser could not reach an issuer or verifier: a network failure, or,
+ * most often, a server that sends no CORS headers, which a page can never
+ * read. The remote engine (WMP) reaches such servers from the backend.
+ */
+export class UnreachableFromBrowserError extends Error {
+	constructor(readonly host: string) {
+		super(`${host} could not be reached from the browser (it may not allow cross-origin requests); the remote engine can reach it`);
+		this.name = 'UnreachableFromBrowserError';
+	}
 }
 
 const encoder = new TextEncoder();
@@ -66,19 +70,6 @@ export function flatToRecord(flat: string[]): Record<string, string> {
 	return out;
 }
 
-/** {Name: value} -> [name, value, ...], names lower-cased. */
-export function recordToFlat(headers: Record<string, string> | undefined): string[] {
-	const flat: string[] = [];
-	for (const [name, value] of Object.entries(headers ?? {})) {
-		flat.push(name.toLowerCase(), value);
-	}
-	return flat;
-}
-
-function isProxyResponse(value: unknown): value is ProxyResponse {
-	return !!value && typeof value === 'object' && typeof (value as ProxyResponse).status === 'number';
-}
-
 /** Lowers an advertised batch_size to the wallet's maximum. */
 function capBatchSize(data: unknown, max: number): void {
 	if (!data || typeof data !== 'object') return;
@@ -87,80 +78,70 @@ function capBatchSize(data: unknown, max: number): void {
 		batch.batch_size = max;
 	}
 }
-
 /**
- * The engine's fetch, through POST {backend}/proxy.
+ * The engine's fetch, straight from the page to the issuer or verifier.
  *
- * The proxy takes {url, method, headers, data} and answers {status, headers,
- * data}, where data is the upstream body parsed as JSON when it is JSON, else
- * the body as a string. JSON bodies are serialized again here, so key order and
- * number formatting may differ from the upstream bytes (fine for metadata and
- * token responses; signed content travels as JWT strings). Image URLs come
- * back as raw bytes instead.
+ * Local mode sends nothing through the wallet backend: the backend never sees
+ * which issuers and verifiers the user meets, nor the tokens, credentials and
+ * presentations exchanged with them. The cost is CORS: a server that sends no
+ * CORS headers cannot be read from a page, and fails here with
+ * UnreachableFromBrowserError; such servers need the remote engine. Only the
+ * response headers the server exposes (Access-Control-Expose-Headers) are
+ * readable, which matters for DPoP-Nonce.
+ *
+ * No cookies and no referrer go with the request: the wallet's origin and any
+ * session the user has with the server stay out of it.
  */
-export function createProxyFetch(options: ProxyFetchOptions): WasmEngineConfig['fetch'] {
-	const proxyUrl = new URL('/proxy', options.backendUrl).toString();
+export function createDirectFetch(options: DirectFetchOptions = {}): WasmEngineConfig['fetch'] {
 	const maxBatch = Math.max(1, options.maxBatchSize ?? 1);
+	const fetchImpl = options.fetchImpl ?? ((input, init) => fetch(input, init));
 
 	return async (request: EngineHttpRequest): Promise<EngineHttpResponse> => {
-		const token = await options.getAuthToken();
-		const body = request.body?.length ? decoder.decode(new Uint8Array(request.body)) : undefined;
-
-		const res = await fetch(proxyUrl, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				Authorization: `Bearer ${token}`,
-				'X-Tenant-ID': options.tenantId,
-			},
-			body: JSON.stringify({
-				url: request.url,
+		const body = request.body?.length ? new Uint8Array(request.body) : undefined;
+		let res: Response;
+		try {
+			res = await fetchImpl(request.url, {
 				method: request.method,
 				headers: flatToRecord(request.headers ?? []),
-				...(body !== undefined ? { data: body } : {}),
-			}),
-		});
-
-		const contentType = res.headers.get('content-type') ?? '';
-		const raw = new Uint8Array(await res.arrayBuffer());
-
-		// The JSON envelope: {status, headers, data}.
-		if (contentType.includes('application/json')) {
-			let parsed: unknown;
-			try {
-				parsed = JSON.parse(decoder.decode(raw));
-			} catch {
-				parsed = undefined;
-			}
-			if (isProxyResponse(parsed)) {
-				const { data } = parsed;
-				if (ISSUER_METADATA_PATH.test(request.url)) capBatchSize(data, maxBatch);
-				const text = data === undefined || data === null
-					? ''
-					: typeof data === 'string' ? data : JSON.stringify(data);
-				if (parsed.status >= 400) {
-					logger.warn('[wasm-engine] upstream answered', parsed.status, request.url, text.slice(0, 300));
-					// Status and host only: paths, queries and bodies can carry codes and tokens.
-					logger.warn('[wasm-engine] upstream answered', parsed.status, hostOf(request.url));
-				}
-				return {
-					status: parsed.status,
-					headers: recordToFlat(parsed.headers),
-					body: Array.from(encoder.encode(text)),
-				};
-			}
+				body,
+				credentials: 'omit',
+				referrerPolicy: 'no-referrer',
+				cache: 'no-store',
+			});
+		} catch {
+			// fetch() rejects only when there is no readable response at all.
+			const host = hostOf(request.url);
+			options.onUnreachable?.(host);
+			throw new UnreachableFromBrowserError(host);
 		}
 
-		// The proxy itself refused (401, 400, 500), or a binary (image) answer.
-		if (!res.ok) {
-			throw new Error(`proxy ${res.status}: ${decoder.decode(raw).slice(0, 200)}`);
+		let bytes: Uint8Array = new Uint8Array(await res.arrayBuffer());
+		if (ISSUER_METADATA_PATH.test(request.url) && (res.headers.get('content-type') ?? '').includes('json')) {
+			bytes = capBatchSizeInJson(bytes, maxBatch);
+		}
+		if (res.status >= 400) {
+			// Status and host only: paths, queries and bodies can carry codes and tokens.
+			logger.warn('[wasm-engine] upstream answered', res.status, hostOf(request.url));
 		}
 		const headers: string[] = [];
-		res.headers.forEach((value, name) => headers.push(name, value));
-		return { status: res.status, headers, body: Array.from(raw) };
+		res.headers.forEach((value, name) => headers.push(name.toLowerCase(), value));
+		return { status: res.status, headers, body: Array.from(bytes) };
 	};
 }
 
+/** The issuer metadata with batch_size capped; the bytes as they were when it is not JSON. */
+function capBatchSizeInJson(bytes: Uint8Array, max: number): Uint8Array {
+	let data: unknown;
+	try {
+		data = JSON.parse(decoder.decode(bytes));
+	} catch {
+		return bytes;
+	}
+	const batch = (data as { batch_credential_issuance?: { batch_size?: unknown } } | null)?.batch_credential_issuance;
+	if (!batch || typeof batch.batch_size !== 'number' || batch.batch_size <= max) return bytes;
+	capBatchSize(data, max);
+	return encoder.encode(JSON.stringify(data));
+}
 /** The engine's opaque key material, as the issuer trust evaluator takes it. */
 export function parseKeyMaterial(bytes: number[] | undefined): { type: 'jwk' | 'x5c'; key: unknown } | undefined {
 	if (!bytes?.length) return undefined;

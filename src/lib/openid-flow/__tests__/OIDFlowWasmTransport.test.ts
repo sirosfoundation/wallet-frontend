@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { OIDFlowWasmTransport, PENDING_AUTHORIZATION_KEY, issuerMetadataUrl } from '../transports/OIDFlowWasmTransport';
 import { createWasmEngine, toPlain, type WasmEngine, type WasmEngineConfig } from '../wasm/WasmEngine';
 
-import { clearWasmEngineStorage, createProxyFetch, createRegisteredClientIdLookup, createStorageKv, createTrustPdp, parseKeyMaterial } from '../wasm/wasmPorts';
+import { UnreachableFromBrowserError, clearWasmEngineStorage, createDirectFetch, createRegisteredClientIdLookup, createStorageKv, createTrustPdp, parseKeyMaterial } from '../wasm/wasmPorts';
 import type { TrustEvaluators } from '../types';
 import type { IWscdManagerClient } from '@/lib/wscd-manager';
 
@@ -112,17 +112,16 @@ const ISSUER_METADATA = {
 	credential_configurations_supported: { pid: { format: 'mso_mdoc', scope: 'pid' } },
 };
 
-/** The backend /proxy: the credential offer and the issuer metadata. */
-function stubProxy() {
+/** The issuer, fetched directly from the page: the credential offer and its metadata. */
+function stubIssuer() {
 	const calls: any[] = [];
 	vi.stubGlobal('fetch', async (url: string, init: any) => {
-		const body = JSON.parse(init.body);
-		calls.push({ url, body });
-		const data = body.url === OFFER_URI ? OFFER
-			: body.url === 'https://issuer.example/.well-known/openid-credential-issuer' ? ISSUER_METADATA
+		calls.push({ url, init });
+		const data = url === OFFER_URI ? OFFER
+			: url === 'https://issuer.example/.well-known/openid-credential-issuer' ? ISSUER_METADATA
 				: undefined;
-		return new Response(JSON.stringify({ status: data ? 200 : 404, headers: {}, data }),
-			{ headers: { 'content-type': 'application/json' } });
+		return new Response(data ? JSON.stringify(data) : 'not found',
+			{ status: data ? 200 : 404, headers: { 'content-type': data ? 'application/json' : 'text/plain' } });
 	});
 	return calls;
 }
@@ -130,10 +129,10 @@ const REDIRECT = 'https://wallet.example/cb';
 
 describe('OIDFlowWasmTransport: authorization-code issuance', () => {
 	let storage: MemoryStorage;
-	let proxyCalls: any[];
+	let issuerCalls: any[];
 	beforeEach(() => {
 		storage = new MemoryStorage();
-		proxyCalls = stubProxy();
+		issuerCalls = stubIssuer();
 	});
 	afterEach(() => { vi.unstubAllGlobals(); });
 
@@ -166,12 +165,16 @@ describe('OIDFlowWasmTransport: authorization-code issuance', () => {
 		});
 		const start = engine.calls.find((c) => c.method === 'wmp.flow.start')!;
 		expect(start.params.flow_type).toBe('oid4vci');
-		// The offer was fetched once through /proxy and goes to the engine by value,
-		// with the client_id the issuer's record carries; the issuer metadata
+		// The offer was fetched once, straight from the issuer (nothing through
+		// the backend), and goes to the engine by value,
 		// gave the configuration's format, which the pending authorization keeps.
-		expect(proxyCalls.map((c) => c.body.url)).toEqual([
+		expect(issuerCalls.map((c) => c.url)).toEqual([
 			OFFER_URI, 'https://issuer.example/.well-known/openid-credential-issuer',
 		]);
+		for (const call of issuerCalls) {
+			expect(call.init.headers).not.toHaveProperty('Authorization');
+			expect(call.init.credentials).toBe('omit');
+		}
 		expect(lookup).toHaveBeenCalledWith('https://issuer.example');
 		expect(start.params.params).toEqual({
 			credential_offer: `openid-credential-offer://?credential_offer=${encodeURIComponent(OFFER_JSON)}`,
@@ -276,8 +279,7 @@ describe('OIDFlowWasmTransport: authorization-code issuance', () => {
 	});
 
 	it('leaves the format to the app when the issuer metadata cannot be read', async () => {
-		vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ status: 500, headers: {}, data: 'down' }),
-			{ headers: { 'content-type': 'application/json' } }));
+		vi.stubGlobal('fetch', async () => new Response('down', { status: 500, headers: { 'content-type': 'text/plain' } }));
 		const engine = fakeEngine({
 			'wmp.flow.start': async (p, c) => {
 				engine.notify('wmp.flow.progress', { flow_id: p.flow_id, step: 'authorization_required',
@@ -289,6 +291,34 @@ describe('OIDFlowWasmTransport: authorization-code issuance', () => {
 		const r = await transport(engine, storage).startOID4VCIFlow({ credentialOffer: OFFER_JSON, redirectUri: REDIRECT });
 		expect(r.success).toBe(true);
 		expect(JSON.parse(storage.getItem(PENDING_AUTHORIZATION_KEY)!).format).toBeUndefined();
+	});
+
+		it('fails as unreachable from the browser when the issuer cannot be fetched (no CORS)', async () => {
+		vi.stubGlobal('fetch', async () => { throw new TypeError('Failed to fetch'); });
+		const engine = fakeEngine({});
+		const r = await transport(engine, storage).startOID4VCIFlow({ credentialOfferUri: OFFER_URI, redirectUri: REDIRECT });
+		expect(r).toMatchObject({ success: false, error: { code: 'UNREACHABLE_FROM_BROWSER' } });
+		expect(r.error?.message).toMatch(/issuer\.example could not be reached from the browser.*remote engine/);
+		expect(engine.calls.find((c) => c.method === 'wmp.flow.start')).toBeUndefined();
+	});
+
+	it('reports a flow the engine ended over an unreachable host as unreachable from the browser', async () => {
+		let reachable = true;
+		vi.stubGlobal('fetch', async (url: string) => {
+			if (!reachable) throw new TypeError('Failed to fetch');
+			return new Response(JSON.stringify(url === OFFER_URI ? OFFER : ISSUER_METADATA), { headers: { 'content-type': 'application/json' } });
+		});
+		const engine = fakeEngine({
+			'wmp.flow.start': async (p, c) => {
+				reachable = false;
+				await c.fetch({ method: 'POST', url: 'https://as.example/token', headers: [], body: [] }).catch(() => {});
+				engine.notify('wmp.flow.error', { flow_id: p.flow_id, code: -31006, message: 'request failed' });
+				return {};
+			},
+		});
+		const r = await transport(engine, storage).startOID4VCIFlow({ credentialOfferUri: OFFER_URI, redirectUri: REDIRECT });
+		expect(r).toMatchObject({ success: false, error: { code: 'UNREACHABLE_FROM_BROWSER' } });
+		expect(r.error?.message).toMatch(/as\.example could not be reached/);
 	});
 
 	it('builds the issuer metadata URL, path issuers included', () => {
@@ -942,27 +972,6 @@ describe('wasmPorts', () => {
 		expect(storage.getItem('unrelated')).toBe('keep');
 	});
 
-	it('the proxy fetch maps the envelope and caps the advertised batch size', async () => {
-		const calls: any[] = [];
-		vi.stubGlobal('fetch', async (url: string, init: any) => {
-			calls.push({ url, init });
-			return new Response(JSON.stringify({
-				status: 200, headers: { 'DPoP-Nonce': 'n1' },
-				data: { credential_issuer: 'https://i', batch_credential_issuance: { batch_size: 50 } },
-			}), { headers: { 'content-type': 'application/json' } });
-		});
-		const f = createProxyFetch({ backendUrl: 'https://be', getAuthToken: () => 'tok', tenantId: 't1' });
-		const r = await f({ method: 'GET', url: 'https://i/.well-known/openid-credential-issuer', headers: ['accept', 'application/json'], body: [] });
-		expect(calls[0].url).toBe('https://be/proxy');
-		expect(JSON.parse(calls[0].init.body)).toEqual({ url: 'https://i/.well-known/openid-credential-issuer', method: 'GET', headers: { accept: 'application/json' } });
-		expect(calls[0].init.headers).toMatchObject({ Authorization: 'Bearer tok', 'X-Tenant-ID': 't1' });
-		expect(r.headers).toEqual(['dpop-nonce', 'n1']);
-		expect(JSON.parse(new TextDecoder().decode(new Uint8Array(r.body)))).toEqual({
-			credential_issuer: 'https://i', batch_credential_issuance: { batch_size: 1 },
-		});
-		vi.unstubAllGlobals();
-	});
-
 	it('the client_id lookup reads only the public clientId of the matching issuer record', async () => {
 		const calls: any[] = [];
 		vi.stubGlobal('fetch', async (url: string, init: any) => {
@@ -977,13 +986,6 @@ describe('wasmPorts', () => {
 		await expect(lookup('https://unknown.example')).resolves.toBeUndefined();
 		expect(calls[0].url).toBe('https://be/issuer/all');
 		expect(calls[0].init.headers).toMatchObject({ Authorization: 'Bearer tok', 'X-Tenant-ID': 't1' });
-		vi.unstubAllGlobals();
-	});
-
-	it('the proxy fetch throws when the backend itself refuses', async () => {
-		vi.stubGlobal('fetch', async () => new Response('{"error":"Invalid token"}', { status: 401, headers: { 'content-type': 'application/json' } }));
-		const f = createProxyFetch({ backendUrl: 'https://be', getAuthToken: () => 't', tenantId: 'd' });
-		await expect(f({ method: 'GET', url: 'https://x', headers: [], body: [] })).rejects.toThrow(/proxy 401/);
 		vi.unstubAllGlobals();
 	});
 });

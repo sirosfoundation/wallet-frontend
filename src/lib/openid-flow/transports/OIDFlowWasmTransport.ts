@@ -5,7 +5,9 @@
  *
  * The engine runs in the page and speaks WMP to this transport through
  * engine.request(); it reaches out through callbacks:
- *   fetch          -> the backend's /proxy (wasmPorts.createProxyFetch)
+ *   fetch          -> straight from the page to the issuer / verifier (wasmPorts.createDirectFetch):
+ *                     nothing goes through the backend; a server without CORS fails
+ *                     as UNREACHABLE_FROM_BROWSER, and needs the remote engine
  *   pdp.evaluate   -> the issuer / verifier trust evaluators, fail closed (createTrustPdp)
  *   kv             -> sessionStorage, the authorization stash (createStorageKv)
  *   host.signingKey-> a fresh WSCD key; its public JWK (with kid) goes in the proof
@@ -94,7 +96,7 @@ import {
 	type WasmEngine,
 	type WasmEngineConfig,
 } from '../wasm/WasmEngine';
-import { PENDING_AUTHORIZATION_KEY, createProxyFetch, createStorageKv, createTrustPdp } from '../wasm/wasmPorts';
+import { PENDING_AUTHORIZATION_KEY, UnreachableFromBrowserError, createDirectFetch, createStorageKv, createTrustPdp } from '../wasm/wasmPorts';
 import { logger } from '@/logger';
 import { publicProgressPayload } from '../utils/progressRedaction';
 import { ReleasedFlows } from '../utils/releasedFlows';
@@ -119,6 +121,14 @@ const DEFERRED_MAX_WAIT_MS = OPENID4VCI_DEFERRED_MAX_WAIT_MS ?? 15 * 60_000;
 // The flow id across the redirect (same tab, so sessionStorage). Defined with
 // the storage ports, so logout can clear it without loading this module.
 export { PENDING_AUTHORIZATION_KEY };
+
+
+/**
+ * The error code of a flow that failed because the browser could not reach an
+ * issuer or verifier (most often: it sends no CORS headers). Local mode sends
+ * nothing through the backend, so such servers need the remote engine.
+ */
+export const UNREACHABLE_FROM_BROWSER = 'UNREACHABLE_FROM_BROWSER';
 
 /** The engine's authorization stash in its kv (engine-core oid4vci stash_key). */
 const ENGINE_STASH_KEY = (flowId: string) => `oid4vci:auth-code:${flowId}`;
@@ -188,6 +198,8 @@ interface VciFlow {
 		resolve: (r: OID4VCIFlowResult) => void;
 		timer: ReturnType<typeof setTimeout>;
 	} | null;
+	/** A host the browser could not reach during this flow (CORS, most often). */
+	unreachableHost?: string;
 	ended: boolean;
 }
 
@@ -221,6 +233,8 @@ interface VpFlow {
 	noMatch?: boolean;
 	/** The request's raw transaction data entries (base64url JSON). */
 	transactionData: string[];
+	/** A host the browser could not reach during this flow (CORS, most often). */
+	unreachableHost?: string;
 	ended: boolean;
 }
 
@@ -228,7 +242,7 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 	private readonly wasmOpts: OIDFlowWasmTransportOptions;
 	private readonly wasmStorage: Storage;
 	private enginePromise: Promise<WasmEngine> | null = null;
-	private proxyFetchFn: WasmEngineConfig['fetch'] | null = null;
+	private engineFetchFn: WasmEngineConfig['fetch'] | null = null;
 	private kvStore: EngineKeyValue | null = null;
 	private sessionPromise: Promise<string> | null = null;
 	private wasmConnected = false;
@@ -416,13 +430,19 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 		try {
 			offer = await this.readOffer(params);
 		} catch (err) {
+			if (err instanceof UnreachableFromBrowserError) return errorResult(UNREACHABLE_FROM_BROWSER, err.message);
 			return errorResult('OFFER_UNAVAILABLE', reason(err));
 		}
 		const clientId = await this.registeredClientId(offer.credential_issuer);
 		const configurationIds = Array.isArray(offer.credential_configuration_ids)
 			? offer.credential_configuration_ids.filter((id): id is string => typeof id === 'string')
 			: [];
-		const format = await this.configurationFormat(offer.credential_issuer as string, configurationIds[0]);
+		let format: string | undefined;
+		try {
+			format = await this.configurationFormat(offer.credential_issuer as string, configurationIds[0]);
+		} catch (err) {
+			return errorResult(UNREACHABLE_FROM_BROWSER, reason(err));
+		}
 
 		let engine: WasmEngine;
 		let sessionId: string;
@@ -784,6 +804,10 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 			case 'wmp.flow.error': {
 				const data = (params.data ?? undefined) as Record<string, unknown> | undefined;
 				this.endVpFlow(flow);
+				if (flow.unreachableHost) {
+					this.settleVp(flow, vpError(UNREACHABLE_FROM_BROWSER, new UnreachableFromBrowserError(flow.unreachableHost).message));
+					break;
+				}
 				this.settleVp(flow, vpError(
 					typeof data?.reason === 'string' ? data.reason.toUpperCase() : `WMP_${params.code}`,
 					typeof params.message === 'string' ? params.message : 'Presentation failed',
@@ -917,16 +941,20 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 		return this.kvStore;
 	}
 
-	private proxyFetch(): WasmEngineConfig['fetch'] {
-		if (!this.proxyFetchFn) {
-			this.proxyFetchFn = createProxyFetch({
-				backendUrl: this.wasmOpts.backendUrl,
-				getAuthToken: this.wasmOpts.getAuthToken,
-				tenantId: this.wasmOpts.tenantId,
+	private engineFetch(): WasmEngineConfig['fetch'] {
+		if (!this.engineFetchFn) {
+			this.engineFetchFn = createDirectFetch({
 				maxBatchSize: this.wasmOpts.maxBatchSize,
+				onUnreachable: (host) => {
+					// The flow in progress fails because of it: say so, rather
+					// than the engine's generic network error.
+					const id = this.lastStartedFlowId;
+					const flow = id ? (this.vciFlows.get(id) ?? this.vpFlows.get(id)) : undefined;
+					if (flow) flow.unreachableHost = host;
+				},
 			});
 		}
-		return this.proxyFetchFn;
+		return this.engineFetchFn;
 	}
 
 	/** The offer object: parsed from the value, or fetched from credential_offer_uri. */
@@ -937,7 +965,7 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 		} else {
 			const uri = params.credentialOfferUri ?? '';
 			if (!/^https:\/\//.test(uri)) throw new Error('credential_offer_uri must be an https URL');
-			const res = await this.proxyFetch()({
+			const res = await this.engineFetch()({
 				method: 'GET',
 				url: uri,
 				headers: ['accept', 'application/json'],
@@ -966,7 +994,7 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 	private async configurationFormat(credentialIssuer: string, configurationId: string | undefined): Promise<string | undefined> {
 		if (!configurationId) return undefined;
 		try {
-			const res = await this.proxyFetch()({
+			const res = await this.engineFetch()({
 				method: 'GET',
 				url: issuerMetadataUrl(credentialIssuer),
 				headers: ['accept', 'application/json'],
@@ -1006,7 +1034,7 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 	private engine(): Promise<WasmEngine> {
 		if (!this.enginePromise) {
 			const config: WasmEngineConfig = {
-				fetch: this.proxyFetch(),
+				fetch: this.engineFetch(),
 				pdp: plainPdp(createTrustPdp(this.wasmOpts.trustEvaluators)),
 				kv: this.engineKv(),
 				host: {
@@ -1084,6 +1112,10 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 			case 'wmp.flow.error': {
 				const data = (params.data ?? {}) as { reason?: unknown };
 				this.endFlow(flow);
+				if (flow.unreachableHost) {
+					this.settle(flow, errorResult(UNREACHABLE_FROM_BROWSER, new UnreachableFromBrowserError(flow.unreachableHost).message));
+					break;
+				}
 				this.settle(flow, errorResult(
 					typeof data.reason === 'string' ? data.reason.toUpperCase() : `WMP_${params.code}`,
 					typeof params.message === 'string' ? params.message : 'Issuance failed',
