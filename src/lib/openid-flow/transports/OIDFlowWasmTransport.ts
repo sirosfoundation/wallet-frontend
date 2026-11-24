@@ -592,6 +592,10 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 	private failFlow(flow: VciFlow, err: unknown): void {
 		if (flow.ended) return;
 		this.endFlow(flow);
+		if (flow.unreachableHost) {
+			this.settle(flow, errorResult(UNREACHABLE_FROM_BROWSER, new UnreachableFromBrowserError(flow.unreachableHost).message));
+			return;
+		}
 		const code = isWmpEngineError(err) && typeof err.data?.reason === 'string'
 			? err.data.reason
 			: 'FLOW_ERROR';
@@ -753,6 +757,10 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 	private failVpFlow(flow: VpFlow, err: unknown): void {
 		if (flow.ended) return;
 		this.endVpFlow(flow);
+		if (flow.unreachableHost) {
+			this.settleVp(flow, vpError(UNREACHABLE_FROM_BROWSER, new UnreachableFromBrowserError(flow.unreachableHost).message));
+			return;
+		}
 		const data = isWmpEngineError(err) ? err.data : undefined;
 		const code = typeof data?.reason === 'string' ? data.reason : 'FLOW_ERROR';
 		this.settleVp(flow, vpError(code.toUpperCase(), reason(err), data as Record<string, unknown> | undefined));
@@ -1005,6 +1013,9 @@ export class OIDFlowWasmTransport extends OIDFlowWebSocketTransport {
 			const format = metadata?.credential_configurations_supported?.[configurationId]?.format;
 			return typeof format === 'string' ? format : undefined;
 		} catch (err) {
+			// An issuer the browser cannot reach at all fails the issuance here:
+			// the engine would only meet the same wall.
+			if (err instanceof UnreachableFromBrowserError) throw err;
 			logger.warn('[wasm] could not read the credential format from the issuer metadata', reason(err));
 			return undefined;
 		}

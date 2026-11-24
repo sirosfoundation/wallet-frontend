@@ -321,6 +321,33 @@ describe('OIDFlowWasmTransport: authorization-code issuance', () => {
 		expect(r.error?.message).toMatch(/as\.example could not be reached/);
 	});
 
+	it('reports a flow the engine refused to start over an unreachable host as unreachable from the browser', async () => {
+		let reachable = true;
+		vi.stubGlobal('fetch', async (url: string) => {
+			if (!reachable) throw new TypeError('Failed to fetch');
+			return new Response(JSON.stringify(url === OFFER_URI ? OFFER : ISSUER_METADATA), { headers: { 'content-type': 'application/json' } });
+		});
+		const engine = fakeEngine({
+			'wmp.flow.start': async (_p, c) => {
+				reachable = false;
+				await c.fetch({ method: 'GET', url: 'https://as.example/.well-known/oauth-authorization-server', headers: [], body: [] })
+					.catch(() => {});
+				throw Object.assign(new Error('oid4vci: metadata fetch failed: the fetch failed'), { code: -31006 });
+			},
+		});
+		const r = await transport(engine, storage).startOID4VCIFlow({ credentialOfferUri: OFFER_URI, redirectUri: REDIRECT });
+		expect(r).toMatchObject({ success: false, error: { code: 'UNREACHABLE_FROM_BROWSER' } });
+		expect(r.error?.message).toMatch(/^as\.example could not be reached from the browser/);
+	});
+
+	it('fails as unreachable when the issuer metadata cannot be fetched, before starting the engine', async () => {
+		vi.stubGlobal('fetch', async () => { throw new TypeError('Failed to fetch'); });
+		const engine = fakeEngine({});
+		const r = await transport(engine, storage).startOID4VCIFlow({ credentialOffer: JSON.stringify(OFFER), redirectUri: REDIRECT });
+		expect(r).toMatchObject({ success: false, error: { code: 'UNREACHABLE_FROM_BROWSER' } });
+		expect(engine.calls.find((c) => c.method === 'wmp.flow.start')).toBeUndefined();
+	});
+
 	it('builds the issuer metadata URL, path issuers included', () => {
 		expect(issuerMetadataUrl('https://issuer.example')).toBe('https://issuer.example/.well-known/openid-credential-issuer');
 		expect(issuerMetadataUrl('https://issuer.example/')).toBe('https://issuer.example/.well-known/openid-credential-issuer');
@@ -970,6 +997,63 @@ describe('wasmPorts', () => {
 		await expect(kv.get('flow-2')).resolves.toBeNull();
 		expect(storage.getItem(PENDING_AUTHORIZATION_KEY)).toBeNull();
 		expect(storage.getItem('unrelated')).toBe('keep');
+	});
+
+		it('the direct fetch goes straight to the server, without cookies, referrer or backend token', async () => {
+		const calls: any[] = [];
+		const fetchImpl = vi.fn(async (url: any, init: any) => {
+			calls.push({ url, init });
+			return new Response('{"access_token":"at"}', { status: 200, headers: { 'content-type': 'application/json', 'DPoP-Nonce': 'n1' } });
+		}) as unknown as typeof fetch;
+		const f = createDirectFetch({ fetchImpl });
+		const body = Array.from(new TextEncoder().encode('grant_type=x'));
+		const r = await f({ method: 'POST', url: 'https://as.example/token', headers: ['content-type', 'application/x-www-form-urlencoded'], body });
+
+		expect(calls[0].url).toBe('https://as.example/token');
+		expect(calls[0].init).toMatchObject({
+			method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
+			credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-store',
+		});
+		expect(new TextDecoder().decode(calls[0].init.body)).toBe('grant_type=x');
+		expect(calls[0].init.headers).not.toHaveProperty('Authorization');
+		expect(r.status).toBe(200);
+		expect(r.headers).toEqual(expect.arrayContaining(['dpop-nonce', 'n1']));
+		expect(new TextDecoder().decode(new Uint8Array(r.body))).toBe('{"access_token":"at"}');
+	});
+
+	it('the direct fetch caps the advertised batch size, and leaves other bodies byte for byte', async () => {
+		const fetchImpl = (async (url: any) => new Response(
+			url.includes('openid-credential-issuer')
+				? JSON.stringify({ credential_issuer: 'https://i', batch_credential_issuance: { batch_size: 50 } })
+				: '{ "b" : 1 }',
+			{ headers: { 'content-type': 'application/json' } },
+		)) as typeof fetch;
+		const f = createDirectFetch({ fetchImpl });
+
+		const meta = await f({ method: 'GET', url: 'https://i/.well-known/openid-credential-issuer', headers: [], body: [] });
+		expect(JSON.parse(new TextDecoder().decode(new Uint8Array(meta.body)))).toEqual({
+			credential_issuer: 'https://i', batch_credential_issuance: { batch_size: 1 },
+		});
+		const other = await f({ method: 'GET', url: 'https://i/other', headers: [], body: [] });
+		expect(new TextDecoder().decode(new Uint8Array(other.body))).toBe('{ "b" : 1 }');
+	});
+
+	it('the direct fetch reports a server the browser cannot reach (no CORS) by its host', async () => {
+		const onUnreachable = vi.fn();
+		const fetchImpl = (async () => { throw new TypeError('Failed to fetch'); }) as typeof fetch;
+		const f = createDirectFetch({ fetchImpl, onUnreachable });
+		const call = f({ method: 'GET', url: 'https://issuer.example/offer?secret=1', headers: [], body: [] });
+		await expect(call).rejects.toBeInstanceOf(UnreachableFromBrowserError);
+		await expect(call).rejects.toThrow('issuer.example could not be reached from the browser');
+		await expect(call).rejects.not.toThrow(/secret/);
+		expect(onUnreachable).toHaveBeenCalledWith('issuer.example');
+	});
+
+	it('the direct fetch passes an HTTP error status through as an answer', async () => {
+		const fetchImpl = (async () => new Response('{"error":"invalid_grant"}', { status: 400, headers: { 'content-type': 'application/json' } })) as typeof fetch;
+		const r = await createDirectFetch({ fetchImpl })({ method: 'POST', url: 'https://as.example/token', headers: [], body: [] });
+		expect(r.status).toBe(400);
+		expect(new TextDecoder().decode(new Uint8Array(r.body))).toBe('{"error":"invalid_grant"}');
 	});
 
 	it('the client_id lookup reads only the public clientId of the matching issuer record', async () => {

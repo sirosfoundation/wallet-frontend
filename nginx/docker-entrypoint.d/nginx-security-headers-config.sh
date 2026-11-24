@@ -10,6 +10,8 @@ set -e
 # - OHTTP_RELAY
 # - VCT_REGISTRY_URL
 # - OIDC_GATE_OP_URL
+# - WMP_URL (the core_remote transport's endpoint, when not on WALLET_ENGINE_URL)
+# - ALLOWED_TRANSPORTS (with core_local, the page connects to issuers and verifiers itself)
 # - NGINX_CSP_ENFORCE_RESOURCE_HTTPS ("true" or "false". Default: "false")
 # - NGINX_ENABLE_HSTS ("true" or "false". Default: "false")
 
@@ -55,11 +57,23 @@ if [ -n "${FACETEC_API_URL}" ]; then
 	CONNECT_SRC="${CONNECT_SRC} ${FACETEC_API_URL}"
 fi
 
+if [ -n "${WMP_URL}" ]; then
+	CONNECT_SRC="${CONNECT_SRC} ${WMP_URL}"
+fi
+
 if [ "${NGINX_CSP_ENFORCE_RESOURCE_HTTPS}" = "true" ]; then
 	RESOURCE_SCHEME_SRC="https:"
 else
 	RESOURCE_SCHEME_SRC="https: http:"
 fi
+
+# The wallet core in the browser (core_local) fetches issuers and verifiers
+# straight from the page, and they can be any host, so it needs to connect to
+# them like the images above. Without core_local, connect-src stays limited
+# to the wallet's own services.
+case ",$(echo "${ALLOWED_TRANSPORTS}" | tr -d ' ')," in
+	*,core_local,*) CONNECT_SRC="${CONNECT_SRC} ${RESOURCE_SCHEME_SRC}" ;;
+esac
 
 # -------------------------------------------------------------------------------------------------
 # Content Security Policy configuration

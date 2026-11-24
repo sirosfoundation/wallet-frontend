@@ -87,10 +87,11 @@ registerRoute(
 		try {
 			const response = await fetch(request);
 			if (response.ok) {
+				// Clone now: by the time the cache is open, the page has started
+				// reading the response, and a used body can no longer be cloned.
+				const copy = response.clone();
 				event.waitUntil(
-					caches.open("assets").then((cache) => {
-						return cache.put(request, response.clone())
-					}),
+					caches.open("assets").then((cache) => cache.put(request, copy)),
 				);
 			}
 			return response;
