@@ -45,6 +45,16 @@ type SignupWebauthnError = (
 );
 type SignupWebauthnRetryParams = { beginData: any, credential: PublicKeyCredential };
 
+export type LoginWebauthnError =
+	| 'unsupportedVersion'
+	| 'loginKeystoreFailed'
+	| 'passkeyInvalid'
+	| 'passkeyLoginFailedTryAgain'
+	| 'passkeyLoginFailedServerError'
+	| 'oidcTokenExpired'
+	| 'x-private-data-etag'
+	| 'userNotFound'
+	| 'passkeyNotAccepted';
 
 export type ClearSessionEvent = {};
 export const CLEAR_SESSION_EVENT = 'clearSession';
@@ -77,15 +87,7 @@ export interface BackendApi {
 		urlTenantId?: string,
 		oidcIdToken?: string,
 	): Promise<
-		Result<void,
-			| 'unsupportedVersion'
-			| 'loginKeystoreFailed'
-			| 'passkeyInvalid'
-			| 'passkeyLoginFailedTryAgain'
-			| 'passkeyLoginFailedServerError'
-			| 'oidcTokenExpired'
-			| 'x-private-data-etag'
-		>
+		Result<void, LoginWebauthnError>
 	>,
 	signupWebauthn(
 		name: string,
@@ -480,15 +482,7 @@ export function useApi({
 		cachedUser: CachedUser | undefined,
 		urlTenantId?: string,
 		oidcIdToken?: string
-	): Promise<Result<void,
-		| 'unsupportedVersion'
-		| 'loginKeystoreFailed'
-		| 'passkeyInvalid'
-		| 'passkeyLoginFailedTryAgain'
-		| 'passkeyLoginFailedServerError'
-		| 'oidcTokenExpired'
-		| 'x-private-data-etag'
-	>> => {
+	): Promise<Result<void, LoginWebauthnError>> => {
 		try {
 			// Login always uses global endpoints - the backend discovers the tenant
 			// from the userHandle which contains a hashed tenant ID.
@@ -603,14 +597,22 @@ export function useApi({
 
 		} catch (e) {
 			logger.error("Login failed", e);
+			const isLoginFinish = e?.config?.url?.endsWith('/auth/passkey/login/finish');
 
 			if (e instanceof UnsupportedSchemaVersionError) {
 				return err('unsupportedVersion');
 			}
-
-			if (e?.response?.status === 401) {
+			if (isLoginFinish && e?.response?.status === 404) {
+				// Passkey is valid but the account behind it does not exist anymore (user not found)
+				return err('userNotFound');
+			}
+			if (e?.response?.status === 401 && oidcIdToken) {
 				// OIDC gate token expired or invalid - user must re-authenticate via IdP
 				return err('oidcTokenExpired');
+			}
+			if (isLoginFinish && e?.response?.status === 401) {
+				// Backend rejected the passkey ("authentication failed"), e.g. the account was deleted
+				return err('passkeyNotAccepted');
 			}
 			if (e?.response?.status === 403) {
 				// Tenant access denied - passkey belongs to different tenant
