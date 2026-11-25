@@ -297,7 +297,7 @@ export function useApi({
 				try {
 					const remotePrivateData = getPrivateDataResponse.data.privateData;
 					const mergeResult = await keystore.syncWithRemoteData(remotePrivateData);
-					if (!mergeResult.ok && mergeResult.val === 'unsupportedVersion') {
+					if (mergeResult.ok === false && mergeResult.error === 'unsupportedVersion') {
 						notify('unsupportedVersion');
 						return err('unsupportedVersion');
 					}
@@ -306,7 +306,7 @@ export function useApi({
 							getPrivateDataResponse.headers?.['x-private-data-etag'] ??
 							getPrivateDataResponse.headers?.['etag'];
 						const updateResp = updatePrivateDataEtag(
-							await post('/user/session/private-data', serializePrivateData(mergeResult.val), {
+							await post('/user/session/private-data', serializePrivateData(mergeResult.value), {
 								headers: newEtag ? { 'X-Private-Data-If-Match': newEtag } : {},
 							}),
 						);
