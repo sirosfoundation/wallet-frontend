@@ -118,8 +118,8 @@ const Signup = () => {
 			inviteCode,
 			gate.idToken || undefined,
 		);
-		if (result.err) {
-		switch (result.val) {
+		if (result.ok === false) {
+		switch (result.error) {
 			case 'passkeySignupFailedServerError':
 								setError(t('loginSignup.passkeySignupFailedServerError'));
 								break;
@@ -167,8 +167,8 @@ const Signup = () => {
 								break;
 
 							default:
-								if (result.val?.errorId === 'prfRetryFailed') {
-									setRetrySignupFrom(result.val?.retryFrom);
+								if (result.error?.errorId === 'prfRetryFailed') {
+									setRetrySignupFrom(result.error?.retryFrom);
 
 								} else {
 									setError(t('loginSignup.passkeySignupPrfRetryFailed'));
