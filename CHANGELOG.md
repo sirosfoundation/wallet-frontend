@@ -1,5 +1,16 @@
 # wallet-frontend
 
+## 0.8.0
+
+### Minor Changes
+
+- added a "Get Ready" Information page for the users in the sign-up process. by [@lov1saconde](https://github.com/lov1saconde) in [#402](https://github.com/sirosfoundation/wallet-frontend/pull/402)
+
+### Patch Changes
+
+- fixing an error message for no user found by [@lov1saconde](https://github.com/lov1saconde) in [#482](https://github.com/sirosfoundation/wallet-frontend/pull/482)
+- fix `Result` type mismatch at call sites in api and signup by [@smncd](https://github.com/smncd) in [#485](https://github.com/sirosfoundation/wallet-frontend/pull/485)
+
 ## 0.7.2
 
 ### Patch Changes
