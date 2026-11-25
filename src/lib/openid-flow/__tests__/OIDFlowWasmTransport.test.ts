@@ -77,7 +77,7 @@ function fakeWscd() {
 			Array.from({ length: n }, (_, i) => ({ kid: `kid-${i + 1}`, publicKey: { kty: 'EC', crv: 'P-256', x: 'x', y: 'y' } }))),
 		signOpenid4vciProofJwt: vi.fn(async () => new Uint8Array([1, 2, 3])),
 	} as unknown as IWscdManagerClient & { generateKeypairs: ReturnType<typeof vi.fn>; signOpenid4vciProofJwt: ReturnType<typeof vi.fn> };
-	
+
 }
 
 const trust: TrustEvaluators = {
@@ -470,7 +470,7 @@ describe('OIDFlowWasmTransport: authorization-code issuance', () => {
 			expect(seen.code).toMatch(/^rejected/);
 			vi.useRealTimers();
 		});
-		
+
 		it('releases the flow in progress: cancels it in the engine and refuses a late signature for it', async () => {
 			const engine = preAuthEngine(true);
 			const t = transport(engine, storage);
