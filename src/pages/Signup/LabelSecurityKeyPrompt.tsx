@@ -46,6 +46,7 @@ const LabelSecurityKeyPrompt = () => {
 
 	const onClose = () => {
 		api.updateShowLabelSecurityKey(false);
+		api.updateShowSecondSecurityKey(true);
 		setWebauthnCredentialId(null);
 	};
 	if (!showLabelSecurityKey || !webauthnCredentialId) return null;

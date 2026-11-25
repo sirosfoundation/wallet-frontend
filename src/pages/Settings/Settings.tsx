@@ -1,4 +1,4 @@
-import React, { FormEvent, KeyboardEvent, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { SubmitEvent, KeyboardEvent, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
 import StatusContext from '@/context/StatusContext';
@@ -9,7 +9,6 @@ import useScreenType from '../../hooks/useScreenType';
 
 import { UserData, WebauthnCredential } from '../../api/types';
 import { compareBy, toBase64Url } from '@/lib/utils';
-import { withAuthenticatorAttachmentFromHints } from '@/lib/utils/webauthn';
 import { formatDate } from 'wallet-common';
 import type { WebauthnPrfEncryptionKeyInfo } from '../../services/keystore';
 import { isPrfKeyV2, serializePrivateData } from '../../services/keystore';
@@ -24,6 +23,7 @@ import { UsbStickDotIcon } from '@/components/Shared/CustomIcons';
 import { APP_VERSION } from '@/config';
 import { logger } from '@/logger';
 import { useWalletCompanion } from '@/context/WalletCompanionContext';
+import { useAddSecurityKey } from '@/hooks/useAddSecurityKey';
 
 function useWebauthnCredentialNickname(credential: WebauthnCredential): string {
 	const { t } = useTranslation();
@@ -92,125 +92,29 @@ const WebauthnRegistation = ({
 	onSuccess: () => void,
 }) => {
 	const { isOnline } = useContext(StatusContext);
-	const { api, keystore } = useContext(SessionContext);
-	const [beginData, setBeginData] = useState(null);
-	const [pendingCredential, setPendingCredential] = useState(null);
-	const [nickname, setNickname] = useState("");
-	const [isSubmitting, setIsSubmitting] = useState(false);
-	const [needPrfRetry, setNeedPrfRetry] = useState(false);
-	const [resolvePrfRetryPrompt, setResolvePrfRetryPrompt] = useState<null | ((accept: boolean) => void)>(null);
-	const [prfRetryAccepted, setPrfRetryAccepted] = useState(false);
+	const addKey = useAddSecurityKey();
+	const [nickname, setNickname] = useState('');
 	const { t } = useTranslation();
 	const screenType = useScreenType();
 
-	const stateChooseNickname = Boolean(beginData) && !needPrfRetry;
+	const stateChooseNickname = Boolean(addKey.beginData) && !addKey.needPrfRetry;
+	const registrationInProgress = addKey.isActive;
 
-	const onBegin = useCallback(
-		async (webauthnHint) => {
-			setBeginData(null);
-			setIsSubmitting(true);
-			setPendingCredential(null);
-
-			const beginResp = await api.post('/user/session/webauthn/register-begin', {});
-			logger.debug("begin", beginResp);
-			const beginData = beginResp.data;
-
-			if (beginData.challengeId) {
-				setBeginData(beginData);
-
-				const hints = [webauthnHint];
-				const createOptions = {
-					...beginData.createOptions,
-					publicKey: {
-						...beginData.createOptions.publicKey,
-						hints,
-						authenticatorSelection: withAuthenticatorAttachmentFromHints(beginData.createOptions.publicKey.authenticatorSelection, hints),
-					},
-				};
-
-				try {
-					const credential = await navigator.credentials.create(createOptions);
-					logger.debug("created", credential);
-					setPendingCredential(credential);
-				} catch (e) {
-					logger.error("Failed to register", e);
-					setBeginData(null);
-					setPendingCredential(null);
-				}
-				setIsSubmitting(false);
-			}
-		},
-		[api],
-	);
+	const onBegin = (webauthnHint:string) => {
+		addKey.begin(webauthnHint);
+	};
 
 	const onCancel = () => {
-		logger.debug("onCancel");
-		setPendingCredential(null);
-		setBeginData(null);
-		setNeedPrfRetry(false);
-		setResolvePrfRetryPrompt(null);
-		setPrfRetryAccepted(false);
-		setIsSubmitting(false);
+		addKey.cancel();
 	};
 
-	const onFinish = async (event) => {
+	const onFinish = async (event: SubmitEvent<HTMLFormElement>) => {
 		event.preventDefault();
-		logger.debug("onFinish", event);
-
-		if (beginData && pendingCredential) {
-			try {
-				const [newPrivateData, keystoreCommit] = await keystore.addPrf(
-					pendingCredential,
-					async () => {
-						setNeedPrfRetry(true);
-						return new Promise<boolean>((resolve, reject) => {
-							setResolvePrfRetryPrompt(() => resolve);
-						}).finally(() => {
-							setNeedPrfRetry(false);
-							setPrfRetryAccepted(true);
-							setResolvePrfRetryPrompt(null);
-						});
-					},
-				);
-
-				setIsSubmitting(true);
-				api.updatePrivateDataEtag(await api.post('/user/session/webauthn/register-finish', {
-					challengeId: beginData.challengeId,
-					nickname,
-					credential: {
-						type: pendingCredential.type,
-						id: pendingCredential.id,
-						rawId: pendingCredential.rawId,
-						response: {
-							attestationObject: pendingCredential.response.attestationObject,
-							clientDataJSON: pendingCredential.response.clientDataJSON,
-							transports: pendingCredential.response.getTransports(),
-						},
-						authenticatorAttachment: pendingCredential.authenticatorAttachment,
-						clientExtensionResults: pendingCredential.getClientExtensionResults(),
-					},
-					privateData: serializePrivateData(newPrivateData),
-				}));
-				onSuccess();
-				setNickname("");
-				await keystoreCommit();
-
-			} catch (e) {
-				logger.error("Failed to finish registration", e);
-				if (e?.cause === 'x-private-data-etag') {
-					// TODO: Show this error to the user
-					throw new Error("Private data version conflict", { cause: e });
-				}
-
-			} finally {
-				onCancel();
-			}
-		} else {
-			logger.error("Invalid state:", beginData, pendingCredential);
+		if (await addKey.finish(nickname)) {
+			onSuccess();
+			setNickname('');
 		}
 	};
-
-	const registrationInProgress = Boolean(beginData || pendingCredential);
 
 	return (
 		<div className="flex flex-row flex-wrap items-baseline gap-2">
@@ -253,7 +157,7 @@ const WebauthnRegistation = ({
 				onCancel={onCancel}
 			>
 				<form method="dialog" onSubmit={onFinish}>
-					{pendingCredential
+					{addKey.pendingCredential
 						? (
 							<>
 								<H2 heading={t('registerPasskey.messageSuccess')} hr={false} flexJustifyContent='center' />
@@ -263,7 +167,7 @@ const WebauthnRegistation = ({
 									className="my-4 w-full px-3 py-2 bg-lm-gray-200 dark:bg-dm-gray-800 border border-lm-gray-600 dark:border-dm-gray-400 dark:text-white rounded-lg dark:inputDarkModeOverride"
 									aria-label={t('registerPasskey.nicknameAriaLabel')}
 									autoFocus={true}
-									disabled={isSubmitting}
+									disabled={addKey.isSubmitting}
 									onChange={(event) => setNickname(event.target.value)}
 									placeholder={t('registerPasskey.nicknamePlaceholder')}
 									value={nickname}
@@ -281,17 +185,17 @@ const WebauthnRegistation = ({
 						<Button
 							id="cancel-add-passkey-settings"
 							onClick={onCancel}
-							disabled={isSubmitting}
+							disabled={addKey.isSubmitting}
 						>
 							{t('common.cancel')}
 						</Button>
 
-						{pendingCredential && (
+						{addKey.pendingCredential && (
 							<Button
 								id="save-add-passkey-settings"
 								type="submit"
 								variant="primary"
-								disabled={isSubmitting}
+								disabled={addKey.isSubmitting}
 							>
 								{t('common.save')}
 							</Button>
@@ -302,8 +206,8 @@ const WebauthnRegistation = ({
 			</Dialog>
 
 			<Dialog
-				open={needPrfRetry && !prfRetryAccepted}
-				onCancel={() => resolvePrfRetryPrompt(false)}
+				open={addKey.needPrfRetry && !addKey.prfRetryAccepted}
+				onCancel={() => addKey.resolvePrfRetryPrompt(false)}
 			>
 				<H2 heading={t('registerPasskey.messageDone')} flexJustifyContent='center' hr={false}/>
 				<p className='dark:text-white'>{t('registerPasskey.passkeyCreated')}</p>
@@ -312,16 +216,16 @@ const WebauthnRegistation = ({
 				<div className='flex justify-center gap-2'>
 					<Button
 						id="cancel-prf-passkey-settings"
-						onClick={() => resolvePrfRetryPrompt(false)}
+						onClick={() => addKey.resolvePrfRetryPrompt(false)}
 					>
 						{t('common.cancel')}
 					</Button>
 
 					<Button
 						id="continue-prf-passkey-settings"
-						onClick={() => resolvePrfRetryPrompt(true)}
+						onClick={() => addKey.resolvePrfRetryPrompt(true)}
 						variant="primary"
-						disabled={prfRetryAccepted}
+						disabled={addKey.prfRetryAccepted}
 					>
 						{t('common.continue')}
 					</Button>
@@ -330,7 +234,7 @@ const WebauthnRegistation = ({
 			</Dialog>
 
 			<Dialog
-				open={prfRetryAccepted}
+				open={addKey.prfRetryAccepted}
 				onCancel={onCancel}
 			>
 				<p className='dark:text-white'>{t('registerPasskey.messageInteractNewPasskey')}</p>
@@ -486,7 +390,7 @@ const WebauthnCredentialItem = ({
 		[onCancelEditing],
 	);
 
-	const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
+	const onSubmit = async (event: SubmitEvent<HTMLFormElement>) => {
 		event.preventDefault();
 		setSubmitting(true);
 		try {

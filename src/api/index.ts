@@ -30,6 +30,7 @@ type SessionState = {
 	authenticationType: 'signup' | 'login',
 	showWelcome: boolean,
 	showLabelSecurityKey: boolean,
+	showSecondSecurityKey: boolean,
 }
 
 type SignupWebauthnError = (
@@ -100,10 +101,12 @@ export interface BackendApi {
 		oidcIdToken?: string,
 	): Promise<Result<void, SignupWebauthnError>>,
 	updatePrivateData(newPrivateData: EncryptedContainer): Promise<void>,
+	updateLocalPrivateData(newPrivateData: EncryptedContainer): Promise<void>,
 	updatePrivateDataEtag(resp: AxiosResponse): AxiosResponse,
 
 	updateShowWelcome(showWelcome: boolean): void,
 	updateShowLabelSecurityKey(show: boolean): void,
+	updateShowSecondSecurityKey(show: boolean): void,
 
 	addEventListener(type: ApiEventType, listener: EventListener, options?: boolean | AddEventListenerOptions): void,
 	removeEventListener(type: ApiEventType, listener: EventListener, options?: boolean | EventListenerOptions): void,
@@ -363,6 +366,15 @@ export function useApi({
 		}
 	}, [sessionState, setSessionState]);
 
+	const updateShowSecondSecurityKey = useCallback((show: boolean): void => {
+		if (sessionState) {
+			setSessionState((prevState) => ({
+				...prevState,
+				showSecondSecurityKey: show,
+			}));
+		}
+	}, [sessionState, setSessionState]);
+
 	const getSession = useCallback((): SessionState => {
 		return sessionState;
 	}, [sessionState]);
@@ -384,6 +396,7 @@ export function useApi({
 			authenticationType,
 			showWelcome: authenticationType === 'signup',
 			showLabelSecurityKey: authenticationType === 'signup',
+			showSecondSecurityKey: false,
 		});
 
 		await addItem('users', userRecord.uuid, userRecord);
@@ -392,25 +405,28 @@ export function useApi({
 		}
 	}, [setSessionState, fetchInitialData, isOnline]);
 
+	const updateLocalPrivateData = useCallback(async (
+		newPrivateData: EncryptedContainer,
+	): Promise<void> => {
+		if (!userHandle) {
+			return;
+		}
+		const userId = UserId.fromUserHandle(fromBase64Url(userHandle));
+		const userObject = await getItem("users", userId.id);
+		if (!userObject) {
+			throw new Error(`Could not find user with userHandle ${userHandle} on indexedDB 'users' table`);
+		}
+		userObject.privateData = serializePrivateData(newPrivateData);
+		await addItem("users", userId.id, userObject);
+	}, [userHandle]);
+
 	const updatePrivateData = useCallback(async (
 		newPrivateData: EncryptedContainer,
 	): Promise<void> => {
 		try {
-			async function writeOnIndexedDB() {
-				if (!userHandle) {
-					return;
-				}
-				const userId = UserId.fromUserHandle(fromBase64Url(userHandle));
-				const userObject = await getItem("users", userId.id);
-				if (!userObject) {
-					throw new Error(`Could not find user with userHandle ${userHandle} on indexedDB 'users' table`);
-				}
-				userObject.privateData = serializePrivateData(newPrivateData);
-				await addItem("users", userId.id, userObject);
-			}
 
 			if (!isOnline) {
-				await writeOnIndexedDB();
+				await updateLocalPrivateData(newPrivateData);
 				logger.debug("Cannot write to remote keystore while offline");
 				return;
 			}
@@ -418,7 +434,7 @@ export function useApi({
 				await post('/user/session/private-data', serializePrivateData(newPrivateData)),
 			);
 			if (updateResp.status === 204) {
-				await writeOnIndexedDB();
+				await updateLocalPrivateData(newPrivateData);
 				return;
 			} else {
 				logger.error("Failed to update private data", updateResp.status, updateResp);
@@ -434,7 +450,7 @@ export function useApi({
 			}
 			throw e;
 		}
-	}, [post, updatePrivateDataEtag, cachedUsers, userHandle, syncPrivateData, isOnline]);
+	}, [post, updatePrivateDataEtag, updateLocalPrivateData, cachedUsers, userHandle, syncPrivateData, isOnline]);
 
 	const getAllVerifiers = useCallback(async (): Promise<Verifier[]> => {
 		try {
@@ -569,6 +585,10 @@ export function useApi({
 				try {
 					await updatePrivateData(newPrivateData);
 					await keystoreCommit();
+					userRecord = {
+						...userRecord,
+						privateData: serializePrivateData(newPrivateData)
+					};
 				} catch (e) {
 					logger.error("Failed to upgrade PRF key", e, e.status);
 					if (e?.cause === 'x-private-data-etag') {
@@ -796,6 +816,7 @@ export function useApi({
 
 		updateShowWelcome,
 		updateShowLabelSecurityKey,
+		updateShowSecondSecurityKey,
 
 		getSession,
 		isLoggedIn,
@@ -810,6 +831,7 @@ export function useApi({
 		signupWebauthn,
 		updatePrivateData,
 		updatePrivateDataEtag,
+		updateLocalPrivateData,
 
 		addEventListener,
 		removeEventListener,
@@ -823,6 +845,7 @@ export function useApi({
 
 		updateShowWelcome,
 		updateShowLabelSecurityKey,
+		updateShowSecondSecurityKey,
 
 		getSession,
 		isLoggedIn,
@@ -837,6 +860,7 @@ export function useApi({
 		signupWebauthn,
 		updatePrivateData,
 		updatePrivateDataEtag,
+		updateLocalPrivateData,
 
 		addEventListener,
 		removeEventListener,
