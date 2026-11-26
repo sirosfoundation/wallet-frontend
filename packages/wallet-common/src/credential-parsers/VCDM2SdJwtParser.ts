@@ -5,6 +5,7 @@ import { Context, CredentialParser, HttpClient } from "../interfaces";
 import { MetadataWarning, TypeMetadataResult, VerifiableCredentialFormat } from "../types";
 import { CustomCredentialSvg } from "../functions/CustomCredentialSvg";
 import { getIssuerMetadata } from "../utils/getIssuerMetadata";
+import { extractStatusListReference } from "../utils/statusListReference";
 import { convertOpenid4vciToSdjwtvcClaims } from "../functions/convertOpenid4vciToSdjwtvcClaims";
 import { dataUriResolver } from "../resolvers/dataUriResolver";
 import { friendlyNameResolver } from "../resolvers/friendlyNameResolver";
@@ -158,6 +159,7 @@ export function VCDM2SdJwtParser(args: { context: Context, httpClient: HttpClien
 					validityInfo: {
 						...extractVcdm2ValidityInfo(credential, jwtClaims),
 					},
+					statusReference: extractStatusListReference(claims.status),
 					warnings: warnings.length > 0 ? warnings : undefined,
 				},
 			};
