@@ -44,7 +44,7 @@ export type CredentialsContextValue = {
 	setCurrentSlide: (slide: number) => void;
 	parseCredential: (credential: WalletStateCredential) => Promise<ParsedCredential | null>;
 	credentialEngine: Promise<CredentialEngine>;
-	pendingTransactions: Record<string, any>;
+	pendingTransactions: any[] | null;
 };
 
 const CredentialsContext = createContext<CredentialsContextValue | null>(null);
