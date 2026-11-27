@@ -37,6 +37,7 @@
 		"navItemSettings": "Asetukset",
 		"navItemShareCredentials": "Jaa todistuksia",
 		"navItemShareCredentialsSimple": "Jaa",
+		"navItemShareInPerson": "Jaa kasvokkain",
 		"next": "Seuraava",
 		"offline": "Offline",
 		"offlineTitle": "Olet offline. Sinulla ei ole pääsyä tänne juuri nyt.",
@@ -70,6 +71,32 @@
 	},
 	"expiredRibbon": {
 		"expired": "Vanhentunut"
+	},
+	"getReady": {
+		"about": {
+			"compatible": "SIROS ID toimii Yubicon, Googlen ja muiden turva-avainten kanssa. <u>Katso yhteensopivat turva-avaimet</u>",
+			"imgAlt": "YubiKey 5C: musta USB-C-turva-avain, jossa on pyöreä kultainen kosketusanturi.",
+			"text": "Turva-avaimet tarjoavat yksityistä, laitteistopohjaista suojaa, ja pääsyn myöntämiseen tarvitaan vain fyysinen kosketus tai NFC-napautus.",
+			"title": "Tietoa turva-avaimista"
+		},
+		"back": "Takaisin rekisteröitymiseen",
+		"noKey": "Eikö sinulla ole suoja-avainta? <u>Kokeile toista tapaa</u>.",
+		"steps": {
+			"getKey": {
+				"text": "Tarvitset sitä luodaksesi ja kirjautuaksesi tilillesi.",
+				"title": "Hanki turva-avaimesi"
+			},
+			"pin": {
+				"text": "Jos turva-avaimessasi ei ole PIN-koodia, sinua pyydetään luomaan sellainen.",
+				"title": "Varmista, että siinä on PIN-koodi"
+			},
+			"secondKey": {
+				"text": "Sinulta kysytään, haluatko määrittää toisen turva-avaimen. Tämä varmistaa, että pääset lompakkoosi, jos kadotat ensimmäisen avaimen.",
+				"title": "Hanki toinen turva-avain (suositeltavaa)"
+			}
+		},
+		"tip": "<b>Vinkki:</b> Jos turva-avaimesi ei tue NFC:tä, aseta se nyt.",
+		"title": "Valmistaudu!"
 	},
 	"globalError": {
 		"contactSupport": "Tai ota meihin yhteyttä osoitteessa support@siros.org.",
@@ -117,18 +144,6 @@
 		"messageOffline": "Olet tällä hetkellä <strong>offline. Jotkin toiminnot eivät ehkä ole käytettävissä.</strong>",
 		"messageResetPermission": "Jokin <strong>ei toimi oikein ilmoitusten kanssa</strong>, <reloadButton>lataa tämä sivu uudelleen</reloadButton>."
 	},
-	"getReady": {
-		"title": "Valmistaudu!",
-		"back": "Takaisin rekisteröitymiseen",
-		"steps": {
-			"getKey": { "title": "Hanki turva-avaimesi", "text": "Tarvitset sitä luodaksesi ja kirjautuaksesi tilillesi." },
-			"pin": { "title": "Varmista, että siinä on PIN-koodi", "text": "Jos turva-avaimessasi ei ole PIN-koodia, sinua pyydetään luomaan sellainen." },
-			"secondKey": { "title": "Hanki toinen turva-avain (suositeltavaa)", "text": "Sinulta kysytään, haluatko määrittää toisen turva-avaimen. Tämä varmistaa, että pääset lompakkoosi, jos kadotat ensimmäisen avaimen." }
-		},
-		"noKey": "Eikö sinulla ole suoja-avainta? <u>Kokeile toista tapaa</u>.",
-		"about": {"title": "Tietoa turva-avaimista", "text": "Turva-avaimet tarjoavat yksityistä, laitteistopohjaista suojaa, ja pääsyn myöntämiseen tarvitaan vain fyysinen kosketus tai NFC-napautus.", "compatible": "SIROS ID toimii Yubicon, Googlen ja muiden turva-avainten kanssa. <u>Katso yhteensopivat turva-avaimet</u>", "imgAlt": "YubiKey 5C: musta USB-C-turva-avain, jossa on pyöreä kultainen kosketusanturi."},
-		"tip": "<b>Vinkki:</b> Jos turva-avaimesi ei tue NFC:tä, aseta se nyt."
-	},
 	"loginSignup": {
 		"acceptPolicies": "Hyväksyn <policyLinks/>.",
 		"alreadyHaveAccountQuestion": "Onko sinulla jo lompakkotili? ",
@@ -157,7 +172,6 @@
 		"or": "TAI",
 		"passkeyInvalid": "Tuntematon passkey, käyttäjä on mahdollisesti poistanut sen.",
 		"passkeyLoginFailedServerError": "Passkey-kirjautumisen aloittaminen epäonnistui, yritä myöhemmin uudelleen.",
-		"userNotFound": "Tiliä ei enää ole olemassa. Rekisteröidy luodaksesi uuden tilin.",
 		"passkeyLoginFailedTryAgain": "Passkey-kirjautuminen epäonnistui, yritä uudelleen.",
 		"passkeyNotAccepted": "Annettua passkeytä ei hyväksytty. Jos olet poistanut tilisi, rekisteröidy luodaksesi uuden tilin.",
 		"passkeySignupFailedServerError": "Passkeyn luomisen aloittaminen epäonnistui, yritä myöhemmin uudelleen.",
@@ -176,6 +190,7 @@
 		"submitting": "Lähetetään...",
 		"unsupportedVersion": "Tämän lompakon tiedot käyttävät versiota, jota tämä sovellus ei tue. Päivitä sovellus ja yritä uudelleen.",
 		"useOtherAccount": "Käytä toista tiliä",
+		"userNotFound": "Tiliä ei enää ole olemassa. Rekisteröidy luodaksesi uuden tilin.",
 		"usernameExistsError": "Käyttäjätilin luominen epäonnistui, käyttäjänimi on jo olemassa",
 		"usernameLabel": "Käyttäjänimi",
 		"welcomeMessage": "Tervetuloa <highlight>$t(common.walletName)</highlight>"
@@ -587,6 +602,22 @@
 			"title": "Valittu:"
 		},
 		"searchPlaceholder": "Etsi todentajia..."
+	},
+	"pageShareInPerson": {
+		"description": "Jaa tunnistetieto lähellä olevan laitteen kanssa yhdellä kolmesta tavasta:",
+		"scanQr": {
+			"description": "Skannaa laitteen QR-koodi puhelimellasi.",
+			"title": "Skannaa QR-koodi"
+		},
+		"showQr": {
+			"description": "Näytä QR-koodisi laitteen skannattavaksi.",
+			"title": "Näytä QR-koodi"
+		},
+		"tap": {
+			"description": "Jaa tietoja pyytäjän kanssa pitämällä laitettasi heidän laitteensa lähellä.",
+			"title": "Napauta toista laitetta"
+		},
+		"title": "Jaa kasvokkain"
 	},
 	"parsing": {
 		"errorCouldNotParse": "Todistusta ei voitu jäsentää.",

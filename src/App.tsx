@@ -32,6 +32,7 @@ const Pending = React.lazy(() => import('./pages/Pending/Pending'));
 const HistoryDetail = React.lazy(() => import('./pages/History/HistoryDetail'));
 const Home = React.lazy(() => import('./pages/Home/Home'));
 const ShareCredentials = React.lazy(() => import('./pages/ShareCredentials/ShareCredentials'));
+const ShareInPerson = React.lazy(() => import('./pages/ShareInPerson/ShareInPerson'));
 const Settings = React.lazy(() => import('./pages/Settings/Settings'));
 const VerificationResult = React.lazy(() => import('./pages/VerificationResult/VerificationResult'));
 const OpenIDFlowCallback = React.lazy(() => import('./pages/OpenIDFlowCallback/OpenIDFlowCallback'));
@@ -116,6 +117,7 @@ function App() {
 							<Route path="add" element={<AddCredentials />} />
 							<Route path="add/digital-id" element={<ScanPhysicalID />} />
 							<Route path="share" element={<ShareCredentials />} />
+							<Route path="share/in-person" element={<ShareInPerson />} />
 							<Route path="verification/result" element={<VerificationResult />} />
 						</Route>
 						{/**
