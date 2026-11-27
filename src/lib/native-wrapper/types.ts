@@ -50,10 +50,82 @@ export interface MdocRegistryEntry {
 
 export type CredentialRegistryEntry = SdJwtRegistryEntry | MdocRegistryEntry;
 
+// To do: figure out what central and peripheral modes mean in the context of proximity interactions
+export type ProximityMode = 'central' | 'peripheral';
+
+export interface ProximityStartOptions {
+	mode?: ProximityMode;
+}
+
+// To do: figure out what this means
+export interface ProximityEngagement {
+	mdocUri: string;
+	mode: ProximityMode;
+}
+
+export interface ProximityCredentialFamily {
+	credentialId: number;
+	batchId: number;
+	instances: number;
+}
+
+export interface ProximityRequestMap {
+	credentials: {
+		request: null;
+		response: unknown[];
+	};
+	sign: {
+		request: {
+			credentialId: number;
+			disclosedClaims: string[] | null;
+			sessionTranscript: string;
+		};
+		response: { deviceResponse: string };
+	};
+	consent: {
+		request: {
+			docType: string;
+			requestedClaims: string[];
+			families: ProximityCredentialFamily[];
+			readerTrust: { trusted: boolean; reason: string | null; entityName: string | null } | null;
+		};
+		response: { approved: boolean; credentialId?: number };
+	};
+	readerTrust: {
+		request: { x5chain: string[] };
+		response: { trusted: boolean; reason?: string; entityName?: string };
+	};
+	step: {
+		request: { step: string };
+		response: void;
+	};
+	complete: {
+		request: { success: boolean };
+		response: void;
+	};
+}
+
 export interface NativeWrapper {
 	updateAllCredentials(credentials: string, callbackUrl?: string): void;
 	sendDcApiResponse(response: string, error?: string): void;
 	isKeystoreOpen(): Promise<boolean>;
 	startScanPhysicalId?(facetecApiUrl?: string): void;
+
+
+	proximityStart?(options: ProximityStartOptions): Promise<ProximityEngagement>;
+
+	proximityStop?(): Promise<boolean>;
+
+	onProximityRequest?<Name extends keyof ProximityRequestMap>(
+		name: Name,
+		handler: (
+			payload: ProximityRequestMap[Name]['request'],
+		) => ProximityRequestMap[Name]['response'] | Promise<ProximityRequestMap[Name]['response']>,
+	): () => void;
+
 	callWscd(method: keyof WscdManagerJs, ...args: unknown[]): Promise<unknown>;
 }
+
+/**
+ * Native wrapper element ska läggas in här
+ */
