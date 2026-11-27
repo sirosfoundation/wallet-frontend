@@ -40,6 +40,7 @@ import { TrustEvaluators, TrustStatus } from '../types';
 import { DcqlQuery } from 'dcql';
 import { ClientHeldEncryptionError, LEGACY_SECRET_MEMBER, OIDFlowError } from '../errors';
 import { ZKP_REQ_REFUSED, requestsZkpReq, zkpReqRefusal } from '../utils/zkp-req-policy';
+import { verifySignRequestAgainstConsent, type ConsentedCredential } from '../consentGuard';
 
 /**
  * Pending request waiting for a response
@@ -249,6 +250,8 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 	#flowAborts = new Map<string, AbortController>();
 	/** Flows whose DCQL asks for a zkp_req presentation: their sign request is held to the same policy. */
 	private zkpReqFlows = new Set<string>();
+	/** What the user consented to, per flow. Sign requests are verified against it. */
+	private vpConsents = new Map<string, ConsentedCredential[]>();
 
 	private reconnectAttempts = 0;
 	private maxReconnectAttempts = 5;
@@ -376,6 +379,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		this.responseKeys.clear();
 		this.#abortAllFlows();
 		this.zkpReqFlows.clear();
+		this.vpConsents.clear();
 	}
 
 	/**
@@ -805,17 +809,33 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 				this.vpCredentialCache.set(c.walletCredentialRef, c.credentialRaw);
 			}
 
-			const response = await this.send({
-				type: 'flow_action',
-				action: 'consent',
-				payload: {
-					selected_credentials: params.selectedCredentials.map(c => ({
-						credential_id: c.walletCredentialRef,
-						credential_query_id: c.credentialQueryId,
-						disclosed_claims: c.disclosedClaims ?? [],
-					})),
-				},
-			});
+			// Record the consent so sign requests can be verified against it.
+			const flowId = this.currentFlowId ?? crypto.randomUUID();
+			this.vpConsents.set(flowId, params.selectedCredentials.map(c => ({
+				credentialId: c.walletCredentialRef,
+				credentialQueryId: c.credentialQueryId,
+				disclosedClaims: c.disclosedClaims ?? [],
+				credentialRaw: c.credentialRaw,
+			})));
+
+			let response: ServerMessage;
+			try {
+				response = await this.send({
+					type: 'flow_action',
+					flow_id: flowId,
+					action: 'consent',
+					payload: {
+						selected_credentials: params.selectedCredentials.map(c => ({
+							credential_id: c.walletCredentialRef,
+							credential_query_id: c.credentialQueryId,
+							disclosed_claims: c.disclosedClaims ?? [],
+						})),
+					},
+				});
+			} finally {
+				// Revoke the recorded consent on success and failure (incl. timeout).
+				this.vpConsents.delete(flowId);
+			}
 			return this.mapOID4VPResponse(response);
 		}
 
@@ -1126,6 +1146,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			if (type === 'flow_complete' || type === 'flow_error' || type === 'error') {
 				this.currentFlowId = null;
 				this.vpCredentialCache.clear();
+				this.vpConsents.delete(flowId);
 			}
 
 			// Resolve all non-progress, non-sign_request messages (including error/flow_error)
@@ -1395,6 +1416,25 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			return;
 		}
 
+		// Interim defence (consentGuard.ts): never disclose or sign what the
+		// user did not consent to. The presentation is built from the locally
+		// recorded consent; the engine's echoed list is only verified. The
+		// snapshot is kept for the signer's re-check below: the consent may
+		// be revoked while the signer runs.
+		let consentSnapshot: ConsentedCredential[] | undefined;
+		if (request.action === 'sign_presentation') {
+			consentSnapshot = this.vpConsents.get(request.flowId);
+			const verification = verifySignRequestAgainstConsent(
+				consentSnapshot,
+				rawParams.credentials_to_include,
+			);
+			if (verification.ok === false) {
+				this.refuseSignRequest(request, verification.reason);
+				return;
+			}
+			request.params.credentialsToInclude = verification.credentials;
+		}
+
 		// A zkp_req presentation is refused unless the request is signed and the response is encrypted;
 		// the refusal path (SIGN_REFUSED) ends the sign request at once instead of leaving it to time out.
 		if (request.action === 'sign_presentation' && this.zkpReqFlows.has(request.flowId)) {
@@ -1494,6 +1534,20 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		for (const handler of this.signHandlers) {
 			try {
 				handled = await handler(request as SignHandlerRequest);
+				// The consent may have been revoked (refusal of another
+				// request, flow end) while the signer ran: withhold the
+				// VP token instead of releasing it. A flow that died while
+				// the signer ran carries its own error (released/ended —
+				// the aborted signal's), not the consent refusal's.
+				if (consentSnapshot && this.vpConsents.get(request.flowId) !== consentSnapshot) {
+					if (signal.aborted) {
+						this.sendSignResponse(request.flowId, request.messageId, signal, {}, RELEASED_FLOW_ERROR);
+						return;
+					}
+					logger.error(`[WS Transport] Consent revoked while signing for flow ${request.flowId}; withholding VP token`);
+					this.sendSignResponse(request.flowId, request.messageId, signal, {}, 'Sign request does not match the user consent');
+					return;
+				}
 				break;
 			} catch (err) {
 				lastError = err instanceof Error ? err : new Error(String(err));
@@ -1605,6 +1659,40 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 			const reason = err instanceof ClientHeldEncryptionError ? err.message : 'Could not decrypt the credential response';
 			logger.warn('Credential response decryption failed:', reason);
 			this.sendSignResponse(request.flowId, request.messageId, signal, {}, reason);
+		}
+	}
+
+	/**
+	 * Fail closed on a sign request that does not match the consent: nothing is
+	 * disclosed or signed, the engine is told via the sign_response error path,
+	 * and the pending flow request is resolved with a user-visible error.
+	 * The log line carries only the flow id and a reason without claim values.
+	 */
+	private refuseSignRequest(request: SignRequest, reason: string): void {
+		logger.error(`[WS Transport] Refusing sign_presentation for flow ${request.flowId}: ${reason}`);
+		this.vpConsents.delete(request.flowId);
+		this.vpCredentialCache.clear();
+		this.sendSignResponse(
+			request.flowId,
+			request.messageId,
+			this.#flowController(request.flowId).signal,
+			{},
+			'Sign request does not match the user consent',
+		);
+
+		const pending = this.pending.get(request.flowId);
+		if (pending) {
+			clearTimeout(pending.timeout);
+			this.pending.delete(request.flowId);
+			if (this.currentFlowId === request.flowId) this.currentFlowId = null;
+			pending.resolve({
+				type: 'flow_error',
+				flow_id: request.flowId,
+				error: {
+					code: 'CONSENT_MISMATCH',
+					message: 'The verifier request was refused because it asked for more than you agreed to share. Nothing was shared.',
+				},
+			} as ServerMessage);
 		}
 	}
 
@@ -1801,6 +1889,7 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		this.responseKeys.clear();
 		this.#abortAllFlows();
 		this.zkpReqFlows.clear();
+		this.vpConsents.clear();
 
 		// Don't reconnect if it was a clean close
 		if (event.code === 1000) {
