@@ -55,7 +55,7 @@ export const ScanQrIcon = ({ size = 24, className}: { size?: number; className?:
 		aria-hidden="true"
 	>
 		<g
-			transform="translate(-1736 -896)" 
+			transform="translate(-1736 -896)"
 			fill="currentColor"
 			fillRule="evenodd"
 		>
