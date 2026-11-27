@@ -22,6 +22,7 @@ import { DcqlQuery } from 'dcql';
 import { getLeastUsedCredentialInstance } from '@/lib/services/CredentialBatchHelper';
 import { applySelectiveDisclosure } from '@/lib/verifiable-credentials';
 import { OIDFlowError } from '@/lib/openid-flow/errors';
+import { restructureDcqlVpToken } from '@/lib/openid-flow/encryption';
 import { useOIDFlowSignHandler } from './useOIDFlowSignHandler';
 import { DCAPIRequest, DCAPISession } from '@/lib/openid-flow/platforms/dc-api';
 import { LocalStorageKeystore } from '@/services/LocalStorageKeystore';
@@ -566,7 +567,21 @@ export function useOID4VPFlow(options: UseOID4VPFlowOptions = {}): UseOID4VPFlow
 				throw new OIDFlowError({ code: 'SIGNING_FAILED', message: 'Failed to generate VP token' });
 			}
 
-			await session.sendResponse(JSON.parse(signResponse.vpToken));
+			// OpenID4VP 1.0 §8.3.1: the response's vp_token is a JSON object
+			// keyed by the DCQL Credential Query id. The DCAPISession.sendResponse
+			// API already declares Record<string, string[]> — the sign handler
+			// previously passed a bare string (a runtime type violation, not a
+			// behavior choice). The restructure produces the declared shape, for
+			// both the dc_api.jwt (encrypted) and dc_api (relayed through the
+			// engine) modes — the engine's own buildDCQLVPToken handles the
+			// non-JWT wire form, so the object the client hands it is the
+			// same shape the engine's path produces internally.
+			await session.sendResponse(restructureDcqlVpToken(
+				signResponse.vpToken,
+				selectedCredentials
+					.map((c) => c.credentialQueryId)
+					.filter((id): id is string => typeof id === 'string'),
+			));
 			return { success: true };
 		} catch (err) {
 			const error = err instanceof OIDFlowError
