@@ -11,7 +11,7 @@ import TenantSelector from '@/components/TenantSelector';
 import ConnectionStatusIcon from './ConnectionStatusIcon';
 import CredentialsContext from '@/context/CredentialsContext';
 import CounterBadge from '@/components/Shared/CounterBadge';
-import { Bell, Building2Icon, CircleArrowRightIcon, History, LogOut, PlusCircle, Settings, ShieldHalf, UserCircle, Wallet } from 'lucide-react';
+import { Bell, Building2Icon, CircleArrowRightIcon, History, LogOut, PlusCircle, Settings, ShieldHalf, UserCircle, Wallet, Users } from 'lucide-react';
 
 const NavItem = ({ icon: Icon, id, label, handleNavigate, location, path, alias, counter, notificationIcon, className = '' }) => {
 	const isActive = location.pathname === path || location.pathname === alias;
@@ -148,6 +148,15 @@ const Sidebar = ({ isOpen, toggle }) => {
 							icon={CircleArrowRightIcon}
 							label={t("common.navItemShareCredentials")}
 							className="step-5 hidden md:flex"
+						/>
+
+						<NavItem
+							id="share-in-person"
+							path={buildPath('share/in-person')}
+							location={location}
+							handleNavigate={handleNavigate}
+							icon={Users}
+							label={t("common.navItemShareInPerson")}
 						/>
 
 						<NavItem
