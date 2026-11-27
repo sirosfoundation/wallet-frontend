@@ -14,6 +14,7 @@
 
 import { TrustStatus as TrustStatusEnum } from 'wallet-common';
 import { ClientHeldEncryptionKeys, buildJarmResponse, carriesLegacySecretMember, verifierJwkThumbprint } from '../encryption';
+import { frontedRpDisplay, type VerifierInfoElement } from '../utils/fronted-relying-party';
 import type {
 	CredentialResponseEncryptionRequest,
 	DecryptedCredentialResponse,
@@ -886,6 +887,23 @@ export class OIDFlowWebSocketTransport implements IOIDFlowTransport {
 		}
 		if (payload?.verifier) {
 			result.verifierInfo = mapVerifierInfo(payload.verifier as Record<string, unknown>);
+		}
+		// The 472-2 §6.3.2.2 verifier_info members the engine relays from
+		// the request JWT: an intermediary-signed request's fronted RP
+		// identity (the registrar dataset). When present, the consent screen
+		// shows the fronted party, not the raw x509_hash the trust result
+		// names. Absent for a verifier-signed request — no change.
+		if (payload?.verifier_info && result.verifierInfo) {
+			const fronted = frontedRpDisplay(
+				payload.verifier_info as VerifierInfoElement[],
+				navigator.language || 'en',
+			);
+			if (fronted) {
+				result.verifierInfo.name = fronted.name;
+				if (fronted.purpose) {
+					result.verifierInfo.purpose = fronted.purpose;
+				}
+			}
 		}
 		if (payload?.verified_request) {
 			result.verifiedRequest = mapVerifiedRequest(payload.verified_request);

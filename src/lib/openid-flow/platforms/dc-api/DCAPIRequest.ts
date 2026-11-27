@@ -17,6 +17,7 @@ import {
 } from './resources';
 import { logger } from '@/logger';
 import { getPublicKeyFromB64Cert } from '@/lib/utils/pki';
+import type { VerifierInfoElement } from '../../utils/fronted-relying-party';
 
 const SUPPORTED_ALGS = new Set([
 	'ES256',
@@ -56,6 +57,23 @@ export class DCAPIRequest {
 		return this.isSigned
 			? (this.data as SignedDCAPIRequest).expectedOrigins
 			: undefined;
+	}
+
+	/**
+	 * The 472-2 §6.3.2.2 `verifier_info` members from the signed JWT, when
+	 * the request carries them (an intermediary-signed request). Present
+	 * only on the signed variant; null for plain and unsigned requests.
+	 */
+	get verifierInfoMembers(): VerifierInfoElement[] | null {
+		if (!this.isSigned) return null;
+		const members = (this.data as SignedDCAPIRequest).verifierInfo;
+		if (!members?.length) return null;
+		// Zod's partial inference makes the element fields optional; the
+		// display helper requires them (the JWT parse guarantees them).
+		return members.map((m: { format?: string; data?: unknown }) => ({
+			format: m.format ?? '',
+			data: m.data,
+		}));
 	}
 
 	get clientMetadata() {
@@ -120,6 +138,7 @@ export class DCAPIRequest {
 			rawJwt: jwt,
 			expectedOrigins: payload.expected_origins,
 			clientMetadata: payload.client_metadata,
+			verifierInfo: payload.verifier_info,
 		});
 		if (!success) {
 			logger.error('Invalid DC API JWT request:', error);
